@@ -2,7 +2,7 @@
 # <type>(<scope>)!: <subject>      (lines starting with # are ignored)
 #
 #   type    feat fix docs style refactor perf test build ci chore revert
-#   scope   optional: core, cli, docs, deps
+#   scope   optional: core, python, docs, deps, ci
 #   !       optional: marks a breaking change
 #   subject imperative, present tense, lowercase start, no final period; the whole header is at most 72 characters
 #

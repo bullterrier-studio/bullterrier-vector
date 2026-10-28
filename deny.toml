@@ -5,7 +5,7 @@
 all-features = true
 
 [advisories]
-ignore = []  # an advisory with no fixed release is ignored here by id, with a reason, and listed in SECURITY.md
+ignore = []  # an advisory with no fixed release is ignored here by id, with a comment saying why
 
 [licenses]
 # permissive licences that ask no more of the package than its own MIT does (notices kept, no copyleft); a licence is

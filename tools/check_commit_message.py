@@ -184,7 +184,7 @@ def _report(problems: list[str]) -> str:
     return (
         f"commit-message: this message does not follow Conventional Commits:\n{bullets}\n\n"
         f"A valid message:  {EXAMPLE}\n"
-        "The convention is explained in the template, .gitmessage."
+        'The convention is in CLAUDE.md, section "Git conventions" (the template is .gitmessage).'
     )
 
 
