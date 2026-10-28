@@ -191,6 +191,42 @@ OFFENCES = {
         appended("\n/// Probe.\npub fn probe() {\n    let _ = std::time::Instant::now();\n}\n"),
         ["disallowed_methods", "no clock", CORE],
     ),
+    "hyperbolic maths": (
+        "rust-lint",
+        CORE,
+        appended("\n/// Probe.\n#[must_use]\npub fn probe(x: f64) -> f64 {\n    x.asinh()\n}\n"),
+        ["disallowed_methods", "crate::math", CORE],
+    ),
+    "reading the environment": (
+        "rust-lint",
+        CORE,
+        appended('\n/// Probe.\npub fn probe() {\n    drop(std::env::var_os("X"));\n}\n'),
+        ["disallowed_methods", "callers pass bytes", CORE],
+    ),
+    "the clock through the Unix epoch": (
+        "rust-lint",
+        CORE,
+        appended("\n/// Probe.\npub fn probe() {\n    let _ = std::time::UNIX_EPOCH.elapsed();\n}\n"),
+        ["disallowed_methods", "no clock", CORE],
+    ),
+    "opening a file with OpenOptions": (
+        "rust-lint",
+        CORE,
+        appended("\n/// Probe.\npub fn probe() {\n    let _ = std::fs::OpenOptions::new();\n}\n"),
+        ["disallowed_types", "callers pass bytes", CORE],
+    ),
+    "a file handle in a signature": (
+        "rust-lint",
+        CORE,
+        appended("\n/// Probe.\npub fn probe(_file: &std::fs::File) {}\n"),
+        ["disallowed_types", "callers pass bytes", CORE],
+    ),
+    "a SystemTime in a signature": (
+        "rust-lint",
+        CORE,
+        appended("\n/// Probe.\npub fn probe(_time: std::time::SystemTime) {}\n"),
+        ["disallowed_types", "no clock", CORE],
+    ),
     "a hash-ordered map": (
         "rust-lint",
         CORE,
