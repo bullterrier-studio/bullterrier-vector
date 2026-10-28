@@ -66,10 +66,11 @@ check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
 test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the whole test suite, gate proofs included, on every CPU core (pytest-xdist; the order stays random)" }
-# Not part of `check`: it asks the RustSec advisory database about every crate in Cargo.lock, so it needs the network
-# and its verdict changes as advisories are published. For CI and before a release. The Python side (pip-audit) joins
-# it when that tool joins the dev group.
-audit = { cmd = "cargo deny --locked check advisories", help = "Check the locked Rust crates against known vulnerabilities (needs the network)" }
+# Not part of `check`: it asks the PyPI and RustSec advisory databases about every locked dependency, so it needs the
+# network and its verdict changes as advisories are published. For CI and before a release. The lock is exported with
+# hashes (the dev tools are in it too) and pip-audit reads that file only, without resolving or installing anything.
+# Cargo.lock is checked by cargo-deny against the RustSec database.
+audit = { sequence = ["uv export --frozen --all-extras --all-groups --no-emit-project --quiet --output-file dist/audit/requirements.txt", "pip-audit --requirement dist/audit/requirements.txt --disable-pip --require-hashes --progress-spinner off", "cargo deny --locked check advisories"], default_item_type = "cmd", help = "Check every locked dependency (Python and Rust) against known vulnerabilities (needs the network)" }
 fix = { sequence = ["ruff check --fix .", "ruff format .", "cargo fmt --all"], default_item_type = "cmd", help = "Apply every automatic lint and format fix" }
 # The GitHub workflows and dependabot.yml, offline: actionlint (syntax, expressions, job wiring) and zizmor (unpinned
 # actions, template injection, persisted credentials, over-broad permissions); tools/lint_workflows.py runs both, and
@@ -210,6 +211,7 @@ dev = [
     "check-wheel-contents>=0.6.3",
     "deptry>=0.25.1",
     "mypy>=2.4.1",
+    "pip-audit>=2.10.1",
     "poethepoet>=0.49.0",
     "pre-commit>=4.7.0",
     "pytest>=9.2.0",
