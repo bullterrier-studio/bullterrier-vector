@@ -1,17 +1,17 @@
-# The Rust core of bullterrier-vector: `crates/core` (pure Rust: the vector scene graph and its renderers; the crate
-# `bullterrier-vector`). The Python bindings join as `crates/python`. Rust settings live here, except what a tool
-# cannot read from this file: rust-toolchain.toml, rustfmt.toml, clippy.toml.
+# The Rust workspace of bullterrier-vector: `crates/core` (pure Rust: the vector scene graph and its renderers; the
+# crate `bullterrier-vector`) and `crates/python` (its PyO3 bindings). Rust settings live here, except what a tool
+# cannot read from this file: rust-toolchain.toml, rustfmt.toml, deny.toml, clippy.toml.
 [workspace]
 resolver = "3"
 members = ["crates/core", "crates/python"]
 
 [workspace.package]
-version = "0.0.0"  # never published on its own: the Python package's version (pyproject.toml) is the release's
+version = "0.0.0"  # the one version: the Python package reads it; crates.io gets it at the first release
 edition = "2024"
 rust-version = "1.99.1"  # the toolchain rust-toolchain.toml pins
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bullterrier-studio/bullterrier-vector"
-publish = false
+publish = false  # until the first release (V21)
 
 [workspace.dependencies]
 bullterrier-vector = { path = "crates/core" }
