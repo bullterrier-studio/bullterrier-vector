@@ -12,9 +12,10 @@ def test_a_square_from_python_is_the_square_from_rust() -> None:
 @pytest.mark.parametrize(
     ("sides", "radius", "name", "value"),
     [
-        (2, 10.0, "sides", "2"),
+        (2, 10.0, "sides", "got 2"),
         (-1, 10.0, "sides", "-1"),
         (2**40, 10.0, "sides", "1099511627776"),
+        (65_539, 10.0, "sides", "got 65539"),
         (5, float("nan"), "radius", "nan"),
         (5, 0.0, "radius", "got 0"),
     ],

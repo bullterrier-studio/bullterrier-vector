@@ -129,9 +129,9 @@ select = [
     "PYI",  # type stubs (the Rust extension's, `_core.pyi`) written as stubs: no bodies, no docstrings
 ]
 # Deliberately NOT enabled: TRY003 / EM (message-style noise); the docstring style rules D2xx / D4xx beyond D419 (we
-# enforce presence, not formatting); PLR2004 magic numbers and PLR0913 argument counts (numeric code and
-# parameter-rich functions); FBT (boolean arguments); TID252 (relative imports are fine inside the package); PLC0415
-# (lazy imports are deliberate for platform-specific code).
+# enforce presence, not formatting); TID252 (relative imports are fine inside the package). Also off, because the
+# package is a thin layer over the Rust core and no code here needs them yet: the PLR family (magic numbers, argument
+# and branch counts), FBT (boolean arguments) and PLC0415 (imports inside functions); turn one on when a case appears.
 # Ignored: ANN202 (private-function return types are mypy's job), ANN401 (Any is sometimes right), RUF001-003
 # (unicode in strings, docstrings and comments is wanted), PLW2901 (rebinding a loop variable is a clear idiom).
 ignore = ["ANN202", "ANN401", "RUF001", "RUF002", "RUF003", "PLW2901"]
@@ -156,7 +156,8 @@ convention = "google"
 python_version = "3.12"
 files = ["src", "tests"]
 # tests/ has no __init__.py (pytest imports it with importlib), so equal test file names in different folders need
-# module names from their paths: tests/ops/test_color.py is tests.ops.test_color, src/bullterrier_vector/x.py is bullterrier_vector.x.
+# module names from their paths: tests/test_polygon.py is tests.test_polygon, src/bullterrier_vector/errors.py is
+# bullterrier_vector.errors.
 explicit_package_bases = true
 mypy_path = "src"
 check_untyped_defs = true
