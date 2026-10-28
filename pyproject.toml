@@ -62,7 +62,7 @@ cache-keys = [
 # can fail (tests/tools/, marked `gate`) build copies of the workspace and are slow: `fast` leaves them out, `check`
 # runs them.
 fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" } }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
-check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first; stops at the first failure" }
+check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first; stops at the first failure" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
 test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the whole test suite, gate proofs included, on every CPU core (pytest-xdist; the order stays random)" }
@@ -71,6 +71,10 @@ test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, h
 # it when that tool joins the dev group.
 audit = { cmd = "cargo deny --locked check advisories", help = "Check the locked Rust crates against known vulnerabilities (needs the network)" }
 fix = { sequence = ["ruff check --fix .", "ruff format .", "cargo fmt --all"], default_item_type = "cmd", help = "Apply every automatic lint and format fix" }
+# The GitHub workflows and dependabot.yml, offline: actionlint (syntax, expressions, job wiring) and zizmor (unpinned
+# actions, template injection, persisted credentials, over-broad permissions); tools/lint_workflows.py runs both, and
+# passes only when there is no `.github` folder at all. Not in `fast`. tests/tools/test_workflow_gate.py shows it failing.
+lint-workflows = { cmd = "uv run python tools/lint_workflows.py", help = "Lint the GitHub workflows (actionlint, zizmor), offline" }
 # Not in `fast`: a whole-package scan, run once per merge. tests/tools/test_dead_code_gate.py shows it failing.
 dead-code = { cmd = "vulture src", help = "Find dead code in src (vulture): an unused function, class, method or import" }
 # The Rust gates, each beside its Python counterpart; cargo comes with rustup, at the version rust-toolchain.toml pins.
@@ -202,6 +206,7 @@ package_omit = ["__pycache__", "*.pyc", ".*", "test_*.py"]
 
 [dependency-groups]
 dev = [
+    "actionlint-py>=1.7.12.25",
     "check-wheel-contents>=0.6.3",
     "deptry>=0.25.1",
     "mypy>=2.4.1",
@@ -213,6 +218,7 @@ dev = [
     "ruff>=0.17.3",
     "twine>=7.0.0",
     "vulture>=2.16",
+    "zizmor>=1.31.1",
 ]
 
 # Dead code fails the gate (`uv run poe dead-code`, in `poe check`). Only src is scanned: code that only tests use is
