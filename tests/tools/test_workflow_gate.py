@@ -48,20 +48,24 @@ class Verdict:
 @pytest.fixture
 def lint(git_repo, copy_env) -> Callable[..., Verdict]:
     """`lint(**workflows)` writes each keyword (file stem to YAML text) into the repository's `.github/workflows/` and
-    runs `poe lint-workflows`; with no keyword the repository has no `.github` folder."""
+    runs `poe lint-workflows`; with no keyword the repository has no `.github` folder. With `subdirectory`, it runs
+    the script itself (what the task runs) from that folder of the repository instead, since poe starts in the root."""
     shutil.copy(ROOT / "pyproject.toml", git_repo.path)
     (git_repo.path / "tools").mkdir()
     shutil.copy(ROOT / "tools" / "lint_workflows.py", git_repo.path / "tools")
 
-    def run(**workflows: str) -> Verdict:
+    def run(*, subdirectory: str | None = None, **workflows: str) -> Verdict:
         folder = git_repo.path / ".github" / "workflows"
         for stem, text in workflows.items():
             folder.mkdir(parents=True, exist_ok=True)
             (folder / f"{stem}.yml").write_text(textwrap.dedent(text), encoding="utf-8")
-        command = [sys.executable, "-m", "poethepoet", "lint-workflows"]
-        result = subprocess.run(
-            command, cwd=git_repo.path, env=copy_env, capture_output=True, encoding="utf-8", check=False
-        )
+        if subdirectory is None:
+            command, cwd = [sys.executable, "-m", "poethepoet", "lint-workflows"], git_repo.path
+        else:
+            cwd = git_repo.path / subdirectory
+            cwd.mkdir(parents=True, exist_ok=True)
+            command = [sys.executable, str(git_repo.path / "tools" / "lint_workflows.py")]
+        result = subprocess.run(command, cwd=cwd, env=copy_env, capture_output=True, encoding="utf-8", check=False)
         return Verdict(result.returncode, result.stdout + result.stderr)
 
     return run
@@ -79,8 +83,10 @@ def test_an_action_not_pinned_to_a_commit_fails(lint):
     assert "unpinned.yml" in verdict.report
 
 
-def test_a_pull_request_target_workflow_that_checks_out_the_pull_request_fails(lint):
-    probe = f"""\
+def test_a_pull_request_target_trigger_fails(lint):
+    # only the trigger is rejected (zizmor's `dangerous-triggers`: it runs with a write token and secrets on a pull
+    # request's behalf, whatever the job does); a checkout of the pull request's head is not what this row proves
+    probe = """\
         name: Target
         on: pull_request_target
         permissions:
@@ -89,10 +95,7 @@ def test_a_pull_request_target_workflow_that_checks_out_the_pull_request_fails(l
           build:
             runs-on: ubuntu-latest
             steps:
-              - uses: {CHECKOUT}
-                with:
-                  ref: ${{{{ github.event.pull_request.head.sha }}}}
-                  persist-credentials: false
+              - run: echo hello
     """
     verdict = lint(target=probe)
     assert verdict.returncode != 0
@@ -121,6 +124,14 @@ def test_a_workflow_with_a_syntax_error_fails(lint):
     assert verdict.returncode != 0
     assert "syntax-check" in verdict.report  # actionlint's rule
     assert "broken.yml" in verdict.report
+
+
+def test_a_workflow_is_linted_when_the_script_starts_in_a_subdirectory(lint):
+    # the project is where the script lives, not where it was started: a run from docs/ must not find "no .github"
+    verdict = lint(subdirectory="docs", unpinned=GOOD.replace(CHECKOUT, "actions/checkout@v7"))
+    assert verdict.returncode != 0
+    assert "unpinned-uses" in verdict.report
+    assert "unpinned.yml" in verdict.report
 
 
 def test_a_repository_without_a_github_folder_passes(lint):
