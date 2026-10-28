@@ -24,9 +24,18 @@ NO_FIXTURE = '"""The control: nothing defends the test from an enclosing git."""
 
 
 def git(repo: Path, *args: str) -> str:
+    """Run git in `repo` (a folder of tmp_path) and return its output. The environment is built here, not taken on
+    trust from the autouse fixture this module proves: none of the surrounding process's `GIT_*` variables, and no
+    global or system configuration (an empty file beside `repo`), so neither a hook's `GIT_DIR` nor a developer's
+    `commit.gpgsign` or `core.hooksPath` can reach the setup or the checks of these tests."""
+    empty_config = repo.parent / "gitconfig"
+    empty_config.touch()
+    env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
+    env |= {"GIT_CONFIG_GLOBAL": str(empty_config), "GIT_CONFIG_NOSYSTEM": "1"}
     result = subprocess.run(
         ["git", "-c", "user.name=T", "-c", "user.email=t@example.com", *args],
         cwd=repo,
+        env=env,
         capture_output=True,
         encoding="utf-8",
         check=False,
