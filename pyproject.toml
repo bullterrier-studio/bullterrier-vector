@@ -81,6 +81,15 @@ rust-shear = { cmd = "cargo shear", help = "Find Rust dependencies no code uses 
 rust-deny = { cmd = "cargo deny --offline --locked check bans licenses sources", help = "Check the Rust dependencies offline: banned crates, licences, sources (deny.toml)" }
 stubtest = { cmd = "uv run python -m mypy.stubtest --mypy-config-file pyproject.toml bullterrier_vector._native._core", help = "Check the stub _core.pyi against the built extension" }
 rust-test = { cmd = "cargo test --workspace --locked --quiet", help = "Run the Rust tests" }
+# `default_install_hook_types` in .pre-commit-config.yaml names the three hook types, so a bare `install` covers them
+setup = { sequence = ["pre-commit install --install-hooks", "git config --local commit.template .gitmessage", "uv run python tools/rust_tools.py install"], default_item_type = "cmd", help = "Install the git hooks, the commit-message template and the cargo tools the gate runs (once per clone)" }
+
+# Read by tools/check_commit_message.py (the commit-msg hook): Conventional Commits 1.0 with these limits.
+[tool.commit-message]
+types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"]
+header-max-length = 72
+body-max-line-length = 100
+scope-pattern = "^[a-z0-9][a-z0-9/_-]*$"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

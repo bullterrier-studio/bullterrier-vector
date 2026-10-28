@@ -1,0 +1,56 @@
+# Hook wiring only. Every tool setting (ruff rules, line length, pytest options, commit-message limits) lives in
+# pyproject.toml (rustfmt's in rustfmt.toml), and the Python tools run through `uv run` so the versions are the ones
+# pinned in uv.lock. Install once per clone with `uv run poe setup`; run everything by hand with `uv run poe check`.
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+# the checks below are about staged files; only the two hooks that say otherwise run at the other stages
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
+    hooks:
+      - id: check-toml
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000] # fonts and pictures may be large, but nothing a megabyte or more
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      # Hooks only check; they never rewrite staged files. The hook name is what pre-commit prints on a failure,
+      # so it carries the fix. A commit compiles no Rust: rustfmt only reads the sources, and clippy, the tests and
+      # the WebAssembly build wait for the gate (`uv run poe check`, run before a push to main).
+      # ruff and the commit-message check run with `--no-sync`: neither imports the package, and syncing would
+      # rebuild the Rust extension after every Rust change (and fail on a commit that stages only part of one).
+      - id: rust-fmt
+        name: rust-fmt (fix with `uv run poe fix`)
+        entry: cargo fmt --all --check
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: ruff-format
+        name: ruff-format (fix with `uv run poe fix`)
+        entry: uv run --no-sync ruff format --check
+        language: system
+        types: [python]
+      - id: ruff-check
+        name: ruff-check (fix with `uv run poe fix`)
+        entry: uv run --no-sync ruff check
+        language: system
+        types: [python]
+      - id: commit-message
+        name: commit-message (see .gitmessage; check with `uv run python tools/check_commit_message.py <file>`)
+        entry: uv run --no-sync python tools/check_commit_message.py
+        language: system
+        stages: [commit-msg]
+      # The whole local gate runs on a push to main (or a tag), not on every commit and not on feature branches:
+      # tools/pre_push.py decides, and runs `uv run poe check`. CI checks a feature branch when its pull request opens.
+      - id: gate
+        name: the whole gate (reproduce with `uv run poe check`)
+        entry: uv run python tools/pre_push.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
