@@ -58,7 +58,7 @@ cache-keys = [
 # full gate before a merge or push, cheapest first, stopping at the first failure. The proofs that each gate can fail
 # (tests/tools/, marked `gate`) build copies of the workspace and are slow: `fast` leaves them out, `check` runs them.
 fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" } }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
-check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "rust-doc" }, { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust (format, lint, docs, dependencies, types, tests, gate proofs); stops at the first failure" }
+check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust (format, lint, dead code, docs, dependencies, types, tests, gate proofs); stops at the first failure" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
 test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the whole test suite, gate proofs included, on every CPU core (pytest-xdist; the order stays random)" }
@@ -67,6 +67,8 @@ test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, h
 # when that tool joins the dev group.
 audit = { cmd = "cargo deny --locked check advisories", help = "Check the locked Rust crates against known vulnerabilities (needs the network)" }
 fix = { sequence = ["ruff check --fix .", "ruff format .", "cargo fmt --all"], default_item_type = "cmd", help = "Apply every automatic lint and format fix" }
+# Not in `fast`: a whole-package scan, run once per merge. tests/tools/test_dead_code_gate.py shows it failing.
+dead-code = { cmd = "vulture src", help = "Find dead code in src (vulture): an unused function, class, method or import" }
 # The Rust gates, each beside its Python counterpart; cargo comes with rustup, at the version rust-toolchain.toml pins.
 # Warnings fail only here (`-D warnings`), never a user's build. tests/tools/test_rust_gates.py shows each one failing.
 rust-fmt = { cmd = "cargo fmt --all --check", help = "Check the Rust formatting (rustfmt.toml)" }
@@ -184,7 +186,15 @@ dev = [
     "vulture>=2.16",
 ]
 
-# Every import is declared, and only once in the right place (`uv run deptry .`): a missing, unused, transitive-only or
+# Dead code fails the gate (`uv run poe dead-code`, in `poe check`). Only src is scanned: code that only tests use is
+# dead, unless the public `__all__` lists it. 60 % is the level at which vulture reports unused functions,
+# classes, methods and attributes, not just unused imports and unreachable lines. No exemptions yet: add a name or
+# decorator here, with the framework that calls it, when one appears.
+[tool.vulture]
+paths = ["src"]
+min_confidence = 60
+
+# Every import is declared, and only once in the right place (`uv run deptry .`, in `poe check`): a missing, unused, transitive-only or
 # development-only dependency fails. tests/ is not scanned (deptry's default).
 [tool.deptry]
 known_first_party = ["bullterrier_vector"]
