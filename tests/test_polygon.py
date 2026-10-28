@@ -6,7 +6,10 @@ import bullterrier_vector as bv
 
 
 def test_a_square_from_python_is_the_square_from_rust() -> None:
-    assert 'points="0,-10 10,0 0,10 -10,0"' in bv.polygon_svg(4, 10.0)
+    assert bv.polygon_svg(4, 10.0) == (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 20 20">'
+        '<polygon points="0,-10 10,0 0,10 -10,0"/></svg>'
+    )
 
 
 @pytest.mark.parametrize(
