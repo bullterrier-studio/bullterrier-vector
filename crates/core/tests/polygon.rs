@@ -104,11 +104,14 @@ proptest! {
 #[test]
 fn invalid_values_are_refused_naming_the_parameter() {
     // (sides, radius, refusal); the boundaries that succeed have none
-    let table: [(i64, f64, Refusal); 10] = [
+    let table: [(i64, f64, Refusal); 12] = [
         (2, 10.0, Some(("sides", "2"))),
         (1001, 10.0, Some(("sides", "1001"))),
         (-1, 10.0, Some(("sides", "-1"))),
-        (5, 0.0, Some(("radius", "0"))),
+        // a 16-bit truncation of these would land on 3 and 0: they must be refused, naming the value as given
+        (65_539, 10.0, Some(("sides", "got 65539"))),
+        (i64::MIN, 10.0, Some(("sides", "got -9223372036854775808"))),
+        (5, 0.0, Some(("radius", "got 0"))), // not "0": "more than 0" says that too
         (5, -1.0, Some(("radius", "-1"))),
         (5, 1_000_000.5, Some(("radius", "1000000.5"))),
         (5, f64::NAN, Some(("radius", "NaN"))),
@@ -126,7 +129,10 @@ fn invalid_values_are_refused_naming_the_parameter() {
                     "({sides}, {radius}): {message:?} lacks {value:?}"
                 );
             }
-            Err(other) => assert_eq!(other.to_string(), "a parameter error", "({sides}, {radius})"),
+            Err(other) => assert!(
+                matches!(other, Error::Parameter { .. }),
+                "({sides}, {radius}): expected Error::Parameter, received {other:?}"
+            ),
             Ok(_) => assert_eq!(expected, None, "({sides}, {radius}) was accepted"),
         }
     }
