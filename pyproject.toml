@@ -62,7 +62,7 @@ cache-keys = [
 # can fail (tests/tools/, marked `gate`) build copies of the workspace and are slow: `fast` leaves them out, `check`
 # runs them.
 fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" } }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
-check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first; stops at the first failure" }
+check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first; stops at the first failure" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
 test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the whole test suite, gate proofs included, on every CPU core (pytest-xdist; the order stays random)" }
@@ -85,6 +85,10 @@ rust-tools = { cmd = "uv run python tools/rust_tools.py check", help = "Check th
 rust-shear = { cmd = "cargo shear", help = "Find Rust dependencies no code uses (cargo-shear)" }
 rust-deny = { cmd = "cargo deny --offline --locked check bans licenses sources", help = "Check the Rust dependencies offline: banned crates, licences, sources (deny.toml)" }
 stubtest = { cmd = "uv run python -m mypy.stubtest --mypy-config-file pyproject.toml bullterrier_vector._native._core", help = "Check the stub _core.pyi against the built extension" }
+# Not in `fast`: it builds the sdist and the wheel (the Rust extension included, tens of seconds). The files go to
+# dist/check, emptied first; tools/check_dists.py then checks them as PyPI and an install would see them.
+# tests/tools/test_build_gate.py shows it failing.
+build-check = { sequence = ["uv build --quiet --clear --no-create-gitignore --out-dir dist/check", "uv run python tools/check_dists.py dist/check"], default_item_type = "cmd", help = "Build the sdist and wheel and check what would be uploaded" }
 rust-test = { cmd = "cargo test --workspace --locked --quiet", help = "Run the Rust tests" }
 # `default_install_hook_types` in .pre-commit-config.yaml names the three hook types, so a bare `install` covers them
 setup = { sequence = ["pre-commit install --install-hooks", "git config --local commit.template .gitmessage", "uv run python tools/rust_tools.py install"], default_item_type = "cmd", help = "Install the git hooks, the commit-message template and the cargo tools the gate runs (once per clone)" }
@@ -189,8 +193,16 @@ module = ["tests.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
+# Read by tools/check_dists.py (`poe build-check`): each wheel holds exactly src/bullterrier_vector minus these, plus its
+# own build of the extension, so a shipped test or stray file fails (W102), and so does package code left out of the
+# wheel (W101: py.typed and the stub included).
+[tool.check-wheel-contents]
+package = "src/bullterrier_vector"
+package_omit = ["__pycache__", "*.pyc", ".*", "test_*.py"]
+
 [dependency-groups]
 dev = [
+    "check-wheel-contents>=0.6.3",
     "deptry>=0.25.1",
     "mypy>=2.4.1",
     "poethepoet>=0.49.0",
@@ -199,6 +211,7 @@ dev = [
     "pytest-randomly>=5.0.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.17.3",
+    "twine>=7.0.0",
     "vulture>=2.16",
 ]
 
