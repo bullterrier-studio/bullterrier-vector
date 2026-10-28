@@ -1,0 +1,68 @@
+# The Rust tests and the Python test suite on every supported operating system and Python. A pull request runs the
+# oldest and the newest Python on Linux; every other event (main, merge queue, by hand) runs all nine. The gate proofs
+# (marker `gate`: they copy the workspace and run cargo, ruff and mypy) run on Linux only: macOS and Windows run the
+# Rust tests and the rest of the suite. Called by ci.yml; can also be started by hand.
+name: Test
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false # one red platform must not hide the state of the others
+      # `github.event_name` is the caller's event (ci.yml's) when this file is called
+      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"include":[{"os":"ubuntu-latest","python":"3.12"},{"os":"ubuntu-latest","python":"3.14"}]}' || '{"os":["ubuntu-latest","macos-latest","windows-latest"],"python":["3.12","3.13","3.14"]}') }}
+    steps:
+      # Windows runners check text files out with CRLF line endings; the suite expects the files as committed
+      - name: Keep line endings as committed
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+      # rustup is on every runner; with no argument it installs the toolchain rust-toolchain.toml pins
+      - name: Install the pinned Rust toolchain (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update && cargo --version
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      # the gate proofs run the cargo tools too (tests/tools/test_rust_gates.py), so only the runs that have them need
+      # them; their versions are written once, in Cargo.toml's [workspace.metadata.tools], and install-action downloads
+      # prebuilt, checksum-verified binaries
+      - name: Read the cargo tools' versions (Cargo.toml)
+        id: cargo-tools
+        if: runner.os == 'Linux'
+        run: echo "specs=$(uv run --no-project python tools/rust_tools.py specs)" >> "$GITHUB_OUTPUT"
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        if: runner.os == 'Linux'
+        with:
+          tool: ${{ steps.cargo-tools.outputs.specs }}
+      # every crate Cargo.lock names, for every platform and target: the dev-dependencies and the cargo-deny gate's
+      # metadata too, which building the extension does not download. The gates and tests below run cargo offline.
+      - name: Fetch the locked crates (cargo fetch)
+        run: cargo fetch --locked
+      - name: Install the locked dependencies (builds the Rust extension)
+        run: uv sync --locked
+      - name: Rust tests (cargo test)
+        run: uv run --locked poe rust-test
+      # -ra lists every skipped or expected-failing test with its reason; --durations shows what makes the run slow
+      - name: Tests (pytest, gate proofs included; skips and the 10 slowest tests are listed)
+        if: runner.os == 'Linux'
+        run: uv run --locked poe test -ra --durations=10
+      # the same options and environment as `poe test`, which also runs the gate proofs
+      - name: Tests (pytest without the gate proofs; skips and the 10 slowest tests are listed)
+        if: runner.os != 'Linux'
+        shell: bash
+        env:
+          PYTHONWARNDEFAULTENCODING: "1" # text IO without an encoding warns, and a warning fails the test
+        run: uv run --locked pytest -q -n auto -m 'not gate' -ra --durations=10

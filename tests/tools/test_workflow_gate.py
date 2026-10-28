@@ -134,6 +134,22 @@ def test_a_workflow_is_linted_when_the_script_starts_in_a_subdirectory(lint):
     assert "unpinned.yml" in verdict.report
 
 
+def test_the_repositorys_own_workflows_pass(uv_run_env, tmp_path):
+    # known-good: the real tree, linted in place (read-only). A missing `.github` passes the gate, so the files are
+    # asserted to exist; the script is started from elsewhere, as it finds the project from its own location.
+    for name in ("ci", "lint", "test", "security", "pre-commit", "build"):
+        assert (ROOT / ".github" / "workflows" / f"{name}.yml").is_file(), f"{name}.yml is missing"
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "lint_workflows.py")],
+        cwd=tmp_path,
+        env=uv_run_env,
+        capture_output=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_a_repository_without_a_github_folder_passes(lint):
     verdict = lint()
     assert verdict.returncode == 0, verdict.report
