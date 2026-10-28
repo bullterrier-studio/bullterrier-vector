@@ -9,6 +9,10 @@ __pycache__/
 .mypy_cache/
 dist/
 
+# the extension `uv sync` builds in place
+src/bullterrier_vector/_native/_core*.so
+src/bullterrier_vector/_native/_core*.pyd
+
 # WebAssembly / JavaScript
 pkg/
 node_modules/
