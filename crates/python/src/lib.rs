@@ -1,9 +1,9 @@
 //! `bullterrier_vector._native._core`: the Rust core's functions for Python. Each passes its arguments to the core
 //! unchanged, so the core's range checks are the only ones and every language gets the same errors.
 
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
+pyo3::import_exception!(bullterrier_vector.errors, BullterrierVectorError);
 pyo3::import_exception!(bullterrier_vector.errors, ParameterError);
 
 /// The Rust core of bullterrier-vector, for Python.
@@ -22,7 +22,7 @@ mod _core {
 fn polygon_svg(sides: i64, radius: f64) -> PyResult<String> {
     bullterrier_vector::polygon_svg(sides, radius).map_err(|error| match error {
         bullterrier_vector::Error::Parameter { .. } => ParameterError::new_err(error.to_string()),
-        // `Error` is non-exhaustive: a variant this binding does not know yet is still a ValueError, never a panic
-        _ => PyValueError::new_err(error.to_string()),
+        // `Error` is non-exhaustive: a variant this binding does not map yet is still a package error, never a panic
+        _ => BullterrierVectorError::new_err(error.to_string()),
     })
 }
