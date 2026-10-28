@@ -3,7 +3,7 @@
 # cannot read from this file: rust-toolchain.toml, rustfmt.toml, clippy.toml.
 [workspace]
 resolver = "3"
-members = ["crates/core"]
+members = ["crates/core", "crates/python"]
 
 [workspace.package]
 version = "0.0.0"  # never published on its own: the Python package's version (pyproject.toml) is the release's
@@ -16,6 +16,7 @@ publish = false
 [workspace.dependencies]
 bullterrier-vector = { path = "crates/core" }
 libm = "0.2"
+pyo3 = { version = "0.30", features = ["abi3-py312"] }
 proptest = "1.12"
 roxmltree = "0.21"
 

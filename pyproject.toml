@@ -1,0 +1,158 @@
+[project]
+name = "bullterrier-vector"
+dynamic = ["version"]  # maturin reads it from Cargo.toml's [workspace.package]
+description = "Typography-first generative vector graphics in code: SVG or pixels, the same from Rust, Python and the browser."
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+authors = [
+    { name = "jcakstins", email = "janis.cakstins@gmail.com" }
+]
+# 3.12 is the oldest version the code needs; the extension is built once per platform (abi3-py312) for every later one.
+requires-python = ">=3.12"
+keywords = [
+    "generative art", "typography", "vector graphics", "svg", "creative coding", "pen plotter", "variable fonts",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Multimedia :: Graphics",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/bullterrier-studio/bullterrier-vector"
+Issues = "https://github.com/bullterrier-studio/bullterrier-vector/issues"
+
+# maturin builds the Rust extension `bullterrier_vector._native._core` (crates/python) and packs it with the Python code of src/
+[build-system]
+requires = ["maturin>=1.15,<2"]
+build-backend = "maturin"
+
+[tool.maturin]
+manifest-path = "crates/python/Cargo.toml"
+python-source = "src"
+module-name = "bullterrier_vector._native._core"
+# a build from the sdist under rustup uses the toolchain CI tests and the wheels are built with
+include = [{ path = "rust-toolchain.toml", format = "sdist" }]
+
+# `uv sync` and `uv run` rebuild the extension when one of these changes (by default uv looks at pyproject.toml only)
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "Cargo.lock" },
+    { file = "crates/**/*.rs" },
+    { file = "crates/**/Cargo.toml" },
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# test files are named after the module they test, so equal names in different folders must never collide
+# a misspelt marker or option is an error, not a silently ignored typo
+# with xdist (`-n`), tests marked `xdist_group` stay on one worker, so an expensive module fixture is built once
+addopts = ["--import-mode=importlib", "--strict-markers", "--strict-config", "--dist=loadgroup"]
+# an xfail that starts passing fails the run, so the marker cannot outlive the bug it names
+xfail_strict = true
+# Every warning fails the test that raised it: a leaked file or process (ResourceWarning), a deprecated call, and, when
+# PYTHONWARNDEFAULTENCODING=1 is set, text IO that relies on the locale's encoding (EncodingWarning, PEP 597).
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Preview for the linter only (the formatter keeps its stable style), and only for the preview rules listed by code
+# in `select` (PLC2701, PLW1514), never a whole preview family.
+preview = true
+explicit-preview-rules = true
+# Opinionated enough to keep the code consistent, typed and documented; not so strict that it blocks progress.
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "A", "C4", "C90", "SIM", "PIE", "RET", "PERF", "RUF", "PT", "DTZ", "T20",
+    "PLE", "PLW",
+    "ANN",  # type hints on public functions
+    # docstrings on every PUBLIC module, class, method, function and package (a leading _ exempts a name); none empty
+    "D100", "D101", "D102", "D103", "D104", "D106", "D419",
+    # security (flake8-bandit): shell commands, pickle, yaml.load, eval/exec, hard-coded secrets, unchecked URL schemes,
+    # insecure temp files and hashes, assert in library code. A subprocess call (S603) carries a `# noqa` saying why
+    # its argv is safe.
+    "S",
+    "SLF001",  # private-member access: applies to tests too, which must not reach into the implementation
+    "PLC2701",  # import of a private name (a preview rule, turned on alone by explicit-preview-rules)
+    # a `# type: ignore` names its error code and a `# noqa` its rule (RUF100, in RUF, fails an unused `# noqa`)
+    "PGH",
+    "LOG",  # logging misuse (the root logger, a logger made by hand), should anything here ever log
+    "PLW1514",  # text files opened without `encoding=` use the locale's, which breaks non-ASCII names on Windows (preview)
+    "BLE",  # `except Exception` hides bugs; catch what can happen, or say why everything must be caught
+    "PTH",  # pathlib, not os.path / open() / glob: one way to handle paths
+    "PYI",  # type stubs (the Rust extension's, `_core.pyi`) written as stubs: no bodies, no docstrings
+]
+# Deliberately NOT enabled: TRY003 / EM (message-style noise); the docstring style rules D2xx / D4xx beyond D419 (we
+# enforce presence, not formatting); PLR2004 magic numbers and PLR0913 argument counts (numeric code and
+# parameter-rich functions); FBT (boolean arguments); TID252 (relative imports are fine inside the package); PLC0415
+# (lazy imports are deliberate for platform-specific code).
+# Ignored: ANN202 (private-function return types are mypy's job), ANN401 (Any is sometimes right), RUF001-003
+# (unicode in strings, docstrings and comments is wanted), PLW2901 (rebinding a loop variable is a clear idiom).
+ignore = ["ANN202", "ANN401", "RUF001", "RUF002", "RUF003", "PLW2901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 18
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests are exempt from annotations, docstrings, PLW, naming and assert-False; NOT from SLF001 / PLC2701, on purpose: a
+# test must not reach into the implementation. Of bandit only these: assert is how pytest checks (S101), and a test
+# runs our own interpreter and the developer's tools (python, git, uv) with argv it wrote itself (S603, S607).
+"tests/**" = ["ANN", "D", "S101", "S603", "S607", "PLW", "N", "B011"]
+"**/__init__.py" = ["F401"]
+
+# `uv run mypy` checks src and tests; the gate (`poe check`) and the pre-push hook run it.
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests"]
+# tests/ has no __init__.py (pytest imports it with importlib), so equal test file names in different folders need
+# module names from their paths: tests/ops/test_color.py is tests.ops.test_color, src/bullterrier_vector/x.py is bullterrier_vector.x.
+explicit_package_bases = true
+mypy_path = "src"
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+strict_equality = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[dependency-groups]
+dev = [
+    "deptry>=0.25.1",
+    "mypy>=2.4.1",
+    "poethepoet>=0.49.0",
+    "pre-commit>=4.7.0",
+    "pytest>=9.2.0",
+    "pytest-randomly>=5.0.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.17.3",
+    "vulture>=2.16",
+]
+
+# Every import is declared, and only once in the right place (`uv run deptry .`): a missing, unused, transitive-only or
+# development-only dependency fails. tests/ is not scanned (deptry's default).
+[tool.deptry]
+known_first_party = ["bullterrier_vector"]
