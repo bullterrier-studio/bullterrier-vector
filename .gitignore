@@ -1,0 +1,25 @@
+# Rust
+target/
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+
+# WebAssembly / JavaScript
+pkg/
+node_modules/
+
+.DS_Store
+
+# scratch for agent-driven development: plans, briefs, reports (shared by absolute path, never committed)
+.superpowers/
+
+# agent worktrees (created by the harness)
+.claude/
+
+# notes about this machine: where earlier experiments live (paths outside the repository), for agents to reuse
+.local/
