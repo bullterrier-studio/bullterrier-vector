@@ -8,8 +8,8 @@ all-features = true
 ignore = []  # an advisory with no fixed release is ignored here by id, with a comment saying why
 
 [licenses]
-# permissive licences that ask no more of the package than its own MIT does (notices kept, no copyleft); a licence is
-# added here only when a crate in Cargo.lock needs it, with the crate named
+# permissive licences that ask no more of the package than its own MIT OR Apache-2.0 does (notices kept, no copyleft); a
+# licence is added here only when a crate in Cargo.lock needs it, with the crate named
 allow = [
     "MIT",
     "Apache-2.0",
