@@ -41,7 +41,7 @@ repos:
         language: system
         types_or: [python, pyi]
       - id: commit-message
-        name: commit-message (see .gitmessage; check with `uv run python tools/check_commit_message.py <file>`)
+        name: commit-message (see CLAUDE.md, Git conventions; check with `uv run python tools/check_commit_message.py <file>`)
         entry: uv run --no-sync python tools/check_commit_message.py
         language: system
         stages: [commit-msg]

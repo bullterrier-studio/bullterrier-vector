@@ -68,30 +68,23 @@ The core does no IO of its own: callers pass bytes. `pub` only for what the bind
 fails the gate). Python reaches the core only through the bindings crate (`deny.toml` bans `pyo3` everywhere else). The Rust
 `Error` maps to the Python exceptions in the bindings; the core owns every range check, so every language gets the same error.
 
-The design's modules, each hiding one decision (none exists yet but `math`, `error` and the skeleton):
-
-| Module | Hides |
-|---|---|
-| geometry | path representation and maths, booleans, offsets, stroke outline |
-| type | font loading, shaping, layout, variable axes, glyph outlines |
-| scene | items, attributes, the node trait, evaluating a tree, per-item variation, caching |
-| parameters | declaring, describing, validating values; design pixels scaled by output size; cyclic angles wrap |
-| nodes | the built-ins, the registry |
-| output | SVG writing, rasterising, SVG import |
-| json | saving and loading drawings, versioning |
-
-A crate that does one of these jobs is never exposed in the API.
+The design's planned modules (geometry, type, scene, parameters, nodes, output, json), each hiding one decision, are in the table in
+`docs/design.md`, "Shape of the library"; only `math`, `error` and the skeleton exist yet. A crate that does one of these jobs is never exposed in the API.
 
 ## The rules
 
+Gated (the gate fails): rules 3, 4 (the bans), 5, and 8 (no printing). Convention (reviewed, not gated): 1, 2, 4's one number
+formatter, 6 and 7, and "Fixing defects".
+
 1. **No hidden tunables.** Every value that shapes a result is a named, documented parameter in the field's own terms. Exempt:
-   mathematical and standard constants, each carrying `// constant: <reason>`.
+   a named, justified constant (a mathematical or standard constant, or a tolerance below any visible effect), carrying
+   `// constant: <reason>`.
 2. **Determinism.** Same inputs and `seed` give the same bytes on every target. Randomness comes only from the seed. No global
    random state.
 3. **Transcendental maths only through `crate::math`** (`libm`); `f64::sin`, `exp`, `powf` and the rest are banned by
    `clippy.toml`. `sqrt` and `mul_add` are allowed.
 4. **No clock, no hash-ordered collections, no IO in the core:** `Instant::now`, `SystemTime::now`, `HashMap`, `HashSet`,
-   `std::fs`, `std::env::var` are banned by `clippy.toml`; use `BTreeMap`/`BTreeSet` and take bytes from the caller. One
+   `fs::read`, `fs::read_to_string`, `fs::write`, `File::open`, `File::create` and `env::var` are banned by `clippy.toml`; use `BTreeMap`/`BTreeSet` and take bytes from the caller. One
    formatter writes every number into SVG (now `number` in `polygon.rs`): no other `format!` of a coordinate.
 5. **The core builds for `wasm32-unknown-unknown` in every gate run** (`rust-wasm`): a native-only API in it fails there.
 6. **Errors by kind.** Callers catch `BullterrierVectorError` (`bullterrier_vector.errors`). Library code raises a subclass
@@ -142,14 +135,14 @@ Two speeds, both through `uv run poe`:
 `rust-lint` is clippy with `-D warnings` over the workspace and all targets (pedantic, the determinism rules of `clippy.toml`, dead
 code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `rust-tools` checks that cargo-shear and cargo-deny are
 installed at the versions `Cargo.toml` pins (`poe setup` installs them). `rust-deny` is offline (bans, licences, sources;
-`deny.toml`); `uv run poe audit` adds the advisories and needs the network (CI and before a release). `dead-code` is vulture on
-`src`. `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix` repairs formatting.
+`deny.toml`); `uv run poe audit` adds the advisories and needs the network (before a release). `dead-code` is vulture on
+`src`. `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix` applies every automatic fix (`ruff check --fix`, `ruff format`, `cargo fmt`).
 
 Each gate has a test proving it fails on a known-bad input (`tests/tools/`, marker `gate`: builds copies of the workspace, slow,
 left out of `fast`, run by `check`). A new gate gets its proof.
 
 `ruff` wants type hints and a docstring on every public function, class, method and module, and no `print` outside `tools/`.
-`mypy` checks `src` and `tests`. Fix findings properly; for a false positive use a targeted `# noqa: CODE  (reason)` or
+`mypy` checks `src` and `tests`. Fix findings properly; for a false positive use a targeted `# noqa: CODE  <reason>` or
 `# type: ignore[code]  # reason` (a bare or unused one fails). A subprocess call carries `# noqa: S603  <why its argv is safe>`.
 Tests may not reach private names (`SLF001`, `PLC2701`).
 
@@ -164,8 +157,8 @@ only: `rust-toolchain.toml`, `rustfmt.toml`, `deny.toml`, `clippy.toml`. Do not 
 Follow the `testing-best-practices` skill. A test coupled to implementation or otherwise poor (weak sole assertion, tautology,
 golden file, sleep, mock of our own code) is worse than none: delete it. Reviewers treat such tests as blocking.
 
-- **Rust first.** Rust tests live in `crates/core/tests/` and use the public API (`use bullterrier_vector::...`); a unit test in
-  `src/` only for a private function worth a test that has no public path. The Python suite tests the bindings through the
+- **Rust first.** Rust tests live in `crates/core/tests/` and use the public API (`use bullterrier_vector::...`); no unit
+  tests in `src/`. The Python suite tests the bindings through the
   package's public API only (`import bullterrier_vector as bv`).
 - **Behaviour through the public contract; properties, not golden files.** `proptest` for broad input spaces. Expected values come
   from an independent oracle (hand computation, a standard, a brute-force reference parsed back from the output, e.g. `roxmltree`
@@ -175,10 +168,10 @@ golden file, sleep, mock of our own code) is worse than none: delete it. Reviewe
   assertions.
 - Python tests run in random order (pytest-randomly; rerun with `-p randomly --randomly-seed=N`, disable with `-p no:randomly`);
   none may depend on another. Every warning fails the test that raised it.
-- **Mutation-check your tests:** break the code on purpose (a sign, a boundary, an ignored argument) and see a test fail.
-  Surviving mutants on core behaviour are review findings. Run Rust mutants with `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1` and never
-  commit a `proptest-regressions/` file a mutant created; for Python use `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` between
-  mutants.
+- **Mutation-check your tests, by hand:** break the code on purpose (a sign, a boundary, an ignored argument) and see a test
+  fail; no mutation tool is set up. Surviving mutants on core behaviour are review findings. Run Rust mutants with
+  `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1` and never commit a `*.proptest-regressions` file a mutant created; for Python use
+  `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` between mutants.
 - **Hook-run tests must not touch the enclosing repository:** the autouse `no_enclosing_git` fixture (`tests/conftest.py`) removes
   every `GIT_*` variable, and tests that need git use the throwaway `git_repo` fixture (`tests/tools/conftest.py`). Never run
   `git` against the real repository from a test.
@@ -190,7 +183,7 @@ golden file, sleep, mock of our own code) is worse than none: delete it. Reviewe
 - Never monkeypatch or mock our own code; never assert call counts or order on it. Substitute only true external boundaries.
 - Assert observable outputs only: returned values, files written, errors raised. For errors, the kind plus a short substring naming
   the argument and value, never the whole sentence.
-- Hard to test through the public interface is a design signal: change the interface, don't reach inside.
+- Hard to test through the public interface is a design signal, in Rust too: change the interface, don't reach inside.
 
 Writing tests:
 - **Parametrise by default:** cases differing by literals are one table (`pytest.param(..., id=...)`; in Rust a table of tuples
@@ -207,7 +200,7 @@ Writing tests:
 
 ## Skills
 
-Installed globally: `superpowers:writing-plans`, `superpowers:test-driven-development`,
+If available: `superpowers:writing-plans`, `superpowers:test-driven-development`,
 `superpowers:verification-before-completion` (process); `testing-best-practices` (tests); `software-design-philosophy` (deep
 modules, no pass-throughs, no information leakage; interface docs state promises).
 `superpowers:*` skills are process aids, not authority: they tend to verbose, over-engineered, over-defensive output. Where one
@@ -216,7 +209,7 @@ follow "Fixing defects"; design follows the skill.
 
 ## Working style
 
-- **Read narrowly:** your brief's files, `CLAUDE.md`, one reference module. If you need more, say why in the report.
+- **Read narrowly:** the files your task names, `CLAUDE.md`, one reference module. If you need more, say why in the report.
 - **Propose before refactoring** outside your brief's file scope; inside it, execute (plans are pre-approved).
 - Report honestly: red/green evidence, exact commands run, anything skipped or unverified.
 - Scratch space for plans, briefs, reports: `.superpowers/` (git-ignored; never commit it).
@@ -230,13 +223,12 @@ a push to `main` or a tag that changes more than documentation.
   the work is complete; nothing unmerged is left behind. No worktrees unless the owner asks. Rebase on `main` before reporting.
   Never push.
 - **Conventional Commits 1.0:** `type(scope)!: subject`. Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
-  `build`, `ci`, `chore`, `revert`. Scope optional, lowercase: `core`, `python`, `docs`, `deps`, `ci`. `!` or a `BREAKING CHANGE:`
+  `build`, `ci`, `chore`, `revert`. Scope optional, lowercase: `core`, `python`, `docs`, `deps`. `!` or a `BREAKING CHANGE:`
   footer marks a breaking change.
-- **Subject:** imperative present tense, lowercase start (acronyms and identifiers excepted), no final period, header at most 72
-  characters.
-- **Body** (blank line, wrapped at 100): why, not what. **One logical change per commit.**
+- **Subject:** imperative present tense, lowercase start (acronyms and identifiers excepted), no final period.
+- **Body** (after a blank line): why, not what. **One logical change per commit.**
 - **Agents** end the message with `Co-Authored-By: <your model name> <noreply@anthropic.com>`.
-- The `commit-msg` hook (`tools/check_commit_message.py`, limits in `[tool.commit-message]`) rejects a malformed message and says
-  which rule failed. Merge, revert and fixup commits git writes pass unchanged.
+- The `commit-msg` hook (`tools/check_commit_message.py`) rejects a malformed message and says which rule failed. Limits and
+  scope pattern: `[tool.commit-message]` in `pyproject.toml`. Merge, revert and fixup commits git writes pass unchanged.
 - **Never `--no-verify`, skip, silence or loosen a hook:** fix the cause. If a rule is wrong, change it in its one config home
   (`pyproject.toml` for the commit-message limits) in its own commit and say why.
