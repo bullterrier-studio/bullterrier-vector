@@ -4,6 +4,7 @@ dynamic = ["version"]  # maturin reads it from Cargo.toml's [workspace.package]
 description = "Typography-first generative vector graphics in code: SVG or pixels, the same from Rust, Python and the browser."
 readme = "README.md"
 license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
 authors = [
     { name = "jcakstins", email = "janis.cakstins@gmail.com" }
 ]
