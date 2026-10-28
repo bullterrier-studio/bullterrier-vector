@@ -28,7 +28,8 @@ def project_copy(tmp_path):
 
 class GitRepo:
     """A throwaway repository on `main`, isolated from the developer's git configuration (no global or system config,
-    so none of their signing, hooks or default branch leaks in)."""
+    so none of their signing, hooks or default branch leaks in). Its environment is this process's, from which the
+    autouse `no_enclosing_git` fixture (tests/conftest.py) has removed every `GIT_*` variable."""
 
     def __init__(self, path: Path) -> None:
         self.path = path / "work"

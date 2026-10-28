@@ -34,12 +34,12 @@ repos:
         name: ruff-format (fix with `uv run poe fix`)
         entry: uv run --no-sync ruff format --check
         language: system
-        types: [python]
+        types_or: [python, pyi]
       - id: ruff-check
         name: ruff-check (fix with `uv run poe fix`)
         entry: uv run --no-sync ruff check
         language: system
-        types: [python]
+        types_or: [python, pyi]
       - id: commit-message
         name: commit-message (see .gitmessage; check with `uv run python tools/check_commit_message.py <file>`)
         entry: uv run --no-sync python tools/check_commit_message.py

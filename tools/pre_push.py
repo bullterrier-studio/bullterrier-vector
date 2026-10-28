@@ -7,9 +7,10 @@ instead of leaving a red `main` for CI to find. pre-commit gives the hook the pu
 (for example `refs/heads/main`); when it is missing or is not a branch ref the gate runs: skipping is only for a
 branch that is clearly not main.
 
-A push that changes only documentation (the top-level and `docs/*.md` pages, the pictures in `docs/images/`) skips the
-gate too: no code is in it, and CI still runs everything on the pushed `main`. The pushed range comes from
-PRE_COMMIT_FROM_REF and PRE_COMMIT_TO_REF; when it cannot be read the gate runs.
+A push that changes only documentation (the top-level and `docs/*.md` pages, the pictures in `docs/images/`: png, jpg,
+jpeg, gif, svg, webp) skips the gate too: no code is in it, and CI still runs everything on the pushed `main`. The
+pushed range comes from PRE_COMMIT_FROM_REF and PRE_COMMIT_TO_REF; when it cannot be read the gate runs. Renames are
+listed as a deletion and an addition (`--no-renames`), so moving code into `docs/` still counts as changing code.
 """
 
 import os
@@ -17,6 +18,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import PurePosixPath
+
+PICTURE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"})
 
 
 def must_run(remote_ref: str) -> bool:
@@ -31,7 +34,11 @@ def is_documentation(path: str) -> bool:
     parts = PurePosixPath(path).parts
     if len(parts) == 1:
         return parts[0].endswith(".md")
-    return parts[0] == "docs" and (parts[1] == "images" or (len(parts) == 2 and parts[1].endswith(".md")))
+    if parts[0] != "docs":
+        return False
+    if parts[1] == "images":
+        return PurePosixPath(path).suffix.lower() in PICTURE_SUFFIXES  # a script in docs/images is code
+    return len(parts) == 2 and parts[1].endswith(".md")
 
 
 def pushed_files(from_ref: str, to_ref: str) -> list[str] | None:
@@ -39,7 +46,7 @@ def pushed_files(from_ref: str, to_ref: str) -> list[str] | None:
     if not from_ref or not to_ref:
         return None
     diff = subprocess.run(  # noqa: S603  fixed argv; the refs come from git, as arguments, never a shell
-        ["git", "diff", "--name-only", f"{from_ref}..{to_ref}"],  # noqa: S607  git is on the PATH of any clone
+        ["git", "diff", "--name-only", "--no-renames", f"{from_ref}..{to_ref}"],  # noqa: S607  git is on the PATH of any clone
         capture_output=True,
         encoding="utf-8",
         check=False,

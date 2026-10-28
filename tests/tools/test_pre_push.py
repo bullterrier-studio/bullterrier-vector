@@ -49,6 +49,12 @@ def test_a_feature_branch_push_skips_the_gate_and_succeeds(monkeypatch, capsys):
         pytest.param("docs/roadmap.md", True, id="a page in docs"),
         pytest.param("docs/images/logo.svg", True, id="a picture in docs/images"),
         pytest.param("docs/images/banner/wide.jpg", True, id="a nested picture"),
+        pytest.param("docs/images/a.png", True, id="a png"),
+        pytest.param("docs/images/B.SVG", True, id="a picture with a capitalised extension"),
+        pytest.param("docs/images/photo.webp", True, id="a webp"),
+        pytest.param("docs/images/make.py", False, id="a script in docs/images"),
+        pytest.param("docs/images/banner/make.sh", False, id="a script in a subfolder of docs/images"),
+        pytest.param("docs/images/README", False, id="a file without a picture extension"),
         pytest.param("docs/notes/ideas.md", False, id="a page in a subfolder of docs"),
         pytest.param("docs/make_banner.py", False, id="a script in docs"),
         pytest.param("docs/data.json", False, id="data in docs"),
@@ -74,6 +80,8 @@ def test_only_pages_and_pictures_count_as_documentation(path, is_documentation):
         ),
         pytest.param({"README.md": "x", "src/code.py": "x = 1"}, True, id="a page with one code file runs the gate"),
         pytest.param({"src/code.py": "x = 1"}, True, id="a code file alone runs the gate"),
+        pytest.param({"docs/images/make.py": "x = 1"}, True, id="a script in docs/images runs the gate"),
+        pytest.param({"docs/images/a.png": "x"}, False, id="a picture in docs/images skips the gate"),
     ],
 )
 def test_a_push_of_only_documentation_skips_the_gate(git_repo, monkeypatch, capsys, changed, gate_runs):
@@ -139,3 +147,20 @@ def test_a_documentation_only_push_of_a_tag_skips_the_gate_too(git_repo, monkeyp
     monkeypatch.setenv("PRE_COMMIT_TO_REF", after)
     monkeypatch.setattr(shutil, "which", lambda _name: None)
     assert pre_push.main() == 0
+
+
+def test_a_rename_of_code_into_docs_runs_the_gate(git_repo, monkeypatch, capsys):
+    """With rename detection `git diff --name-only` lists only the new name, `docs/lib.md`: that would skip the gate."""
+    before = git_repo.commit("chore: start", {"src/lib.rs": "pub fn draw() -> u32 {\n    1\n}\n" * 20})
+    (git_repo.path / "docs").mkdir()
+    git_repo.git("mv", "src/lib.rs", "docs/lib.md")
+    git_repo.git("commit", "-q", "-m", "docs: move")
+    after = git_repo.git("rev-parse", "HEAD")
+    assert git_repo.git("diff", "--name-status", "-M", f"{before}..{after}").startswith("R100")  # git sees a rename
+    monkeypatch.chdir(git_repo.path)
+    monkeypatch.setenv("PRE_COMMIT_REMOTE_BRANCH", "refs/heads/main")
+    monkeypatch.setenv("PRE_COMMIT_FROM_REF", before)
+    monkeypatch.setenv("PRE_COMMIT_TO_REF", after)
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+    assert pre_push.main() == 1
+    assert "uv is not on the PATH" in capsys.readouterr().out
