@@ -1,0 +1,45 @@
+# The Rust core of bullterrier-vector: `crates/core` (pure Rust: the vector scene graph and its renderers; the crate
+# `bullterrier-vector`). The Python bindings join as `crates/python`. Rust settings live here, except what a tool
+# cannot read from this file: rust-toolchain.toml, rustfmt.toml, clippy.toml.
+[workspace]
+resolver = "3"
+members = ["crates/core"]
+
+[workspace.package]
+version = "0.0.0"  # never published on its own: the Python package's version (pyproject.toml) is the release's
+edition = "2024"
+rust-version = "1.99.1"  # the toolchain rust-toolchain.toml pins
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/bullterrier-studio/bullterrier-vector"
+publish = false
+
+[workspace.dependencies]
+bullterrier-vector = { path = "crates/core" }
+libm = "0.2"
+proptest = "1.12"
+roxmltree = "0.21"
+
+# Warnings, not errors, so a newer compiler's new lint never breaks a user's install; the gate (`poe check`) runs clippy
+# and rustdoc with `-D warnings`, so every one fails it.
+[workspace.lints.rust]
+missing_docs = "warn"  # ruff's D1xx: every public item is documented
+unreachable_pub = "warn"  # `pub` only where a crate's users reach it; inside a crate, `pub(crate)`
+unsafe_code = "deny"  # the core forbids it outright (`#![forbid(unsafe_code)]`); the bindings deny it too
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# restriction picks: no panicking shortcut (an error is returned), no printing (the library never prints)
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+undocumented_unsafe_blocks = "warn"
+
+# The tools the gate runs that rustup does not install, each at the version the gate expects.
+[workspace.metadata.tools]
+cargo-shear = "1.14.0"
+cargo-deny = "0.20.2"
