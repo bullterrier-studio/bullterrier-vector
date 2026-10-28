@@ -55,10 +55,28 @@ toolchain problems show now, not in V3.
 Done when: `uv run poe fast` and `uv run poe check` pass on a fresh clone after `uv sync && uv run poe setup`; each gate
 has a test showing it fails on a known-bad input; the skeleton function behaves the same from Rust and Python.
 
+State: done.
+
 ## S0b CI and wheels
 
 GitHub workflows (pinned actions, minimal permissions, linted offline), wheels per platform, the build checks of the
 Python distribution. Before `main` is first pushed.
+
+Carried from the S0 review:
+- `tools/pre_push.py` decides from the first pushed ref only (pre-commit reports one ref), so
+  `git push origin feat/x main` or `git push --all` can skip the gate for `main`. Fix before the first push: compare
+  local `main` with `@{push}` itself, or drop the feature-branch skip until CI exists.
+- Remove the mentions of CI that are not true until the workflows exist, or make them true: comments in
+  `pyproject.toml`, `.pre-commit-config.yaml`, `tools/pre_push.py`, `tools/rust_tools.py` (`specs` exists only for CI)
+  and the tests that do not apply before then.
+- A test that `poe --dry-run check` contains every gated task and `fast` omits `gate`, and that the proofs run the poe
+  tasks, not the tools directly.
+- The cargo proofs' environment copies `os.environ` (`RUSTFLAGS`, `GIT_*`): build it explicitly.
+- `verbose: true` on the gate hook.
+- Onboarding docs: installing uv and rustup; `poe setup` compiles cargo-deny and cargo-shear unless cargo-binstall
+  exists; `pre-commit install` refuses with a global `core.hooksPath`; the first `uv sync` compiles PyO3.
+- Verify on a clean runner that rustup adds the wasm32 target listed in `rust-toolchain.toml` to an already-installed
+  toolchain.
 
 ## V1 The code API and the JSON format
 
@@ -81,6 +99,15 @@ them); the schema rejects known-bad drawings.
 - Parameters: describe, validate, scale design pixels by output size, wrap cyclic angles.
 - Registry by name. Built-ins: `polygon`, `star`, `transform`, `group`. Replaces S0's skeleton function.
 - Contract tests over every registered node: determinism, values within range, the same result at any size.
+
+Carried from the S0 review:
+- `polygon_svg` accepts radii that draw nothing (viewBox `0 0 0 0` at radius 1e-9) and rounds to 6 fixed decimals, which
+  does not scale with size: V2 needs relative precision or a real lower bound.
+- The proptest radii are uniform, so small radii are almost never sampled: use log-uniform.
+- The `Error` shape (`parameter: &'static str`, public fields, derived `Eq`) will not fit nested node paths: mark it
+  non-exhaustive or redesign it in V2.
+- Clippy checks only this workspace's code, so the curve, boolean and raster crates chosen in V2 must use `libm` for
+  their maths; otherwise the V3 native-against-WebAssembly differential test is the only guard.
 
 ## V3 Output, WebAssembly, the same bytes everywhere
 
