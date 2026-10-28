@@ -139,6 +139,7 @@ def test_the_repositorys_own_workflows_pass(uv_run_env, tmp_path):
     # asserted to exist; the script is started from elsewhere, as it finds the project from its own location.
     for name in ("ci", "lint", "test", "security", "pre-commit", "build"):
         assert (ROOT / ".github" / "workflows" / f"{name}.yml").is_file(), f"{name}.yml is missing"
+    assert (ROOT / ".github" / "dependabot.yml").is_file(), "dependabot.yml is missing"
     result = subprocess.run(
         [sys.executable, str(ROOT / "tools" / "lint_workflows.py")],
         cwd=tmp_path,
