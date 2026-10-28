@@ -47,11 +47,17 @@ def test_a_clean_test_passes(tmp_path, uv_run_env):
 
 
 @pytest.mark.parametrize(
-    ("probe", "warning"),
-    [(LEAKS_A_FILE, "ResourceWarning"), (LOCALE_ENCODING, "EncodingWarning"), (A_WARNING, "DeprecationWarning")],
+    ("probe", "reported"),
+    [
+        (LEAKS_A_FILE, "ResourceWarning"),
+        (LOCALE_ENCODING, "EncodingWarning"),
+        # not the bare class name, which the probe's own source line (printed in the report) contains: the class with
+        # the message, as pytest prints a raised warning ("E   DeprecationWarning: deprecated")
+        (A_WARNING, "DeprecationWarning: deprecated"),
+    ],
     ids=["leaked-file", "locale-encoding", "deprecation"],
 )
-def test_a_warning_fails_the_test_that_raised_it(tmp_path, uv_run_env, probe, warning):
+def test_a_warning_fails_the_test_that_raised_it(tmp_path, uv_run_env, probe, reported):
     result = poe_test(tmp_path, probe, uv_run_env)
     assert result.returncode != 0, result.stdout + result.stderr
-    assert warning in result.stdout, result.stdout + result.stderr
+    assert reported in result.stdout, result.stdout + result.stderr

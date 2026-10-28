@@ -31,7 +31,8 @@ dependencies = []
 Repository = "https://github.com/bullterrier-studio/bullterrier-vector"
 Issues = "https://github.com/bullterrier-studio/bullterrier-vector/issues"
 
-# maturin builds the Rust extension `bullterrier_vector._native._core` (crates/python) and packs it with the Python code of src/
+# maturin builds the Rust extension `bullterrier_vector._native._core` (crates/python) and packs it with the Python
+# code of src/
 [build-system]
 requires = ["maturin>=1.15,<2"]
 build-backend = "maturin"
@@ -54,17 +55,18 @@ cache-keys = [
 ]
 
 [tool.poe.tasks]
-# The gates. `fast` is the inner loop (formatters, linters, Rust and Python tests, types: seconds when warm); `check` is the
-# full gate before a merge or push, cheapest first, stopping at the first failure. The proofs that each gate can fail
-# (tests/tools/, marked `gate`) build copies of the workspace and are slow: `fast` leaves them out, `check` runs them.
+# The gates. `fast` is the inner loop (formatters, linters, Rust and Python tests, types: seconds when warm); `check`
+# is the full gate before a merge or push, cheapest first, stopping at the first failure. The proofs that each gate
+# can fail (tests/tools/, marked `gate`) build copies of the workspace and are slow: `fast` leaves them out, `check`
+# runs them.
 fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" } }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
-check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust (format, lint, dead code, docs, dependencies, types, tests, gate proofs); stops at the first failure" }
+check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first; stops at the first failure" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
 test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the whole test suite, gate proofs included, on every CPU core (pytest-xdist; the order stays random)" }
-# Not part of `check`: it asks the RustSec advisory database about every crate in Cargo.lock, so it needs the network and
-# its verdict changes as advisories are published. For CI and before a release. The Python side (pip-audit) joins it
-# when that tool joins the dev group.
+# Not part of `check`: it asks the RustSec advisory database about every crate in Cargo.lock, so it needs the network
+# and its verdict changes as advisories are published. For CI and before a release. The Python side (pip-audit) joins
+# it when that tool joins the dev group.
 audit = { cmd = "cargo deny --locked check advisories", help = "Check the locked Rust crates against known vulnerabilities (needs the network)" }
 fix = { sequence = ["ruff check --fix .", "ruff format .", "cargo fmt --all"], default_item_type = "cmd", help = "Apply every automatic lint and format fix" }
 # Not in `fast`: a whole-package scan, run once per merge. tests/tools/test_dead_code_gate.py shows it failing.
@@ -74,7 +76,8 @@ dead-code = { cmd = "vulture src", help = "Find dead code in src (vulture): an u
 rust-fmt = { cmd = "cargo fmt --all --check", help = "Check the Rust formatting (rustfmt.toml)" }
 rust-lint = { cmd = "cargo clippy --workspace --all-targets --locked --quiet -- -D warnings", help = "Lint the Rust code: clippy and the determinism rules (clippy.toml), dead code, missing docs, unreachable pub, unsafe ([workspace.lints] in Cargo.toml)" }
 rust-doc = { cmd = "cargo doc --workspace --no-deps --locked --quiet", env = { RUSTDOCFLAGS = "-D warnings" }, help = "Build the Rust documentation; any rustdoc warning (a broken link) fails" }
-# The core must also build for the browser (docs/design-decisions.md): a native-only API in it fails here, not in a browser
+# The core must also build for the browser (docs/design-decisions.md): a native-only API in it fails here, not in a
+# browser
 rust-wasm = { cmd = "cargo build -p bullterrier-vector --target wasm32-unknown-unknown --locked --quiet", help = "Build the core for WebAssembly (wasm32-unknown-unknown)" }
 rust-tools = { cmd = "uv run python tools/rust_tools.py check", help = "Check that the cargo tools the gate runs are installed at the versions Cargo.toml pins" }
 rust-shear = { cmd = "cargo shear", help = "Find Rust dependencies no code uses (cargo-shear)" }
@@ -132,7 +135,8 @@ select = [
     # a `# type: ignore` names its error code and a `# noqa` its rule (RUF100, in RUF, fails an unused `# noqa`)
     "PGH",
     "LOG",  # logging misuse (the root logger, a logger made by hand), should anything here ever log
-    "PLW1514",  # text files opened without `encoding=` use the locale's, which breaks non-ASCII names on Windows (preview)
+    # text files opened without `encoding=` use the locale's, which breaks non-ASCII names on Windows (preview)
+    "PLW1514",
     "BLE",  # `except Exception` hides bugs; catch what can happen, or say why everything must be caught
     "PTH",  # pathlib, not os.path / open() / glob: one way to handle paths
     "PYI",  # type stubs (the Rust extension's, `_core.pyi`) written as stubs: no bodies, no docstrings
@@ -204,7 +208,7 @@ dev = [
 paths = ["src"]
 min_confidence = 60
 
-# Every import is declared, and only once in the right place (`uv run deptry .`, in `poe check`): a missing, unused, transitive-only or
-# development-only dependency fails. tests/ is not scanned (deptry's default).
+# Every import is declared, and only once in the right place (`uv run deptry .`, in `poe check`): a missing, unused,
+# transitive-only or development-only dependency fails. tests/ is not scanned (deptry's default).
 [tool.deptry]
 known_first_party = ["bullterrier_vector"]

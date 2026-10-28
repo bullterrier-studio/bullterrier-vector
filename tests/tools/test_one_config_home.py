@@ -86,7 +86,7 @@ def test_every_stray_config_is_reported_not_just_the_first(tmp_path):
 
 
 def test_files_with_other_names_and_files_elsewhere_are_not_reported(tmp_path):
-    for name in ("pyproject.toml", ".editorconfig", ".pre-commit-config.yaml"):
+    for name in ("pyproject.toml", ".editorconfig", ".pre-commit-config.yaml", ".gitmessage"):
         (tmp_path / name).write_text("", encoding="utf-8")
     (tmp_path / "docs").mkdir()
     # outside the scanned places: docs may say anything
