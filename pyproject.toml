@@ -53,12 +53,42 @@ cache-keys = [
     { file = "crates/**/Cargo.toml" },
 ]
 
+[tool.poe.tasks]
+# The gates. `fast` is the inner loop (formatters, linters, Rust and Python tests, types: seconds when warm); `check` is the
+# full gate before a merge or push, cheapest first, stopping at the first failure. The proofs that each gate can fail
+# (tests/tools/, marked `gate`) build copies of the workspace and are slow: `fast` leaves them out, `check` runs them.
+fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" } }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
+check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "rust-doc" }, { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust (format, lint, docs, dependencies, types, tests, gate proofs); stops at the first failure" }
+# PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
+# encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
+test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the whole test suite, gate proofs included, on every CPU core (pytest-xdist; the order stays random)" }
+# Not part of `check`: it asks the RustSec advisory database about every crate in Cargo.lock, so it needs the network and
+# its verdict changes as advisories are published. For CI and before a release. The Python side (pip-audit) joins it
+# when that tool joins the dev group.
+audit = { cmd = "cargo deny --locked check advisories", help = "Check the locked Rust crates against known vulnerabilities (needs the network)" }
+fix = { sequence = ["ruff check --fix .", "ruff format .", "cargo fmt --all"], default_item_type = "cmd", help = "Apply every automatic lint and format fix" }
+# The Rust gates, each beside its Python counterpart; cargo comes with rustup, at the version rust-toolchain.toml pins.
+# Warnings fail only here (`-D warnings`), never a user's build. tests/tools/test_rust_gates.py shows each one failing.
+rust-fmt = { cmd = "cargo fmt --all --check", help = "Check the Rust formatting (rustfmt.toml)" }
+rust-lint = { cmd = "cargo clippy --workspace --all-targets --locked --quiet -- -D warnings", help = "Lint the Rust code: clippy and the determinism rules (clippy.toml), dead code, missing docs, unreachable pub, unsafe ([workspace.lints] in Cargo.toml)" }
+rust-doc = { cmd = "cargo doc --workspace --no-deps --locked --quiet", env = { RUSTDOCFLAGS = "-D warnings" }, help = "Build the Rust documentation; any rustdoc warning (a broken link) fails" }
+# The core must also build for the browser (docs/design-decisions.md): a native-only API in it fails here, not in a browser
+rust-wasm = { cmd = "cargo build -p bullterrier-vector --target wasm32-unknown-unknown --locked --quiet", help = "Build the core for WebAssembly (wasm32-unknown-unknown)" }
+rust-tools = { cmd = "uv run python tools/rust_tools.py check", help = "Check that the cargo tools the gate runs are installed at the versions Cargo.toml pins" }
+rust-shear = { cmd = "cargo shear", help = "Find Rust dependencies no code uses (cargo-shear)" }
+rust-deny = { cmd = "cargo deny --offline --locked check bans licenses sources", help = "Check the Rust dependencies offline: banned crates, licences, sources (deny.toml)" }
+stubtest = { cmd = "uv run python -m mypy.stubtest --mypy-config-file pyproject.toml bullterrier_vector._native._core", help = "Check the stub _core.pyi against the built extension" }
+rust-test = { cmd = "cargo test --workspace --locked --quiet", help = "Run the Rust tests" }
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # test files are named after the module they test, so equal names in different folders must never collide
 # a misspelt marker or option is an error, not a silently ignored typo
 # with xdist (`-n`), tests marked `xdist_group` stay on one worker, so an expensive module fixture is built once
 addopts = ["--import-mode=importlib", "--strict-markers", "--strict-config", "--dist=loadgroup"]
+markers = [
+    "gate: proves a gate fails on a known-bad input (builds copies, slow); `poe fast` leaves it out",
+]
 # an xfail that starts passing fails the run, so the marker cannot outlive the bug it names
 xfail_strict = true
 # Every warning fails the test that raised it: a leaked file or process (ResourceWarning), a deprecated call, and, when
@@ -115,6 +145,8 @@ convention = "google"
 # test must not reach into the implementation. Of bandit only these: assert is how pytest checks (S101), and a test
 # runs our own interpreter and the developer's tools (python, git, uv) with argv it wrote itself (S603, S607).
 "tests/**" = ["ANN", "D", "S101", "S603", "S607", "PLW", "N", "B011"]
+# scripts run by hand (the cargo-tools check): printing is their output
+"tools/**" = ["T20"]
 "**/__init__.py" = ["F401"]
 
 # `uv run mypy` checks src and tests; the gate (`poe check`) and the pre-push hook run it.

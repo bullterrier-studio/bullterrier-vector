@@ -1,0 +1,34 @@
+# cargo-deny (it cannot read Cargo.toml): which Rust crates the project may depend on. `poe check` runs the offline
+# checks (bans, licenses, sources); `poe audit` adds the advisories, which need the network.
+
+[graph]
+all-features = true
+
+[advisories]
+ignore = []  # an advisory with no fixed release is ignored here by id, with a reason, and listed in SECURITY.md
+
+[licenses]
+# permissive licences that ask no more of the package than its own MIT does (notices kept, no copyleft); a licence is
+# added here only when a crate in Cargo.lock needs it, with the crate named
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",  # PyO3's build dependencies (target-lexicon)
+    "Unicode-3.0",  # unicode-ident (via proc-macro2, syn)
+]
+confidence-threshold = 0.93
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true  # the workspace's own crates depend on each other by path
+# Python reaches the core only through the bindings crate: the core stays pure Rust, with no PyO3 in it
+deny = [
+    { crate = "pyo3", wrappers = ["bullterrier-vector-python"] },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
