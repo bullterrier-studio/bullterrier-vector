@@ -58,8 +58,9 @@ Each decision once, with its reason. The design: [design.md](design.md).
 
 - **SVG keeps every effect** (2026-10-28). A drawing written as SVG shows what it shows in pixels: shadows, halftone,
   knockouts. *Reason:* SVG is a deliverable (print, a vector editor, a web page), and a writer that leaves out
-  what it cannot express changes the picture with no error: in the prototypes, a common drawing library's SVG output
-  silently dropped every shape with a shadow. *Consequence:* an effect without an SVG form is not added.
+  what it cannot express changes the picture with no error: we found that skia-python 144.1's SVG canvas left out
+  every shape drawn with a shadow filter in our test; we did not check other versions. *Consequence:* an effect
+  without an SVG form is not added.
 - **A fast halftone fill** (2026-10-28). Halftone is a fill (a screen: pitch, angle, dot size from a tone) clipped to a
   shape, not thousands of dot shapes through general booleans. *Reason:* built from shapes it cost about 500 ms a frame
   in the prototypes, too slow for a live preview; a regular screen can be generated and clipped directly.

@@ -80,8 +80,9 @@ All at 1080x1350, one process unless stated, in Python.
   the biggest single lever between "traced" and "designed".
 - **Curves through the traced polyline:** a raw polyline edge looks digital.
 - **Pad the map's edge**, or a subject cut by the frame gets a false closed edge when offset inward.
-- **The SVG must carry every effect.** The SVG output of the drawing library used silently left out every path drawn
-  with a filter, so all shadowed layers vanished; a hand-written SVG writer had to replace it.
+- **The SVG must carry every effect.** We found that skia-python 144.1's SVG canvas left out every shape drawn with a
+  shadow filter in our test, so all shadowed layers vanished; we did not check other versions. A hand-written SVG writer
+  replaced it.
 - Noise on a coarse lattice with bilinear interpolation looked identical to full resolution and was 20x faster.
 
 ## What the library needs, ranked
