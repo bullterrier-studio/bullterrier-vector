@@ -1,9 +1,10 @@
 # CLAUDE.md: bullterrier-vector
 
-Rust library with Python (and, later, WebAssembly) bindings for **typography-first generative vector graphics**: you describe a
-picture in code (type, shapes and generative forms, with deformers, repeaters and booleans), and it is drawn as SVG or pixels,
-identical from Rust, Python and the browser. `README.md` (status), `docs/design.md` (what and how), `docs/design-decisions.md`
-(why), `docs/roadmap.md` (the batches, in order), `CONTRIBUTING.md` (setup and CI for people).
+Rust library with Python (and, later, WebAssembly) bindings: a **typography-first vector graphics scripting library**. You write
+a picture in code (Bezier paths, type, booleans, offsets, deformers, repeaters, generative forms, tracing), and it is drawn as SVG
+or pixels, identical from Rust, Python and the browser. `README.md` (status), `docs/design.md` (what and how),
+`docs/design-decisions.md` (why), `docs/roadmap.md` (the batches, in order; effects in `docs/effects-roadmap.md`),
+`docs/prototype-findings.md` (what the taste prototypes taught), `CONTRIBUTING.md` (setup and CI for people).
 
 **Write docs tersely.** This file, the README, `docs/`, docstrings, reports and briefs: state the rule or fact, drop preamble,
 repetition and justification a reader does not need to act. Reasons go in `docs/design-decisions.md`, once. Committed files are
@@ -29,17 +30,21 @@ Maintainers may keep machine-specific notes in a git-ignored `.local/` folder an
 
 ## What it is and is not
 
-| Responsible for | Not responsible for |
+| Responsible for (planned: `docs/roadmap.md`) | Not responsible for |
 |---|---|
-| Drawings written as code: chainable, typed, discoverable from the editor (JSON is a layer on top) | Timelines, keyframes, easing, an `onFrame` loop: values over time are the caller's |
-| Type as geometry: shaping, variable-font axes as parameters, every glyph an editable path | Writing a rasteriser, a shaper or a font parser: existing crates do that |
-| A generative layer: generators, deformers, repeaters, booleans, offsets, morph, tracing | An editor application (the library gives it geometry, hit testing, text layout) |
-| Describing every parameter: name, unit, range, default, meaning | Photo effects and compositing over footage |
-| The same drawing giving the same bytes on every target | Stateful simulation (particles, springs) in v1: if it comes, it produces points that a node draws |
-| Redrawing with new values cheaply, fast enough for a live preview | Reading other tools' file formats: inputs are plain data (width, height, bytes; lists of numbers) |
+| Bezier paths as values: build, measure, split, slice, hit-test, resample, simplify, fit curves; booleans, offsets, stroke outlines | Timelines, keyframes, easing over time, an `onFrame` loop: values over time are the caller's |
+| Drawings written as code: chainable, typed, discoverable from the editor (JSON is a layer on top); `Path`, `Shape`, `Drawing`, `Param`, the same verbs on a `Path` (now) and a `Drawing` (a step) | Writing a rasteriser, a shaper or a font parser: existing crates do that |
+| Type as geometry: any TrueType or OpenType font from bytes, shaping, variable-font axes as parameters, every glyph an editable path | Producing font files; colour and bitmap fonts in v1 |
+| A generative layer: generators, deformers, repeaters, booleans, offsets, morph, hatching, tracing | An editor application (the library gives it geometry, hit testing, text layout) |
+| Effects, each added with a gallery piece (the effects track) | Photo effects and compositing over footage |
+| Describing every parameter: name, unit, range, default, meaning | Stateful simulation (particles, springs) in v1: if it comes, it produces points that a node draws |
+| The same drawing giving the same bytes on every target; SVG that keeps every effect, plotter-ready SVG, RGBA pixels | Reading other tools' file formats: inputs are plain data (width, height, bytes; lists of numbers) |
+| Redrawing with new values cheaply: a live preview, live in a page through the WebAssembly package | |
+| Frame export: a caller's function of time looped over frames into a transparent PNG sequence or clip | |
 
-**State, not time:** no seconds, frames, clips, easing or fps in code, parameters or docs. A parameter is a *state* (`progress`
-0..1, `phase` in cycles, `seed`); whoever animates it sets it per frame and draws again.
+**State, not time:** no seconds, frames, clips, easing or fps in drawings, parameters or their docs; the one exception is the
+frame-export helper (V4), which loops a caller's function of time over frames. A parameter is a *state* (`progress` 0..1, `phase`
+in cycles, `seed`); whoever animates it sets it per frame and draws again.
 **Code first, JSON second:** every drawing written in code saves to JSON and loads back to the same drawing, never the other way
 round. Design each API with examples written first, then the format.
 Works with other tools only through plain data: `docs/design.md`, "Works with".
@@ -48,7 +53,7 @@ Works with other tools only through plain data: `docs/design.md`, "Works with".
 
 `bullterrier-vector` (crate, PyPI distribution, repository), `bullterrier_vector` (Python import, Rust library),
 `bullterrier-vector-python` (the bindings crate; builds `bullterrier_vector._native._core`), `bt-vector` (command line; planned,
-V17), `BullterrierVectorError` (base exception), `ParameterError` (a value outside what the library accepts; also a
+V18), `BullterrierVectorError` (base exception), `ParameterError` (a value outside what the library accepts; also a
 `ValueError`). Full name for identity, `bt-` for what a person types. Names inside the package carry no prefix.
 
 Licence: MIT, in `LICENSE` (named by `license-files` in `pyproject.toml`; `build-check` fails a distribution without it).

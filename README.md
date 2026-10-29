@@ -1,7 +1,7 @@
 # bullterrier-vector
 
-Typography-first generative graphics in code: type, shapes and generative forms that you bend, repeat, cut and trace,
-drawn as SVG or pixels. One engine, the same output from Rust, Python and the browser.
+A typography-first vector graphics scripting library: Bezier paths, type, booleans, offsets, generative forms and
+tracing, written as code and drawn as SVG or pixels. One engine, the same output from Rust, Python and the browser.
 
 Status: the scaffold, its gates and the CI workflows exist (a Rust core, Python bindings, checks that run on every
 change), and no features yet beyond one test function. No release yet; the first is planned for later. The plan:
