@@ -592,14 +592,10 @@ path).
 - **Whole-number arguments** take expressions whose value is whole when drawn.
 - **JavaScript expressions** lift a leading number with `btvec.expr(n)`.
 - **Frame export may rebuild the drawing per frame**; such a clip is many drawings, not one JSON.
+- **Positions along a path are fractions 0..1**, closed outlines measured from their topmost point, every outline the
+  library makes in one canonical orientation; `near=` moves the start where the top jumps ("Path").
+- **A negative `scale` mirrors; zero raises.**
 
 ## Open questions for the owner
 
-1. **Positions along a path as fractions 0..1, closed outlines measured from their topmost point, in one canonical
-   orientation** (outer contours clockwise, holes counter-clockwise, in order of their topmost points, whatever the
-   font's format). Recommended: yes. A position is then a state (draw-on is `slice(0, progress)`), a draw-on runs the
-   same way in every font, and the start does not move as a glyph changes; where the top jumps between two peaks,
-   `near=` fixes the start; a distance is `fraction × length`.
-2. **A negative `scale` mirrors.** The review asked for zero and negative values to raise. Recommended: zero raises (it
-   collapses the outline), a negative value mirrors, since no other verb mirrors a shape. A mirror flips the winding,
-   so a negative `scale` and `reverse` are the stated exceptions to the canonical form of outlines ("Path").
+None remain.

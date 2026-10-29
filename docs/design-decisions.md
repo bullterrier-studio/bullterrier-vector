@@ -80,6 +80,16 @@ Each decision once, with its reason. The design: [design.md](design.md).
   (`docs/roadmap.md`), not promises. Multiply reaches the page as draw ranges, since fixed-function blending needs no
   shader, and a knockout as booleans while meshing; only a blurred shadow has no triangle form, and it raises, so
   nothing is left out quietly.
+- **Positions along a path are fractions 0..1, from a canonical start** (2026-10-29, approved by the owner). Positions
+  are fractions of the length, by arc length; a closed sub-path is measured from its topmost point; every outline the
+  library makes runs in one canonical orientation (outer contours clockwise, holes counter-clockwise, in order of their
+  topmost points, whatever the font's format). *Reason:* a position is then a state (draw-on is `slice(0, progress)`),
+  a draw-on runs the same way in every font, and the start does not move as a glyph changes; a distance is still
+  `fraction × length`. *Consequence:* where the top jumps between two peaks from one map to the next, `near=` fixes
+  the start; `reverse` and a negative `scale` are the stated exceptions to the canonical form.
+- **A negative `scale` mirrors; zero raises** (2026-10-29, approved by the owner; the review had asked for both to
+  raise). *Reason:* zero collapses the outline, while no other verb mirrors a shape. *Consequence:* a mirror flips the
+  winding, so it leaves the canonical orientation, as `reverse` does.
 
 ## Output
 
