@@ -6,8 +6,8 @@ Small batches of work, in order. Each batch gets its own plan before work starts
 whole gate green and an independent review done, and leaves the worked examples it names passing. Sizes: **S** about
 one working session, **M** two or three, **L** four or more.
 
-Order: a short feedback loop first (the gate, a walking skeleton through every target, a way to see a drawing, a way to
-export frames), then the code API, then type, then the risky geometry, then the generative layer in the order the
+Order: a short feedback loop first (the gate, a walking skeleton through every target), then the code API and the core,
+a way to see a drawing, a way to export frames, then type, then the risky geometry, then the generative layer in the order the
 reference pieces need it, then an open-ended effects track. The prototypes
 ([prototype-findings.md](prototype-findings.md)) set this order.
 
@@ -17,8 +17,8 @@ reference pieces need it, then an open-ended effects track. The prototypes
 | S0 | Scaffold and walking skeleton: workspace, gates, hooks, CLAUDE.md; one function from Rust core to Python, core built for WebAssembly | M | |
 | S0b | CI and a wheel per platform (before `main` is first pushed) | S | |
 | V1 | The code API (Rust, Python, JavaScript, examples first) and the JSON format | M | |
-| V2 | Core: `Path` as a value, shapes, attributes, the node trait, parameters, registry, evaluation; `polygon`, `star`, `transform`, `group` | M | |
-| V3 | Output: SVG, pixels, `look` (draw a drawing and open it); the WebAssembly package; the same bytes on every target | M | **M1 a star everywhere** |
+| V2 | Core: `Path` as a value, shapes, attributes, the node trait, parameters, registry, evaluation; `polygon`, `star`, `transform`, `group` | L | |
+| V3 | Output: SVG, pixels, `look` (draw a drawing and open it); the WebAssembly package; the same bytes on every target | L | **M1 a star everywhere** |
 | V4 | Frame export: a caller's function of time to a transparent PNG sequence or clip | S | |
 | V5 | Fonts and shaping: glyphs as shapes, variable axes as parameters, bundled fonts | L | |
 | V6 | Layout: wrap, align, tracking, leading, fit to a box; text on a path, text inside a shape | M | |
