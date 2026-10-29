@@ -40,7 +40,7 @@ reference pieces need it, then an open-ended effects track. The prototypes
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
-V13 and V16 can move once what they build on exists (V11, V3).
+V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
 ## V0 Taste prototype
 
