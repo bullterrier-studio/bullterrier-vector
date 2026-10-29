@@ -13,9 +13,25 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-# what a command of a proof inherits from the process: where programs and the toolchains are, and the temporary
-# folder; SYSTEMROOT is what Windows needs to start a program at all. Anything else is set by the proof itself.
-INHERITED = ("PATH", "HOME", "CARGO_HOME", "RUSTUP_HOME", "TMPDIR", "SYSTEMROOT")
+# What a command of a proof inherits from the process: where programs and the toolchains are, and the temporary and
+# home folders. The Windows names are what Python, git and cargo need there to start at all (SYSTEMROOT, COMSPEC,
+# PATHEXT) and to find a home, a cache and a temporary folder (USERPROFILE, APPDATA, LOCALAPPDATA, TEMP, TMP); each is
+# passed on when set. Anything else is set by the proof itself.
+INHERITED = (
+    "PATH",
+    "HOME",
+    "CARGO_HOME",
+    "RUSTUP_HOME",
+    "TMPDIR",
+    "SYSTEMROOT",
+    "USERPROFILE",
+    "TEMP",
+    "TMP",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "COMSPEC",
+    "PATHEXT",
+)
 
 
 @pytest.fixture(scope="module")

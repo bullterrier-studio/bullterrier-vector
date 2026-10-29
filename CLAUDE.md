@@ -177,7 +177,8 @@ golden file, sleep, mock of our own code) is worse than none: delete it. Reviewe
 - **Hook-run tests must not touch the enclosing repository:** the autouse `no_enclosing_git` fixture (`tests/conftest.py`) removes
   every `GIT_*` variable, and tests that need git use the throwaway `git_repo` fixture (`tests/tools/conftest.py`). Never run
   `git` against the real repository from a test. The commands of a gate proof get an explicit environment (the `explicit_env`
-  fixture: `PATH`, `HOME`, the cargo and rustup homes, `TMPDIR`, `SYSTEMROOT`), never a copy of `os.environ`.
+  fixture: `PATH`, `HOME`, the cargo and rustup homes, the temporary folder, what Windows needs to start a program),
+  never a copy of `os.environ`; the autouse `no_enclosing_hook` fixture removes `PRE_COMMIT_*` the same way as `GIT_*`.
 - Refactors prove behaviour is preserved by comparing outputs before and after (byte-identical), in the report, not committed.
 
 **Tests describe behaviour, not implementation:** they must survive any behaviour-preserving refactor.

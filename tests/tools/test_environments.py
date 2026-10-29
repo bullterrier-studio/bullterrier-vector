@@ -13,6 +13,7 @@ OUTSIDE = {
     "GIT_WORK_TREE": "/nonexistent",
     "UV_PROJECT_ENVIRONMENT": "/nonexistent/venv",
     "PYTHONWARNINGS": "error",
+    "PRE_COMMIT_REMOTE_NAME": "github",
 }
 INHERITED = {
     "PATH": "/usr/bin",
@@ -20,8 +21,15 @@ INHERITED = {
     "CARGO_HOME": "/cargo",
     "RUSTUP_HOME": "/rustup",
     "TMPDIR": "/var/scratch",
+    "SYSTEMROOT": r"C:\Windows",
+    "USERPROFILE": r"C:\Users\me",
+    "TEMP": r"C:\Temp",
+    "TMP": r"C:\Temp",
+    "APPDATA": r"C:\Users\me\AppData\Roaming",
+    "LOCALAPPDATA": r"C:\Users\me\AppData\Local",
+    "COMSPEC": r"C:\Windows\System32\cmd.exe",
+    "PATHEXT": ".COM;.EXE;.BAT",
 }
-
 
 ENVIRONMENTS = ["explicit_env", "uv_run_env", "copy_env", "cargo_env", "git_repo"]
 
@@ -52,8 +60,7 @@ def test_the_variables_a_command_needs_to_start_reach_the_proofs(request, monkey
     assert env["PATH"].endswith(INHERITED["PATH"])  # the interpreter's folder comes first in some
 
 
-def test_systemroot_reaches_the_proofs_when_it_is_set(explicit_env, monkeypatch):
-    monkeypatch.setenv("SYSTEMROOT", r"C:\Windows")
-    assert explicit_env()["SYSTEMROOT"] == r"C:\Windows"
-    monkeypatch.delenv("SYSTEMROOT")
-    assert "SYSTEMROOT" not in explicit_env()
+def test_a_variable_that_is_not_set_is_not_made_up(explicit_env, monkeypatch):
+    for name in INHERITED:
+        monkeypatch.delenv(name, raising=False)
+    assert explicit_env() == {}
