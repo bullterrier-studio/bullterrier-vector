@@ -62,21 +62,17 @@ State: done.
 GitHub workflows (pinned actions, minimal permissions, linted offline), wheels per platform, the build checks of the
 Python distribution. Before `main` is first pushed.
 
-Carried from the S0 review:
-- `tools/pre_push.py` decides from the first pushed ref only (pre-commit reports one ref), so
-  `git push origin feat/x main` or `git push --all` can skip the gate for `main`. Fix before the first push: compare
-  local `main` with `@{push}` itself, or drop the feature-branch skip until CI exists.
-- Remove the mentions of CI that are not true until the workflows exist, or make them true: comments in
-  `pyproject.toml`, `.pre-commit-config.yaml`, `tools/pre_push.py`, `tools/rust_tools.py` (`specs` exists only for CI)
-  and the tests that do not apply before then.
-- A test that `poe --dry-run check` contains every gated task and `fast` omits `gate`, and that the proofs run the poe
-  tasks, not the tools directly.
-- The cargo proofs' environment copies `os.environ` (`RUSTFLAGS`, `GIT_*`): build it explicitly.
-- `verbose: true` on the gate hook.
-- Onboarding docs: installing uv and rustup; `poe setup` compiles cargo-deny and cargo-shear unless cargo-binstall
-  exists; `pre-commit install` refuses with a global `core.hooksPath`; the first `uv sync` compiles PyO3.
-- Verify on a clean runner that rustup adds the wasm32 target listed in `rust-toolchain.toml` to an already-installed
-  toolchain.
+State: done.
+
+Carried to later:
+- First real CI run on GitHub (the owner pushes): fix whatever it shows, and verify that rustup adds the `wasm32` target
+  of `rust-toolchain.toml` to an already installed toolchain on a clean runner. Not run before: the macOS and Windows legs,
+  the arm runners (`ubuntu-24.04-arm`, `macos-15-intel`), the whole of `build.yml` (the manylinux container, the macOS
+  cross-compile, the smoke installs), CodeQL and dependency review, the `changes` filter and `ci-ok` on real events.
+- A test that every path in `clippy.toml` resolves (clippy only warns for a mistyped path) and that every entry has a
+  proof row: V2.
+- More unbanned IO and clock sources (`env::args`, `current_dir`, `fs::read_dir`, `metadata`, `net`, `thread::sleep`,
+  `process`): V2, when the core reads bytes.
 
 ## V1 The code API and the JSON format
 

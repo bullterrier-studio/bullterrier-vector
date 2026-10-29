@@ -39,3 +39,9 @@ Each decision once, with its reason. The design: [design.md](design.md).
 - **Same output on every target is a differential test, not golden files** (2026-10-28). The same drawings are rendered
   natively and in WebAssembly and compared byte for byte. *Reason:* committed golden images go stale and get updated
   without review; a differential test needs no reviewed baseline.
+- **Platforms** (2026-10-28). One abi3 wheel (every Python from 3.12) for Linux x86_64 and aarch64 (manylinux_2_28), macOS
+  arm64 and x86_64, and Windows x86_64; the sdist, which builds the extension with rustup, covers every other platform.
+  No musl wheel. *Reason:* no dependency sets a floor, so this is the conventional set; revisit when asked.
+  *Consequence:* development and the full gate target macOS and Linux first. CI builds and installs a wheel on all five
+  platforms; its gate proofs run on Linux, and its macOS and Windows legs run the Rust tests and the rest of the suite.
+  Windows stays a reduced set until the first real CI run says otherwise.

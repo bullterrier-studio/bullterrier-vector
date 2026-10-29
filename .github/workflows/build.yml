@@ -3,7 +3,8 @@
 #
 # The sdist and one abi3 wheel (every Python from 3.12) per platform: Linux x86_64 and aarch64 (manylinux_2_28), macOS
 # arm64 and x86_64, Windows x86_64. The sdist carries rust-toolchain.toml and covers every other platform, so there is
-# no musl wheel. No job here restores a build cache: what it builds may be published.
+# no musl wheel (docs/design-decisions.md, "Platforms"). No job here restores a build cache: what it builds may be
+# published.
 name: Build
 
 on:
