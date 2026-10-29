@@ -131,7 +131,7 @@ cap-height centre; for any other shape, the centre of its bounds).
 | `morph` | `morph(target, progress)` | the outline `progress` 0..1 of the way to `target`, points matched when their counts differ; on a `Drawing`, shapes pair by index | on a `Drawing`, different shape counts |
 | `hatch` | `hatch(*, spacing=8, tone=None, flow=None, avoid=None)` | each region filled with evenly spaced open lines (below) | below |
 
-Booleans and offsets hold on overlapping, rotated glyphs (their outlines are made valid regions when set). Where an
+Booleans and offsets hold on overlapping, rotated glyphs (`text` makes every glyph outline a valid region). Where an
 outline cannot be resolved into a region, the verb raises `GeometryError` naming the verb and the shape's index; V8
 documents the cases. On a `Drawing`, `other` is a `Drawing` or a `Path`; each shape is combined with the union of
 `other`'s shapes. Deformers resample first, so they stay smooth at any size; V12 adds `twist` and `bulge` in the same
@@ -193,7 +193,8 @@ counts the current list.
 Colours are `"#rrggbb"` or `"#rrggbbaa"`. Until a fill or a stroke is set, a closed outline is filled black and an open
 line stroked black at 2 pixels; once either is set, only what is set is painted. `knockout` is the style form of a cut:
 it keeps both shapes and cuts through everything below, shadows included; `subtract` makes new geometry (for a plotter,
-or for further verbs). Every style reaches SVG and pixels alike.
+or for further verbs). Every style reaches SVG and pixels alike. Called on a `Path`, a style step returns a `Drawing` of
+that path.
 
 ### Values and evaluation
 
