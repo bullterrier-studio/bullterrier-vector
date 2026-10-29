@@ -210,6 +210,7 @@ dev = [
     "actionlint-py>=1.7.12.25",
     "check-wheel-contents>=0.6.3",
     "deptry>=0.25.1",
+    "jsonschema>=4.26.0",
     "mypy>=2.4.1",
     "pip-audit>=2.10.1",
     "poethepoet>=0.49.0",
@@ -219,6 +220,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "ruff>=0.17.3",
     "twine>=7.0.0",
+    "types-jsonschema>=4.26.0.20261006",
     "vulture>=2.16",
     "zizmor>=1.31.1",
 ]
