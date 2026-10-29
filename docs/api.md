@@ -247,7 +247,7 @@ kerning, ligatures and complex scripts, each outline a valid region (overlapping
 | `align` | `"left"`, `"center"` or `"right"` |
 | `anchor` | where the first baseline meets the alignment: its left end, middle or right end |
 | `width` | lines wrap to this width; with `fit`, each line is made exactly this wide |
-| `fit` | an axis tag or `"size"`: solved per line so the line is `width` wide, once, at the reference pose (every Param at its default), so live values may overflow instead of re-fitting |
+| `fit` | an axis tag or `"size"`: solved per line so the line is `width` wide, once, at the reference pose (every Param at its default, whatever `with_values` fixed), so the fit never changes from frame to frame and live values may overflow |
 | `inside` | a `Path`: lines wrap to its width at each baseline (V6) |
 
 Errors (`ParameterError`): an axis or feature the font lacks (the message lists the font's), an axis value outside the
@@ -293,7 +293,7 @@ A field or a flow may read Params (a noise `phase`) and is part of the drawing t
 | Field | Meaning |
 |---|---|
 | `name` | letters, digits and `_`, starting with a letter; unique in a drawing |
-| `default` | the value when none is given, and the reference pose |
+| `default` | the value when none is given; all defaults together are the reference pose |
 | `min`, `max` | the range a given value must lie in |
 | `unit` | `"px"`, `"deg"`, `"cycle"`, `"fraction"` or `""` (a plain number: a font axis, a count, a seed) |
 | `meaning` | one line a person reads beside a slider |
@@ -302,8 +302,16 @@ A Param in `deg` or `cycle` is cyclic: any value is accepted and wraps into its 
 (`ParameterError`): a bad name, `min` not below `max`, a default outside the range, a cyclic range other than one turn.
 
 Arithmetic (`+`, `-`, `*`, `/`, unary `-`) on Params and numbers builds an `Expr`, which saves with the drawing. A
-`Param` is an `Expr`. Every argument of a step that takes a number takes an `Expr`. An expression whose value leaves
-the range its argument accepts raises `ParameterError` at draw time, naming the step, the argument and the value.
+`Param` is an `Expr`, and so is every per-item number below, so they combine (`btvec.random(-10, 10, seed=7) * burst`).
+Every number a step takes may be an `Expr`:
+
+- a whole-number argument (`repeat`'s `count`, a `seed`, `posterize`'s `levels`) too, if its value is a whole number
+  when drawn; any other value raises `ParameterError`, never rounded;
+- a number inside a pair or a list (`translate=(dx, dy)`, `about`, `anchor`, `spacing=(a, b)`, a dash pattern, trace
+  `levels`), component by component.
+
+An expression whose value leaves the range its argument accepts raises `ParameterError` at draw time, naming the step,
+the argument and the value; a division by zero raises `ParameterError` naming the expression.
 
 A Param's value at draw time is a number, or a list with one number per shape (`pulse=[...]`): the way to give each
 item a value from the caller's own signal. A list whose length differs from the number of shapes at a step that reads
