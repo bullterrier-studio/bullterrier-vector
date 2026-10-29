@@ -11,7 +11,7 @@ edition = "2024"
 rust-version = "1.99.1"  # the toolchain rust-toolchain.toml pins
 license = "MIT"
 repository = "https://github.com/bullterrier-studio/bullterrier-vector"
-publish = false  # until the first release (V21)
+publish = false  # until the first release (V22)
 
 [workspace.dependencies]
 bullterrier-vector = { path = "crates/core" }
