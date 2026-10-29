@@ -213,6 +213,18 @@ that path.
 | `shapes` | `shapes(**values)` | the evaluated shapes, in design pixels | as outputs |
 | `size` | property | the design frame, or `None` | |
 
+## Shape
+
+`drawing.shapes(**values)` returns `list[Shape]`: every shape the drawing evaluates to, in paint order (the bottom
+first), after every step, in design pixels. A shape is a read-only value; `Drawing(*shapes)` puts shapes back into a
+drawing with their style and attributes.
+
+| Member | Type | Promise |
+|---|---|---|
+| `shape.path` | `Path` | its outline |
+| `shape.style` | `Style` | what the style steps set: `fill` and `stroke` (`"#rrggbbaa"` or `None`), `stroke_width`, `join`, `cap`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`) |
+| `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph`, `word`, `line`, `part`, `copy` (`int`), `char` (`str`), `level`, `order` (`float`), `origin` (`Point`) |
+
 ## Generators
 
 Functions of the module that return a `Drawing`.
