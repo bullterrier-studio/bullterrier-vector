@@ -363,7 +363,8 @@ nothing.
 is a view without a copy; refilling a mesh while a view of it is alive raises `ParameterError` naming `into`. In
 JavaScript, `mesh.verticesPtr`, `mesh.indicesPtr` and `mesh.rangesPtr` (byte offsets) and the matching `...Length`
 (in elements) locate the buffers in `btvec.memory`; make the typed-array views fresh after every call, since a pointer
-can move and the memory can grow
+can move and the memory can grow; `mesh.free()` returns the buffers to WebAssembly at once instead of when the mesh is
+collected
 ([mesh_upload.js](examples/mesh_upload.js)).
 
 The mesh is a display format; pixels and SVG stay the reference. What each step becomes: opacity goes into the
@@ -447,12 +448,12 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 |---|---|---|---|
 | Constructors | `btvec.Drawing(a, b, size=(w, h))`, `btvec.Font(data)`, `btvec.Param("rise", default=0, min=0, max=1)` | `Drawing::new([a, b]).with_size(w, h)`, `Drawing::from(path)`, `Font::new(data)?`, `Param::new("rise", 0.0, 0.0..=1.0)?.unit(Unit::Fraction)` | `new btvec.Drawing([a, b], { size: [w, h] })`, `new btvec.Font(data)`, `new btvec.Param("rise", { default: 0, min: 0, max: 1 })` |
 | Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7)`); the required argument alone converts into it (`.rotate(Deg(30.0))`) | an options object last (`{ width: 1.5 }`) |
-| Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods: `pulse.mul(0.08).add(1)`, `rise.neg().add(1)` |
+| Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods, read in source order: `pulse.mul(0.08).add(1)`; a number that comes first is lifted once with `btvec.expr(n)`: `btvec.expr(1).sub(rise).mul(HEIGHT)` |
 | Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` | an object: `toPng(1080, 1350, { weight: 820 })` |
 | Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toMesh(w, h, values, { into: mesh })`, `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })` |
 | Units as types | | `Deg(..)` for every angle (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`); `Size::px(w, h)` (whole output pixels, else an error at the draw) and `Size::mm(w, h)` for output sizes | |
 | Colours | `"#ff4f9a"` | `Color::hex(0xff4f9a)`, `Color::NONE` | `"#ff4f9a"` |
-| Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`translate`, `rotate`, `reverse`, `contains`); a path is built from `Path::start(point)`, so no segment comes before a start. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | exceptions with `kind` |
+| Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`translate`, `rotate`, `reverse`, `contains`); a path is built from `Path::start(point)`, so no segment comes before a start. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | exceptions of the exported classes `btvec.ParameterError` and `btvec.GeometryError` (both `btvec.BullterrierVectorError`), for `instanceof` |
 | Bytes in | `bytes` | `Vec<u8>` | `Uint8Array` |
 | Frame export | `btvec.frames` | the caller's loop over `to_png` | the caller's loop over `toRgba` or `toMesh` |
 
@@ -522,10 +523,10 @@ const letters = btvec
   .translate(btvec.random(-30, 30, { seed: 8 }).mul(burst), btvec.random(-50, 50, { seed: 9 }).mul(burst));
 const frame = btvec.Path.rect(0, 0, WIDTH, HEIGHT);
 const misregistration = burst.mul(14).add(3);
-const blue = new btvec.Drawing([frame]).translate(0, rise.neg().add(1).mul(HEIGHT))
+const blue = new btvec.Drawing([frame]).translate(0, btvec.expr(1).sub(rise).mul(HEIGHT))
   .subtract(letters.translate(misregistration, misregistration.mul(0.6))).fill(BLUE).blend("multiply");
 const pink = letters.fill(PINK).blend("multiply").opacity(ink);
-const hairlines = letters.stroke(INK, { width: 1.5 }).opacity(ink.neg().add(1));
+const hairlines = letters.stroke(INK, { width: 1.5 }).opacity(btvec.expr(1).sub(ink));
 const piece = new btvec.Drawing([frame.fill(PAPER), blue, pink, hairlines], { size: [WIDTH, HEIGHT] });
 const values = { rise: 1, ink: 1, weight: 620, burst: 0.4, pulse: [0.9, 0.6, 0.3, 0.1, 0, 0, 0] };
 const rgba = piece.toRgba(1080, 1350, values);

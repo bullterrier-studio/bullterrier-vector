@@ -39,13 +39,13 @@ const frame = btvec.Path.rect(0, 0, WIDTH, HEIGHT);
 const misregistration = burst.mul(14).add(3); // a constant offset looks like a mistake; it grows on a hit
 
 const paper = frame.fill(PAPER);
-const plane = new btvec.Drawing([frame]).translate(0, rise.neg().add(1).mul(HEIGHT));
+const plane = new btvec.Drawing([frame]).translate(0, btvec.expr(1).sub(rise).mul(HEIGHT));
 const blue = plane
   .subtract(letters.translate(misregistration, misregistration.mul(0.6)))
   .fill(BLUE)
   .blend("multiply");
 const pink = letters.fill(PINK).blend("multiply").opacity(ink);
-const hairlines = letters.stroke(INK, { width: 1.5 }).opacity(ink.neg().add(1));
+const hairlines = letters.stroke(INK, { width: 1.5 }).opacity(btvec.expr(1).sub(ink));
 
 const piece = new btvec.Drawing([paper, blue, pink, hairlines], { size: [WIDTH, HEIGHT] });
 const count = letters.shapes().length; // 7: a space or a line break gives no shape
