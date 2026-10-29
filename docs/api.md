@@ -297,9 +297,9 @@ Per-item numbers take a value per shape, from its attributes:
 | `random` | `random(low, high, *, seed=0)` | a number in `low..high` per shape, from `seed` and its index | `seed` not a whole number |
 | `stagger` | `stagger(progress, *, spread=0.5)` | each shape's own progress 0..1: the shape at position `p` runs while `progress` goes from `p × spread` to `p × spread + 1 - spread` (0: all together; towards 1: one after another) | `spread` outside 0..1 or equal to 1 |
 
-`btvec.ease` holds pure functions of a number: `in_cubic`, `out_cubic`, `in_out_cubic` and `out_back` (overshooting to
-about 1.1). Each maps 0..1 to 0..1 and holds its end values outside 0..1. Given a number they return a number (for a
-caller's function of time); given an `Expr` they return an `Expr` (inside a drawing).
+`btvec.ease` holds pure functions of a number, for the caller's own code (a function of time for `frames`, a list
+of values per item): `in_cubic`, `out_cubic`, `in_out_cubic` and `out_back` (overshooting to about 1.1). Each maps 0..1
+to 0..1 and holds its end values outside 0..1. They take numbers only: a drawing holds no easing.
 
 ## Outputs
 
