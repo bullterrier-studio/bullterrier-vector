@@ -1,5 +1,5 @@
-# The Rust workspace of bullterrier-vector: `crates/core` (pure Rust: the vector scene graph and its renderers; the
-# crate `bullterrier-vector`) and `crates/python` (its PyO3 bindings). Rust settings live here, except what a tool
+# The Rust workspace of bullterrier-vector: `crates/core` (pure Rust: the core of the library; the crate
+# `bullterrier-vector`) and `crates/python` (its PyO3 bindings). Rust settings live here, except what a tool
 # cannot read from this file: rust-toolchain.toml, rustfmt.toml, deny.toml, clippy.toml.
 [workspace]
 resolver = "3"

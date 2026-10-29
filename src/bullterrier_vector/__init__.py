@@ -1,4 +1,4 @@
-"""Typography-first generative vector graphics in code: SVG or pixels, the same from Rust, Python and the browser.
+"""A typography-first vector graphics scripting library: pictures written as code, drawn as SVG or pixels.
 
 For now the package holds only the walking skeleton: `polygon_svg` draws a regular polygon as SVG.
 """

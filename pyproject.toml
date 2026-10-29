@@ -1,7 +1,7 @@
 [project]
 name = "bullterrier-vector"
 dynamic = ["version"]  # maturin reads it from Cargo.toml's [workspace.package]
-description = "Typography-first generative vector graphics in code: SVG or pixels, the same from Rust, Python and the browser."
+description = "A typography-first vector graphics scripting library: pictures written as code, drawn as SVG or pixels, the same from Rust, Python and the browser."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

@@ -1,6 +1,6 @@
 [package]
 name = "bullterrier-vector"
-description = "The core of bullterrier-vector: a deterministic vector scene graph and its renderers, in pure Rust."
+description = "The pure-Rust core of bullterrier-vector, a typography-first vector graphics scripting library."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
