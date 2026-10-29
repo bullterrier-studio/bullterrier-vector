@@ -33,7 +33,7 @@ Maintainers may keep machine-specific notes in a git-ignored `.local/` folder an
 | Responsible for (planned: `docs/roadmap.md`) | Not responsible for |
 |---|---|
 | Bezier paths as values: build, measure, split, slice, hit-test, resample, simplify, fit curves; booleans, offsets, stroke outlines | Timelines, keyframes, easing over time, an `onFrame` loop: values over time are the caller's |
-| Drawings written as code: chainable, typed, discoverable from the editor (JSON is a layer on top); `Path`, `Shape`, `Drawing`, `Param`, the same verbs on a `Path` (now) and a `Drawing` (a step) | Writing a rasteriser, a shaper or a font parser: existing crates do that |
+| Drawings written as code: chainable, typed, discoverable from the editor (JSON is a layer on top); `Path`, `Shape`, `Drawing`, `Param`, the same verbs on a `Path` (computed at once) and a `Drawing` (a step) | Writing a rasteriser, a shaper or a font parser: existing crates do that |
 | Type as geometry: any TrueType or OpenType font from bytes, shaping, variable-font axes as parameters, every glyph an editable path | Producing font files; colour and bitmap fonts in v1 |
 | A generative layer: generators, deformers, repeaters, booleans, offsets, morph, hatching, tracing | An editor application (the library gives it geometry, hit testing, text layout) |
 | Effects, each added with a gallery piece (the effects track) | Photo effects and compositing over footage |
@@ -144,7 +144,11 @@ code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `ru
 installed at the versions `Cargo.toml` pins (`poe setup` installs them). `rust-deny` is offline (bans, licences, sources;
 `deny.toml`); `uv run poe audit` adds the advisories and needs the network (before a release). `lint-workflows` runs actionlint and zizmor (offline) on `.github`
 (`tools/lint_workflows.py`; no `.github` folder, nothing to lint; an empty one fails). `dead-code` is vulture on
-`src`. `build-check` builds the sdist and wheel into `dist/check` (`dist/` is git-ignored, as is `audit`'s `dist/audit`) and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist's Rust sources, the licence files, one extension, check-wheel-contents); `tools/check_installed.py` smoke-checks an installed artifact (its file, version, import location, the documented square). `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix` applies every automatic fix (`ruff check --fix`, `ruff format`, `cargo fmt`).
+`src`. `build-check` builds the sdist and wheel into `dist/check` (`dist/` is git-ignored, as is `audit`'s `dist/audit`)
+and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist's Rust sources, the licence files, one
+extension, check-wheel-contents); `tools/check_installed.py` smoke-checks an installed artifact (its file, version, import
+location, the documented square). `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix`
+applies every automatic fix (`ruff check --fix`, `ruff format`, `cargo fmt`).
 
 Each gate has a test proving it fails on a known-bad input (`tests/tools/`, marker `gate`: builds copies of the workspace, slow,
 left out of `fast`, run by `check`). A new gate gets its proof, and a line in `tests/tools/test_gate_wiring.py`, which fails
@@ -171,7 +175,8 @@ review (the last two have no local equivalent). `ci-ok` is the only required che
 skipped job passes. The `changes` job skips lint, test, security and build for a pull request that changes only
 documentation; the set is in two places, `is_documentation` in `tools/pre_push.py` and the `changes` filter in `ci.yml`:
 change both. `build` runs after the checks passed and produces the sdist and a wheel per platform
-(`docs/design-decisions.md`, "Platforms"). A job or a poe task added to the gate is added to the other too. Third-party actions are pinned by commit SHA; `lint-workflows` rejects the rest.
+(`docs/design-decisions.md`, "Platforms"). A job or a poe task added to the gate is added to the other too. Third-party
+actions are pinned by commit SHA; `lint-workflows` rejects the rest.
 
 ## Testing
 
