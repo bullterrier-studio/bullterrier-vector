@@ -1,6 +1,10 @@
-# Weekly update pull requests for the pinned actions (their commit SHAs) and the locked Python and Rust dependencies,
-# with Conventional Commit messages (`ci: bump ...`, `build(deps): bump ...`). Minor and patch updates come grouped, one
-# pull request per ecosystem; a major update gets its own. CI runs on each.
+# Weekly update pull requests for the pinned actions (their commit SHAs) and the locked Python and Rust dependencies.
+# Minor and patch updates come grouped, one pull request per ecosystem; a major update gets its own. CI runs on each.
+# The `prefix` below makes Dependabot start every title with a Conventional Commits type (`ci`, `build(deps)`, ...), but
+# the rest of a title is Dependabot's: a grouped update's can be longer than the 72 characters that
+# tools/check_commit_message.py allows a header, and its wording is not ours. So the title of a Dependabot pull
+# request is edited when it is merged (CONTRIBUTING.md says so too), and the merge commit's message follows
+# CLAUDE.md, Git conventions.
 version: 2
 updates:
   - package-ecosystem: github-actions
