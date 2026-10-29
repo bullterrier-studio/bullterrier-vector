@@ -62,9 +62,17 @@ point) and a `Flow` (a direction at every point).
 
 Points are pairs: `(x, y)` tuples go in, `Point`s come out (`p.x`, `p.y`; `+` and `-` between points, `*` by a
 number). `y` points down. Positions along a path are fractions 0..1 of its length (by arc length, not the curve
-parameter); a closed sub-path is measured from its topmost point (the leftmost of a tie), in its own direction, so the
-start does not move when the outline changes. A path with several sub-paths is measured through them in order. The
+parameter). A path with several sub-paths is measured through them in order. A closed sub-path is measured from its
+topmost point (the leftmost of a tie), in its own direction, so the start does not move when the outline changes. The
 closed constructors below start at the top and run clockwise.
+
+Every outline the library makes (`text`, `trace`, booleans, `offset`, `outline`) is in one canonical form, whatever the
+source (TrueType outlines run clockwise, CFF ones counter-clockwise): outer contours run clockwise and holes
+counter-clockwise; outer contours come in order of their topmost point (top to bottom, then left to right), each
+followed by its holes in the same order. A draw-on therefore runs the same way on every glyph of every font. Where two
+points of an outline are nearly as high (a raised hand beside the head), the topmost can change from one map to the next
+and the start jumps between them; `slice(..., near=point)` measures each closed sub-path from its point nearest `point`
+instead (the head, say).
 
 Building returns a new path each call:
 
@@ -120,7 +128,7 @@ cap-height centre; for any other shape, the centre of its bounds).
 | `outline` | `outline(width, *, join="round", cap="round")` | the region a stroke of `width` paints, as a closed outline; caps `butt`, `round`, `square` | `width` not above 0 |
 | `drop_parts` | `drop_parts(*, smaller_than)` | without the parts whose area is below `smaller_than` square pixels | |
 | `fill_holes` | `fill_holes(*, smaller_than)` | with the holes whose area is below `smaller_than` filled | |
-| `slice` | `slice(start, end)` | the piece between two positions along it (draw-on: `slice(0, progress)`) | a position outside 0..1 |
+| `slice` | `slice(start, end, *, near=None)` | the piece between two positions along it (draw-on: `slice(0, progress)`); with `near`, a closed sub-path is measured from its point nearest `near` | a position outside 0..1 |
 | `reverse` | `reverse()` | the same outline travelled the other way | |
 | `dash` | `dash(pattern, *, phase=0)` | the pieces a dash pattern (`[on, off, ...]` in pixels) leaves; `phase` in cycles of the pattern, wrapping | an empty pattern; a length not above 0 |
 | `resample` | `resample(spacing)` | straight segments with corners `spacing` pixels apart along it | `spacing` not above 0 |
@@ -500,7 +508,7 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 | 9 | A fast halftone fill | `halftone` |
 | 10 | Plotter export: stroke only, ordered, simplified, solids hatched, a layer per pen | `to_plotter_svg` |
 | 11 | A variable-width stroke, tapered at free ends | gap: an effects-track verb, named with its gallery piece |
-| 12 | Partial path by length from a stable start | `slice(0, progress)`, closed outlines measured from the topmost point |
+| 12 | Partial path by length from a stable start | `slice(0, progress)`: every outline the library makes in one orientation and order, closed ones measured from the topmost point, or from the point nearest `near=` where the top jumps |
 | 13 | Fitting text to a box by a variable axis, with a clear signal when the axis runs out | `text(width=, fit=)`; `ParameterError` naming the line and the width reached |
 
 Also from the findings: draw-on (`slice`), the riso misregistration that grows on a hit (an expression,
@@ -511,9 +519,11 @@ node if a piece needs one).
 
 ## Open questions for the owner
 
-1. **Positions along a path as fractions 0..1, closed outlines measured from their topmost point.** Recommended: yes.
-   A position is then a state (draw-on is `slice(0, progress)`) and the start does not move as a glyph changes; a
-   distance is `fraction × length`.
+1. **Positions along a path as fractions 0..1, closed outlines measured from their topmost point, in one canonical
+   orientation** (outer contours clockwise, holes counter-clockwise, in order of their topmost points, whatever the
+   font's format). Recommended: yes. A position is then a state (draw-on is `slice(0, progress)`), a draw-on runs the
+   same way in every font, and the start does not move as a glyph changes; where the top jumps between two peaks,
+   `near=` fixes the start; a distance is `fraction × length`.
 2. **Primitive shapes only as `Path` constructors.** `Path.star(...)` computes now; there is no `star` step whose point
    count is a Param. Recommended: yes, until a piece needs one; a Param on `scale` or `rotate` animates a primitive.
 3. **The reference pose for `fit` is every Param at its default.** Recommended: yes; the alternative, a `pose=`
