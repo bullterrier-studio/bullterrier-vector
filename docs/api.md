@@ -85,7 +85,7 @@ Building returns a new path each call:
 | `line_to` | `line_to(point)` | a straight segment to `point` | `ParameterError` before any `move_to` |
 | `curve_to` | `curve_to(control1, control2, point)` | a cubic Bezier segment to `point` | as `line_to` |
 | `quad_to` | `quad_to(control, point)` | a quadratic Bezier segment to `point` | as `line_to` |
-| `close` | `close()` | closes the open sub-path with a segment back to its start | as `line_to` |
+| `close` | `close()` | closes the open sub-path: a straight line back to its start is implied, not a segment of its own | as `line_to` |
 | `Path.line` | `Path.line(start, end)` | one open segment | |
 | `Path.polyline` | `Path.polyline(points, *, closed=False)` | straight segments through `points` | fewer than 2 points |
 | `Path.rect` | `Path.rect(x, y, width, height, *, radius=0)` | a closed rectangle, corners rounded by `radius` | a negative size; `radius` over half the shorter side |

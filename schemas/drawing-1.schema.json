@@ -37,7 +37,55 @@
     "non_negative": { "anyOf": [{ "type": "number", "minimum": 0 }, { "$ref": "#/$defs/expression" }] },
     "fraction": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "$ref": "#/$defs/expression" }] },
     "nonzero": { "anyOf": [{ "type": "number", "not": { "const": 0 } }, { "$ref": "#/$defs/expression" }] },
-    "whole": { "anyOf": [{ "type": "integer" }, { "$ref": "#/$defs/expression" }] },
+    "whole": {
+      "anyOf": [
+        { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        { "$ref": "#/$defs/expression" }
+      ]
+    },
+    "once_expression": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": { "enum": ["param", "add", "sub", "mul", "div", "neg"] },
+      "properties": {
+        "param": { "$ref": "#/$defs/name" },
+        "add": { "$ref": "#/$defs/once_operands" },
+        "sub": { "$ref": "#/$defs/once_operands" },
+        "mul": { "$ref": "#/$defs/once_operands" },
+        "div": { "allOf": [{ "$ref": "#/$defs/once_operands" }, { "prefixItems": [true, { "not": { "const": 0 } }] }] },
+        "neg": { "allOf": [{ "$ref": "#/$defs/once" }, { "not": { "type": "number" } }] }
+      },
+      "$comment": "an expression without per-item numbers, for an argument read once rather than per shape"
+    },
+    "once": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/once_expression" }] },
+    "once_positive": { "anyOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "$ref": "#/$defs/once_expression" }] },
+    "once_fraction": {
+      "anyOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "$ref": "#/$defs/once_expression" }]
+    },
+    "once_whole": {
+      "anyOf": [
+        { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        { "$ref": "#/$defs/once_expression" }
+      ]
+    },
+    "once_point": {
+      "type": "array",
+      "prefixItems": [{ "$ref": "#/$defs/once" }, { "$ref": "#/$defs/once" }],
+      "minItems": 2,
+      "items": false
+    },
+    "once_operands": {
+      "type": "array",
+      "prefixItems": [{ "$ref": "#/$defs/once" }, { "$ref": "#/$defs/once" }],
+      "minItems": 2,
+      "items": false,
+      "not": { "items": { "type": "number" } }
+    },
+    "param_name": {
+      "allOf": [{ "$ref": "#/$defs/name" }, { "not": { "enum": ["into", "pen_mm"] } }],
+      "$comment": "into and pen_mm are output options in Python, so no Param may take them"
+    },
     "point": {
       "type": "array",
       "prefixItems": [{ "$ref": "#/$defs/number" }, { "$ref": "#/$defs/number" }],
@@ -171,16 +219,16 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "width": { "type": "integer", "minimum": 1 },
-            "height": { "type": "integer", "minimum": 1 },
+            "width": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+            "height": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
             "data": { "$ref": "#/$defs/name" },
             "box": {
               "type": "array",
               "prefixItems": [
-                { "$ref": "#/$defs/number" },
-                { "$ref": "#/$defs/number" },
-                { "$ref": "#/$defs/positive" },
-                { "$ref": "#/$defs/positive" }
+                { "$ref": "#/$defs/once" },
+                { "$ref": "#/$defs/once" },
+                { "$ref": "#/$defs/once_positive" },
+                { "$ref": "#/$defs/once_positive" }
               ],
               "minItems": 4,
               "items": false
@@ -191,7 +239,7 @@
         "Field.ramp": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "start": { "$ref": "#/$defs/point" }, "end": { "$ref": "#/$defs/point" } },
+          "properties": { "start": { "$ref": "#/$defs/once_point" }, "end": { "$ref": "#/$defs/once_point" } },
           "required": ["start", "end"]
         },
         "Field.distance": {
@@ -211,16 +259,16 @@
         "Flow.angle": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "angle": { "$ref": "#/$defs/number" } },
+          "properties": { "angle": { "$ref": "#/$defs/once" } },
           "required": ["angle"]
         },
         "Flow.noise": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "wavelength": { "$ref": "#/$defs/positive" },
-            "phase": { "$ref": "#/$defs/number" },
-            "seed": { "$ref": "#/$defs/whole" }
+            "wavelength": { "$ref": "#/$defs/once_positive" },
+            "phase": { "$ref": "#/$defs/once" },
+            "seed": { "$ref": "#/$defs/once_whole" }
           }
         },
         "Flow.contour": {
@@ -235,7 +283,7 @@
           "properties": {
             "flow": { "$ref": "#/$defs/flow" },
             "other": { "$ref": "#/$defs/flow" },
-            "fraction": { "$ref": "#/$defs/fraction" }
+            "fraction": { "$ref": "#/$defs/once_fraction" }
           },
           "required": ["flow", "other", "fraction"]
         }
@@ -293,7 +341,10 @@
               "type": "array",
               "minItems": 2,
               "items": false,
-              "prefixItems": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "number", "exclusiveMinimum": 0 }]
+              "prefixItems": [
+                { "type": "number", "exclusiveMinimum": 0, "maximum": 100000 },
+                { "type": "number", "exclusiveMinimum": 0, "maximum": 100000 }
+              ]
             }
           },
           "required": ["items"]
@@ -304,7 +355,7 @@
           "properties": {
             "content": { "type": "string" },
             "font": { "$ref": "#/$defs/name" },
-            "size": { "$ref": "#/$defs/positive" },
+            "size": { "$ref": "#/$defs/once_positive" },
             "axes": {
               "type": "object",
               "propertyNames": { "$ref": "#/$defs/tag" },
@@ -313,13 +364,13 @@
             "features": {
               "type": "object",
               "propertyNames": { "$ref": "#/$defs/tag" },
-              "additionalProperties": { "type": "integer", "minimum": 0 }
+              "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
-            "tracking": { "$ref": "#/$defs/number" },
-            "leading": { "$ref": "#/$defs/positive" },
+            "tracking": { "$ref": "#/$defs/once" },
+            "leading": { "$ref": "#/$defs/once_positive" },
             "align": { "enum": ["left", "center", "right"] },
-            "anchor": { "$ref": "#/$defs/point" },
-            "width": { "$ref": "#/$defs/positive" },
+            "anchor": { "$ref": "#/$defs/once_point" },
+            "width": { "$ref": "#/$defs/once_positive" },
             "fit": { "$ref": "#/$defs/tag", "$comment": "an axis tag, or \"size\"" },
             "inside": { "$ref": "#/$defs/path_data" }
           },
@@ -330,11 +381,11 @@
           "additionalProperties": false,
           "properties": {
             "field": { "$ref": "#/$defs/field" },
-            "levels": { "type": "array", "items": { "$ref": "#/$defs/number" }, "minItems": 1 },
-            "tolerance": { "$ref": "#/$defs/positive" },
+            "levels": { "type": "array", "items": { "$ref": "#/$defs/once" }, "minItems": 1, "maxItems": 256 },
+            "tolerance": { "$ref": "#/$defs/once_positive" },
             "before": { "type": "array", "items": { "$ref": "#/$defs/field" } },
             "after": { "type": "array", "items": { "$ref": "#/$defs/field" } },
-            "sigma": { "$ref": "#/$defs/positive" }
+            "sigma": { "$ref": "#/$defs/once_positive" }
           },
           "required": ["field"]
         }
@@ -541,7 +592,9 @@
             "tone": { "$ref": "#/$defs/tone" },
             "flow": { "$ref": "#/$defs/flow" },
             "avoid": { "$ref": "#/$defs/drawing" }
-          }
+          },
+          "if": { "properties": { "spacing": { "type": "array" } }, "required": ["spacing"] },
+          "then": { "required": ["tone"] }
         },
         "split": { "type": "object", "additionalProperties": false, "properties": {} },
         "merge": {
@@ -555,7 +608,12 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "count": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "$ref": "#/$defs/expression" }] },
+            "count": {
+              "anyOf": [
+                { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+                { "$ref": "#/$defs/expression" }
+              ]
+            },
             "translate": { "$ref": "#/$defs/point" },
             "rotate": { "$ref": "#/$defs/number" },
             "scale": { "$ref": "#/$defs/nonzero_pair" },
@@ -624,13 +682,15 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "levels": { "anyOf": [{ "type": "integer", "minimum": 2 }, { "$ref": "#/$defs/expression" }] }
+            "levels": {
+              "anyOf": [{ "type": "integer", "minimum": 2, "maximum": 256 }, { "$ref": "#/$defs/expression" }]
+            }
           },
           "required": ["levels"]
         },
         "with_values": {
           "type": "object",
-          "propertyNames": { "$ref": "#/$defs/name" },
+          "propertyNames": { "$ref": "#/$defs/param_name" },
           "additionalProperties": {
             "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" } }]
           }
@@ -641,7 +701,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "name": { "$ref": "#/$defs/name" },
+        "name": { "$ref": "#/$defs/param_name" },
         "default": { "type": "number" },
         "min": { "type": "number" },
         "max": { "type": "number" },

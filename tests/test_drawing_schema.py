@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = json.loads((ROOT / "schemas" / "drawing-1.schema.json").read_text(encoding="utf-8"))
 EXAMPLES = sorted((ROOT / "docs" / "examples" / "json").glob("*.json"))
 SQUARE = "M0 0 L10 0 L10 10 L0 10 Z"
+MASK = {"Field.map": {"width": 2, "height": 2, "data": "mask"}}
 
 
 def failures(document: Any) -> set[tuple[str, str]]:
@@ -82,9 +83,91 @@ GOOD = [
         },
         id="a map input with its digest",
     ),
+    pytest.param(
+        {
+            "version": 1,
+            "params": [{"name": "x", "default": 0.5, "min": 0, "max": 1, "unit": "", "meaning": ""}],
+            "root": [{"trace": {"field": MASK, "levels": [{"param": "x"}]}}],
+        },
+        id="a trace level read from a Param",
+    ),
+    pytest.param(
+        square_with({"hatch": {"spacing": [2.4, 14], "tone": {"Field.ramp": {"start": [0, 10], "end": [0, 0]}}}}),
+        id="a spacing pair with its tone",
+    ),
 ]
 
 BAD = [
+    pytest.param(
+        square_with({"repeat": {"count": 2**53}}), "maximum", "/root/1/repeat/count", id="a count beyond 2**53 - 1"
+    ),
+    pytest.param(
+        square_with({"rotate": {"angle": {"random": {"low": -1, "high": 1, "seed": 2**60}}}}),
+        "maximum",
+        "/root/1/rotate/angle/random/seed",
+        id="a seed beyond 2**53 - 1",
+    ),
+    pytest.param(
+        {"version": 1, "root": [{"trace": {"field": MASK, "levels": [{"by_index": {"first": 0.2, "last": 0.8}}]}}]},
+        "enum",
+        "/root/0/trace/levels/0",
+        id="a per-item number in an argument read once",
+    ),
+    pytest.param(
+        square_with({"hatch": {"flow": {"Flow.noise": {"seed": {"random": {"low": 0, "high": 9}}}}}}),
+        "enum",
+        "/root/1/hatch/flow/Flow.noise/seed",
+        id="a per-item seed for a flow",
+    ),
+    pytest.param(
+        {
+            "version": 1,
+            "root": [{"text": {"content": "HI", "font": "a", "size": {"by_order": {"first": 9, "last": 90}}}}],
+        },
+        "enum",
+        "/root/0/text/size",
+        id="a per-item text size",
+    ),
+    pytest.param(
+        {
+            "version": 1,
+            "params": [{"name": "into", "default": 0, "min": 0, "max": 1, "unit": "", "meaning": ""}],
+            "root": [{"path": SQUARE}],
+        },
+        "not",
+        "/params/0/name",
+        id="a Param named like an output option",
+    ),
+    pytest.param(
+        square_with({"with_values": {"pen_mm": 0.5}}), "not", "/root/1/with_values", id="fixing an output option"
+    ),
+    pytest.param(
+        square_with({"hatch": {"spacing": [2.4, 14]}}), "required", "/root/1/hatch", id="a spacing pair without tone"
+    ),
+    pytest.param(
+        square_with({"posterize": {"levels": 1000}}),
+        "maximum",
+        "/root/1/posterize/levels",
+        id="posterize levels above 256",
+    ),
+    pytest.param(
+        {"version": 1, "root": [{"stack": {"items": [], "size": [1e9, 1350]}}]},
+        "maximum",
+        "/root/0/stack/size/0",
+        id="a design size beyond the bound",
+    ),
+    pytest.param(
+        {"version": 1, "root": [{"trace": {"field": MASK, "levels": [i / 300 for i in range(1, 300)]}}]},
+        "maxItems",
+        "/root/0/trace/levels",
+        id="too many trace levels",
+    ),
+    pytest.param(
+        {"version": 1, "root": [{"text": {"content": "HI", "font": "a", "features": {"liga": {"param": "x"}}}}]},
+        "type",
+        "/root/0/text/features/liga",
+        id="a feature as an expression",
+    ),
     pytest.param({"root": [{"path": SQUARE}]}, "required", "", id="no version"),
     pytest.param({"version": 2, "root": [{"path": SQUARE}]}, "const", "/version", id="an unknown version"),
     pytest.param({"version": "1", "root": [{"path": SQUARE}]}, "const", "/version", id="the version as a string"),

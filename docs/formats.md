@@ -90,14 +90,21 @@ defaults and units. The types below:
 | input | the name of an entry of `inputs` |
 
 Every argument not marked otherwise is a number. A literal value outside the range api.md states for it (an `alpha`
-above 1, a `pitch` of 0) fails the schema; an expression's value is checked when drawn.
+above 1, a `pitch` of 0) fails the schema; an expression's value is checked when drawn. Literal only, never an
+expression: `stack`'s `size`, `Field.map`'s `width` and `height`, `text`'s `features`, a shape's `attributes` and the
+values of `only`, `without` and `with_values`.
+
+Read once: an argument read once for the whole call, not once per shape, takes no per-item number (`by_index`,
+`by_order`, `random`, `stagger`), anywhere in its expression; the schema refuses one. These are `text`'s `size`,
+`tracking`, `leading`, `anchor` and `width` (its `axes` take one per glyph), every number of `trace`, and every
+number of a field or a flow.
 
 ### Sources
 
 | Call | Code | Arguments |
 |---|---|---|
 | `path` | a `Path` | its path data: the value is the string itself, `{"path": "M0 0 L10 0"}` |
-| `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, as literal values, `index` excepted: `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order`, `origin` a point); its style follows as steps |
+| `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order`, `origin` a point); its style follows as steps, a `fill` step always |
 | `drawing` | a shared drawing | the value is its name: `{"drawing": "letters"}` |
 | `stack` | `Drawing(*items, size=None)` | `items` (drawings, bottom first), `size` (`[width, height]`, literal numbers above 0) |
 | `text` | `text(content, *, font, ...)` | `content` (a string), `font` (input), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width`, `fit` (a tag or `"size"`), `inside` (path data) |
@@ -105,7 +112,8 @@ above 1, a `pitch` of 0) fails the schema; an expression's value is checked when
 
 A tag is four printable ASCII characters (`"wght"`). A shape's style is written as the style steps that set it, in the
 order of api.md's `Style` (`fill`, `stroke`, `halftone`, `opacity`, `blend`, `shadow`, `knockout`), each with the
-shape's values.
+shape's values. `Style` holds the paint as drawn, so the `fill` step is always written (`{"fill": {"color": "none"}}`
+when `Style.fill` is `None`): the shape then never takes the default paint, and draws as it did.
 
 ### Steps
 
@@ -268,12 +276,15 @@ other arguments. Every operand and every argument of a per-item number is itself
 "burst"}]}`. Values are 64-bit floats, evaluated in the order the tree gives; the result has the unit of the argument
 it stands in.
 
-An operator has at least one operand that is not a JSON number: an expression with no Param and no per-item number is
-written as its value (`to_json` folds it; the schema rejects `{"add": [1, 2]}` and `{"neg": 3}`). A literal zero
-divisor fails the schema; a divisor that is zero when drawn raises `ParameterError`, as api.md says.
+An expression with no Param and no per-item number is a plain number (api.md): the code computes it and checks it
+when the call is made, like a literal, and `to_json` writes its value. So an operator has at least one operand that is
+not a JSON number; the schema rejects `{"add": [1, 2]}` and `{"neg": 3}`. A literal zero divisor fails the schema; a
+divisor that is zero when drawn raises `ParameterError`, as api.md says. Every number is finite: JSON has no other,
+and a value that overflows when drawn raises `ParameterError`.
 
-A whole-number argument (`count`, `seed`, `levels`, a map's size) given as a JSON number must be an integer (`3`, never
-`3.5`); given as an expression, its value must be whole when drawn, or drawing raises `ParameterError`; it is never
+A whole-number argument (`count`, `seed`, `levels`, a feature's value, a map's size) given as a JSON number must be an
+integer within ±(2⁵³ − 1), the range in which a 64-bit float holds every whole number (`3`, never `3.5`); given as an
+expression, its value must be whole and in that range when drawn, or drawing raises `ParameterError`; it is never
 rounded.
 
 ## Values
@@ -285,11 +296,15 @@ rounded.
 - **Points** are `[x, y]`; `y` points down.
 - **Colours** are `"#rrggbb"` or `"#rrggbbaa"`, hex digits in either case; `fill` also takes `"none"`. No names, no
   three-digit form, no `rgb()`.
-- **Path data** is SVG path data, read as `Path.from_svg_path` reads it (every command, relative and absolute, arcs
-  included). The library writes it in one form: absolute `M`, `L`, `Q`, `C` and `Z`, each letter followed by its
-  numbers, every number and command separated by one space, numbers as in JSON ("Canonical form"):
-  `"M0 0 L1080 0 L1080 1350 L0 1350 Z"`. A path holds exact coordinates, so a circle is four cubic curves with their
-  control points, not a centre and a radius.
+- **Path data** is SVG path data. A `Path` is a list of sub-paths, each a start, its segments (straight, quadratic,
+  cubic) and whether it is closed, and its written form is one-to-one with it: each sub-path is `M x y`, then its
+  segments as `L`, `Q` and `C` with absolute coordinates, then `Z` if it is closed. `Z` is the close flag and writes
+  no segment: the line back to the start is implied, of no length when the last segment ends there. A sub-path with no
+  segments (a lone `M`) is written too. Each letter is followed by its numbers, every number and command separated by
+  one space, numbers as in JSON ("Canonical form"): `"M0 0 L1080 0 L1080 1350 L0 1350 Z"`. Reading takes any SVG path
+  data and normalises it into this form, as `Path.from_svg_path` does: relative commands made absolute, `H` and `V` as
+  `L`, `S` and `T` as `C` and `Q` with the reflected control point, `A` as cubic curves. A path holds exact
+  coordinates, so a circle is four cubic curves with their control points, not a centre and a radius.
 - **Text** is any JSON string; `"\n"` breaks a line.
 
 ## Params
@@ -319,7 +334,8 @@ file always says what `parameters()` returns.
 ## Inputs
 
 What arrives as bytes is not in the document: a document names it, and whoever loads the document supplies the bytes
-by that name. A document stays small, stays text, and holds nothing the library would have to fetch.
+by that name (`Drawing.from_json(text, inputs={"anybody": font_bytes})`). A document stays small, stays text, and holds
+nothing the library would have to fetch.
 
 ```json
 "inputs": {
@@ -335,15 +351,18 @@ by that name. A document stays small, stays text, and holds nothing the library 
 | `sha256` | optional: the SHA-256 of the bytes, 64 lowercase hex digits; when present, the bytes supplied must match it |
 
 A font is referred to by `text`'s `font`, a map by `Field.map`'s `data`; the map's width, height and box are the field's
-arguments. `to_json` always writes `sha256`, so a saved document names exactly the bytes it was drawn with and its
-canonical text is a cache key; a person writing a document by hand may leave it out. There is no embedded form: bytes
-in base64 would grow a font by a third, make the JSON mostly not text, and give two ways to supply an input.
+arguments. An input is its bytes: inputs of one kind with equal bytes are one input, whatever objects the code made. Its
+name is the `name=` its `Font` or `Field.map` was given; one without a name is named by its kind and the order the walk
+first reaches it (`font1`, `map1`...), skipping names the drawing gives. Two different byte strings given one name, or
+one byte string given two names, make `to_json` raise `ParameterError`. A loaded input keeps its name, so a document
+read and written again keeps it. `to_json` always writes `sha256`, so a saved document names exactly the bytes it was
+drawn with and its canonical text is a cache key; a person writing a document by hand may leave it out. There is no
+embedded form: bytes in base64 would grow a font by a third, make the JSON mostly not text, and give two ways to supply
+an input.
 
 SVG and series are not inputs of a drawing in version 1. `Path.from_svg_path` computes at once, so an imported logo is
 saved as its path data; a series becomes paths in the caller's code ([series_bars.py](examples/series_bars.py)). A
 node that reads one adds an input kind ("Extension").
-
-How a caller supplies the bytes, and how an input made in code gets its name, is question Q1.
 
 ## Canonical form
 
@@ -360,7 +379,7 @@ spelling the schema allows; canonical form is what the library writes:
    `[x, 14]`), so `3 + 14 * burst` in Python and `burst.mul(14).add(3)` in JavaScript write the same. Other operands
    keep the order the code gives them; nothing else is reordered, since floating-point addition is commutative but not
    associative.
-5. **Inputs** under the names the drawing gives them (Q1); `sha256` always written.
+5. **Inputs** one per byte string and kind, named as "Inputs" says; `sha256` always written.
 6. **Shared drawings** as "Shared drawings" defines them, named `d1`, `d2`... in the order the walk below first
    reaches them; every other drawing is written in place, a hand-written name for one used once included.
 7. **Text.** RFC 8785 (JSON Canonicalization Scheme): keys sorted by code point, no whitespace, numbers in their
@@ -394,7 +413,7 @@ The first look's drawing in canonical form:
 | Error | When |
 |---|---|
 | `FormatError` (also a `ValueError`) | the text is not a document this library reads: not JSON, a duplicate key, the schema fails, an unknown version or name, any check of "Checked by the loader" fails, a limit is passed. It carries the JSON Pointer of the offending value (`/root/2/rotate/angle`) and what is wrong. |
-| `ParameterError` | the caller's values are wrong: an input not supplied or not declared, bytes that do not match `sha256`, a font the library cannot read, a map whose bytes are not `width × height`; at draw time, as for any drawing (api.md). `to_json` raises it for a drawing beyond a limit. |
+| `ParameterError` | the caller's values are wrong: the checks `font-checks` and `inputs-supplied` below; at draw time, as for any drawing (api.md), an evaluation counter passed included. `to_json` raises it for a drawing beyond a limit, and for inputs named as "Inputs" forbids. |
 | `GeometryError` | at draw time, as for any drawing |
 
 `FormatError` is new to api.md's error kinds: the fix for a bad document is in the document, not in a call, so a caller
@@ -411,9 +430,26 @@ path or URL, or reads anything but the bytes the caller supplies. An input's nam
 | `MAX_DEPTH` | 128 | nesting of arrays and objects, counted through references, as if each shared drawing were written in place |
 | `MAX_CALLS` | 100,000 | call objects in the document: sources, steps, fields, flows and expressions |
 
-Counting depth through references bounds the evaluator's recursion as well as the parser's. A document past a limit is
-refused before anything is evaluated. Limits on what evaluation makes (shapes, points) are the evaluator's (V2): a small
-document may rightly make many shapes.
+Counting depth through references bounds the evaluator's recursion as well as the parser's; the evaluator walks a
+chain's steps in a loop, so a long chain costs no depth. A document past a limit is refused before anything is
+evaluated.
+
+A small document can still ask for much work (a `repeat` of a `repeat`, a stack of a shared drawing twice, nested 60
+times). The schema bounds the literal values that set work directly: a `stack`'s `size` at most 100,000 design pixels
+a side, `posterize`'s `levels` at most 256, at most 256 `trace` levels. Everything else is bounded while drawing, by
+counters checked as the work is done, never estimated beforehand; passing one raises `ParameterError` naming the
+counter, its limit and the step:
+
+| Counter | Limit | Counts, per draw |
+|---|---|---|
+| `MAX_SHAPES` | 1,000,000 | shapes made by any step, the stack of a drawing shared twice counting its shapes twice |
+| `MAX_SEGMENTS` | 10,000,000 | path segments made (by `resample`, `dash`, `hatch`, `trace`, the flattening for pixels) |
+| `MAX_FIELD_SAMPLES` | 16,777,216 | samples of a field or flow (tracing an analytic field, a distance field, hatching) |
+| `MAX_COPIES` | 1,000,000 | copies made by `repeat` |
+| `MAX_GLYPHS` | 100,000 | glyphs shaped by `text` |
+
+The values are placeholders that V2 sets from the reference pieces. A value given as an expression (a `posterize`
+`levels` from a Param) meets the same bound when drawn.
 
 ## Checked by the loader, not the schema
 
@@ -436,9 +472,9 @@ the loader's (V2 implements each, with a test named after it):
 | `drawing-acyclic` | a shared drawing reaches itself through references |
 | `path-data` | path data does not parse; the error names the first bad command |
 | `with-values` | a key names a Param the drawing before it does not read, or one an earlier `with_values` fixed; a value outside its Param's range (a cyclic one wraps) |
-| `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `trace` levels not increasing, `random` with `low` above `high`, `text` `fit` without `width` or on an axis also in `axes`, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
-| `font-checks` | with the font supplied: an axis or feature the font lacks, an axis value outside its range |
-| `inputs-supplied` | an input not supplied, bytes supplied for no input, bytes that do not match `sha256`, a map whose bytes are not `width × height` (`ParameterError`) |
+| `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `trace` levels not increasing, `trace` neighbours (`before`, `after`) whose literal `width`, `height` or `box` differ from the field's, `random` with `low` above `high`, `text` `fit` without `width` or on an axis also in `axes`, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
+| `font-checks` | with the font supplied: an axis or feature the font lacks, an axis value outside its range (`ParameterError`: the caller supplied the wrong font) |
+| `inputs-supplied` | an input the document declares that `inputs` does not give, a name in `inputs` the document does not declare, bytes that do not match `sha256`, a font the library cannot read, a map whose bytes are not `width × height` (`ParameterError`) |
 
 ## Extension
 
@@ -448,9 +484,12 @@ the schema and the Python and JavaScript bindings come from that registration. T
 the envelope, expressions and the registry; it has no list of calls. A new call is an addition within the version
 ("Versioning"). An input kind is added the same way, with the call that reads it.
 
-`schemas/drawing-1.schema.json` is a hand-written draft that checks the examples and the known-bad documents of
-`tests/test_drawing_schema.py`. From V2 the schema is generated from the registrations, and a test keeps the generated
-schema in agreement with this draft until the draft is retired.
+`schemas/drawing-1.schema.json` is a hand-written draft that checks the examples and the good and bad documents of
+`tests/test_drawing_schema.py`. From V2 the schema is generated from the registrations. The two agree when they give
+the same verdict on every example and every test document whose calls are all registered; for a call not yet
+registered the draft stays the specification, and it is retired call by call. V2 tests that a round trip through JSON
+gives equal canonical text and equal `shapes()`, and a property test that random trees from the registry round-trip to
+the same canonical text; V3 adds equal render bytes.
 
 ## Examples
 
@@ -472,23 +511,14 @@ readable names, and keys are in reading order; `to_json` would write `d1`, `d2`.
 
 The `sha256` fields are left out: the examples' bytes are not in the repository.
 
-## Questions for the owner
+## Decided after review
 
-- **Q1. Inputs in the code API.** api.md's `Font(data)` and `Field.map(...)` have no name, and `from_json(text)` takes
-  no bytes. Recommended: `Font(data, *, name=None)` and `Field.map(..., name=None)`, the name an input gets in JSON (an
-  unnamed one is written `font1`, `map1`... in walk order); `Drawing.from_json(text, *, inputs={})`, names to bytes
-  (Rust: `Inputs::new().set("anybody", bytes)`; JavaScript: an object), checked as "Checked by the loader" says.
-- **Q2. Names of shared drawings.** The code API has no name for a drawing, so `to_json` writes `d1`, `d2` and so on.
-  Recommended: keep it so; a name on `Drawing` is a second identity for a value. Revisit with an editor (V20), which
-  may want names.
-- **Q3. `Drawing(path)` is the path.** Rust converts a path (`Drawing::from(path)`); Python and JavaScript stack it
-  (`Drawing(frame)`). Recommended: one path and no size make no stack in any language, so the three kinetic type
-  programs save to the same JSON.
-- **Q4. Defaults are part of the format.** Saved documents leave defaults out, so after the first release a default
-  changes only with a new version (the code API's callers rely on defaults in the same way). Recommended: yes; files
-  stay short and hand-written ones shorter; the alternative, writing every argument, puts `null` for `leading`,
-  `about` and `fit` into every file.
-- **Q5. Bytes when loading, not when drawing.** Inputs are supplied to `from_json`, so a loaded drawing is complete like
-  one built in code. Supplying them at draw time would let one document serve every frame of a traced clip, but makes
-  a second kind of drawing (one that cannot draw until given its bytes). Recommended: at load; revisit in V14 if
-  saving a clip's frames costs too much.
+The owner's answers (2026-10-29), written into the sections above:
+
+- **Inputs:** `Font` and `Field.map` take an optional `name`; `Drawing.from_json(text, *, inputs={})` takes the bytes
+  by name; an input is its bytes ("Inputs").
+- **Shared drawings** have no name in the code API; `to_json` writes `d1`, `d2` and so on.
+- **`Drawing(x)` of one item and no size is `x`**, and a stack writes `order` only on shapes that carry none (api.md).
+- **Defaults are part of the format:** saved documents leave them out, so after the first release a default changes
+  only with a new version.
+- **Bytes are supplied when loading**, not when drawing: a loaded drawing is complete, like one built in code.

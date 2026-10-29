@@ -120,28 +120,30 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   registry add one by name; an unknown name is a single, precise error. Rejected: `{"node": "fill", "input": {...}}`,
   which reads inside out and nests one level per step.
 - **Shared drawings by name, defined on the merged graph.** Equal drawings are merged by a structural hash, and a
-  drawing is written once in `drawings` exactly when two or more calls build on it or take it. *Reason:* the reference pieces
-  use one drawing in up to six places; written out, a file repeats it and an edit must be made in each, and a drawing
-  built from copies of copies grows exponentially. Counting on the graph, never on the expanded tree, gives one answer
-  for a shared prefix and keeps every whole-tree computation linear in the document.
+  drawing is written once in `drawings` exactly when two or more calls build on it or take it. *Reason:* the reference
+  pieces use one drawing in up to six places; written out, a file repeats it and an edit must be made in each, and a
+  drawing built from copies of copies grows exponentially. Counting on the graph, never on the expanded tree, gives one
+  answer for a shared prefix and keeps every whole-tree computation linear in the document.
 - **A closed expression grammar:** `param`, `add`, `sub`, `mul`, `div`, `neg` and the four per-item numbers, nothing
   else. *Reason:* exactly what the code API can build, so a document stays data that any reader evaluates the same way
   and the schema can check; a function api.md lacks would be a format feature no code can write. Constant expressions
-  are folded and the operands of `add` and `mul` ordered, because Python, Rust and JavaScript spell the same
+  are folded and a literal operand of `add` and `mul` written first, because Python, Rust and JavaScript spell the same
   expression differently and must save the same JSON.
-- **Inputs by name, bytes beside the document.** A font or map is declared by name and kind, with an optional SHA-256;
-  the caller supplies the bytes. *Reason:* a document stays small, stays text, and fetches nothing; the digest makes the
-  canonical text a complete cache key and catches the wrong mask. No embedded form: base64 grows a font by a third and
-  is a second way to supply an input.
+- **Inputs by name, bytes beside the document; an input is its bytes.** A font or map is declared by name and kind, with
+  an optional SHA-256; the caller supplies the bytes; equal bytes are one input. *Reason:* a document stays small, stays
+  text, and fetches nothing; the digest makes the canonical text a complete cache key and catches the wrong mask. No
+  embedded form: base64 grows a font by a third and is a second way to supply an input.
 - **A canonical form: normalised tree, RFC 8785 text.** *Reason:* "the same drawing gives the same bytes" must hold
   for the saved file too, so it can address a cache; RFC 8785 is a published scheme with implementations in every
   language, and the normalisation (defaults left out, one path spelling, colours in lower case, sharing by equality)
   removes the differences between languages and between hand-written and saved files.
 - **Defaults left out of saved documents** (question 4 in formats.md). *Reason:* short files, and the code API's callers
   already rely on defaults. *Consequence:* after the first release a default changes only with a new version.
-- **Limits:** 16 MiB of text, depth 128 counted through references, 100,000 calls. *Reason:* a document may come from
-  anyone; depth through references bounds the evaluator's recursion (small in WebAssembly), and 128 is the default of
-  common JSON parsers (serde_json's among them).
+- **Limits:** 16 MiB of text, depth 128 counted through references, 100,000 calls; schema bounds on the literals that
+  set work; counters checked while drawing (shapes, segments, field samples, copies, glyphs). *Reason:* a document may
+  come from anyone; depth through references bounds the evaluator's recursion (small in WebAssembly), and 128 is the
+  default of common JSON parsers (serde_json's among them); work cannot be estimated beforehand (a shared drawing
+  stacked twice, sixty times over), so it is counted as it is done.
 - **Versioning by an integer major.** A version only grows (new calls, new optional arguments, new values); anything
   else is a new version; a reader refuses versions and names it does not document, naming them. *Reason:* one number
   says whether a reader can read a document; growth within a version keeps old documents valid, and an unknown name
