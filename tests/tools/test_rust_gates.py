@@ -7,7 +7,6 @@ workspace into which one offence at a time is written. The copies share one buil
 compiled once, and nothing needs the network.
 """
 
-import os
 import shutil
 import subprocess
 import sys
@@ -47,19 +46,6 @@ def workspace(tmp_path_factory) -> Path:
         shutil.copy(ROOT / name, root)
     shutil.copytree(ROOT / "crates", root / "crates")
     return root
-
-
-@pytest.fixture(scope="module")
-def cargo_env(tmp_path_factory) -> dict[str, str]:
-    """`uv run`'s environment (PyO3 finds this Python), offline, uncoloured, with one build folder for every copy."""
-    return {
-        **os.environ,
-        "PATH": os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")]),
-        "CARGO_TARGET_DIR": str(tmp_path_factory.mktemp("target")),
-        "CARGO_NET_OFFLINE": "true",
-        "CARGO_TERM_COLOR": "never",
-        "NO_COLOR": "1",
-    }
 
 
 def poe(workspace: Path, task: str, env: dict[str, str]) -> Verdict:
