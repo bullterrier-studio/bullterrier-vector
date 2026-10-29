@@ -21,15 +21,14 @@ with a gallery piece"). The primitive comes from its batch; the effect adds the 
 | Ink-bleed edges | edges roughened like ink spreading into paper | V9, V12 |
 | Radial, grid and scatter repeaters | copies around a centre, on a grid, or scattered with even spacing, each with its copy index | V2, V7 |
 | Smooth blob merging | shapes that melt into each other where they come close | V8, V9 |
-| Text on a path | a line of text following a curve and moving along it | V6 |
 | Tapered strokes | a stroke whose width varies along its length, thinning at free ends | V9 |
 | Riso inks | inks multiplied over paper, each misregistered by its own offset | V8, V10 |
 | Voronoi and Delaunay, truchet, superformula | generators | V2 |
 | Series input | bars and waveform paths from a list of numbers | V2 |
 
-Duotone, gradient maps, posterize, halftone dots and glitch slices are the vector-native versions of effects usually
-applied to pixels: colour and geometry operations on shapes, so the output stays vector ([design.md](design.md),
-"Effects").
+Duotone, gradient maps, posterize, halftone dots, glitch slices and misregistration (the offsets of riso inks) are the
+vector-native versions of effects usually applied to pixels: colour and geometry operations on shapes, so the output
+stays vector ([design.md](design.md), "Effects").
 
 Tried in the prototypes and not taken: halftone clipped inside letters, thin outline echoes, a large outline wobble,
 concentric evenly spaced offsets ([prototype-findings.md](prototype-findings.md)).
