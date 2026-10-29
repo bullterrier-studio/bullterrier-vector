@@ -3,7 +3,7 @@
 Rust library with Python (and, later, WebAssembly) bindings for **typography-first generative vector graphics**: you describe a
 picture in code (type, shapes and generative forms, with deformers, repeaters and booleans), and it is drawn as SVG or pixels,
 identical from Rust, Python and the browser. `README.md` (status), `docs/design.md` (what and how), `docs/design-decisions.md`
-(why), `docs/roadmap.md` (the batches, in order).
+(why), `docs/roadmap.md` (the batches, in order), `CONTRIBUTING.md` (setup and CI for people).
 
 **Write docs tersely.** This file, the README, `docs/`, docstrings, reports and briefs: state the rule or fact, drop preamble,
 repetition and justification a reader does not need to act. Reasons go in `docs/design-decisions.md`, once. Committed files are
@@ -22,7 +22,7 @@ uv run poe check                                 # the whole gate, before you re
 Needs [rustup](https://rustup.rs): the first `cargo` command in the checkout fetches the toolchain `rust-toolchain.toml` pins and
 the `wasm32-unknown-unknown` target. `uv run poe` lists every task.
 
-**State:** the scaffold (workspace, gates, hooks) and one walking-skeleton function, `polygon_svg(sides, radius)`, from the Rust
+**State:** the scaffold (workspace, gates, hooks, CI workflows) and one walking-skeleton function, `polygon_svg(sides, radius)`, from the Rust
 core to Python; the core also builds for WebAssembly. The rest is planned (`docs/roadmap.md`); the skeleton is replaced in V2.
 Maintainers may keep machine-specific notes in a git-ignored `.local/` folder and batch plans in the git-ignored
 `.superpowers/plans/`: read them when present; never commit or cite them.
@@ -139,7 +139,7 @@ code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `ru
 installed at the versions `Cargo.toml` pins (`poe setup` installs them). `rust-deny` is offline (bans, licences, sources;
 `deny.toml`); `uv run poe audit` adds the advisories and needs the network (before a release). `lint-workflows` runs actionlint and zizmor (offline) on `.github`
 (`tools/lint_workflows.py`; no `.github` folder, nothing to lint; an empty one fails). `dead-code` is vulture on
-`src`. `build-check` builds the sdist and wheel into `dist/check` and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist's Rust sources, one extension, check-wheel-contents); `tools/check_installed.py` smoke-checks an installed artifact (its file, version, import location, the documented square). `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix` applies every automatic fix (`ruff check --fix`, `ruff format`, `cargo fmt`).
+`src`. `build-check` builds the sdist and wheel into `dist/check` (`dist/` is git-ignored, as is `audit`'s `dist/audit`) and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist's Rust sources, the licence files, one extension, check-wheel-contents); `tools/check_installed.py` smoke-checks an installed artifact (its file, version, import location, the documented square). `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix` applies every automatic fix (`ruff check --fix`, `ruff format`, `cargo fmt`).
 
 Each gate has a test proving it fails on a known-bad input (`tests/tools/`, marker `gate`: builds copies of the workspace, slow,
 left out of `fast`, run by `check`). A new gate gets its proof, and a line in `tests/tools/test_gate_wiring.py`, which fails
@@ -155,6 +155,17 @@ Config homes: Python tooling in `pyproject.toml` (ruff, mypy, pytest, poe, commi
 only: `rust-toolchain.toml`, `rustfmt.toml`, `deny.toml`, `clippy.toml`. Do not add `ruff.toml`, `mypy.ini`, `setup.cfg`,
 `pytest.ini`, `.coveragerc`, a second `clippy.toml`, `.cargo/config.toml` or similar (a test fails). Other config files:
 `.pre-commit-config.yaml` (hook wiring only), `.editorconfig`, `.gitmessage`.
+
+## CI
+
+`.github/workflows/`: `ci.yml` (pushes to `main`, pull requests, merge queue; calls the rest), `lint.yml`, `test.yml`,
+`security.yml` (also weekly), `pre-commit.yml`, `build.yml`; `.github/dependabot.yml` for weekly updates. Each step is a
+local gate task or tool (`uv run --locked poe <task>`), except that macOS and Windows run `rust-test` and the suite without
+the gate proofs. `ci-ok` is the only required check: every job is in its `needs`, and a skipped job passes. The `changes` job
+skips lint, test, security and build for a pull request that changes only documentation; the set is in two places,
+`is_documentation` in `tools/pre_push.py` and the `changes` filter in `ci.yml`: change both. `build` runs after the checks
+passed and produces the sdist and a wheel per platform (`docs/design-decisions.md`, "Platforms"). A job or a poe task added
+to the gate is added to the other too. Third-party actions are pinned by commit SHA; `lint-workflows` rejects the rest.
 
 ## Testing
 
