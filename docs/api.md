@@ -399,6 +399,10 @@ error and returns it from the first draw ("Languages").
   angles, wrapping. Cycles for phases, wrapping. Fractions 0..1 for positions along a path and for progress. Thousandths
   of an em for tracking; font axes in the font's own units; areas in square pixels; millimetres only in the plotter
   output. A number is a state, never a duration.
+- **Sampling in design pixels.** Everything the library samples internally (tracing an analytic field, resampling
+  before a deformer, flattening curves for pixels and the mesh, seeding hatch lines) uses steps in design pixels, each a
+  named constant, never the output size; a map is sampled at its own pixels. A drawing has the same geometry at any
+  output size: only rasterising depends on it.
 - **Arguments.** What a call cannot do without is positional (`offset(8)`, `rotate(30)`); every option is
   keyword-only.
 - **Defaults look good** with no tuning: a default comes from a gallery piece, not from a round number.

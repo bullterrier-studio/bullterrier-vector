@@ -144,6 +144,9 @@ the schema rejects known-bad drawings.
 - Registry by name. Built-ins: the `Path` constructors (`Path.polygon`, `Path.star` and the rest), `translate`,
   `rotate`, `scale`, stacking (`Drawing(...)`). Replaces S0's skeleton function.
 - Contract tests over every registered node: determinism, values within range, the same result at any size.
+- Every internal sampling step (trace on an analytic field, resampling before a deformer, curve flattening, hatch
+  seeding) in design pixels, independent of the output size, each a named constant (`// constant:`; api.md,
+  "Conventions").
 
 Carried from the S0 review:
 - `polygon_svg` accepts radii that draw nothing (viewBox `0 0 0 0` at radius 1e-9) and rounds to 6 fixed decimals, which
@@ -162,7 +165,8 @@ Carried from the S0 review:
   differential test below.
 - `uv run poe look <drawing>`: draws to PNG and SVG in a git-ignored folder, for a person or an agent to look at.
 - The WebAssembly package (wasm-bindgen): build, a smoke test in Node.
-- Differential test: the core's drawings rendered natively and in WebAssembly give identical bytes.
+- Differential tests: the core's drawings rendered natively and in WebAssembly give identical bytes; and a drawing
+  drawn at 1x and at 2x gives the same geometry (SVG and mesh coordinates at 2x are exactly twice those at 1x).
 - Benchmark: time to draw a reference drawing at 1080p, tracked from here on.
 
 ## X1 Spike: GPU display
