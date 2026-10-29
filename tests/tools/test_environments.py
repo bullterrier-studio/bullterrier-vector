@@ -2,6 +2,8 @@
 is not on the allow-list (`RUSTFLAGS` making clippy fail or cargo rebuild, `GIT_DIR` sending git elsewhere, a
 `CARGO_BUILD_TARGET`) reaches none of them, and the variables a command needs to start do."""
 
+import os
+
 import pytest
 
 OUTSIDE = {
@@ -15,8 +17,9 @@ OUTSIDE = {
     "PYTHONWARNINGS": "error",
     "PRE_COMMIT_REMOTE_NAME": "github",
 }
+# PATH is not faked: git_repo runs git in the environment it builds, and git is found through the real PATH
+PATH_MARKER = "/nonexistent/tools"
 INHERITED = {
-    "PATH": "/usr/bin",
     "HOME": "/home/me",
     "CARGO_HOME": "/cargo",
     "RUSTUP_HOME": "/rustup",
@@ -53,14 +56,13 @@ def test_a_variable_outside_the_allow_list_does_not_reach_the_proofs(request, mo
 def test_the_variables_a_command_needs_to_start_reach_the_proofs(request, monkeypatch, fixture):
     for name, value in INHERITED.items():
         monkeypatch.setenv(name, value)
+    monkeypatch.setenv("PATH", os.pathsep.join([os.environ["PATH"], PATH_MARKER]))  # the real PATH still starts git
     env = environment_of(request, fixture)
-    assert {name: env.get(name) for name in INHERITED if name != "PATH"} == {
-        name: value for name, value in INHERITED.items() if name != "PATH"
-    }
-    assert env["PATH"].endswith(INHERITED["PATH"])  # the interpreter's folder comes first in some
+    assert {name: env.get(name) for name in INHERITED} == INHERITED
+    assert env["PATH"].endswith(PATH_MARKER)  # the interpreter's folder comes first in some
 
 
 def test_a_variable_that_is_not_set_is_not_made_up(explicit_env, monkeypatch):
-    for name in INHERITED:
+    for name in [*INHERITED, "PATH"]:
         monkeypatch.delenv(name, raising=False)
     assert explicit_env() == {}
