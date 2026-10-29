@@ -512,12 +512,13 @@ let letters = btvec::text(
 .translate(Random::new(-30.0, 30.0).seed(8) * &burst, Random::new(-50.0, 50.0).seed(9) * &burst);
 let frame = Path::rect(0.0, 0.0, WIDTH, HEIGHT)?;
 let misregistration = 3.0 + 14.0 * &burst;
-let blue = Drawing::from(frame.clone()).translate(0.0, HEIGHT * (1.0 - &rise))
+let paper = frame.fill(PAPER);
+let blue = Drawing::from(frame).translate(0.0, HEIGHT * (1.0 - &rise))
     .subtract(&letters.translate(&misregistration, 0.6 * &misregistration))
     .fill(BLUE).blend(Blend::Multiply);
 let pink = letters.fill(PINK).blend(Blend::Multiply).opacity(&ink);
 let hairlines = letters.stroke(Stroke::new(INK).width(1.5)).opacity(1.0 - &ink);
-let piece = Drawing::new([frame.fill(PAPER), blue, pink, hairlines]).with_size(WIDTH, HEIGHT);
+let piece = Drawing::new([paper, blue, pink, hairlines]).with_size(WIDTH, HEIGHT);
 let values = Values::new().set("rise", 1.0).set("ink", 1.0).set("weight", 620.0).set("burst", 0.4)
     .set("pulse", vec![0.9, 0.6, 0.3, 0.1, 0.0, 0.0, 0.0]);
 let png = piece.to_png(Size::px(WIDTH, HEIGHT), &values)?;
