@@ -134,4 +134,5 @@ def test_an_sdist_without_the_toolchain_file_fails_the_gate(project, build_check
     pyproject.write_text(text.replace(inclusion, ""), encoding="utf-8")
     verdict = build_check()
     assert verdict.returncode != 0
-    assert "rust-toolchain.toml" in verdict.report
+    # the sdist's own report, naming the one file it lacks (a list would name more)
+    assert ".tar.gz: lacks rust-toolchain.toml, which a build of the extension needs" in verdict.report
