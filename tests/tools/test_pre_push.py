@@ -1,6 +1,7 @@
-"""tools/pre_push.py decides whether a push must pass the whole local gate first: pushes to main, and anything that
-is not a branch (a release tag), do; any other branch is left to CI, so feature-branch pushes stay quick, and so is a
-push that changes only documentation."""
+"""tools/pre_push.py decides whether a push must pass the whole local gate first: pushes to main, anything that is not
+a branch (a release tag) and any push while local main has code its remote-tracking branch lacks do; any other branch
+is left to CI, so feature-branch pushes stay quick, and so is a push that changes only documentation. The tests use
+real throwaway repositories with a bare repository as the remote."""
 
 import importlib.util
 import shutil
@@ -24,21 +25,161 @@ pre_push = _load()
 
 
 @pytest.mark.parametrize("ref", ["refs/heads/main", "refs/tags/v1.2.3", "refs/tags/v1.2.3rc1", "", "main"])
-def test_main_tags_and_anything_unclear_must_pass_the_gate(ref):
+def test_main_and_tags_and_anything_unclear_must_pass_the_gate_whatever_main_looks_like(git_repo, monkeypatch, ref):
+    git_repo.commit("chore: start", {"start.txt": "start"})
+    git_repo.add_remote()
+    git_repo.git("push", "-q", "origin", "main")  # main is level with origin/main
+    monkeypatch.chdir(git_repo.path)
     assert pre_push.must_run(ref)
 
 
-@pytest.mark.parametrize("ref", ["refs/heads/feature/glyphs", "refs/heads/fix/windows-links", "refs/heads/main2"])
-def test_other_branches_are_left_to_ci(ref):
-    assert not pre_push.must_run(ref)
+def level(repo):
+    repo.commit("chore: start", {"start.txt": "start"})
+    repo.add_remote()
+    repo.git("push", "-q", "origin", "main")
 
 
-def test_a_feature_branch_push_skips_the_gate_and_succeeds(monkeypatch, capsys):
+def ahead_with_code(repo):
+    level(repo)
+    repo.commit("feat: code", {"src/code.py": "x = 1"})
+
+
+def ahead_with_documentation(repo):
+    level(repo)
+    repo.commit("docs: page", {"README.md": "x", "docs/images/logo.svg": "<svg/>"})
+
+
+def behind(repo):
+    level(repo)
+    repo.commit("feat: code", {"src/code.py": "x = 1"})
+    repo.git("push", "-q", "origin", "main")
+    repo.git("reset", "-q", "--hard", "HEAD~1")
+
+
+def diverged(repo):
+    level(repo)
+    repo.commit("feat: code", {"src/code.py": "x = 1"})
+    repo.git("push", "-q", "origin", "main")
+    repo.git("reset", "-q", "--hard", "HEAD~1")
+    repo.commit("feat: other code", {"src/other.py": "x = 2"})
+
+
+def ahead_without_changes(repo):
+    level(repo)
+    repo.git("commit", "-q", "--allow-empty", "-m", "chore: nothing")
+
+
+def no_remote_tracking_main(repo):
+    repo.commit("feat: code", {"src/code.py": "x = 1"})
+    repo.add_remote()  # nothing pushed yet
+
+
+def no_remote(repo):
+    repo.commit("feat: code", {"src/code.py": "x = 1"})
+
+
+def no_local_main(repo):
+    level(repo)
+    repo.git("switch", "-q", "-c", "feat/x")
+    repo.git("branch", "-q", "-D", "main")
+
+
+def remote_named_upstream_is_level_origin_is_not(repo):
+    repo.commit("chore: start", {"start.txt": "start"})
+    repo.add_remote()  # origin lacks main
+    repo.add_remote("upstream")
+    repo.git("push", "-q", "upstream", "main")
+
+
+@pytest.mark.parametrize(
+    ("state", "gate_runs"),
+    [
+        pytest.param(level, False, id="main level with origin/main"),
+        pytest.param(ahead_with_documentation, False, id="main ahead by documentation only"),
+        pytest.param(behind, False, id="main behind origin/main"),
+        pytest.param(ahead_with_code, True, id="main ahead by code"),
+        pytest.param(diverged, True, id="main and origin/main each with commits of their own"),
+        pytest.param(ahead_without_changes, True, id="main ahead by a commit that changes nothing: no proof"),
+        pytest.param(no_remote_tracking_main, True, id="no origin/main: nothing says main is level"),
+        pytest.param(no_remote, True, id="no remote at all"),
+        pytest.param(no_local_main, True, id="no local main"),
+        pytest.param(
+            remote_named_upstream_is_level_origin_is_not,
+            True,
+            id="origin lacks main (the remote asked about is the default one)",
+        ),
+    ],
+)
+@pytest.mark.parametrize("ref", ["refs/heads/feat/x", "refs/heads/main2"])
+def test_a_branch_push_runs_the_gate_while_main_has_code_its_remote_tracking_branch_lacks(
+    git_repo, monkeypatch, state, gate_runs, ref
+):
+    state(git_repo)
+    monkeypatch.chdir(git_repo.path)
+    assert pre_push.must_run(ref) is gate_runs
+
+
+def test_the_remote_pre_commit_names_decides_which_remote_tracking_main_counts(git_repo, monkeypatch):
+    remote_named_upstream_is_level_origin_is_not(git_repo)
+    monkeypatch.chdir(git_repo.path)
+    assert pre_push.must_run("refs/heads/feat/x", "origin")
+    assert not pre_push.must_run("refs/heads/feat/x", "upstream")
+
+
+def test_a_feature_branch_push_with_main_level_skips_the_gate_and_succeeds(git_repo, monkeypatch, capsys):
     """With uv hidden a gate that did run would show as a failure here, never as the whole gate running."""
+    level(git_repo)
+    monkeypatch.chdir(git_repo.path)
     monkeypatch.setenv("PRE_COMMIT_REMOTE_BRANCH", "refs/heads/feature/x")
     monkeypatch.setattr(shutil, "which", lambda _name: None)
     assert pre_push.main() == 0
     assert "uv is not on the PATH" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("state", "feature_changes", "remote_name", "gate_runs"),
+    [
+        pytest.param(ahead_with_code, {"docs/page.md": "x"}, None, True, id="feat/x first (only a page), main ahead"),
+        pytest.param(ahead_with_code, {"src/other.py": "y = 2"}, None, True, id="feat/x first with code, main ahead"),
+        pytest.param(level, {"src/other.py": "y = 2"}, None, False, id="feat/x first with code, main level"),
+        pytest.param(level, {"README.md": "y"}, None, False, id="feat/x first with a page, main level"),
+        pytest.param(ahead_with_documentation, {"src/other.py": "y = 2"}, None, False, id="main ahead by a page only"),
+        pytest.param(no_remote_tracking_main, {"README.md": "y"}, None, True, id="no origin/main"),
+        pytest.param(
+            remote_named_upstream_is_level_origin_is_not,
+            {"README.md": "y"},
+            "upstream",
+            False,
+            id="PRE_COMMIT_REMOTE_NAME names the remote whose main is level",
+        ),
+        pytest.param(
+            remote_named_upstream_is_level_origin_is_not,
+            {"README.md": "y"},
+            None,
+            True,
+            id="origin is the default remote, and its main is not level",
+        ),
+    ],
+)
+def test_a_multi_ref_push_runs_the_gate_whichever_ref_comes_first(
+    git_repo, monkeypatch, capsys, state, feature_changes, remote_name, gate_runs
+):
+    """`git push origin feat/x main` and `git push --all` report feat/x to the hook, and its pushed range is
+    feat/x's own; the gate runs because main, which is also pushed, has code."""
+    state(git_repo)
+    main = git_repo.git("rev-parse", "main")
+    git_repo.git("switch", "-q", "-c", "feat/x")
+    feature = git_repo.commit("feat: on the branch", feature_changes)
+    git_repo.git("switch", "-q", "main")
+    monkeypatch.chdir(git_repo.path)
+    monkeypatch.setenv("PRE_COMMIT_REMOTE_BRANCH", "refs/heads/feat/x")
+    monkeypatch.setenv("PRE_COMMIT_FROM_REF", main)
+    monkeypatch.setenv("PRE_COMMIT_TO_REF", feature)
+    if remote_name:
+        monkeypatch.setenv("PRE_COMMIT_REMOTE_NAME", remote_name)
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+    assert pre_push.main() == (1 if gate_runs else 0)
+    assert ("uv is not on the PATH" in capsys.readouterr().out) is gate_runs
 
 
 @pytest.mark.parametrize(
@@ -138,15 +279,28 @@ def test_a_push_that_changes_nothing_runs_the_gate(git_repo, monkeypatch, capsys
     assert "uv is not on the PATH" in capsys.readouterr().out
 
 
-def test_a_documentation_only_push_of_a_tag_skips_the_gate_too(git_repo, monkeypatch):
+@pytest.mark.parametrize(
+    ("main_changes", "gate_runs"),
+    [
+        pytest.param({"docs/roadmap.md": "y"}, False, id="a tag of documentation, and main ahead by documentation"),
+        pytest.param({"src/code.py": "x = 1"}, True, id="a tag of documentation does not hide code in main"),
+    ],
+)
+def test_a_documentation_only_push_of_a_tag_skips_the_gate_unless_main_has_code(
+    git_repo, monkeypatch, capsys, main_changes, gate_runs
+):
     before = git_repo.commit("chore: start", {"start.txt": "start"})
+    git_repo.add_remote()
+    git_repo.git("push", "-q", "origin", "main")
     after = git_repo.commit("docs: change", {"docs/roadmap.md": "x"})
+    git_repo.commit("chore: main change", main_changes)
     monkeypatch.chdir(git_repo.path)
     monkeypatch.setenv("PRE_COMMIT_REMOTE_BRANCH", "refs/tags/v0.1.0")
     monkeypatch.setenv("PRE_COMMIT_FROM_REF", before)
     monkeypatch.setenv("PRE_COMMIT_TO_REF", after)
     monkeypatch.setattr(shutil, "which", lambda _name: None)
-    assert pre_push.main() == 0
+    assert pre_push.main() == (1 if gate_runs else 0)
+    assert ("uv is not on the PATH" in capsys.readouterr().out) is gate_runs
 
 
 def test_a_rename_of_code_into_docs_runs_the_gate(git_repo, monkeypatch, capsys):

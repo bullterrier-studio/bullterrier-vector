@@ -49,6 +49,12 @@ class GitRepo:
         assert result.returncode == 0, f"git {' '.join(args)}: {result.stderr}"
         return result.stdout.strip()
 
+    def add_remote(self, name: str = "origin") -> None:
+        """Add a new empty bare repository, next to the working one, as the remote `name`."""
+        bare = self.path.parent / f"{name}.git"
+        self.git("init", "-q", "--bare", str(bare))
+        self.git("remote", "add", name, str(bare))
+
     def commit(self, message: str, files: dict[str, str]) -> str:
         """Write `files` (name to text), commit everything with `message` and return the commit's hash."""
         for name, text in files.items():

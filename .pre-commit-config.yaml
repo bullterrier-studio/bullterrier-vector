@@ -45,12 +45,15 @@ repos:
         entry: uv run --no-sync python tools/check_commit_message.py
         language: system
         stages: [commit-msg]
-      # The whole local gate runs on a push to main (or a tag), not on every commit and not on feature branches:
-      # tools/pre_push.py decides, and runs `uv run poe check`. CI checks a feature branch when its pull request opens.
+      # The whole local gate runs on a push to main or a tag, and on any push while local main has commits its
+      # remote-tracking branch lacks (a multi-ref push cannot hide main): tools/pre_push.py decides, and runs
+      # `uv run poe check`. CI checks a feature branch when its pull request opens. `verbose` shows what the hook prints
+      # (why the gate was skipped, then the gate's own output) even when it passes.
       - id: gate
         name: the whole gate (reproduce with `uv run poe check`)
         entry: uv run python tools/pre_push.py
         language: system
         pass_filenames: false
         always_run: true
+        verbose: true
         stages: [pre-push]
