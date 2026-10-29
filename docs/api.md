@@ -318,8 +318,9 @@ An expression whose value leaves the range its argument accepts raises `Paramete
 the argument and the value; a division by zero raises `ParameterError` naming the expression.
 
 A Param's value at draw time is a number, or a list with one number per shape (`pulse=[...]`): the way to give each
-item a value from the caller's own signal. A list whose length differs from the number of shapes at a step that reads
-it raises `ParameterError` naming both.
+item a value from the caller's own signal. Entry `i` goes to the shape whose `index` is `i` at the step that reads the
+Param. A list whose length differs from the number of shapes there raises `ParameterError` naming the Param, the step
+and both counts.
 
 Per-item numbers take a value per shape, from its attributes:
 
@@ -391,7 +392,9 @@ a solid block of hatching. Keep the inks in a drawing of their own and stack the
 `Drawing`, usually `drawing.with_values(...)`) for `round(seconds × fps)` frames at `t = i / fps`, and writes each frame
 exactly as `to_png` draws it. `out` names the result: a `.png` path with a run of `#` (`"frames/badge-####.png"`) for a
 numbered, transparent PNG sequence; `.mov` for ProRes 4444 with alpha; `.webm` for VP9 with alpha. A clip needs ffmpeg
-on the `PATH`. It is the only part of the library that knows time.
+on the `PATH`. It is the only part of the library that knows time. A `scene` that builds a new drawing per frame (a
+new map to trace, say) makes a clip of many drawings, not one drawing and its values, so the clip cannot be saved as
+one JSON.
 
 Errors: `ParameterError` for `fps` or `seconds` not above 0, an `out` of no known kind, a `.png` without `#`; what
 `scene` raises; `OSError` when a file cannot be written or ffmpeg is missing or fails (with its message).
@@ -570,6 +573,21 @@ an editor), `outline` (V9; die-cut sticker outlines and tapered strokes on the e
 `flow.mix` (V15: the findings' line fields, noise mixed with a glyph's contour), `wave` (V12; the effects track's
 deformers), `morph` (V13; glyph-to-shape morph on the effects track).
 
+## Decided after review
+
+- **Primitive shapes only as eager `Path` constructors**; a Param on `scale` or `rotate` animates one.
+- **`frames` in Python only**; Rust and JavaScript callers loop over `to_png`.
+- **Any Param accepts a per-item list without declaring it**, read by `index` at the step that reads it. Recorded
+  alternative: by the item the generator made, which would survive `split` and `only`.
+- **Default paint**: an unstyled closed outline is filled black and an open line stroked; once a fill or stroke is set,
+  only what is set is painted.
+- **The design size is optional and inherited**; items whose sizes disagree raise `ParameterError`.
+- **The reference pose** is every Param at its default, whatever `with_values` fixed.
+- **The mesh** carries multiply as draw ranges and knockouts as booleans; only a blurred shadow raises, until spike X1.
+- **Whole-number arguments** take expressions whose value is whole when drawn.
+- **JavaScript expressions** lift a leading number with `btvec.expr(n)`.
+- **Frame export may rebuild the drawing per frame**; such a clip is many drawings, not one JSON.
+
 ## Open questions for the owner
 
 1. **Positions along a path as fractions 0..1, closed outlines measured from their topmost point, in one canonical
@@ -577,19 +595,5 @@ deformers), `morph` (V13; glyph-to-shape morph on the effects track).
    font's format). Recommended: yes. A position is then a state (draw-on is `slice(0, progress)`), a draw-on runs the
    same way in every font, and the start does not move as a glyph changes; where the top jumps between two peaks,
    `near=` fixes the start; a distance is `fraction × length`.
-2. **Primitive shapes only as `Path` constructors.** `Path.star(...)` computes now; there is no `star` step whose point
-   count is a Param. Recommended: yes, until a piece needs one; a Param on `scale` or `rotate` animates a primitive.
-3. **The reference pose for `fit` is every Param at its default.** Recommended: yes; the alternative, a `pose=`
-   argument, repeats values the Params already hold.
-4. **A mesh for steps with no triangle form** (blurred shadows, knockouts, multiply). Recommended: raise
-   `ParameterError` naming the step until the GPU display spike measures what a shader should do, rather than leave
-   them out quietly.
-5. **`frames` in Python only.** Recommended: yes for V4; Rust and JavaScript callers loop over `to_png` in a few lines,
-   and the core does no IO. A small Rust crate can follow when a Rust caller asks.
-6. **Any Param accepts a per-item list, with no declaration.** Recommended: yes now; V1b adds a flag to the parameter
-   description only if the playground needs to know which Params are per item.
-7. **Default paint.** Until a fill or stroke is set, a closed outline is filled black and an open line stroked; once
-   either is set, only what is set is painted. Recommended: yes; `letters.stroke(...)` then means an outline, with no
-   `fill("none")`.
-8. **A drawing's size is optional and inherited.** Recommended: yes (a sketch draws 1:1 with no size); the alternative,
-   requiring `size` on the drawing that is drawn, is stricter and costs every small example a line.
+2. **A negative `scale` mirrors.** The review asked for zero and negative values to raise. Recommended: zero raises (it
+   collapses the outline), a negative value mirrors, since no other verb mirrors a shape.
