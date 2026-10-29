@@ -78,10 +78,35 @@ Carried to later:
   Also unproven: Dependabot's uv and cargo ecosystems (only schema-checked), the job timeouts (guesses), install-action
   given the version strings `tools/rust_tools.py specs` prints, maturin picking up the pinned toolchain inside the
   manylinux container, `merge_group` runs, Windows paths in the smoke install.
+- After the first CI run: the `build.yml` items above, and an edge case of the `changes` filter, `docs/images/.png` (a bare
+  extension; unchecked whether the `*.png` exclusion matches it).
+- V2, from the review of the gates:
+  - A stray non-test file in the package passes check-wheel-contents: add an allow-list of entry kinds when the package grows.
+  - `_git` raises `FileNotFoundError` when git is missing (it fails safe).
+  - `test_gate_wiring` matches commands by exact string.
+  - `check_dists` reads sdist members and `license-files` literally; globs would false-fail.
+  - Parity between `check` and the workflows is a convention only: no test compares `lint.yml` and `test.yml` with
+    `check`. Consider one.
+  - pip-audit has no place to record ignored advisories (cargo-deny has `deny.toml`).
+  - Dependabot does not update the `rev:` pins in `.pre-commit-config.yaml`, `rust-toolchain.toml` or
+    `[workspace.metadata.tools]` in `Cargo.toml`.
 - A test that every path in `clippy.toml` resolves (clippy only warns for a mistyped path) and that every entry has a
   proof row: V2.
 - More unbanned IO and clock sources (`env::args`, `current_dir`, `fs::read_dir`, `metadata`, `net`, `thread::sleep`,
   `process`): V2, when the core reads bytes.
+
+What to expect from the first CI run, most likely first:
+1. The Windows test legs: never run.
+2. `build.yml`: maturin-action and the pinned toolchain inside the manylinux container; adding the macOS cross target to the
+   pinned toolchain; Windows paths in the smoke job; the sdist smoke relying on rustup.
+3. The gate proofs on a cold Linux runner: the timeouts are guesses.
+4. CodeQL: turn off the organisation's "default setup", or the upload is rejected.
+5. The install-action version lookup.
+6. The arm and Intel macOS runners.
+7. An advisory published since the last local audit.
+8. The repository must be created empty for the first push.
+9. Dependabot's first pull requests: edit their titles.
+10. The `wasm32` target on a clean runner.
 
 ## V1 The code API and the JSON format
 
@@ -237,6 +262,11 @@ and what each builds on: [effects-roadmap.md](effects-roadmap.md).
 
 Names reserved and published on crates.io, PyPI and npm; changelog; README with a scenario and a "what gap does it
 fill" section, claims about other projects checked again.
+
+Also:
+- The `Development Status :: 3 - Alpha` classifier overstates a skeleton: revisit.
+- The README's relative links will not work on the PyPI page: use absolute URLs.
+- The crate packages must include `LICENSE`.
 
 ## Later, with a trigger
 
