@@ -91,6 +91,52 @@ Each decision once, with its reason. The design: [design.md](design.md).
   raise). *Reason:* zero collapses the outline, while no other verb mirrors a shape. *Consequence:* a mirror flips the
   winding, so it leaves the canonical orientation, as `reverse` does.
 
+## The JSON format
+
+The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's review.
+
+- **The envelope: `version`, `params`, `inputs`, `drawings`, `root`**, nothing else, empty tables left out. *Reason:*
+  each holds what a reader needs before the tree (the version to refuse, the Params to describe, the bytes to ask
+  for, the shared drawings to resolve). The design size is a `stack`'s `size`, where the code gives it; an envelope
+  copy could disagree with it.
+- **One representation: a call is a one-key object, a drawing the array of its chain.** Every source, step, field, flow
+  and expression is `{"<name>": <arguments>}`; a drawing is `[source, step, step...]`. *Reason:* the array reads in the
+  code's order and nests only where the code passes a drawing as an argument; one rule covers every call and lets the
+  registry add one by name; an unknown name is a single, precise error. Rejected: `{"node": "fill", "input": {...}}`,
+  which reads inside out and nests one level per step.
+- **Shared drawings by name.** A drawing used in several places is written once in `drawings` and referred to by name.
+  *Reason:* the reference pieces use one drawing in up to six places; written out, a file repeats it and an edit must
+  be made in each, and a drawing built from copies of copies grows exponentially.
+- **A closed expression grammar:** `param`, `add`, `sub`, `mul`, `div`, `neg` and the four per-item numbers, nothing
+  else. *Reason:* exactly what the code API can build, so a document stays data that any reader evaluates the same way
+  and the schema can check; a function api.md lacks would be a format feature no code can write. Constant expressions
+  are folded and the operands of `add` and `mul` ordered, because Python, Rust and JavaScript spell the same
+  expression differently and must save the same JSON.
+- **Inputs by name, bytes beside the document.** A font or map is declared by name and kind, with an optional SHA-256;
+  the caller supplies the bytes. *Reason:* a document stays small, stays text, and fetches nothing; the digest makes the
+  canonical text a complete cache key and catches the wrong mask. No embedded form: base64 grows a font by a third and
+  is a second way to supply an input.
+- **A canonical form: normalised tree, RFC 8785 text.** *Reason:* "the same drawing gives the same bytes" must hold
+  for the saved file too, so it can address a cache; RFC 8785 is a published scheme with implementations in every
+  language, and the normalisation (defaults left out, one path spelling, colours in lower case, sharing by equality)
+  removes the differences between languages and between hand-written and saved files.
+- **Defaults left out of saved documents** (question 4 in formats.md). *Reason:* short files, and the code API's callers
+  already rely on defaults. *Consequence:* after the first release a default changes only with a new version.
+- **Limits:** 16 MiB of text, depth 128 counted through references, 100,000 calls. *Reason:* a document may come from
+  anyone; depth through references bounds the evaluator's recursion (small in WebAssembly), and 128 is the default of
+  common JSON parsers (serde_json's among them).
+- **Versioning by an integer major.** A version only grows (new calls, new optional arguments, new values); anything
+  else is a new version; a reader refuses versions and names it does not document, naming them. *Reason:* one number
+  says whether a reader can read a document; growth within a version keeps old documents valid, and an unknown name
+  with the library's version in the message tells the user a newer library wrote it. Version 1 is a draft until the
+  first release (no compatibility shims before 1.0).
+- **`FormatError`** for every problem in a document's text, with a JSON Pointer; `ParameterError` stays for the
+  caller's values (inputs, draw-time values). *Reason:* a bad document is fixed in the document, so a caller of
+  `from_json` catches one kind, which says where.
+- **A hand-written draft schema until V2.** *Reason:* the examples and known-bad documents need a checker before the
+  Rust declarations exist; V2 generates the schema from them (Rust is the source of truth) and a test keeps the two in
+  agreement until the draft goes.
+
 ## Output
 
 - **SVG keeps every effect** (2026-10-28). A drawing written as SVG shows what it shows in pixels: shadows, halftone,
@@ -115,9 +161,9 @@ Each decision once, with its reason. The design: [design.md](design.md).
   the parameter and value; also a `ValueError`) and `GeometryError` (geometry that fails, such as a boolean on an
   outline that cannot be resolved). *Reason:* a caller handles bad input and failed geometry differently: the first is
   fixed in the call, the second in the shapes.
-- **Parameter descriptions: the library's own format** (2026-10-28), documented and versioned here, with the same fields
-  and conventions as other tools use (name, unit, range, default, meaning; cyclic or bounded). *Reason:* any tool can read
-  it without depending on another package.
+- **Parameter descriptions: the library's own format** (2026-10-28), documented and versioned in `docs/formats.md`,
+  with the same fields and conventions as other tools use (name, unit, range, default, meaning; cyclic or bounded).
+  *Reason:* any tool can read it without depending on another package.
 - **JSON for drawing files** (2026-10-28), with a JSON Schema. *Reason:* native in the browser and npm, read by every
   language; deep node trees are awkward in TOML.
 

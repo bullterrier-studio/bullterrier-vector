@@ -125,12 +125,15 @@ State: done, waiting for the owner's review.
 ## V1b The JSON format
 
 The drawing as the same tree written down; nothing in it the code API cannot say.
-- `docs/formats.md`: the drawing (node tree, values, expressions, version; how fonts and maps are referred to),
-  parameter descriptions (name, unit, range, default, meaning, cyclic or bounded), map input (width, height, bytes).
-- JSON Schema in `schemas/`, generated from the Rust declarations and committed.
+- `docs/formats.md`: the document, drawings as chains of calls, expressions, the parameter description format, inputs
+  by name, canonical form, versioning, errors, limits, the checks only a loader can make, questions for the owner.
+- `docs/examples/json/`: nine example programs as JSON drawings.
+- `schemas/drawing-1.schema.json`: a hand-written draft schema; `tests/test_drawing_schema.py` checks the examples and
+  known-bad documents against it. V2 replaces it with a schema generated from the Rust declarations.
 
-Done when: the format is agreed; each example program round-trips through JSON in a test (as soon as V2 can run them);
-the schema rejects known-bad drawings.
+Done when: the format is agreed; the schema accepts the examples and rejects known-bad drawings.
+
+State: done, waiting for the owner's review of formats.md and its questions.
 
 ## V2 Core
 
@@ -150,6 +153,13 @@ the schema rejects known-bad drawings.
 - Every internal sampling step (trace on an analytic field, resampling before a deformer, curve flattening, hatch
   seeding) in design pixels, independent of the output size, each a named constant (`// constant:`; api.md,
   "Conventions").
+- JSON (formats.md): `to_json` writing the canonical form and `from_json` reading it, over the registry; the limits;
+  every check of "Checked by the loader, not the schema", each with a test named after it; `FormatError`.
+- The schema generated from the registrations, replacing the hand-written draft once a test shows the two agree on the
+  examples and the known-bad documents for every call V2 registers.
+
+Done when: the example programs that use only V2's calls run and round-trip through JSON to identical bytes; the
+generated schema agrees with the hand-written draft; the loader rejects a document for each check formats.md lists.
 
 Carried from the S0 review:
 - `polygon_svg` accepts radii that draw nothing (viewBox `0 0 0 0` at radius 1e-9) and rounds to 6 fixed decimals, which

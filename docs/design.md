@@ -152,7 +152,7 @@ const poster = btvec.text("LOUD", { font, size: 400, axes: { wght: 800 } })
 const svg = poster.toSvg(1080, 1350, { progress: 0.7 });
 ```
 
-`poster.to_json()` and `Drawing.from_json(...)` save and load the same tree (the format is V1b), and
+`poster.to_json()` and `Drawing.from_json(...)` save and load the same tree ([formats.md](formats.md)), and
 `poster.parameters()` lists every parameter with its description, so a tool can build sliders or map a signal onto one
 without knowing the steps.
 
