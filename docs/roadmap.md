@@ -141,8 +141,8 @@ the schema rejects known-bad drawings.
 - Evaluation of a tree; a seed reaches every node; a cache so that changing one value re-evaluates only what depends
   on it.
 - Parameters: describe, validate, scale design pixels by output size, wrap cyclic angles.
-- Registry by name. Built-ins: the `Path` constructors (`Path.polygon`, `Path.star` and the rest), `translate`, `rotate`,
-  `scale`, stacking (`Drawing(...)`). Replaces S0's skeleton function.
+- Registry by name. Built-ins: the `Path` constructors (`Path.polygon`, `Path.star` and the rest), `translate`,
+  `rotate`, `scale`, stacking (`Drawing(...)`). Replaces S0's skeleton function.
 - Contract tests over every registered node: determinism, values within range, the same result at any size.
 
 Carried from the S0 review:
@@ -181,8 +181,8 @@ dominates (shaping, booleans, tessellation, the cache). Done when the numbers ar
 ## V4 Frame export
 
 A small helper outside the core: it loops a caller's function (time in, a drawing with its values out; api.md, "Frame
-export") over frames at a frame rate and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. No timeline, keyframes or
-mixing.
+export") over frames at a frame rate and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through
+ffmpeg. No timeline, keyframes or mixing.
 
 Done when: a worked example writes a PNG sequence and a clip with alpha, and each frame equals the drawing drawn
 directly with that frame's values.
@@ -204,8 +204,8 @@ from the live values, saying when the axis runs out; text along a path; text fil
 ## V7 Per-item variation
 
 - Stagger: one value (say `progress`) becomes a per-item value spread by an attribute, for any modifier.
-- Text as one shape per glyph; `split` into parts, `merge(by=...)` into words or lines; per-item transforms (offset, rotate, scale by index or
-  by a seeded random) about a typographic origin (cap-height centre, not the bounding box).
+- Text as one shape per glyph; `split` into parts, `merge(by=...)` into words or lines; per-item transforms (translate,
+  rotate, scale by index or by a seeded random) about a typographic origin (cap-height centre, not the bounding box).
 
 Done when: a word draws on letter by letter and scatters by index with no text-specific modifier.
 

@@ -159,9 +159,9 @@ without knowing the steps.
 Every parameter is a state (`progress` 0..1, `phase` in cycles, `seed`), never a time. Whoever animates sets values
 and draws again:
 
-- **Frame export** (planned, V4). A small helper loops a caller's function (time in, a drawing with its values out)
-  over frames and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. It is the only part that
-  knows frames; it has no timeline, keyframes or mixing, and it lives outside the core.
+- **Frame export** (planned, V4). A small helper loops a caller's function (time in, a drawing with its values out) over
+  frames and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. It is the only part
+  that knows frames; it has no timeline, keyframes or mixing, and it lives outside the core.
 - **Live in a page** (planned: the package in V3, an example in V20). The WebAssembly package redraws on a canvas from
   values the page supplies: the clock, scroll, the pointer, a Web Audio level; or hands the page a mesh to draw with the
   GPU (V3; a GPU display and live remeshing are spikes to measure first). A piece too heavy to redraw live is exported
@@ -185,10 +185,10 @@ Halftone is a fill with its own fast path.
 ### One concept: the node
 
 A `Drawing` is a tree of steps; each step is a node. A node takes zero or more inputs (lists of shapes) and gives one
-list of shapes. A generator (text, trace, a literal path) has no inputs, a modifier (wobble, offset, draw-on) has one, a combiner
-(group, boolean) has several. One trait, one registry, one way to describe parameters, rather than separate hierarchies
-for shapes, modifiers and repeaters. The chainable methods of the code API build this tree; JSON is the same tree
-written down.
+list of shapes. A generator (text, trace, a literal path) has no inputs, a modifier (wobble, offset, draw-on) has one, a
+combiner (group, boolean) has several. One trait, one registry, one way to describe parameters, rather than separate
+hierarchies for shapes, modifiers and repeaters. The chainable methods of the code API build this tree; JSON is the same
+tree written down.
 
 ### Shapes carry attributes
 

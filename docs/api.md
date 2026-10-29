@@ -1,8 +1,8 @@
 # The code API
 
-Status: V1a, designed from the example programs in [examples/](examples/); waiting for the owner's review. Nothing here is
-built yet ([roadmap.md](roadmap.md)). Reasons: [design-decisions.md](design-decisions.md), "The code API". The JSON form
-of a drawing is V1b.
+Status: V1a, designed from the example programs in [examples/](examples/); waiting for the owner's review. Nothing here
+is built yet ([roadmap.md](roadmap.md)). Reasons: [design-decisions.md](design-decisions.md), "The code API". The JSON
+form of a drawing is V1b.
 
 Signatures are Python's; "Languages" gives the Rust and JavaScript forms. The library is imported under the alias
 `btvec` in every language.
@@ -411,16 +411,30 @@ The kinetic type piece, the part that builds the drawing, in all three (whole pr
 
 ```python
 letters = (
-    btvec.text("NO\nSLEEP", font=font, size=560, axes={"wght": weight + 120 * pulse}, leading=520,
-               at=(WIDTH / 2, 600), align="center", width=980, fit="wdth")
+    btvec.text(
+        "NO\nSLEEP",
+        font=font,
+        size=560,
+        axes={"wght": weight + 120 * pulse},
+        leading=520,
+        at=(WIDTH / 2, 600),
+        align="center",
+        width=980,
+        fit="wdth",
+    )
     .scale(1 + 0.08 * pulse)
     .rotate(btvec.random(-10, 10, seed=7) * burst)
     .translate(btvec.random(-30, 30, seed=8) * burst, btvec.random(-50, 50, seed=9) * burst)
 )
 frame = btvec.Path.rect(0, 0, WIDTH, HEIGHT)
 misregistration = 3 + 14 * burst
-blue = (btvec.Drawing(frame).translate(0, HEIGHT * (1 - rise))
-        .subtract(letters.translate(misregistration, 0.6 * misregistration)).fill(BLUE).blend("multiply"))
+blue = (
+    btvec.Drawing(frame)
+    .translate(0, HEIGHT * (1 - rise))
+    .subtract(letters.translate(misregistration, 0.6 * misregistration))
+    .fill(BLUE)
+    .blend("multiply")
+)
 pink = letters.fill(PINK).blend("multiply").opacity(ink)
 hairlines = letters.stroke(INK, width=1.5).opacity(1 - ink)
 piece = btvec.Drawing(frame.fill(PAPER), blue, pink, hairlines, size=(WIDTH, HEIGHT))
@@ -463,7 +477,8 @@ const blue = new btvec.Drawing([frame]).translate(0, rise.neg().add(1).mul(HEIGH
 const pink = letters.fill(PINK).blend("multiply").opacity(ink);
 const hairlines = letters.stroke(INK, { width: 1.5 }).opacity(ink.neg().add(1));
 const piece = new btvec.Drawing([frame.fill(PAPER), blue, pink, hairlines], { size: [WIDTH, HEIGHT] });
-const rgba = piece.toRgba(1080, 1350, { rise: 1, ink: 1, weight: 620, burst: 0.4, pulse: [0.9, 0.6, 0.3, 0.1, 0, 0, 0] });
+const values = { rise: 1, ink: 1, weight: 620, burst: 0.4, pulse: [0.9, 0.6, 0.3, 0.1, 0, 0, 0] };
+const rgba = piece.toRgba(1080, 1350, values);
 ```
 
 ## Coverage of the prototypes' needs
