@@ -26,7 +26,8 @@ lay over footage or run live in a web page. Stars and polygons are presets, not 
   flow-field hatching.
 - **Tracing.** A grayscale map to outlines at chosen levels; a map of colour labels to outlines per colour.
 - **Output.** SVG that keeps every effect (shadows, halftone, knockouts); plotter-ready SVG (stroke only, ordered to
-  reduce pen travel); RGBA pixels at any size; a frame-export helper ("Animation").
+  reduce pen travel); RGBA pixels at any size; a mesh (triangles with colours and per-item attributes, in flat buffers
+  for a GPU); a frame-export helper ("Animation").
 
 ### Fonts
 
@@ -103,68 +104,68 @@ layer, and one engine whose output is identical in Python, Rust and the browser.
 
 ## The code API
 
-Decided: code first, JSON second, and four ideas; everything else is a method on one of them.
+Decided: code first, JSON second, and four ideas; everything else is a method on one of them. The names, signatures and
+examples: [api.md](api.md).
 
 | Idea | What it is |
 |---|---|
 | `Path` | a Bezier outline (one or more sub-paths): a plain value; every verb on it computes at once |
-| `Shape` | paths with a style and attributes (index in text, word, line; copy index; level) |
-| `Drawing` | a tree of steps over shapes: draws again with new values, saves to JSON, the same in every language |
+| `Shape` | one path with a style and attributes (index; glyph, word, line; copy; level; position 0..1) |
+| `Drawing` | an immutable tree of steps over shapes: draws again with new values, saves to JSON, the same in every language |
 | `Param` | a named number with unit, range, default and meaning; any number in a step may be one |
 
 The geometry verbs (offset, subtract, slice, wobble...) have the same names and arguments on a `Path`, where they
-compute now, and on a `Drawing`, where they add a step computed at draw time. Arithmetic on `Param`s builds an
-expression that saves with the drawing; per-item numbers (spread by index, seeded random) work wherever a number does.
-A drawing holds no callbacks.
-
-Not decided: the method names. V1 settles them from example programs. The sketch below is illustrative, one drawing in
-three languages:
+compute now, and on a `Drawing`, where they add a step computed at draw time. Every call returns a new value. Arithmetic
+on `Param`s builds an expression that saves with the drawing; per-item numbers (by index, by position, seeded random)
+work wherever a number does, and a caller's signal per item is a list given at draw time. A drawing holds no callbacks.
 
 ```python
-import bullterrier_vector as bv
+import bullterrier_vector as btvec
 
-star = bv.Path.star(points=5, outer=100, inner=40)  # a Path: computed now
+star = btvec.Path.star((200, 200), outer=100, inner=40, points=5)  # a Path: computed now
 band = star.offset(8).subtract(star.offset(-8))
-tip = star.point_at(distance=100)
+tip = star.point_at(0)  # positions along a path are fractions 0..1 of its length
 
-progress = bv.Param("progress", default=0, min=0, max=1)
+progress = btvec.Param("progress", default=0, min=0, max=1, unit="fraction", meaning="how much has drawn on")
 poster = (
-    bv.text("LOUD", font=bv.Font.from_file("Inter.ttf"), size=400, weight=800)
-    .split("letters")
-    .wobble(amount=6, phase=0.25)
-    .draw_on(progress=progress, stagger=0.5)  # a Drawing: steps, computed at draw time
+    btvec.text("LOUD", font=btvec.Font(font_bytes), size=400, axes={"wght": 800})
+    .wobble(4, phase=0.25)
+    .slice(0, btvec.stagger(progress, spread=0.5))  # a Drawing: steps, computed at draw time
+    .stroke("#15161a", width=4)
 )
-svg = poster.to_svg(width=1080, height=1350, progress=0.7)
+svg = poster.to_svg(1080, 1350, progress=0.7)
 ```
 
 ```rust
-let poster = text("LOUD").font(&inter).size(400.0).weight(800.0)
-    .split(Split::Letters)
-    .wobble(Wobble { amount: 6.0, phase: 0.25, ..Wobble::default() })
-    .draw_on(DrawOn { progress: 0.7, stagger: 0.5 });
-let svg = poster.to_svg(Size::new(1080, 1350))?;
+let poster = btvec::text("LOUD", Text::new(&font).size(400.0).axis("wght", 800.0))
+    .wobble(Wobble::new(4.0).phase(0.25))
+    .slice(0.0, btvec::stagger(&progress, 0.5))
+    .stroke(Stroke::new(Color::hex(0x15161a)).width(4.0));
+let svg = poster.to_svg(Size::px(1080, 1350), &Values::new().set("progress", 0.7))?;
 ```
 
 ```js
-const poster = text("LOUD", { font: inter, size: 400, weight: 800 })
-  .split("letters").wobble({ amount: 6, phase: 0.25 }).drawOn({ progress: 0.7, stagger: 0.5 });
+const poster = btvec.text("LOUD", { font, size: 400, axes: { wght: 800 } })
+  .wobble(4, { phase: 0.25 }).slice(0, btvec.stagger(progress, { spread: 0.5 })).stroke("#15161a", { width: 4 });
+const svg = poster.toSvg(1080, 1350, { progress: 0.7 });
 ```
 
-For example, `poster.to_json()` and `Drawing.from_json(...)` save and load the same tree, and `poster.parameters()`
-lists every parameter with its description, so a tool can build sliders or map a signal onto one without knowing the
-node.
+`poster.to_json()` and `Drawing.from_json(...)` save and load the same tree (the format is V1b), and
+`poster.parameters()` lists every parameter with its description, so a tool can build sliders or map a signal onto one
+without knowing the steps.
 
 ## Animation: state, not time
 
 Every parameter is a state (`progress` 0..1, `phase` in cycles, `seed`), never a time. Whoever animates sets values
 and draws again:
 
-- **Frame export** (planned, V4). A small helper loops a caller's function (time in, parameter values out) over frames
-  and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. It is the only part that
+- **Frame export** (planned, V4). A small helper loops a caller's function (time in, a drawing with its values out)
+  over frames and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. It is the only part that
   knows frames; it has no timeline, keyframes or mixing, and it lives outside the core.
 - **Live in a page** (planned: the package in V3, an example in V20). The WebAssembly package redraws on a canvas from
-  values the page supplies: the clock, scroll, the pointer, a Web Audio level. A piece too heavy to redraw live is
-  exported with frame export instead.
+  values the page supplies: the clock, scroll, the pointer, a Web Audio level; or hands the page a mesh to draw with the
+  GPU (V3; a GPU display and live remeshing are spikes to measure first). A piece too heavy to redraw live is exported
+  with frame export instead.
 - **Any other driver** (a script, a slider, another program) sets values per frame and draws again.
 
 Placement that stays stable as values change, for animated hatching, is open (D7).
@@ -184,7 +185,7 @@ Halftone is a fill with its own fast path.
 ### One concept: the node
 
 A `Drawing` is a tree of steps; each step is a node. A node takes zero or more inputs (lists of shapes) and gives one
-list of shapes. A generator (text, star, trace) has no inputs, a modifier (wobble, offset, draw-on) has one, a combiner
+list of shapes. A generator (text, trace, a literal path) has no inputs, a modifier (wobble, offset, draw-on) has one, a combiner
 (group, boolean) has several. One trait, one registry, one way to describe parameters, rather than separate hierarchies
 for shapes, modifiers and repeaters. The chainable methods of the code API build this tree; JSON is the same tree
 written down.
