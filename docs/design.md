@@ -277,4 +277,3 @@ tools only through plain data, with no runtime link in either direction. In the
 | D5 | Who owns stateful simulation, if ever? | later |
 | D6 | Custom nodes written in Python or JavaScript (local use only), and when? | later |
 | D7 | Placement that stays stable as values change (evenly spaced lines that do not jump between frames): a stateless rule continuous in its parameters, or explicit state passed in and out? The answer bears on D5. | animated hatching, after V15 |
-| D8 | Pure helpers of a number (easing curves, spreads by index): a small module of the library, or the caller's? | open |

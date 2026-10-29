@@ -116,4 +116,4 @@ was not used, but is wanted.
 
 Left out of the library for now: the tracking crop that kept a subject framed, picking the main subject when people
 touch (it needs a segmenter's instance labels), and the score helpers that turned beats into values over time (the
-caller's: design.md, Non-goals; pure easing functions of a number are open, D8).
+caller's: design.md, Non-goals; pure easing functions of a number are the library's `ease`, api.md).

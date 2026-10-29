@@ -10,7 +10,8 @@ Each decision once, with its reason. The design: [design.md](design.md).
 - **Code API first, JSON second** (2026-10-28). A drawing is written as chainable, typed code in Rust, Python and
   JavaScript; JSON saves and loads the same tree. *Reason:* developers express ideas in code; an API designed from a
   file format reads like configuration. *Consequence:* each API is designed (with examples written first) before the
-  JSON format; a drawing written in code round-trips through JSON to an identical render.
+  JSON format; a drawing written in code round-trips through JSON to an identical render. The code API is V1a
+  (`docs/api.md`), the format V1b.
 - **Rust core, Python and WebAssembly bindings** (2026-10-28), not Paper.js or another JavaScript engine. *Reason:* one
   engine in the browser, on a server, in Python and inside a Rust video tool, with preview identical to render; the hard
   parts (shaping, glyph outlines, offsets, tracing) exist as Rust crates and are missing or weak in Paper.js.
@@ -22,7 +23,9 @@ Each decision once, with its reason. The design: [design.md](design.md).
   loop. *Reason:* the owner wants to edit videos with these animations and drop them on footage with transparency, and
   the core stays timeless; sequencing values over time is the job of other tools. *Consequence:* time and frames
   exist only in the helper, which knows nothing of what the caller's function does; the helper writes files and runs
-  ffmpeg, so it lives outside the core.
+  ffmpeg, so it lives outside the core. The caller's function returns a drawing with its values set
+  (`btvec.frames(scene, ...)`, 2026-10-29), so a frame can also change what values cannot, such as the map a figure is
+  traced from.
 - **Effects earn their place with a gallery piece** (2026-10-28). An effect is added together with a gallery piece that
   uses it. *Reason:* the bar is "worth posting", and a plausible effect can still look bad: the prototypes dropped
   halftone inside letters, outline echoes and a large wobble once they were seen in a piece. A test proves an effect
@@ -44,13 +47,36 @@ Each decision once, with its reason. The design: [design.md](design.md).
   `Drawing` (a re-drawable tree of steps) and `Param` (a described number); the same verbs, with the same names and
   arguments, work eagerly on a `Path` and as a step on a `Drawing`, over one implementation. *Reason:* both scripting
   (measure and cut a path now) and re-drawable drawings (save, animate, run in a page) are wanted; two vocabularies
-  would double what a user learns and what is built and tested. *Consequence:* a batch that adds a verb adds it to both;
-  V1 settles the names.
+  would double what a user learns and what is built and tested. *Consequence:* a batch that adds a verb adds it to both,
+  and tests it once; the names are in `docs/api.md`.
+- **An immutable chain** (2026-10-29). Every call returns a new description and nothing mutates; a number that
+  changes is a named `Param` whose value is given at draw time (`drawing.to_png(1080, 1350, weight=820)`); eager `Path`
+  scripting keeps the Paper.js feel for geometry. *Reason:* a drawing is drawn again with new values, saved, shared
+  between places in one picture and cached between frames; a mutable scene would change everywhere it is used, and its
+  saved form and cache would depend on the order of calls. *Consequence:* `with_values` fixes values; a drawing built
+  once serves every frame.
 - **Expressions on parameters, no callbacks inside a drawing** (2026-10-28). Arithmetic on `Param`s builds an expression
   that saves with the drawing; per-item numbers (by index, seeded random) are values of the same kind. A drawing never
   holds a function of the caller's. *Reason:* a drawing must save to JSON, load in another language, and render in a
   browser or on a server that runs no user code; a callback can do none of these. *Consequence:* callbacks are fine
   when scripting with `Path`, which computes at once and is not saved.
+- **Per-item numbers are functions; a caller's per-item signal is a list** (2026-10-29). A number that differs per
+  shape is a function of the shape's attributes (`btvec.by_index(lo, hi)`, `btvec.random(lo, hi, seed=...)`,
+  `btvec.by_position(...)`); a per-item value that depends on the caller's signal is a list given at draw time
+  (`pulse=[kick(t - 0.045 * i) for i in range(8)]`). *Reason:* a function of attributes is data, so it saves and runs
+  anywhere; a signal lives outside the drawing, and a list carries it in as plain data where a callback could not go.
+  *Consequence:* any Param accepts a number or a list; a list of the wrong length is a `ParameterError`.
+- **`ease`: pure functions of a number, in the library** (2026-10-29; was D8). A small module of easing curves, each a
+  function of a number with no time in it. *Reason:* every piece shaped its values with easing curves, and a function of
+  a number carries no clock, so the core stays timeless. *Consequence:* the functions serve the caller's code (a
+  function of time for frame export, a list per item); a drawing holds no easing.
+- **Buffers, not objects: a mesh output** (2026-10-29, the owner's idea). A drawing also renders to triangles
+  (positions, colours, per-item attributes) held in two flat buffers; across WebAssembly the bindings give a pointer, a
+  length and a generation counter, and Python a view without a copy. *Reason:* a live page or a GPU display needs the
+  picture as triangles every frame; one object per shape across the WebAssembly boundary costs more than the drawing,
+  while a typed array over WebAssembly memory uploads at once, and the generation lets a page skip an unchanged upload.
+  *Consequence:* the mesh is deterministic and covered by the same-bytes test; pixels and SVG stay the reference; a GPU
+  display and live remeshing are spikes to measure (`docs/roadmap.md`), not promises.
 
 ## Output
 
@@ -69,6 +95,13 @@ Each decision once, with its reason. The design: [design.md](design.md).
 - **Name `bullterrier-vector`** (2026-10-28): crate and PyPI distribution `bullterrier-vector`, import and Rust library
   `bullterrier_vector`, command `bt-vector`. *Reason:* the family's naming rule; people find a library through its
   description and keywords, not its name.
+- **Alias `btvec`** (2026-10-29): the documentation imports the library as `btvec` in every language (`import
+  bullterrier_vector as btvec`; `use bullterrier_vector as btvec;`; `import * as btvec from "bullterrier-vector"`).
+  *Reason:* short to type, says what it is, and unlikely to clash with another library's usual alias.
+- **Errors by kind** (2026-10-29): `BullterrierVectorError` > `ParameterError` (a value outside what is accepted, naming
+  the parameter and value; also a `ValueError`) and `GeometryError` (geometry that fails, such as a boolean on an
+  outline that cannot be resolved). *Reason:* a caller handles bad input and failed geometry differently: the first is
+  fixed in the call, the second in the shapes.
 - **Parameter descriptions: the library's own format** (2026-10-28), documented and versioned here, with the same fields
   and conventions as other tools use (name, unit, range, default, meaning; cyclic or bounded). *Reason:* any tool can read
   it without depending on another package.
