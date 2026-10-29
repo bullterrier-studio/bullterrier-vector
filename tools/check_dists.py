@@ -8,6 +8,8 @@ Run in the project (its pyproject.toml says where the package and its Rust exten
 - twine (`check --strict`) on every file: the metadata, and the description as PyPI renders it.
 - Each sdist holds what builds the extension from a clean unpack: the Rust workspace's `Cargo.toml`, `Cargo.lock` and
   `rust-toolchain.toml`, and the manifest of every workspace member.
+- Each sdist and each wheel holds the licence files `[project] license-files` names (a wheel: under
+  `*.dist-info/licenses/`), so what is published carries the licence it declares.
 - Each wheel holds exactly one build of the extension (`[tool.maturin] module-name`), for its platform.
 - check-wheel-contents on each wheel against the package tree as an install from that wheel has it: the package
   (`[tool.check-wheel-contents] package`, its omissions applied) with that wheel's extension in place of any local
@@ -37,7 +39,9 @@ def _run(*command: str) -> subprocess.CompletedProcess:
 
 def check(folder: Path) -> list[str]:
     """The reports of every check that fails for the distributions in `folder` (empty when all pass)."""
-    settings = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["tool"]
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    settings = pyproject["tool"]
+    licences = pyproject["project"]["license-files"]
     package = Path(settings["check-wheel-contents"]["package"])
     extension = PurePosixPath(*settings["maturin"]["module-name"].split("."))  # bullterrier_vector/_native/_core
     files = sorted([*folder.glob("*.tar.gz"), *folder.glob("*.whl")])
@@ -45,7 +49,7 @@ def check(folder: Path) -> list[str]:
         return [f"{folder} holds no sdist or wheel"]
     problems = []
     for sdist in (file for file in files if file.name.endswith(".tar.gz")):
-        problems += _missing_from_sdist(sdist)
+        problems += _missing_from_sdist(sdist, licences)
     twine = _run("twine", "check", "--strict", *map(str, files))
     if twine.returncode != 0:
         problems.append(twine.stdout + twine.stderr)
@@ -62,6 +66,14 @@ def check(folder: Path) -> list[str]:
                 problems.append(f"{wheel.name}: holds {len(built)} builds of the extension {extension}.*, not one")
                 continue
             library = archive.read(built[0])
+            shipped = set(archive.namelist())
+        absent = [
+            name
+            for name in licences
+            if not any(PurePosixPath(entry).match(f"*.dist-info/licenses/{name}") for entry in shipped)
+        ]
+        if absent:
+            problems.append(f"{wheel.name}: lacks the licence file {', '.join(absent)} under *.dist-info/licenses/")
         with tempfile.TemporaryDirectory() as scratch:
             tree = Path(scratch) / package.name
             native = extension.parent.relative_to(package.name)
@@ -73,8 +85,9 @@ def check(folder: Path) -> list[str]:
     return problems
 
 
-def _missing_from_sdist(sdist: Path) -> list[str]:
-    """One report if the sdist lacks what a build of the Rust extension needs (the checkout's workspace says what)."""
+def _missing_from_sdist(sdist: Path, licences: list[str]) -> list[str]:
+    """One report if the sdist lacks what a build of the Rust extension needs (the checkout's workspace says what) or a
+    licence file."""
     workspace = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))["workspace"]
     needed = [
         "Cargo.toml",
@@ -85,7 +98,9 @@ def _missing_from_sdist(sdist: Path) -> list[str]:
     with tarfile.open(sdist) as archive:
         shipped = {PurePosixPath(*PurePosixPath(name).parts[1:]).as_posix() for name in archive.getnames()}
     missing = [name for name in needed if name not in shipped]
-    return [f"{sdist.name}: lacks {', '.join(missing)}, which a build of the extension needs"] if missing else []
+    problems = [f"{sdist.name}: lacks {', '.join(missing)}, which a build of the extension needs"] if missing else []
+    unlicensed = [name for name in licences if name not in shipped]
+    return [*problems, f"{sdist.name}: lacks the licence file {', '.join(unlicensed)}"] if unlicensed else problems
 
 
 def _local_builds(native: Path, name: str) -> Callable[[str, list[str]], list[str]]:

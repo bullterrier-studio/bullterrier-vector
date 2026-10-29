@@ -1,6 +1,7 @@
 """tools/check_dists.py: a folder of built distributions passes only when twine accepts every file and each wheel holds
 the package's code (its stub and `py.typed` included), one build of its extension for its platform, and nothing else,
-and every sdist holds the Rust sources a build of the extension needs.
+every sdist holds the Rust sources a build of the extension needs, and sdists and wheels carry the licence files
+the project declares.
 
 The distributions are a tiny package's, written here file by file as a build backend would (no build: a wheel is a zip
 with its metadata and RECORD), in a project whose pyproject.toml configures check-wheel-contents and maturin as ours
@@ -23,7 +24,10 @@ ROOT = Path(__file__).resolve().parents[2]
 # one xdist worker: every case runs twine and check-wheel-contents
 pytestmark = pytest.mark.xdist_group("check-dists")
 
-PYPROJECT = """[tool.check-wheel-contents]
+PYPROJECT = """[project]
+license-files = ["LICENSE"]
+
+[tool.check-wheel-contents]
 package = "src/demo"
 package_omit = ["__pycache__", "*.pyc", "test_*.py"]
 
@@ -46,14 +50,17 @@ TREE = {  # the package as the checkout has it
     "demo/_native/_core.pyi": "def apply() -> None: ...\n",
 }
 METADATA = "Metadata-Version: 2.1\nName: demo\nVersion: 1.0\nSummary: Demo.\nDescription-Content-Type: {kind}\n\n{text}"
+LICENCE = "MIT License\n"
 GOOD_DESCRIPTION = ("text/markdown", "# Demo\n\nRenders.\n")
 
 
-def wheel(folder: Path, platform: str, files: Mapping[str, bytes | str]) -> Path:
-    """A wheel of `demo` for `platform` holding `files`, with its dist-info and a RECORD of their hashes."""
+def wheel(folder: Path, platform: str, files: Mapping[str, bytes | str], *, licensed: bool = True) -> Path:
+    """A wheel of `demo` for `platform` holding `files`, with its dist-info (and the licence, unless not `licensed`) and
+    a RECORD of their hashes."""
     info = "demo-1.0.dist-info"
     entries = {
         **files,
+        **({f"{info}/licenses/LICENSE": LICENCE} if licensed else {}),
         f"{info}/METADATA": METADATA.format(kind=GOOD_DESCRIPTION[0], text=GOOD_DESCRIPTION[1]),
         f"{info}/WHEEL": f"Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: false\nTag: cp312-abi3-{platform}\n",
     }
@@ -70,11 +77,17 @@ def wheel(folder: Path, platform: str, files: Mapping[str, bytes | str]) -> Path
     return path
 
 
-def sdist(folder: Path, description: tuple[str, str] = GOOD_DESCRIPTION, rust: Mapping[str, str] = RUST) -> Path:
-    """An sdist of `demo` holding its metadata, pyproject.toml and the `rust` files."""
+def sdist(
+    folder: Path,
+    description: tuple[str, str] = GOOD_DESCRIPTION,
+    rust: Mapping[str, str] = RUST,
+    *,
+    licensed: bool = True,
+) -> Path:
+    """An sdist of `demo` with its metadata, pyproject.toml, the `rust` files and (if `licensed`) the licence."""
     path = folder / "demo-1.0.tar.gz"
     data = METADATA.format(kind=description[0], text=description[1])
-    files = {"PKG-INFO": data, "pyproject.toml": PYPROJECT, **rust}
+    files = {"PKG-INFO": data, "pyproject.toml": PYPROJECT, **rust, **({"LICENSE": LICENCE} if licensed else {})}
     with tarfile.open(path, "w:gz") as archive:
         for name, text in files.items():
             member = tarfile.TarInfo(f"demo-1.0/{name}")
@@ -166,6 +179,15 @@ def _sdist_without_the_toolchain(dist: Path) -> None:
     sdist(dist, rust={name: text for name, text in RUST.items() if name != "rust-toolchain.toml"})
 
 
+def _sdist_without_the_licence(dist: Path) -> None:
+    (dist / "demo-1.0.tar.gz").unlink()
+    sdist(dist, licensed=False)
+
+
+def _wheel_without_the_licence(dist: Path) -> None:
+    wheel(dist, LINUX[0], {**TREE, LINUX[1]: b"built"}, licensed=False)
+
+
 def _unrenderable_description(dist: Path) -> None:
     (dist / "demo-1.0.tar.gz").unlink()
     sdist(dist, ("text/x-rst", "A title\n=====\n\n.. not-a-directive::\n\n`unclosed\n"))
@@ -182,6 +204,8 @@ BAD = {  # fault -> what the report must name
     "an sdist without crates/": (_sdist_without_the_rust_sources, ["demo-1.0.tar.gz", "crates/core/Cargo.toml"]),
     "an sdist without one workspace member": (_sdist_without_a_workspace_member, ["crates/python/Cargo.toml"]),
     "an sdist without the toolchain file": (_sdist_without_the_toolchain, ["rust-toolchain.toml"]),
+    "an sdist without the LICENSE file": (_sdist_without_the_licence, ["demo-1.0.tar.gz", "LICENSE"]),
+    "a wheel without the LICENSE file": (_wheel_without_the_licence, ["manylinux_2_28_x86_64.whl", "LICENSE"]),
     "a description PyPI cannot render (twine)": (_unrenderable_description, ["long_description"]),
 }
 

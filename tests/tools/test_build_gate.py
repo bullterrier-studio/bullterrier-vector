@@ -77,10 +77,17 @@ def test_the_project_as_it_is_builds_clean_distributions(project, build_check):
     assert "bullterrier_vector/_native/_core.pyi" in shipped  # its types, for the package's own type checking
     extensions = [entry for entry in shipped if entry.startswith("bullterrier_vector/_native/_core.")]
     assert len([entry for entry in extensions if entry.endswith((".so", ".pyd"))]) == 1, extensions
+    assert f"bullterrier_vector-{version}.dist-info/licenses/LICENSE" in shipped  # the licence the metadata declares
     # built from the sdist with rustup, the extension is compiled by the toolchain CI tests, as the wheels are
     with tarfile.open(sdist) as archive:
         names = archive.getnames()
-    for needed in ("rust-toolchain.toml", "Cargo.lock", "crates/core/Cargo.toml", "crates/python/Cargo.toml"):
+    for needed in (
+        "rust-toolchain.toml",
+        "Cargo.lock",
+        "crates/core/Cargo.toml",
+        "crates/python/Cargo.toml",
+        "LICENSE",
+    ):
         assert f"bullterrier_vector-{version}/{needed}" in names
 
 
