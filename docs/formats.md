@@ -58,8 +58,8 @@ Five rules carry the format:
 | `root` | yes | the drawing |
 
 No other key is allowed, here or in any object the format defines. `params`, `inputs` and `drawings` are left out when
-empty, never written `[]` or `{}`. A name is letters, digits and `_`, starting with a letter. A document is UTF-8 JSON with no
-duplicate key in any object, as I-JSON (RFC 7493) requires.
+empty, never written `[]` or `{}`. A name is letters, digits and `_`, starting with a letter. A document is UTF-8 JSON
+with no duplicate key in any object, as I-JSON (RFC 7493) requires.
 
 The design size is not in the envelope: it is the `size` of a `stack`, where the code gives it (`Drawing(*items,
 size=...)`), and the root's size is inherited as api.md says.
@@ -71,7 +71,8 @@ A drawing is a non-empty array of calls. The first is a **source**, which makes 
 `[{"text": {...}}, {"scale": {...}}]`, then `letters.fill(PINK)` is `[{"text": {...}}, {"scale": {...}}, {"fill":
 {"color": "#ff4f9a"}}]`, or, when `letters` is shared, `[{"drawing": "letters"}, {"fill": {"color": "#ff4f9a"}}]`.
 Arguments that take a drawing (`other`, `items`, `avoid`, `target`, `Field.distance`'s `drawing`) hold such an array.
-Where the code gives a `Path` in place of a drawing, the array is the path alone: `[{"path": "..."}]`.
+Where the code gives a `Path` in place of a drawing, the array is the path alone: `[{"path": "..."}]`; `Drawing(x)` of
+one item and no size is `x` itself, whether a path, a shape or a drawing (api.md, "Drawing").
 
 Names are the Python and Rust spelling (`gradient_map`, `drop_parts`, `smaller_than`); arguments have api.md's names,
 defaults and units. The types below:
@@ -195,10 +196,57 @@ by the steps of that use. A stack with a copy:
 }
 ```
 
+Sharing is defined on the drawing as a graph, never by writing references out:
+
+1. Equal drawings are merged, bottom up, by a structural hash: two calls are equal when their names and arguments are
+   equal and the drawings they build on or take are the same merged drawing. Two drawings built apart but equal are
+   one.
+2. A drawing is written in `drawings` if and only if two or more calls build on it or take it. Each step builds on the
+   drawing before it in its array; a stack item, and an `other`, `target`, `avoid` or `drawing` argument, takes one.
+   Every other drawing is written in place.
+3. Every computation over the whole tree (equality, depth through references, the walk, `parameters()`) visits each
+   merged drawing once, so its cost grows with the document, not with what the references would expand to.
+
 A shared drawing is a value, not a variable: nothing a use does reaches the others, and each use is drawn with the
 values its place sees (a `with_values` after one use fixes Params for that use only). An entry may use another entry;
-references form no cycle. A `repeat` is a step (`{"repeat": {"count": 12, "rotate": 30}}`), not a copy: its copies
-exist only when drawn.
+references form no cycle.
+
+Sharing a prefix of a chain:
+
+```python
+a = btvec.text("AB", font=font).scale(2)
+b = a.rotate(10)
+piece = btvec.Drawing(a.fill("#e2412e"), b.fill("#2a5bff"), b.stroke("#15161a"))
+```
+
+`a` is built on by `fill` and by `rotate`, `b` by `fill` and by `stroke`: both are shared, and `b` starts from `a`. The
+`text` call alone is built on only by `scale`, so it stays in place. Canonical form:
+
+```json
+{
+  "version": 1,
+  "inputs": { "font1": { "kind": "font" } },
+  "drawings": {
+    "d1": [{ "text": { "content": "AB", "font": "font1" } }, { "scale": { "by": 2 } }],
+    "d2": [{ "drawing": "d1" }, { "rotate": { "angle": 10 } }]
+  },
+  "root": [
+    {
+      "stack": {
+        "items": [
+          [{ "drawing": "d1" }, { "fill": { "color": "#e2412e" } }],
+          [{ "drawing": "d2" }, { "fill": { "color": "#2a5bff" } }],
+          [{ "drawing": "d2" }, { "stroke": { "color": "#15161a" } }]
+        ]
+      }
+    }
+  ]
+}
+```
+
+Written here with whitespace and in reading order, `sha256` left out.
+
+A `repeat` is a step (`{"repeat": {"count": 12, "rotate": 30}}`), not a copy: its copies exist only when drawn.
 
 ## Numbers and expressions
 
@@ -305,17 +353,16 @@ spelling the schema allows; canonical form is what the library writes:
 
 1. **Defaults.** An argument equal to its default is left out (`"angle": 45` on `halftone`, `"levels": [0.5]` on
    `trace`); so are empty `params`, `inputs` and `drawings`.
-2. **Paths** in the form under "Values"; a `Path` where a drawing is expected, and `Drawing(path)` with one path and no
-   size, as `[{"path": "..."}]` (Q3).
+2. **Paths** in the form under "Values"; a `Path` where a drawing is expected as `[{"path": "..."}]`; `Drawing(x)` of
+   one item and no size as `x`.
 3. **Colours** in lower case, `#rrggbbff` as `#rrggbb`.
 4. **Expressions** folded where constant; a literal operand of `add` or `mul` written first (`{"mul": [14, x]}`, never
    `[x, 14]`), so `3 + 14 * burst` in Python and `burst.mul(14).add(3)` in JavaScript write the same. Other operands
    keep the order the code gives them; nothing else is reordered, since floating-point addition is commutative but not
    associative.
 5. **Inputs** under the names the drawing gives them (Q1); `sha256` always written.
-6. **Shared drawings.** Equal drawings (equal canonical texts with every reference written out) are one drawing. A
-   drawing used more than once is in `drawings`, named `d1`, `d2`... in the order the walk below first reaches it;
-   every other drawing is written in place, a hand-written name for a drawing used once included.
+6. **Shared drawings** as "Shared drawings" defines them, named `d1`, `d2`... in the order the walk below first
+   reaches them; every other drawing is written in place, a hand-written name for one used once included.
 7. **Text.** RFC 8785 (JSON Canonicalization Scheme): keys sorted by code point, no whitespace, numbers in their
    shortest round-trip form (`1080`, `0.6`, `-0` as `0`), strings with the fewest escapes, UTF-8.
 

@@ -119,9 +119,11 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   code's order and nests only where the code passes a drawing as an argument; one rule covers every call and lets the
   registry add one by name; an unknown name is a single, precise error. Rejected: `{"node": "fill", "input": {...}}`,
   which reads inside out and nests one level per step.
-- **Shared drawings by name.** A drawing used in several places is written once in `drawings` and referred to by name.
-  *Reason:* the reference pieces use one drawing in up to six places; written out, a file repeats it and an edit must
-  be made in each, and a drawing built from copies of copies grows exponentially.
+- **Shared drawings by name, defined on the merged graph.** Equal drawings are merged by a structural hash, and a
+  drawing is written once in `drawings` exactly when two or more calls build on it or take it. *Reason:* the reference pieces
+  use one drawing in up to six places; written out, a file repeats it and an edit must be made in each, and a drawing
+  built from copies of copies grows exponentially. Counting on the graph, never on the expanded tree, gives one answer
+  for a shared prefix and keeps every whole-tree computation linear in the document.
 - **A closed expression grammar:** `param`, `add`, `sub`, `mul`, `div`, `neg` and the four per-item numbers, nothing
   else. *Reason:* exactly what the code API can build, so a document stays data that any reader evaluates the same way
   and the schema can check; a function api.md lacks would be a format feature no code can write. Constant expressions
