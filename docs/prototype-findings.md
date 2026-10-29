@@ -3,16 +3,16 @@
 What the taste prototypes (roadmap V0) taught. The design: [design.md](design.md); the batches:
 [roadmap.md](roadmap.md).
 
-On 2026-10-28 the three reference pieces were built as throwaway Python prototypes, outside this repository, on existing
-libraries (skia-python for drawing and path booleans, shapely for offsets, fontTools for glyph outlines, numpy). Their
-code is not kept and nothing here comes from it; this page is what they showed. The kinetic type and the cut paper were
+On 2026-10-28 the three reference pieces were built as throwaway Python prototypes on existing libraries (skia-python
+for drawing and path booleans, shapely for offsets, fontTools for glyph outlines, numpy). Their code is not part of this
+repository, and nothing here comes from it; this page is what they showed. The kinetic type and the cut paper were
 judged as stills and a short 1080x1350 clip set to music, the poster as stills.
 
 ## The pieces
 
 | Piece | What was built | Verdict |
 |---|---|---|
-| Kinetic type | Two lines of condensed type in a variable font (width and weight axes) flicker in as hairlines, are knocked out by a rising colour plane, burst into a two-colour riso print on the drop, pulse letter by letter, and thin back to hairlines. | Worth posting; the build, drop and final hold read as real posters. The groove is one pose with a pulse and gets samey. |
+| Kinetic type | Two lines of condensed type in a variable font (width and weight axes) flicker in as hairlines, are knocked out by a rising colour plane, burst into a two-colour riso print (risograph-style printing) on the drop, pulse letter by letter, and thin back to hairlines. | Worth posting; the build, drop and final hold read as real posters. The groove is one pose with a pulse and gets samey. |
 | Cut paper | A segmentation mask of a dancer traced into a black cut-out on stacked paper: a blobby mount with halftone, two shifted echoes, drop shadows, a line drawing on around the figure on each beat. | The stills are worth posting. The clip is uneven: the source's poses decide half the result, and the mask merges two people who touch. |
 | Hatched poster | Two words in a heavy, condensed variable font, filled with evenly spaced flow-field hatching that grows denser towards the bottom until it closes into solid ink; one letter drawn as concentric rings in a second ink. As PNG and as plotter SVG. | Reads as a designed print poster, not a code demo. The upper half is evenly ruled and a little like an engraving. |
 
@@ -87,16 +87,16 @@ All at 1080x1350, one process unless stated, in Python.
 
 ## What the library needs, ranked
 
-Ordered by the pain each caused, merged across the three pieces (each prototype ranked its own); the batch that answers
-it in brackets.
+A synthesis across the three pieces (each prototype ranked its own), ranked by how much each piece needed it; the batch
+that answers it in brackets.
 
 1. Per-glyph variable-font layout that re-flows: axis values per glyph, advances that follow them, tracking, stacked
    lines, fitting to a width at a reference pose, glyph outlines cached by axis location (V5 to V7).
 2. Evenly spaced streamlines with spacing from a tone, region masks, obstacles and closed-loop detection, fast enough to
    be native; line fields and distance fields of shapes (V15).
 3. Steady tracing over a sequence of maps: smoothing over neighbouring maps and hole persistence (V14).
-4. Booleans that hold on overlapping, rotated glyphs, and ink layers built from them (V8; riso inks in the effects
-   track).
+4. A requirement: booleans that hold on overlapping, rotated glyphs, and ink layers built from them (V8; riso inks in
+   the effects track). They caused no pain once glyph outlines had their overlaps removed.
 5. Shrink and grow per layer in output units; dropping small parts and filling small holes (V14).
 6. Per-item transforms about a typographic origin (cap-height centre, not the bounding box), seeded randomness and
    stagger by index as one mechanism (V7).
