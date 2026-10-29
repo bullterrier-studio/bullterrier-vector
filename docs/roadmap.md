@@ -7,18 +7,21 @@ whole gate green and an independent review done, and leaves the worked examples 
 one working session, **M** two or three, **L** four or more.
 
 Order: a short feedback loop first (the gate, a walking skeleton through every target), then the code API and the core,
-a way to see a drawing, a way to export frames, then type, then the risky geometry, then the generative layer in the order the
-reference pieces need it, then an open-ended effects track. The prototypes
-([prototype-findings.md](prototype-findings.md)) set this order.
+a way to see a drawing (with two spikes that measure a GPU display), a way to export frames, then type, then the risky
+geometry, then the generative layer in the order the reference pieces need it, then an open-ended effects track. The
+prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 
 | # | Batch | Size | Milestone |
 |---|---|---|---|
 | V0 | Taste prototype: the three reference pieces, throwaway, outside the repository | M | |
 | S0 | Scaffold and walking skeleton: workspace, gates, hooks, CLAUDE.md; one function from Rust core to Python, core built for WebAssembly | M | |
 | S0b | CI and a wheel per platform (before `main` is first pushed) | S | |
-| V1 | The code API (Rust, Python, JavaScript, examples first) and the JSON format | M | |
-| V2 | Core: `Path` as a value, shapes, attributes, the node trait, parameters, registry, evaluation; `polygon`, `star`, `transform`, `group` | L | |
-| V3 | Output: SVG, pixels, `look` (draw a drawing and open it); the WebAssembly package; the same bytes on every target | L | **M1 a star everywhere** |
+| V1a | The code API (Rust, Python, JavaScript, examples first) | M | |
+| V1b | The JSON format: the same tree written down | M | |
+| V2 | Core: `Path` as a value, shapes, attributes, the node trait, parameters, registry, evaluation; `Path.polygon`, `Path.star`, transforms, stacking | L | |
+| V3 | Output: SVG, pixels, a mesh, `look` (draw a drawing and open it); the WebAssembly package; the same bytes on every target | L | **M1 a star everywhere** |
+| X1 | Spike: a GPU display of the mesh in a page, measured | S | |
+| X2 | Spike: live remeshing every frame, measured | S | |
 | V4 | Frame export: a caller's function of time to a transparent PNG sequence or clip | S | |
 | V5 | Fonts and shaping: glyphs as shapes, variable axes as parameters, bundled fonts | L | |
 | V6 | Layout: wrap, align, tracking, leading, fit to a box; text on a path, text inside a shape | M | |
@@ -108,30 +111,38 @@ What to expect from the first CI run, most likely first:
 9. Dependabot's first pull requests: edit their titles.
 10. The `wasm32` target on a clean runner.
 
-## V1 The code API and the JSON format
+## V1a The code API
 
 Design the API first, as the examples a user would write: the three reference pieces and a dozen small drawings, in
-Rust, Python and JavaScript, reviewed for how they read; the owner reviews a first draft before the batch starts. Then
-the JSON format as the same tree written down. The four ideas (`Path`, `Shape`, `Drawing`, `Param`) are decided
-(design.md, "The code API"); this batch settles their method names.
-- `docs/api.md`: building a drawing, naming nodes, setting values, listing parameters, rendering.
-- `docs/formats.md`: the drawing (node tree, values, expressions, version), parameter descriptions (name, unit, range,
-  default, meaning, cyclic or bounded), map input (width, height, bytes).
+Python, the kinetic type piece also in Rust and JavaScript, reviewed for how they read. The four ideas (`Path`, `Shape`,
+`Drawing`, `Param`) are decided (design.md, "The code API"); this batch settles their method names.
+- `docs/api.md`: the ideas, a reference table per type, outputs, errors, conventions, the idioms of each language, the
+  prototypes' needs mapped to methods, open questions.
+- `docs/examples/`: the example programs, not yet run by anything.
+
+State: done, waiting for the owner's review.
+
+## V1b The JSON format
+
+The drawing as the same tree written down; nothing in it the code API cannot say.
+- `docs/formats.md`: the drawing (node tree, values, expressions, version; how fonts and maps are referred to),
+  parameter descriptions (name, unit, range, default, meaning, cyclic or bounded), map input (width, height, bytes).
 - JSON Schema in `schemas/`, generated from the Rust declarations and committed.
 
-Done when: the example programs are written and agreed; each round-trips through JSON in a test (as soon as V2 can run
-them); the schema rejects known-bad drawings.
+Done when: the format is agreed; each example program round-trips through JSON in a test (as soon as V2 can run them);
+the schema rejects known-bad drawings.
 
 ## V2 Core
 
 - `Path` as a value: build, measure (length, point and tangent at a distance), split, slice, reverse, hit-test. Each
   later batch adds its verbs to `Path` (computed now) and `Drawing` (a step) together.
 - Shapes: paths, style (fill, stroke, opacity, blend mode: normal or multiply), attributes.
-- The node trait: inputs in, shapes out, parameters declared once; the chainable builder methods of V1 over it.
+- The node trait: inputs in, shapes out, parameters declared once; the chainable builder methods of V1a over it.
 - Evaluation of a tree; a seed reaches every node; a cache so that changing one value re-evaluates only what depends
   on it.
 - Parameters: describe, validate, scale design pixels by output size, wrap cyclic angles.
-- Registry by name. Built-ins: `polygon`, `star`, `transform`, `group`. Replaces S0's skeleton function.
+- Registry by name. Built-ins: the `Path` constructors (`Path.polygon`, `Path.star` and the rest), `translate`, `rotate`,
+  `scale`, stacking (`Drawing(...)`). Replaces S0's skeleton function.
 - Contract tests over every registered node: determinism, values within range, the same result at any size.
 
 Carried from the S0 review:
@@ -146,15 +157,31 @@ Carried from the S0 review:
 ## V3 Output, WebAssembly, the same bytes everywhere
 
 - SVG writer; pixels at any size on the CPU.
+- Mesh output (`to_mesh`, api.md "Mesh"): triangles with positions, colours and per-item attributes in two flat
+  buffers; a pointer, a length and a generation across WebAssembly; a view without a copy in Python. Covered by the
+  differential test below.
 - `uv run poe look <drawing>`: draws to PNG and SVG in a git-ignored folder, for a person or an agent to look at.
 - The WebAssembly package (wasm-bindgen): build, a smoke test in Node.
 - Differential test: the core's drawings rendered natively and in WebAssembly give identical bytes.
 - Benchmark: time to draw a reference drawing at 1080p, tracked from here on.
 
+## X1 Spike: GPU display
+
+A measured experiment, not a promise. Draw V3's mesh with WebGL in a page and measure, on drawings from the reference
+pieces: frame time, upload cost, and the difference from the CPU pixels (the reference). Done when the numbers are
+written here with a proposal: what a GPU display would add to the roadmap, if anything, and what it does with steps
+that have no triangle form (shadows, knockouts, multiply).
+
+## X2 Spike: live remeshing
+
+A measured experiment, not a promise. Re-evaluate and re-mesh a drawing from the kinetic type piece every frame in
+WebAssembly, with new values each frame, and measure the time per frame at 1080p against a 60 Hz budget; find what
+dominates (shaping, booleans, tessellation, the cache). Done when the numbers are written here with a proposal.
+
 ## V4 Frame export
 
-A small helper outside the core: it loops a caller's function (time in, parameter values out) over frames at a frame
-rate and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. No timeline, keyframes or
+A small helper outside the core: it loops a caller's function (time in, a drawing with its values out; api.md, "Frame
+export") over frames at a frame rate and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. No timeline, keyframes or
 mixing.
 
 Done when: a worked example writes a PNG sequence and a clip with alpha, and each frame equals the drawing drawn
@@ -177,7 +204,7 @@ from the live values, saying when the axis runs out; text along a path; text fil
 ## V7 Per-item variation
 
 - Stagger: one value (say `progress`) becomes a per-item value spread by an attribute, for any modifier.
-- Split a text into letters, words or lines as separate shapes; per-item transforms (offset, rotate, scale by index or
+- Text as one shape per glyph; `split` into parts, `merge(by=...)` into words or lines; per-item transforms (offset, rotate, scale by index or
   by a seeded random) about a typographic origin (cap-height centre, not the bounding box).
 
 Done when: a word draws on letter by letter and scatters by index with no text-specific modifier.
