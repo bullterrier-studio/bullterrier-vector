@@ -51,6 +51,8 @@ Works with other tools only through plain data: `docs/design.md`, "Works with".
 V17), `BullterrierVectorError` (base exception), `ParameterError` (a value outside what the library accepts; also a
 `ValueError`). Full name for identity, `bt-` for what a person types. Names inside the package carry no prefix.
 
+Licence: MIT, in `LICENSE` (named by `license-files` in `pyproject.toml`; `build-check` fails a distribution without it).
+
 ## Architecture
 
 Two crates in one Cargo workspace; the package version is the workspace's.

@@ -5,3 +5,5 @@ drawn as SVG or pixels. One engine, the same output from Rust, Python and the br
 
 Status: the scaffold and its gates exist (a Rust core, Python bindings, checks that run on every change), and no features
 yet beyond one test function. The plan: [docs/design.md](docs/design.md), [docs/roadmap.md](docs/roadmap.md).
+
+Licence: [MIT](LICENSE).

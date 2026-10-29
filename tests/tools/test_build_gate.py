@@ -38,7 +38,7 @@ def rust_build_folder(tmp_path_factory) -> Path:
 
 @pytest.fixture
 def project(project_copy, rust_build_folder) -> Path:
-    copy = project_copy("pyproject.toml", "README.md", "LICENSE-MIT", "LICENSE-APACHE", ".gitignore", *RUST_FILES)
+    copy = project_copy("pyproject.toml", "README.md", "LICENSE", ".gitignore", *RUST_FILES)
     (copy / "tools").mkdir()
     shutil.copy(ROOT / "tools" / "check_dists.py", copy / "tools")
     shutil.copytree(ROOT / "crates", copy / "crates")

@@ -9,7 +9,7 @@ members = ["crates/core", "crates/python"]
 version = "0.0.0"  # the one version: the Python package reads it; crates.io gets it at the first release
 edition = "2024"
 rust-version = "1.99.1"  # the toolchain rust-toolchain.toml pins
-license = "MIT OR Apache-2.0"
+license = "MIT"
 repository = "https://github.com/bullterrier-studio/bullterrier-vector"
 publish = false  # until the first release (V21)
 
