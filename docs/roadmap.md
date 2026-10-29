@@ -3,8 +3,10 @@
 Status: draft for review, 2026-10-28. What the batches build: [design.md](design.md).
 
 Small batches of work, in order. Each batch gets its own plan before work starts, ends merged into `main` with the
-whole gate green and an independent review done, and leaves the worked examples it names passing. Sizes: **S** about
-one working session, **M** two or three, **L** four or more.
+whole gate green and an independent review done, and leaves the worked examples it names passing. From V2, a batch
+that adds calls is done only when they round-trip through JSON and the generated schema agrees with the hand-written
+draft on them (formats.md, "Extension"). Sizes: **S** about one working session, **M** two or three, **L** four or
+more.
 
 Order: a short feedback loop first (the gate, a walking skeleton through every target), then the code API and the core,
 a way to see a drawing (with two spikes that measure a GPU display), a way to export frames, then type, then the risky
@@ -126,14 +128,14 @@ State: done, waiting for the owner's review.
 
 The drawing as the same tree written down; nothing in it the code API cannot say.
 - `docs/formats.md`: the document, drawings as chains of calls, expressions, the parameter description format, inputs
-  by name, canonical form, versioning, errors, limits, the checks only a loader can make, questions for the owner.
+  by name, canonical form, versioning, errors, limits, the checks only a loader can make.
 - `docs/examples/json/`: nine example programs as JSON drawings.
 - `schemas/drawing-1.schema.json`: a hand-written draft schema; `tests/test_drawing_schema.py` checks the examples and
-  known-bad documents against it. V2 replaces it with a schema generated from the Rust declarations.
+  good and bad documents against it. From V2 a schema generated from the Rust declarations replaces it call by call.
 
 Done when: the format is agreed; the schema accepts the examples and rejects known-bad drawings.
 
-State: done, waiting for the owner's review of formats.md and its questions.
+State: done; the owner answered its questions and the review's (2026-10-29); the final review is pending.
 
 ## V2 Core
 
@@ -141,8 +143,9 @@ State: done, waiting for the owner's review of formats.md and its questions.
   hit-test. Each later batch adds its verbs to `Path` (computed now) and `Drawing` (a step) together.
 - Shapes: paths, style (fill, stroke, opacity, blend mode: normal or multiply), attributes.
 - The node trait: inputs in, shapes out, parameters declared once; the chainable builder methods of V1a over it.
-- Evaluation of a tree; a seed reaches every node; a cache so that changing one value re-evaluates only what depends
-  on it.
+- Evaluation of a tree, on the merged graph of formats.md ("Shared drawings"), a chain's steps walked in a loop; a seed
+  reaches every node; a cache so that changing one value re-evaluates only what depends on it; the evaluation counters
+  of formats.md ("Limits and security"), checked as the work is done.
 - Parameters: describe, validate, scale design pixels by output size, wrap cyclic angles.
 - Registry by name. Built-ins: the `Path` constructors (`Path.polygon`, `Path.star` and the rest), `translate`,
   `rotate`, `scale`, stacking (`Drawing(...)`). Replaces S0's skeleton function.
@@ -155,11 +158,14 @@ State: done, waiting for the owner's review of formats.md and its questions.
   "Conventions").
 - JSON (formats.md): `to_json` writing the canonical form and `from_json` reading it, over the registry; the limits;
   every check of "Checked by the loader, not the schema", each with a test named after it; `FormatError`.
-- The schema generated from the registrations, replacing the hand-written draft once a test shows the two agree on the
-  examples and the known-bad documents for every call V2 registers.
+- The schema generated from the registrations. It agrees with the hand-written draft when both give the same verdict
+  on every example and every test document whose calls are all registered; the draft stays the specification for the
+  calls not yet registered and is retired call by call.
 
-Done when: the example programs that use only V2's calls run and round-trip through JSON to identical bytes; the
-generated schema agrees with the hand-written draft; the loader rejects a document for each check formats.md lists.
+Done when: the example programs that use only V2's calls run, and each round-trips through JSON to equal canonical text
+and equal `shapes()` (V3 adds equal render bytes); a property test round-trips random trees from the registry to the
+same canonical text; the generated schema agrees with the draft; the loader rejects a document for each check
+formats.md lists; each evaluation counter raises `ParameterError` when passed, in a test.
 
 Carried from the S0 review:
 - `polygon_svg` accepts radii that draw nothing (viewBox `0 0 0 0` at radius 1e-9) and rounds to 6 fixed decimals, which
