@@ -1,0 +1,659 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "bullterrier-vector drawing, format version 1",
+  "$comment": "The hand-written draft of the drawing format (docs/formats.md), used to check the examples in docs/examples/json and the known-bad documents of tests/test_drawing_schema.py. From V2 the schema is generated from the Rust declarations of every call, and a test keeps the generated schema in agreement with this draft until the draft is retired. Checks that relate values across a document (an undeclared Param, a default outside its range, depth through references) are the loader's: docs/formats.md, 'Checked by the loader, not the schema'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "root"],
+  "properties": {
+    "version": { "const": 1 },
+    "params": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": { "$ref": "#/$defs/param" }
+    },
+    "inputs": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": { "$ref": "#/$defs/input" }
+    },
+    "drawings": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": { "$ref": "#/$defs/drawing" }
+    },
+    "root": { "$ref": "#/$defs/drawing" }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
+    "tag": { "type": "string", "pattern": "^[\\x20-\\x7E]{4}$" },
+    "color": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$" },
+    "path_data": { "type": "string", "pattern": "^(\\s*[Mm][MmZzLlHhVvCcSsQqTtAa0-9eE.,+\\-\\s]*)?$" },
+    "number": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/expression" }] },
+    "positive": { "anyOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "$ref": "#/$defs/expression" }] },
+    "non_negative": { "anyOf": [{ "type": "number", "minimum": 0 }, { "$ref": "#/$defs/expression" }] },
+    "fraction": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "$ref": "#/$defs/expression" }] },
+    "nonzero": { "anyOf": [{ "type": "number", "not": { "const": 0 } }, { "$ref": "#/$defs/expression" }] },
+    "whole": { "anyOf": [{ "type": "integer" }, { "$ref": "#/$defs/expression" }] },
+    "point": {
+      "type": "array",
+      "prefixItems": [{ "$ref": "#/$defs/number" }, { "$ref": "#/$defs/number" }],
+      "minItems": 2,
+      "items": false
+    },
+    "nonzero_pair": {
+      "anyOf": [
+        { "$ref": "#/$defs/nonzero" },
+        {
+          "type": "array",
+          "prefixItems": [{ "$ref": "#/$defs/nonzero" }, { "$ref": "#/$defs/nonzero" }],
+          "minItems": 2,
+          "items": false
+        }
+      ]
+    },
+    "operands": {
+      "type": "array",
+      "prefixItems": [{ "$ref": "#/$defs/number" }, { "$ref": "#/$defs/number" }],
+      "minItems": 2,
+      "items": false,
+      "not": { "items": { "type": "number" } },
+      "$comment": "at least one operand is not a literal: a constant expression is written as its value"
+    },
+    "expression": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": {
+        "enum": ["param", "add", "sub", "mul", "div", "neg", "by_index", "by_order", "random", "stagger"]
+      },
+      "properties": {
+        "param": { "$ref": "#/$defs/name" },
+        "add": { "$ref": "#/$defs/operands" },
+        "sub": { "$ref": "#/$defs/operands" },
+        "mul": { "$ref": "#/$defs/operands" },
+        "div": { "allOf": [{ "$ref": "#/$defs/operands" }, { "prefixItems": [true, { "not": { "const": 0 } }] }] },
+        "neg": { "allOf": [{ "$ref": "#/$defs/number" }, { "not": { "type": "number" } }] },
+        "by_index": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "first": { "$ref": "#/$defs/number" }, "last": { "$ref": "#/$defs/number" } },
+          "required": ["first", "last"]
+        },
+        "by_order": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "first": { "$ref": "#/$defs/number" }, "last": { "$ref": "#/$defs/number" } },
+          "required": ["first", "last"]
+        },
+        "random": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "low": { "$ref": "#/$defs/number" },
+            "high": { "$ref": "#/$defs/number" },
+            "seed": { "$ref": "#/$defs/whole" }
+          },
+          "required": ["low", "high"]
+        },
+        "stagger": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "progress": { "$ref": "#/$defs/number" },
+            "spread": {
+              "anyOf": [{ "type": "number", "minimum": 0, "exclusiveMaximum": 1 }, { "$ref": "#/$defs/expression" }]
+            }
+          },
+          "required": ["progress"]
+        }
+      }
+    },
+    "join": { "enum": ["round", "miter", "bevel"] },
+    "cap": { "enum": ["butt", "round", "square"] },
+    "attribute": { "enum": ["index", "glyph", "char", "word", "line", "part", "copy", "level", "order"] },
+    "attribute_values": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+          ]
+        },
+        "glyph": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+          ]
+        },
+        "word": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+          ]
+        },
+        "line": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+          ]
+        },
+        "part": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+          ]
+        },
+        "copy": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+          ]
+        },
+        "char": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" }, "minItems": 1 }] },
+        "level": { "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" }, "minItems": 1 }] },
+        "order": { "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" }, "minItems": 1 }] }
+      }
+    },
+    "tone": { "anyOf": [{ "$ref": "#/$defs/fraction" }, { "$ref": "#/$defs/field" }] },
+    "field": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": { "enum": ["Field.map", "Field.ramp", "Field.distance"] },
+      "properties": {
+        "Field.map": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 },
+            "data": { "$ref": "#/$defs/name" },
+            "box": {
+              "type": "array",
+              "prefixItems": [
+                { "$ref": "#/$defs/number" },
+                { "$ref": "#/$defs/number" },
+                { "$ref": "#/$defs/positive" },
+                { "$ref": "#/$defs/positive" }
+              ],
+              "minItems": 4,
+              "items": false
+            }
+          },
+          "required": ["width", "height", "data"]
+        },
+        "Field.ramp": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "start": { "$ref": "#/$defs/point" }, "end": { "$ref": "#/$defs/point" } },
+          "required": ["start", "end"]
+        },
+        "Field.distance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "drawing": { "$ref": "#/$defs/drawing" }, "normalized": { "type": "boolean" } },
+          "required": ["drawing"]
+        }
+      }
+    },
+    "flow": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": { "enum": ["Flow.angle", "Flow.noise", "Flow.contour", "Flow.mix"] },
+      "properties": {
+        "Flow.angle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "angle": { "$ref": "#/$defs/number" } },
+          "required": ["angle"]
+        },
+        "Flow.noise": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "wavelength": { "$ref": "#/$defs/positive" },
+            "phase": { "$ref": "#/$defs/number" },
+            "seed": { "$ref": "#/$defs/whole" }
+          }
+        },
+        "Flow.contour": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "drawing": { "$ref": "#/$defs/drawing" } },
+          "required": ["drawing"]
+        },
+        "Flow.mix": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "flow": { "$ref": "#/$defs/flow" },
+            "other": { "$ref": "#/$defs/flow" },
+            "fraction": { "$ref": "#/$defs/fraction" }
+          },
+          "required": ["flow", "other", "fraction"]
+        }
+      }
+    },
+    "drawing": {
+      "type": "array",
+      "minItems": 1,
+      "prefixItems": [{ "$ref": "#/$defs/source" }],
+      "items": { "$ref": "#/$defs/step" },
+      "$comment": "a source, then the steps applied to it in order"
+    },
+    "source": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": { "enum": ["path", "shape", "drawing", "stack", "text", "trace"] },
+      "properties": {
+        "path": { "$ref": "#/$defs/path_data" },
+        "shape": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": { "$ref": "#/$defs/path_data" },
+            "attributes": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "glyph": { "type": "integer", "minimum": 0 },
+                "word": { "type": "integer", "minimum": 0 },
+                "line": { "type": "integer", "minimum": 0 },
+                "part": { "type": "integer", "minimum": 0 },
+                "copy": { "type": "integer", "minimum": 0 },
+                "char": { "type": "string" },
+                "level": { "type": "number" },
+                "order": { "type": "number" },
+                "origin": {
+                  "type": "array",
+                  "prefixItems": [{ "type": "number" }, { "type": "number" }],
+                  "minItems": 2,
+                  "items": false
+                }
+              }
+            }
+          },
+          "required": ["path"]
+        },
+        "drawing": { "$ref": "#/$defs/name" },
+        "stack": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "items": { "type": "array", "items": { "$ref": "#/$defs/drawing" } },
+            "size": {
+              "type": "array",
+              "minItems": 2,
+              "items": false,
+              "prefixItems": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "number", "exclusiveMinimum": 0 }]
+            }
+          },
+          "required": ["items"]
+        },
+        "text": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "content": { "type": "string" },
+            "font": { "$ref": "#/$defs/name" },
+            "size": { "$ref": "#/$defs/positive" },
+            "axes": {
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/tag" },
+              "additionalProperties": { "$ref": "#/$defs/number" }
+            },
+            "features": {
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/tag" },
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
+            "tracking": { "$ref": "#/$defs/number" },
+            "leading": { "$ref": "#/$defs/positive" },
+            "align": { "enum": ["left", "center", "right"] },
+            "anchor": { "$ref": "#/$defs/point" },
+            "width": { "$ref": "#/$defs/positive" },
+            "fit": { "$ref": "#/$defs/tag", "$comment": "an axis tag, or \"size\"" },
+            "inside": { "$ref": "#/$defs/path_data" }
+          },
+          "required": ["content", "font"]
+        },
+        "trace": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "field": { "$ref": "#/$defs/field" },
+            "levels": { "type": "array", "items": { "$ref": "#/$defs/number" }, "minItems": 1 },
+            "tolerance": { "$ref": "#/$defs/positive" },
+            "before": { "type": "array", "items": { "$ref": "#/$defs/field" } },
+            "after": { "type": "array", "items": { "$ref": "#/$defs/field" } },
+            "sigma": { "$ref": "#/$defs/positive" }
+          },
+          "required": ["field"]
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": {
+        "enum": [
+          "translate",
+          "rotate",
+          "scale",
+          "union",
+          "subtract",
+          "intersect",
+          "exclude",
+          "offset",
+          "outline",
+          "drop_parts",
+          "fill_holes",
+          "slice",
+          "reverse",
+          "dash",
+          "resample",
+          "simplify",
+          "along",
+          "wobble",
+          "wave",
+          "morph",
+          "hatch",
+          "split",
+          "merge",
+          "only",
+          "without",
+          "repeat",
+          "fill",
+          "stroke",
+          "halftone",
+          "opacity",
+          "blend",
+          "shadow",
+          "knockout",
+          "gradient_map",
+          "posterize",
+          "with_values"
+        ]
+      },
+      "properties": {
+        "translate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "dx": { "$ref": "#/$defs/number" }, "dy": { "$ref": "#/$defs/number" } },
+          "required": ["dx", "dy"]
+        },
+        "rotate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "angle": { "$ref": "#/$defs/number" }, "about": { "$ref": "#/$defs/point" } },
+          "required": ["angle"]
+        },
+        "scale": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "by": { "$ref": "#/$defs/nonzero_pair" }, "about": { "$ref": "#/$defs/point" } },
+          "required": ["by"]
+        },
+        "union": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "other": { "$ref": "#/$defs/drawing" } },
+          "required": ["other"]
+        },
+        "subtract": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "other": { "$ref": "#/$defs/drawing" } },
+          "required": ["other"]
+        },
+        "intersect": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "other": { "$ref": "#/$defs/drawing" } },
+          "required": ["other"]
+        },
+        "exclude": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "other": { "$ref": "#/$defs/drawing" } },
+          "required": ["other"]
+        },
+        "offset": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "distance": { "$ref": "#/$defs/number" }, "join": { "$ref": "#/$defs/join" } },
+          "required": ["distance"]
+        },
+        "outline": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width": { "$ref": "#/$defs/positive" },
+            "join": { "$ref": "#/$defs/join" },
+            "cap": { "$ref": "#/$defs/cap" }
+          },
+          "required": ["width"]
+        },
+        "drop_parts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "smaller_than": { "$ref": "#/$defs/non_negative" } },
+          "required": ["smaller_than"]
+        },
+        "fill_holes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "smaller_than": { "$ref": "#/$defs/non_negative" } },
+          "required": ["smaller_than"]
+        },
+        "slice": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "start": { "$ref": "#/$defs/fraction" },
+            "end": { "$ref": "#/$defs/fraction" },
+            "near": { "$ref": "#/$defs/point" }
+          },
+          "required": ["start", "end"]
+        },
+        "reverse": { "type": "object", "additionalProperties": false, "properties": {} },
+        "dash": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pattern": { "type": "array", "items": { "$ref": "#/$defs/positive" }, "minItems": 1 },
+            "phase": { "$ref": "#/$defs/number" },
+            "near": { "$ref": "#/$defs/point" }
+          },
+          "required": ["pattern"]
+        },
+        "resample": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "spacing": { "$ref": "#/$defs/positive" } },
+          "required": ["spacing"]
+        },
+        "simplify": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "tolerance": { "$ref": "#/$defs/positive" } }
+        },
+        "along": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": { "$ref": "#/$defs/path_data" },
+            "start": { "$ref": "#/$defs/number" },
+            "near": { "$ref": "#/$defs/point" }
+          },
+          "required": ["path"]
+        },
+        "wobble": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amplitude": { "$ref": "#/$defs/number" },
+            "wavelength": { "$ref": "#/$defs/positive" },
+            "phase": { "$ref": "#/$defs/number" },
+            "seed": { "$ref": "#/$defs/whole" }
+          }
+        },
+        "wave": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amplitude": { "$ref": "#/$defs/number" },
+            "wavelength": { "$ref": "#/$defs/positive" },
+            "angle": { "$ref": "#/$defs/number" },
+            "phase": { "$ref": "#/$defs/number" }
+          }
+        },
+        "morph": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "target": { "$ref": "#/$defs/drawing" }, "fraction": { "$ref": "#/$defs/fraction" } },
+          "required": ["target", "fraction"]
+        },
+        "hatch": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "spacing": {
+              "anyOf": [
+                { "$ref": "#/$defs/positive" },
+                {
+                  "type": "array",
+                  "prefixItems": [{ "$ref": "#/$defs/positive" }, { "$ref": "#/$defs/positive" }],
+                  "minItems": 2,
+                  "items": false
+                }
+              ]
+            },
+            "tone": { "$ref": "#/$defs/tone" },
+            "flow": { "$ref": "#/$defs/flow" },
+            "avoid": { "$ref": "#/$defs/drawing" }
+          }
+        },
+        "split": { "type": "object", "additionalProperties": false, "properties": {} },
+        "merge": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "by": { "$ref": "#/$defs/attribute" } }
+        },
+        "only": { "$ref": "#/$defs/attribute_values" },
+        "without": { "$ref": "#/$defs/attribute_values" },
+        "repeat": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "count": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "$ref": "#/$defs/expression" }] },
+            "translate": { "$ref": "#/$defs/point" },
+            "rotate": { "$ref": "#/$defs/number" },
+            "scale": { "$ref": "#/$defs/nonzero_pair" },
+            "about": { "$ref": "#/$defs/point" }
+          },
+          "required": ["count"]
+        },
+        "fill": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "color": { "anyOf": [{ "$ref": "#/$defs/color" }, { "const": "none" }] } },
+          "required": ["color"]
+        },
+        "stroke": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": { "$ref": "#/$defs/color" },
+            "width": { "$ref": "#/$defs/positive" },
+            "join": { "$ref": "#/$defs/join" },
+            "cap": { "$ref": "#/$defs/cap" }
+          },
+          "required": ["color"]
+        },
+        "halftone": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": { "$ref": "#/$defs/color" },
+            "tone": { "$ref": "#/$defs/tone" },
+            "pitch": { "$ref": "#/$defs/positive" },
+            "angle": { "$ref": "#/$defs/number" }
+          },
+          "required": ["color", "tone"]
+        },
+        "opacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "alpha": { "$ref": "#/$defs/fraction" } },
+          "required": ["alpha"]
+        },
+        "blend": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "mode": { "enum": ["normal", "multiply"] } },
+          "required": ["mode"]
+        },
+        "shadow": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dx": { "$ref": "#/$defs/number" },
+            "dy": { "$ref": "#/$defs/number" },
+            "blur": { "$ref": "#/$defs/non_negative" },
+            "color": { "$ref": "#/$defs/color" }
+          }
+        },
+        "knockout": { "type": "object", "additionalProperties": false, "properties": {} },
+        "gradient_map": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "colors": { "type": "array", "items": { "$ref": "#/$defs/color" }, "minItems": 2 } },
+          "required": ["colors"]
+        },
+        "posterize": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "levels": { "anyOf": [{ "type": "integer", "minimum": 2 }, { "$ref": "#/$defs/expression" }] }
+          },
+          "required": ["levels"]
+        },
+        "with_values": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/name" },
+          "additionalProperties": {
+            "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" } }]
+          }
+        }
+      }
+    },
+    "param": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": { "type": "number" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "unit": { "enum": ["px", "deg", "cycle", "fraction", ""] },
+        "meaning": { "type": "string" }
+      },
+      "required": ["default", "min", "max", "unit", "meaning"]
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "kind": { "enum": ["font", "map"] }, "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
+      "required": ["kind"]
+    }
+  }
+}
