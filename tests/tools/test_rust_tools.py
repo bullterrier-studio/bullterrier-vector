@@ -115,6 +115,14 @@ def test_install_installs_only_what_is_missing_or_at_another_version(programs, t
     assert installs == ["install --locked cargo-deny@0.20.2"]
 
 
+def test_install_without_cargo_fails_naming_it_and_installs_nothing(programs, tmp_path, capsys):
+    (tmp_path / "Cargo.toml").write_text(MANIFEST, encoding="utf-8")
+    programs("cargo-shear", "Version: 1.14.0")
+    programs("cargo-deny", "cargo-deny 0.19.0")
+    assert rust_tools.main(["install", "--root", str(tmp_path)]) == 1
+    assert "cargo is not installed" in capsys.readouterr().err
+
+
 def test_specs_prints_every_pin_as_an_installer_takes_it_on_one_line(tmp_path, capsys):
     # CI hands this line to taiki-e/install-action (`tool:`), so the versions stay written in Cargo.toml alone
     (tmp_path / "Cargo.toml").write_text(MANIFEST, encoding="utf-8")

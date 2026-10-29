@@ -80,7 +80,12 @@ def main(argv: list[str] | None = None) -> int:
         if installed_version(tool) != version:
             command = install_command(tool, version)
             print(f"rust-tools: {' '.join(command)}")
-            if subprocess.run(command, check=False).returncode != 0:  # noqa: S603  cargo with a pinned tool name and version from Cargo.toml
+            # resolved the way installed_version does (which honours PATHEXT, so a Windows `.cmd` shim is found)
+            cargo = shutil.which(command[0])
+            if cargo is None:
+                print(f"rust-tools: {command[0]} is not installed (https://rustup.rs)", file=sys.stderr)
+                return 1
+            if subprocess.run([cargo, *command[1:]], check=False).returncode != 0:  # noqa: S603  cargo with a pinned tool name and version from Cargo.toml
                 return 1
     return 0
 
