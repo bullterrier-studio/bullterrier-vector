@@ -59,7 +59,7 @@ class Run(NamedTuple):
     probe: subprocess.CompletedProcess[str]
 
 
-def run_probe(tmp_path: Path, tests_conftest: str) -> Run:
+def run_probe(tmp_path: Path, tests_conftest: str, explicit_env) -> Run:
     """Run the probe under `tests_conftest` while `GIT_*` points at an enclosing repository."""
     enclosing = tmp_path / "enclosing"
     enclosing.mkdir()
@@ -75,17 +75,16 @@ def run_probe(tmp_path: Path, tests_conftest: str) -> Run:
     (probe / "conftest.py").write_text(tests_conftest, encoding="utf-8")
     shutil.copy(ROOT / "tests" / "tools" / "conftest.py", probe / "tools" / "conftest.py")
     (probe / "tools" / "test_probe.py").write_text(PROBE, encoding="utf-8")
-    # nothing from this process but the PATH: only what a hook would hand over
-    env = {
-        "PATH": os.environ["PATH"],
-        "GIT_DIR": str(enclosing / ".git"),
-        "GIT_WORK_TREE": str(enclosing),
-        "GIT_INDEX_FILE": str(enclosing / ".git" / "index"),
-        "GIT_AUTHOR_NAME": "Enclosing",
-        "GIT_AUTHOR_EMAIL": "enclosing@example.com",
-        "GIT_COMMITTER_NAME": "Enclosing",
-        "GIT_COMMITTER_EMAIL": "enclosing@example.com",
-    }
+    # nothing from this process but what a command needs to start (`explicit_env`) and what a hook would hand over
+    env = explicit_env(
+        GIT_DIR=str(enclosing / ".git"),
+        GIT_WORK_TREE=str(enclosing),
+        GIT_INDEX_FILE=str(enclosing / ".git" / "index"),
+        GIT_AUTHOR_NAME="Enclosing",
+        GIT_AUTHOR_EMAIL="enclosing@example.com",
+        GIT_COMMITTER_NAME="Enclosing",
+        GIT_COMMITTER_EMAIL="enclosing@example.com",
+    )
     pytest_args = ["-q", "-n", "0", "-p", "no:randomly", "-p", "no:cacheprovider", "--import-mode=importlib"]
     result = subprocess.run(
         [sys.executable, "-m", "pytest", *pytest_args, "--rootdir", str(probe), str(probe)],
@@ -98,14 +97,14 @@ def run_probe(tmp_path: Path, tests_conftest: str) -> Run:
     return Run(enclosing, head, status, result)
 
 
-def test_a_git_repo_never_reaches_the_repository_that_enclosing_git_variables_name(tmp_path):
-    run = run_probe(tmp_path, (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8"))
+def test_a_git_repo_never_reaches_the_repository_that_enclosing_git_variables_name(tmp_path, explicit_env):
+    run = run_probe(tmp_path, (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8"), explicit_env)
     assert run.probe.returncode == 0, run.probe.stdout + run.probe.stderr  # the probe committed in its own repository
     assert git(run.enclosing, "rev-parse", "HEAD") == run.head
     assert git(run.enclosing, "status", "--porcelain") == run.status
 
 
-def test_without_the_fixture_the_probe_does_reach_the_enclosing_repository(tmp_path):
+def test_without_the_fixture_the_probe_does_reach_the_enclosing_repository(tmp_path, explicit_env):
     """The control: this is what the fixture prevents, so the test above can fail."""
-    run = run_probe(tmp_path, NO_FIXTURE)
+    run = run_probe(tmp_path, NO_FIXTURE, explicit_env)
     assert git(run.enclosing, "rev-parse", "HEAD") != run.head
