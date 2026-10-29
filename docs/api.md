@@ -71,8 +71,10 @@ source (TrueType outlines run clockwise, CFF ones counter-clockwise): outer cont
 counter-clockwise; outer contours come in order of their topmost point (top to bottom, then left to right), each
 followed by its holes in the same order. A draw-on therefore runs the same way on every glyph of every font. Where two
 points of an outline are nearly as high (a raised hand beside the head), the topmost can change from one map to the next
-and the start jumps between them; `slice(..., near=point)` measures each closed sub-path from its point nearest `point`
-instead (the head, say).
+and the start jumps between them, moving everything measured from it: `point_at`, `tangent_at`, `locate`, `slice`,
+`dash` and `along(start=)`. Each of these takes `near=point`, which measures every closed sub-path from its point
+nearest `point` instead (the head, say). Two verbs leave the canonical form on purpose: `reverse`, and `scale` by a
+negative value, which mirrors and so flips the winding.
 
 Building returns a new path each call:
 
@@ -98,9 +100,9 @@ Measuring and hit-testing (on `Path` only):
 |---|---|---|---|
 | `length` | property | the length in design pixels | |
 | `bounds` | property | the smallest `Rect(x, y, width, height)` around the outline | `GeometryError` on an empty path |
-| `point_at` | `point_at(at)` | the point a fraction `at` of the way along | `ParameterError`: `at` outside 0..1; `GeometryError`: an empty path |
-| `tangent_at` | `tangent_at(at)` | the unit direction of travel there | as `point_at` |
-| `locate` | `locate(point)` | the position 0..1 of the point on the path nearest `point` | `GeometryError`: an empty path |
+| `point_at` | `point_at(at, *, near=None)` | the point a fraction `at` of the way along | `ParameterError`: `at` outside 0..1; `GeometryError`: an empty path |
+| `tangent_at` | `tangent_at(at, *, near=None)` | the unit direction of travel there | as `point_at` |
+| `locate` | `locate(point, *, near=None)` | the position 0..1 of the point on the path nearest `point` | `GeometryError`: an empty path |
 | `contains` | `contains(point)` | whether `point` is inside the filled region (nonzero rule) | |
 | `split` | `split()` | a `list[Path]` of its parts: each closed outline with the holes inside it, and each open line | |
 | `map_points` | `map_points(fn)` | the path with every point, on and off the curve, passed through `fn(point) -> point` | what `fn` raises |
@@ -129,12 +131,12 @@ own origin. To turn the whole stack as one, give `about=` a point, such as the f
 | `outline` | `outline(width, *, join="round", cap="round")` | the region a stroke of `width` paints, as a closed outline; caps `butt`, `round`, `square` | `width` not above 0 |
 | `drop_parts` | `drop_parts(*, smaller_than)` | without the parts whose area is below `smaller_than` square pixels | `smaller_than` below 0 |
 | `fill_holes` | `fill_holes(*, smaller_than)` | with the holes whose area is below `smaller_than` filled | `smaller_than` below 0 |
-| `slice` | `slice(start, end, *, near=None)` | the piece between two positions along it (draw-on: `slice(0, progress)`); with `near`, a closed sub-path is measured from its point nearest `near` | a position outside 0..1 |
+| `slice` | `slice(start, end, *, near=None)` | the piece between two positions along it (draw-on: `slice(0, progress)`); with `near`, a closed sub-path is measured from its point nearest `near`, as for every verb that takes it | a position outside 0..1 |
 | `reverse` | `reverse()` | the same outline travelled the other way | |
-| `dash` | `dash(pattern, *, phase=0)` | the pieces a dash pattern (`[on, off, ...]` in pixels) leaves; `phase` in cycles of the pattern, wrapping | an empty pattern; a length not above 0 |
+| `dash` | `dash(pattern, *, phase=0, near=None)` | the pieces a dash pattern (`[on, off, ...]` in pixels) leaves; `phase` in cycles of the pattern, wrapping | an empty pattern; a length not above 0 |
 | `resample` | `resample(spacing)` | straight segments with corners `spacing` pixels apart along it | `spacing` not above 0 |
-| `simplify` | `simplify(*, tolerance=0.5)` | the fewest smooth curves (sharp corners kept) within `tolerance` pixels; fits curves through a dense polyline | `tolerance` not above 0 |
-| `along` | `along(path, *, start=0)` | bent along `path`: a point `x` pixels along the baseline `y = 0` lands `x` pixels past `start` on `path` and `y` pixels to the right of its direction of travel (below the baseline stays below); `start` wraps on a closed path | `GeometryError`: `path` empty |
+| `simplify` | `simplify(*, tolerance=0.5)` | the fewest smooth curves (sharp corners kept) within `tolerance` pixels, so a dense polyline becomes a few smooth curves | `tolerance` not above 0 |
+| `along` | `along(path, *, start=0, near=None)` | bent along `path`: a point `x` pixels along the baseline `y = 0` lands `x` pixels past `start` (a fraction of `path`'s length, measured from its start or from its point nearest `near`) on `path` and `y` pixels to the right of its direction of travel (below the baseline stays below); `start` wraps on a closed path, so a `cycle` Param turns it round | `GeometryError`: `path` empty |
 | `wobble` | `wobble(*, amplitude=4, wavelength=80, phase=0, seed=0)` | points displaced by smooth seeded noise of that amplitude and wavelength (pixels); `phase` in cycles moves it | `wavelength` not above 0 |
 | `wave` | `wave(*, amplitude=8, wavelength=120, angle=0, phase=0)` | points displaced sideways by a sine travelling towards `angle` | `wavelength` not above 0 |
 | `morph` | `morph(target, fraction)` | the outline `fraction` 0..1 of the way to `target`, points matched when their counts differ; on a `Drawing`, shapes pair by index | on a `Drawing`, different shape counts |
@@ -143,8 +145,8 @@ own origin. To turn the whole stack as one, give `about=` a point, such as the f
 Booleans and offsets hold on overlapping, rotated glyphs (`text` makes every glyph outline a valid region). Where an
 outline cannot be resolved into a region, the verb raises `GeometryError` naming the verb and the shape's index; V8
 documents the cases. On a `Drawing`, `other` is a `Drawing` or a `Path`; each shape is combined with the union of
-`other`'s shapes. Deformers resample first, so they stay smooth at any size; V12 adds `twist` and `bulge` in the same
-form.
+`other`'s shapes. A deformer's result is smooth at any size, however few points the outline had; V12 adds `twist` and
+`bulge` in the same form.
 
 Closing and opening are two offsets: `offset(r).offset(-r)` fills gaps and dents narrower than `2r` (a blobby mount);
 `offset(-r).offset(r)` removes spurs thinner than `2r`.
@@ -225,7 +227,7 @@ drawing with their style and attributes.
 |---|---|---|
 | `shape.path` | `Path` | its outline |
 | `shape.style` | `Style` | what the style steps set: `fill` and `stroke` (`"#rrggbbaa"` or `None`), `stroke_width`, `join`, `cap`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`) |
-| `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph`, `word`, `line`, `part`, `copy` (`int`), `char` (`str`), `level`, `order` (`float`), `origin` (`Point`) |
+| `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`) |
 
 ## Generators
 
@@ -281,7 +283,7 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 | `font.features` | property | the OpenType feature tags it has | |
 | `Field.map` | `Field.map(width, height, data, *, box=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value | `len(data)` not `width × height` |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
-| `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Drawing` or a `Path`: signed distance to the nearest outline in pixels, negative inside; normalised: inside each shape 0 on its outer edge to 1 on its holes' edges (its centre line when it has none), 0 outside || `GeometryError`: `drawing` empty when drawn |
+| `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Drawing` or a `Path`: signed distance to the nearest outline in pixels, negative inside; normalised: inside each shape 0 on its outer edge to 1 on its holes' edges (its centre line when it has none), 0 outside | `GeometryError`: `drawing` empty when drawn |
 | `Flow.angle` | `Flow.angle(angle)` | the same direction everywhere | |
 | `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | smooth seeded noise directions; `phase` in cycles moves it | `wavelength` not above 0 |
 | `Flow.contour` | `Flow.contour(drawing)` | the direction of the nearest outline of `drawing` (a `Drawing` or a `Path`) | `GeometryError`: `drawing` empty when drawn |
@@ -456,7 +458,7 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | | Python | Rust | JavaScript |
 |---|---|---|---|
 | Constructors | `btvec.Drawing(a, b, size=(w, h))`, `btvec.Font(data)`, `btvec.Param("rise", default=0, min=0, max=1)` | `Drawing::new([a, b]).with_size(w, h)`, `Drawing::from(path)`, `Font::new(data)?`, `Param::new("rise", 0.0, 0.0..=1.0)?.unit(Unit::Fraction)` | `new btvec.Drawing([a, b], { size: [w, h] })`, `new btvec.Font(data)`, `new btvec.Param("rise", { default: 0, min: 0, max: 1 })` |
-| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7)`); the required argument alone converts into it (`.rotate(Deg(30.0))`) | an options object last (`{ width: 1.5 }`) |
+| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7)`); the required argument alone converts into it (`.rotate(Deg(30.0))`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7) * &burst)`) | an options object last (`{ width: 1.5 }`) |
 | Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods (`add`, `sub`, `mul`, `div`, `neg`), read in source order: `pulse.mul(0.08).add(1)`; a number that comes first is lifted once with `btvec.expr(n)`: `btvec.expr(1).sub(rise).mul(HEIGHT)` |
 | Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` | an object: `toPng(1080, 1350, { weight: 820 })` |
 | Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toMesh(w, h, values, { into: mesh })`, `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })` |
@@ -572,7 +574,9 @@ Verbs no example uses yet, and what needs them: `merge` (V7: words and lines as 
 boolean; glitch slices on the effects track), `reverse` (V11: a draw-on the other way round), `locate` (hit-testing for
 an editor), `outline` (V9; die-cut sticker outlines and tapered strokes on the effects track), `Flow.contour` and
 `flow.mix` (V15: the findings' line fields, noise mixed with a glyph's contour), `wave` (V12; the effects track's
-deformers), `morph` (V13; glyph-to-shape morph on the effects track).
+deformers), `morph` (V13; glyph-to-shape morph on the effects track), `resample` (V11; dots spaced evenly along a path
+on the effects track), `map_points` (a caller's own deformation of a glyph, computed at once: every glyph an editable
+path).
 
 ## Decided after review
 
@@ -597,4 +601,5 @@ deformers), `morph` (V13; glyph-to-shape morph on the effects track).
    same way in every font, and the start does not move as a glyph changes; where the top jumps between two peaks,
    `near=` fixes the start; a distance is `fraction × length`.
 2. **A negative `scale` mirrors.** The review asked for zero and negative values to raise. Recommended: zero raises (it
-   collapses the outline), a negative value mirrors, since no other verb mirrors a shape.
+   collapses the outline), a negative value mirrors, since no other verb mirrors a shape. A mirror flips the winding,
+   so a negative `scale` and `reverse` are the stated exceptions to the canonical form of outlines ("Path").

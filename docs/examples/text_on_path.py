@@ -1,7 +1,7 @@
 """Text on a path: a line of type laid out straight, then bent around a circle; `turn` moves it around.
 
 `along` maps each letter's place on its baseline to a distance along the path, so it works for any shapes, not only
-text. On a closed path, `start` wraps.
+text. `start` is a fraction of the path's length and wraps on a closed path, so a `cycle` Param turns the text round.
 """
 
 from pathlib import Path
