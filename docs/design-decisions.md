@@ -90,6 +90,18 @@ Each decision once, with its reason. The design: [design.md](design.md).
 - **A negative `scale` mirrors; zero raises** (2026-10-29, approved by the owner; the review had asked for both to
   raise). *Reason:* zero collapses the outline, while no other verb mirrors a shape. *Consequence:* a mirror flips the
   winding, so it leaves the canonical orientation, as `reverse` does.
+- **A stack writes `order` only on shapes that carry none; `Drawing(x)` is `x`** (2026-10-29, the owner, from the V1b
+  review). *Reason:* stacking a text must not undo its per-letter order, and a wrapper that changes nothing must not
+  change the saved drawing; Rust converts a path where Python and JavaScript stack it, and all three must save alike.
+- **`Style` holds the paint as drawn** (2026-10-29, the owner). `None` is not painted, `fill("none")` counts as set,
+  `shapes()` resolves the default paint. *Reason:* a shape read back and stacked again must draw as it did; with
+  `None` meaning both "unset" and "none", a `fill("none")` shape came back filled black.
+- **A per-item number where an argument is read once is an error** (2026-10-29, the owner). *Reason:* a value per shape
+  means nothing where there is no shape yet (`trace`'s `levels`, a field's points), and taking the first shape's value
+  would hide the mistake.
+- **Plain numbers are checked when the call is made, finite and whole within ±(2⁵³ − 1)** (2026-10-29). An expression
+  without Params or per-item numbers is a plain number. *Reason:* a mistake surfaces at the line that made it; 2⁵³ is
+  where a 64-bit float stops holding every whole number, and JSON readers in every language agree up to it.
 
 ## The JSON format
 

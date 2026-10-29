@@ -171,7 +171,7 @@ without `tone`.
 `Drawing(*items, size=None)`: the items (paths, shapes, drawings) stacked in order, the first at the bottom. `size` is
 the design frame `(width, height)` in design pixels; outputs scale it to their size. Without one, a drawing takes the
 size its items have; items whose sizes differ raise `ParameterError` naming both; with none at all, design pixels are
-output pixels.
+output pixels. `Drawing(x)`, one item and no size, is `x` itself, whether `x` is a path, a shape or a drawing.
 
 ### Items
 
@@ -185,8 +185,8 @@ output pixels.
 
 `index` is every shape's place in the current list. Generators write the rest: `text` writes `glyph`, `char`, `word`,
 `line`, `order` and a typographic `origin`; `repeat` writes `copy`; `trace` writes `level`; `Drawing(...)` writes
-`order` by stacking order. `order` runs 0..1 over the shapes a generator made and survives `split` and `only`; `index`
-counts the current list.
+`order` by stacking order on the shapes that carry none. `order` runs 0..1 over the shapes a generator made and
+survives `split` and `only`; `index` counts the current list.
 
 ### Style
 
@@ -203,17 +203,17 @@ counts the current list.
 | `posterize` | `posterize(levels)` | every fill and stroke colour reduced to `levels` levels a channel | `levels` below 2 |
 
 Colours are `"#rrggbb"` or `"#rrggbbaa"`. Until a fill or a stroke is set, a closed outline is filled black and an open
-line stroked black at 2 pixels; once either is set, only what is set is painted. `knockout` is the style form of a cut:
-it keeps both shapes and cuts through everything below, shadows included; `subtract` makes new geometry (for a plotter,
-or for further verbs). Every style reaches SVG and pixels alike. Called on a `Path`, a style step returns a `Drawing` of
-that path.
+line stroked black at 2 pixels; once either is set, only what is set is painted. `fill("none")` counts as set.
+`knockout` is the style form of a cut: it keeps both shapes and cuts through everything below, shadows included;
+`subtract` makes new geometry (for a plotter, or for further verbs). Every style reaches SVG and pixels alike. Called on
+a `Path`, a style step returns a `Drawing` of that path.
 
 ### Values and evaluation
 
 | Method | Signature | Promise | Errors |
 |---|---|---|---|
 | `with_values` | `with_values(**values)` | the same drawing with these Params fixed; they leave `parameters()` | as outputs (below) |
-| `parameters` | `parameters()` | every `Param` the drawing reads, in the order first used | two different Params with one name |
+| `parameters` | `parameters()` | every `Param` the drawing reads, in the order first used (the walk of [formats.md](formats.md), "Params") | two Params with one name that differ in a field (Params equal in all five fields are one) |
 | `shapes` | `shapes(**values)` | the evaluated shapes, in design pixels | as outputs |
 | `size` | property | the design frame, or `None` | |
 
@@ -226,7 +226,7 @@ drawing with their style and attributes.
 | Member | Type | Promise |
 |---|---|---|
 | `shape.path` | `Path` | its outline |
-| `shape.style` | `Style` | what the style steps set: `fill` and `stroke` (`"#rrggbbaa"` or `None`), `stroke_width`, `join`, `cap`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`) |
+| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`) |
 | `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`) |
 
 ## Generators
@@ -245,7 +245,7 @@ kerning, ligatures and complex scripts, each outline a valid region (overlapping
 | `font` | a `Font` |
 | `size` | pixels to the em |
 | `axes` | variable axis values by tag (`{"wght": weight}`); a per-item number gives each glyph its own, and advances follow |
-| `features` | OpenType features by tag (`{"ss01": 1, "liga": 0}`) |
+| `features` | OpenType features by tag (`{"ss01": 1, "liga": 0}`): literal whole numbers from 0, not expressions |
 | `tracking` | extra space between glyphs, in thousandths of an em |
 | `leading` | pixels between baselines; default 1.2 × `size` |
 | `align` | `"left"`, `"center"` or `"right"` |
@@ -278,10 +278,10 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 
 | Input | Signature | Promise | Errors |
 |---|---|---|---|
-| `Font` | `Font(data)` | a TrueType or OpenType font, variable or not, from bytes | `data` not a font the library reads |
+| `Font` | `Font(data, *, name=None)` | a TrueType or OpenType font, variable or not, from bytes; `name` is what a saved drawing calls it | `data` not a font the library reads |
 | `font.axes` | property | its variable axes by tag, each a `Param` with the font's range, default and name | |
 | `font.features` | property | the OpenType feature tags it has | |
-| `Field.map` | `Field.map(width, height, data, *, box=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value | `len(data)` not `width × height` |
+| `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value | `len(data)` not `width × height` |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
 | `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Drawing` or a `Path`: signed distance to the nearest outline in pixels, negative inside; normalised: inside each shape 0 on its outer edge to 1 on its holes' edges (its centre line when it has none), 0 outside | `GeometryError`: `drawing` empty when drawn |
 | `Flow.angle` | `Flow.angle(angle)` | the same direction everywhere | |
@@ -297,7 +297,7 @@ A field or a flow may read Params (a noise `phase`) and is part of the drawing t
 
 | Field | Meaning |
 |---|---|
-| `name` | letters, digits and `_`, starting with a letter; unique in a drawing |
+| `name` | letters, digits and `_`, starting with a letter; unique among every Param the drawing reads, those a `with_values` fixed included |
 | `default` | the value when none is given; all defaults together are the reference pose |
 | `min`, `max` | the range a given value must lie in |
 | `unit` | `"px"`, `"deg"`, `"cycle"`, `"fraction"` or `""` (a plain number: a font axis, a count, a seed) |
@@ -312,9 +312,18 @@ Arithmetic (`+`, `-`, `*`, `/`, unary `-`) on Params and numbers builds an `Expr
 Every number a step takes may be an `Expr`:
 
 - a whole-number argument (`repeat`'s `count`, a `seed`, `posterize`'s `levels`) too, if its value is a whole number
-  when drawn; any other value raises `ParameterError`, never rounded;
+  within ±(2⁵³ − 1) when drawn; any other value raises `ParameterError`, never rounded;
 - a number inside a pair or a list (`translate=(dx, dy)`, `about`, `anchor`, `spacing=(a, b)`, a dash pattern, trace
   `levels`), component by component.
+
+Except: these take literal numbers only: `Drawing`'s `size`, `Field.map`'s `width` and `height`, `text`'s `features`,
+the values of `only`, `without` and `with_values`. A per-item number is refused (`ParameterError`) where an argument is
+read once rather than per shape: `text`'s `size`, `tracking`, `leading`, `anchor` and `width` (its `axes` take one per
+glyph), every number of `trace`, and every number of a `Field` or a `Flow`.
+
+An expression with no Param and no per-item number is a plain number: it is computed and checked when the call is made,
+like a literal. Every number is finite: NaN or an infinity raises `ParameterError`, when the call is made or when
+drawn.
 
 An expression whose value leaves the range its argument accepts raises `ParameterError` at draw time, naming the step,
 the argument and the value; a division by zero raises `ParameterError` naming the expression.
@@ -350,7 +359,7 @@ values by name; a Param not given takes its default.
 | `to_plotter_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
 | `to_mesh` | `to_mesh(width, height, /, *, into=None, **values)` | triangles for the picture (below) |
 | `to_json` | `to_json()` | the drawing as JSON: the same tree written down |
-| `Drawing.from_json` | `Drawing.from_json(text)` | the drawing back; it draws to identical bytes |
+| `Drawing.from_json` | `Drawing.from_json(text, *, inputs={})` | the drawing back, given the bytes of its inputs by name; it draws to identical bytes |
 
 The same drawing and values give the same bytes on every target. Errors (`ParameterError`): a size below 1, a value for
 no Param (the message lists the Params), a value outside its Param's range, a list of the wrong length; and whatever a
@@ -465,7 +474,7 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toMesh(w, h, values, { into: mesh })`, `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })` |
 | Units as types | | `Deg(..)` for every angle (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`); `Size::px(w, h)` (whole output pixels, else an error at the draw) and `Size::mm(w, h)` for output sizes | |
 | Colours | `"#ff4f9a"` | `Color::hex(0xff4f9a)`, `Color::NONE` | `"#ff4f9a"` |
-| Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`translate`, `rotate`, `reverse`, `contains`); a path is built from `Path::start(point)`, so no segment comes before a start. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | exceptions of the exported classes `btvec.ParameterError` and `btvec.GeometryError` (both `btvec.BullterrierVectorError`), for `instanceof` |
+| Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`translate`, `rotate`, `reverse`, `contains`); a path is built from `Path::start(point)`, so no segment comes before a start. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | exceptions of the exported classes `btvec.ParameterError`, `btvec.GeometryError` and `btvec.FormatError` (all `btvec.BullterrierVectorError`), for `instanceof` |
 | Bytes in | `bytes` | `Vec<u8>` | `Uint8Array` |
 | Frame export | `btvec.frames` | the caller's loop over `to_png` | the caller's loop over `toRgba` or `toMesh` |
 
@@ -596,6 +605,12 @@ path).
 - **Positions along a path are fractions 0..1**, closed outlines measured from their topmost point, every outline the
   library makes in one canonical orientation; `near=` moves the start where the top jumps ("Path").
 - **A negative `scale` mirrors; zero raises.**
+- **A stack writes `order` only on shapes that carry none**; `Drawing(x)` of one item and no size is `x`.
+- **`Style` holds the paint as drawn**: `None` is not painted, `fill("none")` counts as set, and `shapes()` resolves the
+  default paint.
+- **A per-item number where an argument is read once is an error**, when loaded and when drawn.
+- **Inputs carry an optional name** (`Font`, `Field.map`), and `from_json` takes their bytes by name; a drawing has no
+  name of its own; defaults are part of the saved format ([formats.md](formats.md)).
 
 ## Open questions for the owner
 
