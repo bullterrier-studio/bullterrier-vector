@@ -129,7 +129,7 @@ tip = star.point_at(0)  # positions along a path are fractions 0..1 of its lengt
 progress = btvec.Param("progress", default=0, min=0, max=1, unit="fraction", meaning="how much has drawn on")
 poster = (
     btvec.text("LOUD", font=btvec.Font(font_bytes), size=400, axes={"wght": 800})
-    .wobble(4, phase=0.25)
+    .wobble(amplitude=4, phase=0.25)
     .slice(0, btvec.stagger(progress, spread=0.5))  # a Drawing: steps, computed at draw time
     .stroke("#15161a", width=4)
 )
@@ -138,7 +138,7 @@ svg = poster.to_svg(1080, 1350, progress=0.7)
 
 ```rust
 let poster = btvec::text("LOUD", Text::new(&font).size(400.0).axis("wght", 800.0))
-    .wobble(Wobble::new(4.0).phase(0.25))
+    .wobble(Wobble::new().amplitude(4.0).phase(0.25))
     .slice(0.0, Stagger::new(&progress).spread(0.5))
     .stroke(Stroke::new(Color::hex(0x15161a)).width(4.0));
 let svg = poster.to_svg(Size::px(1080.0, 1350.0), &Values::new().set("progress", 0.7))?;
@@ -146,7 +146,9 @@ let svg = poster.to_svg(Size::px(1080.0, 1350.0), &Values::new().set("progress",
 
 ```js
 const poster = btvec.text("LOUD", { font, size: 400, axes: { wght: 800 } })
-  .wobble(4, { phase: 0.25 }).slice(0, btvec.stagger(progress, { spread: 0.5 })).stroke("#15161a", { width: 4 });
+  .wobble({ amplitude: 4, phase: 0.25 })
+  .slice(0, btvec.stagger(progress, { spread: 0.5 }))
+  .stroke("#15161a", { width: 4 });
 const svg = poster.toSvg(1080, 1350, { progress: 0.7 });
 ```
 

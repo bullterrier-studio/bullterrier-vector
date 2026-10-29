@@ -254,8 +254,8 @@ Any shape to any shape, matching points when the counts differ.
 - Curves fitted through the traced edge (a raw polyline looks digital); edge padding, so a subject cut by the map's
   edge gets no false closed edge.
 - Per-layer shrink and grow (open, close) in output units; dropping parts and filling holes below an area.
-- Helpers for a sequence of maps from the caller: smoothing over neighbouring maps, and hole persistence (a hole shows
-  only if neighbouring maps have it). The library keeps no sequence itself.
+- Helpers for a sequence of maps from the caller: smoothing over neighbouring maps (a Gaussian, σ in maps), and hole
+  persistence (a hole shows only if neighbouring maps have it). The library keeps no sequence itself.
 
 With V9 this is the cut-paper piece.
 
@@ -263,8 +263,9 @@ With V9 this is the cut-paper piece.
 
 - Evenly spaced streamlines (the Jobard-Lefer method) with spacing that varies with a tone, region masks, obstacles and
   closed loops.
-- Line fields (directions without sign: noise, a shape's contour tangents, and mixes of them) and distance fields of
-  shapes (signed, and normalised for letters with counters).
+- Line fields (directions without sign: noise, a shape's contour tangents, and mixes of them, blended in doubled-angle
+  space so a direction and its opposite agree) and distance fields of shapes (signed, and normalised for letters with
+  counters).
 - Hatching clipped to shapes; contour lines of a field or a map.
 - Plotter output: stroke only, ordered to reduce pen travel (nearest neighbour, ends flipped), simplified, solids as
   pen-width hatching, one layer per pen.

@@ -38,7 +38,7 @@ hatching = rest.hatch(flow=btvec.Flow.noise(wavelength=520, seed=11), spacing=(2
 rings = btvec.trace(btvec.Field.distance(accent, normalized=True), levels=[i / 12 for i in range(1, 12)])
 
 ink = btvec.Drawing(hatching.stroke(INK, width=2.4), rings.stroke(ACCENT, width=2.4), size=(WIDTH, HEIGHT))
-poster = btvec.Drawing(btvec.Path.rect(0, 0, WIDTH, HEIGHT).fill(PAPER), ink)
+poster = btvec.Drawing(btvec.Path.rect(0, 0, WIDTH, HEIGHT).fill(PAPER), ink, size=(WIDTH, HEIGHT))
 
 Path("low-end.png").write_bytes(poster.to_png(2 * WIDTH, 2 * HEIGHT))
 Path("low-end.svg").write_text(poster.to_svg(WIDTH, HEIGHT), encoding="utf-8")

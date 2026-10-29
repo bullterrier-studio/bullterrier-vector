@@ -29,7 +29,7 @@ import bullterrier_vector as btvec
 | [halftone.py](examples/halftone.py) | halftone dots from a tone map |
 | [duotone.py](examples/duotone.py) | a gradient map and posterize on colours |
 | [series_bars.py](examples/series_bars.py) | a series of numbers as bars, with plain code |
-| [frame_export.py](examples/frame_export.py) | a transparent PNG sequence and a clip from a function of time |
+| [frame_export.py](examples/frame_export.py) | a transparent PNG sequence and a clip from a function of time; a knockout |
 | [mesh_upload.js](examples/mesh_upload.js) | a mesh in WebAssembly memory uploaded to WebGL, the pointer pattern |
 
 ## Four ideas
@@ -60,8 +60,8 @@ point) and a `Flow` (a direction at every point).
 
 ## Path
 
-Points are pairs: `(x, y)` tuples go in, `Point`s come out (`p.x`, `p.y`; `+` and `-` between points, `*` by a
-number). `y` points down. Positions along a path are fractions 0..1 of its length (by arc length, not the curve
+Points are pairs: `(x, y)` tuples or `Point`s go in, `Point`s come out (`p.x`, `p.y`; `+` and `-` between points, `*` by
+a number). `y` points down. Positions along a path are fractions 0..1 of its length (by arc length, not the curve
 parameter). A path with several sub-paths is measured through them in order. A closed sub-path is measured from its
 topmost point (the leftmost of a tie), in its own direction, so the start does not move when the outline changes. The
 closed constructors below start at the top and run clockwise.
@@ -97,12 +97,12 @@ Measuring and hit-testing (on `Path` only):
 | Method | Signature | Promise | Errors |
 |---|---|---|---|
 | `length` | property | the length in design pixels | |
-| `bounds` | property | the smallest `Rect(x, y, width, height)` around the outline | `ParameterError` on an empty path |
-| `point_at` | `point_at(at)` | the point a fraction `at` of the way along | `at` outside 0..1; an empty path |
+| `bounds` | property | the smallest `Rect(x, y, width, height)` around the outline | `GeometryError` on an empty path |
+| `point_at` | `point_at(at)` | the point a fraction `at` of the way along | `ParameterError`: `at` outside 0..1; `GeometryError`: an empty path |
 | `tangent_at` | `tangent_at(at)` | the unit direction of travel there | as `point_at` |
-| `locate` | `locate(point)` | the position 0..1 of the point on the path nearest `point` | an empty path |
+| `locate` | `locate(point)` | the position 0..1 of the point on the path nearest `point` | `GeometryError`: an empty path |
 | `contains` | `contains(point)` | whether `point` is inside the filled region (nonzero rule) | |
-| `split` | `split()` | its parts: each closed outline with the holes inside it, and each open line | |
+| `split` | `split()` | a `list[Path]` of its parts: each closed outline with the holes inside it, and each open line | |
 | `map_points` | `map_points(fn)` | the path with every point, on and off the curve, passed through `fn(point) -> point` | what `fn` raises |
 | `to_svg_path` | `to_svg_path()` | SVG path data for the path | |
 
@@ -113,29 +113,30 @@ Measuring and hit-testing (on `Path` only):
 Each verb below exists on both. On a `Path` its numbers are plain numbers and it returns a `Path`; on a `Drawing` its
 numbers may be Params or per-item numbers and it applies to every shape. A `Path` verb given a `Param` raises
 `ParameterError`: wrap the path in `btvec.Drawing(path)` first. `about` defaults to each shape's origin (a glyph's
-cap-height centre; for any other shape, the centre of its bounds).
+cap-height centre; for any other shape, the centre of its bounds): on a stack of shapes, each turns or scales about its
+own origin. To turn the whole stack as one, give `about=` a point, such as the frame's centre.
 
 | Verb | Signature | Promise | Errors |
 |---|---|---|---|
 | `translate` | `translate(dx, dy)` | moves by `dx`, `dy` | |
 | `rotate` | `rotate(angle, *, about=None)` | turns clockwise about `about` | |
-| `scale` | `scale(by, *, about=None)` | scales by `by`, or by `(x, y)` separately, about `about` | |
+| `scale` | `scale(by, *, about=None)` | scales by `by`, or by `(x, y)` separately, about `about`; a negative value mirrors | `by` (or a component) equal to 0 |
 | `union` | `union(other)` | the region inside either | `GeometryError` (below) |
 | `subtract` | `subtract(other)` | the region inside this and outside `other` | `GeometryError` |
 | `intersect` | `intersect(other)` | the region inside both | `GeometryError` |
 | `exclude` | `exclude(other)` | the region inside exactly one | `GeometryError` |
 | `offset` | `offset(distance, *, join="round")` | the outline moved outward by `distance` (inward when negative); joins `round`, `miter`, `bevel` | `GeometryError` |
 | `outline` | `outline(width, *, join="round", cap="round")` | the region a stroke of `width` paints, as a closed outline; caps `butt`, `round`, `square` | `width` not above 0 |
-| `drop_parts` | `drop_parts(*, smaller_than)` | without the parts whose area is below `smaller_than` square pixels | |
-| `fill_holes` | `fill_holes(*, smaller_than)` | with the holes whose area is below `smaller_than` filled | |
+| `drop_parts` | `drop_parts(*, smaller_than)` | without the parts whose area is below `smaller_than` square pixels | `smaller_than` below 0 |
+| `fill_holes` | `fill_holes(*, smaller_than)` | with the holes whose area is below `smaller_than` filled | `smaller_than` below 0 |
 | `slice` | `slice(start, end, *, near=None)` | the piece between two positions along it (draw-on: `slice(0, progress)`); with `near`, a closed sub-path is measured from its point nearest `near` | a position outside 0..1 |
 | `reverse` | `reverse()` | the same outline travelled the other way | |
 | `dash` | `dash(pattern, *, phase=0)` | the pieces a dash pattern (`[on, off, ...]` in pixels) leaves; `phase` in cycles of the pattern, wrapping | an empty pattern; a length not above 0 |
 | `resample` | `resample(spacing)` | straight segments with corners `spacing` pixels apart along it | `spacing` not above 0 |
-| `simplify` | `simplify(tolerance=0.5)` | the fewest smooth curves (sharp corners kept) within `tolerance` pixels; fits curves through a dense polyline | `tolerance` not above 0 |
-| `along` | `along(path, *, start=0)` | bent along `path`: a point `x` pixels along the baseline `y = 0` lands `x` pixels past `start` on `path` and `y` pixels to the right of its direction of travel (below the baseline stays below); `start` wraps on a closed path | |
-| `wobble` | `wobble(amplitude=4, *, wavelength=80, phase=0, seed=0)` | points displaced by smooth seeded noise of that amplitude and wavelength (pixels); `phase` in cycles moves it | `wavelength` not above 0 |
-| `wave` | `wave(amplitude=8, *, wavelength=120, angle=0, phase=0)` | points displaced sideways by a sine travelling towards `angle` | `wavelength` not above 0 |
+| `simplify` | `simplify(*, tolerance=0.5)` | the fewest smooth curves (sharp corners kept) within `tolerance` pixels; fits curves through a dense polyline | `tolerance` not above 0 |
+| `along` | `along(path, *, start=0)` | bent along `path`: a point `x` pixels along the baseline `y = 0` lands `x` pixels past `start` on `path` and `y` pixels to the right of its direction of travel (below the baseline stays below); `start` wraps on a closed path | `GeometryError`: `path` empty |
+| `wobble` | `wobble(*, amplitude=4, wavelength=80, phase=0, seed=0)` | points displaced by smooth seeded noise of that amplitude and wavelength (pixels); `phase` in cycles moves it | `wavelength` not above 0 |
+| `wave` | `wave(*, amplitude=8, wavelength=120, angle=0, phase=0)` | points displaced sideways by a sine travelling towards `angle` | `wavelength` not above 0 |
 | `morph` | `morph(target, fraction)` | the outline `fraction` 0..1 of the way to `target`, points matched when their counts differ; on a `Drawing`, shapes pair by index | on a `Drawing`, different shape counts |
 | `hatch` | `hatch(*, spacing=8, tone=None, flow=None, avoid=None)` | each region filled with evenly spaced open lines (below) | below |
 
@@ -150,7 +151,7 @@ Closing and opening are two offsets: `offset(r).offset(-r)` fills gaps and dents
 
 ### hatch
 
-Evenly spaced lines (the Jobard-Lefer method) following `flow` inside each region: no two closer than the spacing, each
+Evenly spaced lines following `flow` inside each region: no two closer than the spacing, each
 line as long as the spacing allows, closed where a line meets its own start.
 
 | Argument | Meaning |
@@ -166,8 +167,9 @@ without `tone`.
 ## Drawing
 
 `Drawing(*items, size=None)`: the items (paths, shapes, drawings) stacked in order, the first at the bottom. `size` is
-the design frame `(width, height)` in design pixels; outputs scale it to their size. Without one, a drawing has the
-size of its first item that has one; with none at all, design pixels are output pixels.
+the design frame `(width, height)` in design pixels; outputs scale it to their size. Without one, a drawing takes the
+size its items have; items whose sizes differ raise `ParameterError` naming both; with none at all, design pixels are
+output pixels.
 
 ### Items
 
@@ -190,8 +192,8 @@ counts the current list.
 |---|---|---|---|
 | `fill` | `fill(color)` | fills each shape; `"none"` for no fill | an unreadable colour |
 | `stroke` | `stroke(color, *, width=2, join="round", cap="round")` | strokes each outline | as `fill`; `width` not above 0 |
-| `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` asks (0 solid, 1 none) | as `fill`; `pitch` not above 0 |
-| `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | |
+| `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` (a number or a `Field`) asks (0 solid, 1 none) | as `fill`; `pitch` not above 0 |
+| `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | `alpha` outside 0..1 |
 | `blend` | `blend(mode)` | paints with `"normal"` or `"multiply"` over what is below | another mode |
 | `shadow` | `shadow(*, dx=0, dy=8, blur=16, color="#00000059")` | a drop shadow under each shape, offset and blurred in pixels | `blur` below 0 |
 | `knockout` | `knockout()` | each shape removes what is below it in its drawing, instead of painting | |
@@ -260,8 +262,9 @@ font's range, `fit` without `width`, `fit` on an axis also given in `axes`, and 
 `field` is at or above it, with curves fitted within `tolerance` pixels. The edge of the field is padded, so a subject
 cut by the frame gets no false edge. Writes `level` and `order`.
 
-For a sequence of maps (one per frame), pass the neighbouring maps in sequence order: `before` (up to this one) and
-`after` (from the next). The edge is then averaged over them with a Gaussian of `sigma` maps, and a hole or a part shows
+For a sequence of maps, pass the neighbouring maps in sequence order: `before` (up to this one) and `after` (from the
+next). The edge is then averaged over them, nearer maps counting more and `sigma` (in maps) setting how far the
+averaging reaches, and a hole or a part shows
 only if a neighbour has it too. The library keeps no sequence.
 
 Errors (`ParameterError`): levels not increasing, a neighbour of a different size or box, `tolerance` or `sigma` not
@@ -278,11 +281,11 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 | `font.features` | property | the OpenType feature tags it has | |
 | `Field.map` | `Field.map(width, height, data, *, box=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value | `len(data)` not `width × height` |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
-| `Field.distance` | `Field.distance(shapes, *, normalized=False)` | signed distance to the nearest outline in pixels, negative inside; normalised: inside each shape 0 on its outer edge to 1 on its holes' edges (its centre line when it has none), 0 outside | |
+| `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Drawing` or a `Path`: signed distance to the nearest outline in pixels, negative inside; normalised: inside each shape 0 on its outer edge to 1 on its holes' edges (its centre line when it has none), 0 outside || `GeometryError`: `drawing` empty when drawn |
 | `Flow.angle` | `Flow.angle(angle)` | the same direction everywhere | |
 | `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | smooth seeded noise directions; `phase` in cycles moves it | `wavelength` not above 0 |
-| `Flow.contour` | `Flow.contour(drawing)` | the direction of the nearest outline of `drawing` | |
-| `flow.mix` | `mix(other, fraction)` | `fraction` 0..1 of the way to `other`; directions without sign blend in doubled-angle space | `fraction` outside 0..1 |
+| `Flow.contour` | `Flow.contour(drawing)` | the direction of the nearest outline of `drawing` (a `Drawing` or a `Path`) | `GeometryError`: `drawing` empty when drawn |
+| `flow.mix` | `mix(other, fraction)` | `fraction` 0..1 of the way to `other`; a direction and its opposite count as the same, so they never cancel | `fraction` outside 0..1 |
 
 A field or a flow may read Params (a noise `phase`) and is part of the drawing that uses it.
 
@@ -324,7 +327,7 @@ Per-item numbers take a value per shape, from its attributes:
 |---|---|---|---|
 | `by_index` | `by_index(first, last)` | `first` on the first shape of the current list, `last` on the last, linear between | |
 | `by_order` | `by_order(first, last)` | the same, read from each shape's `order` | |
-| `random` | `random(low, high, *, seed=0)` | a number in `low..high` per shape, from `seed` and its index | `seed` not a whole number |
+| `random` | `random(low, high, *, seed=0)` | a number in `low..high` per shape, from `seed` and its index | `low` above `high`; `seed` not a whole number |
 | `stagger` | `stagger(progress, *, spread=0.5)` | each shape's own progress 0..1: the shape at order `p` runs while `progress` goes from `p × spread` to `p × spread + 1 - spread` (0: all together; towards 1: one after another) | `spread` outside 0..1 or equal to 1 |
 
 `btvec.ease` holds pure functions of a number, for the caller's own code (a function of time for `frames`, a list
@@ -419,9 +422,12 @@ is computed. In Python and JavaScript the error points at the call that caused i
   before a deformer, flattening curves for pixels and the mesh, seeding hatch lines) uses steps in design pixels, each a
   named constant, never the output size; a map is sampled at its own pixels. A drawing has the same geometry at any
   output size: only rasterising depends on it.
-- **Arguments.** What a call cannot do without is positional (`offset(8)`, `rotate(30)`); every option is
-  keyword-only.
-- **Defaults look good** with no tuning: a default comes from a gallery piece, not from a round number.
+- **Arguments.** What a call cannot do without is positional (`offset(8)`, `rotate(30)`), unless its keyword makes
+  the call read as a sentence (`drop_parts(smaller_than=1500)`, `text("NO", font=font)`, `halftone(INK, tone=photo)`);
+  every option is keyword-only (`wobble(amplitude=3)`).
+- **Defaults look good** with no tuning: a default comes from a gallery piece, not from a round number. The defaults
+  written here (leading 1.2 × size, pitch 8, shadow 8 and 16, wavelengths 80, 120 and 400...) are placeholders until the
+  batch that builds the step tunes them with its gallery piece.
 - **Reading as a sentence.** `plane.subtract(letters)`, `figure.drop_parts(smaller_than=1500)`,
   `letters.only(char="O")`, `petal.repeat(12, rotate=30)`. Related verbs sit together in the tables above.
 - **How a method is documented.** One line that states the promise in the field's terms; each argument with its unit,
@@ -448,7 +454,7 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 |---|---|---|---|
 | Constructors | `btvec.Drawing(a, b, size=(w, h))`, `btvec.Font(data)`, `btvec.Param("rise", default=0, min=0, max=1)` | `Drawing::new([a, b]).with_size(w, h)`, `Drawing::from(path)`, `Font::new(data)?`, `Param::new("rise", 0.0, 0.0..=1.0)?.unit(Unit::Fraction)` | `new btvec.Drawing([a, b], { size: [w, h] })`, `new btvec.Font(data)`, `new btvec.Param("rise", { default: 0, min: 0, max: 1 })` |
 | Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7)`); the required argument alone converts into it (`.rotate(Deg(30.0))`) | an options object last (`{ width: 1.5 }`) |
-| Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods, read in source order: `pulse.mul(0.08).add(1)`; a number that comes first is lifted once with `btvec.expr(n)`: `btvec.expr(1).sub(rise).mul(HEIGHT)` |
+| Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods (`add`, `sub`, `mul`, `div`, `neg`), read in source order: `pulse.mul(0.08).add(1)`; a number that comes first is lifted once with `btvec.expr(n)`: `btvec.expr(1).sub(rise).mul(HEIGHT)` |
 | Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` | an object: `toPng(1080, 1350, { weight: 820 })` |
 | Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toMesh(w, h, values, { into: mesh })`, `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })` |
 | Units as types | | `Deg(..)` for every angle (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`); `Size::px(w, h)` (whole output pixels, else an error at the draw) and `Size::mm(w, h)` for output sizes | |
@@ -557,6 +563,12 @@ Also from the findings: draw-on (`slice`), the riso misregistration that grows o
 (`translate` by a Param). Gaps beyond the ranked list: a multi-colour trace (a map of colour labels; V14 names it) and a
 re-drawable series node (a series is plain code now, [series_bars.py](examples/series_bars.py); the effects track adds a
 node if a piece needs one).
+
+Verbs no example uses yet, and what needs them: `merge` (V7: words and lines as units), `exclude` (V8, the fourth
+boolean; glitch slices on the effects track), `reverse` (V11: a draw-on the other way round), `locate` (hit-testing for
+an editor), `outline` (V9; die-cut sticker outlines and tapered strokes on the effects track), `Flow.contour` and
+`flow.mix` (V15: the findings' line fields, noise mixed with a glyph's contour), `wave` (V12; the effects track's
+deformers), `morph` (V13; glyph-to-shape morph on the effects track).
 
 ## Open questions for the owner
 

@@ -25,7 +25,7 @@ masks = [
 ]
 font = btvec.Font(Path("fonts/Anybody[wdth,wght].ttf").read_bytes())
 
-slide = btvec.Param("slide", default=1, min=0, max=1.2, unit="fraction", meaning="how far the echoes have slid out")
+slide = btvec.Param("slide", default=1, min=0, max=1.2, unit="", meaning="how far the echoes have slid out")
 outline = btvec.Param("outline", default=1, min=0, max=1, unit="fraction", meaning="how much outline has drawn on")
 
 word = btvec.text(
@@ -43,11 +43,12 @@ def frame_at(i: int) -> btvec.Drawing:
     figure = (
         btvec.trace(masks[i], levels=[0.5], before=masks[max(0, i - 2) : i], after=masks[i + 1 : i + 3])
         .offset(-6)
-        .offset(6)  # shrink, then grow back: shaves off spurs thinner than 12 px
+        .offset(6)  # shrink, then grow back: removes spurs up to 12 px wide
         .drop_parts(smaller_than=1500)
         .fill_holes(smaller_than=4000)
     )
-    mount = figure.offset(110).offset(-70)  # grow by 40 px, closing gaps and dents up to 70 px: one fat blob
+    # grow by 40 px; closing by 70 px fills gaps and dents up to 140 px wide: one fat blob
+    mount = figure.offset(110).offset(-70)
     echo = figure.offset(16)
     return btvec.Drawing(
         btvec.Path.rect(0, 0, WIDTH, HEIGHT).fill(PAPER),
