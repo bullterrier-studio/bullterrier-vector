@@ -54,9 +54,9 @@ Works with other tools only through plain data: `docs/design.md`, "Works with".
 `bullterrier-vector` (crate, PyPI distribution, repository), `bullterrier_vector` (Python import, Rust library),
 `bullterrier-vector-python` (the bindings crate; builds `bullterrier_vector._native._core`), `bt-vector` (command line; planned,
 V18), `BullterrierVectorError` (base exception), `ParameterError` (a value outside what the library accepts; also a
-`ValueError`), `GeometryError` (geometry that fails, such as a boolean on an outline that cannot be resolved), `btvec` (the
-alias the docs import the library as). Full name for identity, `bt-` for what a person types. Names inside the package carry
-no prefix.
+`ValueError`), `GeometryError` (geometry that fails, such as a boolean on an outline that cannot be resolved), `FormatError`
+(a document `from_json` cannot read; also a `ValueError`), `btvec` (the alias the docs import the library as). Full name
+for identity, `bt-` for what a person types. Names inside the package carry no prefix.
 
 Licence: MIT, in `LICENSE` (named by `license-files` in `pyproject.toml`; `build-check` fails a distribution without it).
 
@@ -98,7 +98,8 @@ formatter, 6 and 7, and "Fixing defects".
 5. **The core builds for `wasm32-unknown-unknown` in every gate run** (`rust-wasm`): a native-only API in it fails there.
 6. **Errors by kind.** Callers catch `BullterrierVectorError` (`bullterrier_vector.errors`). Library code raises a subclass
    (`ParameterError`), never a bare `ValueError`, for anything a caller can get wrong; each also inherits the matching builtin.
-   In Rust, `bullterrier_vector::Error` is `#[non_exhaustive]`: a new kind is a new variant.
+   In Rust, `bullterrier_vector::Error` is `#[non_exhaustive]`: a new kind is a new variant (`Error::Format` for a document
+   `from_json` cannot read, from V2).
 7. **No backwards-compatibility shims, aliases or re-exports before 1.0** unless the owner asks: change the callers.
 8. The library never prints and never configures logging.
 
