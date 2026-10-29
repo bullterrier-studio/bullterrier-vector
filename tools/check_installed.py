@@ -52,7 +52,10 @@ def _installed_file(installed: Distribution, artifact: Path, kind: str) -> Path:
         if direct_url is None:
             raise InstallError("no direct_url.json: it was not installed from a file given by its path")
         source = Path(url2pathname(urlparse(json.loads(direct_url)["url"]).path))
-        [sdist] = artifact.glob("*.tar.gz")
+        sdists = sorted(artifact.glob("*.tar.gz"))
+        if len(sdists) != 1:
+            raise InstallError(f"{artifact} holds {len(sdists)} sdists, not one")
+        [sdist] = sdists
         if not (source.is_file() and source.samefile(sdist)):
             raise InstallError(f"it was built from {source}, not the artifact's sdist {sdist}")
         return sdist
@@ -83,6 +86,8 @@ def verify(installed: Distribution, artifact: Path, kind: str) -> Path:
     if installed.version != _version_of(file):
         raise InstallError(f"it is version {installed.version}, {file.name} is version {_version_of(file)}")
     package = importlib.import_module(PACKAGE)
+    if package.__file__ is None:
+        raise InstallError(f"{PACKAGE} has no __file__ (a namespace package, not the installed package)")
     site = Path(str(installed.locate_file(""))).resolve()
     if not Path(package.__file__).resolve().is_relative_to(site):
         raise InstallError(f"{PACKAGE} is imported from {package.__file__}, outside the installation in {site}")

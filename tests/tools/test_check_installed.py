@@ -88,8 +88,12 @@ def install(
 
 def check_installed(artifact: Path, kind: str, *import_path: Path) -> subprocess.CompletedProcess:
     """Run the tool in a process of its own, with `import_path` first on its import path (as an installation is)."""
-    command = [sys.executable, str(ROOT / "tools" / "check_installed.py"), str(artifact), "--from", kind]
+    # -S: without this environment's own site folder, whose editable install of the checkout would make a regular
+    # package of what a test makes a namespace package; SYSTEMROOT is what Windows needs to start Python at all
+    command = [sys.executable, "-S", str(ROOT / "tools" / "check_installed.py"), str(artifact), "--from", kind]
     env = {"PATH": "", "PYTHONPATH": os.pathsep.join(map(str, import_path))}
+    if "SYSTEMROOT" in os.environ:
+        env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
     return subprocess.run(command, env=env, capture_output=True, encoding="utf-8", check=False)
 
 
@@ -144,6 +148,35 @@ def test_an_install_not_from_the_artifact_is_refused_saying_why(tmp_path, artifa
     done = check_installed(artifact, kind, install(tmp_path, **options))
     assert done.returncode == 1
     assert named in done.stderr, done.stderr
+
+
+def test_a_package_with_no_file_is_refused_saying_so(tmp_path, artifact):
+    """A folder without `__init__.py` imports as a namespace package, whose `__file__` is None."""
+    site = install(tmp_path)
+    (site / "bullterrier_vector" / "__init__.py").unlink()
+    done = check_installed(artifact, "wheel", site)
+    assert done.returncode == 1
+    assert "has no __file__" in done.stderr
+    assert "Traceback" not in done.stderr
+
+
+@pytest.mark.parametrize(
+    ("sdists", "named"),
+    [
+        pytest.param([], "holds 0 sdists", id="no sdist"),
+        pytest.param(["bullterrier_vector-1.1.tar.gz"], "holds 2 sdists", id="two sdists"),
+    ],
+)
+def test_an_artifact_without_exactly_one_sdist_is_refused_saying_so(tmp_path, artifact, sdists, named):
+    site = install(tmp_path, extension=b"built here", direct_url=artifact / SDIST)
+    if not sdists:
+        (artifact / SDIST).unlink()
+    for name in sdists:
+        (artifact / name).write_bytes(b"another sdist")
+    done = check_installed(artifact, "sdist", site)
+    assert done.returncode == 1
+    assert named in done.stderr
+    assert "Traceback" not in done.stderr
 
 
 def test_a_package_imported_from_the_checkout_instead_of_the_installation_is_refused(tmp_path, artifact):
