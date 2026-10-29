@@ -110,13 +110,13 @@ examples: [api.md](api.md).
 | Idea | What it is |
 |---|---|
 | `Path` | a Bezier outline (one or more sub-paths): a plain value; every verb on it computes at once |
-| `Shape` | one path with a style and attributes (index; glyph, word, line; copy; level; position 0..1) |
+| `Shape` | one path with a style and attributes (index; glyph, char, word, line; part; copy; level; order 0..1; origin) |
 | `Drawing` | an immutable tree of steps over shapes: draws again with new values, saves to JSON, the same in every language |
 | `Param` | a named number with unit, range, default and meaning; any number in a step may be one |
 
 The geometry verbs (offset, subtract, slice, wobble...) have the same names and arguments on a `Path`, where they
 compute now, and on a `Drawing`, where they add a step computed at draw time. Every call returns a new value. Arithmetic
-on `Param`s builds an expression that saves with the drawing; per-item numbers (by index, by position, seeded random)
+on `Param`s builds an expression that saves with the drawing; per-item numbers (by index, by order, seeded random)
 work wherever a number does, and a caller's signal per item is a list given at draw time. A drawing holds no callbacks.
 
 ```python
@@ -193,7 +193,7 @@ tree written down.
 ### Shapes carry attributes
 
 What flows between nodes is a list of shapes: paths, a style, and attributes. Text writes per-glyph attributes (index
-in text, word, line; position 0..1); repeaters write a copy index; trace writes a level. Modifiers read attributes
+in text, word, line; order 0..1); repeaters write a copy index; trace writes a level. Modifiers read attributes
 without knowing who wrote them. Per-item variation (staggering a draw-on letter by letter, scattering by index) is one
 mechanism in the core, so every modifier gets it and none implements it.
 

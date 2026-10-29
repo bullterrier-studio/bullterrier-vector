@@ -29,7 +29,7 @@ slide = btvec.Param("slide", default=1, min=0, max=1.2, unit="fraction", meaning
 outline = btvec.Param("outline", default=1, min=0, max=1, unit="fraction", meaning="how much outline has drawn on")
 
 word = btvec.text(
-    "MOVE", font=font, size=420, axes={"wght": 900}, at=(WIDTH / 2, 1250), align="center", width=1000, fit="wdth"
+    "MOVE", font=font, size=420, axes={"wght": 900}, anchor=(WIDTH / 2, 1250), align="center", width=1000, fit="wdth"
 )
 
 

@@ -26,7 +26,7 @@ const letters = btvec
     size: 560,
     axes: { wght: weight.add(pulse.mul(120)) },
     leading: 520,
-    at: [WIDTH / 2, 600],
+    anchor: [WIDTH / 2, 600],
     align: "center",
     width: 980,
     fit: "wdth",

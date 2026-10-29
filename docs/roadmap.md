@@ -192,7 +192,7 @@ directly with that frame's values.
 - Fonts from bytes: OpenType, TrueType, variable fonts; two or three open-licence fonts bundled. Whether WOFF and WOFF2
   load, or need unpacking first, is checked here.
 - Shaping with ligatures, kerning, complex scripts and OpenType features; glyph outlines as shapes with attributes
-  (index in text, word, line; position 0..1); overlapping contours removed, so every glyph is a valid region.
+  (index in text, word, line; order 0..1); overlapping contours removed, so every glyph is a valid region.
 - Variable axes (weight, width, slant, custom) as parameters of the text node; per-glyph axis values, with advances that
   follow them.
 

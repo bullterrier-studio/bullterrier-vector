@@ -12,7 +12,7 @@ font = btvec.Font(Path("fonts/Anybody[wdth,wght].ttf").read_bytes())
 scatter = btvec.Param("scatter", default=0, min=0, max=1, unit="fraction", meaning="how far the parts have flown")
 
 parts = (
-    btvec.text("MIX:i!", font=font, size=260, axes={"wght": 800}, at=(540, 420), align="center")
+    btvec.text("MIX:i!", font=font, size=260, axes={"wght": 800}, anchor=(540, 420), align="center")
     .split()
     .translate(btvec.random(-160, 160, seed=1) * scatter, btvec.random(-120, 120, seed=2) * scatter)
     .rotate(btvec.random(-11, 11, seed=3) * scatter)

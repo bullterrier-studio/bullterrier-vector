@@ -39,7 +39,7 @@ computes at once and returns a new `Path`; nothing changes the old one. This is 
 cut, combine and offset geometry the way Paper.js does, with callbacks where they help.
 
 **`Shape`** is what a drawing is made of: one `Path` with a style (fill, stroke, opacity, blend mode, shadow, knockout)
-and attributes (its index, and what its generator wrote: glyph, character, word, line, copy, level, position 0..1, the
+and attributes (its index, and what its generator wrote: glyph, char, word, line, copy, level, part, order 0..1, the
 origin it turns about). A shape is read, never built by hand: `drawing.shapes()` evaluates a drawing into a list of
 them. A list of shapes is a plain list; there is no collection type.
 
@@ -110,7 +110,7 @@ cap-height centre; for any other shape, the centre of its bounds).
 | Verb | Signature | Promise | Errors |
 |---|---|---|---|
 | `translate` | `translate(dx, dy)` | moves by `dx`, `dy` | |
-| `rotate` | `rotate(degrees, *, about=None)` | turns clockwise about `about` | |
+| `rotate` | `rotate(angle, *, about=None)` | turns clockwise about `about` | |
 | `scale` | `scale(by, *, about=None)` | scales by `by`, or by `(x, y)` separately, about `about` | |
 | `union` | `union(other)` | the region inside either | `GeometryError` (below) |
 | `subtract` | `subtract(other)` | the region inside this and outside `other` | `GeometryError` |
@@ -128,7 +128,7 @@ cap-height centre; for any other shape, the centre of its bounds).
 | `along` | `along(path, *, start=0)` | bent along `path`: a point `x` pixels along the baseline `y = 0` lands `x` pixels past `start` on `path` and `y` pixels to the right of its direction of travel (below the baseline stays below); `start` wraps on a closed path | |
 | `wobble` | `wobble(amplitude=4, *, wavelength=80, phase=0, seed=0)` | points displaced by smooth seeded noise of that amplitude and wavelength (pixels); `phase` in cycles moves it | `wavelength` not above 0 |
 | `wave` | `wave(amplitude=8, *, wavelength=120, angle=0, phase=0)` | points displaced sideways by a sine travelling towards `angle` | `wavelength` not above 0 |
-| `morph` | `morph(target, progress)` | the outline `progress` 0..1 of the way to `target`, points matched when their counts differ; on a `Drawing`, shapes pair by index | on a `Drawing`, different shape counts |
+| `morph` | `morph(target, fraction)` | the outline `fraction` 0..1 of the way to `target`, points matched when their counts differ; on a `Drawing`, shapes pair by index | on a `Drawing`, different shape counts |
 | `hatch` | `hatch(*, spacing=8, tone=None, flow=None, avoid=None)` | each region filled with evenly spaced open lines (below) | below |
 
 Booleans and offsets hold on overlapping, rotated glyphs (`text` makes every glyph outline a valid region). Where an
@@ -169,11 +169,11 @@ size of its first item that has one; with none at all, design pixels are output 
 | `merge` | `merge(*, by=None)` | shapes with an equal attribute `by` (all shapes, if `None`) united into one, with the first's attributes | `by` that no shape carries |
 | `only` | `only(**attributes)` | the shapes whose attributes equal these (a list means any of) | an attribute no shape carries |
 | `without` | `without(**attributes)` | the other shapes | as `only` |
-| `repeat` | `repeat(count, *, translate=(0, 0), rotate=0, scale=1, about=None)` | `count` copies, copy `i` transformed `i` times; writes `copy` and `position` | `count` below 1 |
+| `repeat` | `repeat(count, *, translate=(0, 0), rotate=0, scale=1, about=None)` | `count` copies, copy `i` transformed `i` times; writes `copy` and `order` | `count` below 1 |
 
 `index` is every shape's place in the current list. Generators write the rest: `text` writes `glyph`, `char`, `word`,
-`line`, `position` and a typographic `origin`; `repeat` writes `copy`; `trace` writes `level`; `Drawing(...)` writes
-`position` by order. `position` runs 0..1 over the shapes a generator made and survives `split` and `only`; `index`
+`line`, `order` and a typographic `origin`; `repeat` writes `copy`; `trace` writes `level`; `Drawing(...)` writes
+`order` by stacking order. `order` runs 0..1 over the shapes a generator made and survives `split` and `only`; `index`
 counts the current list.
 
 ### Style
@@ -211,9 +211,9 @@ Functions of the module that return a `Drawing`.
 
 ### text
 
-`text(content, *, font, size=100, axes={}, features={}, tracking=0, leading=None, align="left", at=(0, 0), width=None,
-fit=None, inside=None)`: one shape per drawn glyph (a space or a line break gives none), shaped with kerning,
-ligatures and complex scripts, each outline a valid region (overlapping contours removed).
+`text(content, *, font, size=100, axes={}, features={}, tracking=0, leading=None, align="left", anchor=(0, 0),
+width=None, fit=None, inside=None)`: one shape per drawn glyph (a space or a line break gives none), shaped with
+kerning, ligatures and complex scripts, each outline a valid region (overlapping contours removed).
 
 | Argument | Meaning |
 |---|---|
@@ -225,7 +225,7 @@ ligatures and complex scripts, each outline a valid region (overlapping contours
 | `tracking` | extra space between glyphs, in thousandths of an em |
 | `leading` | pixels between baselines; default 1.2 × `size` |
 | `align` | `"left"`, `"center"` or `"right"` |
-| `at` | where the first baseline meets the alignment: its left end, middle or right end |
+| `anchor` | where the first baseline meets the alignment: its left end, middle or right end |
 | `width` | lines wrap to this width; with `fit`, each line is made exactly this wide |
 | `fit` | an axis tag or `"size"`: solved per line so the line is `width` wide, once, at the reference pose (every Param at its default), so live values may overflow instead of re-fitting |
 | `inside` | a `Path`: lines wrap to its width at each baseline (V6) |
@@ -238,7 +238,7 @@ font's range, `fit` without `width`, `fit` on an axis also given in `axes`, and 
 
 `trace(field, *, levels=(0.5,), tolerance=1, before=(), after=(), sigma=1.2)`: one shape per level, outlining where
 `field` is at or above it, with curves fitted within `tolerance` pixels. The edge of the field is padded, so a subject
-cut by the frame gets no false edge. Writes `level` and `position`.
+cut by the frame gets no false edge. Writes `level` and `order`.
 
 For a sequence of maps (one per frame), pass the neighbouring maps in sequence order: `before` (up to this one) and
 `after` (from the next). The edge is then averaged over them with a Gaussian of `sigma` maps, and a hole or a part shows
@@ -259,9 +259,9 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 | `Field.map` | `Field.map(width, height, data, *, box=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value | `len(data)` not `width × height` |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
 | `Field.distance` | `Field.distance(shapes, *, normalized=False)` | signed distance to the nearest outline in pixels, negative inside; normalised: inside each shape 0 on its outer edge to 1 on its holes' edges (its centre line when it has none), 0 outside | |
-| `Flow.angle` | `Flow.angle(degrees)` | the same direction everywhere | |
+| `Flow.angle` | `Flow.angle(angle)` | the same direction everywhere | |
 | `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | smooth seeded noise directions; `phase` in cycles moves it | `wavelength` not above 0 |
-| `Flow.along` | `Flow.along(shapes)` | the direction of the nearest outline | |
+| `Flow.contour` | `Flow.contour(drawing)` | the direction of the nearest outline of `drawing` | |
 | `flow.mix` | `mix(other, fraction)` | `fraction` 0..1 of the way to `other`; directions without sign blend in doubled-angle space | `fraction` outside 0..1 |
 
 A field or a flow may read Params (a noise `phase`) and is part of the drawing that uses it.
@@ -294,9 +294,9 @@ Per-item numbers take a value per shape, from its attributes:
 | Function | Signature | Promise | Errors |
 |---|---|---|---|
 | `by_index` | `by_index(first, last)` | `first` on the first shape of the current list, `last` on the last, linear between | |
-| `by_position` | `by_position(first, last)` | the same, read from each shape's `position` | |
+| `by_order` | `by_order(first, last)` | the same, read from each shape's `order` | |
 | `random` | `random(low, high, *, seed=0)` | a number in `low..high` per shape, from `seed` and its index | `seed` not a whole number |
-| `stagger` | `stagger(progress, *, spread=0.5)` | each shape's own progress 0..1: the shape at position `p` runs while `progress` goes from `p × spread` to `p × spread + 1 - spread` (0: all together; towards 1: one after another) | `spread` outside 0..1 or equal to 1 |
+| `stagger` | `stagger(progress, *, spread=0.5)` | each shape's own progress 0..1: the shape at order `p` runs while `progress` goes from `p × spread` to `p × spread + 1 - spread` (0: all together; towards 1: one after another) | `spread` outside 0..1 or equal to 1 |
 
 `btvec.ease` holds pure functions of a number, for the caller's own code (a function of time for `frames`, a list
 of values per item): `in_cubic`, `out_cubic`, `in_out_cubic` and `out_back` (overshooting to about 1.1). Each maps 0..1
@@ -324,7 +324,7 @@ step raises. A Param may not be named `into` or `pen_mm`. How fonts and maps are
 ### Mesh
 
 A `Mesh` holds two buffers, not objects. `vertices`: 8 `float32` a vertex, `x, y` (output pixels, y down), `r, g, b, a`
-(premultiplied), `item` (the shape's index) and `position` (its `position` attribute), for a shader's own per-item
+(premultiplied), `item` (the shape's index) and `order` (its `order` attribute), for a shader's own per-item
 effects. `indices`: `uint32`, three a triangle, in paint order. `generation`: a number that changes exactly when the
 contents change, so a redraw with the same values uploads nothing.
 
@@ -365,7 +365,8 @@ error and returns it from the first draw ("Languages").
 
 - **Names in the field's own terms.** `amplitude`, `wavelength`, `pitch`, `spacing`, `tracking`, `leading`, `phase`,
   `seed`, `tolerance`; never `strength`, `intensity`, `factor`, `amount`, `val` or `k`. One name per concept: a
-  position along a path is `at` (or `start`, `end`), a pivot is `about`, a colour argument is `color`.
+  position along a path is `at` (or `start`, `end`), a pivot is `about`, an angle is `angle` (`repeat`'s keywords
+  mirror the verbs: `rotate=`), "this fraction of the way to the other" is `fraction`, a colour argument is `color`.
 - **Units.** Design pixels for lengths, scaled with the output, so no caller ever scales. Degrees, clockwise, for
   angles, wrapping. Cycles for phases, wrapping. Fractions 0..1 for positions along a path and for progress. Thousandths
   of an em for tracking; font axes in the font's own units; areas in square pixels; millimetres only in the plotter
@@ -418,7 +419,7 @@ letters = (
         size=560,
         axes={"wght": weight + 120 * pulse},
         leading=520,
-        at=(WIDTH / 2, 600),
+        anchor=(WIDTH / 2, 600),
         align="center",
         width=980,
         fit="wdth",
@@ -446,7 +447,7 @@ png = piece.to_png(1080, 1350, rise=1, ink=1, weight=620, burst=0.4, pulse=[0.9,
 let letters = btvec::text(
     "NO\nSLEEP",
     Text::new(&font).size(560.0).axis("wght", &weight + 120.0 * &pulse).leading(520.0)
-        .at((WIDTH / 2.0, 600.0)).align(Align::Center).width(980.0).fit("wdth"),
+        .anchor((WIDTH / 2.0, 600.0)).align(Align::Center).width(980.0).fit("wdth"),
 )
 .scale(1.0 + 0.08 * &pulse)
 .rotate(Deg(btvec::random(-10.0, 10.0, 7) * &burst))
@@ -467,7 +468,7 @@ let png = piece.to_png(Size::px(1080, 1350), &values)?;
 ```js
 const letters = btvec
   .text("NO\nSLEEP", { font, size: 560, axes: { wght: weight.add(pulse.mul(120)) }, leading: 520,
-                       at: [WIDTH / 2, 600], align: "center", width: 980, fit: "wdth" })
+                       anchor: [WIDTH / 2, 600], align: "center", width: 980, fit: "wdth" })
   .scale(pulse.mul(0.08).add(1))
   .rotate(btvec.random(-10, 10, { seed: 7 }).mul(burst))
   .translate(btvec.random(-30, 30, { seed: 8 }).mul(burst), btvec.random(-50, 50, { seed: 9 }).mul(burst));
@@ -489,11 +490,11 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 | # | Need | Where the API expresses it |
 |---|---|---|
 | 1 | Per-glyph variable-font layout that re-flows; tracking, stacked lines, fitting at a reference pose, outlines cached by axis location | `text(axes=..., tracking=, leading=, width=, fit=)`, per-item numbers in `axes`; caching is internal |
-| 2 | Evenly spaced streamlines with spacing from a tone, region masks, obstacles, closed loops; line fields and distance fields | `hatch(spacing=(a, b), tone=, flow=, avoid=)` inside each shape; `Flow.noise`, `Flow.along`, `flow.mix`; `Field.distance` |
+| 2 | Evenly spaced streamlines with spacing from a tone, region masks, obstacles, closed loops; line fields and distance fields | `hatch(spacing=(a, b), tone=, flow=, avoid=)` inside each shape; `Flow.noise`, `Flow.contour`, `flow.mix`; `Field.distance` |
 | 3 | Steady tracing over a sequence of maps: smoothing and hole persistence | `trace(before=, after=, sigma=)` |
 | 4 | Booleans that hold on overlapping, rotated glyphs; ink layers from them | `union`, `subtract`, `intersect`, `exclude`; glyphs made valid regions by `text`; inks as drawings with `blend("multiply")` ([kinetic_type.py](examples/kinetic_type.py)) |
 | 5 | Shrink and grow per layer; dropping small parts and filling small holes | `offset(r).offset(-r)`, `offset(-r).offset(r)`; `drop_parts`, `fill_holes` |
-| 6 | Per-item transforms about a typographic origin; seeded randomness and stagger by index as one mechanism | `translate`, `rotate`, `scale` about each shape's origin; `by_index`, `by_position`, `random`, `stagger`; lists at draw time |
+| 6 | Per-item transforms about a typographic origin; seeded randomness and stagger by index as one mechanism | `translate`, `rotate`, `scale` about each shape's origin; `by_index`, `by_order`, `random`, `stagger`; lists at draw time |
 | 7 | Curve fitting through dense polylines | `simplify`; `trace(tolerance=)` |
 | 8 | One picture to both pixels and SVG, every effect kept | `to_svg`, `to_png`, `to_rgba` |
 | 9 | A fast halftone fill | `halftone` |

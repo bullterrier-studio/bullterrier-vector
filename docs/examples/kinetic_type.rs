@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .size(560.0)
             .axis("wght", &weight + 120.0 * &pulse)
             .leading(520.0)
-            .at((WIDTH / 2.0, 600.0))
+            .anchor((WIDTH / 2.0, 600.0))
             .align(Align::Center)
             .width(980.0)
             .fit("wdth"),

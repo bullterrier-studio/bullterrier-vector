@@ -12,7 +12,7 @@ font = btvec.Font(Path("fonts/Anybody[wdth,wght].ttf").read_bytes())
 weight = font.axes["wght"]  # a Param named "wght", with the font's range and default
 phase = btvec.Param("phase", default=0, min=0, max=1, unit="cycle", meaning="where the noise has moved to")
 
-word = btvec.text("SHAKY", font=font, size=320, axes={"wght": weight}, at=(540, 470), align="center")
+word = btvec.text("SHAKY", font=font, size=320, axes={"wght": weight}, anchor=(540, 470), align="center")
 drawing = btvec.Drawing(word.wobble(3, wavelength=50, phase=phase, seed=4).stroke("#15161a", width=3), size=(1080, 640))
 
 for weight_value, phase_value in ((300, 0), (600, 0.3), (900, 0.6)):

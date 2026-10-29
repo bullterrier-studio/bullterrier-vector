@@ -62,7 +62,7 @@ Each decision once, with its reason. The design: [design.md](design.md).
   when scripting with `Path`, which computes at once and is not saved.
 - **Per-item numbers are functions; a caller's per-item signal is a list** (2026-10-29). A number that differs per
   shape is a function of the shape's attributes (`btvec.by_index(lo, hi)`, `btvec.random(lo, hi, seed=...)`,
-  `btvec.by_position(...)`); a per-item value that depends on the caller's signal is a list given at draw time
+  `btvec.by_order(...)`); a per-item value that depends on the caller's signal is a list given at draw time
   (`pulse=[kick(t - 0.045 * i) for i in range(8)]`). *Reason:* a function of attributes is data, so it saves and runs
   anywhere; a signal lives outside the drawing, and a list carries it in as plain data where a callback could not go.
   *Consequence:* any Param accepts a number or a list; a list of the wrong length is a `ParameterError`.
