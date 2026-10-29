@@ -1,6 +1,9 @@
 # Design
 
-Status: draft for review, 2026-10-28. Batches that build it: [roadmap.md](roadmap.md). Decisions and their reasons:
+Status: planned; the repository has the scaffold, its gates and CI workflows, and one skeleton function; see
+[docs/roadmap.md](roadmap.md).
+
+Draft for review, 2026-10-28. Batches that build it: [roadmap.md](roadmap.md). Decisions and their reasons:
 [design-decisions.md](design-decisions.md). What the prototypes taught: [prototype-findings.md](prototype-findings.md).
 
 ## What this is
@@ -88,6 +91,7 @@ layer, and one engine whose output is identical in Python, Rust and the browser.
 - Photo effects and compositing over footage.
 - Writing a rasteriser, a shaper or a font parser: those come from existing crates.
 - Stateful simulation (particles, springs, flocking) in v1. If it comes, it produces points that a node draws.
+- Effects that need several frames (a shape's trail): they belong to a video tool.
 
 ## Anti-goals (it fails even if it works when...)
 
@@ -146,8 +150,9 @@ const poster = text("LOUD", { font: inter, size: 400, weight: 800 })
   .split("letters").wobble({ amount: 6, phase: 0.25 }).drawOn({ progress: 0.7, stagger: 0.5 });
 ```
 
-`poster.to_json()` and `Drawing.from_json(...)` save and load the same tree; `poster.parameters()` lists every
-parameter with its description, so a tool can build sliders or map a signal onto one without knowing the node.
+For example, `poster.to_json()` and `Drawing.from_json(...)` save and load the same tree, and `poster.parameters()`
+lists every parameter with its description, so a tool can build sliders or map a signal onto one without knowing the
+node.
 
 ## Animation: state, not time
 
@@ -171,8 +176,8 @@ and added only with a gallery piece that uses it. They come in an open-ended eff
 candidates: [effects-roadmap.md](effects-roadmap.md).
 
 Effects usually applied to pixels that must stay vector (duotone, gradient maps, posterize, halftone dots, glitch
-slices) are the library's own: operations on fill and stroke colours and on geometry, not SVG filters. Halftone is a
-fill with its own fast path.
+slices, misregistration) are the library's own: operations on fill and stroke colours and on geometry, not SVG filters.
+Halftone is a fill with its own fast path.
 
 ## Shape of the library
 
@@ -258,9 +263,9 @@ tools only through plain data, with no runtime link in either direction. In the
 - **Pixels out:** a drawing rendered as RGBA at any size takes any of bullterrier-image's pixel effects (the result is
   pixels), or masks one.
 - **Colour effects:** the vector-native duotone, gradient map and posterize are kept consistent with bullterrier-image's
-  pixel versions by differential tests that use it as a development-only reference, never a dependency of the package. A
-  flat-colour pixel effect on a high-resolution render can come back as vector through the multi-colour trace (curves
-  reconstructed, not exact).
+  pixel versions by differential tests that use it as a development-only reference, never a dependency of the package;
+  those tests skip cleanly when it is not installed, and say so. A flat-colour pixel effect on a high-resolution render
+  can come back as vector through the multi-colour trace (curves reconstructed, not exact).
 - **Values over time:** bullterrier-control produces them; bullterrier-video sets a drawing's values per frame and
   composites it over footage.
 
@@ -272,4 +277,4 @@ tools only through plain data, with no runtime link in either direction. In the
 | D5 | Who owns stateful simulation, if ever? | later |
 | D6 | Custom nodes written in Python or JavaScript (local use only), and when? | later |
 | D7 | Placement that stays stable as values change (evenly spaced lines that do not jump between frames): a stateless rule continuous in its parameters, or explicit state passed in and out? The answer bears on D5. | animated hatching, after V15 |
-| D8 | Pure helpers of a number (easing curves, spreads by index): a small module of the library, or the caller's? | V1 |
+| D8 | Pure helpers of a number (easing curves, spreads by index): a small module of the library, or the caller's? | open |
