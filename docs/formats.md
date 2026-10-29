@@ -67,11 +67,11 @@ size=...)`), and the root's size is inherited as api.md says.
 ## Drawings
 
 A drawing is a non-empty array of calls. The first is a **source**, which makes shapes from nothing; every next one is a
-**step**, applied to the drawing before it. `letters.fill(PINK).blend("multiply")` is
-`[letters, {"fill": {"color": "#ff4f9a"}}, {"blend": {"mode": "multiply"}}]`, where `letters` is itself a source (a
-generator call, or a reference to a shared drawing). Arguments that take a drawing (`other`, `items`, `avoid`, `target`,
-`Field.distance`'s `drawing`) hold such an array. Where the code gives a `Path` in place of a drawing, the array is the
-path alone: `[{"path": "..."}]`.
+**step**, applied to the drawing before it. A step added in code is one more call at the end: if `letters` is
+`[{"text": {...}}, {"scale": {...}}]`, then `letters.fill(PINK)` is `[{"text": {...}}, {"scale": {...}}, {"fill":
+{"color": "#ff4f9a"}}]`, or, when `letters` is shared, `[{"drawing": "letters"}, {"fill": {"color": "#ff4f9a"}}]`.
+Arguments that take a drawing (`other`, `items`, `avoid`, `target`, `Field.distance`'s `drawing`) hold such an array.
+Where the code gives a `Path` in place of a drawing, the array is the path alone: `[{"path": "..."}]`.
 
 Names are the Python and Rust spelling (`gradient_map`, `drop_parts`, `smaller_than`); arguments have api.md's names,
 defaults and units. The types below:
@@ -96,10 +96,10 @@ above 1, a `pitch` of 0) fails the schema; an expression's value is checked when
 | Call | Code | Arguments |
 |---|---|---|
 | `path` | a `Path` | its path data: the value is the string itself, `{"path": "M0 0 L10 0"}` |
-| `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order`, `origin`); its style follows as steps |
+| `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, as literal values, `index` excepted: `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order`, `origin` a point); its style follows as steps |
 | `drawing` | a shared drawing | the value is its name: `{"drawing": "letters"}` |
 | `stack` | `Drawing(*items, size=None)` | `items` (drawings, bottom first), `size` (`[width, height]`, literal numbers above 0) |
-| `text` | `text(content, *, font, ...)` | `content` (a string), `font` (input), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align`, `anchor` (point), `width`, `fit` (a tag or `"size"`), `inside` (path data) |
+| `text` | `text(content, *, font, ...)` | `content` (a string), `font` (input), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width`, `fit` (a tag or `"size"`), `inside` (path data) |
 | `trace` | `trace(field, *, ...)` | `field` (field), `levels` (numbers), `tolerance`, `before`, `after` (fields), `sigma` |
 
 A tag is four printable ASCII characters (`"wght"`). A shape's style is written as the style steps that set it, in the
@@ -174,7 +174,10 @@ by the steps of that use. A stack with a copy:
     "bars": [
       {
         "stack": {
-          "items": [[{ "path": "M90 300 L146 300 L146 900 L90 900 Z" }], [{ "path": "M166 600 L222 600 L222 900 L166 900 Z" }]]
+          "items": [
+            [{ "path": "M90 300 L146 300 L146 900 L90 900 Z" }],
+            [{ "path": "M166 600 L222 600 L222 900 L166 900 Z" }]
+          ]
         }
       }
     ]
@@ -192,8 +195,9 @@ by the steps of that use. A stack with a copy:
 }
 ```
 
-A shared drawing is a value, not a variable: every use draws the same shapes, and nothing a use does reaches the others.
-References form no cycle. A `repeat` is a step (`{"repeat": {"count": 12, "rotate": 30}}`), not a copy: its copies
+A shared drawing is a value, not a variable: nothing a use does reaches the others, and each use is drawn with the
+values its place sees (a `with_values` after one use fixes Params for that use only). An entry may use another entry;
+references form no cycle. A `repeat` is a step (`{"repeat": {"count": 12, "rotate": 30}}`), not a copy: its copies
 exist only when drawn.
 
 ## Numbers and expressions
@@ -414,21 +418,21 @@ The `sha256` fields are left out: the examples' bytes are not in the repository.
 
 ## Questions for the owner
 
-1. **Inputs in the code API.** api.md's `Font(data)` and `Field.map(...)` have no name, and `from_json(text)` takes no
-   bytes. Recommended: `Font(data, *, name=None)` and `Field.map(..., name=None)`, the name an input gets in JSON (an
-   unnamed one is written `font1`, `map1`... in walk order); `Drawing.from_json(text, *, inputs={})`, names to bytes
-   (Rust: `Inputs::new().set("anybody", bytes)`; JavaScript: an object), checked as "Checked by the loader" says.
-2. **Names of shared drawings.** The code API has no name for a drawing, so `to_json` writes `d1`, `d2`.... Recommended:
-   keep it so; a name on `Drawing` is a second identity for a value. Revisit with an editor (V20), which may want
-   names.
-3. **`Drawing(path)` is the path.** Rust converts a path (`Drawing::from(path)`); Python and JavaScript stack it
-   (`Drawing(frame)`). Recommended: one path and no size make no stack in any language, so the three kinetic type
-   programs save to the same JSON.
-4. **Defaults are part of the format.** Saved documents leave defaults out, so after the first release a default
-   changes only with a new version (the code API's callers rely on defaults in the same way). Recommended: yes; files
-   stay short and hand-written ones shorter; the alternative, writing every argument, puts `null` for `leading`,
-   `about` and `fit` into every file.
-5. **Bytes when loading, not when drawing.** Inputs are supplied to `from_json`, so a loaded drawing is complete like
-   one built in code. Supplying them at draw time would let one document serve every frame of a traced clip, but makes
-   a second kind of drawing (one that cannot draw until given its bytes). Recommended: at load; revisit in V14 if
-   saving a clip's frames costs too much.
+- **Q1. Inputs in the code API.** api.md's `Font(data)` and `Field.map(...)` have no name, and `from_json(text)` takes
+  no bytes. Recommended: `Font(data, *, name=None)` and `Field.map(..., name=None)`, the name an input gets in JSON (an
+  unnamed one is written `font1`, `map1`... in walk order); `Drawing.from_json(text, *, inputs={})`, names to bytes
+  (Rust: `Inputs::new().set("anybody", bytes)`; JavaScript: an object), checked as "Checked by the loader" says.
+- **Q2. Names of shared drawings.** The code API has no name for a drawing, so `to_json` writes `d1`, `d2` and so on.
+  Recommended: keep it so; a name on `Drawing` is a second identity for a value. Revisit with an editor (V20), which
+  may want names.
+- **Q3. `Drawing(path)` is the path.** Rust converts a path (`Drawing::from(path)`); Python and JavaScript stack it
+  (`Drawing(frame)`). Recommended: one path and no size make no stack in any language, so the three kinetic type
+  programs save to the same JSON.
+- **Q4. Defaults are part of the format.** Saved documents leave defaults out, so after the first release a default
+  changes only with a new version (the code API's callers rely on defaults in the same way). Recommended: yes; files
+  stay short and hand-written ones shorter; the alternative, writing every argument, puts `null` for `leading`,
+  `about` and `fit` into every file.
+- **Q5. Bytes when loading, not when drawing.** Inputs are supplied to `from_json`, so a loaded drawing is complete like
+  one built in code. Supplying them at draw time would let one document serve every frame of a traced clip, but makes
+  a second kind of drawing (one that cannot draw until given its bytes). Recommended: at load; revisit in V14 if
+  saving a clip's frames costs too much.
