@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "params": {
-    "spin": { "default": 0, "min": 0, "max": 360, "unit": "deg", "meaning": "how far the flower has turned" }
-  },
+  "params": [
+    { "name": "spin", "default": 0, "min": 0, "max": 360, "unit": "deg", "meaning": "how far the flower has turned" }
+  ],
   "root": [
     {
       "stack": {

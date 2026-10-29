@@ -37,8 +37,8 @@ def square_with(*steps: Any) -> dict[str, Any]:
 
 def with_param(step: Any, **param: Any) -> dict[str, Any]:
     """A square followed by `step`, with a Param `x` (in 0..1 unless `param` says otherwise) declared."""
-    description = {"default": 0, "min": 0, "max": 1, "unit": "", "meaning": "", **param}
-    return {"version": 1, "params": {"x": description}, "root": [{"path": SQUARE}, step]}
+    description = {"name": "x", "default": 0, "min": 0, "max": 1, "unit": "", "meaning": "", **param}
+    return {"version": 1, "params": [description], "root": [{"path": SQUARE}, step]}
 
 
 def test_the_schema_is_a_valid_draft_2020_12_schema() -> None:
@@ -181,24 +181,32 @@ BAD = [
     pytest.param(
         {
             "version": 1,
-            "params": {"1x": {"default": 0, "min": 0, "max": 1, "unit": "", "meaning": ""}},
+            "params": [{"name": "1x", "default": 0, "min": 0, "max": 1, "unit": "", "meaning": ""}],
             "root": [{"path": SQUARE}],
         },
         "pattern",
-        "/params",
+        "/params/0/name",
         id="a Param name starting with a digit",
     ),
     pytest.param(
-        with_param({"rotate": {"angle": {"param": "x"}}}, unit="ms"), "enum", "/params/x/unit", id="a time unit"
+        with_param({"rotate": {"angle": {"param": "x"}}}, unit="ms"), "enum", "/params/0/unit", id="a time unit"
     ),
     pytest.param(
-        {"version": 1, "params": {"x": {"default": 0, "min": 0, "max": 1}}, "root": [{"path": SQUARE}]},
+        {"version": 1, "params": [{"name": "x", "default": 0, "min": 0, "max": 1}], "root": [{"path": SQUARE}]},
         "required",
-        "/params/x",
+        "/params/0",
         id="a Param description missing fields",
     ),
+    pytest.param({"version": 1, "params": [], "root": [{"path": SQUARE}]}, "minItems", "/params", id="empty params"),
     pytest.param(
-        {"version": 1, "params": {}, "root": [{"path": SQUARE}]}, "minProperties", "/params", id="empty params"
+        {
+            "version": 1,
+            "params": {"x": {"default": 0, "min": 0, "max": 1, "unit": "", "meaning": ""}},
+            "root": [{"path": SQUARE}],
+        },
+        "type",
+        "/params",
+        id="params keyed by name instead of in order",
     ),
     pytest.param(
         {"version": 1, "inputs": {"anybody": {"kind": "image"}}, "root": [{"path": SQUARE}]},

@@ -19,9 +19,9 @@ drawing = btvec.Drawing(square, size=(400, 400))
 ```json
 {
   "version": 1,
-  "params": {
-    "spin": { "default": 0, "min": 0, "max": 360, "unit": "deg", "meaning": "how far the square has turned" }
-  },
+  "params": [
+    { "name": "spin", "default": 0, "min": 0, "max": 360, "unit": "deg", "meaning": "how far the square has turned" }
+  ],
   "root": [
     {
       "stack": {
@@ -52,13 +52,13 @@ Five rules carry the format:
 | Key | Required | Holds |
 |---|---|---|
 | `version` | yes | `1`, the format's major version ("Versioning") |
-| `params` | no | every Param the drawing reads, by name ("Params") |
+| `params` | no | every Param the drawing reads, in the order first used ("Params") |
 | `inputs` | no | every input the drawing reads, by name ("Inputs") |
 | `drawings` | no | drawings used in more than one place, by name ("Shared drawings") |
 | `root` | yes | the drawing |
 
 No other key is allowed, here or in any object the format defines. `params`, `inputs` and `drawings` are left out when
-empty, never written `{}`. A name is letters, digits and `_`, starting with a letter. A document is UTF-8 JSON with no
+empty, never written `[]` or `{}`. A name is letters, digits and `_`, starting with a letter. A document is UTF-8 JSON with no
 duplicate key in any object, as I-JSON (RFC 7493) requires.
 
 The design size is not in the envelope: it is the `size` of a `stack`, where the code gives it (`Drawing(*items,
@@ -247,11 +247,11 @@ rounded.
 ## Params
 
 A Param's description is the library's own format, the same in a drawing's `params`, in `parameters()` and wherever a
-tool reads one (a slider, a schema, a signal mapping):
+tool reads one (a slider, a schema, a signal mapping): an object with these six fields.
 
 | Field | Holds |
 |---|---|
-| name | the key in `params`: letters, digits and `_`, starting with a letter |
+| `name` | letters, digits and `_`, starting with a letter |
 | `default` | a number; all defaults together are the reference pose |
 | `min`, `max` | numbers, `min` below `max`; the default and every value given lie in `min..max` |
 | `unit` | `"px"`, `"deg"`, `"cycle"`, `"fraction"` or `""` (a plain number: a font axis, a count, a seed) |
@@ -261,8 +261,12 @@ Every field is always present: a tool reading a description needs no defaults. A
 its range spans one turn (360 or 1) and any value wraps into it; every other Param is bounded and a value outside its
 range is an error. A font axis Param (`font.axes["wght"]`) is a Param like any other, its fields from the font.
 
-`params` lists every Param the tree reads, those fixed by a `with_values` included (the reference pose needs their
-defaults). It lists no other.
+`params` is an array of descriptions: every Param the tree reads, those fixed by a `with_values` included (the
+reference pose needs their defaults), each once and no other, in the order `parameters()` returns them, the order the
+walk ("Canonical form") first reads them. A slider panel built from the file shows them in the order the drawing uses
+them. A name appears once; in code, two Params with one name are one Param if all six fields are equal, and raise
+`ParameterError` otherwise. A document whose `params` are in another order is refused, with the order expected: the
+file always says what `parameters()` returns.
 
 ## Inputs
 
@@ -304,9 +308,10 @@ spelling the schema allows; canonical form is what the library writes:
 2. **Paths** in the form under "Values"; a `Path` where a drawing is expected, and `Drawing(path)` with one path and no
    size, as `[{"path": "..."}]` (Q3).
 3. **Colours** in lower case, `#rrggbbff` as `#rrggbb`.
-4. **Expressions** folded where constant; the two operands of `add` and of `mul` in the order of their canonical texts
-   (by code point), so `weight + 120 * pulse` in Python and `weight.add(pulse.mul(120))` in JavaScript write the same.
-   Nothing else is reordered, since floating-point addition is commutative but not associative.
+4. **Expressions** folded where constant; a literal operand of `add` or `mul` written first (`{"mul": [14, x]}`, never
+   `[x, 14]`), so `3 + 14 * burst` in Python and `burst.mul(14).add(3)` in JavaScript write the same. Other operands
+   keep the order the code gives them; nothing else is reordered, since floating-point addition is commutative but not
+   associative.
 5. **Inputs** under the names the drawing gives them (Q1); `sha256` always written.
 6. **Shared drawings.** Equal drawings (equal canonical texts with every reference written out) are one drawing. A
    drawing used more than once is in `drawings`, named `d1`, `d2`... in the order the walk below first reaches it;
@@ -314,13 +319,15 @@ spelling the schema allows; canonical form is what the library writes:
 7. **Text.** RFC 8785 (JSON Canonicalization Scheme): keys sorted by code point, no whitespace, numbers in their
    shortest round-trip form (`1080`, `0.6`, `-0` as `0`), strings with the fewest escapes, UTF-8.
 
-The walk visits the root's calls in order; within a call, its arguments in key order and the items of a list in
-order; a shared drawing when it is first reached. `parameters()` lists Params in the order this walk first reads them.
+The walk visits a drawing's calls from its source to its last step; within a call, its arguments in the order the
+tables above list them (api.md's signature order), the items of a list and the operands of an expression in order; a
+shared drawing when it is first reached, and not again. The order of `params` (and of `parameters()`), the names of
+shared drawings and of unnamed inputs follow it.
 
 The first look's drawing in canonical form:
 
 ```json
-{"params":{"spin":{"default":0,"max":360,"meaning":"how far the square has turned","min":0,"unit":"deg"}},"root":[{"stack":{"items":[[{"path":"M150 150 L250 150 L250 250 L150 250 Z"},{"fill":{"color":"#ff4f9a"}},{"rotate":{"about":[200,200],"angle":{"param":"spin"}}}]],"size":[400,400]}}],"version":1}
+{"params":[{"default":0,"max":360,"meaning":"how far the square has turned","min":0,"name":"spin","unit":"deg"}],"root":[{"stack":{"items":[[{"path":"M150 150 L250 150 L250 250 L150 250 Z"},{"fill":{"color":"#ff4f9a"}},{"rotate":{"about":[200,200],"angle":{"param":"spin"}}}]],"size":[400,400]}}],"version":1}
 ```
 
 ## Versioning
@@ -371,6 +378,8 @@ the loader's (V2 implements each, with a test named after it):
 | `json-text` | the text is not UTF-8 I-JSON: a duplicate key, a lone surrogate, a number beyond a 64-bit float |
 | `limits` | a limit above is passed |
 | `param-range` | `min` is not below `max`, the default lies outside `min..max`, or a cyclic Param's range is not one turn |
+| `param-unique` | two entries of `params` share a name |
+| `param-order` | `params` is not in the order the walk first reads them (the error gives that order) |
 | `param-declared` | a `param` expression or a `with_values` key names no entry of `params` |
 | `param-used` | an entry of `params` is read nowhere |
 | `input-declared` | a `font` or `data` names no entry of `inputs`, or one of the other kind |

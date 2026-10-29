@@ -111,6 +111,9 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   each holds what a reader needs before the tree (the version to refuse, the Params to describe, the bytes to ask
   for, the shared drawings to resolve). The design size is a `stack`'s `size`, where the code gives it; an envelope
   copy could disagree with it.
+- **`params` is an array in first-use order** (the owner, from the V1b review). *Reason:* the order is what
+  `parameters()` returns and what a slider panel shows; an object's keys are sorted in canonical form, which would lose
+  it. A document in another order is refused rather than reordered, so the file says what the drawing returns.
 - **One representation: a call is a one-key object, a drawing the array of its chain.** Every source, step, field, flow
   and expression is `{"<name>": <arguments>}`; a drawing is `[source, step, step...]`. *Reason:* the array reads in the
   code's order and nests only where the code passes a drawing as an argument; one rule covers every call and lets the
