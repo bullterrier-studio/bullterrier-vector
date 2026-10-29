@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "bullterrier-vector drawing, format version 1",
-  "$comment": "The hand-written draft of the drawing format (docs/formats.md), used to check the examples in docs/examples/json and the known-bad documents of tests/test_drawing_schema.py. From V2 the schema is generated from the Rust declarations of every call, and a test keeps the generated schema in agreement with this draft until the draft is retired. Checks that relate values across a document (an undeclared Param, a default outside its range, depth through references) are the loader's: docs/formats.md, 'Checked by the loader, not the schema'.",
+  "$comment": "The hand-written draft of the drawing format (docs/formats.md), used to check the examples in docs/examples/json and the good and bad documents of tests/test_drawing_schema.py. From V2 the schema is generated from the Rust declarations of every call; the two agree when they give the same verdict on every example and test document whose calls are all registered, and this draft stays the specification for the calls not yet registered, retired call by call. Checks that relate values across a document (an undeclared Param, a default outside its range, depth through references) are the loader's: docs/formats.md, 'Checked by the loader, not the schema'.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "root"],

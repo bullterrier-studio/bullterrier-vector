@@ -54,7 +54,7 @@ Five rules carry the format:
 | `version` | yes | `1`, the format's major version ("Versioning") |
 | `params` | no | every Param the drawing reads, in the order first used ("Params") |
 | `inputs` | no | every input the drawing reads, by name ("Inputs") |
-| `drawings` | no | drawings used in more than one place, by name ("Shared drawings") |
+| `drawings` | no | drawings that two or more calls build on or take, by name ("Shared drawings") |
 | `root` | yes | the drawing |
 
 No other key is allowed, here or in any object the format defines. `params`, `inputs` and `drawings` are left out when
@@ -80,7 +80,7 @@ defaults and units. The types below:
 | Type | In JSON |
 |---|---|
 | number | a JSON number or an expression ("Numbers and expressions") |
-| whole number | a JSON integer, or an expression whose value is whole when drawn |
+| whole number | a JSON integer within ±(2⁵³ − 1), or an expression whose value is one when drawn |
 | point | `[x, y]`, two numbers |
 | pair | a number, or two numbers `[a, b]` where api.md takes a pair (`scale`'s `(x, y)`, `hatch`'s `spacing`) |
 | drawing | an array of calls, as above |
@@ -160,7 +160,7 @@ list given at draw time (`to_png(..., pulse=[...])`) is not: it is a value of th
 
 | Call | Code | Arguments |
 |---|---|---|
-| `Field.map` | `Field.map(width, height, data, *, box=None)` | `width`, `height` (literal whole numbers from 1), `data` (input), `box` (`[x, y, width, height]`) |
+| `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | `width`, `height` (literal whole numbers from 1), `data` (input; `name` names the input, not an argument here), `box` (`[x, y, width, height]`) |
 | `Field.ramp` | `Field.ramp(start, end)` | `start`, `end` (points) |
 | `Field.distance` | `Field.distance(drawing, *, normalized=False)` | `drawing` (drawing), `normalized` (`true` or `false`) |
 | `Flow.angle` | `Flow.angle(angle)` | `angle` |
@@ -495,7 +495,8 @@ the same canonical text; V3 adds equal render bytes.
 
 Each file is the drawing of the program of the same name in [examples/](examples/), with the same steps and names. Path
 data is what the constructors make (a circle and a rounded corner as cubic curves). Shared drawings and inputs carry
-readable names, and keys are in reading order; `to_json` would write `d1`, `d2`... and sorted keys ("Canonical form").
+readable names (an input's as `name=` would give it), and keys are in reading order; `to_json` would write `d1`,
+`d2`... and sorted keys ("Canonical form").
 
 | File | Shows |
 |---|---|
