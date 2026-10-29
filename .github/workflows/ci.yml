@@ -18,9 +18,10 @@ on:
 permissions:
   contents: read
 
-# A newer push to a pull request cancels the older run; a run for main, a merge-queue entry or a call by another
-# workflow always finishes. The group starts with a fixed name, not the workflow's: when another workflow calls this
-# file, `github.workflow` is the caller's name, and a group shared with the caller would cancel or block it.
+# A newer push to a pull request cancels the older run. A run for main, a merge-queue entry or a call by another
+# workflow is never cancelled once it runs; GitHub still drops one that is only pending when a newer run joins its group.
+# The group starts with a fixed name, not the workflow's: when another workflow calls this file, `github.workflow` is the
+# caller's name, and a group shared with the caller would cancel or block it.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

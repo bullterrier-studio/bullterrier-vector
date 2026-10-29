@@ -142,8 +142,9 @@ Two speeds, both through `uv run poe`:
 `rust-lint` is clippy with `-D warnings` over the workspace and all targets (pedantic, the determinism rules of `clippy.toml`, dead
 code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `rust-tools` checks that cargo-shear and cargo-deny are
 installed at the versions `Cargo.toml` pins (`poe setup` installs them). `rust-deny` is offline (bans, licences, sources;
-`deny.toml`); `uv run poe audit` adds the advisories and needs the network (before a release). `lint-workflows` runs actionlint and zizmor (offline) on `.github`
-(`tools/lint_workflows.py`; no `.github` folder, nothing to lint; an empty one fails). `dead-code` is vulture on
+`deny.toml`); `uv run poe audit` adds the advisories and needs the network (CI runs it with every code change and weekly).
+`lint-workflows` runs actionlint and zizmor (offline) on `.github` (`tools/lint_workflows.py`; no `.github` folder, nothing to
+lint; an empty one fails). `dead-code` is vulture on
 `src`. `build-check` builds the sdist and wheel into `dist/check` (`dist/` is git-ignored, as is `audit`'s `dist/audit`)
 and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist's Rust sources, the licence files, one
 extension, check-wheel-contents); `tools/check_installed.py` smoke-checks an installed artifact (its file, version, import
@@ -159,8 +160,8 @@ when `check` does not run a proven gate.
 `# type: ignore[code]  # reason` (a bare or unused one fails). A subprocess call carries `# noqa: S603  <why its argv is safe>`.
 Tests may not reach private names (`SLF001`, `PLC2701`).
 
-Config homes: Python tooling in `pyproject.toml` (ruff, mypy, pytest, poe, commit-message, maturin, vulture, deptry), Rust tooling in
-`Cargo.toml` (workspace lints, pinned cargo tools). The Rust tools that cannot read `Cargo.toml` have one file each, at the root
+Config homes: Python tooling in `pyproject.toml` (ruff, mypy, pytest, poe, commit-message, maturin, vulture, deptry,
+check-wheel-contents), Rust tooling in `Cargo.toml` (workspace lints, pinned cargo tools). The Rust tools that cannot read `Cargo.toml` have one file each, at the root
 only: `rust-toolchain.toml`, `rustfmt.toml`, `deny.toml`, `clippy.toml`. Do not add `ruff.toml`, `mypy.ini`, `setup.cfg`,
 `pytest.ini`, `.coveragerc`, a second `clippy.toml`, `.cargo/config.toml` or similar (a test fails). Other config files:
 `.pre-commit-config.yaml` (hook wiring only), `.editorconfig`, `.gitmessage`.
@@ -246,7 +247,8 @@ follow "Fixing defects"; design follows the skill.
 
 Once per clone: `uv run poe setup` (hooks and commit template). Before every push or merge: `uv run poe check`. The commit hooks
 check formatting (rustfmt, ruff) and the message; compiling and testing wait for the gate. The pre-push hook runs the whole gate
-for a push to `main` or a tag, and for any push while local `main` has unpushed code or git cannot say. It skips the gate for a
+for a push to `main` or a tag, and for any push while local `main` has unpushed code or git cannot say. (Pre-commit does not
+call the hook at all for a tag that points at a commit the remote already has: "nothing to push".) It skips the gate for a
 branch other than `main` while `main` has no unpushed code, and for a push whose changes (and `main`'s unpushed ones) are
 documentation only.
 - **Trunk-based:** short-lived branch `<type>/<short-description>` (`feat/polygon-rotation`), merged into `main` and deleted when
