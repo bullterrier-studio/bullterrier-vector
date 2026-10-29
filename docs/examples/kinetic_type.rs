@@ -8,7 +8,7 @@
 use std::error::Error;
 use std::fs;
 
-use btvec::{Align, Blend, Color, Deg, Drawing, Font, Param, Path, Size, Stroke, Text, Unit, Values, ease};
+use btvec::{Align, Blend, Color, Deg, Drawing, Font, Param, Path, Random, Size, Stroke, Text, Unit, Values, ease};
 use bullterrier_vector as btvec;
 
 const WIDTH: f64 = 1080.0;
@@ -48,19 +48,19 @@ fn main() -> Result<(), Box<dyn Error>> {
             .fit("wdth"),
     )
     .scale(1.0 + 0.08 * &pulse)
-    .rotate(Deg(btvec::random(-10.0, 10.0, 7) * &burst))
+    .rotate(Deg(Random::new(-10.0, 10.0).seed(7) * &burst))
     .translate(
-        btvec::random(-30.0, 30.0, 8) * &burst,
-        btvec::random(-50.0, 50.0, 9) * &burst,
+        Random::new(-30.0, 30.0).seed(8) * &burst,
+        Random::new(-50.0, 50.0).seed(9) * &burst,
     );
 
-    let frame = Path::rect(0.0, 0.0, WIDTH, HEIGHT);
+    let frame = Path::rect(0.0, 0.0, WIDTH, HEIGHT)?; // a constructor that can fail returns a Result
     let misregistration = 3.0 + 14.0 * &burst; // a constant offset looks like a mistake; it grows on a hit
 
     let paper = frame.fill(PAPER);
     let plane = Drawing::from(frame).translate(0.0, HEIGHT * (1.0 - &rise));
     let blue = plane
-        .subtract(&letters.translate(misregistration.clone(), 0.6 * misregistration))
+        .subtract(&letters.translate(&misregistration, 0.6 * &misregistration))
         .fill(BLUE)
         .blend(Blend::Multiply);
     let pink = letters.fill(PINK).blend(Blend::Multiply).opacity(&ink);
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     fs::create_dir_all("frames")?;
     for n in 0..12 * 30 {
         let t = f64::from(n) / 30.0;
-        let png = piece.to_png(Size::px(1080, 1350), &values_at(t, count))?;
+        let png = piece.to_png(Size::px(WIDTH, HEIGHT), &values_at(t, count))?;
         fs::write(format!("frames/no-sleep-{n:04}.png"), png)?;
     }
     Ok(())
