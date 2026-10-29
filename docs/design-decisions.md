@@ -15,14 +15,12 @@ Each decision once, with its reason. The design: [design.md](design.md).
   engine in the browser, on a server, in Python and inside a Rust video tool, with preview identical to render; the hard
   parts (shaping, glyph outlines, offsets, tracing) exist as Rust crates and are missing or weak in Paper.js.
   *Consequence:* the core does no IO, runs single-threaded, and uses one portable maths implementation.
-- **Licence: MIT** (2026-10-28), not the Rust ecosystem's usual `MIT OR Apache-2.0`. *Reason:* the owner's choice:
-  one short, widely known permissive licence, usable in any project with only the notice kept. *Consequence:* one
-  `LICENSE` file; `deny.toml` admits dependencies whose licences ask no more of the package than MIT does.
+- **Licence: MIT** (2026-10-28), not the Rust ecosystem's usual `MIT OR Apache-2.0`. The owner's choice. *Consequence:*
+  one `LICENSE` file; `deny.toml` admits dependencies whose licences ask no more of the package than MIT does.
 - **Frame export in, timeline out** (2026-10-28). The library ships a small helper that loops a caller's function of
   time over frames and writes a transparent PNG sequence or clip; it has no timeline, keyframes, mixing or `onFrame`
-  loop. *Reason:* nearly every animated use ends in "render these frames with alpha", and the frame loop, the alpha and
-  the encoder settings are easy to get wrong; sequencing values over time is a different job, which other tools do, and
-  a drawing that knew time could not be driven by a page, a slider or another program. *Consequence:* time and frames
+  loop. *Reason:* the owner wants to edit videos with these animations and drop them on footage with transparency, and
+  the core stays timeless; sequencing values over time is the job of other tools. *Consequence:* time and frames
   exist only in the helper, which knows nothing of what the caller's function does; the helper writes files and runs
   ffmpeg, so it lives outside the core.
 - **Effects earn their place with a gallery piece** (2026-10-28). An effect is added together with a gallery piece that
@@ -32,13 +30,13 @@ Each decision once, with its reason. The design: [design.md](design.md).
   `docs/effects-roadmap.md` lists candidates, not promises.
 - **Maps in, pixels out; colour effects that stay vector are the library's own** (2026-10-28). The library takes
   grayscale maps (width, height, bytes) and gives RGBA pixels; it never links a raster library at run time. Duotone,
-  gradient maps, posterize, halftone dots and glitch slices on a drawing are operations on fill and stroke colours and
-  on geometry, not SVG filters, and are kept consistent with a raster library's pixel versions by differential tests
-  that use it as a development-only reference. *Reason:* plain data keeps both libraries usable alone (general-purpose
-  first); SVG filters render differently between renderers and plotters ignore them, and a filtered drawing is no longer
-  editable geometry; a reference implementation catches drift in the colour maths without coupling two release cycles.
-  *Consequence:* the reference is a development dependency only, never one of the package; which library it is, and the
-  seams: design.md, "Works with".
+  gradient maps, posterize, halftone dots, glitch slices and misregistration on a drawing are operations on fill and
+  stroke colours and on geometry, not SVG filters, and are kept consistent with a raster library's pixel versions by
+  differential tests that use it as a development-only reference; those tests skip cleanly when it is not installed, and
+  say so. *Reason:* plain data keeps both libraries usable alone (general-purpose first); SVG filters render differently
+  between renderers and plotters ignore them, and a filtered drawing is no longer editable geometry; a reference
+  implementation catches drift in the colour maths without coupling two release cycles. *Consequence:* the reference is
+  a development dependency only, never one of the package; which library it is, and the seams: design.md, "Works with".
 
 ## The code API
 
