@@ -1,16 +1,38 @@
 # Design
 
 Status: draft for review, 2026-10-28. Batches that build it: [roadmap.md](roadmap.md). Decisions and their reasons:
-[design-decisions.md](design-decisions.md).
+[design-decisions.md](design-decisions.md). What the prototypes taught: [prototype-findings.md](prototype-findings.md).
 
 ## What this is
 
-A typography-first generative vector library. You describe a picture in code: type, shapes and generative forms, with
-deformers, repeaters and boolean operations applied to them. The library draws it as SVG or pixels. The same code works
-in Rust, Python and JavaScript (through WebAssembly), and gives the same pixels in all three.
+A typography-first vector graphics scripting library. You write a picture as code: Bezier paths, type, booleans,
+offsets, deformers, repeaters, generative forms and tracing. The library draws it as SVG or pixels. The same code works
+in Rust, Python and JavaScript (through WebAssembly), and gives the same pixels in all three. A drawing is also data: it
+saves to JSON and draws again with new values.
 
-The aim is graphics worth posting: kinetic type, cut-paper forms, generative posters, pen-plotter art. Stars and
-polygons are presets, not the point.
+The aim is graphics worth posting: kinetic type, cut-paper forms, generative posters, pen-plotter art, and animations to
+lay over footage or run live in a web page. Stars and polygons are presets, not the point.
+
+### Scope
+
+- **Paths.** Bezier paths are values: build, measure (length, point and tangent at a distance), split, slice, reverse,
+  hit-test, resample, simplify, fit curves through points. Booleans, offsets and insets (round, miter, bevel joins),
+  stroke outlines.
+- **Type.** Fonts from bytes, shaping, variable axes as parameters, every glyph an editable path ("Fonts" below).
+- **A generative layer.** Generators, deformers (wobble, wave, twist, bulge), repeaters, draw-on, morph, evenly spaced
+  flow-field hatching.
+- **Tracing.** A grayscale map to outlines at chosen levels; a map of colour labels to outlines per colour.
+- **Output.** SVG that keeps every effect (shadows, halftone, knockouts); plotter-ready SVG (stroke only, ordered to
+  reduce pen travel); RGBA pixels at any size; a frame-export helper ("Animation").
+
+### Fonts
+
+- Any TrueType or OpenType font, variable or not, from bytes. WOFF and WOFF2: to verify in V5 (whether the font crates
+  read them or they need unpacking first).
+- Variable axes (weight, width, slant, custom) become described parameters; shaping with ligatures, kerning, complex
+  scripts and OpenType features; every glyph an editable path that knows its place in the text, word and line.
+- Not in v1: colour and bitmap fonts.
+- Never: producing font files (a font editor or fontTools does that).
 
 ## The gap
 
@@ -37,26 +59,30 @@ layer, and one engine whose output is identical in Python, Rust and the browser.
 - Motion designers and tool builders who animate drawings by setting values per frame (from a script, a video tool, an
   audio analyser or a browser loop).
 - Pen-plotter artists who need clean, ordered line output.
-- Developers of web tools who want the same engine in the browser preview and on the server.
+- Developers of web tools who want the same engine in the browser preview, in a live page and on the server.
 
 ## Goals
 
 - **Code first.** A drawing is written as ordinary code in each language: short, chainable, typed, discoverable from the
   editor. JSON is a layer on top: every drawing written in code saves to JSON and loads back to the same drawing, never
   the other way round (code shaped like JSON).
-- **Type as geometry.** Real shaping (ligatures, kerning, complex scripts), variable-font axes as parameters, every glyph
-  an editable path that knows its place in the text, word and line.
-- **A generative layer.** Generators, deformers, repeaters, booleans, offsets, morph, tracing a grayscale image, drawing
-  a series of numbers. Every node has described parameters (name, unit, range, default, meaning).
+- **Scripting and drawings in one vocabulary.** The same verbs compute at once on a path and build a re-drawable
+  drawing ("The code API").
+- **Type as geometry.** Real shaping, variable-font axes as parameters, every glyph an editable path.
+- **A generative layer.** Generators, deformers, repeaters, booleans, offsets, morph, hatching, tracing a grayscale map.
+  Every node has described parameters (name, unit, range, default, meaning).
 - **One engine everywhere.** The same drawing gives the same pixels in Rust, Python and WebAssembly, so a browser
   preview matches a server render.
-- **State, not time.** Every parameter is a state (`progress` 0..1, `phase` in cycles); an animation sets values per
-  frame and draws again. Drawing again with new values is cheap, fast enough for a live preview.
-- **Good by default.** Defaults and presets look good with no tuning.
+- **State, not time.** Every parameter is a state; drawing again with new values is cheap, fast enough for a live
+  preview ("Animation").
+- **Output that loses nothing.** The SVG shows what the pixels show; the plotter file is lines only, in a sensible
+  order.
+- **Good by default.** Defaults and presets look good with no tuning; every effect ships with a gallery piece.
 
 ## Non-goals
 
-- Timelines, keyframes, easing or an `onFrame` loop: values over time are the caller's.
+- Timelines, keyframes, easing over time or an `onFrame` loop: values over time are the caller's. The frame-export
+  helper only calls the caller's function.
 - An editor application. The library gives an editor what it needs (geometry, hit testing, text layout); the editor's
   user interface is a separate project.
 - Photo effects and compositing over footage.
@@ -71,20 +97,40 @@ layer, and one engine whose output is identical in Python, Rust and the browser.
 - a user needs to know which crate draws the pixels;
 - adding a node means touching the core.
 
-## The code API (sketch)
+## The code API
 
-Illustrative; V1 settles the names. One drawing, three languages:
+Decided: code first, JSON second, and four ideas; everything else is a method on one of them.
+
+| Idea | What it is |
+|---|---|
+| `Path` | a Bezier outline (one or more sub-paths): a plain value; every verb on it computes at once |
+| `Shape` | paths with a style and attributes (index in text, word, line; copy index; level) |
+| `Drawing` | a tree of steps over shapes: draws again with new values, saves to JSON, the same in every language |
+| `Param` | a named number with unit, range, default and meaning; any number in a step may be one |
+
+The geometry verbs (offset, subtract, slice, wobble...) have the same names and arguments on a `Path`, where they
+compute now, and on a `Drawing`, where they add a step computed at draw time. Arithmetic on `Param`s builds an
+expression that saves with the drawing; per-item numbers (spread by index, seeded random) work wherever a number does.
+A drawing holds no callbacks.
+
+Not decided: the method names. V1 settles them from example programs. The sketch below is illustrative, one drawing in
+three languages:
 
 ```python
 import bullterrier_vector as bv
 
+star = bv.Path.star(points=5, outer=100, inner=40)  # a Path: computed now
+band = star.offset(8).subtract(star.offset(-8))
+tip = star.point_at(distance=100)
+
+progress = bv.Param("progress", default=0, min=0, max=1)
 poster = (
     bv.text("LOUD", font=bv.Font.from_file("Inter.ttf"), size=400, weight=800)
     .split("letters")
     .wobble(amount=6, phase=0.25)
-    .draw_on(progress=0.7, stagger=0.5)
+    .draw_on(progress=progress, stagger=0.5)  # a Drawing: steps, computed at draw time
 )
-svg = poster.to_svg(width=1080, height=1350)
+svg = poster.to_svg(width=1080, height=1350, progress=0.7)
 ```
 
 ```rust
@@ -103,18 +149,44 @@ const poster = text("LOUD", { font: inter, size: 400, weight: 800 })
 `poster.to_json()` and `Drawing.from_json(...)` save and load the same tree; `poster.parameters()` lists every
 parameter with its description, so a tool can build sliders or map a signal onto one without knowing the node.
 
+## Animation: state, not time
+
+Every parameter is a state (`progress` 0..1, `phase` in cycles, `seed`), never a time. Whoever animates sets values
+and draws again:
+
+- **Frame export** (planned, V4). A small helper loops a caller's function (time in, parameter values out) over frames
+  and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. It is the only part that
+  knows frames; it has no timeline, keyframes or mixing, and it lives outside the core.
+- **Live in a page** (planned: the package in V3, an example in V20). The WebAssembly package redraws on a canvas from
+  values the page supplies: the clock, scroll, the pointer, a Web Audio level. A piece too heavy to redraw live is
+  exported with frame export instead.
+- **Any other driver** (a script, a slider, another program) sets values per frame and draws again.
+
+Placement that stays stable as values change, for animated hatching, is open (D7).
+
+## Effects
+
+An effect is a finished look built from the library's primitives: named, with described parameters and good defaults,
+and added only with a gallery piece that uses it. They come in an open-ended effects track (planned, from V15);
+candidates: [effects-roadmap.md](effects-roadmap.md).
+
+Effects usually applied to pixels that must stay vector (duotone, gradient maps, posterize, halftone dots, glitch
+slices) are the library's own: operations on fill and stroke colours and on geometry, not SVG filters. Halftone is a
+fill with its own fast path.
+
 ## Shape of the library
 
 ### One concept: the node
 
-A drawing is a tree of nodes. A node takes zero or more inputs (sets of items) and gives one set of items. A
-generator (text, star, trace) has no inputs, a modifier (wobble, offset, draw-on) has one, a combiner (group, boolean)
-has several. One trait, one registry, one way to describe parameters, rather than separate hierarchies for shapes,
-modifiers and repeaters. The chainable methods of the code API build this tree; JSON is the same tree written down.
+A `Drawing` is a tree of steps; each step is a node. A node takes zero or more inputs (lists of shapes) and gives one
+list of shapes. A generator (text, star, trace) has no inputs, a modifier (wobble, offset, draw-on) has one, a combiner
+(group, boolean) has several. One trait, one registry, one way to describe parameters, rather than separate hierarchies
+for shapes, modifiers and repeaters. The chainable methods of the code API build this tree; JSON is the same tree
+written down.
 
-### Items carry attributes
+### Shapes carry attributes
 
-What flows between nodes is a list of items: a path, its style, and attributes. Text writes per-glyph attributes (index
+What flows between nodes is a list of shapes: paths, a style, and attributes. Text writes per-glyph attributes (index
 in text, word, line; position 0..1); repeaters write a copy index; trace writes a level. Modifiers read attributes
 without knowing who wrote them. Per-item variation (staggering a draw-on letter by letter, scattering by index) is one
 mechanism in the core, so every modifier gets it and none implements it.
@@ -123,12 +195,12 @@ mechanism in the core, so every modifier gets it and none implements it.
 
 | Module | Hides | Never exposed |
 |---|---|---|
-| geometry | path representation, path maths, booleans, offsets, stroke outline, robustness fixes | the curve and boolean crates |
+| geometry | path representation, path maths (measure, split, fit), booleans, offsets, stroke outline, halftone, robustness fixes | the curve and boolean crates |
 | type | font loading, shaping, layout, variable axes, glyph outlines | the font, shaping and layout crates |
-| scene | items, attributes, the node trait, evaluating a tree, per-item variation, caching between renders | evaluation order, caches |
-| parameters | declaring, describing, validating values; design pixels scaled by output size; cyclic angles wrap | scaling arithmetic (callers never scale) |
+| scene | shapes, attributes, the node trait, evaluating a tree, per-item variation, caching between renders | evaluation order, caches |
+| parameters | declaring, describing, validating values; expressions; design pixels scaled by output size; cyclic angles wrap | scaling arithmetic (callers never scale) |
 | nodes | the built-ins, the registry | internals of any node |
-| output | SVG writing, rasterising, SVG import | the raster and SVG crates |
+| output | SVG writing (every effect kept), plotter SVG, rasterising, SVG import | the raster and SVG crates |
 | json | saving and loading drawings, versioning | the serialisation library |
 
 Parameters are declared once, in Rust; the Python and JavaScript APIs, their type stubs and the JSON Schema are built
@@ -136,13 +208,13 @@ from those declarations.
 
 ### Rules that keep it portable and deterministic
 
-- The core does no input or output of its own: fonts, SVG files and images arrive as bytes. The language layers read
-  files.
+- The core does no input or output of its own: fonts, SVG files and maps arrive as bytes. The language layers read
+  files; frame export writes them.
 - It runs single-threaded; parallel rendering is an optional feature.
 - Transcendental maths (sin, cos, exp, pow...) goes through one portable implementation on every target, so output
   matches bit for bit. Iteration order never depends on a hash seed.
 - Randomness comes only from the seed.
-- Inputs are plain data: an image to trace is a width, a height and bytes; a series is a list of numbers. The library
+- Inputs are plain data: a map to trace is a width, a height and bytes; a series is a list of numbers. The library
   reads no other tool's file format.
 
 ## Deliverables
@@ -151,38 +223,53 @@ from those declarations.
 |---|---|---|
 | 1 | Rust crate `bullterrier-vector` | Rust users, render servers, video tools |
 | 2 | Python package `bullterrier-vector` (wheels per platform) | scripts, notebooks, batch posters |
-| 3 | npm package (WebAssembly) | browser tools, JS users |
+| 3 | npm package (WebAssembly) | browser tools, live pages, JS users |
 | 4 | Command line `bt-vector`: `render`, `describe`, `list`, `validate` | rendering JSON drawings without code |
-| 5 | The JSON drawing format: spec, JSON Schema, versioning | saving, sharing, presets, other tools |
-| 6 | Built-in nodes, each with described parameters | everything above |
-| 7 | Bundled open-licence fonts | type working out of the box |
-| 8 | Presets and a gallery | proof it looks good; starting points |
-| 9 | A browser playground: a drawing plus sliders built from its parameter descriptions | proof of the WebAssembly build; a showcase |
-| 10 | Three reference pieces | the acceptance test for "worth posting" |
-| 11 | Docs: README, API guides per language, the JSON format, worked examples run as tests | users and contributors |
-| 12 | Tests: contract tests over every node, property tests, the same output on every target, geometry fuzzing, frame-time benchmarks | keeping 1–11 true |
+| 5 | Frame export: a transparent PNG sequence or clip from a function of time | animations to lay over footage |
+| 6 | The JSON drawing format: spec, JSON Schema, versioning | saving, sharing, presets, other tools |
+| 7 | Built-in nodes and effects, each with described parameters; every effect with a gallery piece | everything above |
+| 8 | Bundled open-licence fonts | type working out of the box |
+| 9 | Presets and a gallery | proof it looks good; starting points |
+| 10 | A browser playground (a drawing plus sliders built from its parameter descriptions) and a live page example | proof of the WebAssembly build; a showcase |
+| 11 | Three reference pieces | the acceptance test for "worth posting" |
+| 12 | Docs: README, API guides per language, the JSON format, worked examples run as tests | users and contributors |
+| 13 | Tests: contract tests over every node, property tests, the same output on every target, geometry fuzzing, frame-time benchmarks | keeping 1–12 true |
 
 ### The three reference pieces
 
-1. **Kinetic type:** letters in a variable font breathe in weight with a value (a bass level, a slider), split and
-   scatter, reassemble.
-2. **Cut paper:** a person cut out of a photo (any grayscale mask) traced into four offset layers in flat colours, its
-   outline drawing on.
-3. **Generative poster:** flow-field hatching inside giant letterforms, as a printable SVG and a pen-plotter file.
+1. **Kinetic type:** letters in a variable font breathe in weight and width with a value (a bass level, a slider),
+   staggered letter by letter, split and scatter, reassemble.
+2. **Cut paper:** a figure traced from a grayscale mask (say, a segmentation of a dancer) into stacked paper layers in
+   flat colours (a blobby mount, shifted echoes, drop shadows), its outline drawing on.
+3. **Generative poster:** evenly spaced flow-field hatching inside giant letterforms, denser where the tone is darker,
+   as a printable SVG and a pen-plotter file.
 
-A feature earns a place in the library when one of these needs it, or when a user asks for it with a real piece in hand.
+All three were built once as throwaway prototypes ([prototype-findings.md](prototype-findings.md)). A feature earns a
+place in the library when one of these needs it, or when a user asks for it with a real piece in hand.
 
 ## Works with
 
-The library is independent: it depends on no other Bullterrier package and none is needed to use it. In the
-[Bullterrier](https://github.com/bullterrier-studio) family it is the drawing layer: bullterrier-control produces values
-over time, bullterrier-image textures pictures (a drawing's outlines as a region), bullterrier-video sets a drawing's
-values per frame and composites it. They meet only through plain data.
+The library is independent: it depends on no other Bullterrier package and none is needed to use it. It meets other
+tools only through plain data, with no runtime link in either direction. In the
+[Bullterrier](https://github.com/bullterrier-studio) family it is the drawing layer:
+
+- **Maps in:** bullterrier-image's subject or depth map of a picture (width, height, bytes) drives tracing, hatching or
+  halftone; the result stays vector.
+- **Pixels out:** a drawing rendered as RGBA at any size takes any of bullterrier-image's pixel effects (the result is
+  pixels), or masks one.
+- **Colour effects:** the vector-native duotone, gradient map and posterize are kept consistent with bullterrier-image's
+  pixel versions by differential tests that use it as a development-only reference, never a dependency of the package. A
+  flat-colour pixel effect on a high-resolution render can come back as vector through the multi-colour trace (curves
+  reconstructed, not exact).
+- **Values over time:** bullterrier-control produces them; bullterrier-video sets a drawing's values per frame and
+  composites it over footage.
 
 ## Open decisions
 
 | # | Question | Needed by |
 |---|---|---|
-| D4 | Command line in Rust (installable with cargo) or in the Python package? | V17 |
+| D4 | Command line in Rust (installable with cargo) or in the Python package? | V18 |
 | D5 | Who owns stateful simulation, if ever? | later |
 | D6 | Custom nodes written in Python or JavaScript (local use only), and when? | later |
+| D7 | Placement that stays stable as values change (evenly spaced lines that do not jump between frames): a stateless rule continuous in its parameters, or explicit state passed in and out? The answer bears on D5. | animated hatching, after V15 |
+| D8 | Pure helpers of a number (easing curves, spreads by index): a small module of the library, or the caller's? | V1 |
