@@ -2,7 +2,7 @@
 
 Status: V1a, designed from the example programs in [examples/](examples/); waiting for the owner's review. Nothing here
 is built yet ([roadmap.md](roadmap.md)). Reasons: [design-decisions.md](design-decisions.md), "The code API". The JSON
-form of a drawing is V1b.
+form of a drawing: [formats.md](formats.md).
 
 Signatures are Python's; "Languages" gives the Rust and JavaScript forms. The library is imported under the alias
 `btvec` in every language.
@@ -354,7 +354,7 @@ values by name; a Param not given takes its default.
 
 The same drawing and values give the same bytes on every target. Errors (`ParameterError`): a size below 1, a value for
 no Param (the message lists the Params), a value outside its Param's range, a list of the wrong length; and whatever a
-step raises. How fonts and maps are written into JSON is V1b's question.
+step raises. How fonts and maps are referred to in JSON: [formats.md](formats.md), "Inputs".
 
 ### Mesh
 
@@ -408,6 +408,7 @@ Errors: `ParameterError` for `fps` or `seconds` not above 0, an `out` of no know
 | `BullterrierVectorError` | the base of every error the library raises for a caller's input | |
 | `ParameterError` | a value outside what is accepted; also a `ValueError` | the parameter's name and the value |
 | `GeometryError` | geometry that fails: a boolean or offset on an outline that cannot be resolved | the verb and the shape's index |
+| `FormatError` | a document `from_json` cannot read ([formats.md](formats.md), "Errors"); also a `ValueError` | the JSON Pointer of the value and what is wrong |
 
 Plain numbers are checked when a call is made; Params, expressions and lists when the drawing is drawn; geometry when it
 is computed. In Python and JavaScript the error points at the call that caused it; in Rust, eager calls return a
