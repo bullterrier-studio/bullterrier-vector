@@ -164,7 +164,7 @@ OFFENCES = {
     ),
     "a test reading a private attribute": (
         TEST_MODULE,
-        "import bullterrier_vector as bv\n\n\ndef test_probe():\n    assert bv._native is not None\n",
+        "import bullterrier_vector as btvec\n\n\ndef test_probe():\n    assert btvec._native is not None\n",
         ruff,
         "SLF001",
     ),

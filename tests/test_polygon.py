@@ -2,11 +2,11 @@
 
 import pytest
 
-import bullterrier_vector as bv
+import bullterrier_vector as btvec
 
 
 def test_a_square_from_python_is_the_square_from_rust() -> None:
-    assert bv.polygon_svg(4, 10.0) == (
+    assert btvec.polygon_svg(4, 10.0) == (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 20 20">'
         '<polygon points="0,-10 10,0 0,10 -10,0"/></svg>'
     )
@@ -24,8 +24,8 @@ def test_a_square_from_python_is_the_square_from_rust() -> None:
     ],
 )
 def test_invalid_values_raise_parameter_error_naming_them(sides: int, radius: float, name: str, value: str) -> None:
-    with pytest.raises(bv.ParameterError) as caught:
-        bv.polygon_svg(sides, radius)
+    with pytest.raises(btvec.ParameterError) as caught:
+        btvec.polygon_svg(sides, radius)
     message = str(caught.value).lower()
     assert name in message
     assert value in message
@@ -33,11 +33,11 @@ def test_invalid_values_raise_parameter_error_naming_them(sides: int, radius: fl
 
 def test_parameter_error_is_a_value_error_and_the_package_error() -> None:
     with pytest.raises(ValueError, match="sides"):
-        bv.polygon_svg(2, 1.0)
-    with pytest.raises(bv.BullterrierVectorError, match="sides"):
-        bv.polygon_svg(2, 1.0)
+        btvec.polygon_svg(2, 1.0)
+    with pytest.raises(btvec.BullterrierVectorError, match="sides"):
+        btvec.polygon_svg(2, 1.0)
 
 
 def test_a_float_for_sides_is_a_type_error() -> None:
     with pytest.raises(TypeError):
-        bv.polygon_svg(4.0, 10.0)  # type: ignore[arg-type]
+        btvec.polygon_svg(4.0, 10.0)  # type: ignore[arg-type]

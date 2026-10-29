@@ -186,7 +186,7 @@ golden file, sleep, mock of our own code) is worse than none: delete it. Reviewe
 
 - **Rust first.** Rust tests live in `crates/core/tests/` and use the public API (`use bullterrier_vector::...`); no unit
   tests in `src/`. The Python suite tests the bindings through the
-  package's public API only (`import bullterrier_vector as bv`).
+  package's public API only (`import bullterrier_vector as btvec`).
 - **Behaviour through the public contract; properties, not golden files.** `proptest` for broad input spaces. Expected values come
   from an independent oracle (hand computation, a standard, a brute-force reference parsed back from the output, e.g. `roxmltree`
   for SVG), never the code's own formula. No committed golden files: "the same bytes on every target" is a differential
