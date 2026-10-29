@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "params": {
+    "slide": { "default": 1, "min": 0, "max": 1.2, "unit": "", "meaning": "how far the echoes have slid out" },
+    "outline": { "default": 1, "min": 0, "max": 1, "unit": "fraction", "meaning": "how much outline has drawn on" }
+  },
+  "inputs": {
+    "anybody": { "kind": "font" },
+    "mask_098": { "kind": "map" },
+    "mask_099": { "kind": "map" },
+    "mask_100": { "kind": "map" },
+    "mask_101": { "kind": "map" },
+    "mask_102": { "kind": "map" }
+  },
+  "drawings": {
+    "figure": [
+      {
+        "trace": {
+          "field": { "Field.map": { "width": 540, "height": 675, "data": "mask_100", "box": [0, 0, 1080, 1350] } },
+          "before": [
+            { "Field.map": { "width": 540, "height": 675, "data": "mask_098", "box": [0, 0, 1080, 1350] } },
+            { "Field.map": { "width": 540, "height": 675, "data": "mask_099", "box": [0, 0, 1080, 1350] } }
+          ],
+          "after": [
+            { "Field.map": { "width": 540, "height": 675, "data": "mask_101", "box": [0, 0, 1080, 1350] } },
+            { "Field.map": { "width": 540, "height": 675, "data": "mask_102", "box": [0, 0, 1080, 1350] } }
+          ]
+        }
+      },
+      { "offset": { "distance": -6 } },
+      { "offset": { "distance": 6 } },
+      { "drop_parts": { "smaller_than": 1500 } },
+      { "fill_holes": { "smaller_than": 4000 } }
+    ],
+    "mount": [{ "drawing": "figure" }, { "offset": { "distance": 110 } }, { "offset": { "distance": -70 } }],
+    "echo": [{ "drawing": "figure" }, { "offset": { "distance": 16 } }]
+  },
+  "root": [
+    {
+      "stack": {
+        "items": [
+          [{ "path": "M0 0 L1080 0 L1080 1350 L0 1350 Z" }, { "fill": { "color": "#efe6d6" } }],
+          [
+            {
+              "text": {
+                "content": "MOVE",
+                "font": "anybody",
+                "size": 420,
+                "axes": { "wght": 900 },
+                "anchor": [540, 1250],
+                "align": "center",
+                "width": 1000,
+                "fit": "wdth"
+              }
+            },
+            { "fill": { "color": "#121212" } }
+          ],
+          [
+            { "drawing": "mount" },
+            { "fill": { "color": "#f2c14e" } },
+            { "shadow": { "dy": 10, "blur": 18, "color": "#0000004d" } }
+          ],
+          [{ "drawing": "mount" }, { "halftone": { "color": "#d1495b", "tone": 0.7, "pitch": 14 } }],
+          [
+            { "drawing": "echo" },
+            {
+              "translate": { "dx": { "mul": [-70, { "param": "slide" }] }, "dy": { "mul": [24, { "param": "slide" }] } }
+            },
+            { "fill": { "color": "#e4572e" } },
+            { "shadow": { "dy": 10, "blur": 18, "color": "#0000004d" } }
+          ],
+          [
+            { "drawing": "echo" },
+            {
+              "translate": { "dx": { "mul": [70, { "param": "slide" }] }, "dy": { "mul": [-24, { "param": "slide" }] } }
+            },
+            { "fill": { "color": "#2e86ab" } },
+            { "shadow": { "dy": 10, "blur": 18, "color": "#0000004d" } }
+          ],
+          [
+            { "drawing": "figure" },
+            { "fill": { "color": "#121212" } },
+            { "shadow": { "dy": 10, "blur": 18, "color": "#0000004d" } }
+          ],
+          [
+            { "drawing": "figure" },
+            { "offset": { "distance": 26 } },
+            { "slice": { "start": 0, "end": { "param": "outline" } } },
+            { "stroke": { "color": "#121212", "width": 5 } }
+          ]
+        ],
+        "size": [1080, 1350]
+      }
+    },
+    { "with_values": { "slide": 1.0347587962962963, "outline": 0.9276620370370372 } }
+  ]
+}

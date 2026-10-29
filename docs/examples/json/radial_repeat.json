@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "params": {
+    "spin": { "default": 0, "min": 0, "max": 360, "unit": "deg", "meaning": "how far the flower has turned" }
+  },
+  "root": [
+    {
+      "stack": {
+        "items": [
+          [{ "path": "M0 0 L1080 0 L1080 1080 L0 1080 Z" }, { "fill": { "color": "#f3eee4" } }],
+          [
+            { "path": "M540 540 C470 400 500 220 540 160 C580 220 610 400 540 540 Z" },
+            { "fill": { "color": "#ff4f9a" } },
+            { "blend": { "mode": "multiply" } },
+            { "repeat": { "count": 12, "rotate": 30, "about": [540, 540] } },
+            { "opacity": { "alpha": { "by_index": { "first": 0.35, "last": 1 } } } },
+            { "rotate": { "angle": { "param": "spin" }, "about": [540, 540] } }
+          ]
+        ]
+      }
+    }
+  ]
+}

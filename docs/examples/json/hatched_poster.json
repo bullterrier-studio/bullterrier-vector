@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "inputs": { "anybody": { "kind": "font" } },
+  "drawings": {
+    "letters": [
+      {
+        "text": {
+          "content": "LOW\nEND",
+          "font": "anybody",
+          "size": 600,
+          "axes": { "wght": 900 },
+          "leading": 560,
+          "anchor": [540, 620],
+          "align": "center",
+          "width": 1000,
+          "fit": "wdth"
+        }
+      }
+    ]
+  },
+  "root": [
+    {
+      "stack": {
+        "items": [
+          [{ "path": "M0 0 L1080 0 L1080 1350 L0 1350 Z" }, { "fill": { "color": "#f1ece1" } }],
+          [
+            {
+              "stack": {
+                "items": [
+                  [
+                    { "drawing": "letters" },
+                    { "without": { "char": "O" } },
+                    {
+                      "hatch": {
+                        "spacing": [2.4, 14],
+                        "tone": { "Field.ramp": { "start": [0, 1300], "end": [0, 150] } },
+                        "flow": { "Flow.noise": { "wavelength": 520, "seed": 11 } }
+                      }
+                    },
+                    { "stroke": { "color": "#15161a", "width": 2.4 } }
+                  ],
+                  [
+                    {
+                      "trace": {
+                        "field": {
+                          "Field.distance": {
+                            "drawing": [{ "drawing": "letters" }, { "only": { "char": "O" } }],
+                            "normalized": true
+                          }
+                        },
+                        "levels": [
+                          0.08333333333333333,
+                          0.16666666666666666,
+                          0.25,
+                          0.3333333333333333,
+                          0.4166666666666667,
+                          0.5,
+                          0.5833333333333334,
+                          0.6666666666666666,
+                          0.75,
+                          0.8333333333333334,
+                          0.9166666666666666
+                        ]
+                      }
+                    },
+                    { "stroke": { "color": "#e2412e", "width": 2.4 } }
+                  ]
+                ],
+                "size": [1080, 1350]
+              }
+            }
+          ]
+        ],
+        "size": [1080, 1350]
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "params": { "half_width": { "default": 14, "min": 1, "max": 60, "unit": "px", "meaning": "half the ring's width" } },
+  "drawings": {
+    "disc": [
+      {
+        "stack": {
+          "items": [
+            [
+              {
+                "path": "M200 80 C266.2741699796952 80 320 133.72583002030478 320 200 C320 266.2741699796952 266.2741699796952 320 200 320 C133.72583002030478 320 80 266.2741699796952 80 200 C80 133.72583002030478 133.72583002030478 80 200 80 Z"
+              }
+            ]
+          ],
+          "size": [400, 400]
+        }
+      }
+    ]
+  },
+  "root": [
+    { "drawing": "disc" },
+    { "offset": { "distance": { "param": "half_width" } } },
+    {
+      "subtract": {
+        "other": [{ "drawing": "disc" }, { "offset": { "distance": { "neg": { "param": "half_width" } } } }]
+      }
+    },
+    { "fill": { "color": "#0d0d0d" } }
+  ]
+}

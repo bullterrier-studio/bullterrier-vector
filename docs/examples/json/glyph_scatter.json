@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "params": {
+    "scatter": { "default": 0, "min": 0, "max": 1, "unit": "fraction", "meaning": "how far the parts have flown" }
+  },
+  "inputs": { "anybody": { "kind": "font" } },
+  "root": [
+    {
+      "stack": {
+        "items": [
+          [
+            {
+              "text": {
+                "content": "MIX:i!",
+                "font": "anybody",
+                "size": 260,
+                "axes": { "wght": 800 },
+                "anchor": [540, 420],
+                "align": "center"
+              }
+            },
+            { "split": {} },
+            {
+              "translate": {
+                "dx": { "mul": [{ "random": { "low": -160, "high": 160, "seed": 1 } }, { "param": "scatter" }] },
+                "dy": { "mul": [{ "random": { "low": -120, "high": 120, "seed": 2 } }, { "param": "scatter" }] }
+              }
+            },
+            {
+              "rotate": {
+                "angle": { "mul": [{ "random": { "low": -11, "high": 11, "seed": 3 } }, { "param": "scatter" }] }
+              }
+            },
+            { "fill": { "color": "#15161a" } }
+          ]
+        ],
+        "size": [1080, 640]
+      }
+    }
+  ]
+}
