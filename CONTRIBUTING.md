@@ -32,15 +32,21 @@ uv sync && uv run poe setup
 ### A global `core.hooksPath`
 
 `pre-commit install` refuses to run while git's `core.hooksPath` is set, in your global configuration or otherwise.
-Hide the global configuration for the setup and point this clone at its own hooks (bash or zsh; in PowerShell set
-`$env:GIT_CONFIG_GLOBAL = "NUL"` first):
+Hide the global configuration for the setup (`GIT_CONFIG_GLOBAL` needs git 2.32 or newer) and point this clone at its
+own hooks, in the main checkout (bash or zsh):
 
 ```bash
 GIT_CONFIG_GLOBAL=/dev/null uv run poe setup
 git config --local core.hooksPath "$(git rev-parse --absolute-git-dir)/hooks"
 ```
 
-Your global hooks then no longer run in this clone.
+In PowerShell, run `$env:GIT_CONFIG_GLOBAL = "NUL"` before `uv run poe setup`; it stays set for the whole session, so
+remove it afterwards (`Remove-Item Env:GIT_CONFIG_GLOBAL`).
+
+Your global hooks then no longer run in this clone. Once the local `core.hooksPath` is set, `poe setup` refuses again:
+unset it first (`git config --local --unset core.hooksPath`). In a linked worktree, `--absolute-git-dir` names that
+worktree's own folder, not the shared one where `pre-commit install` writes the hooks: run both commands in the main
+checkout.
 
 ## Working
 
@@ -62,15 +68,19 @@ The commit hooks check formatting and the commit message; the pre-push hook runs
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pushes to `main`, pull requests and merge-queue entries, and calls the others. Every
-job runs the same `uv run poe` tasks as the local gate:
+`.github/workflows/ci.yml` runs on pushes to `main`, pull requests and merge-queue entries, and calls the others. Most
+steps are the local gate's `uv run poe` tasks; the differences are noted:
 
-- `lint.yml`: format, clippy, dead code, rustdoc, dependencies, WebAssembly build, types, stub, workflows.
-- `test.yml`: the Rust tests and the Python suite on Linux, macOS and Windows; the gate proofs only on Linux.
-- `security.yml`: dependency audit, CodeQL, dependency review (also weekly).
+- `lint.yml`: format, clippy, dead code, rustdoc, dependencies, WebAssembly build, types, stub, workflows: the commands
+  of `check`, with ruff, deptry and mypy called directly, as `check` calls them.
+- `test.yml`: the Rust tests and the Python suite on Linux, macOS and Windows. Linux runs `poe test`, gate proofs
+  included; macOS and Windows run pytest without them.
+- `security.yml` (also weekly): `poe audit`, which `check` leaves out; CodeQL and dependency review, which have no
+  local equivalent.
 - `pre-commit.yml`: the commit hooks over every file.
-- `build.yml`: the sdist and a wheel per platform, checked and installed on their own. It runs only after everything
-  else passed.
+- `build.yml`: the sdist and a wheel per platform (maturin, in a manylinux container on Linux), checked by
+  `tools/check_dists.py` as `build-check` does, and installed on their own. It runs only after everything else
+  passed.
 
 `ci-ok` is the only required check: it passes when every job it needs passed or was skipped. A pull request that changes
 only documentation (top-level `*.md`, `docs/*.md`, pictures under `docs/images/`) skips lint, test, security and build;

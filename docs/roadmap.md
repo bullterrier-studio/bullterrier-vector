@@ -75,6 +75,9 @@ Carried to later:
   of `rust-toolchain.toml` to an already installed toolchain on a clean runner. Not run before: the macOS and Windows legs,
   the arm runners (`ubuntu-24.04-arm`, `macos-15-intel`), the whole of `build.yml` (the manylinux container, the macOS
   cross-compile, the smoke installs), CodeQL and dependency review, the `changes` filter and `ci-ok` on real events.
+  Also unproven: Dependabot's uv and cargo ecosystems (only schema-checked), the job timeouts (guesses), install-action
+  given the version strings `tools/rust_tools.py specs` prints, maturin picking up the pinned toolchain inside the
+  manylinux container, `merge_group` runs, Windows paths in the smoke install.
 - A test that every path in `clippy.toml` resolves (clippy only warns for a mistyped path) and that every entry has a
   proof row: V2.
 - More unbanned IO and clock sources (`env::args`, `current_dir`, `fs::read_dir`, `metadata`, `net`, `thread::sleep`,

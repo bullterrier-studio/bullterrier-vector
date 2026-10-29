@@ -164,13 +164,14 @@ only: `rust-toolchain.toml`, `rustfmt.toml`, `deny.toml`, `clippy.toml`. Do not 
 ## CI
 
 `.github/workflows/`: `ci.yml` (pushes to `main`, pull requests, merge queue; calls the rest), `lint.yml`, `test.yml`,
-`security.yml` (also weekly), `pre-commit.yml`, `build.yml`; `.github/dependabot.yml` for weekly updates. Each step is a
-local gate task or tool (`uv run --locked poe <task>`), except that macOS and Windows run `rust-test` and the suite without
-the gate proofs. `ci-ok` is the only required check: every job is in its `needs`, and a skipped job passes. The `changes` job
-skips lint, test, security and build for a pull request that changes only documentation; the set is in two places,
-`is_documentation` in `tools/pre_push.py` and the `changes` filter in `ci.yml`: change both. `build` runs after the checks
-passed and produces the sdist and a wheel per platform (`docs/design-decisions.md`, "Platforms"). A job or a poe task added
-to the gate is added to the other too. Third-party actions are pinned by commit SHA; `lint-workflows` rejects the rest.
+`security.yml` (also weekly), `pre-commit.yml`, `build.yml`; `.github/dependabot.yml` for weekly updates. Most steps are
+local gate tasks (`uv run --locked poe <task>`); `lint.yml` calls ruff, deptry and mypy directly, as `check` does; macOS and
+Windows run `rust-test` and plain pytest without the gate proofs; `security.yml` adds `poe audit`, CodeQL and dependency
+review (the last two have no local equivalent). `ci-ok` is the only required check: every job is in its `needs`, and a
+skipped job passes. The `changes` job skips lint, test, security and build for a pull request that changes only
+documentation; the set is in two places, `is_documentation` in `tools/pre_push.py` and the `changes` filter in `ci.yml`:
+change both. `build` runs after the checks passed and produces the sdist and a wheel per platform
+(`docs/design-decisions.md`, "Platforms"). A job or a poe task added to the gate is added to the other too. Third-party actions are pinned by commit SHA; `lint-workflows` rejects the rest.
 
 ## Testing
 
