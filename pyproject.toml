@@ -175,10 +175,10 @@ convention = "google"
 "tools/**" = ["T20"]
 "**/__init__.py" = ["F401"]
 
-# `uv run mypy` checks src and tests; the gate (`poe check`) and the pre-push hook run it.
+# `uv run mypy` checks src, tests and tools; the gate (`poe check`) and the pre-push hook run it.
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "tests"]
+files = ["src", "tests", "tools"]
 # tests/ has no __init__.py (pytest imports it with importlib), so equal test file names in different folders need
 # module names from their paths: tests/test_polygon.py is tests.test_polygon, src/bullterrier_vector/errors.py is
 # bullterrier_vector.errors.

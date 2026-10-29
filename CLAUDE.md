@@ -143,7 +143,7 @@ Each gate has a test proving it fails on a known-bad input (`tests/tools/`, mark
 left out of `fast`, run by `check`). A new gate gets its proof.
 
 `ruff` wants type hints and a docstring on every public function, class, method and module, and no `print` outside `tools/`.
-`mypy` checks `src` and `tests`. Fix findings properly; for a false positive use a targeted `# noqa: CODE  <reason>` or
+`mypy` checks `src`, `tests` and `tools`. Fix findings properly; for a false positive use a targeted `# noqa: CODE  <reason>` or
 `# type: ignore[code]  # reason` (a bare or unused one fails). A subprocess call carries `# noqa: S603  <why its argv is safe>`.
 Tests may not reach private names (`SLF001`, `PLC2701`).
 

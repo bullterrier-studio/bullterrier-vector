@@ -1,8 +1,8 @@
 """The lint and type gate can fail: each rule family it promises rejects a known-bad file, naming the rule.
 
 An architecture test of the tooling: its subject is the configuration in pyproject.toml, so it runs ruff and mypy, the
-way `uv run poe check` does, on a copy of the package and its tests into which one offending file at a time is
-written. A known-good file passes both, so a failure is the offence's and not the copy's.
+way `uv run poe check` does, on a copy of the package, its tests and the tool scripts into which one offending file at
+a time is written. A known-good file passes both, so a failure is the offence's and not the copy's.
 """
 
 import json
@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 pytestmark = [pytest.mark.gate, pytest.mark.xdist_group("lint-and-type-gate")]
 LIBRARY_MODULE = "src/bullterrier_vector/probe.py"  # a module of the package, under no per-file exemption
 TEST_MODULE = "tests/test_probe.py"
+TOOL_MODULE = "tools/probe.py"  # mypy checks the scripts of the gate too
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,7 @@ def checkout(tmp_path_factory) -> Path:
     skip = shutil.ignore_patterns("__pycache__", "*.pyc")
     shutil.copytree(ROOT / "src", root / "src", ignore=skip)
     shutil.copytree(ROOT / "tests", root / "tests", ignore=skip)
+    shutil.copytree(ROOT / "tools", root / "tools", ignore=skip)
     shutil.copy(ROOT / "pyproject.toml", root)
     return root
 
@@ -83,6 +85,18 @@ UNTYPED = '"""Probe."""\n\n\ndef double(value) -> float:\n    """Twice `value`."
 OFFENCES = {
     "public function without type hints (ruff)": (LIBRARY_MODULE, UNTYPED, ruff, "ANN001"),
     "public function without type hints (mypy)": (LIBRARY_MODULE, UNTYPED, mypy, "[no-untyped-def]"),
+    "a type error in a tool script (mypy)": (
+        TOOL_MODULE,
+        '"""Probe."""\n\n\ndef total() -> int:\n    """Not an int."""\n    return "three"\n',
+        mypy,
+        "[return-value]",
+    ),
+    "a tool function without a return type (mypy)": (
+        TOOL_MODULE,
+        '"""Probe."""\n\n\ndef total():\n    """No type."""\n    return 3\n',
+        mypy,
+        "[no-untyped-def]",
+    ),
     "public function without a docstring": (
         LIBRARY_MODULE,
         '"""Probe."""\n\n\ndef scale(value: float) -> float:\n    return value * 2\n',

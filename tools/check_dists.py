@@ -26,6 +26,7 @@ import tarfile
 import tempfile
 import tomllib
 import zipfile
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
 
@@ -87,7 +88,7 @@ def _missing_from_sdist(sdist: Path) -> list[str]:
     return [f"{sdist.name}: lacks {', '.join(missing)}, which a build of the extension needs"] if missing else []
 
 
-def _local_builds(native: Path, name: str):
+def _local_builds(native: Path, name: str) -> Callable[[str, list[str]], list[str]]:
     """A `copytree` filter leaving out the extension built in the checkout (an editable install puts it there)."""
 
     def ignore(folder: str, entries: list[str]) -> list[str]:
