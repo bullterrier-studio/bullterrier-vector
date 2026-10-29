@@ -299,7 +299,8 @@ A field or a flow may read Params (a noise `phase`) and is part of the drawing t
 | `meaning` | one line a person reads beside a slider |
 
 A Param in `deg` or `cycle` is cyclic: any value is accepted and wraps into its range, which spans one turn. Errors
-(`ParameterError`): a bad name, `min` not below `max`, a default outside the range, a cyclic range other than one turn.
+(`ParameterError`): a bad name, a name an output option takes in Python (`into`, `pen_mm`), `min` not below `max`, a
+default outside the range, a cyclic range other than one turn.
 
 Arithmetic (`+`, `-`, `*`, `/`, unary `-`) on Params and numbers builds an `Expr`, which saves with the drawing. A
 `Param` is an `Expr`, and so is every per-item number below, so they combine (`btvec.random(-10, 10, seed=7) * burst`).
@@ -347,7 +348,7 @@ values by name; a Param not given takes its default.
 
 The same drawing and values give the same bytes on every target. Errors (`ParameterError`): a size below 1, a value for
 no Param (the message lists the Params), a value outside its Param's range, a list of the wrong length; and whatever a
-step raises. A Param may not be named `into` or `pen_mm`. How fonts and maps are written into JSON is V1b's question.
+step raises. How fonts and maps are written into JSON is V1b's question.
 
 ### Mesh
 
@@ -448,6 +449,7 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | Options | keyword arguments | a value named after the step, built with `new` and setters (`Text::new(&font).size(560.0)`); the required argument alone converts into it (`.rotate(Deg(30.0))`) | an options object last (`{ width: 1.5 }`) |
 | Expressions | operators: `1 + 0.08 * pulse` | operators on `&Param` and `Expr`: `1.0 + 0.08 * &pulse` | methods: `pulse.mul(0.08).add(1)`, `rise.neg().add(1)` |
 | Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` | an object: `toPng(1080, 1350, { weight: 820 })` |
+| Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toMesh(w, h, values, { into: mesh })`, `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })` |
 | Units as types | | `Deg(..)` for angles; `Size::px(..)` and `Size::mm(..)` for output sizes | |
 | Colours | `"#ff4f9a"` | `Color::hex(0xff4f9a)`, `Color::NONE` | `"#ff4f9a"` |
 | Errors | exceptions | `Result<_, btvec::Error>`; a chain keeps the first error and returns it from the first draw, `to_json` or `parameters`, so no `?` per step | exceptions with `kind` |

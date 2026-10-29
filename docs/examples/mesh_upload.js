@@ -35,7 +35,7 @@ let ranges = new Uint32Array(0);
 
 function draw(now) {
   // the clock is the page's: one turn every 12 s; an angle wraps, so `spin` may grow without end
-  mesh = drawing.toMesh(canvas.width, canvas.height, { spin: (now / 1000) * 30 }, mesh);
+  mesh = drawing.toMesh(canvas.width, canvas.height, { spin: (now / 1000) * 30 }, { into: mesh });
   if (mesh.generation !== uploaded) {
     const memory = btvec.memory.buffer;
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(memory, mesh.verticesPtr, mesh.verticesLength), gl.DYNAMIC_DRAW);
