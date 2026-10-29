@@ -27,10 +27,10 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V6 | Layout: wrap, align, tracking, leading, fit to a box; text on a path, text inside a shape | M | |
 | V7 | Per-item variation: stagger, split, per-item transforms | M | **M2 type** |
 | V8 | Booleans, with fuzzing and documented limits | L | |
-| V9 | Offset, inset, stroke outline, offset rings | M | |
+| V9 | Offset, inset, stroke outline | M | |
 | V10 | SVG fidelity: drop shadows and knockouts as style attributes, the same in SVG and pixels; a fast halftone fill | M | |
 | V11 | Path modifiers: draw-on, dash march, along a path, simplify, resample | M | |
-| V12 | Deformers: noise displace, wobble, twist, bulge, wave | M | **M3 kinetic type piece** |
+| V12 | Deformers: wobble, wave, twist, bulge | M | **M3 kinetic type piece** |
 | V13 | Morph, any shape to any shape | M | |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
 | V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output | L | **M5 poster piece** |
@@ -134,8 +134,8 @@ the schema rejects known-bad drawings.
 
 ## V2 Core
 
-- `Path` as a value: build, measure (length, point and tangent at a distance), split, slice, reverse, hit-test. Each
-  later batch adds its verbs to `Path` (computed now) and `Drawing` (a step) together.
+- `Path` as a value: build, measure (length, point and tangent at a fraction of the length), split, slice, reverse,
+  hit-test. Each later batch adds its verbs to `Path` (computed now) and `Drawing` (a step) together.
 - Shapes: paths, style (fill, stroke, opacity, blend mode: normal or multiply), attributes.
 - The node trait: inputs in, shapes out, parameters declared once; the chainable builder methods of V1a over it.
 - Evaluation of a tree; a seed reaches every node; a cache so that changing one value re-evaluates only what depends
@@ -144,6 +144,9 @@ the schema rejects known-bad drawings.
 - Registry by name. Built-ins: the `Path` constructors (`Path.polygon`, `Path.star` and the rest), `translate`,
   `rotate`, `scale`, stacking (`Drawing(...)`). Replaces S0's skeleton function.
 - Contract tests over every registered node: determinism, values within range, the same result at any size.
+- The example programs of `docs/examples/` start to run here: the Python ones move to a tested top-level `examples/`,
+  the Rust one to `crates/core/examples/`, the JavaScript ones under the npm package. `docs/examples/` is never added to
+  the documentation filter (`is_documentation`, the `changes` filter in `ci.yml`): its programs are code.
 - Every internal sampling step (trace on an analytic field, resampling before a deformer, curve flattening, hatch
   seeding) in design pixels, independent of the output size, each a named constant (`// constant:`; api.md,
   "Conventions").
@@ -222,7 +225,7 @@ degenerate paths (overlaps, touching edges, tiny segments), document what fails.
 
 ## V9 Offsets
 
-Offset and inset with round, miter and bevel joins; outline a stroke into a fill; offset rings (repeated offsets).
+Offset and inset with round, miter and bevel joins; outline a stroke into a fill.
 
 ## V10 SVG fidelity and a fast halftone fill
 
@@ -239,7 +242,7 @@ along a path, simplify, resample to even spacing.
 
 ## V12 Deformers
 
-Noise displace (seeded, moving by `phase`), wobble, twist, bulge, wave. Paths are resampled first so deformation is
+Wobble (seeded noise displacement, moving by `phase`), wave, twist, bulge. Paths are resampled first so deformation is
 smooth at any size.
 
 ## V13 Morph

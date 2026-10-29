@@ -18,9 +18,9 @@ lay over footage or run live in a web page. Stars and polygons are presets, not 
 
 ### Scope
 
-- **Paths.** Bezier paths are values: build, measure (length, point and tangent at a distance), split, slice, reverse,
-  hit-test, resample, simplify, fit curves through points. Booleans, offsets and insets (round, miter, bevel joins),
-  stroke outlines.
+- **Paths.** Bezier paths are values: build, measure (length, point and tangent at a fraction of the length), split,
+  slice, reverse, hit-test, resample, simplify, fit curves through points. Booleans, offsets and insets (round, miter,
+  bevel joins), stroke outlines.
 - **Type.** Fonts from bytes, shaping, variable axes as parameters, every glyph an editable path ("Fonts" below).
 - **A generative layer.** Generators, deformers (wobble, wave, twist, bulge), repeaters, draw-on, morph, evenly spaced
   flow-field hatching.
