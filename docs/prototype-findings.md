@@ -75,7 +75,10 @@ All at 1080x1350, one process unless stated, in Python.
   glyph's contour tangents and their mixes are one type.
 - **Distance fields of shapes:** a normalised distance (outside over outside plus inside) gives seam-free rings in
   letters with counters; plain offsets crease along the medial axis. A letter with two counters still gives a saddle.
-- **Draw-on needs a canonical start** (topmost point, fixed orientation), or it jumps between frames.
+- **Draw-on needs a canonical start** (topmost point, fixed orientation), or it jumps between frames. In the cut-paper
+  clip the line drawing on round the traced figure had gaps in its first seconds: the traced edge changed from map to
+  map, and with it where the outline started and which way it ran. The cause is the one steady tracing removes; the
+  canonical orientation and start are decided in [api.md](api.md), "Path".
 - **Shrink and grow per layer, in output pixels** (open and close), plus dropping small parts and filling small holes:
   the biggest single lever between "traced" and "designed".
 - **Curves through the traced polyline:** a raw polyline edge looks digital.
@@ -84,6 +87,27 @@ All at 1080x1350, one process unless stated, in Python.
   shadow filter in our test, so all shadowed layers vanished; we did not check other versions. A hand-written SVG writer
   replaced it.
 - Noise on a coarse lattice with bilinear interpolation looked identical to full resolution and was 20x faster.
+
+## Re-vectorising an effect
+
+A fourth throwaway Python prototype took a pixel effect applied to a render and traced the result back into vector
+paths, to see which colour effects can come back as vector and which must be built vector-native.
+
+| What | Result |
+|---|---|
+| Posterize, traced from a 6x render (16 colours) | clean paths: about 17.8k nodes and 716 KB on a still, mean error 0.17 of 255, label text clean; soft shadows become 3-4 hard steps |
+| The same at 24 colours | a ghost outline appears, and 1.5-2x the nodes |
+| The same from a 4x render | wobbly on thin slits |
+| The same from a 1x render | a pixel staircase |
+| Duotone, traced | soft shadows become hard bands |
+| Halftone, traced | about 7k wobbly rings, 0.8-1.6 MB |
+| Halftone dots generated from a tone map instead | 1,897 dots, 160 KB (cells at 2x, 45°, the setting chosen) |
+| Duotone by colour mapping, vector-native | matches the pixel duotone to 0.08 of 255 on a still, after fixing two errors: browsers blend SVG filters in linear light, and the shadow colour was clamped before blending instead of after |
+| What still differs | about 0.03-0.15 % of pixels, at one-pixel anti-aliased edges: a difference between rasterisers |
+
+A flat-colour effect comes back as vector through the multi-colour trace (V14), from a 4-6x render, not 1x. Duotone and
+halftone do not: traced, they lose their soft tones or become rings, so they stay vector-native operations on colours
+and geometry ([design-decisions.md](design-decisions.md), "Maps in, pixels out").
 
 ## What the library needs, ranked
 
