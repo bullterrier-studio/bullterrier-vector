@@ -83,9 +83,9 @@ formatter, 6 and 7, and "Fixing defects".
    random state.
 3. **Transcendental maths only through `crate::math`** (`libm`); `f64::sin`, `exp`, `powf` and the rest are banned by
    `clippy.toml`. `sqrt` and `mul_add` are allowed.
-4. **No clock, no hash-ordered collections, no IO in the core:** `Instant::now`, `SystemTime::now`, `HashMap`, `HashSet`,
-   `fs::read`, `fs::read_to_string`, `fs::write`, `File::open`, `File::create` and `env::var` are banned by `clippy.toml`; use `BTreeMap`/`BTreeSet` and take bytes from the caller. One
-   formatter writes every number into SVG (now `number` in `polygon.rs`): no other `format!` of a coordinate.
+4. **No clock, no hash-ordered collections, no IO in the core**, as banned in `clippy.toml` (the ban list lives there,
+   with the reason beside each entry): use `BTreeMap`/`BTreeSet` and take bytes from the caller. One formatter writes every
+   number into SVG (now `number` in `polygon.rs`): no other `format!` of a coordinate.
 5. **The core builds for `wasm32-unknown-unknown` in every gate run** (`rust-wasm`): a native-only API in it fails there.
 6. **Errors by kind.** Callers catch `BullterrierVectorError` (`bullterrier_vector.errors`). Library code raises a subclass
    (`ParameterError`), never a bare `ValueError`, for anything a caller can get wrong; each also inherits the matching builtin.
@@ -140,7 +140,8 @@ installed at the versions `Cargo.toml` pins (`poe setup` installs them). `rust-d
 `src`. `build-check` builds the sdist and wheel into `dist/check` and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist's Rust sources, one extension, check-wheel-contents); `tools/check_installed.py` smoke-checks an installed artifact (its file, version, import location, the documented square). `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix` applies every automatic fix (`ruff check --fix`, `ruff format`, `cargo fmt`).
 
 Each gate has a test proving it fails on a known-bad input (`tests/tools/`, marker `gate`: builds copies of the workspace, slow,
-left out of `fast`, run by `check`). A new gate gets its proof.
+left out of `fast`, run by `check`). A new gate gets its proof, and a line in `tests/tools/test_gate_wiring.py`, which fails
+when `check` does not run a proven gate.
 
 `ruff` wants type hints and a docstring on every public function, class, method and module, and no `print` outside `tools/`.
 `mypy` checks `src`, `tests` and `tools`. Fix findings properly; for a false positive use a targeted `# noqa: CODE  <reason>` or
@@ -175,7 +176,8 @@ golden file, sleep, mock of our own code) is worse than none: delete it. Reviewe
   `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` between mutants.
 - **Hook-run tests must not touch the enclosing repository:** the autouse `no_enclosing_git` fixture (`tests/conftest.py`) removes
   every `GIT_*` variable, and tests that need git use the throwaway `git_repo` fixture (`tests/tools/conftest.py`). Never run
-  `git` against the real repository from a test.
+  `git` against the real repository from a test. The commands of a gate proof get an explicit environment (the `explicit_env`
+  fixture: `PATH`, `HOME`, the cargo and rustup homes, `TMPDIR`, `SYSTEMROOT`), never a copy of `os.environ`.
 - Refactors prove behaviour is preserved by comparing outputs before and after (byte-identical), in the report, not committed.
 
 **Tests describe behaviour, not implementation:** they must survive any behaviour-preserving refactor.
@@ -219,7 +221,7 @@ follow "Fixing defects"; design follows the skill.
 
 Once per clone: `uv run poe setup` (hooks and commit template). Before every push or merge: `uv run poe check`. The commit hooks
 check formatting (rustfmt, ruff) and the message; compiling and testing wait for the gate. The pre-push hook runs the whole gate for
-a push to `main` or a tag that changes more than documentation.
+a push to `main` or a tag, or while local `main` has unpushed code; a push of documentation only skips it.
 - **Trunk-based:** short-lived branch `<type>/<short-description>` (`feat/polygon-rotation`), merged into `main` and deleted when
   the work is complete; nothing unmerged is left behind. No worktrees unless the owner asks. Rebase on `main` before reporting.
   Never push.
