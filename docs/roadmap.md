@@ -160,9 +160,10 @@ Carried from the S0 review:
 ## V3 Output, WebAssembly, the same bytes everywhere
 
 - SVG writer; pixels at any size on the CPU.
-- Mesh output (`to_mesh`, api.md "Mesh"): triangles with positions, colours and per-item attributes in two flat
-  buffers; a pointer, a length and a generation across WebAssembly; a view without a copy in Python. Covered by the
-  differential test below.
+- Mesh output (`to_mesh`, api.md "Mesh"): triangles with positions, colours and per-item attributes, and draw ranges
+  with their blend mode, in three flat buffers; knockouts resolved by booleans; a blurred shadow raises. A pointer, a
+  length and a generation across WebAssembly; a view without a copy in Python. Covered by the differential tests
+  below.
 - `uv run poe look <drawing>`: draws to PNG and SVG in a git-ignored folder, for a person or an agent to look at.
 - The WebAssembly package (wasm-bindgen): build, a smoke test in Node.
 - Differential tests: the core's drawings rendered natively and in WebAssembly give identical bytes; and a drawing
@@ -173,14 +174,15 @@ Carried from the S0 review:
 
 A measured experiment, not a promise. Draw V3's mesh with WebGL in a page and measure, on drawings from the reference
 pieces: frame time, upload cost, and the difference from the CPU pixels (the reference). Done when the numbers are
-written here with a proposal: what a GPU display would add to the roadmap, if anything, and what it does with steps
-that have no triangle form (shadows, knockouts, multiply).
+written here with a proposal: what a GPU display would add to the roadmap, if anything, and a shader for the one step
+with no triangle form, a blurred shadow (multiply already draws through the draw ranges, knockouts through booleans).
 
 ## X2 Spike: live remeshing
 
 A measured experiment, not a promise. Re-evaluate and re-mesh a drawing from the kinetic type piece every frame in
-WebAssembly, with new values each frame, and measure the time per frame at 1080p against a 60 Hz budget; find what
-dominates (shaping, booleans, tessellation, the cache). Done when the numbers are written here with a proposal.
+WebAssembly, with new values each frame, and measure the time per frame at 1080p against a 60 Hz budget, knockouts
+resolved by booleans on every frame; find what dominates (shaping, booleans, tessellation, the cache). Done when the
+numbers are written here with a proposal.
 
 ## V4 Frame export
 

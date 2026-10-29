@@ -340,7 +340,7 @@ values by name; a Param not given takes its default.
 | `to_svg` | `to_svg(width, height, /, **values)` | an SVG document of that size; shadows, halftone, knockouts and multiply kept, so it shows what the pixels show |
 | `to_png` | `to_png(width, height, /, **values)` | PNG bytes, 8-bit RGBA, transparent where nothing is drawn |
 | `to_rgba` | `to_rgba(width, height, /, **values)` | `width × height × 4` bytes, rows top to bottom, straight alpha |
-| `to_plotter_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | strokes only, one layer per stroke colour (one pen each), fills hatched at `pen_mm`, lines ordered to cut pen-up travel (nearest neighbour, ends flipped) and simplified below the pen's resolution; shadows, opacity and blend modes have no pen form and are left out |
+| `to_plotter_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
 | `to_mesh` | `to_mesh(width, height, /, *, into=None, **values)` | triangles for the picture (below) |
 | `to_json` | `to_json()` | the drawing as JSON: the same tree written down |
 | `Drawing.from_json` | `Drawing.from_json(text)` | the drawing back; it draws to identical bytes |
@@ -351,20 +351,34 @@ step raises. A Param may not be named `into` or `pen_mm`. How fonts and maps are
 
 ### Mesh
 
-A `Mesh` holds two buffers, not objects. `vertices`: 8 `float32` a vertex, `x, y` (output pixels, y down), `r, g, b, a`
-(premultiplied), `item` (the shape's index) and `order` (its `order` attribute), for a shader's own per-item
-effects. `indices`: `uint32`, three a triangle, in paint order. `generation`: a number that changes exactly when the
-contents change, so a redraw with the same values uploads nothing.
+A `Mesh` holds three buffers, not objects. `vertices`: 8 `float32` a vertex, `x, y` (output pixels, y down), `r, g, b,
+a` (premultiplied), `item` (the shape's index) and `order` (its `order` attribute), for a shader's own per-item
+effects. `indices`: `uint32`, three a triangle, in paint order. `ranges`: `uint32`, three a draw range (first index,
+index count, blend mode: 0 normal, 1 multiply), in paint order, so a page draws each range with its blending.
+`generation`: a number that changes exactly when the contents change, so a redraw with the same values uploads
+nothing.
 
 `into=mesh` refills that mesh in place of a new one (its buffers are reused). In Python, `numpy.asarray(mesh.vertices)`
 is a view without a copy; refilling a mesh while a view of it is alive raises `ParameterError` naming `into`. In
-JavaScript, `mesh.verticesPtr` and `mesh.indicesPtr` (byte offsets) and `mesh.verticesLength` and `mesh.indicesLength`
+JavaScript, `mesh.verticesPtr`, `mesh.indicesPtr` and `mesh.rangesPtr` (byte offsets) and the matching `...Length`
 (in elements) locate the buffers in `btvec.memory`; make the typed-array views fresh after every call, since a pointer
 can move and the memory can grow
 ([mesh_upload.js](examples/mesh_upload.js)).
 
-The mesh is a display format; pixels and SVG stay the reference. A step with no triangle form (a blurred shadow, a
-knockout, multiply) raises `ParameterError` naming it (question 4).
+The mesh is a display format; pixels and SVG stay the reference. What each step becomes: opacity goes into the
+vertex alpha, multiply into the draw ranges, a knockout cuts the triangles below it (a boolean while meshing), halftone
+dots are triangles. A shadow with a blur above 0 has no triangle form: `to_mesh` raises `ParameterError` naming the
+step, until spike X1 measures a shader for it.
+
+### Plotter
+
+A pen draws lines, so `to_plotter_svg` says what becomes of everything else: a fill becomes hatching at `pen_mm`
+spacing; halftone dots become circles; a knockout is applied as a boolean; a shape at opacity 0 is not drawn. Shadows,
+any other opacity and blend modes have no pen form and are left out.
+
+Leave the paper out of the drawing sent to the plotter: a background rectangle filled with the paper's colour becomes
+a solid block of hatching. Keep the inks in a drawing of their own and stack the paper under it only for pixels and SVG
+([hatched_poster.py](examples/hatched_poster.py)).
 
 ### Frame export
 

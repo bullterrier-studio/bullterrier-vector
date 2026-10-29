@@ -71,12 +71,15 @@ Each decision once, with its reason. The design: [design.md](design.md).
   a number carries no clock, so the core stays timeless. *Consequence:* the functions serve the caller's code (a
   function of time for frame export, a list per item); a drawing holds no easing.
 - **Buffers, not objects: a mesh output** (2026-10-29, the owner's idea). A drawing also renders to triangles
-  (positions, colours, per-item attributes) held in two flat buffers; across WebAssembly the bindings give a pointer, a
-  length and a generation counter, and Python a view without a copy. *Reason:* a live page or a GPU display needs the
-  picture as triangles every frame; one object per shape across the WebAssembly boundary costs more than the drawing,
-  while a typed array over WebAssembly memory uploads at once, and the generation lets a page skip an unchanged upload.
-  *Consequence:* the mesh is deterministic and covered by the same-bytes test; pixels and SVG stay the reference; a GPU
-  display and live remeshing are spikes to measure (`docs/roadmap.md`), not promises.
+  (positions, colours, per-item attributes; draw ranges with their blend mode) held in three flat buffers; across
+  WebAssembly the bindings give a pointer, a length and a generation counter, and Python a view without a copy.
+  *Reason:* a live page or a GPU display needs the picture as triangles every frame; one object per shape across the
+  WebAssembly boundary costs more than the drawing, while a typed array over WebAssembly memory uploads at once, and the
+  generation lets a page skip an unchanged upload. *Consequence:* the mesh is deterministic and covered by the
+  same-bytes test; pixels and SVG stay the reference; a GPU display and live remeshing are spikes to measure
+  (`docs/roadmap.md`), not promises. Multiply reaches the page as draw ranges, since fixed-function blending needs no
+  shader, and a knockout as booleans while meshing; only a blurred shadow has no triangle form, and it raises, so
+  nothing is left out quietly.
 
 ## Output
 
