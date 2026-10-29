@@ -3,8 +3,7 @@
 # The `prefix` below makes Dependabot start every title with a Conventional Commits type (`ci`, `build(deps)`, ...), but
 # the rest of a title is Dependabot's: a grouped update's can be longer than the 72 characters that
 # tools/check_commit_message.py allows a header, and its wording is not ours. So the title of a Dependabot pull
-# request is edited when it is merged (CONTRIBUTING.md says so too), and the merge commit's message follows
-# CLAUDE.md, Git conventions.
+# request is edited when it is merged, and the merge commit's message follows CLAUDE.md, Git conventions.
 version: 2
 updates:
   - package-ecosystem: github-actions

@@ -18,8 +18,10 @@ A push that changes only documentation (the top-level and `docs/*.md` pages, the
 jpeg, gif, svg, webp) skips the gate too: no code is in it. For the reported ref the pushed range comes from
 PRE_COMMIT_FROM_REF and PRE_COMMIT_TO_REF; when it cannot be read the gate runs. When the reported ref is not `main`,
 the commits of `main` that `<remote>/main` lacks count as well, and any code in them runs the gate. Renames are listed
-as a deletion and an addition (`--no-renames`), so moving code into `docs/` still counts as changing code. Besides the
-first ref and `main`, no ref is looked at: a later tag or branch holding code that `main` lacks is not seen.
+as a deletion and an addition (`--no-renames`), so moving code into `docs/` still counts as changing code.
+
+Limit: besides the first ref and `main`, no ref is looked at. A tag or a branch later in a multi-ref push that holds
+code `main` lacks goes unseen, and the gate may be skipped for it.
 """
 
 import os
@@ -99,8 +101,8 @@ def main() -> int:
     if not must_run(remote_ref, remote):
         print(
             f"pre-push: {remote_ref} is a branch other than main, and main has no unpushed code (it is level with "
-            f"{remote}/main or changes only documentation), so the full gate is left to CI, which checks the pull "
-            "request (`uv run poe check` runs it now)"
+            f"{remote}/main, behind it, or ahead of it by documentation only), so the full gate is left to CI, which "
+            "checks the pull request (`uv run poe check` runs it now)"
         )
         return 0
     changed = pushed_files(os.environ.get("PRE_COMMIT_FROM_REF", ""), os.environ.get("PRE_COMMIT_TO_REF", ""))

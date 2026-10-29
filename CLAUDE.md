@@ -221,8 +221,10 @@ follow "Fixing defects"; design follows the skill.
 ## Git conventions
 
 Once per clone: `uv run poe setup` (hooks and commit template). Before every push or merge: `uv run poe check`. The commit hooks
-check formatting (rustfmt, ruff) and the message; compiling and testing wait for the gate. The pre-push hook runs the whole gate for
-a push to `main` or a tag, or while local `main` has unpushed code; a push of documentation only skips it.
+check formatting (rustfmt, ruff) and the message; compiling and testing wait for the gate. The pre-push hook runs the whole gate
+for a push to `main` or a tag, and for any push while local `main` has unpushed code or git cannot say. It skips the gate for a
+branch other than `main` while `main` has no unpushed code, and for a push whose changes (and `main`'s unpushed ones) are
+documentation only.
 - **Trunk-based:** short-lived branch `<type>/<short-description>` (`feat/polygon-rotation`), merged into `main` and deleted when
   the work is complete; nothing unmerged is left behind. No worktrees unless the owner asks. Rebase on `main` before reporting.
   Never push.
