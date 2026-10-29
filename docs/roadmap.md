@@ -25,7 +25,7 @@ reference pieces need it, then an open-ended effects track. The prototypes
 | V7 | Per-item variation: stagger, split, per-item transforms | M | **M2 type** |
 | V8 | Booleans, with fuzzing and documented limits | L | |
 | V9 | Offset, inset, stroke outline, offset rings | M | |
-| V10 | SVG fidelity (shadows, halftone, knockouts) and a fast halftone fill | M | |
+| V10 | SVG fidelity: drop shadows and knockouts as style attributes, the same in SVG and pixels; a fast halftone fill | M | |
 | V11 | Path modifiers: draw-on, dash march, along a path, simplify, resample | M | |
 | V12 | Deformers: noise displace, wobble, twist, bulge, wave | M | **M3 kinetic type piece** |
 | V13 | Morph, any shape to any shape | M | |
@@ -101,7 +101,7 @@ them); the schema rejects known-bad drawings.
 
 - `Path` as a value: build, measure (length, point and tangent at a distance), split, slice, reverse, hit-test. Each
   later batch adds its verbs to `Path` (computed now) and `Drawing` (a step) together.
-- Shapes: paths, style (fill, stroke, opacity), attributes.
+- Shapes: paths, style (fill, stroke, opacity, blend mode: normal or multiply), attributes.
 - The node trait: inputs in, shapes out, parameters declared once; the chainable builder methods of V1 over it.
 - Evaluation of a tree; a seed reaches every node; a cache so that changing one value re-evaluates only what depends
   on it.
@@ -168,8 +168,9 @@ Offset and inset with round, miter and bevel joins; outline a stroke into a fill
 
 ## V10 SVG fidelity and a fast halftone fill
 
-- Every effect so far written into SVG as drawn in pixels: drop shadows, halftone, knockouts, inks multiplied over
-  paper. An effect with no SVG form fails a test.
+- Drop shadows and knockouts, built here as style attributes of a shape, with the same result in SVG and in pixels.
+  Multiply blending (V2's style model) is written into SVG as it is drawn in pixels, so inks multiply over paper.
+- Every effect so far written into SVG as drawn in pixels. An effect with no SVG form fails a test.
 - Halftone as a fill (a screen: pitch, angle, dot size from a tone) clipped to any shape, without a boolean per dot;
   timed by the V3 benchmark.
 
