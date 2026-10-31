@@ -2,12 +2,17 @@
 //! unchanged, so the core's range checks are the only ones and every language gets the same errors; this file only
 //! converts between Python's values and the core's, and maps each core error to its exception.
 
+mod drawing;
 mod expr;
+mod shape;
 
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
+
+use crate::drawing::{PyDrawing, refuse_expr, refuse_expr_in_pair};
+use crate::expr::Num;
 
 pyo3::import_exception!(bullterrier_vector.errors, BullterrierVectorError);
 pyo3::import_exception!(bullterrier_vector.errors, ParameterError);
@@ -17,13 +22,17 @@ pyo3::import_exception!(bullterrier_vector.errors, GeometryError);
 #[pymodule]
 mod _core {
     #[pymodule_export]
+    use super::drawing::PyDrawing;
+    #[pymodule_export]
     use super::expr::{PyExpr, PyParam};
+    #[pymodule_export]
+    use super::shape::{PyShape, PyStyle};
     #[pymodule_export]
     use super::{PyPath, PyPoint, PyRect};
 }
 
 /// The Python exception for a core error: one class per kind, `ParameterError` and `GeometryError`.
-fn exception(error: &vector::Error) -> PyErr {
+pub(crate) fn exception(error: &vector::Error) -> PyErr {
     match error {
         vector::Error::Parameter { .. } => ParameterError::new_err(error.to_string()),
         vector::Error::Geometry { .. } => GeometryError::new_err(error.to_string()),
@@ -40,13 +49,13 @@ pub(crate) fn raised<T>(result: Result<T, vector::Error>) -> PyResult<T> {
 /// A position, in design pixels with `y` pointing down. A `(x, y)` tuple goes anywhere a point does.
 #[pyclass(name = "Point", module = "bullterrier_vector", frozen)]
 #[derive(Clone, Copy)]
-struct PyPoint {
+pub(crate) struct PyPoint {
     /// Distance to the right.
     #[pyo3(get)]
-    x: f64,
+    pub(crate) x: f64,
     /// Distance down.
     #[pyo3(get)]
-    y: f64,
+    pub(crate) y: f64,
 }
 
 /// A point as the caller gave it: a `Point` or a tuple of two numbers.
@@ -61,13 +70,14 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Pt {
             let PyPoint { x, y } = *point.get();
             return Ok(Self(vector::Point::new(x, y)));
         }
-        match object.extract::<(f64, f64)>() {
-            Ok(pair) => Ok(Self(pair.into())),
-            Err(_) => Err(PyTypeError::new_err(format!(
-                "expected a Point or an (x, y) tuple of numbers, got {}",
-                object.repr()?
-            ))),
+        if let Ok(pair) = object.extract::<(f64, f64)>() {
+            return Ok(Self(pair.into()));
         }
+        refuse_expr_in_pair(&object)?;
+        Err(PyTypeError::new_err(format!(
+            "expected a Point or an (x, y) tuple of numbers, got {}",
+            object.repr()?
+        )))
     }
 }
 
@@ -191,9 +201,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for By {
     type Error = PyErr;
 
     fn extract(object: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        refuse_expr(&object)?;
         if let Ok(factor) = object.extract::<f64>() {
             return Ok(Self(factor.into()));
         }
+        refuse_expr_in_pair(&object)?;
         match object.extract::<Pt>() {
             Ok(Pt(pair)) => Ok(Self((pair.x, pair.y).into())),
             Err(_) => Err(PyTypeError::new_err(format!(
@@ -204,10 +216,28 @@ impl<'a, 'py> FromPyObject<'a, 'py> for By {
     }
 }
 
+/// A number a `Path` verb takes: a plain number, never a Param or an expression.
+#[derive(Clone, Copy)]
+struct Plain(f64);
+
+impl<'a, 'py> FromPyObject<'a, 'py> for Plain {
+    type Error = PyErr;
+
+    fn extract(object: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        refuse_expr(&object)?;
+        object.extract::<f64>().map(Self).map_err(|_| {
+            PyTypeError::new_err(format!(
+                "expected a number, got {}",
+                object.repr().map_or_else(|_| String::new(), |text| text.to_string())
+            ))
+        })
+    }
+}
+
 /// A Bezier outline made of sub-paths, each open or closed; a plain value, so every verb returns a new path.
 #[pyclass(name = "Path", module = "bullterrier_vector", frozen, eq)]
 #[derive(Clone, PartialEq)]
-struct PyPath(vector::Path);
+pub(crate) struct PyPath(pub(crate) vector::Path);
 
 impl PyPath {
     fn of(result: Result<vector::Path, vector::Error>) -> PyResult<Self> {
@@ -355,14 +385,14 @@ impl PyPath {
     }
 
     /// Moved by `dx` to the right and `dy` down.
-    fn translate(&self, dx: f64, dy: f64) -> PyResult<Self> {
-        Self::of(self.0.translate(dx, dy))
+    fn translate(&self, dx: Plain, dy: Plain) -> PyResult<Self> {
+        Self::of(self.0.translate(dx.0, dy.0))
     }
 
     /// Turned `angle` degrees clockwise about `about` (the middle of the bounds by default).
     #[pyo3(signature = (angle, *, about=None))]
-    fn rotate(&self, angle: f64, about: Option<Pt>) -> PyResult<Self> {
-        Self::of(self.0.rotate(angle, about.map(|about| about.0)))
+    fn rotate(&self, angle: Plain, about: Option<Pt>) -> PyResult<Self> {
+        Self::of(self.0.rotate(angle.0, about.map(|about| about.0)))
     }
 
     /// Scaled by a number, or by an `(x, y)` pair, about `about` (the middle of the bounds by default).
@@ -393,6 +423,34 @@ impl PyPath {
             (_, Some(error)) => Err(error),
             (result, None) => Self::of(result),
         }
+    }
+
+    /// A drawing of this path filled with `color` (`"#rrggbb"`, `"#rrggbbaa"` or `"none"`).
+    fn fill(&self, color: &str) -> PyResult<PyDrawing> {
+        PyDrawing::of(self).fill(color)
+    }
+
+    /// A drawing of this path stroked with `color`; what is left out takes the defaults (2 pixels, round, round, 4).
+    #[pyo3(signature = (color, *, width=None, join=None, cap=None, miter_limit=None))]
+    fn stroke(
+        &self,
+        color: &str,
+        width: Option<Num>,
+        join: Option<&str>,
+        cap: Option<&str>,
+        miter_limit: Option<Num>,
+    ) -> PyResult<PyDrawing> {
+        PyDrawing::of(self).stroke(color, width, join, cap, miter_limit)
+    }
+
+    /// A drawing of this path with its opacity multiplied by `alpha`, from 0 to 1.
+    fn opacity(&self, alpha: Num) -> PyResult<PyDrawing> {
+        PyDrawing::of(self).opacity(alpha)
+    }
+
+    /// A drawing of this path painted over what is below it as `mode` (`"normal"` or `"multiply"`).
+    fn blend(&self, mode: &str) -> PyResult<PyDrawing> {
+        PyDrawing::of(self).blend(mode)
     }
 
     /// The path as SVG path data.

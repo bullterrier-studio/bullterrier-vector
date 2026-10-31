@@ -95,6 +95,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Num {
 pub(crate) struct PyParam(vector::Param);
 
 impl PyParam {
+    /// The Python object for a core Param.
+    pub(crate) fn object(py: Python<'_>, param: vector::Param) -> PyResult<Py<Self>> {
+        Py::new(py, Self::initializer(param))
+    }
+
     fn initializer(param: vector::Param) -> PyClassInitializer<Self> {
         PyClassInitializer::from(PyExpr(vector::Expr::from(&param))).add_subclass(Self(param))
     }
