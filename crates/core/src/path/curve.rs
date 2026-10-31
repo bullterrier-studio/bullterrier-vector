@@ -6,7 +6,7 @@ use crate::geometry::Point;
 
 /// How far, in design pixels, a flattened curve may stray from the curve it stands for.
 // constant: a tolerance below any visible effect (a hundredth of a pixel) and independent of the output size
-const FLATNESS: f64 = 0.01;
+pub(crate) const FLATNESS: f64 = 0.01;
 /// How often a curve is halved at most while it is flattened, so one segment gives at most 2^16 edges.
 // constant: a cap so flattening ends on huge or degenerate curves; a curve that needs more is larger than any drawing
 const MAX_FLATTEN_DEPTH: u32 = 16;

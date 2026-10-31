@@ -119,3 +119,19 @@ proptest! {
         prop_assert_eq!(image.bytes.len(), 16 * 16 * 4);
     }
 }
+
+#[test]
+fn flattening_more_than_ten_million_edges_in_a_draw_is_refused_naming_the_shape_and_the_counter() -> Outcome {
+    // a curve whose control points are a billion pixels away is halved to the depth cap, 65,536 edges; a path of 160 of
+    // them is over the 10,000,000 that one draw may flatten, and the shape is named when the counter passes it
+    let mut path = Path::start((0.0, 0.0))?;
+    for index in 0..160 {
+        let end = if index % 2 == 0 { (100.0, 0.0) } else { (0.0, 0.0) };
+        path = path.curve_to((1.0e9, 1.0e9), (-1.0e9, 1.0e9), end)?;
+    }
+    let drawing = Drawing::new([rect(0.0, 0.0, 2.0, 2.0)?, Drawing::from(path).fill(red()?)]);
+    let (parameter, message) = parameter_refusal(drawing.to_rgba(Size::px(10.0, 10.0), &Values::new()))?;
+    assert_eq!(parameter, "shape 1");
+    assert!(message.contains("MAX_SEGMENTS 10000000"), "{message}");
+    Ok(())
+}

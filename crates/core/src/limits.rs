@@ -23,6 +23,10 @@ pub(crate) const MAX_DEPTH: usize = 128;
 // written by hand and evaluates in microseconds
 pub(crate) const MAX_EXPR_NODES: usize = 10_000;
 
+/// The most straight edges one draw's pixel output may flatten curves into, counted as they are made.
+// constant: formats.md "Limits and security" sets MAX_SEGMENTS to 10,000,000
+pub(crate) const MAX_SEGMENTS: usize = 10_000_000;
+
 /// The longest document `from_json` reads and `to_json` writes, in bytes of UTF-8.
 // constant: formats.md "Limits and security" sets MAX_DOCUMENT_BYTES to 16 MiB
 pub(crate) const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
@@ -41,6 +45,7 @@ pub(crate) const MAX_PARAMS: usize = 1_000;
 #[derive(Debug, Default)]
 pub(crate) struct Work {
     shapes: Cell<usize>,
+    segments: Cell<usize>,
 }
 
 impl Work {
@@ -62,6 +67,19 @@ impl Work {
                 &place.to_string(),
                 format!("MAX_SHAPES {MAX_SHAPES} passed"),
             ));
+        }
+        Ok(())
+    }
+    /// Charges `count` straight edges made for `place`.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `place`, the counter and its limit, if the draw has now made more than
+    /// [`MAX_SEGMENTS`].
+    pub(crate) fn made_segments(&self, count: usize, place: &str) -> Result<(), Error> {
+        let total = self.segments.get().saturating_add(count);
+        self.segments.set(total);
+        if total > MAX_SEGMENTS {
+            return Err(Error::parameter(place, format!("MAX_SEGMENTS {MAX_SEGMENTS} passed")));
         }
         Ok(())
     }

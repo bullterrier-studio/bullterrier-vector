@@ -50,6 +50,16 @@ impl View {
         coordinate("length", design * self.scale)
     }
 
+    /// The place of the point `design` in output pixels.
+    pub(crate) fn point(&self, design: Point) -> Point {
+        Point::new(design.x * self.scale + self.x, design.y * self.scale + self.y)
+    }
+
+    /// How many output pixels a design pixel is.
+    pub(crate) fn scale(&self) -> f64 {
+        self.scale
+    }
+
     /// `path` in output pixels.
     ///
     /// # Errors

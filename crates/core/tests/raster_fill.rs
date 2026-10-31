@@ -11,6 +11,9 @@ use libm::{cos, hypot, sin};
 use proptest::prelude::*;
 use std::f64::consts::PI;
 
+/// The most a pixel's coverage is off by through the 8-bit rasteriser: half a level in 255, a little over.
+const COVERAGE_STEP: f64 = 0.002;
+
 /// The straight-alpha pixel's colour as it would be premultiplied, in levels of 0..=255 (a float, to compare with a
 /// tolerance of one level): what the pixel adds to a picture.
 fn premultiplied(pixel: [u8; 4]) -> [f64; 3] {
@@ -224,28 +227,35 @@ proptest! {
     }
 
     #[test]
-    fn a_circles_pixels_are_in_or_out_and_its_coverage_is_pi_r_squared_less_the_flattening(
+    fn a_circles_pixels_are_in_or_out_and_its_coverage_is_pi_r_squared_to_the_flattening(
         center in (30.0f64..70.0, 30.0f64..70.0),
         radius in 10.0f64..28.0,
+        scale in prop::sample::select(vec![0.5f64, 1.0, 3.0]),
     ) {
+        // a 100 by 100 design frame drawn at `scale` times its size: the radius on the canvas is `scale` times as long
         let circle = Path::circle(center, radius).map_err(|e| TestCaseError::fail(e.to_string()))?;
-        let image = render(&Drawing::from(circle), 100, 100).map_err(|e| TestCaseError::fail(e.to_string()))?;
-        for row in 0..100usize {
-            for column in 0..100usize {
+        let drawing = Drawing::from(circle).with_size(100.0, 100.0);
+        #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "50, 100 and 300")]
+        let side = (100.0 * scale) as usize;
+        let image = render(&drawing, side, side).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        for row in 0..side {
+            for column in 0..side {
                 #[expect(clippy::cast_precision_loss, reason = "small pixel indices")]
-                let away = hypot(column as f64 + 0.5 - center.0, row as f64 + 0.5 - center.1);
-                if away < radius - 1.0 {
+                let away = hypot(column as f64 + 0.5 - center.0 * scale, row as f64 + 0.5 - center.1 * scale);
+                if away < radius * scale - 1.0 {
                     prop_assert_eq!(image.alpha(column, row), 255);
-                } else if away > radius + 1.0 {
+                } else if away > radius * scale + 1.0 {
                     prop_assert_eq!(image.alpha(column, row), 0);
                 }
             }
         }
-        // the rasteriser flattens a curve to straight edges at most a quarter of a pixel inside it, which can take a
-        // quarter of a pixel off all the way round; the circle itself is the cubic arcs, 0.03% too large
-        let area = PI * radius * radius;
+        // curves are flattened to straight edges at most 0.01 design pixels inside them, which takes at most that much
+        // off all the way round; the 8-bit coverage of an edge pixel is off by at most half a level in 255; the circle
+        // itself is the four cubic arcs, 0.03% too large
+        let (area, perimeter) = (PI * radius * radius * scale * scale, 2.0 * PI * radius * scale);
         let covered = image.covered_area();
-        let bound = 2.0 * PI * radius * 0.25;
-        prop_assert!(covered >= area - bound && covered <= area * 1.001, "covered {covered}, area {area}");
+        let lowest = area - perimeter * (0.01 * scale + COVERAGE_STEP);
+        let highest = area * 1.0003 + perimeter * COVERAGE_STEP;
+        prop_assert!(covered >= lowest && covered <= highest, "covered {covered}, area {area} in {lowest}..{highest}");
     }
 }

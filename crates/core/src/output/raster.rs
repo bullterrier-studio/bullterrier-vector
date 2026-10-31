@@ -3,9 +3,10 @@
 
 use super::view::View;
 use super::{Size, in_shape};
-use crate::path::Element;
+use crate::limits::Work;
+use crate::path::{FLATNESS, Polyline};
 use crate::{Blend, Cap, Drawing, Error, Join, Path, Point, Shape, Values};
-use kurbo::BezPath;
+use kurbo::{BezPath, StrokeOpts};
 use vello_cpu::color::AlphaColor;
 use vello_cpu::peniko::{BlendMode, Compose, Fill, ImageAlphaType, Mix};
 use vello_cpu::{Level, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources};
@@ -45,8 +46,9 @@ fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8
         },
     );
     context.set_fill_rule(Fill::NonZero);
+    let work = Work::new();
     for shape in shapes {
-        paint(&mut context, shape, view)?;
+        paint(&mut context, shape, view, &work)?;
     }
     context.flush();
     let mut pixmap = Pixmap::new(width, height);
@@ -65,12 +67,15 @@ fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8
 
 /// Paints `shape` seen through `view`: its fill, then its stroke, as one group to which the opacity and the blend apply
 /// once (as SVG's `opacity` does), so that a stroke over a fill at half opacity is no darker where they overlap.
-fn paint(context: &mut RenderContext, shape: &Shape, view: &View) -> Result<(), Error> {
-    let path = view.path(shape.path()).map_err(|error| in_shape(shape, "", error))?;
-    let elements = path.elements();
-    let farthest = elements.iter().map(|element| element.farthest()).fold(0.0, f64::max);
-    within_device("a coordinate", farthest).map_err(|error| in_shape(shape, "", error))?;
-    let outline = bez_path(&elements);
+///
+/// The rasteriser is given straight lines only: the path is flattened in design pixels, the same polygon for every
+/// output, and a stroke is expanded into its outline here, to the same flatness in output pixels.
+fn paint(context: &mut RenderContext, shape: &Shape, view: &View, work: &Work) -> Result<(), Error> {
+    let name = format!("shape {}", shape.index());
+    let mut charge = |count| work.made_segments(count, &name);
+    let polylines = shape.path().flattened(&mut charge)?;
+    let device = moved(&polylines, view).map_err(|error| in_shape(shape, "", error))?;
+    let outline = bez_path(&device);
     let style = shape.style();
     let stroke = match style.stroke() {
         Some(stroke) => {
@@ -108,16 +113,24 @@ fn paint(context: &mut RenderContext, shape: &Shape, view: &View) -> Result<(), 
     if let Some((stroke, width)) = stroke
         && let Some([red, green, blue, alpha]) = stroke.color().rgba()
     {
-        context.set_stroke(
-            kurbo::Stroke::new(width)
-                .with_join(join(stroke.join()))
-                .with_caps(cap(stroke.cap()))
-                .with_miter_limit(stroke.miter_limit()),
-        );
+        let expanded = kurbo::Stroke::new(width)
+            .with_join(join(stroke.join()))
+            .with_caps(cap(stroke.cap()))
+            .with_miter_limit(stroke.miter_limit());
+        let flatness = FLATNESS * view.scale();
         context.set_paint(AlphaColor::from_rgba8(red, green, blue, alpha));
-        context.stroke_path(&outline);
-        for dot in dots(&elements, stroke.cap(), width)? {
-            context.fill_path(&bez_path(&dot.elements()));
+        // the outline has arcs for the round joins and ends; the rasteriser must be given lines only
+        let curved = kurbo::stroke(
+            outline.elements().iter().copied(),
+            &expanded,
+            &StrokeOpts::default(),
+            flatness,
+        );
+        let mut lines = BezPath::new();
+        kurbo::flatten(curved, flatness, |element| lines.push(element));
+        context.fill_path(&lines);
+        for dot in dots(&device, stroke.cap(), width, &mut charge)? {
+            context.fill_path(&bez_path(&dot));
         }
     }
     if grouped {
@@ -126,48 +139,25 @@ fn paint(context: &mut RenderContext, shape: &Shape, view: &View) -> Result<(), 
     Ok(())
 }
 
-/// A sub-path read for the dot it may leave.
-struct Sub {
-    start: Point,
-    /// It has a segment or a close.
-    drawn: bool,
-    /// Some segment reaches a point other than its start.
-    moved: bool,
-}
-
-/// The shapes that the sub-paths of `elements` which never leave their start leave under a round or square end of a
-/// stroke `width` wide: a disc or a square about the point, as SVG draws them. The stroker draws nothing for them, as
-/// it does for a butt end; a lone move leaves nothing.
-fn dots(elements: &[Element], cap: Cap, width: f64) -> Result<Vec<Path>, Error> {
-    let mut subs: Vec<Sub> = Vec::new();
-    for element in elements {
-        let points: &[Point] = match element {
-            Element::Move(start) => {
-                subs.push(Sub {
-                    start: *start,
-                    drawn: false,
-                    moved: false,
-                });
-                continue;
-            }
-            Element::Line(to) => &[*to],
-            Element::Quad(control, to) => &[*control, *to],
-            Element::Cubic(first, second, to) => &[*first, *second, *to],
-            Element::Close => &[],
-        };
-        if let Some(sub) = subs.last_mut() {
-            sub.drawn = true;
-            sub.moved |= points.iter().any(|point| *point != sub.start);
-        }
+/// `polylines` moved by `view` into output pixels.
+///
+/// # Errors
+/// [`Error::Parameter`] if a point lies beyond [`MAX_DEVICE`].
+fn moved(polylines: &[Polyline], view: &View) -> Result<Vec<Polyline>, Error> {
+    let mut device = Vec::with_capacity(polylines.len());
+    for polyline in polylines {
+        let points: Vec<Point> = polyline.points.iter().map(|point| view.point(*point)).collect();
+        let farthest = points
+            .iter()
+            .fold(0.0, |far: f64, point| far.max(point.x.abs()).max(point.y.abs()));
+        within_device("a coordinate", farthest)?;
+        device.push(Polyline {
+            points,
+            closed: polyline.closed,
+            drawn: polyline.drawn,
+        });
     }
-    let half = width / 2.0;
-    subs.into_iter()
-        .filter(|sub| sub.drawn && !sub.moved && cap != Cap::Butt)
-        .map(|sub| match cap {
-            Cap::Square => Path::rect(sub.start.x - half, sub.start.y - half, width, width, 0.0),
-            _ => Path::circle(sub.start, half),
-        })
-        .collect()
+    Ok(device)
 }
 
 /// `value` (a coordinate or a width, `what`), or the error unless it is within [`MAX_DEVICE`].
@@ -180,6 +170,31 @@ fn within_device(what: &str, value: f64) -> Result<(), Error> {
             format!("{what} of {value} device pixels is beyond {MAX_DEVICE}"),
         ))
     }
+}
+
+/// The shapes that the sub-paths which never leave their start leave under a round or square end of a stroke `width`
+/// wide: a disc or a square about the point, as SVG draws them. The stroker draws nothing for them, as it does for a
+/// butt end; a lone move leaves nothing.
+fn dots(
+    polylines: &[Polyline],
+    cap: Cap,
+    width: f64,
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+) -> Result<Vec<Vec<Polyline>>, Error> {
+    let half = width / 2.0;
+    let mut dots = Vec::new();
+    for polyline in polylines {
+        let [at] = polyline.points[..] else { continue };
+        if !polyline.drawn || cap == Cap::Butt {
+            continue;
+        }
+        let shape = match cap {
+            Cap::Square => Path::rect(at.x - half, at.y - half, width, width, 0.0)?,
+            _ => Path::circle(at, half)?,
+        };
+        dots.push(shape.flattened(charge)?);
+    }
+    Ok(dots)
 }
 
 fn join(join: Join) -> kurbo::Join {
@@ -198,17 +213,20 @@ fn cap(cap: Cap) -> kurbo::Cap {
     }
 }
 
-/// `elements` as the rasteriser's path.
-fn bez_path(elements: &[Element]) -> BezPath {
-    let at = |point: crate::Point| kurbo::Point::new(point.x, point.y);
+/// `polylines` as the rasteriser's path: straight lines only.
+fn bez_path(polylines: &[Polyline]) -> BezPath {
+    let at = |point: Point| kurbo::Point::new(point.x, point.y);
     let mut outline = BezPath::new();
-    for element in elements {
-        match *element {
-            Element::Move(to) => outline.move_to(at(to)),
-            Element::Line(to) => outline.line_to(at(to)),
-            Element::Quad(control, to) => outline.quad_to(at(control), at(to)),
-            Element::Cubic(first, second, to) => outline.curve_to(at(first), at(second), at(to)),
-            Element::Close => outline.close_path(),
+    for polyline in polylines {
+        let mut points = polyline.points.iter();
+        if let Some(start) = points.next() {
+            outline.move_to(at(*start));
+        }
+        for point in points {
+            outline.line_to(at(*point));
+        }
+        if polyline.closed {
+            outline.close_path();
         }
     }
     outline

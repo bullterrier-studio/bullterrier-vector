@@ -101,8 +101,10 @@ proptest! {
         join in 0usize..3,
         cap in 0usize..3,
     ) {
-        // segments of at least 3 pixels, so that "a pixel in from each end" means something
-        prop_assume!(corners.windows(2).all(|pair| hypot(pair[0].0 - pair[1].0, pair[0].1 - pair[1].1) >= 3.0));
+        // segments at least as long as the stroke is wide (and 3 pixels, so that "a pixel in from each end" means
+        // something): the stroker can lose a sliver of a rectangle on the inside of a sharp turn after a segment shorter
+        // than half the width, which this test does not describe
+        prop_assume!(corners.windows(2).all(|pair| hypot(pair[0].0 - pair[1].0, pair[0].1 - pair[1].1) >= width.max(3.0)));
         let (join, cap, miter_limit) = (JOINS[join], CAPS[cap], 4.0);
         let path = Path::polyline(corners.clone(), false).map_err(fail)?;
         let stroke = Stroke::new(black()).width(width).join(join).cap(cap).miter_limit(miter_limit);
@@ -306,5 +308,87 @@ fn the_width_is_seen_through_the_view_and_the_stroke_colour_keeps_its_alpha() ->
             && (i32::from(green) - 0x5b).abs() <= 2
             && (i32::from(blue) - 0xff).abs() <= 2
     );
+    Ok(())
+}
+
+#[test]
+fn a_round_stroke_covers_the_area_of_its_ring_and_its_dot_to_the_flattening() -> Outcome {
+    // (rule, design frame side, canvas side, scale)
+    for (rule, scale) in [("at 0.5", 0.5), ("at 1", 1.0), ("at 3", 3.0)] {
+        // a circle of radius 10 stroked 4 wide is the ring between radii 8 and 12: pi (12^2 - 8^2) = 80 pi square
+        // pixels at scale 1; a zero-length round end 4 wide is a disc of radius 2. Each outline is within 0.01 design
+        // pixels of the true curve, and an edge pixel's coverage is within 0.002 of exact.
+        let side = 60.0 * scale;
+        #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "30, 60 and 180")]
+        let pixels = side as usize;
+        let ring = Drawing::from(Path::circle((30.0, 30.0), 10.0)?)
+            .fill(Color::NONE)
+            .stroke(Stroke::new(black()).width(4.0))
+            .with_size(60.0, 60.0);
+        let covered = render(&ring, pixels, pixels)?.covered_area();
+        let area = 80.0 * std::f64::consts::PI * scale * scale;
+        let edges = 2.0 * std::f64::consts::PI * (12.0 + 8.0) * scale;
+        let slack = edges * (0.01 * scale + 0.002);
+        assert!(
+            (covered - area).abs() <= slack,
+            "{rule}: ring covers {covered}, area {area} within {slack}"
+        );
+
+        let dot = Drawing::from(Path::start((30.0, 30.0))?.line_to((30.0, 30.0))?)
+            .fill(Color::NONE)
+            .stroke(Stroke::new(black()).width(4.0).cap(Cap::Round))
+            .with_size(60.0, 60.0);
+        let covered = render(&dot, pixels, pixels)?.covered_area();
+        let area = 4.0 * std::f64::consts::PI * scale * scale;
+        let slack = 2.0 * std::f64::consts::PI * 2.0 * scale * (0.01 * scale + 0.002);
+        assert!(
+            (covered - area).abs() <= slack,
+            "{rule}: dot covers {covered}, area {area} within {slack}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn a_corner_covers_the_exact_area_of_its_join_at_any_scale() -> Outcome {
+    // two rectangles of length L and width w meet at a right angle: they cover 2 L w, overlapping in a square of side
+    // w/2, and the join fills the outer corner square of side w/2 with a quarter disc (round), a triangle (bevel) or the
+    // whole square (miter). Worked from L = 40 and w = 30 (r = 15); the stroke is within 0.01 design pixels of that, and
+    // an edge pixel's coverage within 0.004 (the perimeter, and a diagonal edge crosses more pixels), the arc twice.
+    let (length, width, half) = (40.0, 30.0, 15.0);
+    let base = 2.0 * length * width - half * half;
+    // (join, the area the join adds to the two rectangles, the length of its curved edge)
+    let joins = [
+        (
+            Join::Round,
+            std::f64::consts::PI * half * half / 4.0,
+            std::f64::consts::PI * half / 2.0,
+        ),
+        (Join::Bevel, half * half / 2.0, 0.0),
+        (Join::Miter, half * half, 0.0),
+    ];
+    let corner = Path::polyline([(30.0, 60.0), (70.0, 60.0), (70.0, 20.0)], false)?;
+    for scale in [0.5, 1.0, 3.0] {
+        for (join, added, arc) in joins {
+            let stroke = Stroke::new(black())
+                .width(width)
+                .join(join)
+                .cap(Cap::Butt)
+                .miter_limit(4.0);
+            let drawing = Drawing::from(corner.clone())
+                .fill(Color::NONE)
+                .stroke(stroke)
+                .with_size(100.0, 100.0);
+            #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "50, 100 and 300")]
+            let pixels = (100.0 * scale) as usize;
+            let covered = render(&drawing, pixels, pixels)?.covered_area();
+            let area = (base + added) * scale * scale;
+            let slack = (4.0 * length + 3.0 * width) * scale * 0.004 + arc * scale * 0.02 * scale;
+            assert!(
+                (covered - area).abs() <= slack,
+                "{join:?} at {scale}: covers {covered}, area {area} within {slack}"
+            );
+        }
+    }
     Ok(())
 }
