@@ -335,7 +335,8 @@ A field or a flow may read Params (a noise `phase`) and is part of the drawing t
 | `unit` | `"px"`, `"deg"`, `"cycle"`, `"fraction"` or `""` (a plain number: a font axis, a count, a seed) |
 | `meaning` | one line a person reads beside a slider |
 
-A Param in `deg` or `cycle` is cyclic: any value is accepted and wraps into its range, which spans one turn. Errors
+A Param in `deg` or `cycle` is cyclic: any value is accepted and wraps into its range, which spans one turn; a
+default at the end of the range is read as its start (`default=360` is 0), like the same value given. Errors
 (`ParameterError`): a bad name, a name an output option takes in Python (`into`, `pen_mm`), `min` not below `max`, a
 default outside the range, a cyclic range other than one turn.
 

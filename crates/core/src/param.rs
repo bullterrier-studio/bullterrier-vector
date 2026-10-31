@@ -107,7 +107,8 @@ impl Param {
         })
     }
 
-    /// This Param in `unit`.
+    /// This Param in `unit`. A cyclic unit stores a default at the end of the turn as the start of it, as
+    /// [`Param::accept`] reads the same number.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `unit` if it is cyclic ([`Unit::Deg`], [`Unit::Cycle`]) and the range is not
@@ -126,6 +127,9 @@ impl Param {
             ));
         }
         self.unit = unit;
+        if let Some(turn) = unit.turn() {
+            self.default = self.wrapped(turn, self.default);
+        }
         Ok(self)
     }
 
@@ -164,7 +168,7 @@ impl Param {
         &self.name
     }
 
-    /// The value taken when none is given.
+    /// The value taken when none is given; for a cyclic Param, as wrapped into its turn.
     #[must_use]
     pub fn default(&self) -> f64 {
         self.default
@@ -194,6 +198,13 @@ impl Param {
         &self.meaning
     }
 
+    /// `value` wrapped into the turn of `turn` from the minimum: `min` up to but not including `max`.
+    fn wrapped(&self, turn: f64, value: f64) -> f64 {
+        let wrapped = self.min + (value - self.min).rem_euclid(turn);
+        // a value a hair below the start of the turn comes out as the end, which is the start of the next
+        if wrapped < self.max { wrapped } else { self.min }
+    }
+
     /// The value this Param takes when given `value`: a bounded Param keeps it, a cyclic one wraps it into one turn
     /// from its minimum (`min` up to but not including `max`).
     ///
@@ -203,9 +214,7 @@ impl Param {
     pub fn accept(&self, value: f64) -> Result<f64, Error> {
         let value = finite(&self.name, value)?;
         if let Some(turn) = self.unit.turn() {
-            let wrapped = self.min + (value - self.min).rem_euclid(turn);
-            // a value a hair below the start of the turn comes out as the end, which is the start of the next
-            Ok(if wrapped < self.max { wrapped } else { self.min })
+            Ok(self.wrapped(turn, value))
         } else if (self.min..=self.max).contains(&value) {
             Ok(value)
         } else {

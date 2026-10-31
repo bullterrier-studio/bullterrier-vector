@@ -262,6 +262,23 @@ fn a_cyclic_param_takes_any_finite_value_wrapped_when_fixed_or_given() -> Outcom
 }
 
 #[test]
+fn a_cyclic_param_whose_default_is_the_end_of_the_turn_reads_the_same_by_default_set_or_fixed() -> Outcome {
+    // 360 degrees is the start of the next turn: the default is stored as 0, as a value of 360 is read
+    let turn = Param::new("d", 360.0, 0.0, 360.0)?.unit(Unit::Deg)?;
+    assert_eq!(turn.default(), 0.0);
+    assert_eq!(turn, Param::new("d", 0.0, 0.0, 360.0)?.unit(Unit::Deg)?);
+    let drawing = square()?.translate(&turn, 0.0);
+    let set = Values::new().set("d", 360.0);
+    assert_eq!(lefts(&drawing, &Values::new())?, vec![0.0]);
+    assert_eq!(lefts(&drawing, &set)?, vec![0.0]);
+    assert_eq!(lefts(&drawing.with_values(&set), &Values::new())?, vec![0.0]);
+    // a cycle Param likewise, from a signed range
+    let phase = Param::new("p", 0.5, -0.5, 0.5)?.unit(Unit::Cycle)?;
+    assert_eq!(phase.default(), -0.5);
+    Ok(())
+}
+
+#[test]
 fn a_list_can_be_fixed_and_goes_to_the_shapes_by_index() -> Outcome {
     let p = slider("p", 0.0)?;
     let two = Drawing::new([square()?, square()?]).translate(&p, 0.0);
