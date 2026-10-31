@@ -3,10 +3,30 @@
 Status: draft for review, 2026-10-28. What the batches build: [design.md](design.md).
 
 Small batches of work, in order. Each batch gets its own plan before work starts, ends merged into `main` with the
-whole gate green and an independent review done, and leaves the worked examples it names passing. From V2, a batch
+whole gate green and, for M and L batches, an independent review done, and leaves the worked examples it names passing. From V2, a batch
 that adds calls is done only when they round-trip through JSON and the generated schema agrees with the hand-written
 draft on them (formats.md, "Extension"). Sizes: **S** about one working session, **M** two or three, **L** four or
 more.
+
+## How we work
+
+Short on purpose: a batch costs about two hours of agent time at the full process, so each rule below is a cut from
+that. Everything else (trunk-based `main`, nothing pushed unless asked, tests through the public API, no hidden tunables)
+stays as in CLAUDE.md.
+
+1. **Plan:** one page per batch in the git-ignored `.superpowers/plans/`: the settled edge cases and the task list. An
+   S batch needs only the task list.
+2. **Branch:** one short-lived branch from `main`, fast-forward merged, then deleted.
+3. **Build:** one implementer for the whole batch (two only if the context runs out), test first: see the test fail, then
+   pass. Commit after every task. While working run only the one test file; `uv run poe fast` once at the end of each
+   part, `uv run poe check` once before the merge.
+4. **Mutation checks:** at most about ten hand mutants per batch, on the settled edge cases and the arithmetic (a sign, a
+   boundary, an ignored argument). Surviving mutants on core behaviour become tests; the rest are not chased.
+5. **Review:** M and L batches get one independent read-only review of the whole branch; S batches get the gate only.
+   A finding is fixed only after the controller replicates it (a failing test or quoted lines); one that cannot be
+   replicated is dropped. Fix Critical and Important findings; minors go to the ledger. Small fixes are read and checked
+   by the controller, not re-reviewed.
+6. **Reports:** commits, public signatures, deviations from the plan, mutants killed or survived. No per-task narrative.
 
 Order: a short feedback loop first (the gate, a walking skeleton through every target), then the code API and the core,
 a way to see a drawing (with two spikes that measure a GPU display), a way to export frames, then type, then the risky

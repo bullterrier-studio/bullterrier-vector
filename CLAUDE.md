@@ -200,7 +200,8 @@ golden file, sleep, mock of our own code) is worse than none: delete it. Reviewe
 - Python tests run in random order (pytest-randomly; rerun with `-p randomly --randomly-seed=N`, disable with `-p no:randomly`);
   none may depend on another. Every warning fails the test that raised it.
 - **Mutation-check your tests, by hand:** break the code on purpose (a sign, a boundary, an ignored argument) and see a test
-  fail; no mutation tool is set up. Surviving mutants on core behaviour are review findings. Run Rust mutants with
+  fail; about ten mutants per batch, on the settled edge cases and the arithmetic (docs/roadmap.md, "How we work"); no
+  mutation tool is set up. A surviving mutant on core behaviour becomes a test. Run Rust mutants with
   `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1` and never commit a `*.proptest-regressions` file a mutant created; for Python use
   `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` between mutants.
 - **Hook-run tests must not touch the enclosing repository:** the autouse `no_enclosing_git` fixture (`tests/conftest.py`) removes
