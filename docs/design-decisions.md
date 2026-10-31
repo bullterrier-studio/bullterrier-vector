@@ -245,7 +245,10 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   most edges a horizontal line crosses (known before tessellating) cost 1 to 4.3 ns a unit in a star, a stroked star, a
   comb and a zig-zag alike, so a budget of 250 million units bounds a draw to about a second whatever the outline; the
   pixels (`vello_cpu`) draw the same inputs in under 0.03 s, so the limit belongs to the mesh. A limit on edges alone
-  would refuse a circle of radius 2,000 (1,024 edges, nothing crossing) before a star polygon that takes a second (900).
+  would refuse a circle of radius 2,000 (1,024 edges, nothing crossing) before a star polygon that takes a second (900). *Known defect:* in 12 to 25 of 20,000
+  random round-join strokes lyon's nonzero fill covers a patch three times (miter joins: 1; fills: 0 of 20,000), and a
+  tessellation of the bevel outline plus a disc at every vertex covered none twice in the same 20,000; a fix needs that
+  union built for round strokes (more vertices) or a newer lyon, so it waits for the owner.
 
 ## Names and formats
 

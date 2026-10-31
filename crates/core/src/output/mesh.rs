@@ -92,7 +92,9 @@ impl Drawing {
     /// outputs fill), so a translucent fill and stroke show darker where they overlap, which the pixels' one group
     /// per shape does not. A colour's alpha times the shape's `opacity` is the vertex alpha; a layer whose alpha is 0
     /// has no triangles. A shape with an empty path adds nothing but keeps its number as `item`. Curves are flattened,
-    /// as for the pixels, to within 0.01 design pixels.
+    /// as for the pixels, to within 0.01 design pixels. Known exception to "once": a stroke with round joins or ends that
+    /// doubles back at a sharp turn may have a patch covered three times, by `lyon_tessellation` (about 1 in 1,000
+    /// random strokes).
     ///
     /// The triangles are made in design pixels in f32, so a coordinate beyond 10 million is refused.
     ///
