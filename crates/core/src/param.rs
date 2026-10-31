@@ -16,6 +16,13 @@ const DEGREES_PER_TURN: f64 = 360.0;
 // constant: a cycle is one turn
 const CYCLES_PER_TURN: f64 = 1.0;
 
+/// Whether `name` is letters, digits and `_`, starting with a letter: how every name in a document is spelled.
+pub(crate) fn is_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(|first| first.is_ascii_alphabetic())
+        && chars.all(|next| next.is_ascii_alphanumeric() || next == '_')
+}
+
 /// What a Param's number means, which a tool shows beside a slider. `Deg` and `Cycle` are cyclic: their range spans
 /// one turn and any value wraps into it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,10 +118,7 @@ impl Param {
     /// `pen_mm` (output options in Python); naming `default`, `min` or `max` if it is NaN or infinite; naming `min`
     /// if it is not below `max`; naming `default` if it is outside `min..=max`.
     pub fn new(name: &str, default: f64, min: f64, max: f64) -> Result<Self, Error> {
-        let mut chars = name.chars();
-        let well_formed = chars.next().is_some_and(|first| first.is_ascii_alphabetic())
-            && chars.all(|next| next.is_ascii_alphanumeric() || next == '_');
-        if !well_formed {
+        if !is_name(name) {
             return Err(Error::parameter(
                 "name",
                 format!("must be letters, digits and _, starting with a letter, got {name:?}"),

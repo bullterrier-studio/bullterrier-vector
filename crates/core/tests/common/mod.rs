@@ -144,3 +144,12 @@ pub(crate) fn shoelace_area(corners: &[(f64, f64)]) -> f64 {
     }
     doubled / 2.0
 }
+
+/// The pointer and message of the `Error::Format` an operation returned; an error if it succeeded or failed otherwise.
+pub(crate) fn format_refusal<T>(outcome: Result<T, Error>) -> Result<(String, String), Box<dyn std::error::Error>> {
+    match outcome {
+        Err(Error::Format { pointer, message }) => Ok((pointer, message)),
+        Err(other) => Err(format!("expected a format error, got {other}").into()),
+        Ok(_) => Err("expected a format error, but it succeeded".into()),
+    }
+}

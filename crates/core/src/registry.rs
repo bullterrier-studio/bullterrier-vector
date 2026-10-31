@@ -8,6 +8,11 @@ pub fn verbs() -> impl Iterator<Item = &'static Verb> {
     NODES.iter().map(|node| node.verb())
 }
 
+/// The node called `name`, if there is one.
+pub(crate) fn node(name: &str) -> Option<&'static dyn Node> {
+    NODES.iter().copied().find(|node| node.verb().name == name)
+}
+
 /// The nodes: sources first.
 const NODES: &[&dyn Node] = &[
     &source::PathSource,

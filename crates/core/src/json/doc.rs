@@ -1,0 +1,113 @@
+//! A document as the reader understands it: every value typed by the registry's declaration of its verb, every name
+//! unresolved, every position remembered as a JSON Pointer for the checks that come after.
+
+use crate::expr::Op;
+use crate::node::Node;
+use crate::{Attributes, Color, Select, Unit, Verb};
+
+/// A whole document.
+pub(super) struct Doc {
+    pub(super) params: Vec<ParamDecl>,
+    pub(super) inputs: Vec<InputDecl>,
+    /// The shared drawings by name, in name order.
+    pub(super) drawings: Vec<(String, Vec<Call>)>,
+    pub(super) root: Vec<Call>,
+}
+
+/// An entry of `params`, as written.
+pub(super) struct ParamDecl {
+    pub(super) pointer: String,
+    pub(super) name: String,
+    pub(super) default: f64,
+    pub(super) min: f64,
+    pub(super) max: f64,
+    pub(super) unit: Unit,
+    pub(super) meaning: String,
+}
+
+/// An entry of `inputs`, as written.
+pub(super) struct InputDecl {
+    pub(super) pointer: String,
+}
+
+/// One call of a drawing.
+pub(super) struct Call {
+    /// Where the call is: `/root/2`.
+    pub(super) pointer: String,
+    pub(super) what: What,
+}
+
+pub(super) enum What {
+    /// `{"drawing": name}`, with the pointer of the name.
+    Reference { name: String, pointer: String },
+    /// A registered verb with the arguments that were written, in the verb's declaration order.
+    Verb(VerbCall),
+}
+
+pub(super) struct VerbCall {
+    pub(super) node: &'static dyn Node,
+    pub(super) verb: &'static Verb,
+    pub(super) args: Vec<(&'static str, Value)>,
+}
+
+/// The value of one argument.
+pub(super) enum Value {
+    Number(Ex),
+    Pair(Ex, Ex),
+    Text(String),
+    Color(Color),
+    Path {
+        data: String,
+        pointer: String,
+    },
+    Shape {
+        data: String,
+        pointer: String,
+        attributes: Attributes,
+    },
+    Drawings(Vec<Vec<Call>>),
+    Select(Select),
+    Values(Vec<Fixed>),
+}
+
+/// A Param a `with_values` fixes, and the value it is fixed to.
+pub(super) struct Fixed {
+    pub(super) name: String,
+    /// Where the name is: `/root/3/with_values/spin`.
+    pub(super) pointer: String,
+    pub(super) value: crate::Value,
+}
+
+/// A number or an expression, with the pointer of each Param it reads.
+#[derive(Clone)]
+pub(super) enum Ex {
+    Number(f64),
+    Param { name: String, pointer: String },
+    Neg(Box<Ex>),
+    Binary(Op, Box<Ex>, Box<Ex>),
+}
+
+impl Ex {
+    /// Whether any Param is read.
+    pub(super) fn reads_param(&self) -> bool {
+        match self {
+            Self::Number(_) => false,
+            Self::Param { .. } => true,
+            Self::Neg(inner) => inner.reads_param(),
+            Self::Binary(_, left, right) => left.reads_param() || right.reads_param(),
+        }
+    }
+
+    /// Each Param read, left to right, with the pointer of the read.
+    pub(super) fn params<'a>(&'a self, into: &mut Vec<(&'a str, &'a str)>) {
+        match self {
+            Self::Number(_) => {}
+            Self::Param { name, pointer } => into.push((name, pointer)),
+            Self::Neg(inner) => inner.params(into),
+            Self::Binary(_, left, right) => {
+                left.params(into);
+                right.params(into);
+            }
+        }
+    }
+}
