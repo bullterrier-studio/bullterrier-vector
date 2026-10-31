@@ -217,6 +217,20 @@ fn limits_refuses_a_document_past_the_call_limit_and_reads_one_at_it() -> Outcom
 }
 
 #[test]
+fn limits_refuses_the_first_param_past_the_param_limit_and_reads_a_thousand() -> Outcome {
+    let reads = |count: usize| -> String {
+        let params: Vec<String> = (0..count).map(|number| plain(&format!("p{number}"))).collect();
+        let steps: Vec<String> = (0..count).map(|number| reading(&format!("p{number}"))).collect();
+        document(&params, "", &steps)
+    };
+    assert_eq!(Drawing::from_json(&reads(1_000))?.parameters()?.len(), 1_000);
+    let (pointer, message) = refused(&reads(1_001))?;
+    assert_eq!(pointer, "/params/1000");
+    assert!(message.contains("MAX_PARAMS 1000"), "{message}");
+    Ok(())
+}
+
+#[test]
 fn limits_counts_expressions_as_calls() -> Outcome {
     // 50,000 steps whose angle is an expression of one call each, and the steps themselves: 100,001 in all
     let step = r#"{"rotate":{"angle":{"neg":{"param":"x"}}}}"#.to_owned();

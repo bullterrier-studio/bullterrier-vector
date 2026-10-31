@@ -459,6 +459,9 @@ Errors: `ParameterError` for `fps` or `seconds` not above 0, an `out` of no know
 | `GeometryError` | geometry that fails: a boolean or offset on an outline that cannot be resolved | the verb and the shape's index |
 | `FormatError` | a document `from_json` cannot read ([formats.md](formats.md), "Errors"); also a `ValueError` | the JSON Pointer of the value and what is wrong |
 
+A drawing that reads more than 1,000 Params of different names (`MAX_PARAMS`) raises `ParameterError` at the call that
+passes it.
+
 Plain numbers are checked when a call is made; Params, expressions and lists when the drawing is drawn; geometry when it
 is computed. In Python and JavaScript the error points at the call that caused it; in Rust, eager calls return a
 `Result` and a drawing's chain reports its first error at the first draw ("Languages").

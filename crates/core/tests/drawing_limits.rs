@@ -190,3 +190,41 @@ fn an_expression_that_shares_itself_is_refused_at_the_call_without_being_worked_
     );
     Ok(())
 }
+
+// MAX_PARAMS --------------------------------------------------------------------------------------------------------
+
+/// A drawing whose steps read `count` Params of different names, one each: `p0`, `p1`...
+fn reading_params(count: usize) -> Result<Drawing, Error> {
+    let mut drawing = nothing();
+    for number in 0..count {
+        let param = Param::new(&format!("p{number}"), 0.0, 0.0, 10.0)?;
+        drawing = drawing.translate(&param, 0.0);
+    }
+    Ok(drawing)
+}
+
+#[test]
+fn a_drawing_reads_a_thousand_params_and_not_a_thousand_and_one() -> Outcome {
+    let accepted = reading_params(1_000)?;
+    assert_eq!(accepted.error(), None);
+    assert_eq!(accepted.parameters()?.len(), 1_000);
+    let refused = reading_params(1_001)?;
+    let (name, message) = parameter_refusal(Err::<(), _>(refused.error().cloned().ok_or("no error held")?))?;
+    assert_eq!(name, "step 1001 (translate)");
+    assert!(message.contains("MAX_PARAMS 1000"), "{message}");
+    // the drawing keeps the error through a step and returns it when drawn
+    assert_eq!(refused.translate(1.0, 0.0).error(), refused.error());
+    assert_eq!(refused.shapes(&Values::new()).err(), refused.error().cloned());
+    Ok(())
+}
+
+#[test]
+fn a_param_read_again_does_not_count_twice() -> Outcome {
+    let mut drawing = reading_params(1_000)?;
+    for number in 0..1_000 {
+        drawing = drawing.translate(&Param::new(&format!("p{number}"), 0.0, 0.0, 10.0)?, 0.0);
+    }
+    assert_eq!(drawing.error(), None);
+    assert_eq!(drawing.parameters()?.len(), 1_000);
+    Ok(())
+}

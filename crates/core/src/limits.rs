@@ -31,6 +31,12 @@ pub(crate) const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
 // constant: formats.md "Limits and security" sets MAX_CALLS to 100,000
 pub(crate) const MAX_CALLS: usize = 100_000;
 
+/// The most distinct Params a drawing may read, those a `with_values` fixed included, and the most entries of a
+/// document's `params`.
+// constant: formats.md "Limits and security" sets MAX_PARAMS to 1,000; building a step costs time in proportion to the
+// Params already read, so a drawing of 8,000 stalls for seconds, and no drawing a person made has a tenth of that
+pub(crate) const MAX_PARAMS: usize = 1_000;
+
 /// What one draw has made so far. A node charges what it creates as it creates it, before it allocates.
 #[derive(Debug, Default)]
 pub(crate) struct Work {

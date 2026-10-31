@@ -433,6 +433,7 @@ path or URL, or reads anything but the bytes the caller supplies. An input's nam
 | `MAX_DOCUMENT_BYTES` | 16 MiB | the document's UTF-8 text |
 | `MAX_DEPTH` | 128 | nesting of arrays and objects, the top-level value being 1, counted through references: a `{"drawing": name}` call counts as the array it names, as if each shared drawing were written in place |
 | `MAX_CALLS` | 100,000 | call objects in the document: sources, steps, fields, flows and expressions |
+| `MAX_PARAMS` | 1,000 | entries of `params`; in code, the Params of different names a drawing reads, raising `ParameterError` at the call that passes it |
 
 Counting depth through references bounds the evaluator's recursion as well as the parser's; the evaluator walks a
 chain's steps in a loop, so a long chain costs no depth. A document past a limit is refused before anything is
@@ -464,7 +465,7 @@ registered, with a test named after it; every later call brings its own checks a
 | Check | Fails when |
 |---|---|
 | `json-text` | the text is not UTF-8 I-JSON: a duplicate key, a lone surrogate, a number beyond a 64-bit float |
-| `limits` | the text passes `MAX_DOCUMENT_BYTES` or the calls pass `MAX_CALLS` |
+| `limits` | the text passes `MAX_DOCUMENT_BYTES`, the calls pass `MAX_CALLS` or `params` passes `MAX_PARAMS` (the pointer is the first entry past it) |
 | `drawing-declared` | a `drawing` source names no entry of `drawings` |
 | `drawing-acyclic` | a shared drawing reaches itself through references |
 | `depth` | the nesting passes `MAX_DEPTH`; it runs after the two reference checks, so a cycle is reported by `drawing-acyclic` |

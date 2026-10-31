@@ -307,6 +307,18 @@ BAD = [
     pytest.param(
         {
             "version": 1,
+            "params": [
+                {"name": f"p{i}", "default": 0, "min": 0, "max": 1, "unit": "", "meaning": ""} for i in range(1001)
+            ],
+            "root": [{"path": SQUARE}],
+        },
+        "maxItems",
+        "/params",
+        id="more Params than MAX_PARAMS",
+    ),
+    pytest.param(
+        {
+            "version": 1,
             "params": {"x": {"default": 0, "min": 0, "max": 1, "unit": "", "meaning": ""}},
             "root": [{"path": SQUARE}],
         },

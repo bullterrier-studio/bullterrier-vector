@@ -15,6 +15,7 @@ pub use style::Stroke;
 pub use transform::{Deg, Pivot, Rotate, ScaleBy};
 
 use self::cache::Shared;
+use crate::limits::MAX_PARAMS;
 use crate::node::{self, Args, Given, Node, Place};
 use crate::{Error, Expr, Param, Path, Shape};
 use std::collections::BTreeSet;
@@ -137,6 +138,15 @@ impl Step {
                     }
                 }
             }
+        }
+        if reads.len() > MAX_PARAMS {
+            return Err(Error::parameter(
+                &place.to_string(),
+                format!(
+                    "MAX_PARAMS {MAX_PARAMS} passed: the drawing reads {} Params of different names",
+                    reads.len()
+                ),
+            ));
         }
         // what the drawings the call takes left fixed is fixed here too, unless another of them reads it free
         let mut fixed = previous.map_or_else(BTreeSet::new, |step| step.fixed.clone());

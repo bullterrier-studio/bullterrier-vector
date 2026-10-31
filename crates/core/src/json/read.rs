@@ -5,7 +5,7 @@ use super::doc::{Call, Doc, Ex, Fixed, InputDecl, ParamDecl, Value, VerbCall, Wh
 use super::value::{Json, pointer_token};
 use super::{bare, expression_word};
 use crate::expr::Op;
-use crate::limits::MAX_CALLS;
+use crate::limits::{MAX_CALLS, MAX_PARAMS};
 use crate::param::is_name;
 use crate::shape::{Holds, SELECTABLE, Single};
 use crate::{Arg, Attributes, Color, Domain, Error, Kind, Point, Reads, Role, Select, Unit, Verb, Wanted};
@@ -120,6 +120,12 @@ impl Reader {
             return Err(refuse(
                 pointer,
                 "is left out when there are no Params, not written empty",
+            ));
+        }
+        if entries.len() > MAX_PARAMS {
+            return Err(refuse(
+                &format!("{pointer}/{MAX_PARAMS}"),
+                format!("is the first Param past MAX_PARAMS {MAX_PARAMS}, the most a document declares"),
             ));
         }
         entries
