@@ -413,16 +413,8 @@ fn round_wedges(polylines: &[Polyline], round: (bool, bool), half: f64) -> Vec<R
     let step = (8.0 * FLATNESS / half).sqrt();
     let mut wedges = Vec::new();
     for polyline in polylines {
-        // consecutive repeats and a closing repeat of the start have no direction
-        let mut corners: Vec<Point> = Vec::new();
-        for at in &polyline.points {
-            if corners.last() != Some(at) {
-                corners.push(*at);
-            }
-        }
-        if polyline.closed && corners.len() > 1 && corners.last() == corners.first() {
-            corners.pop();
-        }
+        // flattening makes no edge of length 0 and drops a closing repeat of the start, so every edge has a direction
+        let corners = &polyline.points;
         let count = corners.len();
         if count < 2 {
             continue;
