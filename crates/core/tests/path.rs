@@ -10,6 +10,8 @@ type Outcome = Result<(), Box<dyn std::error::Error>>;
 type Command = (char, Vec<f64>);
 /// The four points of a cubic arc: where it starts, its two handles, where it ends.
 type Arc = [(f64, f64); 4];
+/// The cubic arcs of an arc command, and the point the path ends on.
+type ArcPath = (Vec<Arc>, (f64, f64));
 
 /// The commands of canonical path data: each letter with the numbers after it.
 fn commands(data: &str) -> Result<Vec<Command>, Box<dyn std::error::Error>> {
@@ -99,6 +101,23 @@ fn closing_drops_a_last_line_back_to_the_start() -> Outcome {
         .close()?;
     assert_eq!(with_line.to_svg_path(), "M0 0 L10 0 L10 10 Z");
     assert_eq!(with_line, without);
+    Ok(())
+}
+
+#[test]
+fn closing_drops_every_last_line_back_to_the_start_so_that_it_is_still_the_same_path_read_back() -> Outcome {
+    let twice = Path::start((0.0, 0.0))?
+        .line_to((10.0, 0.0))?
+        .line_to((0.0, 0.0))?
+        .line_to((0.0, 0.0))?
+        .close()?;
+    assert_eq!(twice.to_svg_path(), "M0 0 L10 0 Z");
+    let only_returns = Path::start((0.0, 0.0))?
+        .line_to((0.0, 0.0))?
+        .line_to((0.0, 0.0))?
+        .close()?;
+    assert_eq!(only_returns.to_svg_path(), "M0 0 Z");
+    assert_eq!(Path::from_svg_path(&only_returns.to_svg_path())?, only_returns);
     Ok(())
 }
 
@@ -861,5 +880,582 @@ proptest! {
         let found = path.bounds().map_err(|e| TestCaseError::fail(e.to_string()))?;
         let samples: Vec<(f64, f64)> = (0..=4000).map(|step| bezier_at(&controls, f64::from(step) / 4000.0)).collect();
         prop_assert!(bounds_match_samples(found, &samples), "{found:?}");
+    }
+}
+
+// Reading path data ------------------------------------------------------------------------------------------------
+
+/// The canonical data `from_svg_path` normalises `data` to.
+fn normalised(data: &str) -> Result<String, Box<dyn std::error::Error>> {
+    Ok(Path::from_svg_path(data)?.to_svg_path())
+}
+
+#[test]
+fn absolute_commands_read_as_themselves() -> Outcome {
+    // the SVG 1.1 specification's triangle, in the lower-case close it also writes
+    assert_eq!(
+        normalised("M 100 100 L 300 100 L 200 300 z")?,
+        "M100 100 L300 100 L200 300 Z"
+    );
+    assert_eq!(
+        normalised("M1 2 Q3 4 5 6 C7 8 9 10 11 12")?,
+        "M1 2 Q3 4 5 6 C7 8 9 10 11 12"
+    );
+    Ok(())
+}
+
+#[test]
+fn relative_and_abbreviated_commands_equal_the_absolute_path_written_by_hand() -> Outcome {
+    // m, l, h, v, l, z: from (10, 20) to (15, 25), (25, 25), (25, 20), (20, 15), then back to the start
+    assert_eq!(
+        normalised("m10 20 l5 5 h10 v-5 l-5 -5 z")?,
+        "M10 20 L15 25 L25 25 L25 20 L20 15 Z"
+    );
+    assert_eq!(
+        normalised("M10 20 H30 V40 h-5 v-5")?,
+        "M10 20 L30 20 L30 40 L25 40 L25 35"
+    );
+    assert_eq!(
+        normalised("M10 10 c1 2 3 4 5 6 q1 1 2 2")?,
+        "M10 10 C11 12 13 14 15 16 Q16 17 17 18"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_first_relative_move_is_measured_from_the_origin() -> Outcome {
+    assert_eq!(normalised("m10 20 l5 5")?, "M10 20 L15 25");
+    Ok(())
+}
+
+#[test]
+fn extra_pairs_after_a_move_are_lines_and_other_commands_repeat() -> Outcome {
+    assert_eq!(normalised("M 10 20 30 40 50 60")?, "M10 20 L30 40 L50 60");
+    assert_eq!(normalised("m 10 20 1 1 1 1")?, "M10 20 L11 21 L12 22");
+    assert_eq!(
+        normalised("M0 0 L1 2 3 4 H5 6 V7 8")?,
+        "M0 0 L1 2 L3 4 L5 4 L6 4 L6 7 L6 8"
+    );
+    assert_eq!(
+        normalised("M0 0 C1 2 3 4 5 6 7 8 9 10 11 12")?,
+        "M0 0 C1 2 3 4 5 6 C7 8 9 10 11 12"
+    );
+    Ok(())
+}
+
+#[test]
+fn what_follows_a_close_starts_a_new_sub_path_at_the_start_of_the_closed_one() -> Outcome {
+    assert_eq!(normalised("M2 3 L10 3 L10 9 Z L5 6")?, "M2 3 L10 3 L10 9 Z M2 3 L5 6");
+    assert_eq!(normalised("M2 3 L10 3 L10 9 z l1 1")?, "M2 3 L10 3 L10 9 Z M2 3 L3 4");
+    // a relative move after a close is measured from the start of the closed sub-path
+    assert_eq!(normalised("M2 3 L10 3 Z m5 5 l1 1")?, "M2 3 L10 3 Z M7 8 L8 9");
+    assert_eq!(normalised("M2 3 L10 3 Z Z")?, "M2 3 L10 3 Z");
+    Ok(())
+}
+
+#[test]
+fn a_line_back_to_the_start_before_a_close_is_not_kept() -> Outcome {
+    assert_eq!(normalised("M0 0 L10 0 L0 0 Z")?, "M0 0 L10 0 Z");
+    assert_eq!(normalised("M0 0 L10 0 L0 0")?, "M0 0 L10 0 L0 0");
+    Ok(())
+}
+
+#[test]
+fn smooth_curves_reflect_the_last_control_point_of_a_curve_before_them() -> Outcome {
+    // S after C reflects (3, 4) about (5, 6): (7, 8)
+    assert_eq!(
+        normalised("M0 0 C1 2 3 4 5 6 S8 9 10 11")?,
+        "M0 0 C1 2 3 4 5 6 C7 8 8 9 10 11"
+    );
+    // relative: the curve ends at (15, 16) with control (13, 14); s reflects to (17, 18); its own points are relative
+    assert_eq!(
+        normalised("M10 10 c1 2 3 4 5 6 s3 5 4 4")?,
+        "M10 10 C11 12 13 14 15 16 C17 18 18 21 19 20"
+    );
+    // S after S reflects the second S's control
+    assert_eq!(
+        normalised("M0 0 C1 2 3 4 5 6 S8 9 10 11 S1 1 2 2")?,
+        "M0 0 C1 2 3 4 5 6 C7 8 8 9 10 11 C12 13 1 1 2 2"
+    );
+    // without a curve before it the first control point is the current point
+    assert_eq!(normalised("M0 0 L5 5 S7 8 9 9")?, "M0 0 L5 5 C5 5 7 8 9 9");
+    assert_eq!(normalised("M0 0 Q1 2 3 4 S5 5 6 6")?, "M0 0 Q1 2 3 4 C3 4 5 5 6 6");
+    assert_eq!(normalised("M0 0 S1 2 3 4")?, "M0 0 C0 0 1 2 3 4");
+    Ok(())
+}
+
+#[test]
+fn smooth_quadratics_reflect_the_last_control_point_of_a_quadratic_before_them() -> Outcome {
+    // T after Q reflects (2, 4) about (6, 0): (10, -4)
+    assert_eq!(normalised("M0 0 Q2 4 6 0 T12 0")?, "M0 0 Q2 4 6 0 Q10 -4 12 0");
+    // and again: (10, -4) about (12, 0) is (14, 4)
+    assert_eq!(
+        normalised("M0 0 Q2 4 6 0 T12 0 T18 0")?,
+        "M0 0 Q2 4 6 0 Q10 -4 12 0 Q14 4 18 0"
+    );
+    assert_eq!(normalised("M0 0 T4 4")?, "M0 0 Q0 0 4 4");
+    assert_eq!(normalised("M0 0 C1 1 2 2 3 3 T6 6")?, "M0 0 C1 1 2 2 3 3 Q3 3 6 6");
+    Ok(())
+}
+
+#[test]
+fn numbers_are_read_in_every_spelling_svg_allows() -> Outcome {
+    assert_eq!(normalised("M0.5.5 L-.5-.5")?, "M0.5 0.5 L-0.5 -0.5");
+    assert_eq!(normalised("M1e2 2E-1 L+3 4.")?, "M100 0.2 L3 4");
+    assert_eq!(normalised("M10-20")?, "M10 -20");
+    assert_eq!(normalised("M 1,2 L3 , 4\n\t5,6")?, "M1 2 L3 4 L5 6");
+    assert_eq!(normalised("M1,2,3,4")?, "M1 2 L3 4");
+    assert_eq!(normalised("M-0 -0.0")?, "M0 0");
+    assert_eq!(normalised("M1.5e1 2.5E+1")?, "M15 25");
+    Ok(())
+}
+
+#[test]
+fn empty_data_is_an_empty_path() -> Outcome {
+    assert_eq!(Path::from_svg_path("")?, Path::new());
+    assert_eq!(Path::from_svg_path(" \n\t ")?, Path::new());
+    Ok(())
+}
+
+/// The arcs of `data` (one `M`, then one arc), as cubics, with the point the path ends on.
+fn arc_of(data: &str) -> Result<ArcPath, Box<dyn std::error::Error>> {
+    let canonical = normalised(data)?;
+    let arcs = cubics(&canonical)?;
+    let end = *end_points(&canonical)?.last().ok_or("no end")?;
+    Ok((arcs, end))
+}
+
+#[test]
+fn the_four_arcs_between_two_points_differ_by_the_large_arc_and_sweep_flags() -> Outcome {
+    // From (5, 0) to (0, 5) with radius 5: the circle round (0, 0) or the one round (5, 5), by the short way or the long.
+    // (flags, the middle of the arc, how many quarter turns it takes), each worked out by hand
+    let m = 5.0 * std::f64::consts::FRAC_1_SQRT_2; // 5 cos 45 degrees = 3.5355339...
+    let table = [
+        ("0 1", (m, m), 1),
+        ("0 0", (5.0 - m, 5.0 - m), 1),
+        ("1 1", (5.0 + m, 5.0 + m), 3),
+        ("1 0", (-m, -m), 3),
+    ];
+    for (flags, middle, pieces) in table {
+        let (arcs, end) = arc_of(&format!("M5 0 A5 5 0 {flags} 0 5"))?;
+        assert_eq!(arcs.len(), pieces, "flags {flags}");
+        assert_eq!(arcs[0][0], (5.0, 0.0), "flags {flags}");
+        assert_eq!(end, (0.0, 5.0), "flags {flags}");
+        let arc = arcs[arcs.len() / 2];
+        assert_close(cubic_middle(arc[0], arc[1], arc[2], arc[3]), middle, 2e-3, flags);
+    }
+    Ok(())
+}
+
+#[test]
+fn a_relative_arc_equals_the_absolute_one() -> Outcome {
+    assert_eq!(
+        normalised("M10 10 a5 5 0 0 1 5 5")?,
+        normalised("M10 10 A5 5 0 0 1 15 15")?
+    );
+    Ok(())
+}
+
+#[test]
+fn arc_flags_may_be_packed_with_the_numbers_after_them() -> Outcome {
+    let spaced = normalised("M0 0 a5 5 0 0 0 5 5")?;
+    assert_eq!(normalised("M0 0 a5 5 0 00 5 5")?, spaced);
+    assert_eq!(normalised("M0 0 a5 5 0 0,0,5,5")?, spaced);
+    let large = normalised("M0 0 a5 5 0 1 1 5 5")?;
+    assert_eq!(normalised("M0 0 a5 5 0 115 5")?, large);
+    assert_eq!(normalised("M0 0 a5 5 0 11 5 5")?, large);
+    assert_ne!(spaced, large);
+    Ok(())
+}
+
+#[test]
+fn radii_that_are_too_small_are_scaled_up_to_the_half_circle() -> Outcome {
+    // from (0, 0) to (10, 0) the smallest circle is round (5, 0): the top half when it sweeps clockwise
+    let (arcs, end) = arc_of("M0 0 A1 1 0 0 1 10 0")?;
+    assert_eq!(arcs.len(), 2);
+    assert_eq!(end, (10.0, 0.0));
+    assert_close(arcs[0][3], (5.0, -5.0), 1e-9, "the top of the half circle");
+    // a zero or a negative-sign radius pair draws the same circle as the positive one
+    assert_eq!(
+        normalised("M0 0 A-1 -1 0 0 1 10 0")?,
+        normalised("M0 0 A1 1 0 0 1 10 0")?
+    );
+    Ok(())
+}
+
+#[test]
+fn a_rotated_ellipse_arc_passes_where_the_ellipse_does() -> Outcome {
+    // radii 10 and 5 turned 90 degrees: 5 along x, 10 along y, centred on (0, 0); from its right end to its bottom
+    let (arcs, end) = arc_of("M5 0 A10 5 90 0 1 0 10")?;
+    assert_eq!(arcs.len(), 1);
+    assert_eq!(end, (0.0, 10.0));
+    let middle = cubic_middle(arcs[0][0], arcs[0][1], arcs[0][2], arcs[0][3]);
+    // x^2 / 25 + y^2 / 100 = 1 at 45 degrees round: (5 cos 45, 10 sin 45)
+    assert_close(
+        middle,
+        (3.535_533_9, 7.071_067_8),
+        5e-3,
+        "the middle of the quarter ellipse",
+    );
+    Ok(())
+}
+
+#[test]
+fn a_zero_radius_arc_is_a_line_and_an_arc_to_its_own_start_draws_nothing() -> Outcome {
+    assert_eq!(normalised("M0 0 A0 5 0 0 1 10 10")?, "M0 0 L10 10");
+    assert_eq!(normalised("M0 0 A5 0 0 1 1 10 10")?, "M0 0 L10 10");
+    assert_eq!(normalised("M5 5 A9 9 0 1 1 5 5")?, "M5 5");
+    assert_eq!(normalised("M5 5 a9 9 0 1 1 0 0 L6 6")?, "M5 5 L6 6");
+    Ok(())
+}
+
+#[test]
+fn a_sweep_takes_at_most_one_cubic_per_quarter_turn() -> Outcome {
+    // a half circle is two, a quarter one, three quarters three: never an extra piece for rounding
+    let table = [
+        ("M10 0 A10 10 0 0 1 0 10", 1),
+        ("M0 0 A5 5 0 0 1 10 0", 2),
+        ("M10 0 A10 10 0 1 1 0 10", 3),
+        ("M0 0 A5 5 0 1 1 0.001 0", 4),
+    ];
+    for (data, pieces) in table {
+        assert_eq!(arc_of(data)?.0.len(), pieces, "{data}");
+    }
+    Ok(())
+}
+
+/// The refusal `from_svg_path` gives `data`: the text of its message, which names the parameter `data`.
+fn data_refusal(data: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let (parameter, message) = parameter_refusal(Path::from_svg_path(data))?;
+    assert_eq!(parameter, "data", "{data:?}");
+    Ok(message)
+}
+
+#[test]
+fn malformed_data_is_refused_naming_the_first_bad_command_and_its_byte() -> Outcome {
+    // (data, what the message must carry), the byte being where the command (or its repeat) starts
+    let table = [
+        ("L 1 2", "`L` at byte 0"),
+        ("  l 1 2", "`l` at byte 2"),
+        ("M0 0 L1", "`L` at byte 5"),
+        ("M0 0 X1 2", "`X` at byte 5"),
+        ("M0 0 L1 2 3", "`L` at byte 10"),
+        ("M0 0 L1 2,", "`L` at byte 9"),
+        ("M0,,0", "`M` at byte 0"),
+        ("M0 0 L,1 2", "`L` at byte 5"),
+        ("M0 0 A1 1 0 2 0 5 5", "`A` at byte 5"),
+        ("M0 0 A1 1 0 1 5 5", "`A` at byte 5"),
+        ("M0 0 L1e 2", "`L` at byte 5"),
+        ("M0 0 L1e999 2", "`L` at byte 5"),
+        ("M0 0 L- 2", "`L` at byte 5"),
+        ("M0 0 L1 2 Z 5", "`Z` at byte 10"),
+        ("M0 0 Z,", "`Z` at byte 5"),
+        ("M0 0 Q1 2 3", "`Q` at byte 5"),
+        ("M1e308 0 l1e308 0", "`l` at byte 9"),
+        ("M0 0 L1 2 \u{e9}", "`\u{e9}` at byte 10"),
+    ];
+    for (data, carries) in table {
+        let message = data_refusal(data)?;
+        assert!(message.contains(carries), "{data:?}: {message:?} lacks {carries:?}");
+    }
+    Ok(())
+}
+
+#[test]
+fn well_formed_neighbours_of_the_malformed_data_are_accepted() {
+    // the same shapes as the refusals, written correctly
+    for data in [
+        "M0 0 L1 2",
+        "M0 0 L1 2 3 4",
+        "M0 0 L1 2,3 4",
+        "M0 0 A1 1 0 1 0 5 5",
+        "M0 0 L1e2 2",
+        "M0 0 L1 2 Z",
+        "M0 0 Z",
+    ] {
+        assert!(Path::from_svg_path(data).is_ok(), "{data:?}");
+    }
+}
+
+#[test]
+fn what_the_library_writes_reads_back_as_the_same_path() -> Outcome {
+    let paths = [
+        Path::circle((3.0, -4.0), 7.0)?,
+        Path::rect(10.0, 20.0, 30.0, 12.0, 2.0)?,
+        Path::star((200.0, 200.0), 150.0, 60.0, 5)?,
+        Path::polygon((0.1, 0.2), 33.3, 7)?,
+        Path::start((0.1 + 0.2, 1e21))?
+            .move_to((-0.0, 5e-324))?
+            .line_to((1.0 / 3.0, 2.0))?,
+        Path::new(),
+    ];
+    for path in paths {
+        assert_eq!(
+            Path::from_svg_path(&path.to_svg_path())?,
+            path,
+            "{}",
+            path.to_svg_path()
+        );
+    }
+    Ok(())
+}
+
+/// A coordinate across many orders of magnitude, of either sign, and the zeros.
+fn coordinate() -> impl Strategy<Value = f64> {
+    prop_oneof![
+        1 => Just(0.0),
+        1 => Just(-0.0),
+        2 => -1.0e6f64..1.0e6,
+        4 => (log_uniform(-12.0, 12.0), any::<bool>()).prop_map(|(size, negative)| if negative { -size } else { size }),
+    ]
+}
+
+fn point() -> impl Strategy<Value = (f64, f64)> {
+    (coordinate(), coordinate())
+}
+
+/// One builder step: a verb with the points it takes.
+#[derive(Debug, Clone)]
+enum Step {
+    Move((f64, f64)),
+    Line((f64, f64)),
+    Quad((f64, f64), (f64, f64)),
+    Curve((f64, f64), (f64, f64), (f64, f64)),
+    Close,
+}
+
+fn step() -> impl Strategy<Value = Step> {
+    prop_oneof![
+        point().prop_map(Step::Move),
+        point().prop_map(Step::Line),
+        (point(), point()).prop_map(|(c, p)| Step::Quad(c, p)),
+        (point(), point(), point()).prop_map(|(a, b, p)| Step::Curve(a, b, p)),
+        Just(Step::Close),
+    ]
+}
+
+proptest! {
+    // A path built with any verbs, written and read back, is the same path, bit for bit.
+    #[test]
+    fn a_path_written_and_read_back_is_the_same_path(start in point(), steps in prop::collection::vec(step(), 0..24)) {
+        let mut path = Path::start(start).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        for step in steps {
+            path = match step {
+                Step::Move(p) => path.move_to(p),
+                Step::Line(p) => path.line_to(p),
+                Step::Quad(c, p) => path.quad_to(c, p),
+                Step::Curve(a, b, p) => path.curve_to(a, b, p),
+                Step::Close => path.close(),
+            }
+            .map_err(|e| TestCaseError::fail(e.to_string()))?;
+        }
+        let data = path.to_svg_path();
+        let read = Path::from_svg_path(&data).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        prop_assert_eq!(read, path, "{}", data);
+    }
+
+    // Arbitrary text is a path or a refusal about `data`, never a panic, and a path it accepts survives writing.
+    #[test]
+    fn any_text_reads_as_a_path_or_a_refusal(data in prop_oneof!["\\PC{0,40}", "[MmLlHhVvCcSsQqTtAaZz0-9.,+eE \\n-]{0,60}"]) {
+        match Path::from_svg_path(&data) {
+            Ok(path) => {
+                let written = path.to_svg_path();
+                prop_assert_eq!(Path::from_svg_path(&written), Ok(path), "{}", written);
+            }
+            Err(Error::Parameter { parameter, .. }) => prop_assert_eq!(parameter, "data"),
+            Err(other) => prop_assert!(false, "{other}"),
+        }
+    }
+
+    // The same, for text that mostly parses: commands with numbers, flags and arbitrary separators.
+    #[test]
+    fn data_that_mostly_parses_reads_as_a_path_or_a_refusal(
+        commands in prop::collection::vec(("[MmLlHhVvCcSsQqTtAaZz]", prop::collection::vec(coordinate(), 0..9)), 1..8),
+        separator in prop_oneof![Just(" "), Just(","), Just(""), Just(" , ")],
+    ) {
+        let data: String = commands
+            .iter()
+            .map(|(letter, numbers)| {
+                let numbers: Vec<String> = numbers.iter().map(f64::to_string).collect();
+                format!("{letter}{}", numbers.join(separator))
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        match Path::from_svg_path(&data) {
+            Ok(path) => {
+                let written = path.to_svg_path();
+                prop_assert_eq!(Path::from_svg_path(&written), Ok(path), "{}", written);
+            }
+            Err(Error::Parameter { parameter, .. }) => prop_assert_eq!(parameter, "data"),
+            Err(other) => prop_assert!(false, "{other}"),
+        }
+    }
+}
+
+/// What an arc between `from` and `to` of circle radius `radius` must be, by the geometry of circles alone: the two
+/// circles of that radius through both points have their centres on the chord's perpendicular bisector, `h` from its
+/// middle, where `h^2 = radius^2 - (chord / 2)^2`.
+fn circle_centres(from: (f64, f64), to: (f64, f64), radius: f64) -> [(f64, f64); 2] {
+    let middle = (f64::midpoint(from.0, to.0), f64::midpoint(from.1, to.1));
+    let chord = distance(from, to);
+    let height = (radius * radius - chord * chord / 4.0).max(0.0).sqrt();
+    let normal = (-(to.1 - from.1) / chord, (to.0 - from.0) / chord);
+    [
+        (middle.0 + height * normal.0, middle.1 + height * normal.1),
+        (middle.0 - height * normal.0, middle.1 - height * normal.1),
+    ]
+}
+
+/// The turn, in radians, from `a` to `b` as seen from `centre`: positive towards +y (clockwise on screen).
+fn turn(centre: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
+    let (ax, ay, bx, by) = (a.0 - centre.0, a.1 - centre.1, b.0 - centre.0, b.1 - centre.1);
+    libm::atan2(ax * by - ay * bx, ax * bx + ay * by)
+}
+
+#[test]
+fn the_circle_oracle_tells_the_right_arc_from_the_wrong_one() {
+    // the quarter circle from (5, 0) to (0, 5) round (0, 0): the centres are (0, 0) and (5, 5)
+    let [first, second] = circle_centres((5.0, 0.0), (0.0, 5.0), 5.0);
+    assert_close(first, (0.0, 0.0), 1e-12, "first centre");
+    assert_close(second, (5.0, 5.0), 1e-12, "second centre");
+    // clockwise on screen is positive; a quarter turn from (5, 0) to (0, 5) round (0, 0)
+    assert!((turn((0.0, 0.0), (5.0, 0.0), (0.0, 5.0)) - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+    assert!((turn((0.0, 0.0), (0.0, 5.0), (5.0, 0.0)) + std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+}
+
+/// Checks that the arc from `from` to the point `chord` away in `direction` degrees, with radii `fraction` of half the
+/// chord (too small), is the half circle on the chord, in the way `(large, sweep)` says.
+fn half_circle_on_the_chord(
+    from: (f64, f64),
+    chord: f64,
+    direction: f64,
+    fraction: f64,
+    (large, sweep): (bool, bool),
+) -> Result<(), TestCaseError> {
+    let (sin, cos) = (libm::sin(direction.to_radians()), libm::cos(direction.to_radians()));
+    let to = (from.0 + chord * cos, from.1 + chord * sin);
+    let radius = chord / 2.0 * fraction;
+    let data = format!(
+        "M{} {} A{radius} {radius} 0 {} {} {} {}",
+        from.0,
+        from.1,
+        u8::from(large),
+        u8::from(sweep),
+        to.0,
+        to.1
+    );
+    let (arcs, end) = arc_of(&data).map_err(|e| TestCaseError::fail(e.to_string()))?;
+    prop_assert_eq!(end, to);
+    // rx = ry here, so the half circle's centre is the middle of the chord
+    let middle = (f64::midpoint(from.0, to.0), f64::midpoint(from.1, to.1));
+    prop_assert_eq!(arcs.len(), 2, "{}", data);
+    for arc in &arcs {
+        prop_assert!((distance(arc[3], middle) - chord / 2.0).abs() <= 1e-9 * (chord + 100.0));
+    }
+    let total = turn(middle, from, arcs[0][3]) + turn(middle, arcs[0][3], to);
+    prop_assert_eq!(total > 0.0, sweep, "total {}", total);
+    Ok(())
+}
+
+#[test]
+fn a_half_circle_stays_two_pieces_where_rounding_once_left_its_centre_off_the_chord() -> Result<(), TestCaseError> {
+    // found by the property below: a radius scaled up leaves the centre's offset at rounding noise, which split the
+    // half circle into three pieces; (from, chord, direction, fraction, flags)
+    half_circle_on_the_chord(
+        (0.0, -83.242_126_876_245_45),
+        0.247_534_932_360_133_44,
+        99.656_882_483_686_73,
+        0.105_708_365_984_272_47,
+        (true, false),
+    )?;
+    half_circle_on_the_chord((0.0, 0.0), 72.571_184_442_606_92, 0.0, 0.01, (false, false))?;
+    Ok(())
+}
+
+proptest! {
+    // An arc of a circle through two points: every junction lies on one circle of the radius (scaled up to half the
+    // chord when too small), it turns the way the sweep flag says and by more than a half turn only with the
+    // large-arc flag, in the fewest equal pieces of at most a quarter turn.
+    #[test]
+    fn a_circular_arc_lies_on_a_circle_and_obeys_its_flags(
+        from in (-100.0f64..100.0, -100.0f64..100.0),
+        chord in log_uniform(-1.0, 2.0),
+        direction in 0.0f64..360.0,
+        factor in log_uniform(0.0, 2.0),
+        rotation in -720.0f64..720.0,
+        large in any::<bool>(),
+        sweep in any::<bool>(),
+    ) {
+        // the radius is 1.01 or more times half the chord, so a small arc and a large one differ by at least 17 degrees
+        let (sin, cos) = (libm::sin(direction.to_radians()), libm::cos(direction.to_radians()));
+        let to = (from.0 + chord * cos, from.1 + chord * sin);
+        let radius = chord / 2.0 * 1.01 * factor;
+        let data = format!("M{} {} A{radius} {radius} {rotation} {} {} {} {}", from.0, from.1, u8::from(large), u8::from(sweep), to.0, to.1);
+        let (arcs, end) = arc_of(&data).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        prop_assert_eq!(end, to);
+        let mut junctions = vec![arcs[0][0]];
+        junctions.extend(arcs.iter().map(|arc| arc[3]));
+        let [centre_a, centre_b] = circle_centres(from, to, radius);
+        let spread = |centre: (f64, f64)| junctions.iter().map(|j| (distance(*j, centre) - radius).abs()).fold(0.0, f64::max);
+        // of the two circles through both ends, the one the arc's pieces follow
+        let stray = |centre: (f64, f64)| {
+            arcs.iter()
+                .map(|arc| (distance(cubic_middle(arc[0], arc[1], arc[2], arc[3]), centre) - radius).abs())
+                .fold(0.0, f64::max)
+        };
+        let centre = if stray(centre_a) <= stray(centre_b) { centre_a } else { centre_b };
+        prop_assert!(spread(centre) <= 1e-9 * (radius + 100.0), "spread {}", spread(centre));
+        let turns: Vec<f64> = junctions.windows(2).map(|pair| turn(centre, pair[0], pair[1])).collect();
+        let total: f64 = turns.iter().sum();
+        prop_assert_eq!(total > 0.0, sweep, "total {}", total);
+        prop_assert_eq!(total.abs() > std::f64::consts::PI, large, "total {}", total);
+        let quarter = std::f64::consts::FRAC_PI_2;
+        let pieces = f64::from(u32::try_from(turns.len()).map_err(|e| TestCaseError::fail(e.to_string()))?);
+        for piece in &turns {
+            prop_assert!(piece.abs() <= quarter * (1.0 + 1e-6), "{}", piece);
+            prop_assert!((piece - total / pieces).abs() <= 1e-9, "unequal pieces {:?}", turns);
+        }
+        // the fewest pieces: one fewer would need a piece over a quarter turn
+        prop_assert!((pieces - 1.0) * quarter < total.abs(), "{} pieces for {}", turns.len(), total);
+        // each piece follows the circle, within a kappa arc's 2.7e-4 of the radius
+        for arc in &arcs {
+            let middle = cubic_middle(arc[0], arc[1], arc[2], arc[3]);
+            let strays = (distance(middle, centre) - radius).abs();
+            prop_assert!(strays <= 2.7e-4 * radius + 1e-9 * (radius + 100.0), "strays {}", strays);
+        }
+    }
+
+    // A sweep of exactly one, two or three quarter turns takes exactly that many pieces, whatever rounding does to the
+    // sweep: arcs between points that are computed on a circle, a quarter turn apart.
+    #[test]
+    fn whole_quarter_turns_take_one_cubic_each(
+        centre in (-100.0f64..100.0, -100.0f64..100.0),
+        radius in log_uniform(-1.0, 3.0),
+        begin in 0.0f64..360.0,
+        quarters in 1u32..=3,
+    ) {
+        let on_circle = |degrees: f64| {
+            let radians = degrees.to_radians();
+            (centre.0 + radius * libm::cos(radians), centre.1 + radius * libm::sin(radians))
+        };
+        let (from, to) = (on_circle(begin), on_circle(begin + 90.0 * f64::from(quarters)));
+        // three quarters is a large arc; one is small; two is a half circle, which either flag draws
+        let large = u8::from(quarters == 3);
+        let data = format!("M{} {} A{radius} {radius} 0 {large} 1 {} {}", from.0, from.1, to.0, to.1);
+        let (arcs, _) = arc_of(&data).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        prop_assert_eq!(u32::try_from(arcs.len()), Ok(quarters), "{}", data);
+    }
+
+    // Radii too small for the chord are scaled up until the arc is the half circle on the chord.
+    #[test]
+    fn a_too_small_radius_gives_the_half_circle_on_the_chord(
+        from in (-100.0f64..100.0, -100.0f64..100.0),
+        chord in log_uniform(-1.0, 2.0),
+        direction in 0.0f64..360.0,
+        fraction in 0.01f64..0.99,
+        sweep in any::<bool>(),
+        large in any::<bool>(),
+    ) {
+        half_circle_on_the_chord(from, chord, direction, fraction, (large, sweep))?;
     }
 }

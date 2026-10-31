@@ -7,7 +7,7 @@ impl Path {
     /// The path as SVG path data in canonical form: each sub-path is `M x y`, its segments as absolute `L`, `Q` and
     /// `C`, then `Z` if it is closed; commands are separated by one space. Numbers are the shortest text that reads
     /// back as the same value, never with an exponent, and `-0` is written `0`, so
-    /// `Path::from_svg_path` of the result is this path exactly. An empty path is written as an empty string.
+    /// [`Path::from_svg_path`] of the result is this path exactly. An empty path is written as an empty string.
     #[must_use]
     pub fn to_svg_path(&self) -> String {
         let mut commands: Vec<String> = Vec::new();

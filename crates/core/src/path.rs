@@ -3,7 +3,9 @@
 use crate::Error;
 use crate::geometry::{Point, finite_point};
 
+mod arc;
 mod bounds;
+mod read;
 mod shapes;
 mod write;
 
@@ -42,9 +44,9 @@ impl SubPath {
         }
     }
 
-    /// This sub-path closed, without a last straight segment that only returns to the start.
+    /// This sub-path closed, without the last straight segments that only return to the start.
     fn closed(mut self) -> Self {
-        if self.segments.last() == Some(&Segment::Line(self.start)) {
+        while self.segments.last() == Some(&Segment::Line(self.start)) {
             self.segments.pop();
         }
         self.closed = true;
@@ -127,7 +129,7 @@ impl Path {
     }
 
     /// This path with its last sub-path closed. The line back to the start is implied, not a segment of its own: a
-    /// last straight segment that already ends at the start is dropped. Closing a closed sub-path changes nothing.
+    /// last straight segments that already end at the start are dropped. Closing a closed sub-path changes nothing.
     ///
     /// # Errors
     /// [`Error::Parameter`] if there is no sub-path yet (call [`Path::move_to`] first).

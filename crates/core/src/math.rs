@@ -6,6 +6,17 @@ pub(crate) fn sin_cos(angle: f64) -> (f64, f64) {
     (libm::sin(angle), libm::cos(angle))
 }
 
+/// The tangent of `angle` (radians).
+pub(crate) fn tan(angle: f64) -> f64 {
+    libm::tan(angle)
+}
+
+/// The angle (radians, from -pi to pi) of the point `(x, y)` seen from the origin: the direction `x` to the right and
+/// `y` down makes with the positive x axis.
+pub(crate) fn atan2(y: f64, x: f64) -> f64 {
+    libm::atan2(y, x)
+}
+
 /// The sine and cosine of `degrees`, in that order, exact at the quarter turns (a multiple of 90 gives 0, 1 or -1, not
 /// a residue of 1e-16).
 #[expect(
