@@ -7,6 +7,7 @@ mod style;
 pub use attributes::Attributes;
 pub use color::Color;
 pub use style::{Blend, Cap, Join, StrokeStyle, Style};
+pub(crate) use style::{DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH};
 
 use crate::Path;
 
@@ -31,6 +32,28 @@ impl Shape {
             attributes: Attributes::default(),
             index,
         }
+    }
+
+    /// This shape put at place `index` of a list.
+    pub(crate) fn at(mut self, index: usize) -> Self {
+        self.index = index;
+        self
+    }
+
+    /// This shape with its path replaced; the style and attributes stay.
+    pub(crate) fn with_path(mut self, path: Path) -> Self {
+        self.path = path;
+        self
+    }
+
+    /// The style, to change.
+    pub(crate) fn style_mut(&mut self) -> &mut Style {
+        &mut self.style
+    }
+
+    /// The attributes, to change.
+    pub(crate) fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
     }
 
     /// This shape with the default paint resolved if nothing painted it.

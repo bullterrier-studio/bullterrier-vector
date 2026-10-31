@@ -1,5 +1,6 @@
 //! `Expr`: arithmetic on Params and numbers, worked out when a drawing is drawn.
 
+use crate::node::Item;
 use crate::{Error, Param, Value, Values};
 use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
@@ -141,32 +142,82 @@ impl Expr {
     /// list has an entry per shape, so it is read where there are shapes); naming the expression if it is deeper than
     /// 128 levels, if it divides by zero, or if any step of it is NaN or infinite.
     pub fn value(&self, values: &Values) -> Result<f64, Error> {
+        self.check_depth()?;
+        self.evaluate(values, None)
+    }
+
+    /// The value for the shape `item` of a list: a Param given a list reads the entry at the shape's index.
+    pub(crate) fn value_at(&self, values: &Values, item: Item) -> Result<f64, Error> {
+        self.check_depth()?;
+        self.evaluate(values, Some(item))
+    }
+
+    /// Whether the expression reads a Param, so that its value is known only when drawn.
+    pub(crate) fn reads_param(&self) -> bool {
+        self.0.reads_param
+    }
+
+    /// An error unless the expression is at most [`MAX_DEPTH`] levels deep, which bounds the recursion that
+    /// evaluates and prints it.
+    pub(crate) fn check_depth(&self) -> Result<(), Error> {
         if self.0.depth > MAX_DEPTH {
             return Err(Error::parameter(
                 "expression",
                 format!("is {} levels deep, but at most {MAX_DEPTH} are accepted", self.0.depth),
             ));
         }
-        self.evaluate(values)
+        Ok(())
     }
 
-    /// The value, with the recursion bounded by the depth that `value` checked.
-    fn evaluate(&self, values: &Values) -> Result<f64, Error> {
+    /// Adds the Params this expression reads to `into`, left to right, each time it reads one. The depth must have
+    /// been checked.
+    pub(crate) fn collect_params(&self, into: &mut Vec<Param>) {
+        match &self.0.node {
+            Node::Const(_) => {}
+            Node::Param(param) => into.push(param.clone()),
+            Node::Neg(inner) => inner.collect_params(into),
+            Node::Binary(_, left, right) => {
+                left.collect_params(into);
+                right.collect_params(into);
+            }
+        }
+    }
+
+    /// The value, with the recursion bounded by the depth that was checked.
+    fn evaluate(&self, values: &Values, item: Option<Item>) -> Result<f64, Error> {
         let number = match &self.0.node {
             Node::Const(number) => *number,
             Node::Param(param) => match values.get(param.name()) {
                 None => param.default(),
                 Some(Value::Number(number)) => param.accept(*number)?,
-                Some(Value::List(_)) => {
-                    return Err(Error::parameter(
-                        param.name(),
-                        "was given a list, which has an entry per shape and cannot be read without shapes",
-                    ));
+                Some(Value::List(numbers)) => {
+                    let entry = item
+                        .filter(|item| item.count == numbers.len())
+                        .and_then(|item| numbers.get(item.index));
+                    match (entry, item) {
+                        (Some(number), _) => param.accept(*number)?,
+                        (None, Some(item)) => {
+                            return Err(Error::parameter(
+                                param.name(),
+                                format!(
+                                    "was given a list of {} numbers, but there are {} shapes here",
+                                    numbers.len(),
+                                    item.count
+                                ),
+                            ));
+                        }
+                        (None, None) => {
+                            return Err(Error::parameter(
+                                param.name(),
+                                "was given a list, which has an entry per shape and cannot be read without shapes",
+                            ));
+                        }
+                    }
                 }
             },
-            Node::Neg(inner) => -inner.evaluate(values)?,
+            Node::Neg(inner) => -inner.evaluate(values, item)?,
             Node::Binary(op, left, right) => {
-                let (left, right) = (left.evaluate(values)?, right.evaluate(values)?);
+                let (left, right) = (left.evaluate(values, item)?, right.evaluate(values, item)?);
                 match op {
                     Op::Add => left + right,
                     Op::Sub => left - right,

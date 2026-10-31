@@ -3,7 +3,7 @@
 //! built in the test that breaks the rule, so a check that could never fail is caught. The domains are written out
 //! by hand below, not read from the library.
 
-use bullterrier_vector::{Arg, Domain, Kind, Literal, Reads, verbs};
+use bullterrier_vector::{Arg, Domain, Kind, Literal, Reads, Role, verbs};
 use std::collections::BTreeSet;
 
 /// The names that appear more than once.
@@ -21,7 +21,7 @@ fn duplicates<'a>(names: impl IntoIterator<Item = &'a str>) -> Vec<&'a str> {
 /// Whether `default` is a value `domain` accepts, by the rules api.md states for each domain.
 fn fits(domain: &Domain, default: &Literal) -> bool {
     match (domain, default) {
-        (Domain::Any, _) => true,
+        (Domain::Any, _) | (_, Literal::Unset) => true,
         (Domain::Choice(options), Literal::Text(text)) => options.contains(text),
         (_, Literal::Text(_)) | (Domain::Choice(_), Literal::Number(_)) => false,
         (_, Literal::Number(number)) => {
@@ -35,6 +35,7 @@ fn fits(domain: &Domain, default: &Literal) -> bool {
                     Domain::AtLeast(least) => number >= *least,
                     Domain::Fraction => (0.0..=1.0).contains(&number),
                     Domain::UpTo(most) => number <= *most,
+                    Domain::PositiveUpTo(most) => number > 0.0 && number <= *most,
                     _ => false,
                 }
         }
@@ -75,6 +76,21 @@ fn every_default_satisfies_the_domain_of_its_argument() {
     }
 }
 
+#[test]
+fn the_checks_have_something_to_check() {
+    let all: Vec<_> = verbs().collect();
+    assert!(
+        all.iter().any(|verb| verb.role == Role::Source),
+        "no source is declared"
+    );
+    assert!(all.iter().any(|verb| verb.role == Role::Step), "no step is declared");
+    // a default is declared somewhere, so the default check looks at one
+    assert!(
+        all.iter().flat_map(|verb| verb.args).any(|arg| arg.default.is_some()),
+        "no argument has a default"
+    );
+}
+
 // The checks can fail -----------------------------------------------------------------------------------------------
 
 #[test]
@@ -112,7 +128,7 @@ fn the_default_check_names_an_argument_whose_default_is_outside_its_domain() {
 #[test]
 fn the_domain_oracle_agrees_with_api_md_at_its_boundaries() {
     // (domain, value, accepted)
-    let rows: [(Domain, Literal, bool); 30] = [
+    let rows: [(Domain, Literal, bool); 35] = [
         (Domain::Any, Literal::Number(f64::NAN), true),
         (Domain::Any, Literal::Text("x"), true),
         (Domain::Finite, Literal::Number(-3.5), true),
@@ -136,6 +152,15 @@ fn the_domain_oracle_agrees_with_api_md_at_its_boundaries() {
         (Domain::UpTo(100_000.0), Literal::Number(100_000.0), true),
         (Domain::UpTo(100_000.0), Literal::Number(100_000.5), false),
         (Domain::UpTo(100_000.0), Literal::Number(f64::NEG_INFINITY), false),
+        (Domain::PositiveUpTo(100_000.0), Literal::Number(100_000.0), true),
+        (
+            Domain::PositiveUpTo(100_000.0),
+            Literal::Number(f64::MIN_POSITIVE),
+            true,
+        ),
+        (Domain::PositiveUpTo(100_000.0), Literal::Number(0.0), false),
+        (Domain::PositiveUpTo(100_000.0), Literal::Number(100_000.5), false),
+        (Domain::Positive, Literal::Unset, true),
         (Domain::Choice(&["butt", "round"]), Literal::Text("round"), true),
         (Domain::Choice(&["butt", "round"]), Literal::Text("Round"), false),
         (Domain::Choice(&["butt", "round"]), Literal::Text(""), false),

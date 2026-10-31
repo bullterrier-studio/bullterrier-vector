@@ -136,6 +136,28 @@ impl Param {
         self
     }
 
+    /// The first field in which this Param differs from `other`, with both values, or `None` if they are equal.
+    #[expect(
+        clippy::float_cmp,
+        reason = "two Params are equal only if their numbers are exactly equal"
+    )]
+    pub(crate) fn difference(&self, other: &Self) -> Option<String> {
+        let (ours, theirs) = (self, other);
+        if ours.default != theirs.default {
+            Some(format!("default ({} against {})", ours.default, theirs.default))
+        } else if ours.min != theirs.min {
+            Some(format!("min ({} against {})", ours.min, theirs.min))
+        } else if ours.max != theirs.max {
+            Some(format!("max ({} against {})", ours.max, theirs.max))
+        } else if ours.unit != theirs.unit {
+            Some(format!("unit ({:?} against {:?})", ours.unit, theirs.unit))
+        } else if ours.meaning != theirs.meaning {
+            Some(format!("meaning ({:?} against {:?})", ours.meaning, theirs.meaning))
+        } else {
+            None
+        }
+    }
+
     /// The name, as a caller gives its value.
     #[must_use]
     pub fn name(&self) -> &str {

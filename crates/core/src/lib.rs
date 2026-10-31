@@ -18,7 +18,7 @@ mod registry;
 mod shape;
 mod values;
 
-pub use drawing::Drawing;
+pub use drawing::{Deg, Drawing, Pivot, Rotate, ScaleBy, Stroke};
 pub use error::Error;
 pub use expr::Expr;
 pub use geometry::{Point, Rect, Scale};

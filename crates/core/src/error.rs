@@ -1,5 +1,6 @@
 //! What can go wrong when the core runs.
 
+use crate::node::Place;
 use std::fmt;
 
 /// Why the core refused a request. The bindings pass every value on unchecked, so the core owns the range checks and
@@ -37,6 +38,44 @@ impl Error {
         Self::Geometry {
             verb: verb.to_owned(),
             message: message.into(),
+        }
+    }
+}
+
+impl Error {
+    /// This error placed at a step: the error came from an argument or a `Path` method, so a parameter's name
+    /// becomes `step 3 (rotate).angle` and a geometry error's verb the place, and the message starts with
+    /// `shape 7: ` when it came from the shape at that index.
+    #[must_use]
+    pub(crate) fn at_argument(self, place: &Place, shape: Option<usize>) -> Self {
+        let prefix = |message: String| match shape {
+            Some(index) => format!("shape {index}: {message}"),
+            None => message,
+        };
+        match self {
+            Self::Parameter { parameter, message } => Self::Parameter {
+                parameter: format!("{place}.{parameter}"),
+                message: prefix(message),
+            },
+            Self::Geometry { message, .. } => Self::Geometry {
+                verb: place.to_string(),
+                message: prefix(message),
+            },
+        }
+    }
+
+    /// This error, already placed, found inside `prefix` (`step 2 (stack) / item 1`): joined with ` / `.
+    #[must_use]
+    pub(crate) fn inside(self, prefix: &str) -> Self {
+        match self {
+            Self::Parameter { parameter, message } => Self::Parameter {
+                parameter: format!("{prefix} / {parameter}"),
+                message,
+            },
+            Self::Geometry { verb, message } => Self::Geometry {
+                verb: format!("{prefix} / {verb}"),
+                message,
+            },
         }
     }
 }

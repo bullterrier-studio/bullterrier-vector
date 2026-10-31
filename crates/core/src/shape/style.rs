@@ -26,6 +26,27 @@ pub enum Join {
     Bevel,
 }
 
+impl Join {
+    /// The words a join is written as, in the order of the variants.
+    pub(crate) const NAMES: &'static [&'static str] = &["round", "miter", "bevel"];
+
+    /// The word this join is written as.
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            Self::Round => "round",
+            Self::Miter => "miter",
+            Self::Bevel => "bevel",
+        }
+    }
+
+    /// The join written as `name`.
+    pub(crate) fn named(name: &str) -> Option<Self> {
+        [Self::Round, Self::Miter, Self::Bevel]
+            .into_iter()
+            .find(|join| join.name() == name)
+    }
+}
+
 /// How the ends of an open stroke are finished.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cap {
@@ -37,6 +58,27 @@ pub enum Cap {
     Square,
 }
 
+impl Cap {
+    /// The words a cap is written as.
+    pub(crate) const NAMES: &'static [&'static str] = &["butt", "round", "square"];
+
+    /// The word this cap is written as.
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            Self::Butt => "butt",
+            Self::Round => "round",
+            Self::Square => "square",
+        }
+    }
+
+    /// The cap written as `name`.
+    pub(crate) fn named(name: &str) -> Option<Self> {
+        [Self::Butt, Self::Round, Self::Square]
+            .into_iter()
+            .find(|cap| cap.name() == name)
+    }
+}
+
 /// How a shape is painted over what is below it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Blend {
@@ -44,6 +86,26 @@ pub enum Blend {
     Normal,
     /// Multiplied with what is below.
     Multiply,
+}
+
+impl Blend {
+    /// The words a blend is written as.
+    pub(crate) const NAMES: &'static [&'static str] = &["normal", "multiply"];
+
+    /// The word this blend is written as.
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::Multiply => "multiply",
+        }
+    }
+
+    /// The blend written as `name`.
+    pub(crate) fn named(name: &str) -> Option<Self> {
+        [Self::Normal, Self::Multiply]
+            .into_iter()
+            .find(|blend| blend.name() == name)
+    }
 }
 
 /// A stroke: its colour, width in design pixels and the finish of its corners and ends.
@@ -66,6 +128,12 @@ impl StrokeStyle {
             cap: Cap::Round,
             miter_limit: DEFAULT_MITER_LIMIT,
         }
+    }
+
+    /// This stroke with its width, join, cap and miter limit.
+    pub(crate) fn finished(mut self, width: f64, join: Join, cap: Cap, miter_limit: f64) -> Self {
+        (self.width, self.join, self.cap, self.miter_limit) = (width, join, cap, miter_limit);
+        self
     }
 
     /// The colour.
@@ -134,6 +202,28 @@ impl Style {
             }
             self.painted = true;
         }
+    }
+
+    /// Sets the fill; from now on only what is set is painted.
+    pub(crate) fn set_fill(&mut self, color: Color) {
+        self.fill = color;
+        self.painted = true;
+    }
+
+    /// Sets the stroke; from now on only what is set is painted.
+    pub(crate) fn set_stroke(&mut self, stroke: StrokeStyle) {
+        self.stroke = Some(stroke);
+        self.painted = true;
+    }
+
+    /// Multiplies the opacity by `alpha`.
+    pub(crate) fn multiply_opacity(&mut self, alpha: f64) {
+        self.opacity *= alpha;
+    }
+
+    /// Sets how the shape is painted over what is below.
+    pub(crate) fn set_blend(&mut self, blend: Blend) {
+        self.blend = blend;
     }
 
     /// The fill, [`Color::NONE`] where the shape is not filled.

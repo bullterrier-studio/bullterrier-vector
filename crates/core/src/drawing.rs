@@ -1,30 +1,203 @@
 //! `Drawing`: a tree of steps that evaluates to a list of shapes.
 
 mod eval;
+mod style;
+mod transform;
 
-use crate::Path;
+pub use style::Stroke;
+pub use transform::{Deg, Pivot, Rotate, ScaleBy};
+
+use crate::node::{self, Args, Given, Node, Place};
+use crate::{Error, Expr, Param, Path, Shape};
 use std::sync::Arc;
 
-/// An immutable tree of steps that evaluates to a list of [`Shape`](crate::Shape)s: a source (so far a [`Path`]), and
-/// the steps that build on it. A drawing holds no callbacks, so it draws again with new values. It is cheap to clone
-/// and can be used again, in several places.
+/// An immutable tree of steps that evaluates to a list of [`Shape`]s: a source (a [`Path`], a [`Shape`] or a stack of
+/// drawings), and the steps that build on it. A drawing holds no callbacks, so it draws again with new values. It is
+/// cheap to clone and can be used again, in several places.
+///
+/// A step is a method that returns the next drawing and never fails: a drawing keeps the first error of its chain
+/// ([`Drawing::error`]) and returns it when it is drawn or its Params are asked for.
 #[derive(Debug, Clone)]
 pub struct Drawing {
-    step: Arc<Step>,
+    last: Result<Arc<Step>, Error>,
 }
 
-/// The last step of a drawing; the steps before it are reached through it.
+/// The last call of a chain; the calls before it are reached through it.
 #[derive(Debug)]
 struct Step {
-    path: Path,
+    node: &'static dyn Node,
+    args: Args,
+    previous: Option<Arc<Step>>,
+    /// The number of the step in the chain; 0 for the source.
+    number: usize,
+    size: Option<(f64, f64)>,
+    /// The Params read, in the order they were first used.
+    reads: Vec<Param>,
+}
+
+impl Step {
+    fn place(&self) -> Place {
+        Place {
+            step: self.number,
+            verb: self.node.verb().name,
+        }
+    }
+
+    /// The call of `node` with the `given` arguments, on `previous` if it is a step.
+    fn build(
+        previous: Option<&Arc<Step>>,
+        node: &'static dyn Node,
+        given: Vec<(&'static str, Given)>,
+    ) -> Result<Self, Error> {
+        let verb = node.verb();
+        let place = Place {
+            step: previous.map_or(0, |step| step.number + 1),
+            verb: verb.name,
+        };
+        let args = Args::new(verb, given);
+        for (at, item) in args.taken().enumerate() {
+            if let Some(error) = item.error() {
+                return Err(error.clone().inside(&format!("{place} / item {}", at + 1)));
+            }
+        }
+        args.validate().map_err(|error| error.at_argument(&place, None))?;
+        let mut reads = previous.map_or_else(Vec::new, |step| step.reads.clone());
+        let mut read = Vec::new();
+        for (_, expr) in args.expressions() {
+            expr.collect_params(&mut read);
+        }
+        for item in args.taken() {
+            read.extend(item.parameters()?);
+        }
+        for param in read {
+            match reads.iter().find(|known| known.name() == param.name()) {
+                None => reads.push(param),
+                Some(known) => {
+                    if let Some(difference) = known.difference(&param) {
+                        return Err(Error::parameter(
+                            param.name(),
+                            format!("is read by two Params of this name that differ in their {difference}"),
+                        ));
+                    }
+                }
+            }
+        }
+        let size = args
+            .frame()
+            .map_err(|error| error.at_argument(&place, None))?
+            .or_else(|| previous.and_then(|step| step.size))
+            .or_else(|| args.taken().find_map(Drawing::size));
+        Ok(Self {
+            node,
+            args,
+            previous: previous.cloned(),
+            number: place.step,
+            size,
+            reads,
+        })
+    }
+}
+
+impl Drawing {
+    /// The drawing of a source `node` called with `given`.
+    pub(crate) fn source(node: &'static dyn Node, given: Vec<(&'static str, Given)>) -> Self {
+        Self {
+            last: Step::build(None, node, given).map(Arc::new),
+        }
+    }
+
+    /// This drawing with `node` called on it with `given`: the next step of the chain, or the first error.
+    pub(crate) fn then(&self, node: &'static dyn Node, given: Vec<(&'static str, Given)>) -> Self {
+        let Ok(step) = &self.last else { return self.clone() };
+        Self {
+            last: Step::build(Some(step), node, given).map(Arc::new),
+        }
+    }
+
+    /// The items stacked in order, the first at the bottom, as a drawing of `size` if one is given.
+    fn stack(items: Vec<Self>, size: Option<(f64, f64)>) -> Self {
+        let size = size.map_or(Given::Unset, |(width, height)| {
+            Given::Pair(Expr::from(width), Expr::from(height))
+        });
+        Self::source(
+            &node::stack::Stack,
+            vec![("items", Given::Drawings(items)), ("size", size)],
+        )
+    }
+
+    /// The items stacked in order, the first at the bottom, each a [`Path`], a [`Shape`] or a `Drawing`. Shapes that
+    /// carry no `order` get one, from 0 to 1 in list order. One item and nothing else returns that item as it is.
+    ///
+    /// The stack has the size its items have; give it one with [`Drawing::with_size`]. Items whose sizes differ leave
+    /// the stack with an [`error`](Drawing::error).
+    pub fn new<I: Into<Self>>(items: impl IntoIterator<Item = I>) -> Self {
+        let mut items: Vec<Self> = items.into_iter().map(Into::into).collect();
+        if items.len() == 1
+            && let Some(only) = items.pop()
+        {
+            return only;
+        }
+        Self::stack(items, None)
+    }
+
+    /// This drawing in a design frame of `width` by `height` design pixels. A drawing that is a stack is given the
+    /// frame; any other is stacked, alone, in one.
+    ///
+    /// Sizes above 0 and at most 100,000 are accepted; others leave the drawing with an [`error`](Drawing::error).
+    #[must_use]
+    pub fn with_size(&self, width: f64, height: f64) -> Self {
+        let Ok(step) = &self.last else { return self.clone() };
+        let size = Some((width, height));
+        if step.previous.is_none() && std::ptr::eq(step.node.verb(), std::ptr::from_ref(&node::stack::STACK)) {
+            return match step.args.drawings("items") {
+                Ok(items) => Self::stack(items.to_vec(), size),
+                Err(error) => Self { last: Err(error) },
+            };
+        }
+        Self::stack(vec![self.clone()], size)
+    }
+
+    /// The first error of the chain that built this drawing, or `None`. A drawing with an error draws nothing: every
+    /// step called on it keeps the error.
+    #[must_use]
+    pub fn error(&self) -> Option<&Error> {
+        self.last.as_ref().err()
+    }
+
+    /// The design frame `(width, height)` in design pixels, or `None` if neither the drawing nor anything it is made
+    /// of has one.
+    #[must_use]
+    pub fn size(&self) -> Option<(f64, f64)> {
+        self.last.as_ref().ok().and_then(|step| step.size)
+    }
+
+    /// Every Param the drawing reads, in the order it first uses them.
+    ///
+    /// # Errors
+    /// The first error of the chain that built the drawing; [`Error::Parameter`] naming the Param if two Params of
+    /// one name differ in a field.
+    pub fn parameters(&self) -> Result<Vec<Param>, Error> {
+        self.last.clone().map(|step| step.reads.clone())
+    }
 }
 
 impl From<Path> for Drawing {
     /// A drawing of the one shape that is `path`, painted by default: a closed outline filled black, an open line
     /// stroked black.
     fn from(path: Path) -> Self {
-        Self {
-            step: Arc::new(Step { path }),
-        }
+        Self::source(&node::source::PathSource, vec![("path", Given::Path(path))])
+    }
+}
+
+impl From<Shape> for Drawing {
+    /// A drawing of the one shape, with its style and attributes as `shapes()` returned them.
+    fn from(shape: Shape) -> Self {
+        Self::source(&node::source::ShapeSource, vec![("shape", Given::Shape(shape))])
+    }
+}
+
+impl From<&Self> for Drawing {
+    fn from(drawing: &Self) -> Self {
+        drawing.clone()
     }
 }

@@ -37,6 +37,84 @@
 //! first used by `repeat`; the per-item numbers (`by_index`, `by_order`, `random`, `stagger`); and an argument read
 //! once (it refuses a per-item number or a list), first used by `text`.
 
+mod args;
+pub(crate) mod source;
+pub(crate) mod stack;
+pub(crate) mod style;
+pub(crate) mod transform;
+
+pub(crate) use args::{Args, Given, Item};
+
+use crate::{Error, Shape, Values};
+use std::fmt;
+
+/// A source or a step of a drawing: its declaration and what it does. A unit struct implements it.
+pub(crate) trait Node: Sync + fmt::Debug {
+    /// The declaration: name, role, arguments.
+    fn verb(&self) -> &'static Verb;
+
+    /// The shapes after this node, from the call's `args`, the shapes before it and of the drawings it takes. An error
+    /// returned here is already placed at the step: [`each_shape`] places the errors of a shape-by-shape node.
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error>;
+}
+
+/// A rule across the arguments of a call, run when the call is made.
+pub(crate) type Check = fn(&Args) -> Result<(), Error>;
+
+/// What a node builds on.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Inputs<'a> {
+    /// The shapes of the drawing this step builds on; empty for a source.
+    pub(crate) previous: &'a [Shape],
+    /// The shapes of each drawing the node takes, in the order of its arguments.
+    pub(crate) taken: &'a [Vec<Shape>],
+}
+
+/// Where a step is, for its errors: `step 3 (rotate)`, or `source (stack)` for the first call of a chain.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Place {
+    /// The number of the step in its chain, from 1; 0 for the source.
+    pub(crate) step: usize,
+    /// The verb's name.
+    pub(crate) verb: &'static str,
+}
+
+impl fmt::Display for Place {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.step == 0 {
+            write!(formatter, "source ({})", self.verb)
+        } else {
+            write!(formatter, "step {} ({})", self.step, self.verb)
+        }
+    }
+}
+
+/// What a node may know of the world besides its inputs.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Context<'a> {
+    /// Where the step is.
+    pub(crate) place: Place,
+    /// The values the Params take here.
+    pub(crate) env: &'a Values,
+}
+
+/// `map` applied to every shape of `previous` in order, with its [`Item`]. An error from `map` is placed at the step
+/// and prefixed with the index of the shape.
+pub(crate) fn each_shape(
+    previous: &[Shape],
+    cx: &Context<'_>,
+    mut map: impl FnMut(&Shape, Item) -> Result<Shape, Error>,
+) -> Result<Vec<Shape>, Error> {
+    let count = previous.len();
+    previous
+        .iter()
+        .enumerate()
+        .map(|(index, shape)| {
+            map(shape, Item { index, count }).map_err(|error| error.at_argument(&cx.place, Some(index)))
+        })
+        .collect()
+}
+
 /// Whether a declaration is a source of shapes or a step that builds on the shapes before it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Role {
@@ -57,6 +135,8 @@ pub struct Verb {
     pub summary: &'static str,
     /// The arguments, in declaration order.
     pub args: &'static [Arg],
+    /// The rule across arguments, run when the call is made.
+    pub(crate) check: Option<Check>,
 }
 
 /// The declaration of one argument of a verb.
@@ -87,6 +167,14 @@ pub enum Kind {
     Color,
     /// One of a fixed set of words ([`Domain::Choice`]).
     Text,
+    /// One number for both directions, or an `(x, y)` pair (a scale factor).
+    Factor,
+    /// A path.
+    Path,
+    /// A shape, as `shapes()` returned it.
+    Shape,
+    /// Drawings, bottom first.
+    Drawings,
 }
 
 /// How an argument's value is read.
@@ -105,6 +193,8 @@ pub enum Literal {
     Number(f64),
     /// A word.
     Text(&'static str),
+    /// Nothing: the argument may be left out, and the step then does what its summary says.
+    Unset,
 }
 
 /// The values an argument accepts. A number must be finite in every domain but [`Domain::Any`]; the other limits are
@@ -127,6 +217,8 @@ pub enum Domain {
     Fraction,
     /// A finite number at or below the limit.
     UpTo(f64),
+    /// A finite number above 0 and at or below the limit.
+    PositiveUpTo(f64),
     /// One of these words.
     Choice(&'static [&'static str]),
 }
