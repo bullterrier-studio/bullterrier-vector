@@ -261,7 +261,9 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   an expression) deep hold an error, and a chain of steps costs no depth: it is walked in a loop and dropped in one. The
   other four counters arrive with the first step that produces what they count. *Reason:* the counters bound memory
   blow-up (a stack of itself 60 times), not the length of a chain, and the cache (V2b-2) serves repeats without
-  charging.
+  charging. An expression is capped at `MAX_EXPR_NODES` (10,000, a shared part counted each time it is used, as
+  evaluation reaches it) beside its `MAX_DEPTH`, checked at the call without evaluating: `e = e + e` 28 times is 2^29
+  nodes. formats.md names no such limit yet.
 - **Order of a stack** (2026-10-31). A stack writes `order` on the shapes that carry none, spread 0..1 over those shapes
   in list order (one shape: 0); a path or shape source writes none, so `Drawing(path)` equals the path. *Reason:*
   api.md says both "the shapes that carry none" and "over the shapes a generator made"; this reading lets a text keep
