@@ -390,6 +390,35 @@ fn scale_writes_one_number_when_both_directions_are_equal() -> Outcome {
 }
 
 #[test]
+fn scale_writes_one_number_when_both_directions_are_written_alike() -> Outcome {
+    // 1e-7 / 1e-7 and 2 - 1 are not the same expression, but both are the number 1; 3 + x and x + 3 are one expression
+    let x = slider("x")?;
+    let param = r#"{"param":"x"}"#;
+    for (case, by, wanted) in [
+        (
+            "two constants with one value",
+            ScaleBy::new((Expr::from(1e-7) / 1e-7, Expr::from(2.0) - 1.0)),
+            r#"{"by":1}"#.to_owned(),
+        ),
+        (
+            "two spellings of one expression",
+            ScaleBy::new((3.0 + &x, &x + 3.0)),
+            format!(r#"{{"by":{{"add":[3,{param}]}}}}"#),
+        ),
+        (
+            "two expressions that differ",
+            ScaleBy::new((3.0 + &x, &x + 4.0)),
+            format!(r#"{{"by":[{{"add":[3,{param}]}},{{"add":[4,{param}]}}]}}"#),
+        ),
+    ] {
+        let text = square()?.scale(by).to_json()?;
+        assert!(text.contains(&format!(r#"{{"scale":{wanted}}}"#)), "{case}: {text}");
+        assert_eq!(Drawing::from_json(&text)?.to_json()?, text, "{case}");
+    }
+    Ok(())
+}
+
+#[test]
 fn only_and_without_write_their_attributes() -> Outcome {
     let four = Drawing::new([square()?, square()?, square()?, square()?]);
     let text = four

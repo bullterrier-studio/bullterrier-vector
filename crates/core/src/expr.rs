@@ -188,6 +188,15 @@ impl Expr {
         }
     }
 
+    /// Whether the canonical form writes this expression and `other` as one text. (`==` asks whether the trees are
+    /// the same, which `1 / 2` and `0.5` are not.)
+    pub(crate) fn is_written_like(&self, other: &Self) -> bool {
+        let (mut mine, mut theirs) = (Key::new(), Key::new());
+        mine.of(self);
+        theirs.of(other);
+        mine.finish() == theirs.finish()
+    }
+
     /// The operands of `left op right` in the order the canonical form (formats.md) writes them: for `+` and `*`, a part
     /// that reads no Param first. Swapping them changes no result, and nothing else is reordered, since floating-point
     /// addition is commutative but not associative.

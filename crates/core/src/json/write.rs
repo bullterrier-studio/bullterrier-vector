@@ -184,7 +184,9 @@ impl<'a> Writer<'a> {
     fn value(&self, arg: &Arg, given: &Given, taken: &mut impl Iterator<Item = usize>) -> Result<Json, Error> {
         Ok(match given {
             Given::Number(expr) => self.expression(expr)?,
-            Given::Pair(first, second) if arg.kind == Kind::Factor && first == second => self.expression(first)?,
+            Given::Pair(first, second) if arg.kind == Kind::Factor && first.is_written_like(second) => {
+                self.expression(first)?
+            }
             Given::Pair(first, second) => Json::Array(vec![self.expression(first)?, self.expression(second)?]),
             Given::Text(text) => Json::text(text),
             Given::Color(color) => Json::String(color_text(*color)),
