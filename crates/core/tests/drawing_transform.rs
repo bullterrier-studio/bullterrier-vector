@@ -5,7 +5,7 @@
 
 mod common;
 
-use bullterrier_vector::{Drawing, Error, Expr, Param, Path, Values};
+use bullterrier_vector::{Deg, Drawing, Error, Expr, Param, Path, Point, Rotate, ScaleBy, Values};
 use common::{Outcome, log_uniform, parameter_refusal};
 use proptest::prelude::*;
 
@@ -291,5 +291,183 @@ proptest! {
         let expected = path.translate(dx, dy).map_err(|e| TestCaseError::fail(e.to_string()))?;
         prop_assert_eq!(shapes.len(), 1);
         prop_assert_eq!(shapes[0].path(), &expected);
+    }
+}
+
+// Rotate ------------------------------------------------------------------------------------------------------------
+
+/// A square, 10 by 10, with its corner at the origin.
+fn square() -> Result<Path, Error> {
+    Path::rect(0.0, 0.0, 10.0, 10.0, 0.0)
+}
+
+#[test]
+fn rotating_turns_clockwise_about_the_given_point_or_the_middle_of_the_bounds() -> Outcome {
+    let none = Values::new();
+    // a quarter turn about the corner: (x, y) goes to (-y, x), the y axis pointing down
+    let about_corner = Drawing::from(square()?).rotate(Rotate::new(Deg(90.0)).about((0.0, 0.0)));
+    assert_eq!(data(&about_corner, &none)?, "M0 0 L0 10 L-10 10 L-10 0 Z");
+    // about nothing given, the square turns about its middle (5, 5) and lands on itself, its start corner moved on
+    let about_middle = Drawing::from(square()?).rotate(Deg(90.0));
+    assert_eq!(data(&about_middle, &none)?, "M10 0 L10 10 L0 10 L0 0 Z");
+    // a point can be a Point
+    let about_point = Drawing::from(square()?).rotate(Rotate::new(Deg(90.0)).about(Point::new(0.0, 0.0)));
+    assert_eq!(data(&about_point, &none)?, "M0 0 L0 10 L-10 10 L-10 0 Z");
+    Ok(())
+}
+
+#[test]
+fn an_angle_of_any_size_wraps_and_multiples_of_ninety_are_exact() -> Outcome {
+    let none = Values::new();
+    let base = Drawing::from(square()?);
+    let turned = |angle: f64| data(&base.rotate(Deg(angle)), &none);
+    let quarter = turned(90.0)?;
+    for angle in [450.0, -270.0, 90.0 + 360.0 * 1000.0, 90.0 - 720.0] {
+        assert_eq!(turned(angle)?, quarter, "{angle}");
+    }
+    assert_eq!(turned(360.0)?, turned(0.0)?);
+    assert_eq!(turned(0.0)?, "M0 0 L10 0 L10 10 L0 10 Z");
+    assert_eq!(turned(180.0)?, "M10 10 L0 10 L0 0 L10 0 Z");
+    Ok(())
+}
+
+#[test]
+fn rotating_by_a_param_or_an_expression_reads_it_when_drawn() -> Outcome {
+    let spin = Param::new("spin", 0.0, 0.0, 360.0)?;
+    let drawing = Drawing::from(square()?).rotate(Rotate::new(Deg(2.0 * &spin)).about((0.0, 0.0)));
+    assert_eq!(data(&drawing, &Values::new())?, "M0 0 L10 0 L10 10 L0 10 Z");
+    assert_eq!(
+        data(&drawing, &Values::new().set("spin", 45.0))?,
+        "M0 0 L0 10 L-10 10 L-10 0 Z"
+    );
+    // a point whose coordinates read Params
+    let pivot = Param::new("pivot", 0.0, -100.0, 100.0)?;
+    let about_param =
+        Drawing::from(Path::line((0.0, 0.0), (10.0, 0.0))?).rotate(Rotate::new(Deg(180.0)).about((&pivot, 2.0)));
+    assert_eq!(data(&about_param, &Values::new().set("pivot", 4.0))?, "M8 4 L-2 4");
+    assert_eq!(drawing.parameters()?, vec![spin]);
+    Ok(())
+}
+
+#[test]
+fn an_angle_or_a_pivot_the_step_refuses_is_refused_naming_the_argument() -> Outcome {
+    let line = Drawing::from(Path::line((0.0, 0.0), (2.0, 1.0))?);
+    // (case, drawing, argument)
+    let rows = [
+        ("NaN angle", line.rotate(Deg(f64::NAN)), "step 1 (rotate).angle"),
+        (
+            "infinite angle",
+            line.rotate(Deg(f64::INFINITY)),
+            "step 1 (rotate).angle",
+        ),
+        (
+            "pivot beyond the coordinates",
+            line.rotate(Rotate::new(Deg(1.0)).about((2e100, 0.0))),
+            "step 1 (rotate).about",
+        ),
+        (
+            "NaN pivot",
+            line.rotate(Rotate::new(Deg(1.0)).about((0.0, f64::NAN))),
+            "step 1 (rotate).about",
+        ),
+    ];
+    for (case, drawing, argument) in rows {
+        let (name, message) = parameter_refusal(Err::<(), _>(held(&drawing)?))?;
+        assert_eq!(name, argument, "{case}: {message}");
+    }
+    Ok(())
+}
+
+// Scale -------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn scaling_by_a_number_or_a_pair_about_a_point_or_the_middle() -> Outcome {
+    let none = Values::new();
+    let base = Drawing::from(square()?);
+    let about_origin = |by: ScaleBy| base.scale(by.about((0.0, 0.0)));
+    assert_eq!(
+        data(&about_origin(ScaleBy::new((2.0, 3.0))), &none)?,
+        "M0 0 L20 0 L20 30 L0 30 Z"
+    );
+    assert_eq!(
+        data(&about_origin(ScaleBy::new(2.0)), &none)?,
+        "M0 0 L20 0 L20 20 L0 20 Z"
+    );
+    // a negative factor mirrors
+    assert_eq!(
+        data(&about_origin(ScaleBy::new(-1.0)), &none)?,
+        "M0 0 L-10 0 L-10 -10 L0 -10 Z"
+    );
+    assert_eq!(
+        data(&about_origin(ScaleBy::new((1.0, -0.5))), &none)?,
+        "M0 0 L10 0 L10 -5 L0 -5 Z"
+    );
+    // with no pivot, the middle of the bounds (5, 5) stays where it is
+    let about_middle = Drawing::from(square()?).scale(2.0);
+    assert_eq!(data(&about_middle, &none)?, "M-5 -5 L15 -5 L15 15 L-5 15 Z");
+    Ok(())
+}
+
+#[test]
+fn a_factor_of_zero_is_refused_at_the_call_and_when_drawn() -> Outcome {
+    let line = Drawing::from(Path::line((0.0, 0.0), (2.0, 1.0))?);
+    for (case, drawing) in [
+        ("number", line.scale(0.0)),
+        ("first of a pair", line.scale((0.0, 2.0))),
+        ("second of a pair", line.scale((2.0, 0.0))),
+        ("negative zero", line.scale(-0.0)),
+        ("worked out", line.scale(Expr::from(2.0) - 2.0)),
+    ] {
+        let (name, message) = parameter_refusal(Err::<(), _>(held(&drawing)?))?;
+        assert!(
+            name == "step 1 (scale).by" && message.contains('0'),
+            "{case}: {name}: {message}"
+        );
+    }
+    let factor = Param::new("factor", 1.0, -10.0, 10.0)?;
+    let drawing = Drawing::from(Path::line((0.0, 0.0), (2.0, 1.0))?).scale((2.0, &factor));
+    assert_eq!(drawing.error(), None);
+    let (name, message) = parameter_refusal(drawing.shapes(&Values::new().set("factor", 0.0)))?;
+    assert!(
+        name == "step 1 (scale).by" && message.starts_with("shape 0: "),
+        "{name}: {message}"
+    );
+    // any other value, a small one included, is accepted
+    assert_eq!(data(&drawing, &Values::new().set("factor", 0.5))?, "M-1 0.25 L3 0.75");
+    Ok(())
+}
+
+#[test]
+fn a_pivot_that_reads_a_param_works_like_a_number() -> Outcome {
+    let cx = Param::new("cx", 0.0, -100.0, 100.0)?;
+    let drawing = Drawing::from(Path::line((0.0, 0.0), (2.0, 0.0))?).scale(ScaleBy::new(3.0).about((&cx, 0.0)));
+    assert_eq!(data(&drawing, &Values::new().set("cx", 1.0))?, "M-2 0 L4 0");
+    Ok(())
+}
+
+proptest! {
+    // The steps are the Path verbs applied to the shape's path, for angles and factors of every size, with and
+    // without a pivot.
+    #[test]
+    fn rotate_and_scale_equal_the_path_verbs(
+        sides in 3u32..=12,
+        radius in log_uniform(-1.0, 4.0),
+        angle in -1.0e6f64..1.0e6,
+        factor in (log_uniform(-3.0, 3.0), any::<bool>(), log_uniform(-3.0, 3.0)),
+        pivot in proptest::option::of((-1000.0f64..1000.0, -1000.0f64..1000.0)),
+    ) {
+        let fail = |e: Error| TestCaseError::fail(e.to_string());
+        let path = Path::star((7.0, -3.0), radius, radius * 0.4, i64::from(sides)).map_err(fail)?;
+        let about = pivot.map(Point::from);
+        let drawing = Drawing::from(path.clone());
+        let (turn, scale) = match pivot {
+            Some(p) => (Rotate::new(Deg(angle)).about(p), ScaleBy::new((factor.0, if factor.1 { factor.2 } else { -factor.2 })).about(p)),
+            None => (Rotate::new(Deg(angle)), ScaleBy::new((factor.0, if factor.1 { factor.2 } else { -factor.2 }))),
+        };
+        let turned = drawing.rotate(turn).shapes(&Values::new()).map_err(fail)?;
+        prop_assert_eq!(turned[0].path(), &path.rotate(angle, about).map_err(fail)?);
+        let scaled = drawing.scale(scale).shapes(&Values::new()).map_err(fail)?;
+        let by = (factor.0, if factor.1 { factor.2 } else { -factor.2 });
+        prop_assert_eq!(scaled[0].path(), &path.scale(by, about).map_err(fail)?);
     }
 }
