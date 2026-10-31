@@ -160,6 +160,34 @@ fn a_fixed_value_beats_the_one_given_when_drawing_where_the_param_is_still_free_
 }
 
 #[test]
+fn a_param_fixed_inside_a_stack_item_is_fixed_for_the_stack_unless_another_item_reads_it() -> Outcome {
+    let a = slider("a", 1.0)?;
+    let inner = square()?.translate(&a, 0.0).with_values(&Values::new().set("a", 5.0));
+    let outer = Drawing::new([inner.clone(), square()?]);
+    assert_eq!(names(&outer)?, Vec::<String>::new());
+    assert_eq!(lefts(&outer, &Values::new())?, vec![5.0, 0.0]);
+    // a value for it is refused for the stack as it is for the item alone, given when drawing or fixed after
+    let given = Values::new().set("a", 9.0);
+    let refusal = parameter_refusal(inner.shapes(&given))?;
+    assert_eq!(parameter_refusal(outer.shapes(&given))?, refusal);
+    let (name, _) = parameter_refusal(Err::<(), _>(held(&outer.with_values(&given))?))?;
+    assert_eq!(name, "step 1 (with_values).a");
+    Ok(())
+}
+
+#[test]
+fn a_param_fixed_in_one_item_stays_free_when_another_item_reads_it() -> Outcome {
+    let a = slider("a", 1.0)?;
+    let fixed = square()?.translate(&a, 0.0).with_values(&Values::new().set("a", 5.0));
+    let stack = Drawing::new([fixed, square()?.translate(&a, 0.0)]);
+    assert_eq!(names(&stack)?, ["a"]);
+    assert_eq!(lefts(&stack, &Values::new().set("a", 9.0))?, vec![5.0, 9.0]);
+    let refixed = stack.with_values(&Values::new().set("a", 7.0));
+    assert_eq!(lefts(&refixed, &Values::new())?, vec![5.0, 7.0]);
+    Ok(())
+}
+
+#[test]
 fn with_values_refuses_a_name_that_is_not_free_listing_the_free_params() -> Outcome {
     let (a, b) = (slider("a", 1.0)?, slider("b", 2.0)?);
     let two = square()?.translate(&a, &b);

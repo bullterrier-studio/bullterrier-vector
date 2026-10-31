@@ -53,8 +53,8 @@ struct Step {
     depth: usize,
     /// The Params read, in the order they were first used, those a `with_values` fixed included.
     reads: Vec<Param>,
-    /// The names of the Params fixed at this step: a `with_values` fixed them for the steps before it and no step
-    /// since has read them.
+    /// The names of the Params fixed at this step: a `with_values` fixed them for the steps before it, or for the
+    /// drawings the step takes, and no step since (nor another drawing it takes) has read them.
     fixed: BTreeSet<String>,
 }
 
@@ -110,7 +110,13 @@ impl Step {
                 }
             }
         }
+        // what the drawings the call takes left fixed is fixed here too, unless another of them reads it free
         let mut fixed = previous.map_or_else(BTreeSet::new, |step| step.fixed.clone());
+        for item in args.taken() {
+            if let Ok(step) = &item.last {
+                fixed.extend(step.fixed.iter().cloned());
+            }
+        }
         for param in &read.free {
             fixed.remove(param.name());
         }
