@@ -1,5 +1,6 @@
 //! `Values`: the numbers a caller gives the Params of a drawing when drawing it.
 
+use crate::{Error, Param};
 use std::collections::BTreeMap;
 
 /// What a caller gives one Param: a number, or a list with one number per shape.
@@ -57,5 +58,55 @@ impl Values {
     /// The names given a value, in order.
     pub(crate) fn names(&self) -> impl Iterator<Item = &str> {
         self.by_name.keys().map(String::as_str)
+    }
+
+    /// An error unless every name given is one of the `free` Params, listing them.
+    pub(crate) fn names_within(&self, free: &[Param]) -> Result<(), Error> {
+        match self.names().find(|name| free.iter().all(|param| param.name() != *name)) {
+            None => Ok(()),
+            Some(name) if free.is_empty() => Err(Error::parameter(
+                name,
+                "the drawing reads no Params, so there is no value to give it",
+            )),
+            Some(name) => {
+                let known: Vec<&str> = free.iter().map(Param::name).collect();
+                Err(Error::parameter(
+                    name,
+                    format!("the drawing reads no Param of this name, only {}", known.join(", ")),
+                ))
+            }
+        }
+    }
+
+    /// These values, each as its Param takes it (a cyclic one wrapped), or the error for the first that is not
+    /// accepted. Every name must be one of the `free` Params.
+    pub(crate) fn accepted_by(&self, free: &[Param]) -> Result<Self, Error> {
+        self.names_within(free)?;
+        let mut accepted = Self::new();
+        for (name, value) in &self.by_name {
+            let Some(param) = free.iter().find(|param| param.name() == name) else {
+                continue;
+            };
+            let value = match value {
+                Value::Number(number) => Value::Number(param.accept(*number)?),
+                Value::List(numbers) => Value::List(
+                    numbers
+                        .iter()
+                        .map(|number| param.accept(*number))
+                        .collect::<Result<_, _>>()?,
+                ),
+            };
+            accepted.by_name.insert(name.clone(), value);
+        }
+        Ok(accepted)
+    }
+
+    /// These values with `fixed` laid over them: where both give a name, `fixed` wins.
+    pub(crate) fn over(&self, fixed: &Self) -> Self {
+        let mut values = self.clone();
+        values
+            .by_name
+            .extend(fixed.by_name.iter().map(|(name, value)| (name.clone(), value.clone())));
+        values
     }
 }

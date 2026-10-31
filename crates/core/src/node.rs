@@ -43,6 +43,7 @@ pub(crate) mod source;
 pub(crate) mod stack;
 pub(crate) mod style;
 pub(crate) mod transform;
+pub(crate) mod values;
 
 pub(crate) use args::{Args, Given, Item};
 
@@ -178,6 +179,8 @@ pub enum Kind {
     Drawings,
     /// Attribute names with the values a shape's must equal (`only`, `without`).
     Attributes,
+    /// Param names with a number, or a list of one number per shape, for each (`with_values`).
+    Values,
 }
 
 /// How an argument's value is read.

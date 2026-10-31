@@ -3,7 +3,7 @@
 
 use super::{Arg, Context, Domain, Kind, Reads, Verb};
 use crate::geometry::{coordinate, finite, fraction};
-use crate::{Color, Drawing, Error, Expr, Literal, Path, Point, Select, Shape, Values};
+use crate::{Color, Drawing, Error, Expr, Literal, Param, Path, Point, Select, Shape, Values};
 
 /// The place of a shape in the list a step works on, and how long the list is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,8 +33,18 @@ pub(crate) enum Given {
     Drawings(Vec<Drawing>),
     /// Attributes to select by.
     Select(Select),
+    /// Values for Params.
+    Values(Values),
     /// Left out.
     Unset,
+}
+
+/// The Params a call reads.
+pub(crate) struct ParamsRead {
+    /// Every one.
+    pub(crate) all: Vec<Param>,
+    /// Those not fixed by a `with_values` inside a drawing the call takes.
+    pub(crate) free: Vec<Param>,
 }
 
 /// The values of a call, in declaration order, defaults applied.
@@ -146,6 +156,56 @@ impl Args {
             Given::Drawings(items) => items.as_slice(),
             _ => &[],
         })
+    }
+
+    /// This call with the Params it fixes checked against the `free` Params of the drawing it is called on, and
+    /// stored as the Params take them. The error is unplaced.
+    pub(crate) fn fixing(mut self, free: &[Param]) -> Result<Self, Error> {
+        for given in &mut self.values {
+            if let Given::Values(values) = given {
+                *values = values.accepted_by(free)?;
+            }
+        }
+        Ok(self)
+    }
+
+    /// The values the call fixes Params to, if it is one that does.
+    pub(crate) fn fixes(&self) -> Option<&Values> {
+        self.values.iter().find_map(|given| match given {
+            Given::Values(values) => Some(values),
+            _ => None,
+        })
+    }
+
+    /// The Params the call reads, in declaration order and left to right: those of its expressions, then of each
+    /// drawing it takes. `all` has every one, `free` leaves out what a `with_values` inside a drawing fixed.
+    pub(crate) fn reads(&self) -> Result<ParamsRead, Error> {
+        let mut reads = ParamsRead {
+            all: Vec::new(),
+            free: Vec::new(),
+        };
+        for given in &self.values {
+            match given {
+                Given::Number(expr) => {
+                    expr.collect_params(&mut reads.all);
+                    expr.collect_params(&mut reads.free);
+                }
+                Given::Pair(first, second) => {
+                    for expr in [first, second] {
+                        expr.collect_params(&mut reads.all);
+                        expr.collect_params(&mut reads.free);
+                    }
+                }
+                Given::Drawings(items) => {
+                    for item in items {
+                        reads.all.extend(item.read()?.iter().cloned());
+                        reads.free.extend(item.parameters()?);
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(reads)
     }
 
     /// The checks of a call: every expression is within the depth limit, every constant one is worked out and accepted

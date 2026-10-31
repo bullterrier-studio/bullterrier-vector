@@ -3,6 +3,7 @@
 use super::{Drawing, Step};
 use crate::node::{Context, Inputs};
 use crate::{Error, Shape, Values};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 impl Drawing {
@@ -17,20 +18,7 @@ impl Drawing {
     /// shape it was read for.
     pub fn shapes(&self, values: &Values) -> Result<Vec<Shape>, Error> {
         let step = self.last.as_ref().map_err(|failure| failure.error.clone())?;
-        if let Some(name) = values
-            .names()
-            .find(|name| step.reads.iter().all(|param| param.name() != *name))
-        {
-            let reads: Vec<&str> = step.reads.iter().map(crate::Param::name).collect();
-            return Err(Error::parameter(
-                name,
-                if reads.is_empty() {
-                    String::from("the drawing reads no Params, so there is no value to give it")
-                } else {
-                    format!("the drawing reads no Param of this name, only {}", reads.join(", "))
-                },
-            ));
-        }
+        values.names_within(&step.free())?;
         Ok(evaluate(step, values)?.into_iter().map(Shape::painted).collect())
     }
 
@@ -40,7 +28,8 @@ impl Drawing {
     }
 }
 
-/// The shapes after `last` and every step before it, in order, with each shape's `index` its place in the list.
+/// The shapes after `last` and every step before it, in order, with each shape's `index` its place in the list. A step
+/// sees `values` with the values of every `with_values` after it laid over them.
 fn evaluate(last: &Arc<Step>, values: &Values) -> Result<Vec<Shape>, Error> {
     let mut chain = Vec::new();
     let mut cursor = Some(last);
@@ -48,19 +37,30 @@ fn evaluate(last: &Arc<Step>, values: &Values) -> Result<Vec<Shape>, Error> {
         chain.push(step);
         cursor = step.previous.as_ref();
     }
+    // from the last step back, each with the values it sees: a `with_values` changes them for the steps before it
+    let mut envs: Vec<Cow<'_, Values>> = vec![Cow::Borrowed(values)];
+    let mut seen_by = Vec::with_capacity(chain.len());
+    for step in &chain {
+        seen_by.push(envs.len() - 1);
+        if let Some(fixed) = step.args.fixes() {
+            let next = envs[envs.len() - 1].over(fixed);
+            envs.push(Cow::Owned(next));
+        }
+    }
     let mut shapes: Vec<Shape> = Vec::new();
-    for step in chain.into_iter().rev() {
+    for (step, env) in chain.into_iter().zip(seen_by).rev() {
+        let env: &Values = &envs[env];
         let place = step.place();
         let taken = step
             .args
             .taken()
             .enumerate()
             .map(|(at, item)| {
-                item.evaluate(values)
+                item.evaluate(env)
                     .map_err(|error| error.inside(&format!("{place} / item {}", at + 1)))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let cx = Context { place, env: values };
+        let cx = Context { place, env };
         let inputs = Inputs {
             previous: &shapes,
             taken: &taken,

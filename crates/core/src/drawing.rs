@@ -4,6 +4,7 @@ mod eval;
 mod select;
 mod style;
 mod transform;
+mod values;
 
 pub use select::{Select, Wanted};
 pub use style::Stroke;
@@ -11,6 +12,7 @@ pub use transform::{Deg, Pivot, Rotate, ScaleBy};
 
 use crate::node::{self, Args, Given, Node, Place};
 use crate::{Error, Expr, Param, Path, Shape};
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 /// An immutable tree of steps that evaluates to a list of [`Shape`]s: a source (a [`Path`], a [`Shape`] or a stack of
@@ -47,8 +49,11 @@ struct Step {
     /// The number of the step in the chain; 0 for the source.
     number: usize,
     size: Option<(f64, f64)>,
-    /// The Params read, in the order they were first used.
+    /// The Params read, in the order they were first used, those a `with_values` fixed included.
     reads: Vec<Param>,
+    /// The names of the Params fixed at this step: a `with_values` fixed them for the steps before it and no step
+    /// since has read them.
+    fixed: BTreeSet<String>,
 }
 
 impl Step {
@@ -57,6 +62,15 @@ impl Step {
             step: self.number,
             verb: self.node.verb().name,
         }
+    }
+
+    /// The Params read here and not fixed, in the order they were first used.
+    fn free(&self) -> Vec<Param> {
+        self.reads
+            .iter()
+            .filter(|param| !self.fixed.contains(param.name()))
+            .cloned()
+            .collect()
     }
 
     /// The call of `node` with the `given` arguments, on `previous` if it is a step.
@@ -70,22 +84,18 @@ impl Step {
             step: previous.map_or(0, |step| step.number + 1),
             verb: verb.name,
         };
-        let args = Args::new(verb, given);
+        let args = Args::new(verb, given)
+            .fixing(&previous.map_or_else(Vec::new, |step| step.free()))
+            .map_err(|error| error.at_argument(&place, None))?;
         for (at, item) in args.taken().enumerate() {
             if let Some(error) = item.error() {
                 return Err(error.clone().inside(&format!("{place} / item {}", at + 1)));
             }
         }
         args.validate().map_err(|error| error.at_argument(&place, None))?;
+        let read = args.reads()?;
         let mut reads = previous.map_or_else(Vec::new, |step| step.reads.clone());
-        let mut read = Vec::new();
-        for (_, expr) in args.expressions() {
-            expr.collect_params(&mut read);
-        }
-        for item in args.taken() {
-            read.extend(item.parameters()?);
-        }
-        for param in read {
+        for param in read.all {
             match reads.iter().find(|known| known.name() == param.name()) {
                 None => reads.push(param),
                 Some(known) => {
@@ -97,6 +107,13 @@ impl Step {
                     }
                 }
             }
+        }
+        let mut fixed = previous.map_or_else(BTreeSet::new, |step| step.fixed.clone());
+        for param in &read.free {
+            fixed.remove(param.name());
+        }
+        if let Some(values) = args.fixes() {
+            fixed.extend(values.names().map(str::to_owned));
         }
         let size = args
             .frame()
@@ -110,6 +127,7 @@ impl Step {
             number: place.step,
             size,
             reads,
+            fixed,
         })
     }
 }
@@ -208,7 +226,15 @@ impl Drawing {
     pub fn parameters(&self) -> Result<Vec<Param>, Error> {
         self.last
             .as_ref()
-            .map(|step| step.reads.clone())
+            .map(|step| step.free())
+            .map_err(|failure| failure.error.clone())
+    }
+
+    /// Every Param the drawing reads, those a `with_values` fixed included.
+    pub(crate) fn read(&self) -> Result<&[Param], Error> {
+        self.last
+            .as_ref()
+            .map(|step| step.reads.as_slice())
             .map_err(|failure| failure.error.clone())
     }
 }
