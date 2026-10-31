@@ -4,7 +4,9 @@
 
 mod common;
 
-use bullterrier_vector::{Deg, Drawing, Error, Param, Path, Select, Shape, Stats, Values};
+use bullterrier_vector::{
+    Blend, Color, Deg, Drawing, Error, Expr, Join, Param, Path, Select, Shape, Stats, Stroke, Values,
+};
 use common::Outcome;
 use common::ops::{chain, edits, extend, materialise, values_of};
 use proptest::prelude::*;
@@ -272,6 +274,120 @@ fn pairs() -> Vec<(&'static str, Make)> {
             let at = Values::new().set("t", 400.0);
             Ok((base.rotate(Deg(&cyclic)), at.clone(), base.rotate(Deg(&bounded)), at))
         }),
+        ("an operator of an expression", |base| {
+            let x = slider("x", 0.0)?;
+            let at = Values::new().set("x", 5.0);
+            Ok((
+                base.translate(Expr::from(&x) + 1.0, 0.0),
+                at.clone(),
+                base.translate(Expr::from(&x) - 1.0, 0.0),
+                at,
+            ))
+        }),
+        ("another operator of an expression", |base| {
+            let x = slider("x", 0.0)?;
+            let at = Values::new().set("x", 5.0);
+            Ok((
+                base.translate(Expr::from(&x) * 2.0, 0.0),
+                at.clone(),
+                base.translate(Expr::from(&x) / 2.0, 0.0),
+                at,
+            ))
+        }),
+        ("the range of a Param, its top", |base| {
+            let at = Values::new().set("x", 50.0);
+            Ok((
+                base.translate(&Param::new("x", 0.0, 0.0, 100.0)?, 0.0),
+                at.clone(),
+                base.translate(&Param::new("x", 0.0, 0.0, 10.0)?, 0.0),
+                at,
+            ))
+        }),
+        ("the range of a Param, its bottom", |base| {
+            let at = Values::new().set("x", -50.0);
+            Ok((
+                base.translate(&slider("x", 0.0)?, 0.0),
+                at.clone(),
+                base.translate(&Param::new("x", 0.0, 0.0, 100.0)?, 0.0),
+                at,
+            ))
+        }),
+    ]
+}
+
+/// More rows: the words a step is called with, and the sources a drawing is made of.
+fn source_pairs() -> Vec<(&'static str, Make)> {
+    vec![
+        ("a colour", |base| {
+            Ok((
+                base.fill(Color::hex(0xff_00_00)),
+                Values::new(),
+                base.fill(Color::hex(0x00_00_ff)),
+                Values::new(),
+            ))
+        }),
+        ("a word", |base| {
+            Ok((
+                base.blend(Blend::Normal),
+                Values::new(),
+                base.blend(Blend::Multiply),
+                Values::new(),
+            ))
+        }),
+        ("a join", |base| {
+            let stroke = |join| Stroke::new(Color::hex(0)).join(join);
+            Ok((
+                base.stroke(stroke(Join::Round)),
+                Values::new(),
+                base.stroke(stroke(Join::Miter)),
+                Values::new(),
+            ))
+        }),
+        ("the name of a selected attribute", |base| {
+            // orders 0, 0.5 and 1: `index` 1 is the middle one, `order` 1 the last
+            let three = Drawing::new([base.clone(), base.translate(20.0, 0.0), base.translate(40.0, 0.0)]);
+            Ok((
+                three.only(Select::new().attribute("index", 1_u32)),
+                Values::new(),
+                three.only(Select::new().attribute("order", 1.0)),
+                Values::new(),
+            ))
+        }),
+        ("a path source, open or closed", |base| {
+            let corners = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)];
+            let on = |closed| -> Result<Drawing, Error> {
+                Ok(Drawing::new([
+                    base.clone(),
+                    Drawing::from(Path::polyline(corners, closed)?),
+                ]))
+            };
+            Ok((on(false)?, Values::new(), on(true)?, Values::new()))
+        }),
+        ("the style of a shape source", |base| {
+            let shape = |color| -> Result<Shape, Error> {
+                Ok(square()?.fill(Color::hex(color)).shapes(&Values::new())?.remove(0))
+            };
+            Ok((
+                Drawing::new([base.clone(), Drawing::from(shape(0xff_00_00)?)]),
+                Values::new(),
+                Drawing::new([base.clone(), Drawing::from(shape(0x00_00_ff)?)]),
+                Values::new(),
+            ))
+        }),
+        ("the attributes of a shape source", |base| {
+            // both shapes are at index 0: one carries order 0.5 (the first of three, dropped), the other none
+            let ordered = Drawing::new([base.clone(), base.clone(), base.clone()])
+                .without(Select::new().attribute("index", 0_u32))
+                .shapes(&Values::new())?
+                .remove(0);
+            let plain = base.shapes(&Values::new())?.remove(0);
+            Ok((
+                Drawing::new([base.clone(), Drawing::from(ordered)]),
+                Values::new(),
+                Drawing::new([base.clone(), Drawing::from(plain)]),
+                Values::new(),
+            ))
+        }),
         ("a Param given a value", |base| {
             let x = slider("x", 0.0)?;
             Ok((
@@ -310,7 +426,7 @@ fn outcome(drawing: &Drawing, values: &Values) -> Result<Vec<Shape>, String> {
 
 #[test]
 fn drawings_that_differ_in_one_input_never_share_a_result() -> Outcome {
-    for (case, make) in pairs() {
+    for (case, make) in pairs().into_iter().chain(source_pairs()) {
         let (left, left_at, right, right_at) = make(&square()?)?;
         // a twin of the right drawing, built on a base of its own: its cache holds nothing of the left
         let (_, _, twin, twin_at) = make(&square()?)?;

@@ -1,14 +1,19 @@
 //! Chains of steps as plain data, so that a test can build the same drawing twice and the two have separate caches.
 
-use bullterrier_vector::{Color, Deg, Drawing, Error, Expr, Param, Path, Unit, Values};
+use bullterrier_vector::{Blend, Color, Deg, Drawing, Error, Expr, Join, Param, Path, Stroke, Unit, Values};
 use proptest::prelude::*;
 
-/// The numbers a step may take: a literal, or the Param the step is about, alone or times a factor.
+/// The numbers a step may take: a literal, or the Param the step is about, alone, times a factor, or in the other
+/// operations (so that `x + c` and `x - c`, `x * c` and `x / c`, `x` and `-x` all come up).
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Amount {
     Literal(f64),
     Read,
     Scaled(f64),
+    Plus(f64),
+    Minus(f64),
+    Over(f64),
+    Negated,
 }
 
 /// A step, or a way of stacking, with what it needs to be built.
@@ -19,6 +24,10 @@ pub(crate) enum Op {
     Scale(Amount),
     Opacity(Amount),
     Fill(u32),
+    /// A black stroke of this width and this join (an index into the three joins).
+    Stroke(Amount, usize),
+    /// Multiply (true) or normal (false).
+    Blend(bool),
     /// Fixes the Param with this index to the entry with this index of its pool.
     Fix(usize, usize),
     /// The drawing stacked with itself.
@@ -45,6 +54,10 @@ fn expr(amount: Amount, param: &Param, factor: f64) -> Expr {
         Amount::Literal(number) => Expr::from(number * factor),
         Amount::Read => Expr::from(param),
         Amount::Scaled(by) => param * (by * factor),
+        Amount::Plus(by) => (param + by) * factor,
+        Amount::Minus(by) => (param - by) * factor,
+        Amount::Over(by) => param / by * factor,
+        Amount::Negated => -Expr::from(param) * factor,
     }
 }
 
@@ -66,6 +79,15 @@ pub(crate) fn extend(mut drawing: Drawing, ops: &[Op]) -> Result<Drawing, Error>
             Op::Scale(factor) => drawing.scale(expr(factor, &k, 1.0)),
             Op::Opacity(alpha_by) => drawing.opacity(expr(alpha_by, &alpha, 0.5)),
             Op::Fill(rgb) => drawing.fill(Color::hex(rgb)),
+            Op::Stroke(width, join) => {
+                let joins = [Join::Round, Join::Miter, Join::Bevel];
+                drawing.stroke(
+                    Stroke::new(Color::hex(0))
+                        .width(expr(width, &k, 1.0))
+                        .join(joins[join % 3]),
+                )
+            }
+            Op::Blend(multiply) => drawing.blend(if multiply { Blend::Multiply } else { Blend::Normal }),
             Op::Fix(param, entry) => {
                 // a Param nothing reads (or already fixed) cannot be fixed: such an op does nothing
                 let name = all[param % 4].name();
@@ -87,7 +109,11 @@ fn amount() -> impl Strategy<Value = Amount> {
     prop_oneof![
         pool.clone().prop_map(Amount::Literal),
         Just(Amount::Read),
-        pool.prop_map(Amount::Scaled),
+        pool.clone().prop_map(Amount::Scaled),
+        pool.clone().prop_map(Amount::Plus),
+        pool.clone().prop_map(Amount::Minus),
+        pool.prop_map(Amount::Over),
+        Just(Amount::Negated),
     ]
 }
 
@@ -98,7 +124,9 @@ pub(crate) fn chain() -> impl Strategy<Value = Vec<Op>> {
         2 => amount().prop_map(Op::Rotate),
         2 => amount().prop_map(Op::Scale),
         2 => amount().prop_map(Op::Opacity),
-        1 => prop::sample::select(vec![0xff_00_00, 0x00_ff_00]).prop_map(Op::Fill),
+        2 => prop::sample::select(vec![0xff_00_00, 0x00_ff_00]).prop_map(Op::Fill),
+        1 => (amount(), 0..3_usize).prop_map(|(width, join)| Op::Stroke(width, join)),
+        1 => any::<bool>().prop_map(Op::Blend),
         1 => (0..4_usize, 0..3_usize).prop_map(|(param, entry)| Op::Fix(param, entry)),
         1 => Just(Op::Double),
         1 => Just(Op::Beside),
