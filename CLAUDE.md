@@ -26,9 +26,10 @@ the `wasm32-unknown-unknown` target. `uv run poe` lists every task.
 **State:** the scaffold (workspace, gates, hooks, CI workflows) and the geometry value `Path` (with `Point` and `Rect`) from the
 Rust core to Python (V2a: build, measure, cut, move, hit-test, SVG path data); the core also builds for WebAssembly. Drawings
 (V2b): `Drawing`, `Shape`, `Style`, `Param`, `Expr` and the verbs listed by `verbs()`, evaluated with a result cache, in Rust
-and Python; `examples/star.py` and `examples/series_bars.py` run as far as `shapes()`. JSON (V2c): `Drawing.to_json`,
+and Python; `examples/series_bars.py` runs as far as `shapes()`. JSON (V2c): `Drawing.to_json`,
 `Drawing.from_json` and `drawing_schema()` (the schema generated from the registrations) in Rust and Python, for the calls
-registered so far. The rest is planned (`docs/roadmap.md`): the pictures are V3.
+registered so far. Output (V3a): `Size` and `Drawing.to_svg(size, values)` in Rust, `Drawing.to_svg(width, height, /, **values)` in
+Python, and `examples/star.py` writes its SVG. The rest is planned (`docs/roadmap.md`): pixels, PNG, a mesh and WebAssembly are the rest of V3.
 Maintainers may keep machine-specific notes in a git-ignored `.local/` folder and batch plans in the git-ignored
 `.superpowers/plans/`: read them when present; never commit or cite them.
 
@@ -70,7 +71,7 @@ Two crates in one Cargo workspace; the package version is the workspace's.
 
 | Path | What |
 |---|---|
-| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation, the result cache); `limits.rs` (`MAX_SHAPES`, `MAX_DEPTH`, `MAX_PARAMS`, the counter); `json.rs` and `json/` (`to_json`, `from_json`: a strict parser, the reader, the loader's checks, the writer; `drawing_schema()` generated in `schema.rs` from `verbs()` and the fixed `schema_fixed.json`; no list of calls); `tests/` |
+| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation, the result cache); `limits.rs` (`MAX_SHAPES`, `MAX_DEPTH`, `MAX_PARAMS`, the counter); `output.rs` and `output/` (`Size`, the `View` that places the design frame in an output, the SVG writer); `json.rs` and `json/` (`to_json`, `from_json`: a strict parser, the reader, the loader's checks, the writer; `drawing_schema()` generated in `schema.rs` from `verbs()` and the fixed `schema_fixed.json`; no list of calls); `tests/` |
 | `crates/python` | PyO3 bindings building the extension `bullterrier_vector._native._core`; generic, passes values to the core unchecked; no Rust tests. `src/lib.rs` (`Path`, `Point`, `Rect`, the error mapping), `expr.rs` (`Expr`, `Param`), `drawing.rs` (`Drawing`), `shape.rs` (`Shape`, `Style`) |
 | `src/bullterrier_vector/` | the Python package: `errors.py` (the bottom layer, imports nothing from the package), `_native/` (the extension and its stub `_core.pyi`), `__init__.py` (the public API) |
 | `tests/` | the Python suite (`test_*.py`); `tests/tools/` tests the tooling and the gates |
@@ -84,7 +85,7 @@ fails the gate). Python reaches the core only through the bindings crate (`deny.
 
 The design's planned modules (geometry, type, scene, parameters, nodes, output, json), each hiding one decision, are in the table in
 `docs/design.md`, "Shape of the library"; `math`, `error`, geometry (`geometry`, `path`) and the core of scene, parameters and
-nodes (`drawing`, `shape`, `node`, `param`, `expr`, `registry`) and `json` exist so far. A crate that does one of these jobs is never exposed in the API.
+nodes (`drawing`, `shape`, `node`, `param`, `expr`, `registry`), `json` and `output` (SVG so far) exist so far. A crate that does one of these jobs is never exposed in the API.
 
 ## The rules
 

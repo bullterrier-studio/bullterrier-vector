@@ -388,8 +388,17 @@ to 0..1 and holds its end values outside 0..1. They take numbers only: a drawing
 
 ## Outputs
 
-`width` and `height` are output pixels; the design frame scales to fit them, centred. `**values` give Params their
-values by name; a Param not given takes its default.
+`width` and `height` are output pixels: whole numbers from 1 to 100,000. The design frame scales by the largest factor
+that fits (`min(width / frame width, height / frame height)`) and is centred; a drawing without a frame is drawn at one
+output pixel to the design pixel from the top left. Content outside the frame is not clipped. `**values` give Params
+their values by name; a Param not given takes its default.
+
+`to_svg` writes coordinates and stroke widths in output pixels, not as a transform, so a drawing at twice the size has
+numbers exactly twice as large; every number is the shortest text that reads back as the same value. A shape is one
+`<path>` in paint order; its `opacity` applies to fill and stroke together (a group opacity: the pixels composite the
+same way); a colour's alpha is `fill-opacity` or `stroke-opacity`; multiply is `mix-blend-mode:multiply`; a shape with
+an empty path writes nothing. The root has `isolation:isolate`, so multiply blends within the picture and not with the
+page around it.
 
 | Method | Signature | Promise |
 |---|---|---|
@@ -404,7 +413,7 @@ values by name; a Param not given takes its default.
 
 The same drawing and values give the same bytes on every target. `to_json` raises `ParameterError` for a drawing beyond a
 limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises
-`FormatError`. Errors (`ParameterError`): a size below 1, a value for
+`FormatError`. Errors (`ParameterError`): a width or height that is not a whole number from 1 to 100,000, a value for
 no Param (the message lists the Params), a value outside its Param's range, a list of the wrong length; and whatever a
 step raises. How fonts and maps are referred to in JSON: [formats.md](formats.md), "Inputs".
 

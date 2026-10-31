@@ -177,6 +177,20 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   shape, not thousands of dot shapes through general booleans. *Reason:* built from shapes it cost about 500 ms a frame
   in the prototypes, too slow for a live preview; a regular screen can be generated and clipped directly.
   *Consequence:* halftone is a fill of its own, timed by the benchmark.
+- **SVG coordinates are baked, with a viewBox and isolation** (2026-10-31). `to_svg` moves each path into output pixels
+  and multiplies stroke widths by the scale; the root has `viewBox="0 0 w h"` and `style="isolation:isolate"`, and there
+  is no `transform`. *Reason:* the check that a drawing at 2x has exactly twice the numbers of 1x needs the numbers in
+  the file; the isolation makes `mix-blend-mode:multiply` blend with the picture, as the pixels do, and not with the
+  page around it. *Consequence:* a viewer cannot change the scale without re-drawing.
+- **SVG numbers are the shortest round-trip text** (2026-10-31). Every number in the SVG goes through the formatter
+  of path data, never rounded to a number of decimals. *Reason:* one formatter for every number (CLAUDE.md rule 4);
+  doubling a power-of-two scale changes no rounding, so 2x is exactly twice. *Consequence:* a document is longer than
+  one rounded to 3 decimals; the plotter output (V15) may round, as a pen has a resolution.
+- **One view for every output** (2026-10-31). The design frame is scaled by `min(width / frame width, height / frame
+  height)` and centred; a drawing with no frame is at scale 1 from the top left; content outside the frame is not
+  clipped. *Reason:* SVG, pixels and the mesh must place a drawing the same way, so the rule lives in one module and
+  none of them decides it. A viewer's `preserveAspectRatio` does the same for an SVG with a viewBox, and an
+  unclipped frame is what an SVG viewport does.
 
 ## Names and formats
 

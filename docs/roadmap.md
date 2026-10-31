@@ -265,6 +265,9 @@ Carried from the S0 review:
   drawn at 1x and at 2x gives the same geometry (SVG and mesh coordinates at 2x are exactly twice those at 1x).
 - Benchmark: time to draw a reference drawing at 1080p, tracked from here on.
 
+State: V3a done in Rust and Python (`Size`, the view, `Drawing.to_svg`, the star example writes SVG); pixels, PNG, `look`, the
+mesh, the WebAssembly package, the differential tests and the benchmark are to do.
+
 ## X1 Spike: GPU display
 
 A measured experiment, not a promise. Draw V3's mesh with WebGL in a page and measure, on drawings from the reference
