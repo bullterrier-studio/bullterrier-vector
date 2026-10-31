@@ -232,12 +232,19 @@ fn limits_counts_expressions_as_calls() -> Outcome {
 #[test]
 fn limits_refuses_text_nested_past_max_depth_without_recursing_past_it() -> Outcome {
     let nested = |levels: usize| format!(r#"{{"version":1,"x":{}{}}}"#, "[".repeat(levels), "]".repeat(levels));
-    // the document object is level 1, so 126 arrays make 127; the check does not look inside `x`, only at the depth
+    // the document object is level 1; the parser stops at the first array past MAX_DEPTH and names where it stands
     let (pointer, message) = refused(&nested(200))?;
     assert!(message.contains("MAX_DEPTH 128"), "{message}");
     assert!(pointer.starts_with("/x/0/0/0"), "{pointer}");
     let (pointer, _) = refused(&nested(1_000_000))?;
     assert!(pointer.starts_with("/x/0/0/0"), "{pointer}");
+    // 127 arrays inside the document object make 128 levels: read, and then `x` is no key of a document
+    let (pointer, message) = refused(&nested(127))?;
+    assert_eq!(pointer, "/x");
+    assert!(message.contains("not a key of a document"), "{message}");
+    // one more is past it
+    let (_, message) = refused(&nested(128))?;
+    assert!(message.contains("MAX_DEPTH 128"), "{message}");
     Ok(())
 }
 
@@ -288,11 +295,17 @@ fn tower(levels: usize) -> String {
 
 #[test]
 fn depth_counts_the_nesting_through_references() -> Outcome {
-    // each stack adds a call, its arguments, its items and one item: four levels
-    assert!(Drawing::from_json(&tower(20)).is_ok());
-    let (pointer, message) = refused(&tower(40))?;
+    // By hand, counting a `{"drawing": name}` call as the array it names: the array of `e0` is 2 deep (it and its
+    // path call); each stack over it adds the array, the stack call, its arguments, its items and the item: 5 levels.
+    // So `e` of level i is 2 + 5i deep, the root array over `e(L-1)` is 5 more, and the document object one more
+    // than the deeper of that and the `drawings` object: 3 + 5L, at most 128 for 25 levels.
+    assert!(Drawing::from_json(&tower(25)).is_ok());
+    let (pointer, message) = refused(&tower(26))?;
     assert_eq!(pointer, "");
-    assert!(message.contains("MAX_DEPTH 128"), "{message}");
+    assert!(
+        message.contains("MAX_DEPTH 128") && message.contains("133"),
+        "{message}"
+    );
     Ok(())
 }
 

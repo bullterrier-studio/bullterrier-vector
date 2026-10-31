@@ -294,12 +294,12 @@ fn a_param_fixed_by_with_values_is_still_listed() -> Outcome {
 
 #[test]
 fn the_meaning_of_a_param_is_escaped_as_json_requires() -> Outcome {
-    let x = slider("x")?.meaning("a \"quote\", a \\, a\ttab and \u{1} é");
+    let x = slider("x")?.meaning("a \"quote\", a \\, a\ttab and \u{1} é, \u{7f} \u{2028} \u{1f600}, \u{8}\u{c}\r\n");
     let text = square()?.translate(&x, 0.0).to_json()?;
-    assert!(
-        text.contains(r#""meaning":"a \"quote\", a \\, a\ttab and \u0001 é""#),
-        "{text}"
-    );
+    // only the quote, the backslash and the controls below a space are escaped; the rest is written as it is
+    let wanted =
+        "\"meaning\":\"a \\\"quote\\\", a \\\\, a\\ttab and \\u0001 é, \u{7f} \u{2028} \u{1f600}, \\b\\f\\r\\n\"";
+    assert!(text.contains(wanted), "{text}");
     Ok(())
 }
 
