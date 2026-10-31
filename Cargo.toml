@@ -28,6 +28,9 @@ kurbo = "=0.13.1"
 # the PNG encoder (docs/design-decisions.md, "PNG"): pinned exactly, because its bytes may change between releases; it
 # has no default features; used only in crates/core/src/output/png.rs
 png = "=0.18.1"
+# the mesh's fill tessellator (docs/design-decisions.md, "Mesh"): pinned exactly, because the triangles it makes are the
+# mesh and a new release may make others; used only in crates/core/src/output/mesh.rs (`std` off: libm, no IO)
+lyon_tessellation = { version = "=1.0.23", default-features = false }
 
 # Warnings, not errors, so a newer compiler's new lint never breaks a user's install; the gate (`poe check`) runs clippy
 # and rustdoc with `-D warnings`, so every one fails it.

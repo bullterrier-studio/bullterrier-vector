@@ -28,7 +28,7 @@ pub use expr::Expr;
 pub use geometry::{Point, Rect, Scale};
 pub use json::drawing_schema;
 pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
-pub use output::Size;
+pub use output::{Mesh, Size};
 pub use param::{Param, Unit};
 pub use path::Path;
 pub use registry::verbs;

@@ -1,6 +1,7 @@
 //! Drawing a drawing: the output size every output takes, and the outputs (SVG, pixels and PNG so far). All of them place
 //! the design frame in the output the same way (`view`), so that a picture is the same picture in each.
 
+mod mesh;
 mod outline;
 mod png;
 mod raster;
@@ -9,6 +10,7 @@ mod view;
 
 use crate::node::stack::MAX_FRAME;
 use crate::{Error, Shape};
+pub use mesh::Mesh;
 
 /// The longest side of a pixel output, in whole pixels.
 // constant: the rasteriser's canvas is addressed by 16 bits and it panics when a row is padded past 65,535, which a
