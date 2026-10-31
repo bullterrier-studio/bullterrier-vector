@@ -4,6 +4,6 @@ For now the package holds only the walking skeleton: `polygon_svg` draws a regul
 """
 
 from bullterrier_vector._native._core import polygon_svg
-from bullterrier_vector.errors import BullterrierVectorError, ParameterError
+from bullterrier_vector.errors import BullterrierVectorError, GeometryError, ParameterError
 
-__all__ = ["BullterrierVectorError", "ParameterError", "polygon_svg"]
+__all__ = ["BullterrierVectorError", "GeometryError", "ParameterError", "polygon_svg"]

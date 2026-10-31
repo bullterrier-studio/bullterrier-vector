@@ -9,9 +9,16 @@ use std::fmt;
 pub enum Error {
     /// A parameter is outside what the core accepts.
     Parameter {
-        /// The parameter's name, as the caller knows it.
-        parameter: &'static str,
+        /// The parameter's name, as the caller knows it; a drawing prefixes the place (`step 3 (rotate).angle`).
+        parameter: String,
         /// What is wrong: the accepted range and the value given.
+        message: String,
+    },
+    /// The geometry cannot do what was asked, such as the bounds of an empty path.
+    Geometry {
+        /// The verb that failed (`bounds`, `point_at`), as the caller knows it.
+        verb: String,
+        /// What is wrong with the geometry.
         message: String,
     },
 }
@@ -19,7 +26,13 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Parameter { parameter, message } => write!(formatter, "{parameter}: {message}"),
+            Self::Parameter {
+                parameter: name,
+                message,
+            }
+            | Self::Geometry { verb: name, message } => {
+                write!(formatter, "{name}: {message}")
+            }
         }
     }
 }

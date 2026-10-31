@@ -23,12 +23,12 @@ pub fn polygon_svg(sides: i64, radius: f64) -> Result<String, Error> {
         .ok()
         .filter(|count| (MIN_SIDES..=MAX_SIDES).contains(count))
         .ok_or_else(|| Error::Parameter {
-            parameter: "sides",
+            parameter: "sides".to_owned(),
             message: format!("must be a whole number from {MIN_SIDES} to {MAX_SIDES}, got {sides}"),
         })?;
     if !(radius.is_finite() && radius > 0.0 && radius <= MAX_RADIUS) {
         return Err(Error::Parameter {
-            parameter: "radius",
+            parameter: "radius".to_owned(),
             message: format!("must be more than 0 and at most {MAX_RADIUS}, got {radius}"),
         });
     }

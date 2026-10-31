@@ -5,6 +5,7 @@ use pyo3::prelude::*;
 
 pyo3::import_exception!(bullterrier_vector.errors, BullterrierVectorError);
 pyo3::import_exception!(bullterrier_vector.errors, ParameterError);
+pyo3::import_exception!(bullterrier_vector.errors, GeometryError);
 
 /// The Rust core of bullterrier-vector, for Python.
 #[pymodule]
@@ -22,6 +23,7 @@ mod _core {
 fn polygon_svg(sides: i64, radius: f64) -> PyResult<String> {
     bullterrier_vector::polygon_svg(sides, radius).map_err(|error| match error {
         bullterrier_vector::Error::Parameter { .. } => ParameterError::new_err(error.to_string()),
+        bullterrier_vector::Error::Geometry { .. } => GeometryError::new_err(error.to_string()),
         // `Error` is non-exhaustive: a variant this binding does not map yet is still a package error, never a panic
         _ => BullterrierVectorError::new_err(error.to_string()),
     })
