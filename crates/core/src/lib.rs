@@ -8,8 +8,12 @@
 mod error;
 mod geometry;
 mod math;
+mod node;
 mod path;
+mod registry;
 
 pub use error::Error;
 pub use geometry::{Point, Rect, Scale};
+pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
 pub use path::Path;
+pub use registry::verbs;

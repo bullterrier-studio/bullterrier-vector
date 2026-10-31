@@ -1,0 +1,132 @@
+//! The node contract: what a source or a step of a drawing is, and what it declares about itself.
+//!
+//! A node is a unit struct that implements a crate-private trait; its declaration is static data, so the registry
+//! ([`verbs`](crate::verbs)) can list every verb, its arguments and their ranges without running anything.
+//!
+//! ```text
+//! trait Node: Sync {
+//!     fn verb(&self) -> &'static Verb;      // name, role, arguments: the declaration
+//!     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &mut Context<'_>) -> Result<Vec<Shape>, Error>;
+//! }
+//! ```
+//!
+//! - **Inputs.** `Inputs { previous, taken }`: the shapes of the drawing this step builds on (none for a source), then
+//!   of each drawing it takes (a stack's items). A node never sees a `Drawing`.
+//! - **Context.** `Context { place, env, work }`: where the step is (for errors), the Param values as this place sees
+//!   them (draw values under every `with_values` above it), and the counters. No clock, no caller state.
+//! - **Whole list or shape by shape.** `evaluate` takes the whole list. A shape-by-shape node calls the helper
+//!   `each_shape(previous, cx, |shape, item| ..)`, which loops, builds the `Item { index, count }` and prefixes
+//!   `shape i` to errors, so the loop is written once and no node can leave a default method unimplemented.
+//! - **Arguments.** `Args` holds the call's values in declaration order, defaults applied at construction. A node reads
+//!   an argument only through an accessor (`args.number("dx", item)?`, `args.point("about", item)?`, ..): the accessor
+//!   evaluates the expression for that shape, applies the argument's declared [`Domain`] and names the argument in
+//!   the error, so each range is declared once and checked in one place.
+//! - **Errors and place.** A step is named by its place: `step 3 (rotate)`; inside a stack
+//!   `step 2 (stack) / item 1 / step 3 (rotate)`. An error from an argument or from a `Path` method is placed
+//!   (`step 3 (rotate).angle`, `shape 7: ` before the message); an error that is already placed is joined with ` / `.
+//!
+//! What an argument is, decides who checks it ([`Kind`], [`Reads`]):
+//!
+//! | Argument | Meaning |
+//! |---|---|
+//! | expression ([`Reads::PerItem`]) | an `Expr`; a Param may carry one value per shape: `dx`, `angle`, `about`, `alpha`... |
+//! | literal ([`Reads::Literal`]) | constants only, no expression: a colour, `join`, `cap`, a blend mode, a stack's `size` |
+//!
+//! Three kinds of argument are declared by the first node that needs them, not before, so that no variant exists
+//! without a consumer and a test: a whole number (an expression whose value must be whole within ±(2^53 - 1)),
+//! first used by `repeat`; the per-item numbers (`by_index`, `by_order`, `random`, `stagger`); and an argument read
+//! once (it refuses a per-item number or a list), first used by `text`.
+
+/// Whether a declaration is a source of shapes or a step that builds on the shapes before it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Role {
+    /// Makes shapes from nothing but its arguments (a path, a shape, a stack of drawings).
+    Source,
+    /// Takes the shapes of the drawing before it and returns the shapes after it.
+    Step,
+}
+
+/// The declaration of one verb: what a drawing can be built from, listed by [`verbs`](crate::verbs).
+#[derive(Debug)]
+pub struct Verb {
+    /// The verb's name, as a caller writes it (`rotate`).
+    pub name: &'static str,
+    /// Whether it is a source or a step.
+    pub role: Role,
+    /// One line that states what the verb promises, in the field's terms.
+    pub summary: &'static str,
+    /// The arguments, in declaration order.
+    pub args: &'static [Arg],
+}
+
+/// The declaration of one argument of a verb.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Arg {
+    /// The argument's name, as a caller writes it (`angle`); unique within its verb.
+    pub name: &'static str,
+    /// The shape of the value.
+    pub kind: Kind,
+    /// The value taken when the call gives none; `None` when the argument is required. It satisfies [`Arg::domain`].
+    pub default: Option<Literal>,
+    /// Whether the value is an expression evaluated per shape or a constant.
+    pub reads: Reads,
+    /// The values the argument accepts, applied wherever the argument is read.
+    pub domain: Domain,
+}
+
+/// The shape of an argument's value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    /// One number.
+    Number,
+    /// A point, `(x, y)`.
+    Point,
+    /// A pair of numbers.
+    Pair,
+    /// A colour: `"#rrggbb"`, `"#rrggbbaa"` or `"none"`.
+    Color,
+    /// One of a fixed set of words ([`Domain::Choice`]).
+    Text,
+}
+
+/// How an argument's value is read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reads {
+    /// An expression, which a Param can feed with one value per shape.
+    PerItem,
+    /// A constant, given when the call is made.
+    Literal,
+}
+
+/// A constant that an argument defaults to.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Literal {
+    /// A number.
+    Number(f64),
+    /// A word.
+    Text(&'static str),
+}
+
+/// The values an argument accepts. A number must be finite in every domain but [`Domain::Any`]; the other limits are
+/// stated by the variants. Each limit is checked in one place, where the argument is read.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Domain {
+    /// Anything of the argument's kind.
+    Any,
+    /// A finite number.
+    Finite,
+    /// A number within ±1e100, the largest coordinate a path holds.
+    Coordinate,
+    /// A finite number other than 0.
+    NonZero,
+    /// A finite number above 0.
+    Positive,
+    /// A finite number at or above the limit.
+    AtLeast(f64),
+    /// A number from 0 to 1.
+    Fraction,
+    /// A finite number at or below the limit.
+    UpTo(f64),
+    /// One of these words.
+    Choice(&'static [&'static str]),
+}
