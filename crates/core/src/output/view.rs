@@ -23,11 +23,22 @@ impl View {
                 y: 0.0,
             };
         };
-        let scale = (output.0 / design_width).min(output.1 / design_height);
+        let (across, down) = (output.0 / design_width, output.1 / design_height);
+        let scale = across.min(down);
+        // an axis with no more room than the limiting one fills the output exactly, so it has no offset; working
+        // it out would leave a rounding residue (1e-15) in every coordinate
         Self {
             scale,
-            x: (output.0 - design_width * scale) / 2.0,
-            y: (output.1 - design_height * scale) / 2.0,
+            x: if across > down {
+                (output.0 - design_width * scale) / 2.0
+            } else {
+                0.0
+            },
+            y: if down > across {
+                (output.1 - design_height * scale) / 2.0
+            } else {
+                0.0
+            },
         }
     }
 

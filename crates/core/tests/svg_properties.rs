@@ -77,7 +77,8 @@ fn read(svg: &str) -> Result<Document, Failure> {
 }
 
 proptest! {
-    // The data of each element is the path of the shape, scaled by the fit of the frame in the output and centred.
+    // The data of each element is the path of the shape, scaled by the fit of the frame in the output and centred, to
+    // within rounding.
     #[test]
     fn each_element_reads_back_as_its_shape_moved_by_the_view(
         scene in scenes(),
@@ -102,7 +103,22 @@ proptest! {
                 .path()
                 .map_points(|point| Ok(bullterrier_vector::Point::new(point.x * scale + left, point.y * scale + top)))
                 .map_err(fail)?;
-            prop_assert_eq!(&Path::from_svg_path(data).map_err(fail)?, &moved);
+            // the same commands and, number by number, the same values to 1e-9 of their size: the writer centres the
+            // frame without the rounding residue this formula leaves on the axis that fits exactly
+            let (written, expected) = (commands(data).map_err(fail)?, commands(&moved.to_svg_path()).map_err(fail)?);
+            prop_assert_eq!(written.len(), expected.len());
+            for ((letter, numbers), (letter_expected, numbers_expected)) in written.iter().zip(&expected) {
+                prop_assert_eq!(letter, letter_expected);
+                prop_assert_eq!(numbers.len(), numbers_expected.len());
+                for (number, number_expected) in numbers.iter().zip(numbers_expected) {
+                    prop_assert!(
+                        (number - number_expected).abs() <= 1e-9 * (1.0 + number_expected.abs()),
+                        "{} is not {}",
+                        number,
+                        number_expected
+                    );
+                }
+            }
             let drawn = shape.style().stroke().map(bullterrier_vector::StrokeStyle::width);
             prop_assert_eq!(Some(*stroke_width), drawn.map(|design| design * scale));
         }

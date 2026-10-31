@@ -4,7 +4,7 @@
 mod common;
 
 use bullterrier_vector::{Drawing, Path, Size, Values};
-use common::Outcome;
+use common::{Outcome, commands};
 
 /// A three-point line: the origin, a point inside any frame below, and one above and left of the frame.
 fn line() -> Result<Path, bullterrier_vector::Error> {
@@ -95,5 +95,24 @@ fn the_design_frame_is_scaled_to_fit_the_output_and_centred() -> Outcome {
         };
         assert_eq!(data(&drawing, width, height)?, expected, "{rule}");
     }
+    Ok(())
+}
+
+#[test]
+fn an_axis_that_fits_exactly_has_no_offset_whatever_the_rounding_of_the_scale() -> Outcome {
+    // 100 / 11 is not exact, so 11 * (100 / 11) need not be 100: the fitting axis must still start at 0, not at 1e-15
+    let drawing = Drawing::from(Path::polyline([(0.0, 0.0), (1.0, 1.0)], false)?).with_size(11.0, 11.0);
+    let written = data(&drawing, 100.0, 100.0)?;
+    assert!(
+        written.starts_with("M0 0 L"),
+        "the start was moved by rounding: {written}"
+    );
+    // the other axis of a wider output is still centred: 11 wide in 200 x 100 leaves (200 - 100) / 2 on the left,
+    // to within rounding, and the fitting axis stays exactly 0
+    let wider = data(&drawing, 200.0, 100.0)?;
+    let parsed = commands(&wider)?;
+    let start = &parsed.first().ok_or("no command")?.1;
+    assert!((start[0] - 50.0).abs() < 1e-9, "not centred across: {wider}");
+    assert_eq!(start[1].to_bits(), 0.0f64.to_bits(), "the fitting axis moved: {wider}");
     Ok(())
 }
