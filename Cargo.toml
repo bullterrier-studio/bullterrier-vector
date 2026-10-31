@@ -21,6 +21,10 @@ pyo3 = { version = "0.30", features = ["abi3-py312"] }
 wasm-bindgen = "=0.2.130"  # exactly the version of the `wasm-bindgen` command below: generated glue must match it
 proptest = "1.12"
 roxmltree = "0.21"  # the SVG oracle of the output tests
+# the rasteriser (docs/design-decisions.md, "Rasteriser"): pinned exactly, because pixels are only required to look the
+# same and a new release may move an edge by a level; used only in crates/core/src/output/raster.rs
+vello_cpu = { version = "=0.3.0", default-features = false, features = ["std", "u8_pipeline"] }
+kurbo = "=0.13.1"
 
 # Warnings, not errors, so a newer compiler's new lint never breaks a user's install; the gate (`poe check`) runs clippy
 # and rustdoc with `-D warnings`, so every one fails it.

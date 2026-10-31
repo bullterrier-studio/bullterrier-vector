@@ -3,6 +3,7 @@
 #![allow(dead_code, reason = "each test file uses a different part")]
 
 pub(crate) mod ops;
+pub(crate) mod pixels;
 
 use bullterrier_vector::{Error, Path};
 use proptest::prelude::*;

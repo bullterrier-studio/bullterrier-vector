@@ -7,6 +7,7 @@ use crate::key::{Key, Keyed};
 mod arc;
 mod bounds;
 mod curve;
+mod elements;
 mod measure;
 mod read;
 mod region;
@@ -16,6 +17,7 @@ mod transform;
 mod walk;
 mod write;
 
+pub(crate) use elements::Element;
 pub(crate) use write::number;
 
 /// One piece of a sub-path, ending at the point it names last. The pieces are absolute: each starts where the one

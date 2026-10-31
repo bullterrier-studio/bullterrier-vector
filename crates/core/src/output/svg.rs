@@ -1,7 +1,7 @@
 //! `Drawing::to_svg`: the drawing as an SVG document, one `<path>` per shape in paint order.
 
-use super::Size;
 use super::view::View;
+use super::{Size, in_shape};
 use crate::path::number;
 use crate::{Blend, Color, Drawing, Error, Shape, Values};
 use std::fmt::Write as _;
@@ -44,14 +44,7 @@ impl Drawing {
 
 /// Appends the `<path>` of `shape` seen through `view`, or nothing if its path is empty.
 fn element(svg: &mut String, shape: &Shape, view: &View) -> Result<(), Error> {
-    let in_shape = |what: &'static str| {
-        move |error| match error {
-            Error::Parameter { message, .. } => {
-                Error::parameter(&format!("shape {}", shape.index()), format!("{what}{message}"))
-            }
-            other => other,
-        }
-    };
+    let in_shape = |what: &'static str| move |error| in_shape(shape, what, error);
     let data = view.path(shape.path()).map_err(in_shape(""))?.to_svg_path();
     if data.is_empty() {
         return Ok(());

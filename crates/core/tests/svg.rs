@@ -4,6 +4,7 @@
 mod common;
 
 use bullterrier_vector::{Drawing, Size, Values};
+use common::pixels::SIZE_REFUSALS;
 use common::{Outcome, parameter_refusal};
 
 /// The SVG of `drawing` at `width` by `height` pixels with no Param values.
@@ -32,19 +33,11 @@ fn an_empty_drawing_is_a_valid_svg_of_the_stated_size() -> Outcome {
 
 #[test]
 fn a_size_outside_whole_pixels_from_1_to_100000_is_refused_naming_the_side() -> Outcome {
-    // (case, width, height, the side named, the value shown)
-    let rows = [
-        ("zero width", 0.0, 10.0, "width", "0"),
-        ("zero height", 10.0, 0.0, "height", "0"),
-        ("half a pixel wide", 0.5, 10.0, "width", "0.5"),
-        ("a fraction high", 10.0, 1080.5, "height", "1080.5"),
-        ("not a number wide", f64::NAN, 10.0, "width", "NaN"),
-        ("not a number high", 10.0, f64::NAN, "height", "NaN"),
-        ("infinite", f64::INFINITY, 10.0, "width", "inf"),
-        ("negative", 10.0, -4.0, "height", "-4"),
+    let past_the_limit = [
         ("one past the limit wide", 100_001.0, 10.0, "width", "100001"),
         ("one past the limit high", 10.0, 100_001.0, "height", "100001"),
     ];
+    let rows = SIZE_REFUSALS.into_iter().chain(past_the_limit);
     for (case, width, height, side, shown) in rows {
         let (parameter, message) = parameter_refusal(svg(&empty(), width, height))?;
         assert_eq!(parameter, side, "{case}");
