@@ -4,7 +4,18 @@ For now the package holds the geometry value `Path` (with `Point` and `Rect`), d
 `Param`, `Expr`), their JSON (`Drawing.to_json`, `Drawing.from_json`, `drawing_schema`) and the exceptions.
 """
 
-from bullterrier_vector._native._core import Drawing, Expr, Param, Path, Point, Rect, Shape, Style, drawing_schema
+from bullterrier_vector._native._core import (
+    Drawing,
+    Expr,
+    Mesh,
+    Param,
+    Path,
+    Point,
+    Rect,
+    Shape,
+    Style,
+    drawing_schema,
+)
 from bullterrier_vector.errors import BullterrierVectorError, FormatError, GeometryError, ParameterError
 
 __all__ = [
@@ -13,6 +24,7 @@ __all__ = [
     "Expr",
     "FormatError",
     "GeometryError",
+    "Mesh",
     "Param",
     "ParameterError",
     "Path",

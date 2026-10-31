@@ -1,6 +1,7 @@
 //! `Drawing`: a tree of steps that draws shapes.
 
 use crate::expr::{Num, PyExpr, PyParam};
+use crate::mesh::PyMesh;
 use crate::shape::PyShape;
 use crate::{PyPath, PyPoint, exception, raised};
 use bullterrier_vector as vector;
@@ -339,6 +340,28 @@ impl PyDrawing {
     ) -> PyResult<Bound<'py, PyBytes>> {
         let bytes = raised(self.0.to_png(vector::Size::px(width, height), &values(given)?))?;
         Ok(PyBytes::new(py, &bytes))
+    }
+
+    /// The triangles of the drawing at `width` by `height` pixels, with each Param at the value given by name: a new
+    /// `Mesh`, or `into` refilled and returned.
+    #[pyo3(signature = (width, height, /, *, into=None, **given))]
+    fn to_mesh(
+        &self,
+        py: Python<'_>,
+        width: f64,
+        height: f64,
+        into: Option<Py<PyMesh>>,
+        given: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyMesh>> {
+        let size = vector::Size::px(width, height);
+        let given = values(given)?;
+        if let Some(mesh) = into {
+            raised(self.0.to_mesh(size, &given, &mut mesh.bind(py).try_borrow_mut()?.0))?;
+            return Ok(mesh);
+        }
+        let mut mesh = vector::Mesh::new();
+        raised(self.0.to_mesh(size, &given, &mut mesh))?;
+        Py::new(py, PyMesh(mesh))
     }
 
     /// The design frame `(width, height)` in design pixels, or `None`.

@@ -4,6 +4,7 @@
 
 mod drawing;
 mod expr;
+mod mesh;
 mod shape;
 
 use bullterrier_vector as vector;
@@ -26,6 +27,8 @@ mod _core {
     use super::drawing::PyDrawing;
     #[pymodule_export]
     use super::expr::{PyExpr, PyParam};
+    #[pymodule_export]
+    use super::mesh::PyMesh;
     #[pymodule_export]
     use super::shape::{PyShape, PyStyle};
     #[pymodule_export]
