@@ -35,7 +35,11 @@ def load(path: Path) -> btvec.Drawing:
     if not path.is_file():
         raise LookError(f"{path}: no such file")
     if path.suffix == ".json":
-        return btvec.Drawing.from_json(path.read_text(encoding="utf-8"))
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            raise LookError(f"{path}: cannot be read as UTF-8 text ({error})") from error
+        return btvec.Drawing.from_json(text)
     if path.suffix == ".py":
         found = runpy.run_path(str(path), run_name="__main__").get("drawing")
         if not isinstance(found, btvec.Drawing):

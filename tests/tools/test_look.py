@@ -169,3 +169,13 @@ def test_a_request_that_cannot_be_drawn_exits_1_with_one_line_and_writes_nothing
     assert len(result.err.splitlines()) == 1
     assert message in result.err
     assert not (layout / "dist").exists()
+
+
+def test_a_file_that_cannot_be_read_exits_1_with_one_line_naming_it(layout, look):
+    (layout / "latin.json").write_bytes(b'{"version": 1, "note": "caf\xe9"}')
+    result = look("latin.json")
+    assert (result.code, result.out) == (1, "")
+    assert result.err.startswith("look: ")
+    assert len(result.err.splitlines()) == 1
+    assert "latin.json" in result.err
+    assert not (layout / "dist").exists()
