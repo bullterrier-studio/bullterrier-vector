@@ -307,6 +307,12 @@ impl PyDrawing {
         Ok(shapes.into_iter().map(PyShape).collect())
     }
 
+    /// The drawing as an SVG document of `width` by `height` pixels, with each Param at the value given by name.
+    #[pyo3(signature = (width, height, /, **given))]
+    fn to_svg(&self, width: f64, height: f64, given: Option<&Bound<'_, PyDict>>) -> PyResult<String> {
+        raised(self.0.to_svg(vector::Size::px(width, height), &values(given)?))
+    }
+
     /// The design frame `(width, height)` in design pixels, or `None`.
     #[getter]
     fn size(&self) -> Option<(f64, f64)> {
