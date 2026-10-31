@@ -25,7 +25,7 @@ pub(crate) enum View<'a> {
     Param(&'a Param),
     /// `-operand`.
     Neg(&'a Expr),
-    /// `left op right`.
+    /// `left op right`, the operands in the order the canonical form writes them.
     Binary(Op, &'a Expr, &'a Expr),
 }
 
@@ -181,7 +181,22 @@ impl Expr {
             Node::Const(number) => View::Const(*number),
             Node::Param(param) => View::Param(param),
             Node::Neg(inner) => View::Neg(inner),
-            Node::Binary(op, left, right) => View::Binary(*op, left, right),
+            Node::Binary(op, left, right) => {
+                let (first, second) = Self::in_canonical_order(*op, left, right);
+                View::Binary(*op, first, second)
+            }
+        }
+    }
+
+    /// The operands of `left op right` in the order the canonical form (formats.md) writes them: for `+` and `*`, a part
+    /// that reads no Param first. Swapping them changes no result, and nothing else is reordered, since floating-point
+    /// addition is commutative but not associative.
+    fn in_canonical_order<'a>(op: Op, left: &'a Self, right: &'a Self) -> (&'a Self, &'a Self) {
+        let literal = |part: &Self| part.constant().is_some();
+        if matches!(op, Op::Add | Op::Mul) && literal(right) && !literal(left) {
+            (right, left)
+        } else {
+            (left, right)
         }
     }
 
@@ -286,8 +301,15 @@ impl Expr {
 }
 
 impl Keyed for Expr {
-    /// The tree in prefix order. The depth must have been checked, which bounds the recursion.
+    /// The expression as the canonical form of formats.md writes it, so that two expressions written the same are
+    /// one: a part that reads no Param is its value, and a number comes first in `+` and `*`. The depth must have been
+    /// checked, which bounds the recursion.
     fn write_key(&self, key: &mut Key) {
+        if let Some(number) = self.constant() {
+            key.word(0);
+            key.number(number);
+            return;
+        }
         match &self.0.node {
             Node::Const(number) => {
                 key.word(0);
@@ -309,8 +331,9 @@ impl Keyed for Expr {
                     Op::Mul => 2,
                     Op::Div => 3,
                 });
-                key.of(left);
-                key.of(right);
+                let (first, second) = Self::in_canonical_order(*op, left, right);
+                key.of(first);
+                key.of(second);
             }
         }
     }

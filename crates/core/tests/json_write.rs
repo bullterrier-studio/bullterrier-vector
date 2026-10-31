@@ -235,6 +235,76 @@ fn a_part_with_no_param_is_folded_to_its_value() -> Outcome {
 }
 
 #[test]
+fn drawings_whose_expressions_are_written_alike_are_one_shared_drawing() -> Outcome {
+    // two steps that canonical form writes as one text are one call, so the square they build on is shared by the
+    // merged step and the text reads back to itself
+    let x = slider("x")?;
+    let described = r#"{"default":0,"max":100,"meaning":"","min":-100,"name":"x","unit":""}"#;
+    let param = r#"{"param":"x"}"#;
+    let pairs = [
+        (
+            "operands of mul in either order",
+            14.0 * &x,
+            &x * 14.0,
+            format!(r#"{{"mul":[14,{param}]}}"#),
+        ),
+        (
+            "operands of add in either order",
+            3.0 + &x,
+            &x + 3.0,
+            format!(r#"{{"add":[3,{param}]}}"#),
+        ),
+        (
+            "a constant part and its value",
+            &x * (Expr::from(2.0) + 3.0),
+            &x * Expr::from(5.0),
+            format!(r#"{{"mul":[5,{param}]}}"#),
+        ),
+        (
+            "both at once, nested",
+            3.0 + 14.0 * &x,
+            &x * 14.0 + 3.0,
+            format!(r#"{{"add":[3,{{"mul":[14,{param}]}}]}}"#),
+        ),
+    ];
+    for (case, first, second, wanted) in pairs {
+        let piece = Drawing::new([square()?.translate(first, 0.0), square()?.translate(second, 0.0)]);
+        let text = piece.to_json()?;
+        assert_eq!(
+            text,
+            format!(
+                concat!(
+                    r#"{{"drawings":{{"d1":[{{"path":"{p}"}},{{"translate":{{"dx":{w},"dy":0}}}}]}},"params":[{d}],"#,
+                    r#""root":[{{"stack":{{"items":[[{{"drawing":"d1"}}],[{{"drawing":"d1"}}]]}}}}],"version":1}}"#
+                ),
+                p = SQUARE,
+                w = wanted,
+                d = described
+            ),
+            "{case}"
+        );
+        assert_eq!(Drawing::from_json(&text)?.to_json()?, text, "{case}");
+    }
+    Ok(())
+}
+
+#[test]
+fn expressions_written_differently_stay_two_calls() -> Outcome {
+    // subtraction and division do not commute: `3 - x` and `x - 3` are two steps on one shared square
+    let x = slider("x")?;
+    let piece = Drawing::new([square()?.translate(3.0 - &x, 0.0), square()?.translate(&x - 3.0, 0.0)]);
+    let text = piece.to_json()?;
+    assert!(
+        text.contains(r#"{"sub":[3,{"param":"x"}]}"#) && text.contains(r#"{"sub":[{"param":"x"},3]}"#),
+        "{text}"
+    );
+    assert_eq!(text.matches(r#""drawing":"d1""#).count(), 2, "{text}");
+    assert!(!text.contains("d2"), "{text}");
+    assert_eq!(Drawing::from_json(&text)?.to_json()?, text);
+    Ok(())
+}
+
+#[test]
 fn a_negation_of_a_param_is_a_neg() -> Outcome {
     let x = slider("x")?;
     let text = square()?.rotate(Deg(-&x)).to_json()?;
