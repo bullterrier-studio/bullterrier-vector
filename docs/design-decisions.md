@@ -312,6 +312,19 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   telling the caller to wrap the path in a `Drawing`. *Reason:* Python points at the line that is wrong; the bindings keep
   no range check of their own.
 
+## JSON (V2c)
+
+- **A small strict parser in the crate, no JSON dependency** (2026-10-31). `json/parse.rs` reads the text into a tree
+  of its own and refuses what I-JSON refuses: a duplicate key, a lone surrogate, a number beyond a 64-bit float,
+  a leading zero, `NaN`, `Infinity`, a trailing comma, bytes after the value. It counts nesting as it reads and stops at
+  `MAX_DEPTH`, so no hostile document recurses past it, and the byte limit is checked before the first byte is read.
+  *Reason:* `serde_json` keeps the last of two equal keys unless a visitor is written for it, parses floats to within
+  one ulp unless a feature is on (the same text must give the same bits on every target), and brings `serde`,
+  `itoa`, `ryu` and `memchr` into a core that must stay small and bit-exact. The parser is about 250 lines, and the
+  rules the format needs (a pointer for every error, limits while reading) are part of it. *Consequence:* the number
+  reader hands the digits to `f64::from_str`, which is correctly rounded on every target, and the writer lays out the
+  shortest digits of `{:e}` by the rules of RFC 8785.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin
