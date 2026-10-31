@@ -28,9 +28,9 @@
     "root": { "$ref": "#/$defs/drawing" }
   },
   "$defs": {
-    "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
-    "tag": { "type": "string", "pattern": "^[\\x20-\\x7E]{4}$" },
-    "color": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$" },
+    "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*(?![\\s\\S])" },
+    "tag": { "type": "string", "pattern": "^[\\x20-\\x7E]{4}(?![\\s\\S])" },
+    "color": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})(?![\\s\\S])" },
     "path_data": { "type": "string", "pattern": "^(\\s*[Mm][MmZzLlHhVvCcSsQqTtAa0-9eE.,+\\-\\s]*)?$" },
     "number": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/expression" }] },
     "positive": { "anyOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "$ref": "#/$defs/expression" }] },
@@ -162,6 +162,9 @@
     },
     "join": { "enum": ["round", "miter", "bevel"] },
     "cap": { "enum": ["butt", "round", "square"] },
+    "miter_limit": {
+      "anyOf": [{ "type": "number", "minimum": 1 }, { "$ref": "#/$defs/expression" }]
+    },
     "attribute": { "enum": ["index", "glyph", "char", "word", "line", "part", "copy", "level", "order"] },
     "attribute_values": {
       "type": "object",
@@ -169,38 +172,38 @@
       "properties": {
         "index": {
           "anyOf": [
-            { "type": "integer", "minimum": 0 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
           ]
         },
         "glyph": {
           "anyOf": [
-            { "type": "integer", "minimum": 0 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
           ]
         },
         "word": {
           "anyOf": [
-            { "type": "integer", "minimum": 0 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
           ]
         },
         "line": {
           "anyOf": [
-            { "type": "integer", "minimum": 0 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
           ]
         },
         "part": {
           "anyOf": [
-            { "type": "integer", "minimum": 0 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
           ]
         },
         "copy": {
           "anyOf": [
-            { "type": "integer", "minimum": 0 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1 }
+            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
           ]
         },
         "char": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" }, "minItems": 1 }] },
@@ -312,11 +315,11 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "glyph": { "type": "integer", "minimum": 0 },
-                "word": { "type": "integer", "minimum": 0 },
-                "line": { "type": "integer", "minimum": 0 },
-                "part": { "type": "integer", "minimum": 0 },
-                "copy": { "type": "integer", "minimum": 0 },
+                "glyph": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                "word": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                "line": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                "part": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                "copy": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
                 "char": { "type": "string" },
                 "level": { "type": "number" },
                 "order": { "type": "number" },
@@ -481,7 +484,7 @@
         "offset": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "distance": { "$ref": "#/$defs/number" }, "join": { "$ref": "#/$defs/join" } },
+          "properties": { "distance": { "$ref": "#/$defs/number" }, "join": { "$ref": "#/$defs/join" }, "miter_limit": { "$ref": "#/$defs/miter_limit" } },
           "required": ["distance"]
         },
         "outline": {
@@ -490,7 +493,8 @@
           "properties": {
             "width": { "$ref": "#/$defs/positive" },
             "join": { "$ref": "#/$defs/join" },
-            "cap": { "$ref": "#/$defs/cap" }
+            "cap": { "$ref": "#/$defs/cap" },
+            "miter_limit": { "$ref": "#/$defs/miter_limit" }
           },
           "required": ["width"]
         },
@@ -634,7 +638,8 @@
             "color": { "$ref": "#/$defs/color" },
             "width": { "$ref": "#/$defs/positive" },
             "join": { "$ref": "#/$defs/join" },
-            "cap": { "$ref": "#/$defs/cap" }
+            "cap": { "$ref": "#/$defs/cap" },
+            "miter_limit": { "$ref": "#/$defs/miter_limit" }
           },
           "required": ["color"]
         },
@@ -713,7 +718,7 @@
     "input": {
       "type": "object",
       "additionalProperties": false,
-      "properties": { "kind": { "enum": ["font", "map"] }, "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
+      "properties": { "kind": { "enum": ["font", "map"] }, "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])" } },
       "required": ["kind"]
     }
   }

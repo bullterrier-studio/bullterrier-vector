@@ -95,6 +95,11 @@ GOOD = [
         square_with({"hatch": {"spacing": [2.4, 14], "tone": {"Field.ramp": {"start": [0, 10], "end": [0, 0]}}}}),
         id="a spacing pair with its tone",
     ),
+    pytest.param(
+        square_with({"stroke": {"color": "#000000", "join": "miter", "miter_limit": 2.5}}), id="a miter limit"
+    ),
+    pytest.param(square_with({"repeat": {"count": 3.0}}), id="a whole number written with a fraction part of zero"),
+    pytest.param({"version": 1, "root": [{"stack": {"items": [], "size": [100, 100]}}]}, id="a blank frame"),
 ]
 
 BAD = [
@@ -167,6 +172,24 @@ BAD = [
         "type",
         "/root/0/text/features/liga",
         id="a feature as an expression",
+    ),
+    pytest.param(
+        square_with({"stroke": {"color": "#000000", "miter_limit": 0.5}}),
+        "minimum",
+        "/root/1/stroke/miter_limit",
+        id="a miter limit below 1",
+    ),
+    pytest.param(
+        square_with({"fill": {"color": "#ff0000\n"}}),
+        "pattern",
+        "/root/1/fill/color",
+        id="a colour followed by a newline",
+    ),
+    pytest.param(
+        square_with({"only": {"glyph": 1e300}}),
+        "maximum",
+        "/root/1/only/glyph",
+        id="an attribute index beyond 2**53 - 1",
     ),
     pytest.param({"root": [{"path": SQUARE}]}, "required", "", id="no version"),
     pytest.param({"version": 2, "root": [{"path": SQUARE}]}, "const", "/version", id="an unknown version"),
