@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 
 mod error;
+mod expr;
 mod geometry;
 mod math;
 mod node;
@@ -15,6 +16,7 @@ mod registry;
 mod values;
 
 pub use error::Error;
+pub use expr::Expr;
 pub use geometry::{Point, Rect, Scale};
 pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
 pub use param::{Param, Unit};
