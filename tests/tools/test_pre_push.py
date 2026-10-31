@@ -204,6 +204,7 @@ def test_a_multi_ref_push_runs_the_gate_whichever_ref_comes_first(
         pytest.param("src/bullterrier_vector/errors.py", False, id="a source file"),
         pytest.param("crates/core/src/lib.rs", False, id="a Rust file"),
         pytest.param("tests/tools/test_pre_push.py", False, id="a test"),
+        pytest.param("examples/star.py", False, id="a program in examples, which a test runs"),
         pytest.param("Cargo.lock", False, id="the Rust lock file"),
         pytest.param("uv.lock", False, id="the Python lock file"),
         pytest.param(".github/workflows/ci.yml", False, id="a workflow"),

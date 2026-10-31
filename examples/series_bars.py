@@ -4,8 +4,6 @@ No special node: a series is plain data and a loop. `only` and `without` pick sh
 `Drawing` are indexed in order.
 """
 
-from pathlib import Path
-
 import bullterrier_vector as btvec
 
 series = [0.18, 0.35, 0.52, 0.41, 0.77, 0.93, 0.64, 0.49, 0.71, 0.28, 0.15, 0.33]
@@ -18,4 +16,4 @@ bars = btvec.Drawing(
 highest = series.index(max(series))
 chart = btvec.Drawing(bars.without(index=highest).fill("#15161a"), bars.only(index=highest).fill("#e2412e"))
 
-Path("bars.svg").write_text(chart.to_svg(1080, 1080), encoding="utf-8")
+shapes = chart.shapes()  # V3 writes the picture: `chart.to_svg(1080, 1080)`
