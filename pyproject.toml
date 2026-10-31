@@ -112,7 +112,11 @@ stubtest = { cmd = "uv run python -m mypy.stubtest --mypy-config-file pyproject.
 # dist/check, emptied first; tools/check_dists.py then checks them as PyPI and an install would see them.
 # tests/tools/test_build_gate.py shows it failing.
 build-check = { sequence = ["uv build --quiet --clear --no-create-gitignore --out-dir dist/check", "uv run python tools/check_dists.py dist/check"], default_item_type = "cmd", help = "Build the sdist and wheel and check what would be uploaded" }
-rust-test = { cmd = "cargo test --workspace --locked --quiet", help = "Run the Rust tests" }
+# Not a gate: draw a drawing file (.json, or a .py that leaves `drawing`) to dist/look/<name>.png and .svg, to open and
+# look at: `uv run poe look examples/star.py [--size 800x600] [name=value ...]`; poe hands everything after the task name
+# to the tool. tests/tools/test_look.py shows it working and failing.
+look = { cmd = "uv run python tools/look.py", help = "Draw a .json or .py drawing to dist/look/<name>.png and .svg: look FILE [--size WxH] [name=value ...]" }
+rust-test = { cmd ="cargo test --workspace --locked --quiet", help = "Run the Rust tests" }
 # `default_install_hook_types` in .pre-commit-config.yaml names the three hook types, so a bare `install` covers them
 setup = { sequence = ["pre-commit install --install-hooks", "git config --local commit.template .gitmessage", "uv run python tools/rust_tools.py install"], default_item_type = "cmd", help = "Install the git hooks, the commit-message template and the cargo tools the gate runs (once per clone)" }
 
