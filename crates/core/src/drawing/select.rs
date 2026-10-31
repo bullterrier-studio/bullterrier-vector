@@ -11,6 +11,13 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Wanted(Vec<Single>);
 
+impl Wanted {
+    /// Asks that the attribute be one of `singles`.
+    pub(crate) fn of(singles: Vec<Single>) -> Self {
+        Self(singles)
+    }
+}
+
 impl From<u32> for Wanted {
     fn from(number: u32) -> Self {
         Self(vec![Single::Number(f64::from(number))])

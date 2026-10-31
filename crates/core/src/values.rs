@@ -84,6 +84,11 @@ impl Values {
         self.by_name.get(name)
     }
 
+    /// Each name given a value, in name order, with the value.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&str, &Value)> {
+        self.by_name.iter().map(|(name, value)| (name.as_str(), value))
+    }
+
     /// The names given a value, in order.
     pub(crate) fn names(&self) -> impl Iterator<Item = &str> {
         self.by_name.keys().map(String::as_str)

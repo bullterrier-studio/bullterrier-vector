@@ -10,6 +10,7 @@ mod drawing;
 mod error;
 mod expr;
 mod geometry;
+mod json;
 mod key;
 mod limits;
 mod math;

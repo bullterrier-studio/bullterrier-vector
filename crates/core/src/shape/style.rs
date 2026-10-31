@@ -264,6 +264,11 @@ impl Style {
         self.blend = blend;
     }
 
+    /// Whether a fill or a stroke was set, or the default paint resolved: false only for a shape no step has painted.
+    pub(crate) fn is_painted(&self) -> bool {
+        self.painted
+    }
+
     /// The fill, [`Color::NONE`] where the shape is not filled.
     #[must_use]
     pub fn fill(&self) -> Color {

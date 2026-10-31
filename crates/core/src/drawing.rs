@@ -2,12 +2,14 @@
 
 mod cache;
 mod eval;
+mod graph;
 mod select;
 mod style;
 mod transform;
 mod values;
 
 pub use cache::Stats;
+pub(crate) use graph::Graph;
 pub use select::{Select, Wanted};
 pub use style::Stroke;
 pub use transform::{Deg, Pivot, Rotate, ScaleBy};
@@ -96,11 +98,14 @@ impl Step {
             .collect()
     }
 
-    /// The call of `node` with the `given` arguments, on `previous` if it is a step.
+    /// The call of `node` with the `given` arguments, on `previous` if it is a step. `checked` runs the checks of the
+    /// call (its constant values and the rule of its verb); the loader of a document leaves them to a later pass, so
+    /// that it can report its checks in a fixed order.
     fn build(
         previous: Option<&Arc<Step>>,
         node: &'static dyn Node,
         given: Vec<(&'static str, Given)>,
+        checked: bool,
     ) -> Result<Self, Error> {
         let verb = node.verb();
         let place = Place {
@@ -115,7 +120,9 @@ impl Step {
                 return Err(error.clone().inside(&format!("{place} / item {}", at + 1)));
             }
         }
-        args.validate().map_err(|error| error.at_argument(&place, None))?;
+        if checked {
+            args.validate().map_err(|error| error.at_argument(&place, None))?;
+        }
         let read = args.reads()?;
         let mut reads = previous.map_or_else(Vec::new, |step| step.reads.clone());
         for param in read.all {
@@ -214,8 +221,31 @@ impl Drawing {
     /// The drawing of a source `node` called with `given`.
     pub(crate) fn source(node: &'static dyn Node, given: Vec<(&'static str, Given)>) -> Self {
         Self {
-            last: Step::build(None, node, given).map(Arc::new).map_err(Failure::from),
+            last: Step::build(None, node, given, true)
+                .map(Arc::new)
+                .map_err(Failure::from),
             cache: Shared::default(),
+        }
+    }
+
+    /// The drawing of a source `node` called with `given`, its call not checked: see `Step::build`.
+    pub(crate) fn source_unchecked(node: &'static dyn Node, given: Vec<(&'static str, Given)>) -> Self {
+        Self {
+            last: Step::build(None, node, given, false)
+                .map(Arc::new)
+                .map_err(Failure::from),
+            cache: Shared::default(),
+        }
+    }
+
+    /// This drawing with `node` called on it with `given`, the call not checked: see `Step::build`.
+    pub(crate) fn then_unchecked(&self, node: &'static dyn Node, given: Vec<(&'static str, Given)>) -> Self {
+        let Ok(step) = &self.last else { return self.clone() };
+        Self {
+            last: Step::build(Some(step), node, given, false)
+                .map(Arc::new)
+                .map_err(Failure::from),
+            cache: self.cache.clone(),
         }
     }
 
@@ -223,7 +253,7 @@ impl Drawing {
     pub(crate) fn then(&self, node: &'static dyn Node, given: Vec<(&'static str, Given)>) -> Self {
         let Ok(step) = &self.last else { return self.clone() };
         Self {
-            last: Step::build(Some(step), node, given)
+            last: Step::build(Some(step), node, given, true)
                 .map(Arc::new)
                 .map_err(Failure::from),
             cache: self.cache.clone(),

@@ -179,7 +179,7 @@ impl Args {
     }
 
     /// Each declared argument with its value.
-    fn declared(&self) -> impl Iterator<Item = (&'static Arg, &Given)> {
+    pub(crate) fn declared(&self) -> impl Iterator<Item = (&'static Arg, &Given)> {
         self.verb.args.iter().zip(&self.values)
     }
 

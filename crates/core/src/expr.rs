@@ -10,14 +10,36 @@ use std::sync::Arc;
 
 /// The four binary operators.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Op {
+pub(crate) enum Op {
     Add,
     Sub,
     Mul,
     Div,
 }
 
+/// What an expression is at its top, for a writer of the tree.
+pub(crate) enum View<'a> {
+    /// A number.
+    Const(f64),
+    /// A Param.
+    Param(&'a Param),
+    /// `-operand`.
+    Neg(&'a Expr),
+    /// `left op right`.
+    Binary(Op, &'a Expr, &'a Expr),
+}
+
 impl Op {
+    /// The word the JSON format calls this operator.
+    pub(crate) fn word(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Sub => "sub",
+            Self::Mul => "mul",
+            Self::Div => "div",
+        }
+    }
+
     fn symbol(self) -> char {
         match self {
             Self::Add => '+',
@@ -151,6 +173,16 @@ impl Expr {
     pub(crate) fn value_at(&self, values: &Values, item: Item) -> Result<f64, Error> {
         self.check_limits()?;
         self.evaluate(values, Some(item))
+    }
+
+    /// The top of the expression and its operands.
+    pub(crate) fn view(&self) -> View<'_> {
+        match &self.0.node {
+            Node::Const(number) => View::Const(*number),
+            Node::Param(param) => View::Param(param),
+            Node::Neg(inner) => View::Neg(inner),
+            Node::Binary(op, left, right) => View::Binary(*op, left, right),
+        }
     }
 
     /// Whether the expression reads a Param, so that its value is known only when drawn.

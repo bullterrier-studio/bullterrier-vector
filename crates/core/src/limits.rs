@@ -23,6 +23,14 @@ pub(crate) const MAX_DEPTH: usize = 128;
 // written by hand and evaluates in microseconds
 pub(crate) const MAX_EXPR_NODES: usize = 10_000;
 
+/// The longest document `from_json` reads and `to_json` writes, in bytes of UTF-8.
+// constant: formats.md "Limits and security" sets MAX_DOCUMENT_BYTES to 16 MiB
+pub(crate) const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
+
+/// The most call objects (sources, steps and expressions) a document may hold.
+// constant: formats.md "Limits and security" sets MAX_CALLS to 100,000
+pub(crate) const MAX_CALLS: usize = 100_000;
+
 /// What one draw has made so far. A node charges what it creates as it creates it, before it allocates.
 #[derive(Debug, Default)]
 pub(crate) struct Work {
