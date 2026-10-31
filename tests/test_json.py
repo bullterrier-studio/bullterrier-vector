@@ -13,6 +13,7 @@ import pytest
 import bullterrier_vector as btvec
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
+JSON_EXAMPLES = Path(__file__).resolve().parents[1] / "docs" / "examples" / "json"
 TRIANGLE = "M0 0 L10 0 L10 10 Z"
 
 
@@ -228,3 +229,17 @@ def test_a_drawing_that_reads_more_than_max_params_raises_at_the_call_that_passe
     assert len(drawing.parameters()) == 1000
     with pytest.raises(btvec.ParameterError, match="MAX_PARAMS 1000"):
         drawing.translate(btvec.Param("one_too_many", default=0, min=0, max=1), 0)
+
+
+def test_the_series_bars_document_is_written_back_as_python_json_would_write_it() -> None:
+    # an oracle that shares no code with the writer: sorted keys, compact, the one shared drawing named d1
+    document = (JSON_EXAMPLES / "series_bars.json").read_text(encoding="utf-8")
+    expected = json.dumps(json.loads(document), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    assert btvec.Drawing.from_json(document).to_json() == expected.replace('"bars"', '"d1"')
+
+
+def test_a_string_with_a_lone_surrogate_is_a_format_error_not_a_unicode_error() -> None:
+    lone = "\ud800"  # a str Python allows and UTF-8 cannot hold
+    for text in (lone, '{"version":1,"root":[{"path":"' + lone + '"}]}'):
+        with pytest.raises(btvec.FormatError, match=r"^document: .*UTF-8"):
+            btvec.Drawing.from_json(text)

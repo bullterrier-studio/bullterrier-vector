@@ -12,14 +12,17 @@ use common::Outcome;
 use proptest::prelude::*;
 
 const SERIES_BARS: &str = include_str!("../../../docs/examples/json/series_bars.json");
-/// `series_bars.json` in canonical form, made by Python's `json` module (sorted keys, compact) with the one shared
-/// drawing, `bars`, named `d1`: an oracle that shares no code with the writer.
-const SERIES_BARS_CANONICAL: &str = include_str!("golden/series_bars.canonical.json");
 
 #[test]
 fn the_series_bars_example_loads_and_writes_its_canonical_text() -> Outcome {
     let drawing = Drawing::from_json(SERIES_BARS)?;
-    assert_eq!(drawing.to_json()?, SERIES_BARS_CANONICAL.trim_end());
+    // the independent check of the bytes is tests/test_json.py, which builds the expected text with Python's `json`
+    let canonical = drawing.to_json()?;
+    assert_eq!(Drawing::from_json(&canonical)?.to_json()?, canonical);
+    assert!(
+        canonical.contains(r#""d1""#) && !canonical.contains("bars"),
+        "the shared drawing is named d1"
+    );
     Ok(())
 }
 

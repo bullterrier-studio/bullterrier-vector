@@ -280,7 +280,14 @@ impl PyDrawing {
 
     /// The drawing a JSON document describes.
     #[staticmethod]
-    fn from_json(text: &str) -> PyResult<Self> {
+    fn from_json(text: &Bound<'_, PyString>) -> PyResult<Self> {
+        // a `str` holding a lone surrogate has no UTF-8 form: that is a problem in the text, so a `FormatError`
+        let text = text.to_str().map_err(|_| {
+            exception(&vector::Error::Format {
+                pointer: String::new(),
+                message: "the text is not valid UTF-8 (it holds a lone surrogate)".to_owned(),
+            })
+        })?;
         checked(raised(vector::Drawing::from_json(text))?)
     }
 

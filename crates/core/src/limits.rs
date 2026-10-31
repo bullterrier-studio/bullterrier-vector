@@ -13,8 +13,8 @@ pub(crate) const MAX_SHAPES: usize = 1_000_000;
 
 /// The deepest nesting of drawings inside drawings a call accepts, a lone drawing counting as 1; also the deepest
 /// expression. It bounds the recursion that draws and prints them. A long chain of steps costs no depth.
-// constant: formats.md "Limits and security" sets MAX_DEPTH to 128 for documents; drawings and expressions written in
-// code follow it so that what is written in code can be saved and loaded back
+// constant: formats.md "Limits and security" sets MAX_DEPTH to 128 for documents; expressions written in code follow
+// it. A stack takes about four JSON levels, so a code drawing nested over about 31 stacks builds but `to_json` refuses it
 pub(crate) const MAX_DEPTH: usize = 128;
 
 /// The most nodes an expression may have, a shared part counted each time it is used, as evaluation visits it. It
