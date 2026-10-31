@@ -25,6 +25,11 @@ impl Image {
         self.pixel(x, y)[3]
     }
 
+    /// Whether every pixel is `rgba`.
+    pub(crate) fn all_pixels_are(&self, rgba: [u8; 4]) -> bool {
+        self.bytes.as_chunks::<4>().0.iter().all(|pixel| *pixel == rgba)
+    }
+
     /// The coverage of the whole image: the sum of every pixel's alpha, in pixels.
     pub(crate) fn covered_area(&self) -> f64 {
         self.bytes

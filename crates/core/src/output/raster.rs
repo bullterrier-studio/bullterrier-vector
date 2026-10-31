@@ -19,7 +19,8 @@ impl Drawing {
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 65,000,
-    /// or `size` if it has more than 2^27 pixels; otherwise as [`Drawing::to_svg`].
+    /// or `size` if it has more than 2^27 pixels; naming the shape if a coordinate or the stroke width of one lies
+    /// beyond 10 million device pixels at this size; otherwise as [`Drawing::to_svg`].
     pub fn to_rgba(&self, size: Size, values: &Values) -> Result<Vec<u8>, Error> {
         let (width, height) = size.checked_pixels()?;
         let shapes = self.shapes(values)?;
@@ -27,6 +28,11 @@ impl Drawing {
         rgba(&shapes, &view, width, height)
     }
 }
+
+/// The largest coordinate, and the widest stroke, in device pixels that is handed to the rasteriser.
+// constant: the rasteriser computes in f32, which holds whole numbers exactly up to 16,777,216; 10 million pixels is
+// far beyond any canvas (at most 65,000 across) and keeps the arithmetic of a join or a curve inside that range
+const MAX_DEVICE: f64 = 1.0e7;
 
 /// The picture of `shapes` seen through `view`, `width` by `height` pixels.
 fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8>, Error> {
@@ -62,6 +68,8 @@ fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8
 fn paint(context: &mut RenderContext, shape: &Shape, view: &View) -> Result<(), Error> {
     let path = view.path(shape.path()).map_err(|error| in_shape(shape, "", error))?;
     let elements = path.elements();
+    let farthest = elements.iter().map(|element| element.farthest()).fold(0.0, f64::max);
+    within_device("a coordinate", farthest).map_err(|error| in_shape(shape, "", error))?;
     let outline = bez_path(&elements);
     let style = shape.style();
     let stroke = match style.stroke() {
@@ -69,6 +77,7 @@ fn paint(context: &mut RenderContext, shape: &Shape, view: &View) -> Result<(), 
             let width = view
                 .length(stroke.width())
                 .map_err(|error| in_shape(shape, "stroke width ", error))?;
+            within_device("the stroke width", width).map_err(|error| in_shape(shape, "", error))?;
             Some((stroke, width))
         }
         None => None,
@@ -159,6 +168,18 @@ fn dots(elements: &[Element], cap: Cap, width: f64) -> Result<Vec<Path>, Error> 
             _ => Path::circle(sub.start, half),
         })
         .collect()
+}
+
+/// `value` (a coordinate or a width, `what`), or the error unless it is within [`MAX_DEVICE`].
+fn within_device(what: &str, value: f64) -> Result<(), Error> {
+    if value <= MAX_DEVICE {
+        Ok(())
+    } else {
+        Err(Error::parameter(
+            "device",
+            format!("{what} of {value} device pixels is beyond {MAX_DEVICE}"),
+        ))
+    }
 }
 
 fn join(join: Join) -> kurbo::Join {

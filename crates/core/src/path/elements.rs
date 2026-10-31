@@ -17,6 +17,19 @@ pub(crate) enum Element {
     Close,
 }
 
+impl Element {
+    /// The largest absolute coordinate among the points of this command.
+    pub(crate) fn farthest(self) -> f64 {
+        let reach = |point: Point| point.x.abs().max(point.y.abs());
+        match self {
+            Self::Move(to) | Self::Line(to) => reach(to),
+            Self::Quad(control, to) => reach(control).max(reach(to)),
+            Self::Cubic(first, second, to) => reach(first).max(reach(second)).max(reach(to)),
+            Self::Close => 0.0,
+        }
+    }
+}
+
 impl Path {
     /// The drawing commands of this path: each sub-path is a `Move`, its segments and a `Close` if it is closed.
     pub(crate) fn elements(&self) -> Vec<Element> {
