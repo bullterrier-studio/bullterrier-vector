@@ -1,0 +1,650 @@
+"""`Path`, `Point` and `Rect` through the public package: every call shape of docs/api.md, tuples in and Points out,
+the error classes with the values they name, and closed-form oracles written with `math`, not with the library."""
+
+import math
+from collections.abc import Callable
+
+import pytest
+
+import bullterrier_vector as btvec
+
+Path = btvec.Path
+Point = btvec.Point
+Rect = btvec.Rect
+
+# the unit square, written by hand: SVG path data in the library's canonical form
+SQUARE = "M0 0 L10 0 L10 10 L0 10 Z"
+# an outline, a hole inside it and an island inside the hole
+NESTED = "M0 0 L100 0 L100 100 L0 100 Z M20 20 L20 80 L80 80 L80 20 Z M40 40 L60 40 L60 60 L40 60 Z"
+
+
+def square() -> btvec.Path:
+    return Path.from_svg_path(SQUARE)
+
+
+def line() -> btvec.Path:
+    return Path.line((0, 0), (10, 0))
+
+
+# --- building ---------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("built", "written"),
+    [
+        pytest.param(Path(), "", id="empty"),
+        pytest.param(Path().move_to((1, 2)), "M1 2", id="move_to"),
+        pytest.param(Path().move_to((0, 0)).line_to((10, 0)), "M0 0 L10 0", id="line_to"),
+        pytest.param(Path().move_to((0, 0)).quad_to((5, 5), (10, 0)), "M0 0 Q5 5 10 0", id="quad_to"),
+        pytest.param(Path().move_to((0, 0)).curve_to((0, 5), (10, 5), (10, 0)), "M0 0 C0 5 10 5 10 0", id="curve_to"),
+        pytest.param(
+            Path().move_to((0, 0)).line_to((10, 0)).line_to((10, 10)).close(), "M0 0 L10 0 L10 10 Z", id="close"
+        ),
+        pytest.param(
+            Path().move_to(Point(1.5, 2)).line_to(Point(3, 4)), "M1.5 2 L3 4", id="Points go in as well as tuples"
+        ),
+        pytest.param(Path().move_to((0, 0)).line_to((1, 0)).move_to((5, 5)), "M0 0 L1 0 M5 5", id="a second sub-path"),
+    ],
+)
+def test_builders_write_the_path_they_describe(built, written):
+    assert built.to_svg_path() == written
+
+
+def test_a_builder_returns_a_new_path_and_leaves_the_old_one_alone():
+    start = Path().move_to((0, 0))
+    longer = start.line_to((10, 0))
+    assert start.to_svg_path() == "M0 0"
+    assert longer.to_svg_path() == "M0 0 L10 0"
+
+
+@pytest.mark.parametrize(
+    ("built", "written"),
+    [
+        pytest.param(Path.line((0, 0), (10, 0)), "M0 0 L10 0", id="line"),
+        pytest.param(Path.polyline([(0, 0), (10, 0), (10, 10)]), "M0 0 L10 0 L10 10", id="polyline open"),
+        pytest.param(
+            Path.polyline([(0, 0), (10, 0), (10, 10)], closed=True), "M0 0 L10 0 L10 10 Z", id="polyline closed"
+        ),
+        pytest.param(Path.polyline(iter([(0, 0), (1, 0)])), "M0 0 L1 0", id="polyline takes any iterable of points"),
+        pytest.param(Path.rect(0, 0, 10, 10), SQUARE, id="rect starts at the left end of the top edge"),
+        pytest.param(Path.rect(5, 6, 10, 20), "M5 6 L15 6 L15 26 L5 26 Z", id="rect not at the origin"),
+    ],
+)
+def test_constructors_write_the_path_they_describe(built, written):
+    assert built.to_svg_path() == written
+
+
+# --- constructors against closed forms -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("sides", [3, 4, 5, 12])
+def test_a_polygon_has_the_side_length_and_corner_at_the_top_that_geometry_gives(sides):
+    radius = 50.0
+    polygon = Path.polygon((100, 200), radius, sides)
+    assert polygon.length == pytest.approx(sides * 2 * radius * math.sin(math.pi / sides), rel=1e-9)
+    assert polygon.point_at(0) == pytest.approx((100, 200 - radius))
+    # the first side runs clockwise: its far end is the corner a turn of 2 pi / sides round, on the screen (y down)
+    corner = polygon.point_at(1 / sides)
+    assert corner.x == pytest.approx(100 + radius * math.sin(2 * math.pi / sides))
+    assert corner.y == pytest.approx(200 - radius * math.cos(2 * math.pi / sides))
+
+
+@pytest.mark.parametrize("radius", [10.0, 100.0, 1234.5])
+def test_a_circle_is_round_to_a_few_parts_in_ten_thousand(radius):
+    circle = Path.circle((30, -40), radius)
+    assert circle.length == pytest.approx(2 * math.pi * radius, rel=1e-3)
+    for at in (0, 0.1, 0.25, 0.333, 0.5, 0.77, 0.9):
+        point = circle.point_at(at)
+        assert math.hypot(point.x - 30, point.y + 40) == pytest.approx(radius, rel=5e-4)
+    assert circle.point_at(0) == pytest.approx((30, -40 - radius))
+
+
+def test_a_circle_bounds_are_its_diameter_square():
+    bounds = Path.circle((30, -40), 10).bounds
+    assert (bounds.x, bounds.y, bounds.width, bounds.height) == pytest.approx((20, -50, 20, 20))
+
+
+def test_a_star_is_made_of_the_chords_the_law_of_cosines_gives():
+    outer, inner, tips = 100.0, 40.0, 5
+    star = Path.star((0, 0), outer, inner, points=tips)
+    chord = math.sqrt(outer**2 + inner**2 - 2 * outer * inner * math.cos(math.pi / tips))
+    assert star.length == pytest.approx(2 * tips * chord, rel=1e-9)
+    assert star.point_at(0) == pytest.approx((0, -outer))
+
+
+def test_a_star_defaults_to_five_points():
+    assert Path.star((0, 0), 100, 40) == Path.star((0, 0), 100, 40, points=5)
+
+
+def test_a_rounded_rectangle_loses_four_corners_and_gains_four_quarter_circles():
+    width, height, radius = 40.0, 30.0, 5.0
+    rounded = Path.rect(0, 0, width, height, radius=radius)
+    expected = 2 * (width + height) - 8 * radius + 2 * math.pi * radius
+    assert rounded.length == pytest.approx(expected, rel=1e-3)
+
+
+def test_a_radius_of_zero_is_the_plain_rectangle():
+    assert Path.rect(0, 0, 10, 10, radius=0) == Path.rect(0, 0, 10, 10)
+
+
+# --- SVG path data -----------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("data", "written"),
+    [
+        pytest.param("M0 0 L10 0", "M0 0 L10 0", id="canonical"),
+        pytest.param("m1 1 l9 0 v10 h-9 z", "M1 1 L10 1 L10 11 L1 11 Z", id="relative, H and V, lower case"),
+        pytest.param("M0,0 10,0 10,10", "M0 0 L10 0 L10 10", id="implicit line_to after M, commas"),
+        pytest.param("M0 0 Q5 5 10 0 T20 0", "M0 0 Q5 5 10 0 Q15 -5 20 0", id="T reflects the control point"),
+        pytest.param("M0 0 C0 5 10 5 10 0 S20 -5 20 0", "M0 0 C0 5 10 5 10 0 C10 -5 20 -5 20 0", id="S reflects"),
+        pytest.param("M1.5.5L-.5 1e1", "M1.5 0.5 L-0.5 10", id="number forms"),
+        pytest.param("", "", id="nothing is the empty path"),
+    ],
+)
+def test_svg_path_data_reads_into_the_canonical_path(data, written):
+    assert Path.from_svg_path(data).to_svg_path() == written
+
+
+def test_an_arc_is_a_curve_that_stays_on_its_circle():
+    # a half circle of radius 5 from (0,0) to (10,0), the sweep flag choosing the upper half
+    half = Path.from_svg_path("M0 0 A5 5 0 0 1 10 0")
+    assert half.length == pytest.approx(5 * math.pi, rel=1e-3)
+    top = half.point_at(0.5)
+    assert top == pytest.approx((5, -5), abs=1e-3)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.param(Path.circle((1 / 3, 2 / 3), 0.1 + 0.2), id="circle with long decimals"),
+        pytest.param(Path.star((0, 0), 100, 40), id="star"),
+        pytest.param(Path.rect(0, 0, 10, 10, radius=3), id="rounded rectangle"),
+        pytest.param(Path.from_svg_path(NESTED), id="three sub-paths"),
+        pytest.param(Path.from_svg_path("M0 0 Q5 5 10 0 L0 0 M-0 1e-9 L1e21 0"), id="tiny and huge numbers"),
+    ],
+)
+def test_path_data_written_and_read_back_is_the_same_path(path):
+    assert Path.from_svg_path(path.to_svg_path()) == path
+
+
+# --- measuring ---------------------------------------------------------------------------------------------------
+
+
+def test_length_is_a_property_in_design_pixels():
+    assert square().length == 40
+    assert Path().length == 0
+
+
+def test_bounds_is_a_rect_of_the_outline_and_exact_for_curves():
+    assert square().bounds == Rect(0, 0, 10, 10)
+    # a cubic from (0,0) to (10,0) with both handles at height 10 peaks at 3/4 of 10 (t = 1/2: 3/4 * h)
+    arch = Path().move_to((0, 0)).curve_to((0, 10), (10, 10), (10, 0))
+    bounds = arch.bounds
+    assert (bounds.x, bounds.y, bounds.width) == (0, 0, 10)
+    assert bounds.height == pytest.approx(7.5)
+
+
+def test_point_at_gives_points_along_the_length():
+    assert line().point_at(0) == Point(0, 0)
+    assert line().point_at(0.25) == Point(2.5, 0)
+    assert line().point_at(1) == Point(10, 0)
+    assert isinstance(line().point_at(0.5), Point)
+
+
+def test_point_at_walks_the_sub_paths_in_order():
+    two = Path.line((0, 0), (10, 0)).move_to((0, 5)).line_to((10, 5))
+    assert two.point_at(0.25) == Point(5, 0)
+    assert two.point_at(0.75) == Point(5, 5)
+
+
+def test_tangent_at_is_the_unit_direction_of_travel():
+    assert line().tangent_at(0.5) == Point(1, 0)
+    assert Path.line((0, 0), (0, 7)).tangent_at(0.5) == Point(0, 1)
+    diagonal = Path.line((0, 0), (3, 4)).tangent_at(0.5)
+    assert diagonal == pytest.approx((0.6, 0.8))
+
+
+def test_tangent_at_a_corner_is_the_direction_leaving_it():
+    # the square's first corner (10, 0) is a quarter of the way along; the next side runs down
+    assert square().tangent_at(0.25) == Point(0, 1)
+
+
+def test_locate_is_the_position_of_the_nearest_point():
+    assert line().locate((2.5, 100)) == 0.25
+    assert line().locate((-5, 3)) == 0
+    assert line().locate(Point(50, 0)) == 1
+
+
+def test_locate_on_a_tie_is_the_smallest_position_and_a_closed_start_is_zero():
+    # the point (5, 5) is 5 from every side of the square: the first side, the smallest position, wins
+    assert square().locate((5, 5)) == pytest.approx(0.125)
+    assert square().locate((0, 0)) == 0
+
+
+def test_near_moves_the_start_of_a_closed_outline_to_its_point_nearest_the_given_one():
+    assert square().point_at(0) == Point(0, 0)
+    assert square().point_at(0, near=(11, 11)) == Point(10, 10)
+    assert square().point_at(0, near=Point(11, 11)) == Point(10, 10)
+    assert square().tangent_at(0, near=(11, 11)) == Point(-1, 0)
+    assert square().locate((10, 10), near=(11, 11)) == 0
+    assert square().slice(0, 0.25, near=(11, 11)).to_svg_path() == "M10 10 L0 10"
+
+
+# --- hit-testing and parts -----------------------------------------------------------------------------------------
+
+
+def test_contains_agrees_with_the_distance_to_the_centre_of_a_circle():
+    centre, radius = (3.0, -2.0), 10.0
+    circle = Path.circle(centre, radius)
+    checked = 0
+    for i in range(-14, 15):
+        for j in range(-14, 15):
+            point = (centre[0] + i * 0.97, centre[1] + j * 0.91)
+            distance = math.hypot(point[0] - centre[0], point[1] - centre[1])
+            if abs(distance - radius) > 0.1:
+                assert circle.contains(point) == (distance < radius), point
+                checked += 1
+    assert checked > 500
+
+
+def test_contains_follows_the_nonzero_rule_so_a_hole_is_outside():
+    nested = Path.from_svg_path("M0 0 L100 0 L100 100 L0 100 Z M20 20 L20 80 L80 80 L80 20 Z")
+    assert nested.contains((10, 10))
+    assert not nested.contains((50, 50))
+    assert not nested.contains(Point(200, 50))
+
+
+def test_split_gives_each_outline_with_its_holes_and_nests_by_parity():
+    parts = Path.from_svg_path(NESTED).split()
+    assert isinstance(parts, list)
+    assert [part.length for part in parts] == [400 + 240, 80]
+    assert parts[0].bounds == Rect(0, 0, 100, 100)
+    assert parts[1].bounds == Rect(40, 40, 20, 20)
+
+
+def test_split_gives_each_open_line_alone_and_an_empty_path_no_parts():
+    two_lines = line().move_to((0, 5)).line_to((10, 5))
+    assert [part.to_svg_path() for part in two_lines.split()] == ["M0 0 L10 0", "M0 5 L10 5"]
+    assert Path().split() == []
+
+
+# --- cutting and turning -------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "written"),
+    [
+        pytest.param(0.25, 0.75, "M2.5 0 L7.5 0", id="the middle"),
+        pytest.param(0, 1, "M0 0 L10 0", id="all of it"),
+        pytest.param(0.5, 0.5, "M5 0", id="start equal to end is a lone start"),
+    ],
+)
+def test_slice_keeps_the_piece_between_two_positions(start, end, written):
+    assert line().slice(start, end).to_svg_path() == written
+
+
+def test_slice_of_a_whole_closed_outline_is_closed_again():
+    assert square().slice(0, 1) == square()
+
+
+def test_slice_keeps_curves_as_curves_and_has_the_length_the_positions_say():
+    circle = Path.circle((0, 0), 10)
+    piece = circle.slice(0.2, 0.7)
+    assert "C" in piece.to_svg_path()
+    assert piece.length == pytest.approx(0.5 * circle.length, rel=1e-3)
+
+
+def test_reverse_runs_the_path_the_other_way():
+    assert line().reverse().to_svg_path() == "M10 0 L0 0"
+    assert square().reverse().reverse() == square()
+    arch = Path.circle((0, 0), 10).slice(0.1, 0.8)
+    start, end = arch.point_at(0.3), arch.reverse().point_at(0.7)
+    assert start == pytest.approx(tuple(end), abs=1e-9)
+
+
+def test_translate_moves_by_dx_and_dy():
+    assert line().translate(5, -2).to_svg_path() == "M5 -2 L15 -2"
+    assert line().translate(dx=1, dy=1).to_svg_path() == "M1 1 L11 1"
+
+
+@pytest.mark.parametrize(
+    ("angle", "about", "written"),
+    [
+        pytest.param(90, (0, 0), "M0 0 L0 10", id="a quarter turn clockwise on the screen is exact"),
+        pytest.param(180, (5, 0), "M10 0 L0 0", id="a half turn about a point"),
+        pytest.param(-90, (0, 0), "M0 0 L0 -10", id="negative turns the other way"),
+        pytest.param(450, (0, 0), "M0 0 L0 10", id="more than a turn wraps"),
+        pytest.param(90, None, "M5 -5 L5 5", id="about the middle of the bounds by default"),
+        pytest.param(90, Point(0, 0), "M0 0 L0 10", id="about takes a Point"),
+    ],
+)
+def test_rotate_turns_clockwise_in_degrees(angle, about, written):
+    turned = line().rotate(angle) if about is None else line().rotate(angle, about=about)
+    assert turned.to_svg_path() == written
+
+
+def test_rotating_by_an_angle_and_back_returns_the_path():
+    turned = Path.star((10, 20), 50, 20).rotate(37.5, about=(10, 20)).rotate(-37.5, about=(10, 20))
+    original = Path.star((10, 20), 50, 20)
+    assert turned.length == pytest.approx(original.length, rel=1e-9)
+    assert turned.bounds.width == pytest.approx(original.bounds.width, abs=1e-9)
+    assert turned.point_at(0.3) == pytest.approx(tuple(original.point_at(0.3)), abs=1e-9)
+
+
+@pytest.mark.parametrize(
+    ("by", "about", "written"),
+    [
+        pytest.param(2, (0, 0), "M0 0 L20 0", id="a number"),
+        pytest.param(2, None, "M-5 0 L15 0", id="about the middle by default"),
+        pytest.param((2, 3), (0, 0), "M0 0 L20 0", id="an (x, y) pair"),
+        pytest.param(Point(1, -1), (0, 5), "M0 10 L10 10", id="a Point pair mirrors where negative"),
+        pytest.param(-1, (5, 0), "M10 0 L0 0", id="a negative number mirrors"),
+    ],
+)
+def test_scale_by_a_number_or_a_pair_about_a_point(by, about, written):
+    scaled = line().scale(by) if about is None else line().scale(by, about=about)
+    assert scaled.to_svg_path() == written
+
+
+def test_scale_by_a_pair_scales_each_direction_on_its_own():
+    assert square().scale((2, 0.5), about=(0, 0)).bounds == Rect(0, 0, 20, 5)
+
+
+# --- map_points --------------------------------------------------------------------------------------------------
+
+
+def test_map_points_passes_every_point_on_and_off_the_curve_as_a_point():
+    seen: list[btvec.Point] = []
+
+    def record(point: btvec.Point) -> btvec.Point:
+        seen.append(point)
+        return point
+
+    path = Path().move_to((0, 0)).curve_to((1, 2), (3, 4), (5, 6)).quad_to((7, 8), (9, 10))
+    assert path.map_points(record) == path
+    assert all(isinstance(point, Point) for point in seen)
+    assert [tuple(point) for point in seen] == [(0, 0), (1, 2), (3, 4), (5, 6), (7, 8), (9, 10)]
+
+
+def test_map_points_uses_what_the_function_returns_tuples_included():
+    assert line().map_points(lambda p: (p.x, p.y + 1)).to_svg_path() == "M0 1 L10 1"
+    assert line().map_points(lambda p: p * 2).to_svg_path() == "M0 0 L20 0"
+
+
+def test_map_points_lets_the_exception_of_the_function_through_unchanged():
+    class Boom(Exception):
+        pass
+
+    boom = Boom("from the callback")
+
+    def fail(point: btvec.Point) -> btvec.Point:
+        raise boom
+
+    with pytest.raises(Boom) as raised:
+        line().map_points(fail)
+    assert raised.value is boom
+
+
+def test_map_points_stops_at_the_first_failure():
+    calls = []
+
+    def fail_on_the_second(point: btvec.Point) -> btvec.Point:
+        calls.append(point)
+        if len(calls) == 2:
+            raise ArithmeticError("second")
+        return point
+
+    with pytest.raises(ArithmeticError, match="second"):
+        square().map_points(fail_on_the_second)
+    assert len(calls) == 2
+
+
+def test_map_points_rejects_a_function_that_returns_no_point():
+    with pytest.raises(TypeError):
+        line().map_points(lambda point: "not a point")  # type: ignore[arg-type, return-value]  # the misuse under test
+
+
+def test_map_points_rejects_a_function_that_returns_a_non_finite_point_naming_fn():
+    with pytest.raises(btvec.ParameterError, match=r"(?i)fn.*nan"):
+        line().map_points(lambda point: (math.nan, 0))
+
+
+# --- errors ----------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("call", "error", "names"),
+    [
+        pytest.param(lambda: Path().line_to((1, 1)), btvec.ParameterError, ["line_to", "move_to"], id="line_to first"),
+        pytest.param(
+            lambda: Path().curve_to((0, 0), (1, 1), (2, 2)), btvec.ParameterError, ["curve_to"], id="curve_to first"
+        ),
+        pytest.param(lambda: Path().quad_to((0, 0), (2, 2)), btvec.ParameterError, ["quad_to"], id="quad_to first"),
+        pytest.param(lambda: Path().close(), btvec.ParameterError, ["close"], id="close first"),
+        pytest.param(lambda: Path().move_to((math.nan, 0)), btvec.ParameterError, ["point", "nan"], id="NaN point"),
+        pytest.param(
+            lambda: Path().move_to((0, 0)).line_to((math.inf, 0)),
+            btvec.ParameterError,
+            ["point", "inf"],
+            id="infinite point",
+        ),
+        pytest.param(lambda: Path.polyline([(0, 0)]), btvec.ParameterError, ["points", "1"], id="one point"),
+        pytest.param(lambda: Path.rect(0, 0, -3, 5), btvec.ParameterError, ["width", "-3"], id="negative width"),
+        pytest.param(
+            lambda: Path.rect(0, 0, 10, 10, radius=6), btvec.ParameterError, ["radius", "6"], id="radius over half"
+        ),
+        pytest.param(lambda: Path.circle((0, 0), 0), btvec.ParameterError, ["radius", "0"], id="circle radius 0"),
+        pytest.param(lambda: Path.polygon((0, 0), 10, 2), btvec.ParameterError, ["sides", "2"], id="polygon 2 sides"),
+        pytest.param(
+            lambda: Path.polygon((0, 0), 10, 100_001),
+            btvec.ParameterError,
+            ["sides", "100001"],
+            id="polygon over the cap",
+        ),
+        pytest.param(lambda: Path.polygon((0, 0), -1, 5), btvec.ParameterError, ["radius", "-1"], id="polygon radius"),
+        pytest.param(
+            lambda: Path.star((0, 0), 10, 5, points=1), btvec.ParameterError, ["points", "1"], id="star 1 point"
+        ),
+        pytest.param(
+            lambda: Path.star((0, 0), 10, 0, points=5), btvec.ParameterError, ["inner", "0"], id="star inner radius"
+        ),
+        pytest.param(
+            lambda: Path.from_svg_path("M0 0 L10"), btvec.ParameterError, ["data", "L"], id="malformed path data"
+        ),
+        pytest.param(
+            lambda: Path.from_svg_path("L10 10"), btvec.ParameterError, ["data", "M"], id="data not starting with M"
+        ),
+        pytest.param(lambda: line().point_at(1.5), btvec.ParameterError, ["at", "1.5"], id="point_at above 1"),
+        pytest.param(lambda: line().point_at(math.nan), btvec.ParameterError, ["at", "nan"], id="point_at NaN"),
+        pytest.param(lambda: line().tangent_at(-0.1), btvec.ParameterError, ["at", "-0.1"], id="tangent_at below 0"),
+        pytest.param(lambda: line().locate((math.nan, 0)), btvec.ParameterError, ["point", "nan"], id="locate NaN"),
+        pytest.param(
+            lambda: line().contains((0, math.inf)), btvec.ParameterError, ["point", "inf"], id="contains non-finite"
+        ),
+        pytest.param(
+            lambda: line().point_at(0.5, near=(math.nan, 0)), btvec.ParameterError, ["near", "nan"], id="near NaN"
+        ),
+        pytest.param(
+            lambda: line().slice(0.8, 0.2), btvec.ParameterError, ["start", "0.8", "0.2"], id="slice start above end"
+        ),
+        pytest.param(lambda: line().slice(0, 2), btvec.ParameterError, ["end", "2"], id="slice end above 1"),
+        pytest.param(lambda: line().translate(math.nan, 0), btvec.ParameterError, ["dx", "nan"], id="translate NaN"),
+        pytest.param(lambda: line().rotate(math.inf), btvec.ParameterError, ["angle", "inf"], id="rotate infinite"),
+        pytest.param(lambda: line().scale(0), btvec.ParameterError, ["by", "0"], id="scale by 0"),
+        pytest.param(lambda: line().scale((2, 0)), btvec.ParameterError, ["by", "0"], id="scale by a pair with a 0"),
+        pytest.param(lambda: Path().bounds, btvec.GeometryError, ["bounds", "empty"], id="bounds of an empty path"),
+        pytest.param(
+            lambda: Path().point_at(0), btvec.GeometryError, ["point_at", "empty"], id="point_at on an empty path"
+        ),
+        pytest.param(
+            lambda: Path().tangent_at(0), btvec.GeometryError, ["tangent_at", "empty"], id="tangent_at on an empty path"
+        ),
+        pytest.param(
+            lambda: Path().locate((0, 0)), btvec.GeometryError, ["locate", "empty"], id="locate on an empty path"
+        ),
+        pytest.param(lambda: Path().slice(0, 1), btvec.GeometryError, ["slice", "empty"], id="slice of an empty path"),
+        pytest.param(
+            lambda: Path().move_to((1, 1)).tangent_at(0),
+            btvec.GeometryError,
+            ["tangent_at", "direction"],
+            id="no direction",
+        ),
+    ],
+)
+def test_a_bad_call_raises_its_error_class_naming_the_argument_and_the_value(
+    call: Callable[[], object], error: type[Exception], names: list[str]
+):
+    with pytest.raises(error) as raised:
+        call()
+    message = str(raised.value).lower()
+    for name in names:
+        assert name.lower() in message, message
+    assert type(raised.value) is error
+
+
+def test_both_errors_are_catchable_as_the_package_error():
+    with pytest.raises(btvec.BullterrierVectorError):
+        line().point_at(2)
+    with pytest.raises(btvec.BullterrierVectorError):
+        _ = Path().bounds
+
+
+def test_an_empty_path_has_no_length_and_transforms_return_it_unchanged():
+    empty = Path()
+    assert empty.length == 0
+    assert empty.translate(3, 4) == empty
+    assert empty.rotate(30) == empty
+    assert empty.scale(2) == empty
+    assert empty.reverse() == empty
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda: Path().move_to((1, 2, 3)), id="a triple"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: Path().move_to("ab"), id="a string"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: Path().move_to((1, "a")), id="a pair that is not numbers"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: Path().move_to(5), id="a number"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: Path.polygon((0, 0), 10, 5.5), id="a float for sides"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: line().scale("big"), id="scale by a string"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: line().map_points(None), id="map_points without a function"),  # type: ignore[arg-type]  # the misuse under test
+    ],
+)
+def test_an_argument_of_the_wrong_kind_is_a_type_error_not_a_parameter_error(call):
+    with pytest.raises(TypeError):
+        call()
+
+
+# --- values ----------------------------------------------------------------------------------------------------
+
+
+def test_paths_with_the_same_outline_are_equal_and_hash_alike():
+    first, second = Path.circle((0, 0), 5), Path.circle((0, 0), 5)
+    assert first == second
+    assert hash(first) == hash(second)
+    assert {first: "kept"}[second] == "kept"
+
+
+@pytest.mark.parametrize(
+    "other",
+    [
+        pytest.param(Path.circle((0, 0), 6), id="another radius"),
+        pytest.param(Path.circle((0, 0), 5).move_to((1, 1)), id="one more sub-path"),
+        pytest.param(Path.circle((0, 0), 5).to_svg_path(), id="its path data is not itself"),
+        pytest.param(None, id="None"),
+    ],
+)
+def test_a_different_path_or_another_kind_of_value_is_not_equal(other):
+    assert Path.circle((0, 0), 5) != other
+
+
+def test_a_closed_and_an_open_outline_through_the_same_points_differ():
+    open_ = Path.polyline([(0, 0), (10, 0), (10, 10)])
+    assert open_ != Path.polyline([(0, 0), (10, 0), (10, 10)], closed=True)
+
+
+def test_a_path_cannot_be_changed_in_place():
+    path = line()
+    with pytest.raises(AttributeError):
+        path.length = 3  # type: ignore[misc]  # the misuse under test
+    with pytest.raises(AttributeError):
+        path.anything = 3  # type: ignore[attr-defined]  # the misuse under test
+
+
+def test_repr_shows_the_path_data():
+    assert repr(line()) == "Path.from_svg_path('M0 0 L10 0')"
+    assert repr(Path()) == "Path()"
+
+
+# --- Point and Rect ------------------------------------------------------------------------------------------------
+
+
+def test_a_point_has_x_and_y_and_unpacks():
+    point = Point(1.5, -2)
+    assert (point.x, point.y) == (1.5, -2)
+    x, y = point
+    assert (x, y) == (1.5, -2)
+    assert tuple(point) == (1.5, -2)
+    assert list(point) == [1.5, -2]
+    assert len(point) == 2
+    assert point == pytest.approx((1.5, -2.0000001))
+
+
+def test_points_add_and_subtract_and_scale_by_a_number():
+    assert Point(1, 2) + Point(10, 20) == Point(11, 22)
+    assert Point(1, 2) + (10, 20) == Point(11, 22)  # noqa: RUF005  a Point is not a tuple
+    assert (10, 20) + Point(1, 2) == Point(11, 22)  # noqa: RUF005  a Point is not a tuple
+    assert Point(10, 20) - Point(1, 2) == Point(9, 18)
+    assert Point(10, 20) - (1, 2) == Point(9, 18)
+    assert (10, 20) - Point(1, 2) == Point(9, 18)
+    assert Point(1, 2) * 3 == Point(3, 6)
+    assert 3 * Point(1, 2) == Point(3, 6)
+    assert Point(1, 2) * 0.5 == Point(0.5, 1)
+    assert isinstance(Point(1, 2) + Point(1, 1), Point)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        pytest.param(lambda: Point(1, 2) * Point(1, 2), id="point times point"),  # type: ignore[operator]  # the misuse under test
+        pytest.param(lambda: Point(1, 2) * "a", id="point times a string"),  # type: ignore[operator]  # the misuse under test
+        pytest.param(lambda: Point(1, 2) + 1, id="point plus a number"),  # type: ignore[operator]  # the misuse under test
+        pytest.param(
+            lambda: Point(1, 2) + (1, 2, 3),  # type: ignore[operator]  # noqa: RUF005  the misuse under test: a Point is not a tuple
+            id="point plus a triple",
+        ),
+    ],
+)
+def test_arithmetic_a_point_cannot_do_is_a_type_error(expression):
+    with pytest.raises(TypeError):
+        expression()
+
+
+def test_a_point_equals_the_tuple_of_its_coordinates_and_hashes_like_it():
+    assert Point(1, 2) == (1, 2)
+    assert Point(1, 2) == Point(1.0, 2.0)
+    assert Point(1, 2) != Point(2, 1)
+    assert Point(1, 2) != (1, 2, 3)
+    assert Point(1, 2) != "ab"
+    assert hash(Point(1, 2)) == hash((1, 2))
+    assert {Point(1, 2): "kept"}[(1, 2)] == "kept"  # type: ignore[index]  # the misuse under test
+
+
+def test_a_point_is_a_value():
+    point = Point(1, 2)
+    with pytest.raises(AttributeError):
+        point.x = 5  # type: ignore[misc]  # the misuse under test
+    assert repr(Point(1.5, -2)) == "Point(1.5, -2.0)"
+
+
+def test_a_rect_has_its_corner_and_size_and_is_a_value():
+    rect = Rect(1, 2, 30, 40)
+    assert (rect.x, rect.y, rect.width, rect.height) == (1, 2, 30, 40)
+    assert rect == Rect(1.0, 2.0, 30.0, 40.0)
+    assert rect != Rect(1, 2, 30, 41)
+    assert rect != (1, 2, 30, 40)
+    assert hash(rect) == hash(Rect(1, 2, 30, 40))
+    assert repr(rect) == "Rect(x=1.0, y=2.0, width=30.0, height=40.0)"
+    with pytest.raises(AttributeError):
+        rect.width = 5  # type: ignore[misc]  # the misuse under test

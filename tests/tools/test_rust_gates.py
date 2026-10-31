@@ -287,37 +287,25 @@ def test_the_stub_as_it_is_matches_the_extension(project_copy, copy_env):
     assert verdict.returncode == 0, verdict.report
 
 
-INIT = "src/bullterrier_vector/__init__.py"
-FUNCTION = "def polygon_svg(sides: int, radius: float) -> str: ...\n"
+REVERSE = "    def reverse(self) -> Path: ...\n"
 
 
 @pytest.mark.parametrize(
     ("edits", "named"),
     [
         pytest.param(
-            {STUB: [("sides: int", "count: int")]},
-            ["bullterrier_vector._native._core.polygon_svg"],
+            {STUB: [("def circle(center: _PointLike, radius: float)", "def circle(center: _PointLike, size: float)")]},
+            ["bullterrier_vector._native._core.Path.circle"],
             id="a parameter renamed",
         ),
-        # the function is also taken out of the package's imports and `__all__`, so that nothing but the stub
-        # disagrees and stubtest itself reaches its comparison
         pytest.param(
-            {
-                STUB: [(FUNCTION, ""), ('__all__ = ["polygon_svg"]', "__all__ = []")],
-                INIT: [
-                    (
-                        "from bullterrier_vector._native._core import polygon_svg",
-                        "from bullterrier_vector._native import _core",
-                    ),
-                    ('"ParameterError", "polygon_svg"]', '"ParameterError"]'),
-                ],
-            },
-            ["bullterrier_vector._native._core.polygon_svg", "not present in stub"],
-            id="a function left out",
+            {STUB: [(REVERSE, "")]},
+            ["bullterrier_vector._native._core.Path.reverse", "not present in stub"],
+            id="a method left out",
         ),
     ],
 )
-def test_a_stub_that_disagrees_with_the_extension_fails_naming_the_function(project_copy, copy_env, edits, named):
+def test_a_stub_that_disagrees_with_the_extension_fails_naming_the_member(project_copy, copy_env, edits, named):
     checkout = project_copy("pyproject.toml")
     for relative, changes in edits.items():
         text = (checkout / relative).read_text(encoding="utf-8")
