@@ -1,9 +1,11 @@
 //! `Drawing`: a tree of steps that evaluates to a list of shapes.
 
 mod eval;
+mod select;
 mod style;
 mod transform;
 
+pub use select::{Select, Wanted};
 pub use style::Stroke;
 pub use transform::{Deg, Pivot, Rotate, ScaleBy};
 

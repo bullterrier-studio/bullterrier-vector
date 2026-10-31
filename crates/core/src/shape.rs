@@ -5,6 +5,7 @@ mod color;
 mod style;
 
 pub use attributes::Attributes;
+pub(crate) use attributes::{Holds, SELECTABLE, Single};
 pub use color::Color;
 pub use style::{Blend, Cap, Join, StrokeStyle, Style};
 pub(crate) use style::{DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH};
@@ -60,6 +61,16 @@ impl Shape {
     pub(crate) fn painted(mut self) -> Self {
         self.style.resolve_paint(&self.path);
         self
+    }
+
+    /// The value of the attribute `name` (`index` included), if this shape carries it.
+    pub(crate) fn attribute(&self, name: &str) -> Option<Single> {
+        #[expect(clippy::cast_precision_loss, reason = "a list is far shorter than 2^53 shapes")]
+        if name == "index" {
+            Some(Single::Number(self.index as f64))
+        } else {
+            self.attributes.get(name)
+        }
     }
 
     /// The outline.

@@ -38,6 +38,7 @@
 //! once (it refuses a per-item number or a list), first used by `text`.
 
 mod args;
+pub(crate) mod select;
 pub(crate) mod source;
 pub(crate) mod stack;
 pub(crate) mod style;
@@ -175,6 +176,8 @@ pub enum Kind {
     Shape,
     /// Drawings, bottom first.
     Drawings,
+    /// Attribute names with the values a shape's must equal (`only`, `without`).
+    Attributes,
 }
 
 /// How an argument's value is read.

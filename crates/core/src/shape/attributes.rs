@@ -17,7 +17,59 @@ pub struct Attributes {
     pub(crate) origin: Option<Point>,
 }
 
+/// One value an attribute holds, or a selection asks for.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Single {
+    Number(f64),
+    Char(char),
+    Point(Point),
+}
+
+/// What kind of value an attribute holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Holds {
+    /// A whole number from 0.
+    Whole,
+    /// Any finite number.
+    Real,
+    /// One character.
+    Char,
+    /// A point.
+    Point,
+}
+
+/// The attributes a selection can ask about, by name: the shape's `index` and the nine a generator writes.
+pub(crate) const SELECTABLE: [(&str, Holds); 10] = [
+    ("index", Holds::Whole),
+    ("glyph", Holds::Whole),
+    ("char", Holds::Char),
+    ("word", Holds::Whole),
+    ("line", Holds::Whole),
+    ("part", Holds::Whole),
+    ("copy", Holds::Whole),
+    ("level", Holds::Real),
+    ("order", Holds::Real),
+    ("origin", Holds::Point),
+];
+
 impl Attributes {
+    /// The value of the attribute `name` that a generator wrote, if one did. `index` is the shape's own and is read
+    /// from the shape, not here.
+    pub(crate) fn get(&self, name: &str) -> Option<Single> {
+        match name {
+            "glyph" => self.glyph.map(|n| Single::Number(f64::from(n))),
+            "char" => self.char.map(Single::Char),
+            "word" => self.word.map(|n| Single::Number(f64::from(n))),
+            "line" => self.line.map(|n| Single::Number(f64::from(n))),
+            "part" => self.part.map(|n| Single::Number(f64::from(n))),
+            "copy" => self.copy.map(|n| Single::Number(f64::from(n))),
+            "level" => self.level.map(Single::Number),
+            "order" => self.order.map(Single::Number),
+            "origin" => self.origin.map(Single::Point),
+            _ => None,
+        }
+    }
+
     /// The glyph's number in the text, from 0.
     #[must_use]
     pub fn glyph(&self) -> Option<u32> {

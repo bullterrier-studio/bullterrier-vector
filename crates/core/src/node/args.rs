@@ -3,7 +3,7 @@
 
 use super::{Arg, Context, Domain, Kind, Reads, Verb};
 use crate::geometry::{coordinate, finite, fraction};
-use crate::{Color, Drawing, Error, Expr, Literal, Path, Point, Shape, Values};
+use crate::{Color, Drawing, Error, Expr, Literal, Path, Point, Select, Shape, Values};
 
 /// The place of a shape in the list a step works on, and how long the list is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +31,8 @@ pub(crate) enum Given {
     Shape(Shape),
     /// Drawings, bottom first.
     Drawings(Vec<Drawing>),
+    /// Attributes to select by.
+    Select(Select),
     /// Left out.
     Unset,
 }
@@ -261,6 +263,14 @@ impl Args {
         match self.find(name)? {
             (_, Given::Shape(shape)) => Ok(shape),
             _ => Err(self.misread(name, "a shape")),
+        }
+    }
+
+    /// The selection of `name`.
+    pub(crate) fn select(&self, name: &str) -> Result<&Select, Error> {
+        match self.find(name)? {
+            (_, Given::Select(select)) => Ok(select),
+            _ => Err(self.misread(name, "a selection")),
         }
     }
 
