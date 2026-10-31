@@ -5,9 +5,10 @@ use super::view::View;
 use super::{Size, in_shape};
 use crate::limits::Work;
 use crate::path::{FLATNESS, Polyline};
-use crate::{Blend, Cap, Drawing, Error, Join, Path, Point, Shape, Values};
-use kurbo::{BezPath, StrokeOpts};
+use crate::{Blend, Cap, Drawing, Error, Join, Path, Point, Shape, StrokeStyle, Values};
+use kurbo::{BezPath, Rect, Shape as _, StrokeOpts};
 use std::cell::Cell;
+use std::f64::consts::SQRT_2;
 use vello_cpu::color::AlphaColor;
 use vello_cpu::peniko::{BlendMode, Compose, Fill, ImageAlphaType, Mix};
 use vello_cpu::{Level, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources};
@@ -49,7 +50,7 @@ fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8
     context.set_fill_rule(Fill::NonZero);
     let work = Work::new();
     for shape in shapes {
-        paint(&mut context, shape, view, &work)?;
+        paint(&mut context, shape, view, (width, height), &work)?;
     }
     context.flush();
     let mut pixmap = Pixmap::new(width, height);
@@ -71,7 +72,13 @@ fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8
 ///
 /// The rasteriser is given straight lines only: the path is flattened in design pixels, the same polygon for every
 /// output, and a stroke is expanded into its outline here, to the same flatness in output pixels.
-fn paint(context: &mut RenderContext, shape: &Shape, view: &View, work: &Work) -> Result<(), Error> {
+fn paint(
+    context: &mut RenderContext,
+    shape: &Shape,
+    view: &View,
+    canvas: (u16, u16),
+    work: &Work,
+) -> Result<(), Error> {
     let name = format!("shape {}", shape.index());
     let mut charge = |count| work.made_segments(count, &name);
     let polylines = shape.path().flattened(&mut charge)?;
@@ -89,6 +96,12 @@ fn paint(context: &mut RenderContext, shape: &Shape, view: &View, work: &Work) -
         None => None,
     };
     let grouped = style.opacity() < 1.0 || style.blend() == Blend::Multiply;
+    // a group is composited over the pixels it can reach only, not the whole canvas: that is what keeps a drawing of
+    // thousands of small translucent or multiplied shapes from costing a canvas each
+    let reach = stroke.map_or(0.0, |(stroke, width)| stroke_reach(stroke, width));
+    let Some(bounds) = visible(&device, reach, canvas) else {
+        return Ok(());
+    };
     if grouped {
         let mix = match style.blend() {
             Blend::Normal => Mix::Normal,
@@ -100,7 +113,7 @@ fn paint(context: &mut RenderContext, shape: &Shape, view: &View, work: &Work) -
         )]
         let opacity = style.opacity() as f32;
         context.push_layer(
-            None,
+            Some(&bounds),
             Some(BlendMode::new(mix, Compose::SrcOver)),
             Some(opacity),
             None,
@@ -170,6 +183,38 @@ fn paint(context: &mut RenderContext, shape: &Shape, view: &View, work: &Work) -
         context.pop_layer();
     }
     Ok(())
+}
+
+/// How far a stroke `width` wide with this join and end reaches from the centreline of the path: a miter to its limit
+/// of half widths, a square end to the corner of its square.
+fn stroke_reach(stroke: &StrokeStyle, width: f64) -> f64 {
+    let join = if stroke.join() == Join::Miter {
+        stroke.miter_limit()
+    } else {
+        1.0
+    };
+    let end = if stroke.cap() == Cap::Square { SQRT_2 } else { 1.0 };
+    width / 2.0 * join.max(end)
+}
+
+/// The whole pixels of the canvas that a path of `polylines` stroked out to `reach` can touch, as a rectangle; nothing
+/// if it touches none.
+fn visible(polylines: &[Polyline], reach: f64, (width, height): (u16, u16)) -> Option<BezPath> {
+    let (mut left, mut top, mut right, mut bottom) =
+        (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+    for point in polylines.iter().flat_map(|polyline| &polyline.points) {
+        (left, right) = (left.min(point.x), right.max(point.x));
+        (top, bottom) = (top.min(point.y), bottom.max(point.y));
+    }
+    // a pixel more on each side for the edge of an anti-aliased fill
+    let (left, top) = (
+        (left - reach - 1.0).floor().max(0.0),
+        (top - reach - 1.0).floor().max(0.0),
+    );
+    let right = (right + reach + 1.0).ceil().min(f64::from(width));
+    let bottom = (bottom + reach + 1.0).ceil().min(f64::from(height));
+    (left < right && top < bottom)
+        .then(|| BezPath::from_vec(Rect::new(left, top, right, bottom).path_elements(0.0).collect()))
 }
 
 /// `polylines` moved by `view` into output pixels.

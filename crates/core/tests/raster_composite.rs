@@ -315,3 +315,31 @@ fn a_multiplied_shape_multiplies_with_its_fill_and_stroke_as_one() -> Outcome {
     assert_eq!(image.pixel(2, 20), [192, 192, 192, 255], "neither");
     Ok(())
 }
+
+#[test]
+fn a_group_keeps_what_its_stroke_reaches_past_the_path() -> Outcome {
+    // a 60 degree corner at (60, 60), stroked 20 wide with a mitre: the point of the mitre is 20 from the corner, at
+    // (77.3, 70), 17 columns and 10 rows beyond the path's bounds. A square end on the diagonal from (30, 30) reaches
+    // 14 columns past it with its corner. The group's opacity must not cut them off
+    let corner = Path::polyline([(20.0, 60.0), (60.0, 60.0), (40.0, 25.36)], false)?;
+    let diagonal = Path::line((30.0, 30.0), (70.0, 70.0))?;
+    for (case, path, join, cap, column, row) in [
+        ("the point of a mitre", corner, Join::Miter, Cap::Butt, 72, 66),
+        ("the corner of a square end", diagonal, Join::Bevel, Cap::Square, 18, 28),
+    ] {
+        let stroke = Stroke::new(Color::parse("#000000")?).width(20.0).join(join).cap(cap);
+        let plain = render(
+            &Drawing::from(path.clone()).fill(Color::NONE).stroke(stroke.clone()),
+            100,
+            100,
+        )?;
+        assert_eq!(plain.alpha(column, row), 255, "{case}: drawn without a group");
+        let grouped = Drawing::from(path).fill(Color::NONE).stroke(stroke).opacity(0.5);
+        assert_eq!(
+            render(&grouped, 100, 100)?.alpha(column, row),
+            128,
+            "{case}: drawn in a group"
+        );
+    }
+    Ok(())
+}
