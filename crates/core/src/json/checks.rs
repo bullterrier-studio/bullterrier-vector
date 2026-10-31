@@ -204,15 +204,16 @@ fn params(doc: &Doc) -> Result<BTreeMap<String, Param>, Error> {
         .iter()
         .map(|(name, calls)| (name.as_str(), calls.as_slice()))
         .collect();
-    let mut read = Vec::new();
+    let mut read = Reads::default();
     let mut walked = BTreeSet::new();
     first_reads(&doc.root, &entries, &mut walked, &mut read);
     let in_document: Vec<&str> = doc
         .params
         .iter()
         .map(|decl| decl.name.as_str())
-        .filter(|name| read.contains(name))
+        .filter(|name| read.seen.contains(name))
         .collect();
+    let read = read.order;
     if in_document != read {
         return Err(refuse(
             "/params",
@@ -222,10 +223,18 @@ fn params(doc: &Doc) -> Result<BTreeMap<String, Param>, Error> {
             ),
         ));
     }
-    if let Some(unused) = doc.params.iter().find(|decl| !read.contains(&decl.name.as_str())) {
+    let read: BTreeSet<&str> = read.into_iter().collect();
+    if let Some(unused) = doc.params.iter().find(|decl| !read.contains(decl.name.as_str())) {
         return Err(refuse(&unused.pointer, "is read by no call"));
     }
     Ok(params)
+}
+
+/// The Params read so far: in the order they were first read, and as a set to ask in.
+#[derive(Default)]
+struct Reads<'a> {
+    order: Vec<&'a str>,
+    seen: BTreeSet<&'a str>,
 }
 
 /// The Params the walk of formats.md reads, each once, in the order it first reads them: a drawing's calls from its
@@ -235,7 +244,7 @@ fn first_reads<'a>(
     calls: &'a [Call],
     entries: &BTreeMap<&str, &'a [Call]>,
     walked: &mut BTreeSet<&'a str>,
-    read: &mut Vec<&'a str>,
+    read: &mut Reads<'a>,
 ) {
     for call in calls {
         match &call.what {
@@ -263,8 +272,8 @@ fn first_reads<'a>(
                         _ => {}
                     }
                     for (name, _) in found {
-                        if !read.contains(&name) {
-                            read.push(name);
+                        if read.seen.insert(name) {
+                            read.order.push(name);
                         }
                     }
                 }
