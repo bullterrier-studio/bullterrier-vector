@@ -42,6 +42,31 @@ impl Curve {
         }
     }
 
+    /// The same curve travelled the other way.
+    pub(super) fn reversed(self) -> Self {
+        match self {
+            Self::Line(start, end) => Self::Line(end, start),
+            Self::Quad(start, control, end) => Self::Quad(end, control, start),
+            Self::Cubic(start, control1, control2, end) => Self::Cubic(end, control2, control1, start),
+        }
+    }
+
+    /// The part of the curve between parameters `t0` and `t1` (0 to 1, `t0` below `t1`). A part that reaches the
+    /// curve's own start or end keeps that point exactly.
+    pub(super) fn between(self, t0: f64, t1: f64) -> Self {
+        let head = if t1 >= 1.0 { self } else { self.split(t1).0 };
+        if t0 <= 0.0 { head } else { head.split(t0 / t1).1 }
+    }
+
+    /// The segment that, after the point this curve starts from, draws it.
+    pub(super) fn segment(self) -> Segment {
+        match self {
+            Self::Line(_, end) => Segment::Line(end),
+            Self::Quad(_, control, end) => Segment::Quad(control, end),
+            Self::Cubic(_, control1, control2, end) => Segment::Cubic(control1, control2, end),
+        }
+    }
+
     /// The curve cut at parameter `t`: the part before it and the part after it, by de Casteljau's blending. The two
     /// parts keep the exact start and end of this curve.
     fn split(self, t: f64) -> (Self, Self) {
@@ -112,7 +137,7 @@ impl Curve {
         }
     }
 
-    fn start(self) -> Point {
+    pub(super) fn start(self) -> Point {
         match self {
             Self::Line(start, _) | Self::Quad(start, _, _) | Self::Cubic(start, _, _, _) => start,
         }

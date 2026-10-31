@@ -5,37 +5,13 @@
 mod common;
 
 use bullterrier_vector::{Error, Path, Point, Rect};
-use common::{Outcome, distance, log_uniform, parameter_refusal};
+use common::{Outcome, build, commands, distance, log_uniform, parameter_refusal, step};
 use proptest::prelude::*;
 
-/// A path command: its letter and the numbers after it.
-type Command = (char, Vec<f64>);
 /// The four points of a cubic arc: where it starts, its two handles, where it ends.
 type Arc = [(f64, f64); 4];
 /// The cubic arcs of an arc command, and the point the path ends on.
 type ArcPath = (Vec<Arc>, (f64, f64));
-
-/// The commands of canonical path data: each letter with the numbers after it.
-fn commands(data: &str) -> Result<Vec<Command>, Box<dyn std::error::Error>> {
-    let mut found: Vec<Command> = Vec::new();
-    for token in data.split(' ').filter(|token| !token.is_empty()) {
-        let (letter, number) = match token.chars().next() {
-            Some(first @ ('M' | 'L' | 'Q' | 'C' | 'Z')) => (Some(first), &token[1..]),
-            _ => (None, token),
-        };
-        if let Some(letter) = letter {
-            found.push((letter, Vec::new()));
-        }
-        if !number.is_empty() {
-            found
-                .last_mut()
-                .ok_or("a number before any command")?
-                .1
-                .push(number.parse()?);
-        }
-    }
-    Ok(found)
-}
 
 #[test]
 fn the_test_reader_splits_data_into_commands() -> Outcome {
@@ -1183,7 +1159,7 @@ fn what_the_library_writes_reads_back_as_the_same_path() -> Outcome {
 }
 
 /// A coordinate across many orders of magnitude, of either sign, and the zeros.
-fn coordinate() -> impl Strategy<Value = f64> {
+fn coordinate() -> impl Strategy<Value = f64> + Clone {
     prop_oneof![
         1 => Just(0.0),
         1 => Just(-0.0),
@@ -1192,45 +1168,15 @@ fn coordinate() -> impl Strategy<Value = f64> {
     ]
 }
 
-fn point() -> impl Strategy<Value = (f64, f64)> {
+fn point() -> impl Strategy<Value = (f64, f64)> + Clone {
     (coordinate(), coordinate())
-}
-
-/// One builder step: a verb with the points it takes.
-#[derive(Debug, Clone)]
-enum Step {
-    Move((f64, f64)),
-    Line((f64, f64)),
-    Quad((f64, f64), (f64, f64)),
-    Curve((f64, f64), (f64, f64), (f64, f64)),
-    Close,
-}
-
-fn step() -> impl Strategy<Value = Step> {
-    prop_oneof![
-        point().prop_map(Step::Move),
-        point().prop_map(Step::Line),
-        (point(), point()).prop_map(|(c, p)| Step::Quad(c, p)),
-        (point(), point(), point()).prop_map(|(a, b, p)| Step::Curve(a, b, p)),
-        Just(Step::Close),
-    ]
 }
 
 proptest! {
     // A path built with any verbs, written and read back, is the same path, bit for bit.
     #[test]
-    fn a_path_written_and_read_back_is_the_same_path(start in point(), steps in prop::collection::vec(step(), 0..24)) {
-        let mut path = Path::start(start).map_err(|e| TestCaseError::fail(e.to_string()))?;
-        for step in steps {
-            path = match step {
-                Step::Move(p) => path.move_to(p),
-                Step::Line(p) => path.line_to(p),
-                Step::Quad(c, p) => path.quad_to(c, p),
-                Step::Curve(a, b, p) => path.curve_to(a, b, p),
-                Step::Close => path.close(),
-            }
-            .map_err(|e| TestCaseError::fail(e.to_string()))?;
-        }
+    fn a_path_written_and_read_back_is_the_same_path(start in point(), steps in prop::collection::vec(step(point()), 0..24)) {
+        let path = build(start, &steps).map_err(|e| TestCaseError::fail(e.to_string()))?;
         let data = path.to_svg_path();
         let read = Path::from_svg_path(&data).map_err(|e| TestCaseError::fail(e.to_string()))?;
         prop_assert_eq!(read, path, "{}", data);

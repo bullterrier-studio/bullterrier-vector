@@ -94,6 +94,63 @@ impl<'a> Run<'a> {
         }
     }
 
+    /// The edge a distance `local` along the run falls on, and how far along that edge (0 to 1). A distance on the
+    /// boundary between two edges falls on the later one.
+    fn place(&self, local: f64) -> (usize, f64) {
+        let last = self.edges.len() - 1;
+        if local <= 0.0 {
+            return (0, 0.0);
+        }
+        if local >= self.length {
+            return (last, 1.0);
+        }
+        let index = self
+            .edges
+            .partition_point(|edge| edge.start + edge.length <= local)
+            .min(last);
+        let edge = &self.edges[index];
+        // rounding can leave the share a hair over 1 on the last edge of a run
+        (index, ((local - edge.start) / edge.length).min(1.0))
+    }
+
+    /// The part of the run from `lo` to `hi` along it as an open sub-path: the curves it passes whole, the first and
+    /// last cut where they are reached.
+    pub(super) fn piece(&self, lo: f64, hi: f64) -> SubPath {
+        let (first, from) = self.place(lo);
+        let (last, to) = self.place(hi);
+        // (curve, first parameter, last parameter), neighbouring edges of one curve joined
+        let mut spans: Vec<(usize, f64, f64)> = Vec::new();
+        for index in first..=last {
+            let edge = &self.edges[index];
+            let begin = if index == first { from } else { 0.0 };
+            let finish = if index == last { to } else { 1.0 };
+            if finish <= begin {
+                continue;
+            }
+            let (t0, t1) = (
+                lerp_number(edge.t0, edge.t1, begin),
+                lerp_number(edge.t0, edge.t1, finish),
+            );
+            match spans.last_mut() {
+                Some(span) if span.0 == edge.segment && span.2 <= t0 => span.2 = t1,
+                _ => spans.push((edge.segment, t0, t1)),
+            }
+        }
+        let curves: Vec<Curve> = spans
+            .into_iter()
+            .map(|(segment, t0, t1)| self.curves[segment].between(t0, t1))
+            .collect();
+        // a range too narrow to tell its ends apart is a point
+        let Some(first_curve) = curves.first() else {
+            return SubPath::open(self.point(first, from));
+        };
+        SubPath {
+            start: first_curve.start(),
+            segments: curves.iter().map(|curve| curve.segment()).collect(),
+            closed: false,
+        }
+    }
+
     /// The point of the run's curves `along` (0 to 1) the edge number `edge`.
     fn point(&self, edge: usize, along: f64) -> Point {
         let edge = &self.edges[edge];
@@ -237,14 +294,7 @@ impl Walk<'_> {
             }
             last = Some(index);
             if distance < run.offset + run.length {
-                let local = distance - run.offset;
-                let edge = run
-                    .edges
-                    .partition_point(|edge| edge.start + edge.length <= local)
-                    .min(run.edges.len() - 1);
-                let on = &run.edges[edge];
-                // rounding can leave the share a hair over 1 on the last edge of a run
-                let along = ((local - on.start) / on.length).min(1.0);
+                let (edge, along) = run.place(distance - run.offset);
                 return Some(Spot {
                     run: index,
                     edge,

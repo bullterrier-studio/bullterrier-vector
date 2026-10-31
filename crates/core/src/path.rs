@@ -8,7 +8,9 @@ mod bounds;
 mod curve;
 mod measure;
 mod read;
+mod region;
 mod shapes;
+mod slice;
 mod walk;
 mod write;
 

@@ -16,10 +16,13 @@ impl Path {
     /// The point a fraction `at` (0 to 1) of the way along the outline. Sub-paths are walked in the order they were
     /// built; a position on the boundary between two belongs to the later one. A closed sub-path is walked from its
     /// topmost point (the leftmost of equally high ones), in the direction it is written, so the start does not move
-    /// when the outline changes elsewhere. A path with no length has one point, its first.
+    /// when the outline changes elsewhere. With `near`, a closed sub-path is walked from the point of it nearest
+    /// `near` instead (of equally near places, the first as written); this holds for [`Path::tangent_at`],
+    /// [`Path::locate`] and [`Path::slice`] too. A path with no length has one point, its first.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `at` is outside 0 to 1 or NaN; [`Error::Geometry`] if the path is empty.
+    /// [`Error::Parameter`] if `at` is outside 0 to 1 or NaN, or `near` is NaN or infinite; [`Error::Geometry`] if
+    /// the path is empty.
     pub fn point_at(&self, at: f64, near: Option<Point>) -> Result<Point, Error> {
         let at = fraction("at", at)?;
         let walk = self.nonempty_walk("point_at", near)?;
@@ -34,8 +37,8 @@ impl Path {
     /// a closed one the same as at 0. Segments of no length are passed over.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `at` is outside 0 to 1 or NaN; [`Error::Geometry`] if the path is empty or has no
-    /// length, and so no direction.
+    /// [`Error::Parameter`] if `at` is outside 0 to 1 or NaN, or `near` is NaN or infinite; [`Error::Geometry`] if
+    /// the path is empty or has no length, and so no direction.
     pub fn tangent_at(&self, at: f64, near: Option<Point>) -> Result<Point, Error> {
         let at = fraction("at", at)?;
         let walk = self.nonempty_walk("tangent_at", near)?;
@@ -46,7 +49,7 @@ impl Path {
     }
 
     /// The walk of a path that has something on it, from the point nearest `near` if there is one.
-    fn nonempty_walk(&self, verb: &str, near: Option<Point>) -> Result<Walk<'_>, Error> {
+    pub(super) fn nonempty_walk(&self, verb: &str, near: Option<Point>) -> Result<Walk<'_>, Error> {
         let near = near.map(|near| finite_point("near", near)).transpose()?;
         if self.subpaths.is_empty() {
             Err(Error::geometry(verb, "the path is empty"))
