@@ -123,10 +123,14 @@ impl Drawing {
     ///
     /// # Errors
     /// Throws an `Error` named `FormatError` if the text is not a document the library reads; its message starts
-    /// with the JSON Pointer of the offending value.
+    /// with the JSON Pointer of the offending value. A `TypeError` if `text` is not a string (wasm-bindgen would
+    /// read any value as one and trap).
     #[wasm_bindgen(js_name = fromJson)]
-    pub fn from_json(text: &str) -> Result<Drawing, JsValue> {
-        raised(vector::Drawing::from_json(text)).map(Self)
+    pub fn from_json(#[wasm_bindgen(unchecked_param_type = "string")] text: &JsValue) -> Result<Drawing, JsValue> {
+        let Some(text) = text.as_string() else {
+            return Err(refuse("text", "a string", text));
+        };
+        raised(vector::Drawing::from_json(&text)).map(Self)
     }
 
     /// The drawing as JSON in the canonical form.

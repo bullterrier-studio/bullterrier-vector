@@ -67,3 +67,19 @@ for (const [label, values, named] of [
     );
   });
 }
+
+// wasm-bindgen reads a string argument without checking its type: a parsed document, the commonest slip, would trap
+for (const [label, value] of [
+  ["a parsed document", JSON.parse(native.documents.star.json)],
+  ["a number", 5],
+  ["null", null],
+  ["undefined", undefined],
+  ["the bytes of the text", new TextEncoder().encode(native.documents.star.json)],
+]) {
+  test(`fromJson given ${label} is a TypeError naming text`, () => {
+    assert.throws(
+      () => Drawing.fromJson(value),
+      (error) => error instanceof TypeError && error.message.includes("text"),
+    );
+  });
+}
