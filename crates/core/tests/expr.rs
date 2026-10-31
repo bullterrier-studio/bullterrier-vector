@@ -422,7 +422,7 @@ fn tree() -> impl Strategy<Value = Tree> {
 }
 
 proptest! {
-    // The value is the plain arithmetic of the tree, bit for bit, or an error exactly where plain arithmetic divides
+    // The value is the plain arithmetic of the tree, bit for bit but for the sign of a zero, or an error exactly where plain arithmetic divides
     // by zero or leaves the finite numbers.
     #[test]
     fn the_value_is_the_arithmetic_done_on_plain_numbers(
@@ -438,7 +438,8 @@ proptest! {
         match reference(&tree, &given) {
             Some(expected) => {
                 let found = outcome.map_err(|error| TestCaseError::fail(error.to_string()))?;
-                prop_assert_eq!(found.to_bits(), expected.to_bits());
+                // a zero is never negative: the sign of a zero is the one thing the library normalises
+                prop_assert_eq!(found.to_bits(), (expected + 0.0).to_bits());
             }
             None => prop_assert!(matches!(outcome, Err(Error::Parameter { .. })), "{outcome:?}"),
         }

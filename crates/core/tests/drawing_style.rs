@@ -4,7 +4,9 @@
 
 mod common;
 
-use bullterrier_vector::{Blend, Cap, Color, Drawing, Error, Join, Param, Path, Stroke, StrokeStyle, Style, Values};
+use bullterrier_vector::{
+    Blend, Cap, Color, Drawing, Error, Expr, Join, Param, Path, Stroke, StrokeStyle, Style, Values,
+};
 use common::{Outcome, parameter_refusal};
 
 const PINK: Color = Color::hex(0xff_4f_9a);
@@ -210,6 +212,26 @@ fn opacity_multiplies() -> Outcome {
     assert_eq!(plain(&base.opacity(1.0))?.opacity(), 1.0);
     // it leaves the paint alone
     assert_eq!(plain(&base.opacity(0.5))?.fill(), Color::hex(0));
+    Ok(())
+}
+
+#[test]
+fn a_computed_negative_zero_is_stored_as_zero_like_a_literal_one() -> Outcome {
+    let base = Drawing::from(square()?);
+    let zero = Param::new("z", 0.0, -1.0, 1.0)?;
+    // (case, an expression whose arithmetic ends in negative zero)
+    let rows = [
+        ("literal", Expr::from(-0.0)),
+        ("negated", -Expr::from(0.0)),
+        ("times minus one", Expr::from(0.0) * -1.0),
+        ("difference", -Expr::from(0.0) - 0.0),
+        ("quotient", Expr::from(0.0) / -1.0),
+        ("negated Param", -&zero),
+    ];
+    for (case, alpha) in rows {
+        assert_eq!(plain(&base.opacity(alpha.clone()))?.opacity().to_bits(), 0, "{case}");
+        assert_eq!(alpha.value(&Values::new())?.to_bits(), 0, "{case}");
+    }
     Ok(())
 }
 

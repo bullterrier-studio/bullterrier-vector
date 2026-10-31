@@ -240,7 +240,9 @@ impl Expr {
             }
         };
         if number.is_finite() {
-            Ok(number)
+            // a negative zero (`-0`, `0 * -1`) becomes zero, as `Expr::from` stores a literal one: equal numbers then
+            // have equal bits wherever a step keeps one
+            Ok(number + 0.0)
         } else {
             Err(Error::parameter(
                 "expression",
