@@ -215,6 +215,14 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   that is what SVG's `opacity` on a path and the browsers do, so the SVG and the pixels agree, and a stroke over a fill
   at half opacity is not darker where they overlap. The conversion from the rasteriser's premultiplied bytes is ours and
   rounds to nearest, so it does not depend on the crate.
+- **PNG: the `png` crate, fixed settings** (2026-10-31), pinned exactly and used only in `output/png.rs`; the encoder
+  settings (fast DEFLATE, the crate's adaptive row filter) are two named constants there. *Reason:* a PNG encoder is
+  reuse, not a differentiator, and the crate is pure Rust and builds for WebAssembly; the settings are fixed so that one
+  version of the crate gives one file for one picture, and the fast mode costs a few percent of file size for a large
+  saving in time (the crate's own description). *Consequence:* the bytes of a PNG may change between versions of the crate (the pixels inside
+  do not: `to_png` is tested by decoding it, with a decoder written from the specification, to exactly `to_rgba`), so no
+  golden file holds one; the crate brings `flate2`, `fdeflate`, `crc32fast` and two versions of `miniz_oxide` (a
+  `cargo deny` duplicate warning, no extra licence).
 - **Pixel limits** (2026-10-31). A pixel side is 1 to 65,000 and at most 2^27 pixels (512 MiB of RGBA); a device
   coordinate or stroke width beyond 10 million raises `ParameterError` naming the shape. *Reason:* the canvas of the
   crate is 16-bit, its arithmetic is f32, and a 65,000-pixel square would take 16 GiB; no clamping, so a caller learns

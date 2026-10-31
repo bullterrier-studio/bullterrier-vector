@@ -413,6 +413,16 @@ sub-path that never leaves its start (`line_to` its own start) leaves a disc und
 square end, as SVG draws it, and nothing under a butt end. A segment much shorter than the stroke is wide, at a sharp
 turn, can lose a sliver of the stroke on the inside of the turn.
 
+`to_png` is the pixels of `to_rgba` (the same limits and errors) as a PNG file: 8 bits a channel, colour type 6, straight
+alpha, no interlacing, and no chunks but the header, the data and the end (no colour space: read it as sRGB). The same
+call gives the same bytes; the bytes may change when the encoder crate is updated, what they decode to does not.
+
+To look at a drawing, `uv run poe look FILE [--size WxH] [name=value ...]` draws a `.json` document, or a `.py` program
+that leaves a `drawing` (as `examples/star.py` does), to `dist/look/<name>.png` and `<name>.svg` and prints the two
+paths. The size is the drawing's own frame, else 800x600; `name=value` sets a Param. Exit code 1 and one line on stderr
+for a missing or unreadable file, a program without `drawing`, a bad size or value, or an error from the library. It
+opens nothing.
+
 | Method | Signature | Promise |
 |---|---|---|
 | `to_svg` | `to_svg(width, height, /, **values)` | an SVG document of that size; shadows, halftone, knockouts and multiply kept, so it shows what the pixels show |

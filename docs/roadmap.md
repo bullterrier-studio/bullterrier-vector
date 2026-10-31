@@ -259,7 +259,8 @@ Carried from the S0 review:
   with their blend mode, in three flat buffers; knockouts resolved by booleans; a blurred shadow raises. A pointer, a
   length and a generation across WebAssembly; a view without a copy in Python. Covered by the differential tests
   below.
-- `uv run poe look <drawing>`: draws to PNG and SVG in a git-ignored folder, for a person or an agent to look at.
+- `uv run poe look <drawing>`: draws to PNG and SVG in a git-ignored folder, for a person or an agent to look at (done:
+  V3c).
 - The WebAssembly package (wasm-bindgen): build, a smoke test in Node (done: V3e).
 - Differential tests: the core's drawings rendered natively and in WebAssembly give identical bytes (pixels: within one
   level of each value, as the rasteriser crate is required to look the same, not to match byte for byte); and a drawing
@@ -268,8 +269,9 @@ Carried from the S0 review:
 
 State: V3a done in Rust and Python (`Size`, the view, `Drawing.to_svg`, the star example writes SVG); V3e done: the
 WebAssembly package loads a document and writes its SVG, equal to the native text, in Node (`poe wasm-test`); V3b done in Rust and
-Python (`Drawing.to_rgba`, through `vello_cpu`). PNG, `look`, the mesh, the WebAssembly bindings of pixels and the mesh, the
-differential tests and the benchmark are to do.
+Python (`Drawing.to_rgba`, through `vello_cpu`); V3c done in Rust and Python (`Drawing.to_png`, through the `png` crate,
+and `uv run poe look`). The mesh, the WebAssembly bindings of pixels and the mesh, the differential tests and the
+benchmark are to do.
 
 ## X1 Spike: GPU display
 

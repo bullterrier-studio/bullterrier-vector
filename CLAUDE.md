@@ -16,6 +16,7 @@ public: no absolute paths, no references to folders outside the repository.
 uv sync && uv run poe setup                      # once per clone: environment (builds the Rust extension: needs rustup), git hooks, commit template, cargo tools
 cargo test -p bullterrier-vector --test path     # the Rust tests near your change, while you work
 uv run pytest tests/test_path.py -n 0            # the Python tests near your change
+uv run poe look examples/star.py                 # draw a drawing file to dist/look/ (PNG and SVG) to see it
 uv run poe fast                                  # the inner loop: seconds when warm
 uv run poe check                                 # the whole gate, before you report or merge
 ```
@@ -30,9 +31,11 @@ and Python; `examples/series_bars.py` runs as far as `shapes()`. JSON (V2c): `Dr
 `Drawing.from_json` and `drawing_schema()` (the schema generated from the registrations) in Rust and Python, for the calls
 registered so far. Output (V3a): `Size` and `Drawing.to_svg(size, values)` in Rust, `Drawing.to_svg(width, height, /, **values)` in
 Python, and `examples/star.py` writes its SVG. Pixels (V3b): `Drawing::to_rgba(size, values)` in Rust and `Drawing.to_rgba(width,
-height, /, **values)` in Python, straight-alpha bytes drawn by `vello_cpu`. WebAssembly (V3e): the package built from `crates/wasm` loads a
+height, /, **values)` in Python, straight-alpha bytes drawn by `vello_cpu`. PNG (V3c): `Drawing::to_png(size, values)` and
+`Drawing.to_png(width, height, /, **values)`, the pixels of `to_rgba` as a file (the `png` crate), and `uv run poe look FILE`,
+which draws a `.json` or `.py` drawing to `dist/look/` as PNG and SVG. WebAssembly (V3e): the package built from `crates/wasm` loads a
 document and writes `toSvg` (also `toJson`, `parameters`, `size`) in Node, equal to the native text (`poe wasm-test`). The rest is planned
-(`docs/roadmap.md`): PNG, a mesh, and the WebAssembly bindings of pixels and the mesh, are the rest of V3.
+(`docs/roadmap.md`): a mesh, and the WebAssembly bindings of pixels and the mesh, are the rest of V3.
 Maintainers may keep machine-specific notes in a git-ignored `.local/` folder and batch plans in the git-ignored
 `.superpowers/plans/`: read them when present; never commit or cite them.
 
@@ -75,13 +78,13 @@ Three crates in one Cargo workspace; the package version is the workspace's.
 
 | Path | What |
 |---|---|
-| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation, the result cache); `limits.rs` (`MAX_SHAPES`, `MAX_SEGMENTS`, `MAX_DEPTH`, `MAX_PARAMS`, the counter); `output.rs` and `output/` (`Size`, the `View` that places the design frame in an output, the SVG writer, `raster.rs`: the pixel writer and the only user of `vello_cpu` and `kurbo`); `json.rs` and `json/` (`to_json`, `from_json`: a strict parser, the reader, the loader's checks, the writer; `drawing_schema()` generated in `schema.rs` from `verbs()` and the fixed `schema_fixed.json`; no list of calls); `tests/` |
+| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation, the result cache); `limits.rs` (`MAX_SHAPES`, `MAX_SEGMENTS`, `MAX_DEPTH`, `MAX_PARAMS`, the counter); `output.rs` and `output/` (`Size`, the `View` that places the design frame in an output, the SVG writer, `raster.rs`: the pixel writer and the only user of `vello_cpu` and `kurbo`, `png.rs`: the PNG writer and the only user of `png`); `json.rs` and `json/` (`to_json`, `from_json`: a strict parser, the reader, the loader's checks, the writer; `drawing_schema()` generated in `schema.rs` from `verbs()` and the fixed `schema_fixed.json`; no list of calls); `tests/` |
 | `crates/python` | PyO3 bindings building the extension `bullterrier_vector._native._core`; generic, passes values to the core unchecked; no Rust tests. `src/lib.rs` (`Path`, `Point`, `Rect`, the error mapping), `expr.rs` (`Expr`, `Param`), `drawing.rs` (`Drawing`), `shape.rs` (`Shape`, `Style`) |
 | `crates/wasm` | wasm-bindgen bindings building the WebAssembly package (`cdylib`); generic, passes values to the core unchecked; no Rust tests (Node tests the built package: `tests/wasm/`). `src/lib.rs` (`Drawing`, the error mapping: a JavaScript `Error` whose `name` is the kind) |
 | `src/bullterrier_vector/` | the Python package: `errors.py` (the bottom layer, imports nothing from the package), `_native/` (the extension and its stub `_core.pyi`), `__init__.py` (the public API) |
 | `tests/` | the Python suite (`test_*.py`); `tests/tools/` tests the tooling and the gates; `tests/wasm/` holds the Node tests of the WebAssembly package and `oracle.py`, which writes what the native extension answers for them |
 | `examples/` | example programs that run as far as the library can draw; `tests/test_examples.py` runs each. Code, never documentation (not in the `changes` filter). The others stay in `docs/examples/` until their calls exist |
-| `tools/` | scripts the hooks and gates run (`check_commit_message.py`, `check_one_config_home.py`, `pre_push.py`, `rust_tools.py`, `lint_workflows.py`, `check_dists.py`, `check_installed.py`, `check_file_size.py`) |
+| `tools/` | scripts the hooks and gates run (`check_commit_message.py`, `check_one_config_home.py`, `pre_push.py`, `rust_tools.py`, `lint_workflows.py`, `check_dists.py`, `check_installed.py`, `check_file_size.py`), and `look.py` (`uv run poe look FILE [--size WxH] [name=value ...]`: not a gate; draws a drawing file to the ignored `dist/look/` as PNG and SVG, to open and look at) |
 
 Rust is the source of truth: parameters are declared once, in Rust; Python and (from V3) WebAssembly are thin layers over it.
 The core does no IO of its own: callers pass bytes. `pub` only for what the bindings use, else `pub(crate)` (`unreachable_pub`
