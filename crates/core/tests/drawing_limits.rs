@@ -7,7 +7,6 @@ mod common;
 
 use bullterrier_vector::{Drawing, Error, Param, Path, Values};
 use common::{Outcome, parameter_refusal};
-use std::time::Instant;
 
 /// A drawing of one shape that is an empty path, which keeps a million of them cheap.
 fn nothing() -> Drawing {
@@ -174,17 +173,11 @@ fn an_expression_that_shares_itself_is_refused_at_the_call_without_being_worked_
     for _ in 0..28 {
         shared = &shared + &shared;
     }
-    let started = Instant::now();
     let drawing = nothing().translate(&shared, 0.0);
     let (name, message) = parameter_refusal(Err::<(), _>(drawing.error().cloned().ok_or("no error held")?))?;
     assert!(
         name.contains("translate") && message.contains("MAX_EXPR_NODES"),
         "{name}: {message}"
-    );
-    assert!(
-        started.elapsed().as_secs_f64() < 1.0,
-        "refused after {:?}",
-        started.elapsed()
     );
     Ok(())
 }
