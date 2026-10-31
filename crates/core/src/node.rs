@@ -229,4 +229,6 @@ pub enum Domain {
     PositiveUpTo(f64),
     /// One of these words.
     Choice(&'static [&'static str]),
+    /// A colour that paints: `"#rrggbb"` or `"#rrggbbaa"`, not `"none"`.
+    Painting,
 }

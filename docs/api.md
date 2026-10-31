@@ -399,9 +399,12 @@ values by name; a Param not given takes its default.
 | `to_plotter_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
 | `to_mesh` | `to_mesh(width, height, /, *, into=None, **values)` | triangles for the picture (below) |
 | `to_json` | `to_json()` | the drawing as JSON: the same tree written down |
-| `Drawing.from_json` | `Drawing.from_json(text, *, inputs={})` | the drawing back, given the bytes of its inputs by name; it draws to identical bytes |
+| `Drawing.from_json` | `Drawing.from_json(text, *, inputs={})` | the drawing back, given the bytes of its inputs by name; it draws to identical bytes. A static method; `inputs` arrives with the first call that reads one, until then a document that declares an input is refused |
+| `drawing_schema` | `btvec.drawing_schema()` | the JSON Schema of the format, as text, generated from the registered calls |
 
-The same drawing and values give the same bytes on every target. Errors (`ParameterError`): a size below 1, a value for
+The same drawing and values give the same bytes on every target. `to_json` raises `ParameterError` for a drawing beyond a
+limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises
+`FormatError`. Errors (`ParameterError`): a size below 1, a value for
 no Param (the message lists the Params), a value outside its Param's range, a list of the wrong length; and whatever a
 step raises. How fonts and maps are referred to in JSON: [formats.md](formats.md), "Inputs".
 

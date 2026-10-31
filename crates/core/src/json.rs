@@ -8,6 +8,7 @@ mod depth;
 mod doc;
 mod parse;
 mod read;
+mod schema;
 mod value;
 mod write;
 
@@ -26,6 +27,16 @@ pub(crate) fn expression_word(word: &str) -> Option<crate::expr::Op> {
     [Op::Add, Op::Sub, Op::Mul, Op::Div]
         .into_iter()
         .find(|op| op.word() == word)
+}
+
+/// The JSON Schema (draft 2020-12) of the drawing format, as compact JSON text, generated from the declarations of the
+/// calls [`verbs`](crate::verbs) lists: the document's keys and the Params, then for each call its name, arguments,
+/// defaults and the values each accepts. A document `from_json` reads is valid against it; the checks that relate
+/// values across a document (an undeclared Param, a cycle of shared drawings) are the loader's and are not in it.
+/// Editors and validators read it, and a call added to the registry appears in it.
+#[must_use]
+pub fn drawing_schema() -> String {
+    schema::generate(crate::verbs())
 }
 
 impl Drawing {

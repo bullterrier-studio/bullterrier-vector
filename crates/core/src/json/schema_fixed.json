@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "bullterrier-vector drawing, format version 1",
+  "$comment": "Generated from the library's own declarations of its calls (verbs()); docs/formats.md. Checks that relate values across a document (an undeclared Param, a default outside its range, depth through references, the Params, inputs and shared drawings a document uses) are the loader's: 'Checked by the loader, not the schema'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "root"],
+  "properties": {
+    "version": { "const": 1 },
+    "params": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/param" },
+      "$comment": "in the order the drawing first reads them; names unique (the loader checks both)"
+    },
+    "inputs": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": { "$ref": "#/$defs/input" }
+    },
+    "drawings": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": { "$ref": "#/$defs/drawing" }
+    },
+    "root": { "$ref": "#/$defs/drawing" }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*(?![\\s\\S])" },
+    "color": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})(?![\\s\\S])" },
+    "path_data": { "type": "string", "pattern": "^(\\s*[Mm][MmZzLlHhVvCcSsQqTtAa0-9eE.,+\\-\\s]*)?$" },
+    "number": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/expression" }] },
+    "param_name": {
+      "allOf": [{ "$ref": "#/$defs/name" }, { "not": { "enum": ["into", "pen_mm"] } }],
+      "$comment": "into and pen_mm are output options in Python, so no Param may take them"
+    },
+    "operands": {
+      "type": "array",
+      "prefixItems": [{ "$ref": "#/$defs/number" }, { "$ref": "#/$defs/number" }],
+      "minItems": 2,
+      "items": false,
+      "not": { "items": { "type": "number" } },
+      "$comment": "at least one operand is not a literal: a constant expression is written as its value"
+    },
+    "expression": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": { "enum": ["param", "add", "sub", "mul", "div", "neg"] },
+      "properties": {
+        "param": { "$ref": "#/$defs/name" },
+        "add": { "$ref": "#/$defs/operands" },
+        "sub": { "$ref": "#/$defs/operands" },
+        "mul": { "$ref": "#/$defs/operands" },
+        "div": { "allOf": [{ "$ref": "#/$defs/operands" }, { "prefixItems": [true, { "not": { "const": 0 } }] }] },
+        "neg": { "allOf": [{ "$ref": "#/$defs/number" }, { "not": { "type": "number" } }] }
+      }
+    },
+    "drawing": {
+      "type": "array",
+      "minItems": 1,
+      "prefixItems": [{ "$ref": "#/$defs/source" }],
+      "items": { "$ref": "#/$defs/step" },
+      "$comment": "a source, then the steps applied to it in order"
+    },
+    "param": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/param_name" },
+        "default": { "type": "number" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "unit": { "enum": ["px", "deg", "cycle", "fraction", ""] },
+        "meaning": { "type": "string" }
+      },
+      "required": ["name", "default", "min", "max", "unit", "meaning"]
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "kind": { "enum": ["font", "map"] }, "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])" } },
+      "required": ["kind"]
+    }
+  }
+}

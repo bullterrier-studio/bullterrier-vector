@@ -5,13 +5,15 @@ use crate::shape::{Blend as BlendMode, Cap, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
 
 /// A colour given when the call is made.
-const COLOR: Arg = Arg {
-    name: "color",
-    kind: Kind::Color,
-    default: None,
-    reads: Reads::Literal,
-    domain: Domain::Any,
-};
+const fn color(domain: Domain) -> Arg {
+    Arg {
+        name: "color",
+        kind: Kind::Color,
+        default: None,
+        reads: Reads::Literal,
+        domain,
+    }
+}
 
 /// The word `name` of a set, as the argument of a step, given when the call is made.
 const fn word(name: &'static str, default: Option<&'static str>, options: &'static [&'static str]) -> Arg {
@@ -55,7 +57,7 @@ pub(crate) static FILL: Verb = Verb {
     name: "fill",
     role: Role::Step,
     summary: "fills every shape with a colour, \"none\" for no fill; once a fill or stroke is set only what is set is painted",
-    args: &[COLOR],
+    args: &[color(Domain::Any)],
     check: None,
 };
 
@@ -87,25 +89,14 @@ pub(crate) static STROKE: Verb = Verb {
     role: Role::Step,
     summary: "strokes every outline; once a fill or stroke is set only what is set is painted",
     args: &[
-        COLOR,
+        color(Domain::Painting),
         number("width", Some(DEFAULT_STROKE_WIDTH), Domain::Positive),
         word("join", Some("round"), Join::NAMES),
         word("cap", Some("round"), Cap::NAMES),
         number("miter_limit", Some(DEFAULT_MITER_LIMIT), Domain::AtLeast(1.0)),
     ],
-    check: Some(paints),
+    check: None,
 };
-
-/// A stroke of no colour paints nothing: that is a fill of none.
-fn paints(args: &Args) -> Result<(), Error> {
-    if args.color("color")?.rgba().is_none() {
-        return Err(Error::parameter(
-            "color",
-            "must be \"#rrggbb\" or \"#rrggbbaa\": a stroke of \"none\" paints nothing",
-        ));
-    }
-    Ok(())
-}
 
 impl Node for Stroke {
     fn verb(&self) -> &'static Verb {

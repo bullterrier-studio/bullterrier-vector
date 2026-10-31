@@ -78,6 +78,7 @@ impl Domain {
             Self::Coordinate => coordinate(name, value),
             Self::Fraction => fraction(name, value),
             Self::Choice(_) => Err(Error::parameter(name, "takes one of a set of words, not a number")),
+            Self::Painting => Err(Error::parameter(name, "takes a colour, not a number")),
             Self::Finite | Self::NonZero | Self::Positive | Self::AtLeast(_) | Self::PositiveUpTo(_) => {
                 let value = finite(name, value)?;
                 let accepted = match self {
@@ -103,7 +104,9 @@ impl Domain {
             Self::Positive => String::from("above 0"),
             Self::AtLeast(least) => format!("at least {least}"),
             Self::PositiveUpTo(most) => format!("above 0 and at most {most}"),
-            Self::Any | Self::Finite | Self::Coordinate | Self::Fraction | Self::Choice(_) => String::from("accepted"),
+            Self::Any | Self::Finite | Self::Coordinate | Self::Fraction | Self::Choice(_) | Self::Painting => {
+                String::from("accepted")
+            }
         }
     }
 }
@@ -264,6 +267,14 @@ impl Args {
             }
         }
         for (arg, given) in self.declared() {
+            if let (Given::Color(color), Domain::Painting) = (given, arg.domain)
+                && color.rgba().is_none()
+            {
+                return Err(Error::parameter(
+                    arg.name,
+                    "must be \"#rrggbb\" or \"#rrggbbaa\": \"none\" paints nothing here",
+                ));
+            }
             if let Given::Drawings(items) = given {
                 let nested = items.iter().map(Drawing::depth).max().unwrap_or(0) + 1;
                 if nested > MAX_DEPTH {

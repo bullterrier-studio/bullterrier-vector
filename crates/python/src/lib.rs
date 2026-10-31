@@ -29,7 +29,13 @@ mod _core {
     #[pymodule_export]
     use super::shape::{PyShape, PyStyle};
     #[pymodule_export]
-    use super::{PyPath, PyPoint, PyRect};
+    use super::{PyPath, PyPoint, PyRect, drawing_schema};
+}
+
+/// The JSON Schema of the drawing format as text, generated from the library's own declarations of its calls.
+#[pyfunction]
+fn drawing_schema() -> String {
+    vector::drawing_schema()
 }
 
 /// The Python exception for a core error: one class per kind: `ParameterError`, `GeometryError` and `FormatError`.

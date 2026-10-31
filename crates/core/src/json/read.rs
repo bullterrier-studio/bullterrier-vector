@@ -698,12 +698,16 @@ fn singles(pointer: &str, holds: Holds, json: &Json) -> Result<Vec<Single>, Erro
         })
     };
     match json {
-        // a point is itself an array of numbers: a list of points is an array of arrays
-        Json::Array(items) if holds != Holds::Point || items.iter().any(|item| matches!(item, Json::Array(_))) => items
-            .iter()
-            .enumerate()
-            .map(|(at, item)| one(&format!("{pointer}/{at}"), item))
-            .collect(),
+        // a point is itself an array of numbers: a list of points is an array of arrays, or empty
+        Json::Array(items)
+            if holds != Holds::Point || items.is_empty() || items.iter().any(|item| matches!(item, Json::Array(_))) =>
+        {
+            items
+                .iter()
+                .enumerate()
+                .map(|(at, item)| one(&format!("{pointer}/{at}"), item))
+                .collect()
+        }
         single => Ok(vec![one(pointer, single)?]),
     }
 }

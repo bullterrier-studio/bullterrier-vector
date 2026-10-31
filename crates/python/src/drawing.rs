@@ -273,6 +273,17 @@ impl PyDrawing {
         checked(self.0.with_values(&values(given)?))
     }
 
+    /// The drawing as JSON in the canonical form of formats.md.
+    fn to_json(&self) -> PyResult<String> {
+        raised(self.0.to_json())
+    }
+
+    /// The drawing a JSON document describes.
+    #[staticmethod]
+    fn from_json(text: &str) -> PyResult<Self> {
+        checked(raised(vector::Drawing::from_json(text))?)
+    }
+
     /// Every Param the drawing reads, in the order first used.
     fn parameters(&self, py: Python<'_>) -> PyResult<Vec<Py<PyParam>>> {
         raised(self.0.parameters())?

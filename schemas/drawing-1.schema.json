@@ -34,6 +34,16 @@
     "color": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})(?![\\s\\S])" },
     "path_data": { "type": "string", "pattern": "^(\\s*[Mm][MmZzLlHhVvCcSsQqTtAa0-9eE.,+\\-\\s]*)?$" },
     "number": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/expression" }] },
+    "coordinate": {
+      "anyOf": [{ "type": "number", "minimum": -1e100, "maximum": 1e100 }, { "$ref": "#/$defs/expression" }],
+      "$comment": "the largest coordinate a path holds"
+    },
+    "coordinate_point": {
+      "type": "array",
+      "prefixItems": [{ "$ref": "#/$defs/coordinate" }, { "$ref": "#/$defs/coordinate" }],
+      "minItems": 2,
+      "items": false
+    },
     "positive": { "anyOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "$ref": "#/$defs/expression" }] },
     "non_negative": { "anyOf": [{ "type": "number", "minimum": 0 }, { "$ref": "#/$defs/expression" }] },
     "fraction": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "$ref": "#/$defs/expression" }] },
@@ -171,46 +181,18 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "index": {
-          "anyOf": [
-            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
-          ]
-        },
-        "glyph": {
-          "anyOf": [
-            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
-          ]
-        },
-        "word": {
-          "anyOf": [
-            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
-          ]
-        },
-        "line": {
-          "anyOf": [
-            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
-          ]
-        },
-        "part": {
-          "anyOf": [
-            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
-          ]
-        },
-        "copy": {
-          "anyOf": [
-            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "minItems": 1 }
-          ]
-        },
-        "char": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" }, "minItems": 1 }] },
-        "level": { "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" }, "minItems": 1 }] },
-        "order": { "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" }, "minItems": 1 }] }
-      }
+        "index": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
+        "glyph": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
+        "word": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
+        "line": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
+        "part": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
+        "copy": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
+        "char": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 1 }, { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 1 } }] },
+        "level": { "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" } }] },
+        "order": { "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" } }] },
+        "origin": { "anyOf": [{ "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "items": false }, { "type": "array", "items": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "items": false } }] }
+      },
+      "$comment": "an attribute to the value a shape's must equal, or a list of values, any of which will do; an empty list matches no shape"
     },
     "tone": { "anyOf": [{ "$ref": "#/$defs/fraction" }, { "$ref": "#/$defs/field" }] },
     "field": {
@@ -316,12 +298,12 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "glyph": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-                "word": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-                "line": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-                "part": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-                "copy": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-                "char": { "type": "string" },
+                "glyph": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+                "word": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+                "line": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+                "part": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+                "copy": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+                "char": { "type": "string", "minLength": 1, "maxLength": 1 },
                 "level": { "type": "number" },
                 "order": { "type": "number" },
                 "origin": {
@@ -443,19 +425,19 @@
         "translate": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "dx": { "$ref": "#/$defs/number" }, "dy": { "$ref": "#/$defs/number" } },
+          "properties": { "dx": { "$ref": "#/$defs/coordinate" }, "dy": { "$ref": "#/$defs/coordinate" } },
           "required": ["dx", "dy"]
         },
         "rotate": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "angle": { "$ref": "#/$defs/number" }, "about": { "$ref": "#/$defs/point" } },
+          "properties": { "angle": { "$ref": "#/$defs/number" }, "about": { "$ref": "#/$defs/coordinate_point" } },
           "required": ["angle"]
         },
         "scale": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "by": { "$ref": "#/$defs/nonzero_pair" }, "about": { "$ref": "#/$defs/point" } },
+          "properties": { "by": { "$ref": "#/$defs/nonzero_pair" }, "about": { "$ref": "#/$defs/coordinate_point" } },
           "required": ["by"]
         },
         "union": {

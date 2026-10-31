@@ -544,6 +544,7 @@ fn a_selection_names_attributes_and_the_values_they_must_have() -> Outcome {
         r#"{"origin":[[1,2],[3,4]]}"#,
         r#"{"order":0.5,"level":[1,2]}"#,
         r#"{"index":[]}"#,
+        r#"{"origin":[]}"#,
     ] {
         Drawing::from_json(&format!(
             r#"{{"version":1,"root":[{{"path":"{TRIANGLE}"}},{{"only":{ok}}}]}}"#

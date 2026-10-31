@@ -25,6 +25,7 @@ pub use drawing::{Deg, Drawing, Pivot, Rotate, ScaleBy, Select, Stats, Stroke, W
 pub use error::Error;
 pub use expr::Expr;
 pub use geometry::{Point, Rect, Scale};
+pub use json::drawing_schema;
 pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
 pub use param::{Param, Unit};
 pub use path::Path;

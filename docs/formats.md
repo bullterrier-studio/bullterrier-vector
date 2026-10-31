@@ -1,7 +1,7 @@
 # The JSON format
 
-Status: V1b, written from the code API ([api.md](api.md)); waiting for the owner's review. Nothing reads or writes it
-yet ([roadmap.md](roadmap.md)). Reasons: [design-decisions.md](design-decisions.md), "The JSON format". Examples:
+Status: written from the code API ([api.md](api.md)); `to_json` and `from_json` implement it for the calls registered so
+far ([roadmap.md](roadmap.md), V2c); the rest is the specification. Reasons: [design-decisions.md](design-decisions.md), "The JSON format". Examples:
 [examples/json/](examples/json/). Draft schema: [drawing-1.schema.json](../schemas/drawing-1.schema.json).
 
 A drawing file is the tree the code API builds, written down: `drawing.to_json()` writes it, `Drawing.from_json(text)`
@@ -90,7 +90,7 @@ defaults and units. The types below:
 | input | the name of an entry of `inputs` |
 
 Every argument not marked otherwise is a number. A literal value outside the range api.md states for it (an `alpha`
-above 1, a `pitch` of 0) fails the schema; an expression's value is checked when drawn. Literal only, never an
+above 1, a `pitch` of 0, a coordinate beyond 1e100) fails the schema; an expression's value is checked when drawn. Literal only, never an
 expression: `stack`'s `size`, `Field.map`'s `width` and `height`, `text`'s `features`, a shape's `attributes` and the
 values of `only`, `without` and `with_values`.
 
@@ -150,7 +150,10 @@ when `Style.fill` is `None`): the shape then never takes the default paint, and 
 | `with_values` | Param names to a value: a JSON number, or an array of numbers, one per shape |
 
 `only`, `without` and `with_values` take keyword arguments in the code (`only(char="O")`), so their arguments are those
-keywords. An attribute is `index`, `glyph`, `char`, `word`, `line`, `part`, `copy`, `level` or `order`.
+keywords. An attribute is `index`, `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order` or `origin` (a
+point). A whole-number attribute is at most 4,294,967,295, a `char` is one character, and an empty list (`{"index":
+[]}`) is a selection that matches no shape; `{}` names no attribute and is refused when the call is checked
+(`call-checks`).
 
 `with_values` fixes Params for the drawing before it: every step before it, and every drawing those steps read, sees
 these values; the Params leave `parameters()` of what follows. Its values are part of the drawing, lists included. A
@@ -492,9 +495,10 @@ the envelope, expressions and the registry; it has no list of calls. A new call 
 ("Versioning"). An input kind is added the same way, with the call that reads it.
 
 `schemas/drawing-1.schema.json` is a hand-written draft that checks the examples and the good and bad documents of
-`tests/test_drawing_schema.py`. From V2 the schema is generated from the registrations. The two agree when they give
-the same verdict on every example and every test document whose calls are all registered; for a call not yet
-registered the draft stays the specification, and it is retired call by call. V2 tests that a round trip through JSON
+`tests/test_drawing_schema.py`. The schema of the registered calls is generated from the registrations:
+`drawing_schema()` (Rust; `bullterrier_vector.drawing_schema()` in Python) returns it as compact JSON text. The two
+agree when they give the same verdict on every example and every test document whose calls are all registered; for a
+call not yet registered the draft stays the specification, and it is retired call by call. V2 tests that a round trip through JSON
 gives equal canonical text and equal `shapes()`, and a property test that random trees from the registry round-trip to
 the same canonical text; V3 adds equal render bytes.
 
