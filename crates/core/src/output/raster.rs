@@ -4,7 +4,7 @@
 use super::view::View;
 use super::{Size, in_shape};
 use crate::path::Element;
-use crate::{Drawing, Error, Shape, Values};
+use crate::{Cap, Drawing, Error, Join, Path, Point, Shape, Values};
 use kurbo::BezPath;
 use vello_cpu::color::AlphaColor;
 use vello_cpu::peniko::{Fill, ImageAlphaType};
@@ -60,12 +60,93 @@ fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8
 /// Paints `shape` seen through `view`.
 fn paint(context: &mut RenderContext, shape: &Shape, view: &View) -> Result<(), Error> {
     let path = view.path(shape.path()).map_err(|error| in_shape(shape, "", error))?;
-    let outline = bez_path(&path.elements());
+    let elements = path.elements();
+    let outline = bez_path(&elements);
     if let Some([red, green, blue, alpha]) = shape.style().fill().rgba() {
         context.set_paint(AlphaColor::from_rgba8(red, green, blue, alpha));
         context.fill_path(&outline);
     }
+    let Some(stroke) = shape.style().stroke() else {
+        return Ok(());
+    };
+    if let Some([red, green, blue, alpha]) = stroke.color().rgba() {
+        let width = view
+            .length(stroke.width())
+            .map_err(|error| in_shape(shape, "stroke width ", error))?;
+        let (join, cap) = (join(stroke.join()), cap(stroke.cap()));
+        context.set_stroke(
+            kurbo::Stroke::new(width)
+                .with_join(join)
+                .with_caps(cap)
+                .with_miter_limit(stroke.miter_limit()),
+        );
+        context.set_paint(AlphaColor::from_rgba8(red, green, blue, alpha));
+        context.stroke_path(&outline);
+        for dot in dots(&elements, stroke.cap(), width)? {
+            context.fill_path(&bez_path(&dot.elements()));
+        }
+    }
     Ok(())
+}
+
+/// A sub-path read for the dot it may leave.
+struct Sub {
+    start: Point,
+    /// It has a segment or a close.
+    drawn: bool,
+    /// Some segment reaches a point other than its start.
+    moved: bool,
+}
+
+/// The shapes that the sub-paths of `elements` which never leave their start leave under a round or square end of a
+/// stroke `width` wide: a disc or a square about the point, as SVG draws them. The stroker draws nothing for them, as
+/// it does for a butt end; a lone move leaves nothing.
+fn dots(elements: &[Element], cap: Cap, width: f64) -> Result<Vec<Path>, Error> {
+    let mut subs: Vec<Sub> = Vec::new();
+    for element in elements {
+        let points: &[Point] = match element {
+            Element::Move(start) => {
+                subs.push(Sub {
+                    start: *start,
+                    drawn: false,
+                    moved: false,
+                });
+                continue;
+            }
+            Element::Line(to) => &[*to],
+            Element::Quad(control, to) => &[*control, *to],
+            Element::Cubic(first, second, to) => &[*first, *second, *to],
+            Element::Close => &[],
+        };
+        if let Some(sub) = subs.last_mut() {
+            sub.drawn = true;
+            sub.moved |= points.iter().any(|point| *point != sub.start);
+        }
+    }
+    let half = width / 2.0;
+    subs.into_iter()
+        .filter(|sub| sub.drawn && !sub.moved && cap != Cap::Butt)
+        .map(|sub| match cap {
+            Cap::Square => Path::rect(sub.start.x - half, sub.start.y - half, width, width, 0.0),
+            _ => Path::circle(sub.start, half),
+        })
+        .collect()
+}
+
+fn join(join: Join) -> kurbo::Join {
+    match join {
+        Join::Round => kurbo::Join::Round,
+        Join::Miter => kurbo::Join::Miter,
+        Join::Bevel => kurbo::Join::Bevel,
+    }
+}
+
+fn cap(cap: Cap) -> kurbo::Cap {
+    match cap {
+        Cap::Butt => kurbo::Cap::Butt,
+        Cap::Round => kurbo::Cap::Round,
+        Cap::Square => kurbo::Cap::Square,
+    }
 }
 
 /// `elements` as the rasteriser's path.

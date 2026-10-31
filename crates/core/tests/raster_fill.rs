@@ -7,7 +7,7 @@ mod common;
 use bullterrier_vector::{Color, Drawing, Path};
 use common::pixels::{Image, overlap, render};
 use common::{Outcome, clearance, shoelace_area, winding};
-use libm::{cos, sin};
+use libm::{cos, hypot, sin};
 use proptest::prelude::*;
 use std::f64::consts::PI;
 
@@ -110,7 +110,7 @@ fn a_fill_with_alpha_is_returned_as_straight_alpha() -> Outcome {
         // a colour left premultiplied would be about alpha / 255 times as large
         for (got, want) in [red, green, blue].into_iter().zip(&pixel) {
             assert!(
-                (i32::from(*want) - i32::from(got)).abs() <= 2,
+                (i32::from(*want) - got).abs() <= 2,
                 "{red},{green},{blue},{alpha}: {pixel:?}"
             );
         }
@@ -202,7 +202,10 @@ fn star_corners(center: (f64, f64), outer: f64, inner: f64, points: u32) -> Vec<
         .collect()
 }
 
+// each case checks ten thousand pixels, so fewer cases than the default give the same time as the other files
 proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
     #[test]
     fn a_stars_pixels_are_wound_ones_and_its_coverage_is_its_area(
         center in (40.0f64..60.0, 40.0f64..60.0),
@@ -230,7 +233,7 @@ proptest! {
         for row in 0..100usize {
             for column in 0..100usize {
                 #[expect(clippy::cast_precision_loss, reason = "small pixel indices")]
-                let away = ((column as f64 + 0.5 - center.0).powi(2) + (row as f64 + 0.5 - center.1).powi(2)).sqrt();
+                let away = hypot(column as f64 + 0.5 - center.0, row as f64 + 0.5 - center.1);
                 if away < radius - 1.0 {
                     prop_assert_eq!(image.alpha(column, row), 255);
                 } else if away > radius + 1.0 {
