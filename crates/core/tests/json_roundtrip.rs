@@ -378,3 +378,13 @@ proptest! {
         prop_assert!(same_draw(&root.shapes(&values), &loaded.shapes(&values)));
     }
 }
+
+#[test]
+fn a_negative_zero_in_a_document_is_written_as_zero() -> Outcome {
+    let text = r#"{"version":1,"root":[{"shape":{"path":"M0 0","attributes":{"level":-0,"origin":[-0,-0.5]}}},{"translate":{"dx":-0,"dy":-0}}]}"#;
+    assert_eq!(
+        Drawing::from_json(text)?.to_json()?,
+        r#"{"root":[{"shape":{"attributes":{"level":0,"origin":[0,-0.5]},"path":"M0 0"}},{"translate":{"dx":0,"dy":0}}],"version":1}"#
+    );
+    Ok(())
+}

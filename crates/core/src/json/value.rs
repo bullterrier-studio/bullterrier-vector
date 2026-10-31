@@ -85,11 +85,9 @@ impl Json {
 }
 
 /// `value` as ECMAScript's `Number::toString` writes it, as RFC 8785 requires: the shortest digits that read back as the
-/// same number, with an exponent only below 1e-6 and from 1e21; `-0` is `0`. The value must be finite.
+/// same number, with an exponent only below 1e-6 and from 1e21; `-0` is `0` (the sign is written only for a value below
+/// zero). The value must be finite.
 pub(crate) fn number_text(value: f64) -> String {
-    if value == 0.0 {
-        return String::from("0");
-    }
     // `{:e}` writes the shortest digits that round-trip, as `1.2345e-7`; it always has the `e` and a whole exponent
     let scientific = format!("{:e}", value.abs());
     let Some((mantissa, exponent)) = scientific.split_once('e') else {

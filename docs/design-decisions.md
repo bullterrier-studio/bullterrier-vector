@@ -324,6 +324,32 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   rules the format needs (a pointer for every error, limits while reading) are part of it. *Consequence:* the number
   reader hands the digits to `f64::from_str`, which is correctly rounded on every target, and the writer lays out the
   shortest digits of `{:e}` by the rules of RFC 8785.
+- **Where the loader's checks run** (2026-10-31). `from_json` refuses a text over `MAX_DOCUMENT_BYTES` before reading
+  a byte, counts calls while it reads (`MAX_CALLS`), and the parser stops at `MAX_DEPTH` levels of text, so a deeper
+  text is reported as the nesting limit even when a reference check would have failed first. What the schema states
+  value by value (version, names, types, arguments, the range of a literal, the rules of an expression) is found
+  while reading, before `drawing-declared`; the listed checks then run in their order. `with-values` needs the calls
+  made, so the drawing is built twice over the checked document: first with no call checked (a `with_values` that
+  names a Param the drawing before it does not read is the error), then each call's own checks (`call-checks`), so the
+  first failure of the first kind anywhere is reported before the first of the second kind. *Reason:* the
+  document lists the order, and a check that needs the drawing must not run earlier than one that does not.
+- **A value a call refuses** (2026-10-31) is a `FormatError` at the pointer of the value with the call's own message
+  (`must be above 0, got 0`), without the place of the code API (`step 3 (stroke).width`). *Reason:* the fix is in the
+  document, which has no steps.
+- **Depth through references** (2026-10-31). A `{"drawing": name}` call counts as the array it names, so each level of
+  reference adds that array's level; each shared drawing is measured once. A document written canonically (shared
+  drawings only where two calls use them) can nest more or less than a hand-written spelling of it, so `to_json` can
+  refuse a drawing that `from_json` read, with `ParameterError` naming `MAX_DEPTH`.
+- **Shared names follow the walk** (2026-10-31). `d1`, `d2`... are given in the order the walk completes a shared
+  drawing: a call is reached after the drawings it builds on and takes. In formats.md's example (`a` and `b = a.rotate`)
+  this is `a`, then `b`.
+- **A selection of nothing** (2026-10-31). `only` and `without` accept an empty list of values (it matches no shape,
+  as in code), and `to_json` writes `[]`; the draft schema's `minItems: 1` there is to be loosened when the schema is
+  generated.
+- **A literal divisor of 0 has no spelling** (2026-10-31): the schema rejects it, so `to_json` refuses a drawing that
+  has one (`ParameterError`) instead of writing a document `from_json` would refuse.
+- **No input is read yet** (2026-10-31). No registered kind of argument reads an input, so a document that declares one
+  fails `input-used`, and `from_json` takes no `inputs`; both arrive with the first call that reads one.
 
 ## Engineering
 

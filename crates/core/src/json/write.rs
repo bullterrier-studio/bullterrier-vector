@@ -224,11 +224,11 @@ impl<'a> Writer<'a> {
     /// first.
     fn expression(&self, expr: &Expr) -> Result<Json, Error> {
         if !expr.reads_param() {
-            return Ok(Json::Number(expr.value(&Values::new())? + 0.0));
+            return Ok(Json::Number(expr.value(&Values::new())?));
         }
         self.calls.set(self.calls.get() + 1);
         Ok(match expr.view() {
-            View::Const(number) => Json::Number(number + 0.0),
+            View::Const(number) => Json::Number(number),
             View::Param(param) => Json::object([("param", Json::text(param.name()))]),
             View::Neg(inner) => Json::object([("neg", self.expression(inner)?)]),
             View::Binary(op, left, right) => {
@@ -284,9 +284,9 @@ fn shape_json(shape: &Shape) -> Json {
 
 fn single_json(single: &Single) -> Json {
     match single {
-        Single::Number(number) => Json::Number(*number + 0.0),
+        Single::Number(number) => Json::Number(*number),
         Single::Char(character) => Json::String(character.to_string()),
-        Single::Point(point) => Json::Array(vec![Json::Number(point.x + 0.0), Json::Number(point.y + 0.0)]),
+        Single::Point(point) => Json::Array(vec![Json::Number(point.x), Json::Number(point.y)]),
     }
 }
 
@@ -305,8 +305,8 @@ fn select_json(select: &Select) -> Json {
 fn values_json(values: &Values) -> Json {
     Json::object(values.iter().map(|(name, value)| {
         let json = match value {
-            Value::Number(number) => Json::Number(*number + 0.0),
-            Value::List(numbers) => Json::Array(numbers.iter().map(|number| Json::Number(*number + 0.0)).collect()),
+            Value::Number(number) => Json::Number(*number),
+            Value::List(numbers) => Json::Array(numbers.iter().map(|number| Json::Number(*number)).collect()),
         };
         (name, json)
     }))

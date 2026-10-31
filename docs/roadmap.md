@@ -233,6 +233,18 @@ Done when: each V2 example round-trips through JSON to equal canonical text and 
 bytes); a property test round-trips random trees from the registry to the same canonical text; the generated schema
 agrees with the draft; the loader rejects a document for each check whose calls are registered.
 
+State: V2c-1 built in Rust: `Drawing::to_json`, `Drawing::from_json` (a strict in-crate parser), `Error::Format` and the
+Python `FormatError`; the loader's checks whose calls are registered, each tested by name and in order; `series_bars.json`
+round-trips and random trees from the registry round-trip. Not yet: the Python `to_json`/`from_json` and the generated
+schema. These checks wait for the calls that reach them:
+
+| Check | Waits for |
+|---|---|
+| `input-declared` | the first call that reads an input (`text`, `Field.map`) |
+| `font-checks` | `text` |
+| `inputs-supplied` | `text`, `Field.map` (and `from_json`'s `inputs`) |
+| `call-checks`: `trace` levels and neighbours, `random`, `text` `fit`, `Field.ramp` | `trace`, `random`, `text`, `Field.ramp` |
+
 Carried from the S0 review:
 - Clippy checks only this workspace's code, so the boolean and raster crates chosen in V2 must use `libm` for their
   maths; otherwise the V3 native-against-WebAssembly differential test is the only guard. (V2a wrote its own curve
