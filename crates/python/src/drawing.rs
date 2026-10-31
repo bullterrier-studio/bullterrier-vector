@@ -6,7 +6,7 @@ use crate::{PyPath, PyPoint, exception, raised};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyString, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
 
 /// An immutable tree of steps that draws shapes. Every step returns a new drawing and leaves this one alone; a drawing
 /// holds no callbacks, so it draws again with new values.
@@ -311,6 +311,20 @@ impl PyDrawing {
     #[pyo3(signature = (width, height, /, **given))]
     fn to_svg(&self, width: f64, height: f64, given: Option<&Bound<'_, PyDict>>) -> PyResult<String> {
         raised(self.0.to_svg(vector::Size::px(width, height), &values(given)?))
+    }
+
+    /// The drawing as straight-alpha RGBA bytes of `width` by `height` pixels, rows from the top, with each Param at the
+    /// value given by name.
+    #[pyo3(signature = (width, height, /, **given))]
+    fn to_rgba<'py>(
+        &self,
+        py: Python<'py>,
+        width: f64,
+        height: f64,
+        given: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Bound<'py, PyBytes>> {
+        let bytes = raised(self.0.to_rgba(vector::Size::px(width, height), &values(given)?))?;
+        Ok(PyBytes::new(py, &bytes))
     }
 
     /// The design frame `(width, height)` in design pixels, or `None`.
