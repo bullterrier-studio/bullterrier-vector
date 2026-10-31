@@ -72,7 +72,7 @@ Two crates in one Cargo workspace; the package version is the workspace's.
 | `crates/python` | PyO3 bindings building the extension `bullterrier_vector._native._core`; generic, passes values to the core unchecked; no Rust tests |
 | `src/bullterrier_vector/` | the Python package: `errors.py` (the bottom layer, imports nothing from the package), `_native/` (the extension and its stub `_core.pyi`), `__init__.py` (the public API) |
 | `tests/` | the Python suite (`test_*.py`); `tests/tools/` tests the tooling and the gates |
-| `tools/` | scripts the hooks and gates run (`check_commit_message.py`, `check_one_config_home.py`, `pre_push.py`, `rust_tools.py`, `lint_workflows.py`, `check_dists.py`, `check_installed.py`) |
+| `tools/` | scripts the hooks and gates run (`check_commit_message.py`, `check_one_config_home.py`, `pre_push.py`, `rust_tools.py`, `lint_workflows.py`, `check_dists.py`, `check_installed.py`, `check_file_size.py`) |
 
 Rust is the source of truth: parameters are declared once, in Rust; Python and (from V3) WebAssembly are thin layers over it.
 The core does no IO of its own: callers pass bytes. `pub` only for what the bindings use, else `pub(crate)` (`unreachable_pub`
@@ -142,8 +142,8 @@ Two speeds, both through `uv run poe`:
 
 | Task | Runs, cheapest first |
 |---|---|
-| `fast` | `rust-fmt`, `ruff format --check`, `rust-lint`, `ruff check`, `rust-test`, `rust-wasm`, `mypy`, `pytest -m 'not gate'` |
-| `check` | `ruff format --check`, `rust-fmt`, `ruff check`, `rust-lint`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `build-check`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `test` (gate proofs included); stops at the first failure |
+| `fast` | `rust-fmt`, `ruff format --check`, `rust-lint`, `ruff check`, `rust-test`, `rust-wasm`, `mypy`, `file-size`, `pytest -m 'not gate'` |
+| `check` | `ruff format --check`, `rust-fmt`, `ruff check`, `rust-lint`, `file-size`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `build-check`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `test` (gate proofs included); stops at the first failure |
 
 `rust-lint` is clippy with `-D warnings` over the workspace and all targets (pedantic, the determinism rules of `clippy.toml`, dead
 code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `rust-tools` checks that cargo-shear and cargo-deny are
@@ -156,6 +156,10 @@ and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist
 extension, check-wheel-contents); `tools/check_installed.py` smoke-checks an installed artifact (its file, version, import
 location, the documented exceptions). `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix`
 applies every automatic fix (`ruff check --fix`, `ruff format`, `cargo fmt`).
+
+`file-size` (`tools/check_file_size.py`) fails a tracked `.py` or `.rs` file over 1000 lines (test files: 1500): split it by topic, never
+raise the budget. An agent reads a file in chunks, and one under the budget stays navigable. A file already over is listed in
+`[tool.file-size.exempt]` (path = current lines): it may shrink but never grow, and a stale entry (file within budget or gone) fails.
 
 Each gate has a test proving it fails on a known-bad input (`tests/tools/`, marker `gate`: builds copies of the workspace, slow,
 left out of `fast`, run by `check`). A new gate gets its proof, and a line in `tests/tools/test_gate_wiring.py`, which fails

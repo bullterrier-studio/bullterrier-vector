@@ -61,8 +61,8 @@ cache-keys = [
 # is the full gate before a merge or push, cheapest first, stopping at the first failure. The proofs that each gate
 # can fail (tests/tools/, marked `gate`) build copies of the workspace and are slow: `fast` leaves them out, `check`
 # runs them.
-fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" } }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
-check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first; stops at the first failure" }
+fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { ref = "file-size" }, { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" } }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
+check = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "file-size" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "test" }], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first; stops at the first failure" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
 test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the whole test suite, gate proofs included, on every CPU core (pytest-xdist; the order stays random)" }
@@ -76,6 +76,9 @@ fix = { sequence = ["ruff check --fix .", "ruff format .", "cargo fmt --all"], d
 # actions, template injection, persisted credentials, over-broad permissions); tools/lint_workflows.py runs both, and
 # passes only when there is no `.github` folder at all. Not in `fast`. tests/tools/test_workflow_gate.py shows it failing.
 lint-workflows = { cmd = "uv run python tools/lint_workflows.py", help = "Lint the GitHub workflows (actionlint, zizmor), offline" }
+# A fast pure-Python scan of the tracked files, so `fast` runs it too: no .py or .rs file over 1000 lines, no test file over
+# 1500, and the files listed in [tool.file-size.exempt] never grow. tests/tools/test_file_size_gate.py shows it failing.
+file-size = { cmd = "uv run python tools/check_file_size.py", help = "Check that no tracked Python or Rust file is over 1000 lines (test files 1500); listed exceptions may not grow" }
 # Not in `fast`: a whole-package scan, run once per merge. tests/tools/test_dead_code_gate.py shows it failing.
 dead-code = { cmd = "vulture src", help = "Find dead code in src (vulture): an unused function, class, method or import" }
 # The Rust gates, each beside its Python counterpart; cargo comes with rustup, at the version rust-toolchain.toml pins.
@@ -104,6 +107,12 @@ types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "c
 header-max-length = 72
 body-max-line-length = 100
 scope-pattern = "^[a-z0-9][a-z0-9/_-]*$"
+
+# Read by tools/check_file_size.py (the `file-size` gate). Files already over budget (1000 lines of source, 1500 of
+# tests), as "repository-relative path" = current line count. A listed file may shrink but never grow; an entry whose
+# file is now within budget or gone fails the gate, so delete it then. Add an entry only for a file that cannot be split
+# yet, with the owner's say-so; the table starts empty and a new file is never listed to get past the gate.
+[tool.file-size.exempt]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

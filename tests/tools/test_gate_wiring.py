@@ -27,6 +27,7 @@ PROVEN_TASKS = [
     "dead-code",
     "lint-workflows",
     "build-check",
+    "file-size",
 ]
 PROVEN_COMMANDS = ["ruff format --check .", "ruff check .", "deptry .", "mypy"]
 GATES = [*PROVEN_TASKS, *PROVEN_COMMANDS]
