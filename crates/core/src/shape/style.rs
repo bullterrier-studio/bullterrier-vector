@@ -42,7 +42,8 @@ impl Join {
     pub(crate) const NAMES: &'static [&'static str] = &["round", "miter", "bevel"];
 
     /// The word this join is written as.
-    pub(crate) fn name(self) -> &'static str {
+    #[must_use]
+    pub fn name(self) -> &'static str {
         match self {
             Self::Round => "round",
             Self::Miter => "miter",
@@ -82,7 +83,8 @@ impl Cap {
     pub(crate) const NAMES: &'static [&'static str] = &["butt", "round", "square"];
 
     /// The word this cap is written as.
-    pub(crate) fn name(self) -> &'static str {
+    #[must_use]
+    pub fn name(self) -> &'static str {
         match self {
             Self::Butt => "butt",
             Self::Round => "round",
@@ -120,7 +122,8 @@ impl Blend {
     pub(crate) const NAMES: &'static [&'static str] = &["normal", "multiply"];
 
     /// The word this blend is written as.
-    pub(crate) fn name(self) -> &'static str {
+    #[must_use]
+    pub fn name(self) -> &'static str {
         match self {
             Self::Normal => "normal",
             Self::Multiply => "multiply",

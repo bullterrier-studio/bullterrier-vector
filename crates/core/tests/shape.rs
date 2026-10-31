@@ -85,6 +85,11 @@ fn a_join_a_cap_and_a_blend_are_read_from_their_words() -> Outcome {
     assert_eq!(Cap::parse("square")?, Cap::Square);
     assert_eq!(Blend::parse("normal")?, Blend::Normal);
     assert_eq!(Blend::parse("multiply")?, Blend::Multiply);
+    // and written back
+    assert_eq!(
+        (Join::Miter.name(), Cap::Butt.name(), Blend::Multiply.name()),
+        ("miter", "butt", "multiply")
+    );
     Ok(())
 }
 
