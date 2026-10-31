@@ -71,6 +71,19 @@ impl PyStyle {
         self.0.blend().name()
     }
 
+    fn __repr__(&self) -> String {
+        let text = |value: Option<String>| value.map_or_else(|| "None".to_owned(), |value| format!("'{value}'"));
+        let number = |value: Option<f64>| value.map_or_else(|| "None".to_owned(), |value| format!("{value:?}"));
+        format!(
+            "Style(fill={}, stroke={}, stroke_width={}, opacity={:?}, blend='{}')",
+            text(self.fill()),
+            text(self.stroke()),
+            number(self.stroke_width()),
+            self.opacity(),
+            self.blend(),
+        )
+    }
+
     fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
         (
             self.fill(),
@@ -105,6 +118,15 @@ impl PyShape {
     #[getter]
     fn style(&self) -> PyStyle {
         PyStyle(self.0.style().clone())
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Shape(index={}, path={}, style={})",
+            self.0.index(),
+            PyPath(self.0.path().clone()).__repr__(),
+            PyStyle(self.0.style().clone()).__repr__(),
+        )
     }
 
     /// A read-only mapping: `index` always, then what generators wrote (`glyph`, `char`, `word`, `line`, `part`,

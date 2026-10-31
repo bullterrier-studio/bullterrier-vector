@@ -95,7 +95,7 @@ impl Values {
             None => Ok(()),
             Some(name) if free.is_empty() => Err(Error::parameter(
                 name,
-                "the drawing reads no Params, so there is no value to give it",
+                "the drawing reads no Params, or `with_values` already fixed them all, so there is no value to give it",
             )),
             Some(name) => {
                 let known: Vec<&str> = free.iter().map(Param::name).collect();

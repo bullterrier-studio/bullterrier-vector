@@ -67,13 +67,13 @@ fn fits(name: &str, holds: Holds, single: &Single) -> Result<(), Error> {
     match (holds, single) {
         (Holds::Whole, Single::Number(n)) if n.fract() == 0.0 && *n >= 0.0 && *n <= f64::from(u32::MAX) => Ok(()),
         (Holds::Whole, Single::Number(n)) => refuse("a whole number from 0", n.to_string()),
-        (Holds::Whole, other) => refuse("a whole number from 0", format!("{other:?}")),
+        (Holds::Whole, other) => refuse("a whole number from 0", other.to_string()),
         (Holds::Real, Single::Number(n)) if n.is_finite() => Ok(()),
         (Holds::Real, Single::Number(n)) => refuse("a finite number", n.to_string()),
-        (Holds::Real, other) => refuse("a number", format!("{other:?}")),
+        (Holds::Real, other) => refuse("a number", other.to_string()),
         (Holds::Char, Single::Char(_)) | (Holds::Point, Single::Point(_)) => Ok(()),
-        (Holds::Char, other) => refuse("one character", format!("{other:?}")),
-        (Holds::Point, other) => refuse("a point", format!("{other:?}")),
+        (Holds::Char, other) => refuse("one character", other.to_string()),
+        (Holds::Point, other) => refuse("a point", other.to_string()),
     }
 }
 

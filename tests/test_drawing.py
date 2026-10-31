@@ -710,3 +710,25 @@ def test_the_table_has_a_row_for_every_registered_verb_and_no_other():
 def test_each_verb_draws_what_its_row_says(verb):
     build, values, expected = VERB_ROWS[verb]
     assert summary(build(), **values) == expected
+
+
+def test_drawing_shape_and_style_read_in_a_repr():
+    drawing = Drawing(SQUARE, size=(40, 30))
+    assert repr(drawing) == "Drawing(size=(40.0, 30.0))"
+    assert repr(Drawing(SQUARE)) == "Drawing(size=None)"
+    shape = drawing.fill("#ff0000").shapes()[0]
+    assert repr(shape.style) == "Style(fill='#ff0000ff', stroke=None, stroke_width=None, opacity=1.0, blend='normal')"
+    assert repr(shape) == f"Shape(index=0, path={shape.path!r}, style={shape.style!r})"
+
+
+def test_a_refused_selection_value_reads_as_the_caller_wrote_it():
+    with pytest.raises(btvec.ParameterError, match=r"got 'a'"):
+        Drawing(SQUARE).only(index="a")
+    with pytest.raises(btvec.ParameterError, match=r"one character, got 5"):
+        Drawing(SQUARE).only(char=5)
+
+
+def test_a_value_for_a_param_that_was_already_fixed_says_so():
+    drawing = Drawing(SQUARE).translate(param("x"), 0).with_values(x=1)
+    with pytest.raises(btvec.ParameterError, match=r"with_values.*already fixed"):
+        drawing.with_values(x=2)

@@ -294,6 +294,13 @@ impl PyDrawing {
     fn size(&self) -> Option<(f64, f64)> {
         self.0.size()
     }
+
+    fn __repr__(&self) -> String {
+        self.0.size().map_or_else(
+            || "Drawing(size=None)".to_owned(),
+            |(width, height)| format!("Drawing(size=({width:?}, {height:?}))"),
+        )
+    }
 }
 
 impl PyDrawing {

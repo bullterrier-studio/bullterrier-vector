@@ -26,6 +26,17 @@ pub(crate) enum Single {
     Point(Point),
 }
 
+/// How a value reads in an error message: a number as itself, a character quoted, a point as `(x, y)`.
+impl std::fmt::Display for Single {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Number(number) => write!(formatter, "{number}"),
+            Self::Char(character) => write!(formatter, "'{character}'"),
+            Self::Point(point) => write!(formatter, "({}, {})", point.x, point.y),
+        }
+    }
+}
+
 /// What kind of value an attribute holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Holds {
