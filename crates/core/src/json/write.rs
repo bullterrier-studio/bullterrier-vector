@@ -5,7 +5,7 @@ use super::{bare, depth};
 use crate::drawing::Graph;
 use crate::expr::{Op, View};
 use crate::limits::{MAX_CALLS, MAX_DEPTH, MAX_DOCUMENT_BYTES};
-use crate::node::{Args, Given, style};
+use crate::node::{Args, Given};
 use crate::shape::{SELECTABLE, Single};
 use crate::{Arg, Color, Drawing, Error, Expr, Kind, Literal, Select, Shape, Value, Values, Verb};
 use std::cell::Cell;
@@ -148,32 +148,16 @@ impl<'a> Writer<'a> {
         Ok(groups.into_iter().flatten().collect())
     }
 
-    /// The call of `node`, and for a shape the steps that set its style.
+    /// The call of `node`.
     fn calls_of(&self, node: usize) -> Result<Vec<Json>, Error> {
         let taken = self.graph.nodes[node].taken.clone();
         let verb = self.graph.nodes[node].verb();
         let mut taken = taken.into_iter();
-        let mut calls = vec![self.call(verb, self.node_args(node), &mut taken)?];
-        if let Some(shape) = self.shape_of(node) {
-            for (verb, given) in style_steps(&shape) {
-                let args = Args::new(verb, given);
-                calls.push(self.call(verb, &args, &mut std::iter::empty())?);
-            }
-        }
-        Ok(calls)
+        Ok(vec![self.call(verb, self.node_args(node), &mut taken)?])
     }
 
     fn node_args(&self, node: usize) -> &Args {
         self.graph.nodes[node].args()
-    }
-
-    /// The shape a `shape` source holds, if `node` is one.
-    fn shape_of(&self, node: usize) -> Option<Shape> {
-        let args = self.node_args(node);
-        args.declared().find_map(|(_, given)| match given {
-            Given::Shape(shape) => Some(shape.clone()),
-            _ => None,
-        })
     }
 
     /// `{"verb": {arguments}}`: every argument that is not at its default. `taken` yields the nodes of the drawings
@@ -306,40 +290,4 @@ fn values_json(values: &Values) -> Json {
         };
         (name, json)
     }))
-}
-
-/// The steps that give a shape the style it has, each with the arguments of the step: a fill always (the shape then
-/// never takes the default paint), a stroke, an opacity and a blend where they differ from the unstyled shape's.
-#[expect(clippy::float_cmp, reason = "an opacity of exactly 1 is the unstyled shape's")]
-fn style_steps(shape: &Shape) -> Vec<(&'static Verb, Vec<(&'static str, Given)>)> {
-    let paint = shape.style();
-    if !paint.is_painted() {
-        return Vec::new();
-    }
-    let mut steps = vec![(&style::FILL, vec![("color", Given::Color(paint.fill()))])];
-    if let Some(stroke) = paint.stroke() {
-        steps.push((
-            &style::STROKE,
-            vec![
-                ("color", Given::Color(stroke.color())),
-                ("width", Given::Number(Expr::from(stroke.width()))),
-                ("join", Given::Text(stroke.join().name().to_owned())),
-                ("cap", Given::Text(stroke.cap().name().to_owned())),
-                ("miter_limit", Given::Number(Expr::from(stroke.miter_limit()))),
-            ],
-        ));
-    }
-    if paint.opacity() != 1.0 {
-        steps.push((
-            &style::OPACITY,
-            vec![("alpha", Given::Number(Expr::from(paint.opacity())))],
-        ));
-    }
-    if paint.blend() != crate::Blend::Normal {
-        steps.push((
-            &style::BLEND,
-            vec![("mode", Given::Text(paint.blend().name().to_owned()))],
-        ));
-    }
-    steps
 }

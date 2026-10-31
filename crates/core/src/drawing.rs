@@ -17,7 +17,8 @@ pub use transform::{Deg, Pivot, Rotate, ScaleBy};
 use self::cache::Shared;
 use crate::limits::MAX_PARAMS;
 use crate::node::{self, Args, Given, Node, Place};
-use crate::{Error, Expr, Param, Path, Shape};
+use crate::shape::Style;
+use crate::{Blend, Error, Expr, Param, Path, Shape};
 use std::collections::BTreeSet;
 use std::fmt;
 use std::sync::Arc;
@@ -374,9 +375,36 @@ impl From<Path> for Drawing {
 }
 
 impl From<Shape> for Drawing {
-    /// A drawing of the one shape, with its style and attributes as `shapes()` returned them.
+    /// A drawing of the one shape, with its style and attributes as `shapes()` returned them: a source that holds the
+    /// path and the attributes, then the steps that set the style, which is how the JSON format writes it, so that two
+    /// shapes the text does not tell apart are one call.
+    #[expect(clippy::float_cmp, reason = "an opacity of exactly 1 is the unstyled shape's")]
     fn from(shape: Shape) -> Self {
-        Self::source(&node::source::ShapeSource, vec![("shape", Given::Shape(shape))])
+        let style = shape.style().clone();
+        let mut bare = shape.at(0);
+        *bare.style_mut() = Style::unpainted();
+        let mut drawing = Self::source(&node::source::ShapeSource, vec![("shape", Given::Shape(bare))]);
+        if !style.is_painted() {
+            return drawing;
+        }
+        // a fill is always set, so that the shape never takes the default paint
+        drawing = drawing.fill(style.fill());
+        if let Some(stroke) = style.stroke() {
+            drawing = drawing.stroke(
+                Stroke::new(stroke.color())
+                    .width(stroke.width())
+                    .join(stroke.join())
+                    .cap(stroke.cap())
+                    .miter_limit(stroke.miter_limit()),
+            );
+        }
+        if style.opacity() != 1.0 {
+            drawing = drawing.opacity(style.opacity());
+        }
+        if style.blend() != Blend::Normal {
+            drawing = drawing.blend(style.blend());
+        }
+        drawing
     }
 }
 

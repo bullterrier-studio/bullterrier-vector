@@ -549,6 +549,44 @@ fn a_shape_is_written_with_its_style_as_the_steps_that_set_it() -> Outcome {
 }
 
 #[test]
+fn shapes_put_back_that_differ_only_in_style_share_the_shape_call() -> Outcome {
+    // the `shape` call holds the path and attributes; the style is the steps after it, so the black shape and the
+    // shape with no fill build on one shared call, and the black one, used twice, is shared too
+    let black = Drawing::from(only_shape(&square()?)?);
+    let unfilled = Drawing::from(only_shape(&square()?.fill(Color::NONE))?);
+    let piece = Drawing::new([black.clone(), unfilled, black]);
+    let text = piece.to_json()?;
+    assert_eq!(
+        text,
+        format!(
+            concat!(
+                r##"{{"drawings":{{"d1":[{{"shape":{{"path":"{p}"}}}}],"##,
+                r##""d2":[{{"drawing":"d1"}},{{"fill":{{"color":"#000000"}}}}]}},"##,
+                r#""root":[{{"stack":{{"items":[[{{"drawing":"d2"}}],"#,
+                r#"[{{"drawing":"d1"}},{{"fill":{{"color":"none"}}}}],[{{"drawing":"d2"}}]]}}}}],"version":1}}"#
+            ),
+            p = SQUARE
+        )
+    );
+    assert_eq!(Drawing::from_json(&text)?.to_json()?, text);
+    Ok(())
+}
+
+#[test]
+fn shapes_put_back_from_different_places_in_a_list_are_one_call() -> Outcome {
+    // the shape at index 1 of a stack and the same shape alone at index 0 write one text, so they are one call
+    let stack = Drawing::new([square()?, far_square()?]);
+    let second = only_shape(&stack.only(Select::new().attribute("index", 1_u32)))?;
+    let from_stack = Drawing::from(stack.shapes(&Values::new())?.remove(1));
+    let alone = Drawing::from(second);
+    let piece = Drawing::new([from_stack.rotate(Deg(5.0)), alone.rotate(Deg(5.0))]);
+    let text = piece.to_json()?;
+    assert_eq!(text.matches(r#""shape":"#).count(), 1, "{text}");
+    assert_eq!(Drawing::from_json(&text)?.to_json()?, text);
+    Ok(())
+}
+
+#[test]
 fn a_shape_with_no_fill_writes_a_fill_of_none() -> Outcome {
     let line = Path::line((0.0, 0.0), (10.0, 0.0))?;
     let shape = only_shape(&Drawing::from(line).stroke(PINK))?;
