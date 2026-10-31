@@ -4,10 +4,10 @@
 use super::view::View;
 use super::{Size, in_shape};
 use crate::path::Element;
-use crate::{Cap, Drawing, Error, Join, Path, Point, Shape, Values};
+use crate::{Blend, Cap, Drawing, Error, Join, Path, Point, Shape, Values};
 use kurbo::BezPath;
 use vello_cpu::color::AlphaColor;
-use vello_cpu::peniko::{Fill, ImageAlphaType};
+use vello_cpu::peniko::{BlendMode, Compose, Fill, ImageAlphaType, Mix};
 use vello_cpu::{Level, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources};
 
 impl Drawing {
@@ -18,7 +18,7 @@ impl Drawing {
     /// Shapes are placed as in [`Drawing::to_svg`] and painted in order.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 65,535,
+    /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 65,000,
     /// or `size` if it has more than 2^27 pixels; otherwise as [`Drawing::to_svg`].
     pub fn to_rgba(&self, size: Size, values: &Values) -> Result<Vec<u8>, Error> {
         let (width, height) = size.checked_pixels()?;
@@ -57,27 +57,52 @@ fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8
     Ok(bytes)
 }
 
-/// Paints `shape` seen through `view`.
+/// Paints `shape` seen through `view`: its fill, then its stroke, as one group to which the opacity and the blend apply
+/// once (as SVG's `opacity` does), so that a stroke over a fill at half opacity is no darker where they overlap.
 fn paint(context: &mut RenderContext, shape: &Shape, view: &View) -> Result<(), Error> {
     let path = view.path(shape.path()).map_err(|error| in_shape(shape, "", error))?;
     let elements = path.elements();
     let outline = bez_path(&elements);
-    if let Some([red, green, blue, alpha]) = shape.style().fill().rgba() {
+    let style = shape.style();
+    let stroke = match style.stroke() {
+        Some(stroke) => {
+            let width = view
+                .length(stroke.width())
+                .map_err(|error| in_shape(shape, "stroke width ", error))?;
+            Some((stroke, width))
+        }
+        None => None,
+    };
+    let grouped = style.opacity() < 1.0 || style.blend() == Blend::Multiply;
+    if grouped {
+        let mix = match style.blend() {
+            Blend::Normal => Mix::Normal,
+            Blend::Multiply => Mix::Multiply,
+        };
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "an opacity from 0 to 1 loses nothing visible in an f32"
+        )]
+        let opacity = style.opacity() as f32;
+        context.push_layer(
+            None,
+            Some(BlendMode::new(mix, Compose::SrcOver)),
+            Some(opacity),
+            None,
+            None,
+        );
+    }
+    if let Some([red, green, blue, alpha]) = style.fill().rgba() {
         context.set_paint(AlphaColor::from_rgba8(red, green, blue, alpha));
         context.fill_path(&outline);
     }
-    let Some(stroke) = shape.style().stroke() else {
-        return Ok(());
-    };
-    if let Some([red, green, blue, alpha]) = stroke.color().rgba() {
-        let width = view
-            .length(stroke.width())
-            .map_err(|error| in_shape(shape, "stroke width ", error))?;
-        let (join, cap) = (join(stroke.join()), cap(stroke.cap()));
+    if let Some((stroke, width)) = stroke
+        && let Some([red, green, blue, alpha]) = stroke.color().rgba()
+    {
         context.set_stroke(
             kurbo::Stroke::new(width)
-                .with_join(join)
-                .with_caps(cap)
+                .with_join(join(stroke.join()))
+                .with_caps(cap(stroke.cap()))
                 .with_miter_limit(stroke.miter_limit()),
         );
         context.set_paint(AlphaColor::from_rgba8(red, green, blue, alpha));
@@ -85,6 +110,9 @@ fn paint(context: &mut RenderContext, shape: &Shape, view: &View) -> Result<(), 
         for dot in dots(&elements, stroke.cap(), width)? {
             context.fill_path(&bez_path(&dot.elements()));
         }
+    }
+    if grouped {
+        context.pop_layer();
     }
     Ok(())
 }
