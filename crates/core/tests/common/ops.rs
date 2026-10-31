@@ -48,12 +48,16 @@ fn expr(amount: Amount, param: &Param, factor: f64) -> Expr {
     }
 }
 
-/// The drawing of a square with `ops` applied in order; the Params are made here, so each call is a drawing of its own
-/// with its own cache.
+/// The drawing of a square with `ops` applied in order; each call is a drawing of its own with its own cache.
 pub(crate) fn materialise(ops: &[Op]) -> Result<Drawing, Error> {
+    extend(Drawing::from(Path::rect(0.0, 0.0, 10.0, 10.0, 0.0)?), ops)
+}
+
+/// `drawing` with `ops` applied in order, and so in its cache; the Params are made here, equal to those of any other
+/// call.
+pub(crate) fn extend(mut drawing: Drawing, ops: &[Op]) -> Result<Drawing, Error> {
     let [x, turn, k, alpha] = params()?;
     let square = || Path::rect(0.0, 0.0, 10.0, 10.0, 0.0);
-    let mut drawing = Drawing::from(square()?);
     let all = [&x, &turn, &k, &alpha];
     for op in ops {
         drawing = match *op {

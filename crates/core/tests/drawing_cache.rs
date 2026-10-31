@@ -4,9 +4,9 @@
 
 mod common;
 
-use bullterrier_vector::{Deg, Drawing, Error, Param, Path, Shape, Stats, Values};
+use bullterrier_vector::{Deg, Drawing, Error, Param, Path, Select, Shape, Stats, Values};
 use common::Outcome;
-use common::ops::{chain, edits, materialise, values_of};
+use common::ops::{chain, edits, extend, materialise, values_of};
 use proptest::prelude::*;
 
 fn square() -> Result<Drawing, Error> {
@@ -208,6 +208,15 @@ fn pairs() -> Vec<(&'static str, Make)> {
                 Values::new(),
             ))
         }),
+        ("a selection", |base| {
+            let two = Drawing::new([base.clone(), base.translate(20.0, 0.0)]);
+            Ok((
+                two.only(Select::new().attribute("index", 0_u32)),
+                Values::new(),
+                two.only(Select::new().attribute("index", 1_u32)),
+                Values::new(),
+            ))
+        }),
         ("the unit of a Param", |base| {
             // 400 wraps to 40 in a cyclic Param and is refused in a bounded one
             let cyclic = Param::new("t", 0.0, 0.0, 360.0)?.unit(bullterrier_vector::Unit::Deg)?;
@@ -267,15 +276,43 @@ fn drawings_that_differ_in_one_input_never_share_a_result() -> Outcome {
 
 // Cached equals fresh -----------------------------------------------------------------------------------------------
 
+/// A failed property case.
+fn failed(error: &Error) -> TestCaseError {
+    TestCaseError::fail(error.to_string())
+}
+
 proptest! {
     #[test]
     fn a_long_lived_drawing_draws_what_a_cold_one_does_at_every_edit(ops in chain(), edits in edits()) {
-        let long = materialise(&ops).map_err(|error| TestCaseError::fail(error.to_string()))?;
-        let free = long.parameters().map_err(|error| TestCaseError::fail(error.to_string()))?;
+        let long = materialise(&ops).map_err(|error| failed(&error))?;
+        let free = long.parameters().map_err(|error| failed(&error))?;
         for edit in &edits {
             let values = values_of(edit, &free);
-            let cold = materialise(&ops).map_err(|error| TestCaseError::fail(error.to_string()))?;
+            let cold = materialise(&ops).map_err(|error| failed(&error))?;
             prop_assert_eq!(outcome(&long, &values), outcome(&cold, &values));
+        }
+    }
+
+    #[test]
+    fn drawings_that_share_a_start_draw_what_a_cold_one_does_when_drawn_by_turns(
+        start in chain(),
+        left in chain(),
+        right in chain(),
+        edits in edits(),
+    ) {
+        // two drawings derived from one, so in one cache, drawn by turns at the same edits
+        let family = materialise(&start).map_err(|error| failed(&error))?;
+        let siblings = [
+            (extend(family.clone(), &left).map_err(|error| failed(&error))?, [&start[..], &left[..]].concat()),
+            (extend(family, &right).map_err(|error| failed(&error))?, [&start[..], &right[..]].concat()),
+        ];
+        for edit in &edits {
+            for (drawing, ops) in &siblings {
+                let free = drawing.parameters().map_err(|error| failed(&error))?;
+                let values = values_of(edit, &free);
+                let cold = materialise(ops).map_err(|error| failed(&error))?;
+                prop_assert_eq!(outcome(drawing, &values), outcome(&cold, &values));
+            }
         }
     }
 }
