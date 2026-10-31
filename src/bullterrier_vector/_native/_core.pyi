@@ -5,7 +5,7 @@ from typing import final
 
 from typing_extensions import disjoint_base
 
-__all__ = ["Drawing", "Expr", "Param", "Path", "Point", "Rect", "Shape", "Style"]
+__all__ = ["Drawing", "Expr", "Param", "Path", "Point", "Rect", "Shape", "Style", "drawing_schema"]
 
 type _PointLike = Point | tuple[float, float]
 type _Num = float | Expr
