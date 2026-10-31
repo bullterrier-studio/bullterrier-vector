@@ -35,7 +35,7 @@ def lifted() -> btvec.Drawing:
     return btvec.Drawing(
         btvec.Path.circle((30, 30), 10).fill("#336699"),
         btvec.Path.circle((70, 30), 10).fill("#993366"),
-        size=(100, 100),
+        size=(100, 80),
     ).translate(0, lift)
 
 
@@ -99,9 +99,9 @@ def main(output: Path) -> None:
             "lifted": document(
                 lifted_json,
                 [
-                    drawn(lifted_json, 100, 100),
+                    drawn(lifted_json, 100, 80),
                     drawn(lifted_json, 200, 200, lift=30),
-                    drawn(lifted_json, 100, 100, lift=[0, 40]),
+                    drawn(lifted_json, 100, 80, lift=[0, 40]),
                 ],
             ),
         },

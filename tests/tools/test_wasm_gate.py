@@ -1,7 +1,7 @@
 """The WebAssembly gate can fail: `poe wasm-test` builds the package, runs it in Node against what the native extension
 answers, passes the workspace as it is, and fails, naming the test, for a defect in the glue (the sides of the output
-swapped, the values of the Params dropped, a wrong name on an error) and for an expected text that differs from the
-package's by one character.
+swapped, the values of the Params dropped, a wrong name on an error), for a build without the SIMD feature set and for
+an expected text that differs from the package's by one character.
 
 An architecture test of the tooling: its subject is the `wasm-test` task in pyproject.toml, so it runs that task, the
 way `uv run poe check` does, in a copy of the workspace into which one offence at a time is written. The copies share
@@ -106,6 +106,12 @@ OFFENCES = {
         '"FormatError"',
         '"FormatFailure"',
         ["✖ fromJson refuses with the native FormatError"],
+    ),
+    "a build without the SIMD feature set": (
+        "pyproject.toml",
+        '{ RUSTFLAGS = "-C target-feature=+simd128" }',
+        '{ RUSTFLAGS = "" }',
+        ["✖ the module is built for WebAssembly SIMD"],
     ),
     "an expected text that differs by one character": (
         ORACLE,

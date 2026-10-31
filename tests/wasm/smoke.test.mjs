@@ -26,6 +26,12 @@ for (const [name, expected] of Object.entries(native.documents)) {
   });
 }
 
+test("the module is built for WebAssembly SIMD", () => {
+  const bytes = readFileSync(new URL("../../pkg/bullterrier_vector_wasm_bg.wasm", import.meta.url));
+  const [features] = WebAssembly.Module.customSections(new WebAssembly.Module(bytes), "target_features");
+  assert.match(Buffer.from(features).toString("latin1"), /\+\x07simd128/);
+});
+
 test("values are optional", () => {
   const { json, draws } = native.documents.star;
   assert.equal(Drawing.fromJson(json).toSvg(400, 400), draws[0].svg);
