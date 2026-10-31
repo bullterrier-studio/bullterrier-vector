@@ -20,7 +20,9 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | S0b | CI and a wheel per platform (before `main` is first pushed) | S | |
 | V1a | The code API (Rust, Python, JavaScript, examples first) | M | |
 | V1b | The JSON format: the same tree written down | M | |
-| V2 | Core: `Path` as a value, shapes, attributes, the node trait, parameters, registry, evaluation; `Path.polygon`, `Path.star`, transforms, stacking | L | |
+| V2a | Geometry: `Path` as a value (build, measure, split, slice, reverse, hit-test, SVG path data in and out), `Path.polygon`, `Path.star`, transforms; the `Error` redesign | M | |
+| V2b | Drawings: shapes and style, attributes, the node trait and its contract, parameters and expressions, registry, evaluation with a cache, stacking, `with_values`, `parameters()`, `shapes()` | L | |
+| V2c | JSON: `to_json`, `from_json`, the loader's checks, the schema generated from the registrations, the examples run | M | |
 | V3 | Output: SVG, pixels, a mesh, `look` (draw a drawing and open it); the WebAssembly package; the same bytes on every target | L | **M1 a star everywhere** |
 | X1 | Spike: a GPU display of the mesh in a page, measured | S | |
 | X2 | Spike: live remeshing every frame, measured | S | |
@@ -45,7 +47,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
-V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
+"V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
 ## V0 Taste prototype
 
@@ -122,7 +124,7 @@ Python, the kinetic type piece also in Rust and JavaScript, reviewed for how the
   prototypes' needs mapped to methods, open questions.
 - `docs/examples/`: the example programs, not yet run by anything.
 
-State: done, waiting for the owner's review.
+State: done; independently reviewed 2026-10-31 and the proven findings fixed (design-decisions.md).
 
 ## V1b The JSON format
 
@@ -135,44 +137,74 @@ The drawing as the same tree written down; nothing in it the code API cannot say
 
 Done when: the format is agreed; the schema accepts the examples and rejects known-bad drawings.
 
-State: done; the owner answered its questions and the review's (2026-10-29); the final review is pending.
+State: done; independently reviewed 2026-10-31 and the proven findings fixed (formats.md, the schema).
 
 ## V2 Core
 
+Three batches, cut by the decision each hides: geometry, drawings, JSON. The unit tests, contract tests and properties
+follow `CLAUDE.md`, "Testing"; the oracle of every geometry property is independent of the code (closed forms,
+brute-force sampling, metamorphic relations).
+
+### V2a Geometry
+
 - `Path` as a value: build, measure (length, point and tangent at a fraction of the length), split, slice, reverse,
-  hit-test. Each later batch adds its verbs to `Path` (computed now) and `Drawing` (a step) together.
+  hit-test (nonzero rule). The edge cases of `slice` (start above end, `slice(0, 0)`, a closed result), `tangent_at` at
+  a corner and `locate` ties are settled in the plan and tested.
+- `Path.polygon`, `Path.star`, `Path.from_svg_path` and `to_svg_path` (arcs to cubics by one fixed rule), `translate`,
+  `rotate`, `scale` on a `Path`. Replaces S0's skeleton function.
+- Every internal sampling step (curve flattening for measuring) in design pixels, independent of the output size, each a
+  named constant (`// constant:`; api.md, "Conventions").
+- The `Error` redesign (below).
+
+Done when: properties pass (length against closed forms, `reverse` twice is the identity, `point_at(t)` equals
+`reverse().point_at(1 - t)`, the length of `slice(a, b)` is `(b - a)` times the length, a split's parts sum to the
+whole, `contains` against a brute-force sampler); the bindings expose the same calls.
+
+### V2b Drawings
+
 - Shapes: paths, style (fill, stroke, opacity, blend mode: normal or multiply), attributes.
-- The node trait: inputs in, shapes out, parameters declared once; the chainable builder methods of V1a over it.
-- Evaluation of a tree, on the merged graph of formats.md ("Shared drawings"), a chain's steps walked in a loop; a seed
-  reaches every node; a cache so that changing one value re-evaluates only what depends on it; the evaluation counters
-  of formats.md ("Limits and security"), checked as the work is done.
-- Parameters: describe, validate, scale design pixels by output size, wrap cyclic angles.
-- Registry by name. Built-ins: the `Path` constructors (`Path.polygon`, `Path.star` and the rest), `translate`,
-  `rotate`, `scale`, stacking (`Drawing(...)`). Replaces S0's skeleton function.
-- Contract tests over every registered node: determinism, values within range, the same result at any size.
-- The example programs of `docs/examples/` start to run here: the Python ones move to a tested top-level `examples/`,
-  the Rust one to `crates/core/examples/`, the JavaScript ones under the npm package. `docs/examples/` is never added to
-  the documentation filter (`is_documentation`, the `changes` filter in `ci.yml`): its programs are code.
-- Every internal sampling step (trace on an analytic field, resampling before a deformer, curve flattening, hatch
-  seeding) in design pixels, independent of the output size, each a named constant (`// constant:`; api.md,
-  "Conventions").
-- JSON (formats.md): `to_json` writing the canonical form and `from_json` reading it, over the registry; the limits;
-  every check of "Checked by the loader, not the schema", each with a test named after it; `FormatError`.
+- The node trait and its contract, written first (inputs, the evaluation context, each argument's kind: expression,
+  whole number, per-item, read once, literal; shape-by-shape or whole-list; how an error names its verb and place), and
+  the registry vocabulary that can generate the draft schema (read-once, literal-only, nonzero, cross-argument rules, a
+  per-call check hook). Each geometry verb is declared once; its `Path` method, `Drawing` step, stubs and schema entry
+  are generated from the declaration.
+- Evaluation of a tree on the merged graph of formats.md ("Shared drawings"), a chain's steps walked in a loop; a cache
+  so that changing one value re-evaluates only what depends on it; the evaluation counters of formats.md ("Limits and
+  security"), checked as the work is done.
+- Parameters and expression arithmetic, `with_values`, `parameters()`, `shapes()`; validate, wrap cyclic angles.
+  Per-item numbers (`by_index`, `random`, `stagger`) arrive with V7.
+- Built-ins: `translate`, `rotate`, `scale`, stacking (`Drawing(...)`), over the V2a `Path` constructors.
+- Contract tests over every registered node, enrolled exactly (a node registered without a row fails): determinism, values
+  within range, the same result at any size, a cached evaluation equal to a fresh one after random edits.
+- The example programs of `docs/examples/` start to run here, as far as `shapes()`: the Python ones move to a tested
+  top-level `examples/`, the Rust one to `crates/core/examples/`, the JavaScript ones under the npm package.
+  `docs/examples/` is never added to the documentation filter (`is_documentation`, the `changes` filter in `ci.yml`):
+  its programs are code.
+
+Done when: the example programs that use only V2's calls run as far as `shapes()`; each `Path` verb has its `Drawing` step
+and the two agree; each evaluation counter raises `ParameterError` when passed, in a test.
+
+### V2c JSON
+
+- `to_json` writing the canonical form and `from_json` reading it, over the registry; the limits; every check of
+  formats.md "Checked by the loader, not the schema" whose calls are registered, in the order listed there, each with a
+  test named after it; `FormatError`. Every later call brings its own checks and tests.
 - The schema generated from the registrations. It agrees with the hand-written draft when both give the same verdict
   on every example and every test document whose calls are all registered; the draft stays the specification for the
   calls not yet registered and is retired call by call.
+- `from_json` is a parser of hostile bytes: a property test feeds it arbitrary bytes and arbitrary JSON, and it returns
+  a value or an `Error`, never panics.
 
-Done when: the example programs that use only V2's calls run, and each round-trips through JSON to equal canonical text
-and equal `shapes()` (V3 adds equal render bytes); a property test round-trips random trees from the registry to the
-same canonical text; the generated schema agrees with the draft; the loader rejects a document for each check
-formats.md lists; each evaluation counter raises `ParameterError` when passed, in a test.
+Done when: each V2 example round-trips through JSON to equal canonical text and equal `shapes()` (V3 adds equal render
+bytes); a property test round-trips random trees from the registry to the same canonical text; the generated schema
+agrees with the draft; the loader rejects a document for each check whose calls are registered.
 
 Carried from the S0 review:
 - `polygon_svg` accepts radii that draw nothing (viewBox `0 0 0 0` at radius 1e-9) and rounds to 6 fixed decimals, which
-  does not scale with size: V2 needs relative precision or a real lower bound.
+  does not scale with size: V2a needs relative precision or a real lower bound.
 - The proptest radii are uniform, so small radii are almost never sampled: use log-uniform.
 - The `Error` shape (`parameter: &'static str`, public fields, derived `Eq`) will not fit nested node paths: mark it
-  non-exhaustive or redesign it in V2.
+  non-exhaustive or redesign it in V2a; it also carries a pointer for `Error::Format`.
 - Clippy checks only this workspace's code, so the curve, boolean and raster crates chosen in V2 must use `libm` for
   their maths; otherwise the V3 native-against-WebAssembly differential test is the only guard.
 
