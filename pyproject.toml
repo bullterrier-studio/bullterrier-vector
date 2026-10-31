@@ -42,8 +42,13 @@ build-backend = "maturin"
 manifest-path = "crates/python/Cargo.toml"
 python-source = "src"
 module-name = "bullterrier_vector._native._core"
-# a build from the sdist under rustup uses the toolchain CI tests and the wheels are built with
-include = [{ path = "rust-toolchain.toml", format = "sdist" }]
+# a build from the sdist under rustup uses the toolchain CI tests and the wheels are built with; maturin ships only the
+# crates the extension depends on, and the sdist is the whole workspace (`check_dists.py` wants every member's manifest)
+include = [
+    { path = "rust-toolchain.toml", format = "sdist" },
+    { path = "crates/wasm/Cargo.toml", format = "sdist" },
+    { path = "crates/wasm/src/**/*.rs", format = "sdist" },
+]
 
 # `uv sync` and `uv run` rebuild the extension when one of these changes (by default uv looks at pyproject.toml only)
 [tool.uv]

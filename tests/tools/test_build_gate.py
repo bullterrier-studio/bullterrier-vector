@@ -136,7 +136,7 @@ def test_a_wheel_without_the_extension_where_the_package_has_it_fails_the_gate(p
 def test_an_sdist_without_the_toolchain_file_fails_the_gate(project, build_check):
     pyproject = project / "pyproject.toml"
     text = pyproject.read_text(encoding="utf-8")
-    inclusion = 'include = [{ path = "rust-toolchain.toml", format = "sdist" }]'
+    inclusion = '    { path = "rust-toolchain.toml", format = "sdist" },\n'
     assert inclusion in text
     pyproject.write_text(text.replace(inclusion, ""), encoding="utf-8")
     verdict = build_check()
