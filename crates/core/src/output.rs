@@ -2,6 +2,7 @@
 //! frame in the output the same way (`view`), so that a picture is the same picture in each.
 
 mod svg;
+mod view;
 
 use crate::Error;
 use crate::node::stack::MAX_FRAME;
