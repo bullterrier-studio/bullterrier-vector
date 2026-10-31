@@ -57,8 +57,9 @@ def _unfilter(kind: int, row: bytearray, previous: bytes, bytes_per_pixel: int) 
 def decode_8_bit_rgba_png(data: bytes) -> tuple[int, int, bytes]:
     """`(width, height, pixels)` of a non-interlaced 8-bit RGBA PNG: the pixels as `Drawing.to_rgba` returns them.
     Written from the PNG specification with the standard library only, so it is an oracle independent of the encoder.
-    Raises `ValueError` for anything it does not read exactly: a bad signature, a chunk cut short or with a wrong CRC, a
-    header of another kind of image, a stream that is not the rows the header promises, or data after the last chunk."""
+    Raises `ValueError` for anything it does not read exactly: a bad signature, a chunk cut short or with a wrong CRC,
+    a chunk that is not IHDR (first), IDAT or IEND (last), a header of another kind of image, a stream that is not the
+    rows the header promises, or data after the last chunk."""
     if not data.startswith(PNG_SIGNATURE):
         raise ValueError("not a PNG signature")
     at = len(PNG_SIGNATURE)
@@ -78,12 +79,18 @@ def decode_8_bit_rgba_png(data: bytes) -> tuple[int, int, bytes]:
         (crc,) = struct.unpack(">I", data[at + 8 + length : end])
         if crc != zlib.crc32(name + body):
             raise ValueError(f"chunk {name!r} has a wrong CRC")
+        if header is None and name != b"IHDR":
+            raise ValueError(f"the first chunk is {name!r}, not IHDR")
         if name == b"IHDR":
+            if header is not None:
+                raise ValueError("a second IHDR")
             header = body
         elif name == b"IDAT":
             compressed += body
         elif name == b"IEND":
             ended = True
+        else:
+            raise ValueError(f"chunk {name!r} is none of IHDR, IDAT and IEND")
         at = end
     if header is None or not ended:
         raise ValueError("no IHDR or no IEND")

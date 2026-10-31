@@ -310,6 +310,8 @@ BAD_FILES = [
     pytest.param(GOOD[: IDAT_AT + 14], "cut short", id="the IDAT chunk truncated"),
     pytest.param(GOOD[:-12], "IEND", id="no IEND chunk"),
     pytest.param(GOOD + b"\x00", "after IEND", id="data after IEND"),
+    pytest.param(GOOD[:33] + chunk(b"gAMA", bytes(4)) + GOOD[33:], "gAMA", id="a chunk besides IHDR, IDAT and IEND"),
+    pytest.param(GOOD[:8] + GOOD[33:] + GOOD[8:33], "IHDR", id="IHDR not the first chunk"),
     pytest.param(png_file(1, 2, bytes([0, 1, 2, 3, 4])), "stream", id="fewer rows than the header says"),
     pytest.param(
         PNG_SIGNATURE + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)) + chunk(b"IEND", b""),

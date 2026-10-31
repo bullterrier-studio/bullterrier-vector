@@ -43,6 +43,28 @@ fn the_file_opens_with_the_signature_and_a_header_naming_the_size_as_8_bit_rgba(
 }
 
 #[test]
+fn the_file_holds_the_header_the_data_and_the_end_and_no_other_chunk() -> Outcome {
+    let drawing = Drawing::from(Path::circle((30.0, 20.0), 15.0)?).fill(Color::parse("#ff880080")?);
+    let bytes = png(&drawing, 64.0, 48.0)?;
+    // walk the chunks: a 4-byte length, a 4-byte name, the data, a 4-byte CRC
+    let mut names = Vec::new();
+    let mut at = SIGNATURE.len();
+    while at < bytes.len() {
+        let length = usize::try_from(be32(&bytes, at)?)?;
+        names.push(String::from_utf8(
+            bytes.get(at + 4..at + 8).ok_or("file too short")?.to_vec(),
+        )?);
+        at += 12 + length;
+    }
+    assert_eq!(at, bytes.len(), "chunks end where the file ends");
+    let (first, rest) = names.split_first().ok_or("no chunks")?;
+    let (last, data) = rest.split_last().ok_or("no end chunk")?;
+    assert_eq!((first.as_str(), last.as_str()), ("IHDR", "IEND"), "{names:?}");
+    assert!(!data.is_empty() && data.iter().all(|name| name == "IDAT"), "{names:?}");
+    Ok(())
+}
+
+#[test]
 fn the_file_ends_with_an_empty_iend_chunk() -> Outcome {
     let bytes = png(&empty(), 9.0, 4.0)?;
     // length 0, the name, and its CRC-32 (a known constant of the format)
