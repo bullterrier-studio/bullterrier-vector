@@ -234,7 +234,7 @@ Done when: each V2 example whose calls are registered round-trips through JSON t
 the registry to the same canonical text; the generated schema agrees with the draft; the loader rejects a document for
 each check whose calls are registered.
 
-State: built, independent review pending. In Rust and Python: `Drawing::to_json`, `Drawing::from_json` (a strict in-crate
+State: done; independently reviewed 2026-10-31 and the proven findings fixed. In Rust and Python: `Drawing::to_json`, `Drawing::from_json` (a strict in-crate
 parser), `drawing_schema()` (generated from `verbs()`, agreeing with the draft on every example and test document whose
 calls are registered), `Error::Format` and `FormatError`, `MAX_PARAMS`; the loader's checks whose calls are registered,
 each tested by name and in order; `series_bars.json`, the two Python examples and random trees from the registry
