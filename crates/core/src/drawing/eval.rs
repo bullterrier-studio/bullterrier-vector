@@ -57,7 +57,8 @@ struct Run<'a> {
 }
 
 impl Run<'_> {
-    /// The shapes after `last` with `values`, ending the draw by dropping what it did not use.
+    /// The shapes after `last` with `values`, ending the draw, whether it went through or failed, by dropping what it
+    /// did not use.
     fn draw(cache: &mut Cache, last: &Arc<Step>, values: &Values) -> Result<Found, Error> {
         cache.begin();
         let mut run = Run {
@@ -65,10 +66,11 @@ impl Run<'_> {
             ids: BTreeMap::new(),
             work: Work::new(),
         };
-        let found = run.evaluate(last, values)?;
+        // a draw that fails ends too: what it computed stays, what it did not use goes
+        let found = run.evaluate(last, values);
         let reached: BTreeSet<NodeId> = run.ids.values().copied().collect();
         run.cache.end(&reached);
-        Ok(found)
+        found
     }
 
     /// The id of the step `last`, and of every step it is made of. Walks a chain in a loop and the drawings a step

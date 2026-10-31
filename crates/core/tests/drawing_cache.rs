@@ -123,6 +123,32 @@ fn entries_of_the_values_before_are_gone_after_a_draw() -> Outcome {
 }
 
 #[test]
+fn failed_draws_do_not_pile_up_entries() -> Outcome {
+    // `a` is read by step 2 and `b` by step 3, which refuses 0: each failed draw computes step 2 at a new `a`
+    let (a, b) = (slider("a", 0.0)?, slider("b", 1.0)?);
+    let chain = square()?.translate(&a, 0.0).scale(&b);
+    for step in 0..200 {
+        let values = Values::new().set("a", f64::from(step)).set("b", 0.0);
+        assert!(chain.shapes(&values).is_err(), "draw {step}");
+        assert!(
+            chain.stats().entries <= 3,
+            "draw {step}: {} entries",
+            chain.stats().entries
+        );
+    }
+    // and the drawing still draws what a cold one does
+    let good = Values::new().set("a", 7.0);
+    assert_eq!(
+        chain.shapes(&good)?,
+        square()?
+            .translate(&slider("a", 0.0)?, 0.0)
+            .scale(&slider("b", 1.0)?)
+            .shapes(&good)?
+    );
+    Ok(())
+}
+
+#[test]
 fn steps_before_a_hit_stay_for_the_next_draw() -> Outcome {
     let chain = six()?;
     stats_of(&chain, &Values::new().set("a", 1.0).set("b", 1.0))?;

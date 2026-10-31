@@ -3,8 +3,8 @@
 //! Steps are told apart by their content, not by where they sit in memory or in a hash: each step's key (its verb, its
 //! arguments, the ids of the steps it builds on) is interned in a `BTreeMap` into a [`NodeId`], so equal steps built
 //! apart are one. A result is kept under its node and the values the step's free Params take where it is drawn, which
-//! is everything the output depends on. After each draw the entries that draw did not use are dropped, so the cache
-//! holds one draw, however many values a caller tries.
+//! is everything the output depends on. After each draw, a failed one included, the entries that draw did not use are
+//! dropped, so the cache holds one draw, however many values a caller tries.
 
 use crate::Shape;
 use std::collections::{BTreeMap, BTreeSet};
@@ -109,7 +109,8 @@ impl Cache {
         shapes
     }
 
-    /// Ends a draw that went through: drops every result it did not use, and every step it did not reach.
+    /// Ends a draw, whether it went through or failed: drops every result it did not use, and every step it did not
+    /// reach.
     pub(crate) fn end(&mut self, reached: &BTreeSet<NodeId>) {
         let draw = self.draw;
         self.entries.retain(|_, entry| entry.used == draw);
