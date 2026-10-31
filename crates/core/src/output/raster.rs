@@ -123,7 +123,14 @@ fn paint(
         && let Some([red, green, blue, alpha]) = stroke.color().rgba()
     {
         // the outline has arcs for the round joins and ends; the rasteriser must be given lines only
-        let lines = stroke_outline(&outline, stroke, width, FLATNESS * view.scale(), &name)?;
+        let lines = stroke_outline(
+            &outline,
+            stroke,
+            (stroke.join(), stroke.cap()),
+            width,
+            FLATNESS * view.scale(),
+            &name,
+        )?;
         let dots = dots(&device, stroke.cap(), width, &mut charge)?;
         // the outline and the dots overlap, and a translucent colour painted twice where they do would be darker than
         // SVG's one stroke: they are painted opaque into a layer that has the colour's alpha

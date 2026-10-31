@@ -12,8 +12,9 @@ use super::outline::{bez_path, dots, stroke_outline, within_device};
 use super::view::View;
 use super::{Size, in_shape};
 use crate::limits::Work;
+use crate::math::{atan2, sin_cos};
 use crate::path::{FLATNESS, Polyline};
-use crate::{Blend, Drawing, Error, Point, Shape, Values};
+use crate::{Blend, Cap, Drawing, Error, Join, Point, Shape, Values};
 use kurbo::{BezPath, PathEl};
 use lyon_tessellation::math::point;
 use lyon_tessellation::path::Path as Outlines;
@@ -192,9 +193,28 @@ impl Maker<'_> {
             .map_err(|error| in_shape(shape, "stroke width ", error))?;
         within_device("the stroke width", device).map_err(|error| in_shape(shape, "", error))?;
         if style.opacity() * f64::from(rgba[3]) > 0.0 {
-            let outline = stroke_outline(&bez_path(&polylines), stroke, stroke.width(), FLATNESS, &name)?;
+            // kurbo's round joins and ends are arcs on a self-overlapping outline, which the tessellator sometimes covers
+            // three times: the outline is made with bevel joins and butt ends, and discs added where the arcs were
+            let (join, cap) = match (stroke.join(), stroke.cap()) {
+                (Join::Round, cap) => (Join::Bevel, cap),
+                other => other,
+            };
+            let cap = if cap == Cap::Round { Cap::Butt } else { cap };
+            let outline = stroke_outline(
+                &bez_path(&polylines),
+                stroke,
+                (join, cap),
+                stroke.width(),
+                FLATNESS,
+                &name,
+            )?;
             let mut rings = rings_of(&outline);
             let mut charge = |count| self.work.made_segments(count, &name);
+            let round = (stroke.join() == Join::Round, stroke.cap() == Cap::Round);
+            for wedge in round_wedges(&polylines, round, stroke.width() / 2.0) {
+                charge(wedge.len())?;
+                rings.push(wedge);
+            }
             for dot in dots(&polylines, stroke.cap(), stroke.width(), &mut charge)? {
                 rings.extend(dot.iter().map(|polyline| ring(&polyline.points)));
             }
@@ -368,6 +388,105 @@ fn reachable(polylines: &[Polyline], view: &View) -> Result<(), Error> {
         within_device("a coordinate", farthest(moved.x, moved.y))?;
     }
     Ok(())
+}
+
+/// The pieces a stroke of round joins (`round.0`) and round ends (`round.1`), half a width `half`, needs once its
+/// outline is made with bevel joins and butt ends: a half disc beyond each end of an open outline, and at each corner
+/// that turns enough for the bevel to miss the arc by more than [`FLATNESS`], the circular segment between the bevel
+/// and the arc. The pieces lie beside the outline and not over it, because the tessellator leaves holes where a disc
+/// overlaps a stroke that is tangent to it. A bevel of the turn `a` is `half * (1 - cos(a / 2))` short of the arc, so a
+/// smooth curve, whose corners turn by a fraction of a degree, gets none.
+fn round_wedges(polylines: &[Polyline], round: (bool, bool), half: f64) -> Vec<Ring> {
+    // the wedge is deeper than FLATNESS when cos(a) < 2c^2 - 1, c = 1 - FLATNESS / half; none is when c <= 0
+    let c = 1.0 - FLATNESS / half;
+    if c <= 0.0 {
+        return Vec::new();
+    }
+    let cos_limit = 2.0 * c * c - 1.0;
+    // an arc of step s lies within half * s^2 / 8 of its chord
+    let step = (8.0 * FLATNESS / half).sqrt();
+    let mut wedges = Vec::new();
+    for polyline in polylines {
+        // consecutive repeats and a closing repeat of the start have no direction
+        let mut corners: Vec<Point> = Vec::new();
+        for at in &polyline.points {
+            if corners.last() != Some(at) {
+                corners.push(*at);
+            }
+        }
+        if polyline.closed && corners.len() > 1 && corners.last() == corners.first() {
+            corners.pop();
+        }
+        let count = corners.len();
+        if count < 2 {
+            continue;
+        }
+        let direction = |from: Point, to: Point| {
+            let (x, y) = (to.x - from.x, to.y - from.y);
+            let length = (x * x + y * y).sqrt();
+            (x / length, y / length)
+        };
+        for (index, at) in corners.iter().enumerate() {
+            let before = (index > 0 || polyline.closed).then(|| corners[(index + count - 1) % count]);
+            let after = (index + 1 < count || polyline.closed).then(|| corners[(index + 1) % count]);
+            let (incoming, outgoing) = match (before, after) {
+                (Some(before), Some(after)) if round.0 => (direction(before, *at), direction(*at, after)),
+                (None, Some(after)) if round.1 => {
+                    let outward = direction(after, *at);
+                    (outward, (-outward.0, -outward.1))
+                }
+                (Some(before), None) if round.1 => {
+                    let outward = direction(before, *at);
+                    (outward, (-outward.0, -outward.1))
+                }
+                _ => continue,
+            };
+            let (cross, dot) = (
+                incoming.0 * outgoing.1 - incoming.1 * outgoing.0,
+                incoming.0 * outgoing.0 + incoming.1 * outgoing.1,
+            );
+            if before.is_some() && after.is_some() && dot >= cos_limit {
+                continue;
+            }
+            wedges.push(wedge(*at, incoming, (cross, dot), half, step));
+        }
+    }
+    wedges
+}
+
+/// The circular segment of radius `half` about `at` on the outer side of a turn from the direction `incoming` by the
+/// angle whose cross product and dot product are `turn`, its arc in steps of at most `step`, running the way round
+/// that the outline of a stroke does (positive area); a turn right back on itself is the half disc ahead of `incoming`.
+fn wedge(at: Point, incoming: (f64, f64), turn: (f64, f64), half: f64, step: f64) -> Ring {
+    let angle = atan2(turn.0, turn.1);
+    // the outer side is the right of a left turn and the left of a right turn
+    let side = if angle >= 0.0 { 1.0 } else { -1.0 };
+    let (start_x, start_y) = (side * incoming.1 * half, -side * incoming.0 * half);
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "an angle of at most pi over a step of at least 1e-3 is a few thousand steps"
+    )]
+    let steps = ((angle.abs() / step).ceil() as usize).max(1);
+    #[expect(clippy::cast_precision_loss, reason = "a few thousand steps are exact")]
+    let each = angle / steps as f64;
+    #[expect(clippy::cast_possible_truncation, reason = "the tessellator computes in f32")]
+    let mut ring: Ring = (0..=steps)
+        .map(|index| {
+            #[expect(clippy::cast_precision_loss, reason = "a few thousand steps are exact")]
+            let (sin, cos) = sin_cos(each * index as f64);
+            [
+                (at.x + start_x * cos - start_y * sin) as f32,
+                (at.y + start_x * sin + start_y * cos) as f32,
+            ]
+        })
+        .collect();
+    // the outline of a stroke runs the same way round whichever way the path turns, and where the two overlap the
+    // nonzero rule must see the same sign on both
+    if angle < 0.0 {
+        ring.reverse();
+    }
+    ring
 }
 
 /// The corners of a polyline as a ring of the tessellator's f32.

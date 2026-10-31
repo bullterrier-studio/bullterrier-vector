@@ -26,8 +26,9 @@ pub(super) fn within_device(what: &str, value: f64) -> Result<(), Error> {
     }
 }
 
-/// The outline of the stroke `width` wide that `stroke` draws along `centre`, as straight lines to within `flatness`
-/// (the outline has arcs for the round joins and ends; the rasteriser and the tessellator are given lines only).
+/// The outline of the stroke `width` wide that `stroke` draws along `centre`, with the given `join` and `cap` (the
+/// stroke's own, or others the caller completes), as straight lines to within `flatness` (the outline has arcs for the
+/// round joins and ends; the rasteriser and the tessellator are given lines only).
 ///
 /// The edges of the outline have a count of their own, `MAX_SEGMENTS` for one shape: a drawing of thousands of
 /// stroked shapes makes millions of them. Each is charged to `name` before it is kept, and the walk ends at the first
@@ -38,13 +39,14 @@ pub(super) fn within_device(what: &str, value: f64) -> Result<(), Error> {
 pub(super) fn stroke_outline(
     centre: &BezPath,
     stroke: &StrokeStyle,
+    (join, cap): (Join, Cap),
     width: f64,
     flatness: f64,
     name: &str,
 ) -> Result<BezPath, Error> {
     let expanded = kurbo::Stroke::new(width)
-        .with_join(join(stroke.join()))
-        .with_caps(cap(stroke.cap()))
+        .with_join(kurbo_join(join))
+        .with_caps(kurbo_cap(cap))
         .with_miter_limit(stroke.miter_limit());
     let curved = kurbo::stroke(
         centre.elements().iter().copied(),
@@ -96,7 +98,7 @@ pub(super) fn dots(
     Ok(dots)
 }
 
-fn join(join: Join) -> kurbo::Join {
+fn kurbo_join(join: Join) -> kurbo::Join {
     match join {
         Join::Round => kurbo::Join::Round,
         Join::Miter => kurbo::Join::Miter,
@@ -104,7 +106,7 @@ fn join(join: Join) -> kurbo::Join {
     }
 }
 
-fn cap(cap: Cap) -> kurbo::Cap {
+fn kurbo_cap(cap: Cap) -> kurbo::Cap {
     match cap {
         Cap::Butt => kurbo::Cap::Butt,
         Cap::Round => kurbo::Cap::Round,

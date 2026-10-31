@@ -37,7 +37,9 @@ fn centreline_distance(corners: &[Point], closed: bool, point: Point) -> f64 {
 }
 
 fn corners() -> impl Strategy<Value = Corners> {
-    let corner = (0..100_i32, 0..100_i32).prop_map(|(x, y)| (f64::from(x), f64::from(y)));
+    // whole numbers make corners meet and edges run along one another; fractions put them in general position
+    let whole = (0..100_i32, 0..100_i32).prop_map(|(x, y)| (f64::from(x), f64::from(y)));
+    let corner = prop_oneof![whole, (5.0..95.0_f64, 5.0..95.0_f64)];
     // no two neighbours the same: a zero-length segment is a different case (below)
     prop::collection::vec(corner, 2..8).prop_filter("neighbours differ", |corners| {
         corners.windows(2).all(|pair| pair[0] != pair[1]) && corners[0] != corners[corners.len() - 1]
@@ -45,14 +47,14 @@ fn corners() -> impl Strategy<Value = Corners> {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(96))]
+    #![proptest_config(ProptestConfig::with_cases(400))]
 
     #[test]
     fn a_round_stroke_covers_each_point_within_half_its_width_of_the_centreline_once_and_no_other(
         corners in corners(),
         closed in any::<bool>(),
-        width in 2.0..9.0_f64,
-        points in prop::collection::vec((-10.0..110.0_f64, -10.0..110.0_f64), 80),
+        width in 2.0..22.0_f64,
+        points in prop::collection::vec((-10.0..110.0_f64, -10.0..110.0_f64), 120),
     ) {
         let path = Path::polyline(corners.clone(), closed).map_err(|e| TestCaseError::fail(e.to_string()))?;
         let stroke = Stroke::new(black()).width(width).join(Join::Round).cap(Cap::Round);
@@ -102,6 +104,153 @@ fn check_rows(rows: Vec<Row>) -> Outcome {
 
 fn line() -> Result<Path, bullterrier_vector::Error> {
     Path::line((20.0, 50.0), (80.0, 50.0))
+}
+
+/// Strokes that doubled back at a sharp turn and were once covered three times in places: (case, corners, closed,
+/// width), found by drawing 20,000 random round strokes.
+#[test]
+fn round_strokes_that_double_back_at_sharp_turns_cover_each_point_once() -> Outcome {
+    let rows: [(&str, Corners, bool, f64); 5] = [
+        (
+            "an open turn of 40 degrees",
+            vec![(10.0, 10.0), (80.0, 80.0), (40.0, 30.0)],
+            false,
+            18.0,
+        ),
+        (
+            "a closed triangle",
+            vec![(80.0, 50.0), (10.0, 60.0), (40.0, 50.0)],
+            true,
+            18.0,
+        ),
+        (
+            "a closed quadrilateral",
+            vec![
+                (52.394_969_201_438_97, 25.524_624_780_930_83),
+                (74.011_205_871_579_3, 41.982_331_588_308_625),
+                (62.030_205_902_895_53, 24.311_937_545_198_212),
+                (38.002_251_687_709_23, 38.682_759_388_020_18),
+            ],
+            true,
+            19.0,
+        ),
+        (
+            "an open zig-zag",
+            vec![
+                (88.243_755_967_896_33, 24.921_443_596_327_01),
+                (40.309_525_162_098_22, 46.052_886_312_093_34),
+                (22.674_047_735_079_483, 88.450_773_092_632_57),
+                (55.701_851_194_157_1, 46.463_555_194_553_16),
+            ],
+            false,
+            20.0,
+        ),
+        (
+            "a closed sliver",
+            vec![
+                (32.542_984_082_051_056, 44.618_589_627_473_93),
+                (10.953_165_615_993_123, 89.843_372_587_532_83),
+                (54.468_830_081_986_74, 38.525_553_961_768_4),
+                (39.961_516_840_739_38, 38.561_393_359_194_03),
+            ],
+            true,
+            16.0,
+        ),
+    ];
+    for (case, corners, closed, width) in rows {
+        let stroke = Stroke::new(black()).width(width).join(Join::Round).cap(Cap::Round);
+        let mesh = mesh_of(&stroked(Path::polyline(corners.clone(), closed)?, stroke), 100.0, 100.0)?;
+        check_layout(&mesh)?;
+        let triangles = triangles(&mesh);
+        let mut decided = 0;
+        for x in 0..160 {
+            for y in 0..160 {
+                // a grid that avoids whole numbers, where the corners lie
+                let point = (f64::from(x) * 0.7 - 6.0 + 0.113, f64::from(y) * 0.7 - 6.0 + 0.071);
+                let distance = centreline_distance(&corners, closed, point);
+                if (distance - width / 2.0).abs() < 0.05 {
+                    continue;
+                }
+                let Some(covered) = covering(&triangles, point) else {
+                    continue;
+                };
+                decided += 1;
+                assert_eq!(covered, usize::from(distance < width / 2.0), "{case}: at {point:?}");
+            }
+        }
+        assert!(decided > 10_000, "{case}: only {decided} points were decided");
+    }
+    Ok(())
+}
+
+#[test]
+fn repeated_and_collinear_corners_leave_round_strokes_whole() -> Outcome {
+    // (case, the corners drawn, the corners the stroke runs through, closed)
+    let rows: [(&str, Corners, Corners, bool); 3] = [
+        (
+            "repeats and a straight run",
+            vec![
+                (20.0, 50.0),
+                (20.0, 50.0),
+                (50.0, 50.0),
+                (80.0, 50.0),
+                (80.0, 50.0),
+                (50.0, 80.0),
+            ],
+            vec![(20.0, 50.0), (50.0, 50.0), (80.0, 50.0), (50.0, 80.0)],
+            false,
+        ),
+        (
+            "a closed outline that repeats its start",
+            vec![(20.0, 20.0), (80.0, 30.0), (40.0, 80.0), (20.0, 20.0)],
+            vec![(20.0, 20.0), (80.0, 30.0), (40.0, 80.0)],
+            true,
+        ),
+        (
+            "a path that turns straight back",
+            vec![(20.0, 50.0), (80.0, 50.0), (30.0, 50.0)],
+            vec![(20.0, 50.0), (80.0, 50.0), (30.0, 50.0)],
+            false,
+        ),
+    ];
+    for (case, drawn, run, closed) in rows {
+        let stroke = Stroke::new(black()).width(12.0).join(Join::Round).cap(Cap::Round);
+        let mesh = mesh_of(&stroked(Path::polyline(drawn, closed)?, stroke), 100.0, 100.0)?;
+        check_layout(&mesh)?;
+        let triangles = triangles(&mesh);
+        for x in 0..120 {
+            for y in 0..120 {
+                let point = (f64::from(x) * 0.8 + 0.113, f64::from(y) * 0.8 + 0.071);
+                let distance = centreline_distance(&run, closed, point);
+                if (distance - 6.0).abs() < 0.05 {
+                    continue;
+                }
+                let Some(covered) = covering(&triangles, point) else {
+                    continue;
+                };
+                assert_eq!(covered, usize::from(distance < 6.0), "{case}: at {point:?}");
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn a_smooth_curve_gets_no_extra_triangles_for_round_joins() -> Outcome {
+    // the corners of a flattened circle turn by a few degrees, where a bevel is within 0.01 of the arc: a round join
+    // adds nothing there, while the same stroke's two sharp corners do add their wedges
+    let count = |join| -> Result<usize, Box<dyn std::error::Error>> {
+        let circle = Path::circle((50.0, 50.0), 30.0)?;
+        let mesh = mesh_of(&ten(circle, join, Cap::Butt), 100.0, 100.0)?;
+        Ok(mesh.indices().len() / 3)
+    };
+    assert_eq!(count(Join::Round)?, count(Join::Bevel)?);
+    let corner = |join| -> Result<usize, Box<dyn std::error::Error>> {
+        let path = Path::polyline([(20.0, 20.0), (80.0, 20.0), (80.0, 80.0)], false)?;
+        Ok(mesh_of(&ten(path, join, Cap::Butt), 100.0, 100.0)?.indices().len() / 3)
+    };
+    assert!(corner(Join::Round)? > corner(Join::Bevel)?);
+    Ok(())
 }
 
 #[test]
