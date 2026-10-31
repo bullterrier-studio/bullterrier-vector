@@ -196,10 +196,19 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   (tiny-skia: 25/255), and 200 mixed shapes at 1080p took 27.5 ms native and about 39 ms in WebAssembly, one thread.
   *Consequence:* pixels are required to look the same on every target, not to match byte for byte (native against
   WebAssembly differed by one level on 0.002% of values); what we compute ourselves (placement, widths, SVG, the
-  straight-alpha conversion) stays exact. The crate flattens curves to a quarter of a pixel, so a circle of radius 10
-  covers up to 2.5% less than its area; it draws nothing for a zero-length sub-path (we add the dot SVG draws); and it
-  panics when a row is padded past 65,535, which a width above 65,408 is, so a pixel side stops at 65,000. The new
-  versions are taken by hand, after the tests have passed on them.
+  straight-alpha conversion) stays exact. The crate panics when a row is padded past 65,535, which a width above 65,408
+  is, so a pixel side stops at 65,000.
+- **The rasteriser is given straight lines only** (2026-10-31). Curves are flattened by us, once, in design pixels, with
+  the walk that measuring uses (0.01 design pixels), moved by the view, and a stroke is expanded by `kurbo` to the same
+  flatness in output pixels (0.01 times the scale) and flattened again, before `vello_cpu` fills the outline. It also
+  draws the disc or square of a zero-length sub-path under a round or square end, which `kurbo` leaves out. *Reason:*
+  `vello_cpu` flattens at a fixed quarter of a pixel, which took 2.5% off the area of a circle of radius 10; with our
+  flattening it is within 0.02%, and measure, pixels and the mesh agree on one polygon. Flattening is charged to
+  `MAX_SEGMENTS` after each curve. *Consequence:* a drawing shown 25 times larger than its frame is flattened more
+  coarsely than the crate would have, since the flatness is in design pixels; the stroker can lose a sliver of the inside
+  of a sharp turn after a segment shorter than half the stroke width (`lyon_tessellation` for V3d may replace it);
+  200 mixed shapes at 1080p took 13.3 ms instead of 10.8 with opacity (3.7 instead of 7.6 without), the stroke expansion
+  being the difference.
 - **Group opacity, sRGB blending, straight alpha** (2026-10-31). A shape's fill and stroke are drawn into one layer and
   the shape's opacity and blend apply to it; colours blend as sRGB values; `to_rgba` returns straight alpha. *Reason:*
   that is what SVG's `opacity` on a path and the browsers do, so the SVG and the pixels agree, and a stroke over a fill

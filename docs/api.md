@@ -406,9 +406,12 @@ to the group once (a stroke over a fill at opacity 0.5 is no darker where they o
 with no gamma conversion, as SVG does. The bytes are straight alpha: a colour byte is the premultiplied colour times 255
 over the alpha, rounded to the nearest whole number (halves up), and a pixel of alpha 0 is `0, 0, 0, 0`. Placement,
 widths and the corner and end rules are exact, but the pixels are drawn by a rasteriser crate that is only required to
-look the same on every target: an edge pixel can differ by a level, and a curve is flattened to within a quarter of a
-pixel. A sub-path that never leaves its start (`line_to` its own start) leaves a disc under a round end and a square
-under a square end, as SVG draws it, and nothing under a butt end.
+look the same on every target: an edge pixel can differ by a level. Curves are flattened once, in design pixels, to
+within 0.01 of the curve (the flattening that measuring uses), and a stroke is expanded to the same flatness in output
+pixels, so the rasteriser is given straight lines only; a circle of radius 10 covers its area to within 0.05%. A
+sub-path that never leaves its start (`line_to` its own start) leaves a disc under a round end and a square under a
+square end, as SVG draws it, and nothing under a butt end. A segment much shorter than the stroke is wide, at a sharp
+turn, can lose a sliver of the stroke on the inside of the turn.
 
 | Method | Signature | Promise |
 |---|---|---|
@@ -430,7 +433,7 @@ The same drawing and values give the same bytes on every target. `to_json` raise
 limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises
 `FormatError`. Errors (`ParameterError`): a width or height that is not a whole number from 1 to 100,000 (to 65,000 for
 pixel outputs, which also refuse more than 2^27 pixels, naming `size`), a coordinate or stroke width beyond 10 million
-device pixels in a pixel output (naming the shape), a value for no Param (the message lists the Params), a value
+device pixels in a pixel output, or more than 10,000,000 edges flattened in one draw (both naming the shape), a value for no Param (the message lists the Params), a value
 outside its Param's range, a list of the wrong length; and whatever a step raises. How fonts and maps are referred to in JSON: [formats.md](formats.md), "Inputs".
 
 ### Mesh
