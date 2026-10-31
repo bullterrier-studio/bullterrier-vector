@@ -1,6 +1,6 @@
 # The Rust tests and the Python test suite on every supported operating system and Python. A pull request runs the
 # oldest and the newest Python on Linux; every other event (main, merge queue, by hand) runs all nine. The gate proofs
-# (marker `gate`: they copy the workspace and run cargo, ruff and mypy) run on Linux only: macOS and Windows run the
+# (marker `gate`: they copy the workspace and run cargo, ruff, mypy and Node) run on Linux only: macOS and Windows run the
 # Rust tests and the rest of the suite. Called by ci.yml; can also be started by hand.
 name: Test
 
@@ -47,6 +47,12 @@ jobs:
         if: runner.os == 'Linux'
         with:
           tool: ${{ steps.cargo-tools.outputs.specs }}
+      # the WebAssembly package is tested in Node (`poe wasm-test`, which the gate proofs below run too), on Linux only
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: runner.os == 'Linux'
+        with:
+          node-version: "26"
+          package-manager-cache: false
       # every crate Cargo.lock names, for every platform and target: the dev-dependencies and the cargo-deny gate's
       # metadata too, which building the extension does not download. The gates and tests below run cargo offline.
       - name: Fetch the locked crates (cargo fetch)
@@ -55,6 +61,9 @@ jobs:
         run: uv sync --locked
       - name: Rust tests (cargo test)
         run: uv run --locked poe rust-test
+      - name: WebAssembly package (build, run in Node, compare with the native extension)
+        if: runner.os == 'Linux'
+        run: uv run --locked poe wasm-test
       # -ra lists every skipped or expected-failing test with its reason; --durations shows what makes the run slow
       - name: Tests (pytest, gate proofs included; skips and the 10 slowest tests are listed)
         if: runner.os == 'Linux'
