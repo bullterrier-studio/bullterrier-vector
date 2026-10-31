@@ -72,7 +72,8 @@ Each decision once, with its reason. The design: [design.md](design.md).
   function of time for frame export, a list per item); a drawing holds no easing.
 - **Buffers, not objects: a mesh output** (2026-10-29, the owner's idea). A drawing also renders to triangles
   (positions, colours, per-item attributes; draw ranges with their blend mode) held in three flat buffers; across
-  WebAssembly the bindings give a pointer, a length and a generation counter, and Python a view without a copy.
+  WebAssembly the bindings give a pointer, a length and a generation counter, and Python typed copies (no `unsafe` in
+  the bindings; zero-copy waits for the X2 spike to show a need).
   *Reason:* a live page or a GPU display needs the picture as triangles every frame; one object per shape across the
   WebAssembly boundary costs more than the drawing, while a typed array over WebAssembly memory uploads at once, and the
   generation lets a page skip an unchanged upload. *Consequence:* the mesh is deterministic and covered by the
@@ -191,7 +192,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   clipped. *Reason:* SVG, pixels and the mesh must place a drawing the same way, so the rule lives in one module and
   none of them decides it. A viewer's `preserveAspectRatio` does the same for an SVG with a viewBox, and an
   unclipped frame is what an SVG viewport does.
-- **Rasteriser: `vello_cpu`** (2026-10-31), with `kurbo`, both pinned exactly and used only in `output/raster.rs`. *Reason:*
+- **Rasteriser: `vello_cpu`** (2026-10-31), with `kurbo`, both pinned exactly; `vello_cpu` is used only in
+  `output/raster.rs`, `kurbo` also in `output/outline.rs` and `output/mesh.rs`. *Reason:*
   measured against the alternative, tiny-skia: an edge pixel's coverage was within 0.5/255 of the closed-form area
   (tiny-skia: 25/255), and 200 mixed shapes at 1080p took 27.5 ms native and about 39 ms in WebAssembly, one thread.
   *Consequence:* pixels are required to look the same on every target, not to match byte for byte (native against
@@ -207,7 +209,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   `MAX_SEGMENTS` after each curve, and each shape's stroke outline has a count of its own, since a round join of a wide stroke
   makes thousands of edges from one vertex (a drawing of 20,000 stroked circles makes 10 million in all). *Consequence:* a drawing shown 25 times larger than its frame is flattened more
   coarsely than the crate would have, since the flatness is in design pixels; the stroker can lose a sliver of the inside
-  of a sharp turn after a segment shorter than half the stroke width (`lyon_tessellation` for V3d may replace it);
+  of a sharp turn after a segment shorter than half the stroke width (the mesh's strokes come from the same outline);
   200 mixed shapes at 1080p took 13.3 ms instead of 10.8 with opacity (3.7 instead of 7.6 without), the stroke expansion
   being the difference.
 - **Group opacity, sRGB blending, straight alpha** (2026-10-31). A shape's fill and stroke are drawn into one layer and
@@ -226,7 +228,18 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **Pixel limits** (2026-10-31). A pixel side is 1 to 65,000 and at most 2^27 pixels (512 MiB of RGBA); a device
   coordinate or stroke width beyond 10 million raises `ParameterError` naming the shape. *Reason:* the canvas of the
   crate is 16-bit, its arithmetic is f32, and a 65,000-pixel square would take 16 GiB; no clamping, so a caller learns
-  that the picture is not what they asked for. SVG keeps the 100,000 of the design frame.
+  that the picture is not what they asked for. SVG keeps the 100,000 of the design frame, and so does the mesh, which has no canvas.
+- **Mesh: `lyon_tessellation` for fills, `kurbo` outlines for strokes** (2026-10-31). The nonzero fill of the
+  flattened path, and of the stroke's outline (the same `kurbo` expansion the pixels use), is tessellated by
+  `lyon_tessellation` (pinned exactly, `std` off) in design pixels, and the vertices are moved through the view
+  afterwards. *Reason:* measured on a path with a hole and a self-overlapping pentagram, lyon's nonzero fill made 66
+  triangles and was wrong at none of 39,686 sampled points, no point covered twice, while lyon's own stroker
+  covered 338 sampled points twice where a stroke overlaps itself, which a translucent colour shows; `kurbo`'s
+  outline filled the same way was right everywhere (111 triangles for a zig-zag). Lyon computes in f32, so working
+  in design pixels keeps its numbers the drawing's own, and a power-of-two scale then gives exactly twice the
+  positions at twice the size. *Consequence:* a shape's fill and stroke are two layers, so at opacity below 1 their
+  overlap shows darker than in the pixels' one group; a vertex is charged to `MAX_SEGMENTS` like an edge, though
+  a fill whose outline crosses itself thousands of times can take minutes to tessellate before that count is reached.
 
 ## Names and formats
 

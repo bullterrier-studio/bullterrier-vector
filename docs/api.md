@@ -388,8 +388,8 @@ to 0..1 and holds its end values outside 0..1. They take numbers only: a drawing
 
 ## Outputs
 
-`width` and `height` are output pixels: whole numbers from 1 to 100,000 for SVG; for pixel outputs (`to_rgba`, `to_png`,
-`to_mesh`) from 1 to 65,000, and at most 2^27 pixels (512 MiB of RGBA) in all. The design frame scales by the largest
+`width` and `height` are output pixels: whole numbers from 1 to 100,000 for SVG and the mesh; for pixel outputs
+(`to_rgba`, `to_png`) from 1 to 65,000, and at most 2^27 pixels (512 MiB of RGBA) in all. The design frame scales by the largest
 factor that fits (`min(width / frame width, height / frame height)`) and is centred; a drawing without a frame is drawn
 at one output pixel to the design pixel from the top left. Content outside the frame is not clipped. `**values` give
 Params their values by name; a Param not given takes its default.
@@ -443,7 +443,8 @@ The same drawing and values give the same bytes on every target. `to_json` raise
 limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises
 `FormatError`. Errors (`ParameterError`): a width or height that is not a whole number from 1 to 100,000 (to 65,000 for
 pixel outputs, which also refuse more than 2^27 pixels, naming `size`), a coordinate or stroke width beyond 10 million
-device pixels in a pixel output, more than 10,000,000 edges flattened in one draw, or in the outline of one shape's stroke (both naming the shape), a value for no Param (the message lists the Params), a value
+device pixels in a pixel output or a mesh (a mesh also checks design pixels), more than 10,000,000 edges flattened in
+one draw (in a mesh the vertices made count too), or in the outline of one shape's stroke (all naming the shape), a value for no Param (the message lists the Params), a value
 outside its Param's range, a list of the wrong length; and whatever a step raises. How fonts and maps are referred to in JSON: [formats.md](formats.md), "Inputs".
 
 ### Mesh
@@ -453,10 +454,18 @@ a` (premultiplied), `item` (the shape's index) and `order` (its `order` attribut
 effects. `indices`: `uint32`, three a triangle, in paint order. `ranges`: `uint32`, three a draw range (first index,
 index count, blend mode: 0 normal, 1 multiply), in paint order, so a page draws each range with its blending.
 `generation`: a number that changes exactly when the contents change, so a redraw with the same values uploads
-nothing.
+nothing. A new mesh is generation 0 and empty; a fill whose buffers differ from what the mesh held adds 1 (the first
+fill with something to draw gives 1), and one that makes the same buffers leaves it.
 
-`into=mesh` refills that mesh in place of a new one (its buffers are reused). In Python, `numpy.asarray(mesh.vertices)`
-is a view without a copy; refilling a mesh while a view of it is alive raises `ParameterError` naming `into`. In
+A shape is up to two layers, its fill and then its stroke, each covering every point once, so a translucent fill and
+stroke show darker where they overlap, unlike the pixels' one group per shape. A vertex alpha is the colour's alpha
+times the shape's opacity; a layer of alpha 0 has no triangles. A shape with an empty path adds nothing but keeps its
+number as `item`; `order` is 0 where a shape has no `order` attribute. Curves are flattened as for the pixels, to
+within 0.01 design pixels.
+
+`into=mesh` refills that mesh in place of a new one and returns it; a draw that raises leaves it as it was. In
+Python `vertices`, `indices` and `ranges` return `array.array` copies (typecodes `f` and `I`), a new one at each
+read, which `numpy.asarray` reads through the buffer protocol; the copy keeps the bindings free of `unsafe`. In
 JavaScript, `mesh.verticesPtr`, `mesh.indicesPtr` and `mesh.rangesPtr` (byte offsets) and the matching `...Length`
 (in elements) locate the buffers in `btvec.memory`; make the typed-array views fresh after every call, since a pointer
 can move and the memory can grow; `mesh.free()` returns the buffers to WebAssembly at once instead of when the mesh is

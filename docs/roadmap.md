@@ -257,7 +257,7 @@ Carried from the S0 review:
 - SVG writer; pixels at any size on the CPU.
 - Mesh output (`to_mesh`, api.md "Mesh"): triangles with positions, colours and per-item attributes, and draw ranges
   with their blend mode, in three flat buffers; knockouts resolved by booleans; a blurred shadow raises. A pointer, a
-  length and a generation across WebAssembly; a view without a copy in Python. Covered by the differential tests
+  length and a generation across WebAssembly; typed copies in Python. Covered by the differential tests
   below.
 - `uv run poe look <drawing>`: draws to PNG and SVG in a git-ignored folder, for a person or an agent to look at (done:
   V3c).
@@ -270,8 +270,8 @@ Carried from the S0 review:
 State: V3a done in Rust and Python (`Size`, the view, `Drawing.to_svg`, the star example writes SVG); V3e done: the
 WebAssembly package loads a document and writes its SVG, equal to the native text, in Node (`poe wasm-test`); V3b done in Rust and
 Python (`Drawing.to_rgba`, through `vello_cpu`); V3c done in Rust and Python (`Drawing.to_png`, through the `png` crate,
-and `uv run poe look`). The mesh, the WebAssembly bindings of pixels and the mesh, the differential tests and the
-benchmark are to do.
+and `uv run poe look`); V3d done in Rust and Python (`Drawing.to_mesh`, `Mesh`, through `lyon_tessellation`). The
+WebAssembly bindings of pixels, PNG and the mesh, the differential tests and the benchmark are to do.
 
 ## X1 Spike: GPU display
 
