@@ -1,13 +1,12 @@
 //! The geometry steps of a `Drawing` (`translate`, `rotate`, `scale`) through the public API: each equals the `Path`
 //! verb applied to the shape's path, takes a number, a Param or an expression, and reports a number it refuses at the
-//! call (`error()`) or when drawn, naming the step. Expected values are written by hand; the properties compare the
-//! step with the `Path` verb.
+//! call (`error()`) or when drawn, naming the step. Expected values are written by hand; `node_contract.rs` compares
+//! each step with the `Path` verb.
 
 mod common;
 
 use bullterrier_vector::{Deg, Drawing, Error, Expr, Param, Path, Point, Rotate, ScaleBy, Values};
-use common::{Outcome, log_uniform, parameter_refusal};
-use proptest::prelude::*;
+use common::{Outcome, parameter_refusal};
 
 const SHAPE: &str = "M1 2 L10 4.25 Q11 5 12 6.5 C1 2 3 4 5 6 Z";
 
@@ -272,28 +271,6 @@ fn two_different_params_with_one_name_are_refused_at_the_call() -> Outcome {
     Ok(())
 }
 
-// Agreement with Path -----------------------------------------------------------------------------------------------
-
-proptest! {
-    // The step is the Path verb applied to the shape's path, for numbers of every size.
-    #[test]
-    fn the_step_equals_the_path_verb(
-        sides in 3u32..=12,
-        radius in log_uniform(-1.0, 4.0),
-        dx in log_uniform(-3.0, 6.0),
-        dy in log_uniform(-3.0, 6.0),
-        signs in (any::<bool>(), any::<bool>()),
-    ) {
-        let (dx, dy) = (if signs.0 { dx } else { -dx }, if signs.1 { dy } else { -dy });
-        let path = Path::star((7.0, -3.0), radius, radius * 0.4, i64::from(sides)).map_err(|e| TestCaseError::fail(e.to_string()))?;
-        let step = Drawing::from(path.clone()).translate(dx, dy);
-        let shapes = step.shapes(&Values::new()).map_err(|e| TestCaseError::fail(e.to_string()))?;
-        let expected = path.translate(dx, dy).map_err(|e| TestCaseError::fail(e.to_string()))?;
-        prop_assert_eq!(shapes.len(), 1);
-        prop_assert_eq!(shapes[0].path(), &expected);
-    }
-}
-
 // Rotate ------------------------------------------------------------------------------------------------------------
 
 /// A square, 10 by 10, with its corner at the origin.
@@ -443,31 +420,4 @@ fn a_pivot_that_reads_a_param_works_like_a_number() -> Outcome {
     let drawing = Drawing::from(Path::line((0.0, 0.0), (2.0, 0.0))?).scale(ScaleBy::new(3.0).about((&cx, 0.0)));
     assert_eq!(data(&drawing, &Values::new().set("cx", 1.0))?, "M-2 0 L4 0");
     Ok(())
-}
-
-proptest! {
-    // The steps are the Path verbs applied to the shape's path, for angles and factors of every size, with and
-    // without a pivot.
-    #[test]
-    fn rotate_and_scale_equal_the_path_verbs(
-        sides in 3u32..=12,
-        radius in log_uniform(-1.0, 4.0),
-        angle in -1.0e6f64..1.0e6,
-        factor in (log_uniform(-3.0, 3.0), any::<bool>(), log_uniform(-3.0, 3.0)),
-        pivot in proptest::option::of((-1000.0f64..1000.0, -1000.0f64..1000.0)),
-    ) {
-        let fail = |e: Error| TestCaseError::fail(e.to_string());
-        let path = Path::star((7.0, -3.0), radius, radius * 0.4, i64::from(sides)).map_err(fail)?;
-        let about = pivot.map(Point::from);
-        let drawing = Drawing::from(path.clone());
-        let (turn, scale) = match pivot {
-            Some(p) => (Rotate::new(Deg(angle)).about(p), ScaleBy::new((factor.0, if factor.1 { factor.2 } else { -factor.2 })).about(p)),
-            None => (Rotate::new(Deg(angle)), ScaleBy::new((factor.0, if factor.1 { factor.2 } else { -factor.2 }))),
-        };
-        let turned = drawing.rotate(turn).shapes(&Values::new()).map_err(fail)?;
-        prop_assert_eq!(turned[0].path(), &path.rotate(angle, about).map_err(fail)?);
-        let scaled = drawing.scale(scale).shapes(&Values::new()).map_err(fail)?;
-        let by = (factor.0, if factor.1 { factor.2 } else { -factor.2 });
-        prop_assert_eq!(scaled[0].path(), &path.scale(by, about).map_err(fail)?);
-    }
 }
