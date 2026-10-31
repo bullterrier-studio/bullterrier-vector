@@ -104,6 +104,22 @@ fn sized_path() -> impl Strategy<Value = Path> {
         .prop_filter_map("the steps build a path", |(start, steps)| build(start, &steps).ok())
 }
 
+#[test]
+fn a_cut_exactly_at_a_corner_does_not_leave_a_segment_of_no_length() -> Outcome {
+    let square = Path::rect(0.0, 0.0, 10.0, 10.0, 0.0)?;
+    // the first quarter of the length is the top edge to its far end, and the next quarter the right edge
+    assert_eq!(square.slice(0.0, 0.25, None)?.to_svg_path(), "M0 0 L10 0");
+    assert_eq!(square.slice(0.25, 0.5, None)?.to_svg_path(), "M10 0 L10 10");
+    Ok(())
+}
+
+#[test]
+fn a_path_of_several_points_with_no_length_is_cut_to_its_first() -> Outcome {
+    let dots = Path::from_svg_path("M1 1 M2 2")?;
+    assert_eq!(dots.slice(0.2, 0.7, None)?.to_svg_path(), "M1 1");
+    Ok(())
+}
+
 proptest! {
     #[test]
     fn reversing_twice_is_the_same_path(path in sized_path()) {

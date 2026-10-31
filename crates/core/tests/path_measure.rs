@@ -238,6 +238,15 @@ fn sub_paths_are_walked_in_order_and_a_boundary_belongs_to_the_later_one() -> Ou
 }
 
 #[test]
+fn several_sub_paths_with_no_length_have_one_point_between_them_the_first() -> Outcome {
+    let dots = Path::from_svg_path("M1 1 M2 2")?;
+    for at in [0.0, 0.5, 1.0] {
+        assert_near(point_at(&dots, at)?, (1.0, 1.0), 0.0, "first of the dots");
+    }
+    Ok(())
+}
+
+#[test]
 fn a_path_with_no_length_has_one_point_and_a_sub_path_with_none_is_passed_over() -> Outcome {
     for at in [0.0, 0.4, 1.0] {
         assert_near(

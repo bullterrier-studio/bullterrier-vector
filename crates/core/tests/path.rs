@@ -946,6 +946,21 @@ fn smooth_quadratics_reflect_the_last_control_point_of_a_quadratic_before_them()
 }
 
 #[test]
+fn a_smooth_command_straight_after_a_close_starts_from_the_current_point_not_a_reflection() -> Outcome {
+    // after Z the pen is back at the start (4, 2), and the curve before it is forgotten: S and T are as if written
+    // with the current point as their first control point
+    assert_eq!(
+        normalised("M4 2 C5 3 6 4 7 5 Z S9 9 8 8")?,
+        normalised("M4 2 C5 3 6 4 7 5 Z C4 2 9 9 8 8")?
+    );
+    assert_eq!(
+        normalised("M4 2 Q6 8 8 2 Z T9 9")?,
+        normalised("M4 2 Q6 8 8 2 Z Q4 2 9 9")?
+    );
+    Ok(())
+}
+
+#[test]
 fn numbers_are_read_in_every_spelling_svg_allows() -> Outcome {
     assert_eq!(normalised("M0.5.5 L-.5-.5")?, "M0.5 0.5 L-0.5 -0.5");
     assert_eq!(normalised("M1e2 2E-1 L+3 4.")?, "M100 0.2 L3 4");
