@@ -1,11 +1,13 @@
 # The code API
 
-Status: V1a, designed from the example programs in [examples/](examples/); waiting for the owner's review. Built so far:
-in Rust, `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V2a), and `Param`, `Expr`, `Values`, `Shape`, `Style`
-and `Drawing` with `translate`, `rotate`, `scale`, `fill`, `stroke`, `opacity`, `blend`, `only`, `without`, `with_values`,
-`parameters()`, `shapes()` and `size` (V2b-1); in Python, `Path`, `Point`, `Rect` and the errors. The rest is not
-([roadmap.md](roadmap.md)). Reasons: [design-decisions.md](design-decisions.md), "The code API". The JSON
-form of a drawing: [formats.md](formats.md).
+Status: V1a, designed from the example programs in [examples/](examples/); waiting for the owner's review. Built so far,
+in Rust and Python: `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V2a); `Param`, `Expr`, `Shape`, `Style` and
+`Drawing` with `translate`, `rotate`, `scale`, `fill`, `stroke`, `opacity`, `blend`, `only`, `without`, `with_values`,
+`parameters()`, `shapes()` and `size`, and the style verbs on a `Path` (V2b). A `Shape`'s `style` has `fill`, `stroke`,
+`stroke_width`, `join`, `cap`, `miter_limit`, `opacity` and `blend`; the rest of the members below arrive with their
+steps. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
+defaults written here. The rest is not built ([roadmap.md](roadmap.md)). Reasons:
+[design-decisions.md](design-decisions.md), "The code API". The JSON form of a drawing: [formats.md](formats.md).
 
 Signatures are Python's; "Languages" gives the Rust and JavaScript forms. The library is imported under the alias
 `btvec` in every language.
@@ -21,7 +23,7 @@ import bullterrier_vector as btvec
 | [kinetic_type.py](examples/kinetic_type.py), [.rs](examples/kinetic_type.rs), [.js](examples/kinetic_type.js) | reference piece 1: variable-font axes, per-letter stagger, a caller's signal per letter, riso inks, a clip |
 | [cut_paper.py](examples/cut_paper.py) | reference piece 2: a traced mask, offset layers, shadows, a draw-on outline, a sequence of maps |
 | [hatched_poster.py](examples/hatched_poster.py) | reference piece 3: flow-field hatching by tone, rings of a distance field, a plotter file |
-| [star.py](examples/star.py) | building and measuring a `Path` |
+| [star.py](../examples/star.py) | building and measuring a `Path` |
 | [ring.py](examples/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
 | [text_on_path.py](examples/text_on_path.py) | text bent along a path, moving round it |
 | [draw_on.py](examples/draw_on.py) | draw-on by `progress`, staggered letter by letter |
@@ -31,7 +33,7 @@ import bullterrier_vector as btvec
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
 | [halftone.py](examples/halftone.py) | halftone dots from a tone map |
 | [duotone.py](examples/duotone.py) | a gradient map and posterize on colours |
-| [series_bars.py](examples/series_bars.py) | a series of numbers as bars, with plain code |
+| [series_bars.py](../examples/series_bars.py) | a series of numbers as bars, with plain code |
 | [frame_export.py](examples/frame_export.py) | a transparent PNG sequence and a clip from a function of time; a knockout |
 | [mesh_upload.js](examples/mesh_upload.js) | a mesh in WebAssembly memory uploaded to WebGL, the pointer pattern |
 
@@ -613,7 +615,7 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 Also from the findings: draw-on (`slice`), the riso misregistration that grows on a hit (an expression,
 `3 + 14 * burst`), the accent letter (`only`, `without`), type under the paper (stacking order), paper that slides
 (`translate` by a Param). Gaps beyond the ranked list: a multi-colour trace (a map of colour labels; V14 names it) and a
-re-drawable series node (a series is plain code now, [series_bars.py](examples/series_bars.py); the effects track adds a
+re-drawable series node (a series is plain code now, [series_bars.py](../examples/series_bars.py); the effects track adds a
 node if a piece needs one).
 
 Verbs no example uses yet, and what needs them: `merge` (V7: words and lines as units), `exclude` (V8, the fourth

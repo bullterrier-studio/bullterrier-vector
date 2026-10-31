@@ -364,7 +364,7 @@ embedded form: bytes in base64 would grow a font by a third, make the JSON mostl
 an input.
 
 SVG and series are not inputs of a drawing in version 1. `Path.from_svg_path` computes at once, so an imported logo is
-saved as its path data; a series becomes paths in the caller's code ([series_bars.py](examples/series_bars.py)). A
+saved as its path data; a series becomes paths in the caller's code ([series_bars.py](../examples/series_bars.py)). A
 node that reads one adds an input kind ("Extension").
 
 ## Canonical form

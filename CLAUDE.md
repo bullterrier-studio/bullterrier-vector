@@ -24,9 +24,10 @@ Needs [rustup](https://rustup.rs): the first `cargo` command in the checkout fet
 the `wasm32-unknown-unknown` target. `uv run poe` lists every task.
 
 **State:** the scaffold (workspace, gates, hooks, CI workflows) and the geometry value `Path` (with `Point` and `Rect`) from the
-Rust core to Python (V2a: build, measure, cut, move, hit-test, SVG path data); the core also builds for WebAssembly. In Rust
-only (V2b-1): drawings (`Drawing`, `Shape`, `Style`, `Param`, `Expr`, `Values`, the verbs listed by `verbs()`), evaluated
-without a cache. The rest is planned (`docs/roadmap.md`): the cache and the Python names are V2b-2, JSON is V2c.
+Rust core to Python (V2a: build, measure, cut, move, hit-test, SVG path data); the core also builds for WebAssembly. Drawings
+(V2b): `Drawing`, `Shape`, `Style`, `Param`, `Expr` and the verbs listed by `verbs()`, evaluated with a result cache, in Rust
+and Python; `examples/star.py` and `examples/series_bars.py` run as far as `shapes()`. The rest is planned
+(`docs/roadmap.md`): JSON is V2c, the pictures V3.
 Maintainers may keep machine-specific notes in a git-ignored `.local/` folder and batch plans in the git-ignored
 `.superpowers/plans/`: read them when present; never commit or cite them.
 
@@ -68,10 +69,11 @@ Two crates in one Cargo workspace; the package version is the workspace's.
 
 | Path | What |
 |---|---|
-| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation); `limits.rs` (`MAX_SHAPES`, `MAX_DEPTH`, the counter); `tests/` |
-| `crates/python` | PyO3 bindings building the extension `bullterrier_vector._native._core`; generic, passes values to the core unchecked; no Rust tests |
+| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation, the result cache); `limits.rs` (`MAX_SHAPES`, `MAX_DEPTH`, the counter); `tests/` |
+| `crates/python` | PyO3 bindings building the extension `bullterrier_vector._native._core`; generic, passes values to the core unchecked; no Rust tests. `src/lib.rs` (`Path`, `Point`, `Rect`, the error mapping), `expr.rs` (`Expr`, `Param`), `drawing.rs` (`Drawing`), `shape.rs` (`Shape`, `Style`) |
 | `src/bullterrier_vector/` | the Python package: `errors.py` (the bottom layer, imports nothing from the package), `_native/` (the extension and its stub `_core.pyi`), `__init__.py` (the public API) |
 | `tests/` | the Python suite (`test_*.py`); `tests/tools/` tests the tooling and the gates |
+| `examples/` | example programs that run as far as the library can draw; `tests/test_examples.py` runs each. Code, never documentation (not in the `changes` filter). The others stay in `docs/examples/` until their calls exist |
 | `tools/` | scripts the hooks and gates run (`check_commit_message.py`, `check_one_config_home.py`, `pre_push.py`, `rust_tools.py`, `lint_workflows.py`, `check_dists.py`, `check_installed.py`, `check_file_size.py`) |
 
 Rust is the source of truth: parameters are declared once, in Rust; Python and (from V3) WebAssembly are thin layers over it.
@@ -166,7 +168,7 @@ left out of `fast`, run by `check`). A new gate gets its proof, and a line in `t
 when `check` does not run a proven gate.
 
 `ruff` wants type hints and a docstring on every public function, class, method and module, and no `print` outside `tools/`.
-`mypy` checks `src`, `tests` and `tools`. Fix findings properly; for a false positive use a targeted `# noqa: CODE  <reason>` or
+`mypy` checks `src`, `tests`, `tools` and `examples`. Fix findings properly; for a false positive use a targeted `# noqa: CODE  <reason>` or
 `# type: ignore[code]  # reason` (a bare or unused one fails). A subprocess call carries `# noqa: S603  <why its argv is safe>`.
 Tests may not reach private names (`SLF001`, `PLC2701`).
 

@@ -202,10 +202,10 @@ State: done; independently reviewed 2026-10-31 and the proven findings fixed (de
 - Contract tests over every registered node, enrolled exactly (a node registered without a row fails): determinism, values
   within range, the same result at any design size (the 1x against 2x output check needs outputs: V3), a cached
   evaluation equal to a fresh one after random edits.
-- The example programs of `docs/examples/` start to run here, as far as `shapes()`: the Python ones move to a tested
-  top-level `examples/`, the Rust one to `crates/core/examples/`, the JavaScript ones under the npm package.
-  `docs/examples/` is never added to the documentation filter (`is_documentation`, the `changes` filter in `ci.yml`):
-  its programs are code.
+- The example programs start to run here, as far as `shapes()`: the Python ones move to a tested top-level `examples/`
+  (`star.py` and `series_bars.py` now, the rest as their calls arrive), the Rust one to `crates/core/examples/`, the
+  JavaScript ones under the npm package. `examples/` is never added to the documentation filter (`is_documentation`, the
+  `changes` filter in `ci.yml`): its programs are code.
 
 Done when: the example programs that use only V2's calls run as far as `shapes()`; each `Path` verb has its `Drawing` step
 and the two agree; each evaluation counter a V2 node can reach raises `ParameterError` when passed, in a test (the
@@ -213,7 +213,8 @@ others arrive with the first step that produces what they count).
 
 State: V2b-1 done in Rust, independently reviewed 2026-10-31 and the proven findings fixed (shapes, style, `Param`/`Expr`, the node contract and registry, `translate`,
 `rotate`, `scale`, the style steps, `only`, `without`, stacking, `with_values`, `parameters()`, `shapes()`, `MAX_SHAPES`
-and `MAX_DEPTH`, the contract table); an uncached evaluator, so a shared drawing is drawn once per use until the V2b-2 cache. V2b-2 (cache, Python, the examples) remains.
+and `MAX_DEPTH`, the contract table). V2b-2 built (the result cache, the Python names `Drawing`, `Shape`, `Style`, `Param`
+and `Expr`, `star.py` and `series_bars.py` in a tested `examples/`); independent review and merge pending.
 
 ### V2c JSON
 

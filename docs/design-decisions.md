@@ -287,6 +287,22 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   carries is refused when drawn, naming it. An empty list passes. *Reason:* a live text of no letters must not
   raise from the next `only(char="O")`.
 
+## Drawings (V2b-2)
+
+- **Merging by equality, cache per family, eviction after each draw** (2026-10-31). A result is kept under the step's
+  structure (its call and the results it builds on, as numbers) and the values of the free Params it reads, so two
+  drawings built apart that are equal share entries. A drawing and every drawing derived from it by a step share one
+  cache, and a stack shares its first item's; `Drawing::stats()` reports the last draw of that family. After each draw
+  the entries it did not use are dropped. *Reason:* changing one value then computes only the steps that read it, and a
+  drawing used twice is computed once; keeping only the last draw bounds the memory by one draw. *Consequence:* a draw
+  with alternating values recomputes what the other left out.
+- **Words are read by the core; a step is raised at its call in Python** (2026-10-31). The core reads a colour, join,
+  cap, blend and unit from its word (`parse`) and writes it back (`name`), so a wrong word is the same
+  `ParameterError` in every language. The Python bindings check the chain's error after each step and raise it there,
+  while Rust reports it at the first draw. A `Path` verb refuses a `Param` or an expression with `ParameterError`
+  telling the caller to wrap the path in a `Drawing`. *Reason:* Python points at the line that is wrong; the bindings keep
+  no range check of their own.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin
