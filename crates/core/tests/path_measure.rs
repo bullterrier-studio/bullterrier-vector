@@ -512,6 +512,21 @@ fn of_equally_near_places_the_smallest_position_wins() -> Outcome {
 }
 
 #[test]
+fn the_end_of_a_path_of_several_sub_paths_is_located_at_1_and_never_beyond() -> Outcome {
+    // each of these found its own end a unit in the last place past 1
+    for data in [
+        "M0 0 L-3 2 Z M0 0 Q6 0 -7 4 L-4 9",
+        "M0 0 L8 -8 Z M0 0 Q4 5 2 3 L-7 9",
+        "M0 0 L-6 7 Z M0 0 Q-9 8 3 -8 L-5 4",
+    ] {
+        let path = Path::from_svg_path(data)?;
+        let end = path.point_at(1.0, None)?;
+        assert_eq!(path.locate(end, None)?, 1.0, "{data}");
+    }
+    Ok(())
+}
+
+#[test]
 fn a_path_with_no_length_is_located_at_0() -> Outcome {
     assert_position(locate(&Path::start((7.0, -2.0))?, (100.0, 3.0))?, 0.0, "lone start");
     Ok(())

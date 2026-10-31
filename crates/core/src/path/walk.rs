@@ -274,7 +274,9 @@ impl Walk<'_> {
                 let edge = &run.edges[place.index];
                 best = Some((
                     place.squared_distance,
-                    run.offset + edge.start + place.along * edge.length,
+                    // summed as the walk sums its lengths (offset + (start + length)), so the end of a run is exactly
+                    // `offset + run.length` and a position never passes the length of the walk
+                    run.offset + (edge.start + place.along * edge.length),
                 ));
             }
         }
