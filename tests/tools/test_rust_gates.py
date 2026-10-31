@@ -45,6 +45,8 @@ def workspace(tmp_path_factory) -> Path:
     for name in WORKSPACE_FILES:
         shutil.copy(ROOT / name, root)
     shutil.copytree(ROOT / "crates", root / "crates")
+    # the JSON tests read the example documents of the format
+    shutil.copytree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
     return root
 
 
