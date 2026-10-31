@@ -23,7 +23,7 @@ impl Drawing {
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 100,000;
-    /// naming the shape if its coordinates would be beyond ±1e100 at this size; otherwise what [`Drawing::shapes`]
+    /// naming the shape if its coordinates or stroke width would be beyond ±1e100 at this size; otherwise what [`Drawing::shapes`]
     /// raises.
     pub fn to_svg(&self, size: Size, values: &Values) -> Result<String, Error> {
         let (width, height) = size.checked()?;
@@ -44,13 +44,15 @@ impl Drawing {
 
 /// Appends the `<path>` of `shape` seen through `view`, or nothing if its path is empty.
 fn element(svg: &mut String, shape: &Shape, view: &View) -> Result<(), Error> {
-    let data = view
-        .path(shape.path())
-        .map_err(|error| match error {
-            Error::Parameter { message, .. } => Error::parameter(&format!("shape {}", shape.index()), message),
+    let in_shape = |what: &'static str| {
+        move |error| match error {
+            Error::Parameter { message, .. } => {
+                Error::parameter(&format!("shape {}", shape.index()), format!("{what}{message}"))
+            }
             other => other,
-        })?
-        .to_svg_path();
+        }
+    };
+    let data = view.path(shape.path()).map_err(in_shape(""))?.to_svg_path();
     if data.is_empty() {
         return Ok(());
     }
@@ -62,7 +64,7 @@ fn element(svg: &mut String, shape: &Shape, view: &View) -> Result<(), Error> {
         let _ = write!(
             svg,
             " stroke-width=\"{}\" stroke-linejoin=\"{}\" stroke-linecap=\"{}\" stroke-miterlimit=\"{}\"",
-            number(view.length(stroke.width())),
+            number(view.length(stroke.width()).map_err(in_shape("stroke width "))?),
             stroke.join().name(),
             stroke.cap().name(),
             number(stroke.miter_limit()),

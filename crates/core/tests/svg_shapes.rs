@@ -204,3 +204,18 @@ fn a_shape_scaled_beyond_the_coordinate_limit_is_refused_naming_the_shape() -> O
     assert!(message.contains("1e100"), "{message}");
     Ok(())
 }
+
+#[test]
+fn a_stroke_width_scaled_beyond_the_coordinate_limit_is_refused_naming_the_shape() -> Outcome {
+    // a width of 1e99 (accepted: a width has no upper bound) in a frame of 1 pixel drawn at 100,000 pixels is 1e104;
+    // 1e308 would be written as `inf`
+    for width in [1e99, 1e308] {
+        let drawing = Drawing::from(square()?)
+            .stroke(Stroke::new(color("#102030")?).width(width))
+            .with_size(1.0, 1.0);
+        let (parameter, message) = parameter_refusal(drawing.to_svg(Size::px(100_000.0, 100_000.0), &Values::new()))?;
+        assert_eq!(parameter, "shape 0", "width {width}");
+        assert!(message.contains("stroke width"), "width {width}: {message}");
+    }
+    Ok(())
+}

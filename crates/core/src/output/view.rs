@@ -1,6 +1,6 @@
 //! Where the design frame lies in the output: the one decision every output (SVG now, pixels and mesh later) shares.
 
-use crate::geometry::Point;
+use crate::geometry::{Point, coordinate};
 use crate::{Error, Path};
 
 /// The design frame fitted into an output: scaled by the largest factor that keeps all of it inside, and centred. A
@@ -32,8 +32,11 @@ impl View {
     }
 
     /// A length in design pixels, in output pixels.
-    pub(crate) fn length(&self, design: f64) -> f64 {
-        design * self.scale
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] if the length would be beyond ±1e100, as a coordinate may not be.
+    pub(crate) fn length(&self, design: f64) -> Result<f64, Error> {
+        coordinate("length", design * self.scale)
     }
 
     /// `path` in output pixels.
