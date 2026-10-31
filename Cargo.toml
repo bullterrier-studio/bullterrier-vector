@@ -1,9 +1,10 @@
 # The Rust workspace of bullterrier-vector: `crates/core` (pure Rust: the core of the library; the crate
-# `bullterrier-vector`) and `crates/python` (its PyO3 bindings). Rust settings live here, except what a tool
-# cannot read from this file: rust-toolchain.toml, rustfmt.toml, deny.toml, clippy.toml.
+# `bullterrier-vector`), `crates/python` (its PyO3 bindings) and `crates/wasm` (its WebAssembly bindings). Rust
+# settings live here, except what a tool cannot read from this file: rust-toolchain.toml, rustfmt.toml, deny.toml,
+# clippy.toml.
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/python"]
+members = ["crates/core", "crates/python", "crates/wasm"]
 
 [workspace.package]
 version = "0.0.0"  # the one version: the Python package reads it; crates.io gets it at the first release
@@ -17,6 +18,7 @@ publish = false  # until the first release (V22)
 bullterrier-vector = { path = "crates/core" }
 libm = "0.2"
 pyo3 = { version = "0.30", features = ["abi3-py312"] }
+wasm-bindgen = "=0.2.130"  # exactly the version of the `wasm-bindgen` command below: generated glue must match it
 proptest = "1.12"
 roxmltree = "0.21"  # the SVG oracle of the output tests
 
@@ -44,3 +46,4 @@ undocumented_unsafe_blocks = "warn"
 [workspace.metadata.tools]
 cargo-shear = "1.14.0"
 cargo-deny = "0.20.2"
+wasm-bindgen = "0.2.130"  # the command (crate wasm-bindgen-cli); `rust-tools` ties it to the crate version in Cargo.lock

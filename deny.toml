@@ -25,6 +25,8 @@ allow-wildcard-paths = true  # the workspace's own crates depend on each other b
 # Python reaches the core only through the bindings crate: the core stays pure Rust, with no PyO3 in it
 deny = [
     { crate = "pyo3", wrappers = ["bullterrier-vector-python"] },
+    # the same for the browser: only the WebAssembly bindings crate knows wasm-bindgen
+    { crate = "wasm-bindgen", wrappers = ["bullterrier-vector-wasm"] },
 ]
 
 [sources]

@@ -1,0 +1,23 @@
+[package]
+name = "bullterrier-vector-wasm"
+description = "The WebAssembly bindings of bullterrier-vector's Rust core: builds the package the browser and Node load."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+# the cdylib is the .wasm; the rlib lets `cargo test` and clippy build the same code natively (the imports of
+# JavaScript are stubs there)
+crate-type = ["cdylib", "rlib"]
+# no Rust tests of its own: the Node tests (tests/wasm) test the built package through its public interface
+doctest = false
+
+[dependencies]
+bullterrier-vector.workspace = true
+wasm-bindgen.workspace = true
+
+[lints]
+workspace = true

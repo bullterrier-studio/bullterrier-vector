@@ -233,6 +233,15 @@ OFFENCES = {
         ),
         ["cannot find `unix` in `os`", CORE],
     ),
+    "code in the WebAssembly bindings that does not build for WebAssembly": (
+        "rust-wasm",
+        "crates/wasm/src/lib.rs",
+        appended(
+            "\n/// Probe.\n#[must_use]\npub fn probe(text: &std::ffi::OsStr) -> &[u8] {\n"
+            "    use std::os::unix::ffi::OsStrExt;\n    text.as_bytes()\n}\n"
+        ),
+        ["cannot find `unix` in `os`", "crates/wasm/src/lib.rs"],
+    ),
     "a dependency no code uses": (
         "rust-shear",
         CORE_MANIFEST,
@@ -244,6 +253,12 @@ OFFENCES = {
         CORE_MANIFEST,
         replaced("[dependencies]\n", "[dependencies]\npyo3.workspace = true\n"),
         ["banned", "pyo3", "parent 'bullterrier-vector = "],  # the core, by name
+    ),
+    "wasm-bindgen in the pure-Rust core": (
+        "rust-deny",
+        CORE_MANIFEST,
+        replaced("[dependencies]\n", "[dependencies]\nwasm-bindgen.workspace = true\n"),
+        ["banned", "wasm-bindgen", "parent 'bullterrier-vector = "],
     ),
     "a licence outside the allow-list": (
         "rust-deny",

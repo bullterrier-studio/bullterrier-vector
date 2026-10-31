@@ -23,6 +23,7 @@ PROVEN_TASKS = [
     "rust-deny",
     "rust-wasm",
     "rust-test",
+    "wasm-test",
     "stubtest",
     "dead-code",
     "lint-workflows",
@@ -31,6 +32,7 @@ PROVEN_TASKS = [
 ]
 PROVEN_COMMANDS = ["ruff format --check .", "ruff check .", "deptry .", "mypy"]
 GATES = [*PROVEN_TASKS, *PROVEN_COMMANDS]
+NOT_IN_FAST = ["wasm-test"]  # a release build and Node: `check` only
 SKIP_PROOFS = "-m 'not gate'"  # what keeps the slow proofs out of `fast`
 
 
@@ -64,6 +66,9 @@ def problems(pyproject: dict[str, Any]) -> list[str]:
     check = steps(tasks, "check")
     reached = {name for path, _ in check for name in path} | {command for _, command in check}
     found = [f"check does not run {gate}" for gate in GATES if gate not in reached]
+    fast = steps(tasks, "fast")
+    fast_reached = {name for path, _ in fast for name in path} | {command for _, command in fast}
+    found += [f"fast runs {gate}, which is for check only" for gate in NOT_IN_FAST if gate in fast_reached]
     fast_tests, check_tests = pytest_steps(tasks, "fast"), pytest_steps(tasks, "check")
     found += [f"fast: `{command}` lacks {SKIP_PROOFS}" for command in fast_tests if SKIP_PROOFS not in command]
     found += [f"check: `{command}` has {SKIP_PROOFS}" for command in check_tests if SKIP_PROOFS in command]
@@ -94,6 +99,12 @@ def without(gate: str) -> dict[str, Any]:
 @pytest.mark.parametrize("gate", GATES)
 def test_a_gate_taken_out_of_check_is_rejected_naming_it(gate):
     assert problems(without(gate)) == [f"check does not run {gate}"]
+
+
+def test_fast_running_a_check_only_gate_is_rejected():
+    copied = pyproject()
+    copied["tool"]["poe"]["tasks"]["fast"]["sequence"].append({"ref": "wasm-test"})
+    assert problems(copied) == ["fast runs wasm-test, which is for check only"]
 
 
 def test_fast_without_the_marker_is_rejected():
