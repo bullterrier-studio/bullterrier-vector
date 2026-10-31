@@ -233,6 +233,12 @@ impl<'a> Writer<'a> {
             View::Neg(inner) => Json::object([("neg", self.expression(inner)?)]),
             View::Binary(op, left, right) => {
                 let (mut left, mut right) = (self.expression(left)?, self.expression(right)?);
+                if op == Op::Div && matches!(right, Json::Number(divisor) if divisor == 0.0) {
+                    return Err(Error::parameter(
+                        "expression",
+                        "divides by a literal 0, which a document cannot hold",
+                    ));
+                }
                 let commutes = matches!(op, Op::Add | Op::Mul);
                 if commutes && matches!(right, Json::Number(_)) && !matches!(left, Json::Number(_)) {
                     std::mem::swap(&mut left, &mut right);

@@ -252,6 +252,18 @@ fn a_constant_part_that_has_no_value_is_refused() -> Outcome {
     Ok(())
 }
 
+#[test]
+fn a_literal_divisor_of_zero_cannot_be_written() -> Outcome {
+    let x = slider("x")?;
+    // `x / 0` always fails to draw, and the format has no spelling for it (a literal zero divisor fails the schema)
+    for divisor in [Expr::from(0.0), Expr::from(2.0) - 2.0] {
+        let (parameter, message) = parameter_refusal(square()?.rotate(Deg(&x / divisor)).to_json())?;
+        assert_eq!(parameter, "expression");
+        assert!(message.contains("divides by a literal 0"), "{message}");
+    }
+    Ok(())
+}
+
 // Params ------------------------------------------------------------------------------------------------------------
 
 #[test]
