@@ -61,6 +61,21 @@ fn params_are_listed_in_the_order_the_walk_first_uses_them_each_once() -> Outcom
 }
 
 #[test]
+fn the_params_of_one_expression_are_listed_left_to_right() -> Outcome {
+    let (a, b, c) = (slider("a", 1.0)?, slider("b", 2.0)?, slider("c", 3.0)?);
+    let sum = square()?.translate(&a + &b, 0.0);
+    assert_eq!(names(&sum)?, ["a", "b"]);
+    let difference = square()?.translate(&b - &a, 0.0);
+    assert_eq!(names(&difference)?, ["b", "a"]);
+    // operands nest on either side, and a negation reads what it holds
+    let nested = square()?.translate(-(&c * (&b / &a)), 0.0);
+    assert_eq!(names(&nested)?, ["c", "b", "a"]);
+    let right = square()?.translate(&b * (&c + &a), 0.0);
+    assert_eq!(names(&right)?, ["b", "c", "a"]);
+    Ok(())
+}
+
+#[test]
 fn two_params_of_one_name_that_differ_are_refused_naming_the_field() -> Outcome {
     let base = slider("a", 1.0)?;
     let rows = [

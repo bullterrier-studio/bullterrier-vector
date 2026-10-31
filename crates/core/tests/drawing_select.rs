@@ -185,6 +185,22 @@ fn a_selection_the_call_cannot_make_sense_of_is_refused_naming_the_step_and_the_
 }
 
 #[test]
+fn a_whole_number_attribute_is_accepted_up_to_u32_max_and_refused_past_it() -> Outcome {
+    let two = row(2)?;
+    assert_eq!(
+        two.only(Select::new().attribute("index", 4_294_967_295.0)).error(),
+        None
+    );
+    let past = two.only(Select::new().attribute("index", 4_294_967_296.0));
+    let (name, message) = parameter_refusal(Err::<(), _>(held(&past)?))?;
+    assert!(
+        name == "step 1 (only).index" && message.contains("whole number") && message.contains("4294967296"),
+        "{name}: {message}"
+    );
+    Ok(())
+}
+
+#[test]
 fn an_attribute_no_shape_carries_is_refused_when_drawn_naming_it() -> Outcome {
     let two = row(2)?;
     // a drawing of paths and a stack carries index and order, and nothing a generator writes

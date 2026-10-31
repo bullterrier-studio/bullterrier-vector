@@ -57,6 +57,23 @@ fn a_draw_is_charged_for_the_shapes_it_makes_and_refused_past_a_million() -> Out
 }
 
 #[test]
+fn a_shape_put_back_into_a_drawing_is_charged_like_a_path() -> Outcome {
+    let shape = nothing()
+        .shapes(&Values::new())?
+        .pop()
+        .ok_or("the drawing made no shape")?;
+    // each shape source is one shape, and the stack of them is its whole list: 500,000 of each is the limit
+    let of_shapes = |count: usize| Drawing::new((0..count).map(|_| Drawing::from(shape.clone())));
+    assert_eq!(drawn(&of_shapes(500_000))?, 500_000);
+    let (name, message) = parameter_refusal(of_shapes(500_001).shapes(&Values::new()))?;
+    assert!(
+        name.contains("(stack)") && message.contains("MAX_SHAPES"),
+        "{name}: {message}"
+    );
+    Ok(())
+}
+
+#[test]
 fn a_stack_of_a_drawing_with_itself_is_charged_each_time_and_stops() -> Outcome {
     let doubled = |times: usize| {
         let mut drawing = nothing();
