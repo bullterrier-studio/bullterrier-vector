@@ -90,7 +90,8 @@ layer, and one engine whose output is identical in Python, Rust and the browser.
 - An editor application. The library gives an editor what it needs (geometry, hit testing, text layout); the editor's
   user interface is a separate project.
 - Photo effects and compositing over footage.
-- Writing a rasteriser, a shaper or a font parser: those come from existing crates.
+- Writing a rasteriser from scratch, a shaper or a font parser: those come from existing crates (`vello_cpu` draws the
+  pixels).
 - Stateful simulation (particles, springs, flocking) in v1. If it comes, it produces points that a node draws.
 - Effects that need several frames (a shape's trail): they belong to a video tool.
 
@@ -221,7 +222,8 @@ from those declarations.
   files; frame export writes them.
 - It runs single-threaded; parallel rendering is an optional feature.
 - Transcendental maths (sin, cos, exp, pow...) goes through one portable implementation on every target, so output
-  matches bit for bit. Iteration order never depends on a hash seed.
+  matches bit for bit. Iteration order never depends on a hash seed. The one exception is the pixels the rasteriser
+  crate draws: they are required to look the same on every target, not to match byte for byte.
 - Randomness comes only from the seed.
 - Inputs are plain data: a map to trace is a width, a height and bytes; a series is a list of numbers. The library
   reads no other tool's file format.

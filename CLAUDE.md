@@ -29,9 +29,10 @@ Rust core to Python (V2a: build, measure, cut, move, hit-test, SVG path data); t
 and Python; `examples/series_bars.py` runs as far as `shapes()`. JSON (V2c): `Drawing.to_json`,
 `Drawing.from_json` and `drawing_schema()` (the schema generated from the registrations) in Rust and Python, for the calls
 registered so far. Output (V3a): `Size` and `Drawing.to_svg(size, values)` in Rust, `Drawing.to_svg(width, height, /, **values)` in
-Python, and `examples/star.py` writes its SVG. WebAssembly (V3e): the package built from `crates/wasm` loads a document and
-writes `toSvg` (also `toJson`, `parameters`, `size`) in Node, equal to the native text (`poe wasm-test`). The rest is planned
-(`docs/roadmap.md`): pixels, PNG and a mesh, and their WebAssembly bindings, are the rest of V3.
+Python, and `examples/star.py` writes its SVG. Pixels (V3b): `Drawing::to_rgba(size, values)` in Rust and `Drawing.to_rgba(width,
+height, /, **values)` in Python, straight-alpha bytes drawn by `vello_cpu`. WebAssembly (V3e): the package built from `crates/wasm` loads a
+document and writes `toSvg` (also `toJson`, `parameters`, `size`) in Node, equal to the native text (`poe wasm-test`). The rest is planned
+(`docs/roadmap.md`): PNG, a mesh, and the WebAssembly bindings of pixels and the mesh, are the rest of V3.
 Maintainers may keep machine-specific notes in a git-ignored `.local/` folder and batch plans in the git-ignored
 `.superpowers/plans/`: read them when present; never commit or cite them.
 
@@ -40,7 +41,7 @@ Maintainers may keep machine-specific notes in a git-ignored `.local/` folder an
 | Responsible for (planned: `docs/roadmap.md`) | Not responsible for |
 |---|---|
 | Bezier paths as values: build, measure, split, slice, hit-test, resample, simplify, fit curves; booleans, offsets, stroke outlines | Timelines, keyframes, easing over time, an `onFrame` loop: values over time are the caller's |
-| Drawings written as code: chainable, typed, discoverable from the editor (JSON is a layer on top); `Path`, `Shape`, `Drawing`, `Param`, the same verbs on a `Path` (computed at once) and a `Drawing` (a step) | Writing a rasteriser, a shaper or a font parser: existing crates do that |
+| Drawings written as code: chainable, typed, discoverable from the editor (JSON is a layer on top); `Path`, `Shape`, `Drawing`, `Param`, the same verbs on a `Path` (computed at once) and a `Drawing` (a step) | Writing a rasteriser from scratch, a shaper or a font parser: existing crates do that |
 | Type as geometry: any TrueType or OpenType font from bytes, shaping, variable-font axes as parameters, every glyph an editable path | Producing font files; colour and bitmap fonts in v1 |
 | A generative layer: generators, deformers, repeaters, booleans, offsets, morph, hatching, tracing | An editor application (the library gives it geometry, hit testing, text layout) |
 | Effects, each added with a gallery piece (the effects track) | Photo effects and compositing over footage |
@@ -74,7 +75,7 @@ Three crates in one Cargo workspace; the package version is the workspace's.
 
 | Path | What |
 |---|---|
-| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation, the result cache); `limits.rs` (`MAX_SHAPES`, `MAX_DEPTH`, `MAX_PARAMS`, the counter); `output.rs` and `output/` (`Size`, the `View` that places the design frame in an output, the SVG writer); `json.rs` and `json/` (`to_json`, `from_json`: a strict parser, the reader, the loader's checks, the writer; `drawing_schema()` generated in `schema.rs` from `verbs()` and the fixed `schema_fixed.json`; no list of calls); `tests/` |
+| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation, the result cache); `limits.rs` (`MAX_SHAPES`, `MAX_DEPTH`, `MAX_PARAMS`, the counter); `output.rs` and `output/` (`Size`, the `View` that places the design frame in an output, the SVG writer, `raster.rs`: the pixel writer and the only user of `vello_cpu` and `kurbo`); `json.rs` and `json/` (`to_json`, `from_json`: a strict parser, the reader, the loader's checks, the writer; `drawing_schema()` generated in `schema.rs` from `verbs()` and the fixed `schema_fixed.json`; no list of calls); `tests/` |
 | `crates/python` | PyO3 bindings building the extension `bullterrier_vector._native._core`; generic, passes values to the core unchecked; no Rust tests. `src/lib.rs` (`Path`, `Point`, `Rect`, the error mapping), `expr.rs` (`Expr`, `Param`), `drawing.rs` (`Drawing`), `shape.rs` (`Shape`, `Style`) |
 | `crates/wasm` | wasm-bindgen bindings building the WebAssembly package (`cdylib`); generic, passes values to the core unchecked; no Rust tests (Node tests the built package: `tests/wasm/`). `src/lib.rs` (`Drawing`, the error mapping: a JavaScript `Error` whose `name` is the kind) |
 | `src/bullterrier_vector/` | the Python package: `errors.py` (the bottom layer, imports nothing from the package), `_native/` (the extension and its stub `_core.pyi`), `__init__.py` (the public API) |
@@ -99,8 +100,9 @@ formatter, 6 and 7, and "Fixing defects".
 1. **No hidden tunables.** Every value that shapes a result is a named, documented parameter in the field's own terms. Exempt:
    a named, justified constant (a mathematical or standard constant, or a tolerance below any visible effect), carrying
    `// constant: <reason>`.
-2. **Determinism.** Same inputs and `seed` give the same bytes on every target. Randomness comes only from the seed. No global
-   random state.
+2. **Determinism.** Same inputs and `seed` give the same bytes on every target for everything we compute (geometry, the
+   view, SVG text, straight-alpha conversion); the pixels the rasteriser crate draws are required only to look the same
+   (an edge pixel may differ by a level between targets). Randomness comes only from the seed. No global random state.
 3. **Transcendental maths only through `crate::math`** (`libm`); `f64::sin`, `exp`, `powf` and the rest are banned by
    `clippy.toml`. `sqrt` and `mul_add` are allowed.
 4. **No clock, no hash-ordered collections, no IO in the core**, as banned in `clippy.toml` (the ban list lives there,

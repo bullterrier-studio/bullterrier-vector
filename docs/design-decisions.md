@@ -191,6 +191,24 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   clipped. *Reason:* SVG, pixels and the mesh must place a drawing the same way, so the rule lives in one module and
   none of them decides it. A viewer's `preserveAspectRatio` does the same for an SVG with a viewBox, and an
   unclipped frame is what an SVG viewport does.
+- **Rasteriser: `vello_cpu`** (2026-10-31), with `kurbo`, both pinned exactly and used only in `output/raster.rs`. *Reason:*
+  measured against the alternative, tiny-skia: an edge pixel's coverage was within 0.5/255 of the closed-form area
+  (tiny-skia: 25/255), and 200 mixed shapes at 1080p took 27.5 ms native and about 39 ms in WebAssembly, one thread.
+  *Consequence:* pixels are required to look the same on every target, not to match byte for byte (native against
+  WebAssembly differed by one level on 0.002% of values); what we compute ourselves (placement, widths, SVG, the
+  straight-alpha conversion) stays exact. The crate flattens curves to a quarter of a pixel, so a circle of radius 10
+  covers up to 2.5% less than its area; it draws nothing for a zero-length sub-path (we add the dot SVG draws); and it
+  panics when a row is padded past 65,535, which a width above 65,408 is, so a pixel side stops at 65,000. The new
+  versions are taken by hand, after the tests have passed on them.
+- **Group opacity, sRGB blending, straight alpha** (2026-10-31). A shape's fill and stroke are drawn into one layer and
+  the shape's opacity and blend apply to it; colours blend as sRGB values; `to_rgba` returns straight alpha. *Reason:*
+  that is what SVG's `opacity` on a path and the browsers do, so the SVG and the pixels agree, and a stroke over a fill
+  at half opacity is not darker where they overlap. The conversion from the rasteriser's premultiplied bytes is ours and
+  rounds to nearest, so it does not depend on the crate.
+- **Pixel limits** (2026-10-31). A pixel side is 1 to 65,000 and at most 2^27 pixels (512 MiB of RGBA); a device
+  coordinate or stroke width beyond 10 million raises `ParameterError` naming the shape. *Reason:* the canvas of the
+  crate is 16-bit, its arithmetic is f32, and a 65,000-pixel square would take 16 GiB; no clamping, so a caller learns
+  that the picture is not what they asked for. SVG keeps the 100,000 of the design frame.
 
 ## Names and formats
 

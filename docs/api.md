@@ -388,10 +388,11 @@ to 0..1 and holds its end values outside 0..1. They take numbers only: a drawing
 
 ## Outputs
 
-`width` and `height` are output pixels: whole numbers from 1 to 100,000. The design frame scales by the largest factor
-that fits (`min(width / frame width, height / frame height)`) and is centred; a drawing without a frame is drawn at one
-output pixel to the design pixel from the top left. Content outside the frame is not clipped. `**values` give Params
-their values by name; a Param not given takes its default.
+`width` and `height` are output pixels: whole numbers from 1 to 100,000 for SVG; for pixel outputs (`to_rgba`, `to_png`,
+`to_mesh`) from 1 to 65,000, and at most 2^27 pixels (512 MiB of RGBA) in all. The design frame scales by the largest
+factor that fits (`min(width / frame width, height / frame height)`) and is centred; a drawing without a frame is drawn
+at one output pixel to the design pixel from the top left. Content outside the frame is not clipped. `**values` give
+Params their values by name; a Param not given takes its default.
 
 `to_svg` writes coordinates and stroke widths in output pixels, not as a transform, so a drawing at twice the size has
 numbers exactly twice as large; every number is the shortest text that reads back as the same value. A shape is one
@@ -399,6 +400,15 @@ numbers exactly twice as large; every number is the shortest text that reads bac
 same way); a colour's alpha is `fill-opacity` or `stroke-opacity`; multiply is `mix-blend-mode:multiply`; a shape with
 an empty path writes nothing. The root has `isolation:isolate`, so multiply blends within the picture and not with the
 page around it.
+
+`to_rgba` paints the shapes in order, each as one group: fill, then stroke, then the shape's `opacity` and blend apply
+to the group once (a stroke over a fill at opacity 0.5 is no darker where they overlap). Colours blend as sRGB values,
+with no gamma conversion, as SVG does. The bytes are straight alpha: a colour byte is the premultiplied colour times 255
+over the alpha, rounded to the nearest whole number (halves up), and a pixel of alpha 0 is `0, 0, 0, 0`. Placement,
+widths and the corner and end rules are exact, but the pixels are drawn by a rasteriser crate that is only required to
+look the same on every target: an edge pixel can differ by a level, and a curve is flattened to within a quarter of a
+pixel. A sub-path that never leaves its start (`line_to` its own start) leaves a disc under a round end and a square
+under a square end, as SVG draws it, and nothing under a butt end.
 
 | Method | Signature | Promise |
 |---|---|---|
@@ -418,9 +428,10 @@ or `undefined`). The other outputs follow when they exist.
 
 The same drawing and values give the same bytes on every target. `to_json` raises `ParameterError` for a drawing beyond a
 limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises
-`FormatError`. Errors (`ParameterError`): a width or height that is not a whole number from 1 to 100,000, a value for
-no Param (the message lists the Params), a value outside its Param's range, a list of the wrong length; and whatever a
-step raises. How fonts and maps are referred to in JSON: [formats.md](formats.md), "Inputs".
+`FormatError`. Errors (`ParameterError`): a width or height that is not a whole number from 1 to 100,000 (to 65,000 for
+pixel outputs, which also refuse more than 2^27 pixels, naming `size`), a coordinate or stroke width beyond 10 million
+device pixels in a pixel output (naming the shape), a value for no Param (the message lists the Params), a value
+outside its Param's range, a list of the wrong length; and whatever a step raises. How fonts and maps are referred to in JSON: [formats.md](formats.md), "Inputs".
 
 ### Mesh
 
