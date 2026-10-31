@@ -1,6 +1,7 @@
 # Contributing
 
-A Rust core (`crates/core`) with Python bindings (`crates/python`, `src/bullterrier_vector`). `CLAUDE.md` holds the rules
+A Rust core (`crates/core`) with Python bindings (`crates/python`, `src/bullterrier_vector`) and WebAssembly bindings
+(`crates/wasm`). `CLAUDE.md` holds the rules
 the code follows (also for people); `docs/` holds the design and the roadmap.
 
 ## Install from source
@@ -8,7 +9,8 @@ the code follows (also for people); `docs/` holds the design and the roadmap.
 You need [rustup](https://rustup.rs) and [uv](https://docs.astral.sh/uv/). Python comes from uv; the Rust toolchain
 (and the WebAssembly target) comes from rustup the first time `cargo` runs, as `rust-toolchain.toml` pins it. A C
 compiler and linker must be there too (macOS: `xcode-select --install`; Linux: `build-essential` or your
-distribution's equivalent; Windows: the Visual Studio Build Tools, which the rustup installer offers).
+distribution's equivalent; Windows: the Visual Studio Build Tools, which the rustup installer offers). The WebAssembly
+tests (`poe wasm-test`, part of `check`) run in [Node](https://nodejs.org) 26 or newer, which must be on the `PATH`.
 
 | | rustup | uv |
 |---|---|---|
@@ -24,7 +26,8 @@ uv sync && uv run poe setup
 - `uv sync` creates `.venv` and builds the package, so it compiles the Rust core and PyO3 (the first time takes a
   while; later syncs rebuild only after Rust changes).
 - `uv run poe setup` installs the git hooks (`pre-commit install`), sets the commit-message template, and installs the
-  cargo tools the gate runs (cargo-deny, cargo-shear) at the versions `Cargo.toml` pins. They are compiled from source,
+  cargo tools the gate runs (cargo-deny, cargo-shear, and the `wasm-bindgen` command, built from `wasm-bindgen-cli`) at
+  the versions `Cargo.toml` pins. They are compiled from source,
   which takes several minutes, unless [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) is installed, which
   downloads them.
 - `uv run poe` lists every task.
@@ -73,8 +76,8 @@ steps are the local gate's `uv run poe` tasks; the differences are noted:
 
 - `lint.yml`: format, clippy, dead code, rustdoc, dependencies, WebAssembly build, types, stub, workflows: the commands
   of `check`, with ruff, deptry and mypy called directly, as `check` calls them.
-- `test.yml`: the Rust tests and the Python suite on Linux, macOS and Windows. Linux runs `poe test`, gate proofs
-  included; macOS and Windows run pytest without them.
+- `test.yml`: the Rust tests and the Python suite on Linux, macOS and Windows. Linux also runs `poe wasm-test` (Node
+  from `actions/setup-node`) and `poe test`, gate proofs included; macOS and Windows run pytest without them.
 - `security.yml` (also weekly): `poe audit`, which `check` leaves out; CodeQL and dependency review, which have no
   local equivalent.
 - `pre-commit.yml`: the commit hooks over every file.

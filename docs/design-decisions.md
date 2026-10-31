@@ -395,6 +395,14 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   `exp`, `powf`...; the portable `libm` crate replaces them), hash-ordered collections and the clock, and the core is
   built for `wasm32-unknown-unknown` in every gate run. *Reason:* bit-identical output across targets fails silently
   otherwise. *Consequence:* `clippy.toml` exists (clippy reads its `disallowed-*` lists from no other file).
+- **The browser package is wasm-bindgen with a pinned command and a SIMD build** (2026-10-31). `crates/wasm` is the only
+  crate that knows `wasm-bindgen` (`deny.toml`, as for PyO3); the `wasm-bindgen` command is pinned in
+  `[workspace.metadata.tools]` and `rust-tools` fails when its version is not that of the crate in `Cargo.lock`. The
+  package is built with `RUSTFLAGS=-C target-feature=+simd128`, set by the `wasm-test` task for that build alone, never in
+  a config file or for a native build. A JavaScript error is an `Error` whose `name` is the kind, as wasm-bindgen cannot
+  define subclasses. *Reason:* glue made by another version than the crate fails only when it runs; measured, SIMD makes
+  the rasteriser 10-15x faster than scalar WebAssembly, and current browsers have it. *Consequence:* the gate
+  needs Node and the command (`poe setup` installs it); a browser without SIMD cannot load the package.
 - **Same output on every target is a differential test, not golden files** (2026-10-28). The same drawings are rendered
   natively and in WebAssembly and compared byte for byte. *Reason:* committed golden images go stale and get updated
   without review; a differential test needs no reviewed baseline.

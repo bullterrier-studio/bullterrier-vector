@@ -29,7 +29,9 @@ Rust core to Python (V2a: build, measure, cut, move, hit-test, SVG path data); t
 and Python; `examples/series_bars.py` runs as far as `shapes()`. JSON (V2c): `Drawing.to_json`,
 `Drawing.from_json` and `drawing_schema()` (the schema generated from the registrations) in Rust and Python, for the calls
 registered so far. Output (V3a): `Size` and `Drawing.to_svg(size, values)` in Rust, `Drawing.to_svg(width, height, /, **values)` in
-Python, and `examples/star.py` writes its SVG. The rest is planned (`docs/roadmap.md`): pixels, PNG, a mesh and WebAssembly are the rest of V3.
+Python, and `examples/star.py` writes its SVG. WebAssembly (V3e): the package built from `crates/wasm` loads a document and
+writes `toSvg` (also `toJson`, `parameters`, `size`) in Node, equal to the native text (`poe wasm-test`). The rest is planned
+(`docs/roadmap.md`): pixels, PNG and a mesh, and their WebAssembly bindings, are the rest of V3.
 Maintainers may keep machine-specific notes in a git-ignored `.local/` folder and batch plans in the git-ignored
 `.superpowers/plans/`: read them when present; never commit or cite them.
 
@@ -57,7 +59,8 @@ Works with other tools only through plain data: `docs/design.md`, "Works with".
 ## Names
 
 `bullterrier-vector` (crate, PyPI distribution, repository), `bullterrier_vector` (Python import, Rust library),
-`bullterrier-vector-python` (the bindings crate; builds `bullterrier_vector._native._core`), `bt-vector` (command line; planned,
+`bullterrier-vector-python` (the bindings crate; builds `bullterrier_vector._native._core`), `bullterrier-vector-wasm` (the
+WebAssembly bindings crate; builds `pkg/bullterrier_vector_wasm.js`), `bt-vector` (command line; planned,
 V18), `BullterrierVectorError` (base exception), `ParameterError` (a value outside what the library accepts; also a
 `ValueError`), `GeometryError` (geometry that fails, such as a boolean on an outline that cannot be resolved), `FormatError`
 (a document `from_json` cannot read; also a `ValueError`), `btvec` (the alias the docs import the library as). Full name
@@ -67,21 +70,22 @@ Licence: MIT, in `LICENSE` (named by `license-files` in `pyproject.toml`; `build
 
 ## Architecture
 
-Two crates in one Cargo workspace; the package version is the workspace's.
+Three crates in one Cargo workspace; the package version is the workspace's.
 
 | Path | What |
 |---|---|
 | `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation, the result cache); `limits.rs` (`MAX_SHAPES`, `MAX_DEPTH`, `MAX_PARAMS`, the counter); `output.rs` and `output/` (`Size`, the `View` that places the design frame in an output, the SVG writer); `json.rs` and `json/` (`to_json`, `from_json`: a strict parser, the reader, the loader's checks, the writer; `drawing_schema()` generated in `schema.rs` from `verbs()` and the fixed `schema_fixed.json`; no list of calls); `tests/` |
 | `crates/python` | PyO3 bindings building the extension `bullterrier_vector._native._core`; generic, passes values to the core unchecked; no Rust tests. `src/lib.rs` (`Path`, `Point`, `Rect`, the error mapping), `expr.rs` (`Expr`, `Param`), `drawing.rs` (`Drawing`), `shape.rs` (`Shape`, `Style`) |
+| `crates/wasm` | wasm-bindgen bindings building the WebAssembly package (`cdylib`); generic, passes values to the core unchecked; no Rust tests (Node tests the built package: `tests/wasm/`). `src/lib.rs` (`Drawing`, the error mapping: a JavaScript `Error` whose `name` is the kind) |
 | `src/bullterrier_vector/` | the Python package: `errors.py` (the bottom layer, imports nothing from the package), `_native/` (the extension and its stub `_core.pyi`), `__init__.py` (the public API) |
-| `tests/` | the Python suite (`test_*.py`); `tests/tools/` tests the tooling and the gates |
+| `tests/` | the Python suite (`test_*.py`); `tests/tools/` tests the tooling and the gates; `tests/wasm/` holds the Node tests of the WebAssembly package and `oracle.py`, which writes what the native extension answers for them |
 | `examples/` | example programs that run as far as the library can draw; `tests/test_examples.py` runs each. Code, never documentation (not in the `changes` filter). The others stay in `docs/examples/` until their calls exist |
 | `tools/` | scripts the hooks and gates run (`check_commit_message.py`, `check_one_config_home.py`, `pre_push.py`, `rust_tools.py`, `lint_workflows.py`, `check_dists.py`, `check_installed.py`, `check_file_size.py`) |
 
 Rust is the source of truth: parameters are declared once, in Rust; Python and (from V3) WebAssembly are thin layers over it.
 The core does no IO of its own: callers pass bytes. `pub` only for what the bindings use, else `pub(crate)` (`unreachable_pub`
-fails the gate). Python reaches the core only through the bindings crate (`deny.toml` bans `pyo3` everywhere else). The Rust
-`Error` maps to the Python exceptions in the bindings; the core owns every range check, so every language gets the same error.
+fails the gate). Python and the browser reach the core only through their bindings crates (`deny.toml` bans `pyo3` and `wasm-bindgen`
+everywhere else). The Rust `Error` maps to the Python exceptions and to JavaScript `Error`s (`name` is the kind) in the bindings; the core owns every range check, so every language gets the same error.
 
 The design's planned modules (geometry, type, scene, parameters, nodes, output, json), each hiding one decision, are in the table in
 `docs/design.md`, "Shape of the library"; `math`, `error`, geometry (`geometry`, `path`) and the core of scene, parameters and
@@ -147,11 +151,15 @@ Two speeds, both through `uv run poe`:
 | Task | Runs, cheapest first |
 |---|---|
 | `fast` | `rust-fmt`, `ruff format --check`, `rust-lint`, `ruff check`, `rust-test`, `rust-wasm`, `mypy`, `file-size`, `pytest -m 'not gate'` |
-| `check` | `ruff format --check`, `rust-fmt`, `ruff check`, `rust-lint`, `file-size`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `build-check`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `test` (gate proofs included); stops at the first failure |
+| `check` | `ruff format --check`, `rust-fmt`, `ruff check`, `rust-lint`, `file-size`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `build-check`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `wasm-test`, `test` (gate proofs included); stops at the first failure |
 
 `rust-lint` is clippy with `-D warnings` over the workspace and all targets (pedantic, the determinism rules of `clippy.toml`, dead
-code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `rust-tools` checks that cargo-shear and cargo-deny are
-installed at the versions `Cargo.toml` pins (`poe setup` installs them). `rust-deny` is offline (bans, licences, sources;
+code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `rust-tools` checks that cargo-shear, cargo-deny and the `wasm-bindgen` command are
+installed at the versions `Cargo.toml` pins (`poe setup` installs them) and that the command's version is that of the
+`wasm-bindgen` crate in `Cargo.lock`. `rust-wasm` builds the core and the bindings crate for WebAssembly. `wasm-test` (needs Node)
+builds the package in release with `RUSTFLAGS=-C target-feature=+simd128` (set by the task, for that build alone),
+runs `wasm-bindgen --target nodejs` into the ignored `pkg/` and runs `tests/wasm` in Node against `tests/wasm/oracle.py`'s
+native answers (exact SVG text, JSON, Param descriptions, error names and messages); `fast` leaves it out. `rust-deny` is offline (bans, licences, sources;
 `deny.toml`); `uv run poe audit` adds the advisories and needs the network (CI runs it with every code change and weekly).
 `lint-workflows` runs actionlint and zizmor (offline) on `.github` (`tools/lint_workflows.py`; no `.github` folder, nothing to
 lint; an empty one fails). `dead-code` is vulture on
@@ -184,8 +192,8 @@ only: `rust-toolchain.toml`, `rustfmt.toml`, `deny.toml`, `clippy.toml`. Do not 
 
 `.github/workflows/`: `ci.yml` (pushes to `main`, pull requests, merge queue; calls the rest), `lint.yml`, `test.yml`,
 `security.yml` (also weekly), `pre-commit.yml`, `build.yml`; `.github/dependabot.yml` for weekly updates. Most steps are
-local gate tasks (`uv run --locked poe <task>`); `lint.yml` calls ruff, deptry and mypy directly, as `check` does; macOS and
-Windows run `rust-test` and plain pytest without the gate proofs; `security.yml` adds `poe audit`, CodeQL and dependency
+local gate tasks (`uv run --locked poe <task>`); `lint.yml` calls ruff, deptry and mypy directly, as `check` does; Linux also runs `wasm-test` (Node);
+macOS and Windows run `rust-test` and plain pytest without the gate proofs; `security.yml` adds `poe audit`, CodeQL and dependency
 review (the last two have no local equivalent). `ci-ok` is the only required check: every job is in its `needs`, and a
 skipped job passes. The `changes` job skips lint, test, security and build for a pull request that changes only
 documentation; the set is in two places, `is_documentation` in `tools/pre_push.py` and the `changes` filter in `ci.yml`:

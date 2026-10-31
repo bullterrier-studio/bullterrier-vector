@@ -260,13 +260,14 @@ Carried from the S0 review:
   length and a generation across WebAssembly; a view without a copy in Python. Covered by the differential tests
   below.
 - `uv run poe look <drawing>`: draws to PNG and SVG in a git-ignored folder, for a person or an agent to look at.
-- The WebAssembly package (wasm-bindgen): build, a smoke test in Node.
+- The WebAssembly package (wasm-bindgen): build, a smoke test in Node (done: V3e).
 - Differential tests: the core's drawings rendered natively and in WebAssembly give identical bytes; and a drawing
   drawn at 1x and at 2x gives the same geometry (SVG and mesh coordinates at 2x are exactly twice those at 1x).
 - Benchmark: time to draw a reference drawing at 1080p, tracked from here on.
 
-State: V3a done in Rust and Python (`Size`, the view, `Drawing.to_svg`, the star example writes SVG); pixels, PNG, `look`, the
-mesh, the WebAssembly package, the differential tests and the benchmark are to do.
+State: V3a done in Rust and Python (`Size`, the view, `Drawing.to_svg`, the star example writes SVG); V3e done: the
+WebAssembly package loads a document and writes its SVG, equal to the native text, in Node (`poe wasm-test`). Pixels, PNG,
+`look`, the mesh, their WebAssembly bindings, the differential tests and the benchmark are to do.
 
 ## X1 Spike: GPU display
 
