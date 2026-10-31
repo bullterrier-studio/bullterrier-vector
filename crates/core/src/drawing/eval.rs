@@ -21,14 +21,24 @@ impl Drawing {
     ///
     /// # Errors
     /// The first error of the chain that built the drawing; [`Error::Parameter`] naming the Param if `values` gives
-    /// one the drawing does not read, or one a list of the wrong length or outside its range; naming the step and the
-    /// argument (`step 3 (rotate).angle`) if a number is outside what the argument accepts, with the index of the
-    /// shape it was read for.
+    /// one the drawing does not read, or one outside its range (a number that is not finite included), whether or
+    /// not a step reads it with shapes, or a list of the wrong length; naming the step and the argument
+    /// (`step 3 (rotate).angle`) if a number is outside what the argument accepts, with the index of the shape it was
+    /// read for.
     pub fn shapes(&self, values: &Values) -> Result<Vec<Shape>, Error> {
         let step = self.last.as_ref().map_err(|failure| failure.error.clone())?;
-        values.names_within(&step.free())?;
+        let free = step.free();
+        values.names_within(&free)?;
         let mut cache = self.cache.lock();
-        let found = Run::draw(&mut cache, step, values)?;
+        let found = match values.accepted_by(&free) {
+            Ok(accepted) => Run::draw(&mut cache, step, &accepted)?,
+            // a value a step reads is refused where it is read, naming the step; one no step reads with shapes is
+            // refused here, so that a value out of range never goes unnoticed
+            Err(refused) => {
+                Run::draw(&mut cache, step, values)?;
+                return Err(refused);
+            }
+        };
         Ok(found.shapes.iter().cloned().map(Shape::painted).collect())
     }
 

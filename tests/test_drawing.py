@@ -626,6 +626,17 @@ def test_an_error_while_drawing_names_the_step_and_the_argument():
         Drawing(SQUARE).fill("#000000").opacity(dx).shapes(dx=2)
 
 
+@pytest.mark.parametrize("bad", [1000, float("nan"), float("inf")])
+def test_a_value_out_of_range_is_refused_even_where_the_step_that_reads_it_sees_no_shapes(bad):
+    dx = param("dx", high=10)
+    nothing = Drawing(*squares(2)).only(index=5).translate(dx, 0)
+    assert nothing.shapes() == []
+    with pytest.raises(ParameterError, match="dx"):
+        nothing.shapes(dx=bad)
+    with pytest.raises(ParameterError, match="dx"):
+        nothing.shapes(dx=[1, bad])
+
+
 def test_two_params_of_one_name_that_differ_raise_a_parameter_error():
     first = Param("p", default=1, min=0, max=2)
     other = Param("p", default=1, min=0, max=3)

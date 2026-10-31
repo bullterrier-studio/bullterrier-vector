@@ -344,6 +344,28 @@ fn a_value_that_is_not_a_number_or_is_out_of_range_is_refused_naming_the_step_an
 }
 
 #[test]
+fn a_value_out_of_range_is_refused_even_where_the_step_that_reads_it_sees_no_shapes() -> Outcome {
+    let slide = Param::new("slide", 0.0, -100.0, 100.0)?;
+    let empty = Drawing::new([square()?, square()?])
+        .only(Select::new().attribute("index", 5_u32))
+        .translate(&slide, 0.0);
+    assert_eq!(empty.shapes(&Values::new())?, []);
+    for bad in [500.0, f64::NAN, f64::INFINITY] {
+        let (name, message) = parameter_refusal(empty.shapes(&Values::new().set("slide", bad)))?;
+        assert_eq!(name, "slide", "{bad}");
+        assert!(message.contains(&format!("{bad}")), "{message}");
+    }
+    // a list is checked entry by entry; its length is checked where a step reads it with shapes
+    parameter_refusal(empty.shapes(&Values::new().set("slide", vec![1.0, 500.0])))?;
+    assert_eq!(empty.shapes(&Values::new().set("slide", vec![1.0, 2.0]))?, []);
+    // where a step does read it, the refusal still names the step, as before
+    let read = square()?.translate(&slide, 0.0);
+    let (name, _) = parameter_refusal(read.shapes(&Values::new().set("slide", 500.0)))?;
+    assert_eq!(name, "step 1 (translate).dx");
+    Ok(())
+}
+
+#[test]
 fn a_list_goes_to_the_shape_with_that_index_at_the_step_that_reads_it() -> Outcome {
     let p = slider("p", 0.0)?;
     let four = Drawing::new([square()?, square()?, square()?, square()?]);

@@ -280,8 +280,11 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   values, wrapped for a cyclic Param and checked against the Param's range at the call; a step after it reads the
   Param as before, which brings it back into `parameters()` at its place in the order first used. A fixed Param is not
   the caller's to give and still counts for the one-name rule. *Reason:* api.md and formats.md say "for the drawing
-  before it"; a drawing used in two places is fixed at one of them only. A value given when drawing is checked where a
-  step reads it, so the error names the step and the shape; a value nothing reads is not checked.
+  before it"; a drawing used in two places is fixed at one of them only. A value given when drawing
+  is checked against its Param's range (NaN and infinities refused, a cyclic one wrapped) before anything is drawn,
+  whether or not a step reads it with shapes, so a value out of range never goes unnoticed; where a step does read it
+  the error names the step and the shape. A value for a Param the drawing does not read is refused as unknown. A list's
+  length is checked where a step reads it.
 - **`only` and `without` refuse an attribute only when there is something to ask** (2026-10-31). A name that is not an
   attribute, or a value its attribute cannot hold, is refused at the call; a known name that no shape of a non-empty list
   carries is refused when drawn, naming it. An empty list passes. *Reason:* a live text of no letters must not
