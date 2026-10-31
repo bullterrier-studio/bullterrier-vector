@@ -59,8 +59,10 @@ impl Path {
     }
 
     /// The same outline travelled the other way: the sub-paths in the opposite order, each one reversed. A closed
-    /// sub-path keeps its written start and runs back round from it. Reversing twice gives this path again, and a
-    /// position `t` along this path is the position `1 - t` along the reversed one.
+    /// sub-path keeps its written start and runs back round from it. Reversing twice gives this path again, except
+    /// that a closed sub-path loses the straight segments of no length that begin it. A position `t` along this path
+    /// is the position `1 - t` along the reversed one, except exactly on a boundary between sub-paths, which belongs
+    /// to the later one in either direction.
     #[must_use]
     pub fn reverse(&self) -> Self {
         Self {

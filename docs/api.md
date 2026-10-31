@@ -128,7 +128,9 @@ Settled edge cases:
 - **`slice`.** `start` above `end` is a `ParameterError` (`reverse()` runs a path backwards); `slice(a, a)` is a lone
   `M` at that point (length 0, not empty). A closed sub-path wholly inside the piece stays closed, so `slice(0, 1)` of a
   closed outline is closed again; any other piece is open. Curves stay curves, cut where the positions fall.
-- **`reverse`** reverses the order of the sub-paths and each of them, so `point_at(t)` equals `reverse().point_at(1 - t)`.
+- **`reverse`** reverses the order of the sub-paths and each of them, so `point_at(t)` equals `reverse().point_at(1 - t)`
+  except exactly on a boundary between sub-paths, which belongs to the later one in either direction. Reversing twice
+  gives the path back, except that a closed sub-path loses the straight segments of no length that begin it.
 
 ## Verbs on Path and Drawing
 
