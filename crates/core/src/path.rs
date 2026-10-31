@@ -148,6 +148,11 @@ impl Path {
         Ok(next)
     }
 
+    /// Whether every sub-path is closed; an empty path has none that is open.
+    pub(crate) fn is_closed(&self) -> bool {
+        self.subpaths.iter().all(|subpath| subpath.closed)
+    }
+
     fn with_segment(&self, verb: &str, segment: Segment) -> Result<Self, Error> {
         let mut next = self.clone();
         let mut current = next.subpaths.pop().ok_or_else(|| no_start(verb))?;

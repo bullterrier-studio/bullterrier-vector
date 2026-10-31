@@ -53,4 +53,9 @@ impl Values {
     pub fn get(&self, name: &str) -> Option<&Value> {
         self.by_name.get(name)
     }
+
+    /// The names given a value, in order.
+    pub(crate) fn names(&self) -> impl Iterator<Item = &str> {
+        self.by_name.keys().map(String::as_str)
+    }
 }
