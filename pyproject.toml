@@ -180,7 +180,7 @@ convention = "google"
 python_version = "3.12"
 files = ["src", "tests", "tools"]
 # tests/ has no __init__.py (pytest imports it with importlib), so equal test file names in different folders need
-# module names from their paths: tests/test_polygon.py is tests.test_polygon, src/bullterrier_vector/errors.py is
+# module names from their paths: tests/test_errors.py is tests.test_errors, src/bullterrier_vector/errors.py is
 # bullterrier_vector.errors.
 explicit_package_bases = true
 mypy_path = "src"

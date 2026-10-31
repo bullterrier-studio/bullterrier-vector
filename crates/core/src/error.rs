@@ -23,6 +23,24 @@ pub enum Error {
     },
 }
 
+impl Error {
+    /// A [`Error::Parameter`] naming `parameter`.
+    pub(crate) fn parameter(parameter: &str, message: impl Into<String>) -> Self {
+        Self::Parameter {
+            parameter: parameter.to_owned(),
+            message: message.into(),
+        }
+    }
+
+    /// An [`Error::Geometry`] from `verb`.
+    pub(crate) fn geometry(verb: &str, message: impl Into<String>) -> Self {
+        Self::Geometry {
+            verb: verb.to_owned(),
+            message: message.into(),
+        }
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

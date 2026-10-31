@@ -1,12 +1,14 @@
 //! The pure-Rust core of bullterrier-vector, a typography-first vector graphics scripting library. The same inputs and
 //! seed give the same bytes on every target, native or WebAssembly; the core reads no files, no clock and no
-//! environment. For now it holds only the walking skeleton: [`polygon_svg`] draws a regular polygon as SVG.
+//! environment. For now it holds the geometry value [`Path`]: build it, write it as SVG path data, bound it.
 
 #![forbid(unsafe_code)]
 
 mod error;
+mod geometry;
 mod math;
-mod polygon;
+mod path;
 
 pub use error::Error;
-pub use polygon::polygon_svg;
+pub use geometry::{Point, Rect};
+pub use path::Path;

@@ -1,6 +1,6 @@
 """tools/check_installed.py: the smoke check of the build workflow names the file of the release artifact that the
 installed package came from, and fails when it came from anywhere else, when it is another version, or when it does
-not draw the documented square or reject two sides.
+does not export the documented exceptions.
 
 An installation is a `site` folder holding the package and its dist-info, as an installer leaves it; the artifact is a
 folder of wheels and an sdist. Both are written here around a tiny stand-in package (no build), and the tool runs as
@@ -17,26 +17,28 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-SQUARE = (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 20 20"><polygon points="0,-10 10,0 0,10 -10,0"/></svg>'
-)
 EXTENSION = "bullterrier_vector/_native/_core.abi3.so"
 LINUX_WHEEL = "bullterrier_vector-1.0-cp312-abi3-manylinux_2_28_x86_64.whl"
 SDIST = "bullterrier_vector-1.0.tar.gz"
 
 
-def package_source(square: str = SQUARE, rejects_two_sides: bool = True) -> str:
-    """A stand-in `bullterrier_vector`: `polygon_svg` returns `square`, and raises `ParameterError` below 3 sides."""
+def package_source(geometry_error_is_a_value_error: bool = False, has_geometry_error: bool = True) -> str:
+    """A stand-in `bullterrier_vector` with the documented exceptions: `ParameterError` is a `ValueError`, and
+    `GeometryError` is not (unless `geometry_error_is_a_value_error`) or is missing (`has_geometry_error` false)."""
+    geometry_base = (
+        "BullterrierVectorError, ValueError" if geometry_error_is_a_value_error else "BullterrierVectorError"
+    )
+    geometry = f"class GeometryError({geometry_base}):\n    pass\n" if has_geometry_error else ""
     return f"""
-class ParameterError(ValueError):
+class BullterrierVectorError(Exception):
     pass
 
 
-def polygon_svg(sides, radius):
-    if sides < 3 and {rejects_two_sides}:
-        raise ParameterError("sides: got " + str(sides))
-    return {square!r}
-"""
+class ParameterError(BullterrierVectorError, ValueError):
+    pass
+
+
+{geometry}"""
 
 
 @pytest.fixture
@@ -190,17 +192,14 @@ def test_a_package_imported_from_the_checkout_instead_of_the_installation_is_ref
     assert str(checkout) in done.stderr
 
 
-WRONG_SQUARE = SQUARE.replace("20 20", "20 21")
 DOES_NOT_SMOKE = {  # the package's source -> what the refusal names
-    "polygon_svg(4, 10.0) returning another document": (package_source(square=WRONG_SQUARE), "polygon_svg(4, 10.0)"),
-    "polygon_svg(2, 1.0) not raising ParameterError": (package_source(rejects_two_sides=False), "ParameterError"),
+    "GeometryError missing": (package_source(has_geometry_error=False), "GeometryError"),
+    "GeometryError a ValueError": (package_source(geometry_error_is_a_value_error=True), "GeometryError"),
 }
 
 
 @pytest.mark.parametrize(("source", "named"), DOES_NOT_SMOKE.values(), ids=DOES_NOT_SMOKE.keys())
-def test_a_package_that_does_not_draw_the_documented_square_or_reject_two_sides_is_refused(
-    tmp_path, artifact, source, named
-):
+def test_a_package_without_the_documented_exceptions_is_refused(tmp_path, artifact, source, named):
     done = check_installed(artifact, "wheel", install(tmp_path, source=source))
     assert done.returncode == 1
     assert named in done.stderr, done.stderr

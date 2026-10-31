@@ -8,7 +8,8 @@ from PyPI, not a build made on the fly and not the checkout.
   named. `sdist`: the package was built from ARTIFACT's sdist: its direct_url.json (PEP 610) names that file.
 - The installed version is the version of that file's name.
 - `import bullterrier_vector` resolves to a file of the installation, not of the checkout.
-- `polygon_svg(4, 10.0)` is the documented square, and `polygon_svg(2, 1.0)` raises `ParameterError`.
+- The package exports the documented exceptions: `ParameterError` is a `BullterrierVectorError` and a `ValueError`,
+  `GeometryError` is a `BullterrierVectorError` and not a `ValueError`.
 
 Exit code 0 and the file's name on stdout; 1 and the reason on stderr otherwise. Standard library only: the
 environment under test holds the package and nothing else.
@@ -26,14 +27,12 @@ import sys
 import zipfile
 from importlib.metadata import Distribution, distribution
 from pathlib import Path, PurePosixPath
+from types import ModuleType
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
 PACKAGE = "bullterrier_vector"
 EXTENSION = PurePosixPath(PACKAGE, "_native")  # where the extension `_core.<platform suffix>` lives
-SQUARE = (  # polygon_svg(4, 10.0): the square of the Python test suite (tests/test_polygon.py)
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 20 20"><polygon points="0,-10 10,0 0,10 -10,0"/></svg>'
-)
 
 
 class InstallError(Exception):
@@ -81,7 +80,7 @@ def _version_of(file: Path) -> str:
 
 def verify(installed: Distribution, artifact: Path, kind: str) -> Path:
     """The file of `artifact` that `installed` came from, once the imported package has been checked to be the
-    installation's and to draw the documented square; else InstallError saying why not."""
+    installation's and to export the documented exceptions; else InstallError saying why not."""
     file = _installed_file(installed, artifact, kind)
     if installed.version != _version_of(file):
         raise InstallError(f"it is version {installed.version}, {file.name} is version {_version_of(file)}")
@@ -91,13 +90,20 @@ def verify(installed: Distribution, artifact: Path, kind: str) -> Path:
     site = Path(str(installed.locate_file(""))).resolve()
     if not Path(package.__file__).resolve().is_relative_to(site):
         raise InstallError(f"{PACKAGE} is imported from {package.__file__}, outside the installation in {site}")
-    if package.polygon_svg(4, 10.0) != SQUARE:
-        raise InstallError(f"polygon_svg(4, 10.0) is not the documented square: {package.polygon_svg(4, 10.0)}")
+    _check_exceptions(package)
+    return file
+
+
+def _check_exceptions(package: ModuleType) -> None:
+    """The package exports the exceptions the documentation names, with the bases it names."""
     try:
-        package.polygon_svg(2, 1.0)
-    except package.ParameterError:
-        return file
-    raise InstallError("polygon_svg(2, 1.0) did not raise ParameterError")
+        base, parameter, geometry = package.BullterrierVectorError, package.ParameterError, package.GeometryError
+    except AttributeError as error:
+        raise InstallError(f"{PACKAGE} does not export {error.name}") from error
+    if not (issubclass(parameter, base) and issubclass(parameter, ValueError)):
+        raise InstallError("ParameterError is not both a BullterrierVectorError and a ValueError")
+    if not issubclass(geometry, base) or issubclass(geometry, ValueError):
+        raise InstallError("GeometryError is not a BullterrierVectorError that is not a ValueError")
 
 
 def main(argv: list[str] | None = None) -> int:
