@@ -3,7 +3,7 @@
 For now the package holds the geometry value `Path` (with `Point` and `Rect`) and its exceptions.
 """
 
-from bullterrier_vector._native._core import Path, Point, Rect
+from bullterrier_vector._native._core import Expr, Param, Path, Point, Rect
 from bullterrier_vector.errors import BullterrierVectorError, GeometryError, ParameterError
 
-__all__ = ["BullterrierVectorError", "GeometryError", "ParameterError", "Path", "Point", "Rect"]
+__all__ = ["BullterrierVectorError", "Expr", "GeometryError", "Param", "ParameterError", "Path", "Point", "Rect"]

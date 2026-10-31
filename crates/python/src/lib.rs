@@ -2,6 +2,8 @@
 //! unchanged, so the core's range checks are the only ones and every language gets the same errors; this file only
 //! converts between Python's values and the core's, and maps each core error to its exception.
 
+mod expr;
+
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -14,6 +16,8 @@ pyo3::import_exception!(bullterrier_vector.errors, GeometryError);
 /// The Rust core of bullterrier-vector, for Python.
 #[pymodule]
 mod _core {
+    #[pymodule_export]
+    use super::expr::{PyExpr, PyParam};
     #[pymodule_export]
     use super::{PyPath, PyPoint, PyRect};
 }
@@ -29,7 +33,7 @@ fn exception(error: &vector::Error) -> PyErr {
 }
 
 /// Run a core call and raise its error as the matching exception.
-fn raised<T>(result: Result<T, vector::Error>) -> PyResult<T> {
+pub(crate) fn raised<T>(result: Result<T, vector::Error>) -> PyResult<T> {
     result.map_err(|error| exception(&error))
 }
 

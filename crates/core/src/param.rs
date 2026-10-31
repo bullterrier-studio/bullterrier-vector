@@ -165,8 +165,10 @@ impl Param {
             return Err(Error::parameter(
                 "unit",
                 format!(
-                    "a {unit:?} Param spans one turn ({turn}), but {} to {} does not",
-                    self.min, self.max
+                    "a {:?} Param spans one turn ({turn}), but {} to {} does not",
+                    unit.name(),
+                    self.min,
+                    self.max
                 ),
             ));
         }
