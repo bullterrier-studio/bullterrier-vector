@@ -1,8 +1,9 @@
-"""The example programs in examples/ run as far as `shapes()` and draw what their comments say. Each runs with `runpy`
-in an empty folder, which it must leave empty: writing the picture is V3. Expected values are worked out by hand:
-the star's from the geometry of a five-pointed star, the bars' from the series printed in the program."""
+"""The example programs in examples/ run as far as they can draw and draw what their comments say. Each runs with
+`runpy` in an empty folder, which it must leave empty: the picture stays in a variable. Expected values are worked out
+by hand: the star's from the geometry of a five-pointed star, the bars' from the series printed in the program."""
 
 import runpy
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -14,21 +15,19 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 
 @pytest.fixture
 def run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Run an example in an empty folder; gives the shapes it drew."""
+    """Run an example in an empty folder; gives the variables it left."""
     monkeypatch.chdir(tmp_path)
 
-    def run_example(name: str) -> list[btvec.Shape]:
+    def run_example(name: str) -> dict[str, object]:
         found = runpy.run_path(str(EXAMPLES / f"{name}.py"), run_name="__main__")
         assert list(tmp_path.iterdir()) == []
-        shapes = found["shapes"]
-        assert isinstance(shapes, list)
-        return shapes
+        return found
 
     return run_example
 
 
 def test_star_draws_the_star_a_dot_on_its_top_tip_and_a_line_from_its_far_side(run):
-    star, dot, line = run("star")
+    star, dot, line = run("star")["shapes"]
     assert [shape.attributes["index"] for shape in (star, dot, line)] == [0, 1, 2]
     assert [shape.attributes["order"] for shape in (star, dot, line)] == [0.0, 0.5, 1.0]
 
@@ -49,11 +48,29 @@ def test_star_draws_the_star_a_dot_on_its_top_tip_and_a_line_from_its_far_side(r
     assert line.path.point_at(0).y == pytest.approx(260)
 
 
+def test_star_writes_its_svg_at_the_size_of_its_frame_one_path_a_shape(run):
+    found = run("star")
+    star, dot, line = found["shapes"]
+    svg = found["svg"]
+    assert isinstance(svg, str)
+    root = ET.fromstring(svg)  # noqa: S314  our own output
+    assert (root.attrib["width"], root.attrib["height"], root.attrib["viewBox"]) == ("400", "400", "0 0 400 400")
+    elements = root.findall("{http://www.w3.org/2000/svg}path")
+    assert len(elements) == 3
+
+    # the frame is the output, so the data is the shapes' own, and the paint as the comments of the example say
+    assert [element.attrib["d"] for element in elements] == [shape.path.to_svg_path() for shape in (star, dot, line)]
+    star_element, dot_element, line_element = (element.attrib for element in elements)
+    assert (star_element["fill"], star_element["stroke"], star_element["stroke-width"]) == ("#ffcc33", "#1a1a1a", "4")
+    assert (dot_element["fill"], "stroke" in dot_element) == ("#e2412e", False)
+    assert (line_element["fill"], line_element["stroke"], line_element["stroke-width"]) == ("none", "#e2412e", "2")
+
+
 SERIES = [0.18, 0.35, 0.52, 0.41, 0.77, 0.93, 0.64, 0.49, 0.71, 0.28, 0.15, 0.33]
 
 
 def test_series_bars_draws_twelve_bars_with_the_tallest_in_the_second_ink_on_top(run):
-    bars = run("series_bars")
+    bars = run("series_bars")["shapes"]
     assert len(bars) == 12
     assert [bar.attributes["index"] for bar in bars] == list(range(12))
 

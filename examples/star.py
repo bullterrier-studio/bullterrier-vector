@@ -17,4 +17,5 @@ drawing = btvec.Drawing(
     btvec.Path.line(halfway, halfway + 40 * direction).stroke("#e2412e"),
     size=(400, 400),
 )
-shapes = drawing.shapes()  # V3 writes the picture: `drawing.to_svg(400, 400)`
+shapes = drawing.shapes()  # the shapes in design pixels, to read
+svg = drawing.to_svg(400, 400)  # the picture as SVG text; write it to a file to open it in a browser
