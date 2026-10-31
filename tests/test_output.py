@@ -2,12 +2,16 @@
 sizes it refuses and the Param values it takes by keyword. Expected values are worked out by hand."""
 
 import math
+import struct
 import xml.etree.ElementTree as ET
+import zlib
 from typing import Any
 
 import pytest
 
 import bullterrier_vector as btvec
+
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"  # the eight bytes every PNG file opens with (PNG specification, section 5.2)
 
 SVG = "{http://www.w3.org/2000/svg}"
 LINE = btvec.Path.polyline([(0, 0), (10, 20)])
@@ -166,39 +170,160 @@ def test_to_rgba_takes_a_param_by_keyword():
         drawing.to_rgba(30, 10, elsewhere=1)
 
 
-@pytest.mark.parametrize(
-    ("width", "height", "name", "shown"),
-    [
-        *SIZE_REFUSALS,
-        pytest.param(65_001, 10, "width", "65001", id="one past the limit wide"),
-        pytest.param(10, 65_001, "height", "65001", id="one past the limit high"),
-        pytest.param(100_000, 1, "width", "100000", id="the svg limit"),
-        pytest.param(16_385, 8192, "size", "16385", id="more than 2^27 pixels"),
-        pytest.param(65_000, 65_000, "size", "65000", id="the largest square"),
-    ],
-)
-def test_to_rgba_refuses_a_size_outside_the_pixel_limits_naming_the_side(
-    width: float, height: float, name: str, shown: str
+# the sizes the pixel outputs refuse: those every output refuses, then the pixel limits
+PIXEL_SIZE_REFUSALS = [
+    *SIZE_REFUSALS,
+    pytest.param(65_001, 10, "width", "65001", id="one past the limit wide"),
+    pytest.param(10, 65_001, "height", "65001", id="one past the limit high"),
+    pytest.param(100_000, 1, "width", "100000", id="the svg limit"),
+    pytest.param(16_385, 8192, "size", "16385", id="more than 2^27 pixels"),
+    pytest.param(65_000, 65_000, "size", "65000", id="the largest square"),
+]
+
+
+@pytest.mark.parametrize("output", ["to_rgba", "to_png"])
+@pytest.mark.parametrize(("width", "height", "name", "shown"), PIXEL_SIZE_REFUSALS)
+def test_a_pixel_output_refuses_a_size_outside_the_pixel_limits_naming_the_side(
+    output: str, width: float, height: float, name: str, shown: str
 ):
     with pytest.raises(btvec.ParameterError, match=name) as raised:
-        btvec.Drawing(LINE).to_rgba(width, height)
+        getattr(btvec.Drawing(LINE), output)(width, height)
     assert shown in str(raised.value)
 
 
-def test_to_rgba_refuses_a_shape_past_ten_million_device_pixels_naming_it():
+@pytest.mark.parametrize("output", ["to_rgba", "to_png"])
+def test_a_pixel_output_refuses_a_shape_past_ten_million_device_pixels_naming_it(output: str):
     far = btvec.Path.rect(0, 0, 2e7, 4).fill("#000000")
     with pytest.raises(btvec.ParameterError, match="shape 0"):
-        btvec.Drawing(far).to_rgba(10, 10)
+        getattr(btvec.Drawing(far), output)(10, 10)
 
 
+@pytest.mark.parametrize("output", ["to_rgba", "to_png"])
 @pytest.mark.parametrize(
     "call",
     [
-        pytest.param(lambda: LOOSE.to_rgba("10", 10), id="a text width"),
-        pytest.param(lambda: LOOSE.to_rgba(10), id="one side"),
-        pytest.param(lambda: LOOSE.to_rgba(width=10, height=10), id="sides by keyword"),
+        pytest.param(lambda output: output("10", 10), id="a text width"),
+        pytest.param(lambda output: output(10), id="one side"),
+        pytest.param(lambda output: output(width=10, height=10), id="sides by keyword"),
     ],
 )
-def test_to_rgba_sides_are_two_numbers_given_by_position(call):
+def test_the_sides_of_a_pixel_output_are_two_numbers_given_by_position(output: str, call):
     with pytest.raises(TypeError):
-        call()
+        call(getattr(LOOSE, output))
+
+
+STAR = btvec.Drawing(
+    btvec.Path.star((200, 200), outer=150, inner=60, points=5).fill("#ffcc33").stroke("#1a1a1a", width=4),
+    size=(400, 400),
+)
+# overlapping translucent shapes: alpha between 0 and 255 and mixed colours
+OVERLAP = btvec.Drawing(
+    btvec.Path.circle((30, 30), 20).fill("#ff000080"),
+    btvec.Path.circle((45, 30), 20).fill("#00ff0080").opacity(0.5),
+    btvec.Path.circle((38, 45), 20).fill("#0000ffc0").stroke("#000000", width=3),
+)
+EVERYTHING = btvec.Drawing(btvec.Path.rect(-10, -10, 70_000, 70_000).fill("#336699"))
+
+
+@pytest.mark.parametrize(
+    ("drawing", "width", "height"),
+    [
+        pytest.param(btvec.Drawing(), 30, 20, id="nothing drawn"),
+        pytest.param(STAR, 400, 300, id="a star with a stroke"),
+        pytest.param(OVERLAP, 90, 80, id="translucent shapes overlapping"),
+        pytest.param(EVERYTHING, 1, 1, id="one pixel"),
+        pytest.param(EVERYTHING, 65_000, 1, id="the widest row"),
+        pytest.param(EVERYTHING, 1, 65_000, id="the tallest column"),
+    ],
+)
+def test_to_png_decodes_to_exactly_the_bytes_to_rgba_returns(
+    drawing: btvec.Drawing, width: int, height: int, decode_png
+):
+    png = drawing.to_png(width, height)
+    assert isinstance(png, bytes)
+    assert decode_png(png) == (width, height, drawing.to_rgba(width, height))
+
+
+def test_to_png_takes_a_param_by_keyword():
+    shift = btvec.Param("shift", default=0, min=0, max=50, unit="px")
+    drawing = btvec.Drawing(btvec.Path.rect(0, 0, 5, 5).fill("#00ff00")).translate(shift, 0)
+    assert drawing.to_png(30, 10) != drawing.to_png(30, 10, shift=20)
+    with pytest.raises(btvec.ParameterError, match="elsewhere"):
+        drawing.to_png(30, 10, elsewhere=1)
+
+
+def test_to_png_gives_the_same_bytes_every_time():
+    assert STAR.to_png(100, 100) == STAR.to_png(100, 100)
+
+
+def chunk(name: bytes, body: bytes) -> bytes:
+    """A PNG chunk: length, name, body and the CRC-32 of name and body."""
+    return struct.pack(">I", len(body)) + name + body + struct.pack(">I", zlib.crc32(name + body))
+
+
+def png_file(width: int, height: int, stream: bytes) -> bytes:
+    """A PNG of 8-bit RGBA whose zlib stream holds `stream`: a filter byte, then the bytes of the row, per row."""
+    header = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    return PNG_SIGNATURE + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(stream)) + chunk(b"IEND", b"")
+
+
+# Two rows of two pixels, and the second row as each of the five filters writes it, worked out by hand from the
+# specification (byte n of a pixel looks at byte n of the pixel to its left, above it and above-left, 0 outside):
+# Sub subtracts the left, Up the one above, Average the floor of their mean, Paeth the one of left, above and above-left
+# nearest to left + above - above-left (a tie goes left, then above); every difference is taken modulo 256.
+ABOVE = [50, 10, 150, 101, 50, 50, 200, 100]
+BELOW = [10, 10, 100, 100, 200, 77, 9, 3]
+FILTERED_BELOW = [
+    pytest.param(0, BELOW, id="none"),
+    pytest.param(1, [10, 10, 100, 100, 190, 67, 165, 159], id="sub"),
+    pytest.param(2, [216, 0, 206, 255, 150, 27, 65, 159], id="up"),
+    pytest.param(3, [241, 5, 25, 50, 170, 47, 115, 159], id="average"),
+    # byte 4 takes the left (the above-left equals the above), 5 the above, 6 the above-left, 7 the left on a tie
+    pytest.param(4, [216, 0, 206, 255, 190, 27, 115, 159], id="paeth"),
+]
+
+
+@pytest.mark.parametrize(("kind", "filtered"), FILTERED_BELOW)
+def test_the_decoder_undoes_each_of_the_five_row_filters(kind: int, filtered: list[int], decode_png):
+    stream = bytes([0, *ABOVE, kind, *filtered])
+    assert decode_png(png_file(2, 2, stream)) == (2, 2, bytes(ABOVE + BELOW))
+
+
+def test_the_decoder_refuses_a_filter_that_is_none_of_the_five(decode_png):
+    with pytest.raises(ValueError, match="filter"):
+        decode_png(png_file(1, 1, bytes([5, 0, 0, 0, 0])))
+
+
+def flipped(data: bytes, at: int) -> bytes:
+    """`data` with the lowest bit of the byte at `at` flipped."""
+    return data[:at] + bytes([data[at] ^ 1]) + data[at + 1 :]
+
+
+GOOD = png_file(1, 1, bytes([0, 1, 2, 3, 4]))
+IDAT_AT = len(PNG_SIGNATURE) + 12 + 13  # after the signature and the IHDR chunk (12 bytes around its 13)
+BAD_FILES = [
+    pytest.param(GOOD[:8], "no IHDR", id="signature only"),
+    pytest.param(b"\x89PNG\r\n\x1a\x0b" + GOOD[8:], "signature", id="bad signature"),
+    pytest.param(flipped(GOOD, IDAT_AT + 8), "CRC", id="a bit flipped in the compressed data"),
+    pytest.param(flipped(GOOD, len(PNG_SIGNATURE) + 8 + 2), "CRC", id="a bit flipped in the header"),
+    pytest.param(flipped(GOOD, len(GOOD) - 1), "CRC", id="a bit flipped in a CRC"),
+    pytest.param(GOOD[: IDAT_AT + 14], "cut short", id="the IDAT chunk truncated"),
+    pytest.param(GOOD[:-12], "IEND", id="no IEND chunk"),
+    pytest.param(GOOD + b"\x00", "after IEND", id="data after IEND"),
+    pytest.param(png_file(1, 2, bytes([0, 1, 2, 3, 4])), "stream", id="fewer rows than the header says"),
+    pytest.param(
+        PNG_SIGNATURE + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)) + chunk(b"IEND", b""),
+        "8-bit RGBA",
+        id="another colour type",
+    ),
+]
+
+
+@pytest.mark.parametrize(("data", "reason"), BAD_FILES)
+def test_the_decoder_refuses_a_file_that_is_not_exactly_an_8_bit_rgba_png(data: bytes, reason: str, decode_png):
+    with pytest.raises(ValueError, match=reason):
+        decode_png(data)
+
+
+def test_the_decoder_reads_a_good_file(decode_png):
+    assert decode_png(GOOD) == (1, 1, bytes([1, 2, 3, 4]))

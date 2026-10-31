@@ -327,6 +327,20 @@ impl PyDrawing {
         Ok(PyBytes::new(py, &bytes))
     }
 
+    /// The drawing as a PNG file of `width` by `height` pixels (8-bit RGBA: the pixels of `to_rgba`), with each Param at
+    /// the value given by name.
+    #[pyo3(signature = (width, height, /, **given))]
+    fn to_png<'py>(
+        &self,
+        py: Python<'py>,
+        width: f64,
+        height: f64,
+        given: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Bound<'py, PyBytes>> {
+        let bytes = raised(self.0.to_png(vector::Size::px(width, height), &values(given)?))?;
+        Ok(PyBytes::new(py, &bytes))
+    }
+
     /// The design frame `(width, height)` in design pixels, or `None`.
     #[getter]
     fn size(&self) -> Option<(f64, f64)> {
