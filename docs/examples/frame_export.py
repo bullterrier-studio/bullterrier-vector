@@ -14,7 +14,7 @@ spin = btvec.Param("spin", default=0, min=0, max=360, unit="deg", meaning="how f
 pop = btvec.Param("pop", default=1, min=0.2, max=1.2, unit="", meaning="the badge's scale")
 
 font = btvec.Font(Path("fonts/Anybody[wdth,wght].ttf").read_bytes())
-ring = btvec.Path.circle(CENTRE, 300).dash([60, 30]).stroke("#ff4f9a", width=24).rotate(spin, about=CENTRE)
+ring = btvec.Path.circle(CENTRE, 300).dash([60, 30]).stroke("#ff4f9a", width=24 * pop).rotate(spin, about=CENTRE)
 disc = btvec.Path.circle(CENTRE, 240).fill("#ff4f9a")
 word = btvec.text("LIVE", font=font, size=170, axes={"wght": 900}, anchor=(540, 600), align="center").knockout()
 badge = btvec.Drawing(ring, disc, word, size=(1080, 1080)).scale(pop, about=CENTRE)

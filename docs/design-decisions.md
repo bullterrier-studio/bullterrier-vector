@@ -90,9 +90,19 @@ Each decision once, with its reason. The design: [design.md](design.md).
 - **A negative `scale` mirrors; zero raises** (2026-10-29, approved by the owner; the review had asked for both to
   raise). *Reason:* zero collapses the outline, while no other verb mirrors a shape. *Consequence:* a mirror flips the
   winding, so it leaves the canonical orientation, as `reverse` does.
-- **A stack writes `order` only on shapes that carry none; `Drawing(x)` is `x`** (2026-10-29, the owner, from the V1b
+- **A stack writes `order` only on shapes that carry none; `Drawing(x)` saves as `x`** (2026-10-29, the owner, from the V1b
   review). *Reason:* stacking a text must not undo its per-letter order, and a wrapper that changes nothing must not
-  change the saved drawing; Rust converts a path where Python and JavaScript stack it, and all three must save alike.
+  change the saved drawing; Rust converts a path where Python and JavaScript stack it, and all three must save alike. `repeat`
+follows the same rule for `order`.
+- **Transforms change geometry and `origin` only** (2026-10-31, from the V1 review). *Reason:* `shapes()` returns baked
+  geometry, so `offset` and `scale` commute in meaning and a non-uniform `scale` needs no stroke rule; style values are
+  design pixels. *Consequence:* to scale a stroke with its shape, give it the same Param (`width=24 * pop`).
+- **`miter_limit` is a parameter of `stroke`, `offset` and `outline`, default 4** (2026-10-31). *Reason:* a miter without a
+  limit is a hidden tunable (CLAUDE.md, rule 1); 4 is SVG's default, so the SVG output needs no translation.
+- **A shape that becomes empty stays in the list** (2026-10-31). *Reason:* removing it would shift `index`, `order` and
+  per-item lists in the middle of an animation.
+- **On Rust `Path`, a verb that takes a plain number returns a `Result`** (2026-10-31). *Reason:* the finite-number rule is
+  checked where the number enters; a checked newtype for every argument would cost more than a `?`.
 - **`Style` holds the paint as drawn** (2026-10-29, the owner). `None` is not painted, `fill("none")` counts as set,
   `shapes()` resolves the default paint. *Reason:* a shape read back and stacked again must draw as it did; with
   `None` meaning both "unset" and "none", a `fill("none")` shape came back filled black.

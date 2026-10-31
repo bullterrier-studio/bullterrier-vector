@@ -72,7 +72,7 @@ A drawing is a non-empty array of calls. The first is a **source**, which makes 
 {"color": "#ff4f9a"}}]`, or, when `letters` is shared, `[{"drawing": "letters"}, {"fill": {"color": "#ff4f9a"}}]`.
 Arguments that take a drawing (`other`, `items`, `avoid`, `target`, `Field.distance`'s `drawing`) hold such an array.
 Where the code gives a `Path` in place of a drawing, the array is the path alone: `[{"path": "..."}]`; `Drawing(x)` of
-one item and no size is `x` itself, whether a path, a shape or a drawing (api.md, "Drawing").
+one item and no size saves as `x` itself, whether a path, a shape or a drawing (api.md, "Drawing").
 
 Names are the Python and Rust spelling (`gradient_map`, `drop_parts`, `smaller_than`); arguments have api.md's names,
 defaults and units. The types below:
@@ -106,7 +106,7 @@ number of a field or a flow.
 | `path` | a `Path` | its path data: the value is the string itself, `{"path": "M0 0 L10 0"}` |
 | `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order`, `origin` a point); its style follows as steps, a `fill` step always |
 | `drawing` | a shared drawing | the value is its name: `{"drawing": "letters"}` |
-| `stack` | `Drawing(*items, size=None)` | `items` (drawings, bottom first), `size` (`[width, height]`, literal numbers above 0) |
+| `stack` | `Drawing(*items, size=None)` | `items` (drawings, bottom first; none is a blank frame of `size`), `size` (`[width, height]`, literal numbers above 0) |
 | `text` | `text(content, *, font, ...)` | `content` (a string), `font` (input), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width`, `fit` (a tag or `"size"`), `inside` (path data) |
 | `trace` | `trace(field, *, ...)` | `field` (field), `levels` (numbers), `tolerance`, `before`, `after` (fields), `sigma` |
 
@@ -123,8 +123,8 @@ when `Style.fill` is `None`): the shape then never takes the default paint, and 
 | `rotate` | `angle`, `about` (point) |
 | `scale` | `by` (pair, not 0), `about` (point) |
 | `union`, `subtract`, `intersect`, `exclude` | `other` (drawing) |
-| `offset` | `distance`, `join` (`"round"`, `"miter"`, `"bevel"`) |
-| `outline` | `width`, `join`, `cap` (`"butt"`, `"round"`, `"square"`) |
+| `offset` | `distance`, `join` (`"round"`, `"miter"`, `"bevel"`), `miter_limit` |
+| `outline` | `width`, `join`, `cap` (`"butt"`, `"round"`, `"square"`), `miter_limit` |
 | `drop_parts`, `fill_holes` | `smaller_than` |
 | `slice` | `start`, `end`, `near` (point) |
 | `reverse`, `split`, `knockout` | none: `{"reverse": {}}` |
@@ -140,7 +140,7 @@ when `Style.fill` is `None`): the shape then never takes the default paint, and 
 | `only`, `without` | attribute names to a value or a list of values: `{"only": {"char": "O"}}` |
 | `repeat` | `count` (whole number), `translate` (point), `rotate`, `scale` (pair), `about` (point) |
 | `fill` | `color` (colour or `"none"`) |
-| `stroke` | `color` (colour), `width`, `join`, `cap` |
+| `stroke` | `color` (colour), `width`, `join`, `cap`, `miter_limit` |
 | `halftone` | `color` (colour), `tone` (number or field), `pitch`, `angle` |
 | `opacity` | `alpha` |
 | `blend` | `mode` (`"normal"`, `"multiply"`) |
@@ -283,7 +283,7 @@ divisor that is zero when drawn raises `ParameterError`, as api.md says. Every n
 and a value that overflows when drawn raises `ParameterError`.
 
 A whole-number argument (`count`, `seed`, `levels`, a feature's value, a map's size) given as a JSON number must be an
-integer within ±(2⁵³ − 1), the range in which a 64-bit float holds every whole number (`3`, never `3.5`); given as an
+integer within ±(2⁵³ − 1), the range in which a 64-bit float holds every whole number (`3` or `3.0`, written `3`; never `3.5`); given as an
 expression, its value must be whole and in that range when drawn, or drawing raises `ParameterError`; it is never
 rounded.
 
@@ -325,11 +325,10 @@ its range spans one turn (360 or 1) and any value wraps into it; every other Par
 range is an error. A font axis Param (`font.axes["wght"]`) is a Param like any other, its fields from the font.
 
 `params` is an array of descriptions: every Param the tree reads, those fixed by a `with_values` included (the
-reference pose needs their defaults), each once and no other, in the order `parameters()` returns them, the order the
-walk ("Canonical form") first reads them. A slider panel built from the file shows them in the order the drawing uses
-them. A name appears once; in code, two Params with one name are one Param if all six fields are equal, and raise
-`ParameterError` otherwise. A document whose `params` are in another order is refused, with the order expected: the
-file always says what `parameters()` returns.
+reference pose needs their defaults), each once and no other, in the order the walk
+("Canonical form") first reads them. `parameters()` of the loaded drawing is `params` without the Params a `with_values`
+on the way to its last step fixed. A slider panel built from it shows them in the order the drawing uses them. A name appears once; in code, two Params with one name are one Param if all six fields are equal, and raise
+`ParameterError` otherwise. A document whose `params` are in another order is refused, with the order expected.
 
 ## Inputs
 
@@ -354,7 +353,8 @@ A font is referred to by `text`'s `font`, a map by `Field.map`'s `data`; the map
 arguments. An input is its bytes: inputs of one kind with equal bytes are one input, whatever objects the code made. Its
 name is the `name=` its `Font` or `Field.map` was given; one without a name is named by its kind and the order the walk
 first reaches it (`font1`, `map1`...), skipping names the drawing gives. Two different byte strings given one name, or
-one byte string given two names, make `to_json` raise `ParameterError`. A loaded input keeps its name, so a document
+one byte string given two names, make `to_json` raise `ParameterError`, and a document that gives two names equal bytes is
+refused by `inputs-supplied`. A loaded input keeps its name, so a document
 read and written again keeps it. `to_json` always writes `sha256`, so a saved document names exactly the bytes it was
 drawn with and its canonical text is a cache key; a person writing a document by hand may leave it out. There is no
 embedded form: bytes in base64 would grow a font by a third, make the JSON mostly not text, and give two ways to supply
@@ -386,7 +386,8 @@ spelling the schema allows; canonical form is what the library writes:
    shortest round-trip form (`1080`, `0.6`, `-0` as `0`), strings with the fewest escapes, UTF-8.
 
 The walk visits a drawing's calls from its source to its last step; within a call, its arguments in the order the
-tables above list them (api.md's signature order), the items of a list and the operands of an expression in order; a
+tables above list them (api.md's signature order), the items of a list and the operands of an expression in order, the keys of a map (`axes`, `features`, `only`, `without`,
+`with_values`) in code-point order; a
 shared drawing when it is first reached, and not again. The order of `params` (and of `parameters()`), the names of
 shared drawings and of unnamed inputs follow it.
 
@@ -427,7 +428,7 @@ path or URL, or reads anything but the bytes the caller supplies. An input's nam
 | Limit | Value | Counts |
 |---|---|---|
 | `MAX_DOCUMENT_BYTES` | 16 MiB | the document's UTF-8 text |
-| `MAX_DEPTH` | 128 | nesting of arrays and objects, counted through references, as if each shared drawing were written in place |
+| `MAX_DEPTH` | 128 | nesting of arrays and objects, the top-level value being 1, counted through references: a `{"drawing": name}` call counts as the array it names, as if each shared drawing were written in place |
 | `MAX_CALLS` | 100,000 | call objects in the document: sources, steps, fields, flows and expressions |
 
 Counting depth through references bounds the evaluator's recursion as well as the parser's; the evaluator walks a
@@ -454,27 +455,29 @@ The values are placeholders that V2 sets from the reference pieces. A value give
 ## Checked by the loader, not the schema
 
 The schema checks each value on its own. These checks relate values across the document, or need the inputs, and are
-the loader's (V2 implements each, with a test named after it):
+the loader's. They run in the order listed and the first to fail is reported. V2 implements each whose calls are
+registered, with a test named after it; every later call brings its own checks and tests with it:
 
 | Check | Fails when |
 |---|---|
 | `json-text` | the text is not UTF-8 I-JSON: a duplicate key, a lone surrogate, a number beyond a 64-bit float |
-| `limits` | a limit above is passed |
+| `limits` | the text passes `MAX_DOCUMENT_BYTES` or the calls pass `MAX_CALLS` |
+| `drawing-declared` | a `drawing` source names no entry of `drawings` |
+| `drawing-acyclic` | a shared drawing reaches itself through references |
+| `depth` | the nesting passes `MAX_DEPTH`; it runs after the two reference checks, so a cycle is reported by `drawing-acyclic` |
 | `param-range` | `min` is not below `max`, the default lies outside `min..max`, or a cyclic Param's range is not one turn |
 | `param-unique` | two entries of `params` share a name |
-| `param-order` | `params` is not in the order the walk first reads them (the error gives that order) |
 | `param-declared` | a `param` expression or a `with_values` key names no entry of `params` |
+| `param-order` | `params` is not in the order the walk first reads them (the error gives that order) |
 | `param-used` | an entry of `params` is read nowhere |
 | `input-declared` | a `font` or `data` names no entry of `inputs`, or one of the other kind |
 | `input-used` | an entry of `inputs` is read nowhere |
-| `drawing-declared` | a `drawing` source names no entry of `drawings` |
 | `drawing-used` | an entry of `drawings` is used nowhere |
-| `drawing-acyclic` | a shared drawing reaches itself through references |
 | `path-data` | path data does not parse; the error names the first bad command |
 | `with-values` | a key names a Param the drawing before it does not read, or one an earlier `with_values` fixed; a value outside its Param's range (a cyclic one wraps) |
 | `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `trace` levels not increasing, `trace` neighbours (`before`, `after`) whose literal `width`, `height` or `box` differ from the field's, `random` with `low` above `high`, `text` `fit` without `width` or on an axis also in `axes`, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
 | `font-checks` | with the font supplied: an axis or feature the font lacks, an axis value outside its range (`ParameterError`: the caller supplied the wrong font) |
-| `inputs-supplied` | an input the document declares that `inputs` does not give, a name in `inputs` the document does not declare, bytes that do not match `sha256`, a font the library cannot read, a map whose bytes are not `width × height` (`ParameterError`) |
+| `inputs-supplied` | an input the document declares that `inputs` does not give, a name in `inputs` the document does not declare, two names with equal bytes, bytes that do not match `sha256`, a font the library cannot read, a map whose bytes are not `width × height` (a checked multiply: an overflow is a mismatch; `ParameterError`) |
 
 ## Extension
 
@@ -519,7 +522,7 @@ The owner's answers (2026-10-29), written into the sections above:
 - **Inputs:** `Font` and `Field.map` take an optional `name`; `Drawing.from_json(text, *, inputs={})` takes the bytes
   by name; an input is its bytes ("Inputs").
 - **Shared drawings** have no name in the code API; `to_json` writes `d1`, `d2` and so on.
-- **`Drawing(x)` of one item and no size is `x`**, and a stack writes `order` only on shapes that carry none (api.md).
+- **`Drawing(x)` of one item and no size saves as `x`**, and a stack and `repeat` write `order` only on shapes that carry none (api.md).
 - **Defaults are part of the format:** saved documents leave them out, so after the first release a default changes
   only with a new version.
 - **Bytes are supplied when loading**, not when drawing: a loaded drawing is complete, like one built in code.

@@ -74,7 +74,8 @@ points of an outline are nearly as high (a raised hand beside the head), the top
 and the start jumps between them, moving everything measured from it: `point_at`, `tangent_at`, `locate`, `slice`,
 `dash` and `along(start=)`. Each of these takes `near=point`, which measures every closed sub-path from its point
 nearest `point` instead (the head, say). Two verbs leave the canonical form on purpose: `reverse`, and `scale` by a
-negative value, which mirrors and so flips the winding.
+negative value, which mirrors and so flips the winding. A path's region (`contains`, booleans, `offset`, `outline`, fills) is where its winding number is
+not zero.
 
 Building returns a new path each call:
 
@@ -90,7 +91,7 @@ Building returns a new path each call:
 | `Path.polyline` | `Path.polyline(points, *, closed=False)` | straight segments through `points` | fewer than 2 points |
 | `Path.rect` | `Path.rect(x, y, width, height, *, radius=0)` | a closed rectangle, corners rounded by `radius` | a negative size; `radius` over half the shorter side |
 | `Path.circle` | `Path.circle(center, radius)` | a closed circle | `radius` not above 0 |
-| `Path.polygon` | `Path.polygon(center, radius, *, sides=6)` | a regular polygon, a corner at the top | `sides` below 3 |
+| `Path.polygon` | `Path.polygon(center, radius, sides)` | a regular polygon, a corner at the top | `sides` below 3 |
 | `Path.star` | `Path.star(center, outer, inner, *, points=5)` | a star, a tip at the top | `points` below 2; a radius not above 0 |
 | `Path.from_svg_path` | `Path.from_svg_path(data)` | the path an SVG `d` attribute describes | `data` malformed (names the first bad command) |
 
@@ -116,7 +117,9 @@ Each verb below exists on both. On a `Path` its numbers are plain numbers and it
 numbers may be Params or per-item numbers and it applies to every shape. A `Path` verb given a `Param` raises
 `ParameterError`: wrap the path in `btvec.Drawing(path)` first. `about` defaults to each shape's origin (a glyph's
 cap-height centre; for any other shape, the centre of its bounds): on a stack of shapes, each turns or scales about its
-own origin. To turn the whole stack as one, give `about=` a point, such as the frame's centre.
+own origin. To turn the whole stack as one, give `about=` a point, such as the frame's centre. `translate`, `rotate` and
+`scale` change geometry and `origin` only: stroke `width`, `shadow` and `halftone` `pitch` are design pixels and stay as
+set; to scale one with the shape, give it the same Param (`stroke(color, width=24 * pop)`).
 
 | Verb | Signature | Promise | Errors |
 |---|---|---|---|
@@ -127,8 +130,8 @@ own origin. To turn the whole stack as one, give `about=` a point, such as the f
 | `subtract` | `subtract(other)` | the region inside this and outside `other` | `GeometryError` |
 | `intersect` | `intersect(other)` | the region inside both | `GeometryError` |
 | `exclude` | `exclude(other)` | the region inside exactly one | `GeometryError` |
-| `offset` | `offset(distance, *, join="round")` | the outline moved outward by `distance` (inward when negative); joins `round`, `miter`, `bevel` | `GeometryError` |
-| `outline` | `outline(width, *, join="round", cap="round")` | the region a stroke of `width` paints, as a closed outline; caps `butt`, `round`, `square` | `width` not above 0 |
+| `offset` | `offset(distance, *, join="round", miter_limit=4)` | the outline moved outward by `distance` (inward when negative); joins `round`, `miter`, `bevel`; a `miter` sharper than `miter_limit` (SVG's ratio) is cut to a bevel | `miter_limit` below 1; `GeometryError` |
+| `outline` | `outline(width, *, join="round", cap="round", miter_limit=4)` | the region a stroke of `width` paints, as a closed outline; caps `butt`, `round`, `square` | `width` not above 0; `miter_limit` below 1 |
 | `drop_parts` | `drop_parts(*, smaller_than)` | without the parts whose area is below `smaller_than` square pixels | `smaller_than` below 0 |
 | `fill_holes` | `fill_holes(*, smaller_than)` | with the holes whose area is below `smaller_than` filled | `smaller_than` below 0 |
 | `slice` | `slice(start, end, *, near=None)` | the piece between two positions along it (draw-on: `slice(0, progress)`); with `near`, a closed sub-path is measured from its point nearest `near`, as for every verb that takes it | a position outside 0..1 |
@@ -171,7 +174,8 @@ without `tone`.
 `Drawing(*items, size=None)`: the items (paths, shapes, drawings) stacked in order, the first at the bottom. `size` is
 the design frame `(width, height)` in design pixels; outputs scale it to their size. Without one, a drawing takes the
 size its items have; items whose sizes differ raise `ParameterError` naming both; with none at all, design pixels are
-output pixels. `Drawing(x)`, one item and no size, is `x` itself, whether `x` is a path, a shape or a drawing.
+output pixels. `Drawing(x)` of one item and no size draws and saves exactly as `x` does (a path becomes a one-shape
+`Drawing`; a drawing is returned as it is).
 
 ### Items
 
@@ -181,19 +185,21 @@ output pixels. `Drawing(x)`, one item and no size, is `x` itself, whether `x` is
 | `merge` | `merge(*, by=None)` | shapes with an equal attribute `by` (all shapes, if `None`) united into one, with the first's attributes | `by` that no shape carries |
 | `only` | `only(**attributes)` | the shapes whose attributes equal these (a list means any of) | an attribute no shape carries |
 | `without` | `without(**attributes)` | the other shapes | as `only` |
-| `repeat` | `repeat(count, *, translate=(0, 0), rotate=0, scale=1, about=None)` | `count` copies, copy `i` transformed `i` times; writes `copy` and `order` | `count` below 1 |
+| `repeat` | `repeat(count, *, translate=(0, 0), rotate=0, scale=1, about=None)` | `count` copies, copy `i` transformed `i` times; writes `copy`, and `order` where a shape has none | `count` below 1 |
 
 `index` is every shape's place in the current list. Generators write the rest: `text` writes `glyph`, `char`, `word`,
-`line`, `order` and a typographic `origin`; `repeat` writes `copy`; `trace` writes `level`; `Drawing(...)` writes
-`order` by stacking order on the shapes that carry none. `order` runs 0..1 over the shapes a generator made and
-survives `split` and `only`; `index` counts the current list.
+`line`, `order` and a typographic `origin`; `repeat` writes `copy` and, on shapes that carry none, `order` (0..1 over
+the copies); `trace` writes `level`; `Drawing(...)` writes `order` by stacking order on the shapes that carry none.
+`order` runs 0..1 over the shapes a generator made (a single shape has 0) and survives `split` and `only`; `index`
+counts the current list. A shape whose path becomes empty stays in the list and draws nothing, so `index`, `order` and
+per-item lists keep their meaning; only `only`, `without` and `merge` remove shapes.
 
 ### Style
 
 | Step | Signature | Promise | Errors |
 |---|---|---|---|
 | `fill` | `fill(color)` | fills each shape; `"none"` for no fill | an unreadable colour |
-| `stroke` | `stroke(color, *, width=2, join="round", cap="round")` | strokes each outline | as `fill`; `width` not above 0 |
+| `stroke` | `stroke(color, *, width=2, join="round", cap="round", miter_limit=4)` | strokes each outline | as `fill`; `width` not above 0; `miter_limit` below 1 |
 | `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` (a number or a `Field`) asks (0 solid, 1 none) | as `fill`; `pitch` not above 0 |
 | `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | `alpha` outside 0..1 |
 | `blend` | `blend(mode)` | paints with `"normal"` or `"multiply"` over what is below | another mode |
@@ -226,7 +232,7 @@ drawing with their style and attributes.
 | Member | Type | Promise |
 |---|---|---|
 | `shape.path` | `Path` | its outline |
-| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`) |
+| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`) |
 | `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`) |
 
 ## Generators
@@ -341,6 +347,8 @@ Per-item numbers take a value per shape, from its attributes:
 | `by_order` | `by_order(first, last)` | the same, read from each shape's `order` | |
 | `random` | `random(low, high, *, seed=0)` | a number in `low..high` per shape, from `seed` and its index | `low` above `high`; `seed` not a whole number |
 | `stagger` | `stagger(progress, *, spread=0.5)` | each shape's own progress 0..1: the shape at order `p` runs while `progress` goes from `p × spread` to `p × spread + 1 - spread` (0: all together; towards 1: one after another) | `spread` outside 0..1 or equal to 1 |
+
+On a single shape `by_index` and `by_order` give `first`.
 
 `btvec.ease` holds pure functions of a number, for the caller's own code (a function of time for `frames`, a list
 of values per item): `in_cubic`, `out_cubic`, `in_out_cubic` and `out_back` (overshooting to about 1.1). Each maps 0..1
@@ -474,7 +482,7 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toMesh(w, h, values, { into: mesh })`, `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })` |
 | Units as types | | `Deg(..)` for every angle (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`); `Size::px(w, h)` (whole output pixels, else an error at the draw) and `Size::mm(w, h)` for output sizes | |
 | Colours | `"#ff4f9a"` | `Color::hex(0xff4f9a)`, `Color::NONE` | `"#ff4f9a"` |
-| Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`translate`, `rotate`, `reverse`, `contains`); a path is built from `Path::start(point)`, so no segment comes before a start. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | exceptions of the exported classes `btvec.ParameterError`, `btvec.GeometryError` and `btvec.FormatError` (all `btvec.BullterrierVectorError`), for `instanceof` |
+| Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`reverse`, `contains`); a verb that takes a plain number returns a `Result`, as a NaN or an infinity is a `ParameterError` (`path.translate(1.0, 2.0)?`); a path is built from `Path::start(point)`, so no segment comes before a start. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | exceptions of the exported classes `btvec.ParameterError`, `btvec.GeometryError` and `btvec.FormatError` (all `btvec.BullterrierVectorError`), for `instanceof` |
 | Bytes in | `bytes` | `Vec<u8>` | `Uint8Array` |
 | Frame export | `btvec.frames` | the caller's loop over `to_png` | the caller's loop over `toRgba` or `toMesh` |
 
@@ -605,7 +613,7 @@ path).
 - **Positions along a path are fractions 0..1**, closed outlines measured from their topmost point, every outline the
   library makes in one canonical orientation; `near=` moves the start where the top jumps ("Path").
 - **A negative `scale` mirrors; zero raises.**
-- **A stack writes `order` only on shapes that carry none**; `Drawing(x)` of one item and no size is `x`.
+- **A stack and `repeat` write `order` only on shapes that carry none**; `Drawing(x)` of one item and no size saves as `x`.
 - **`Style` holds the paint as drawn**: `None` is not painted, `fill("none")` counts as set, and `shapes()` resolves the
   default paint.
 - **A per-item number where an argument is read once is an error**, when loaded and when drawn.
