@@ -34,8 +34,9 @@ fn pair(point: Point) -> String {
     format!("{} {}", number(point.x), number(point.y))
 }
 
-/// `value` as the shortest decimal text that parses back to it; `-0` is `0`.
-fn number(value: f64) -> String {
+/// `value` as the shortest decimal text that parses back to it; `-0` is `0`. The one formatter of every number
+/// written into SVG.
+pub(crate) fn number(value: f64) -> String {
     if value == 0.0 {
         "0".to_owned()
     } else {

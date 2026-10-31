@@ -16,6 +16,8 @@ mod transform;
 mod walk;
 mod write;
 
+pub(crate) use write::number;
+
 /// One piece of a sub-path, ending at the point it names last. The pieces are absolute: each starts where the one
 /// before ended.
 #[derive(Debug, Clone, Copy, PartialEq)]
