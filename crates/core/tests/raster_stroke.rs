@@ -280,6 +280,36 @@ fn a_zero_length_segment_is_a_disc_a_square_or_nothing_by_its_cap() -> Outcome {
 }
 
 #[test]
+fn a_translucent_stroke_is_one_paint_where_its_lines_and_dots_overlap() -> Outcome {
+    // SVG paints a path's stroke once, so a stroke of alpha 128 is 128 wherever it lies, however many sub-paths cover
+    // the pixel: three dots 4 apart (each 10 wide), a line with a dot on it, and two lines crossing
+    let dot = |path: Path, x: f64, y: f64| path.move_to((x, y))?.line_to((x, y));
+    let mut dotted = Path::new();
+    for x in [20.0, 24.0, 28.0] {
+        dotted = dot(dotted, x, 20.0)?;
+    }
+    let dotted_and_lined = dot(Path::line((10.0, 20.0), (50.0, 20.0))?, 30.0, 20.0)?;
+    let crossed = Path::line((10.0, 20.0), (50.0, 20.0))?
+        .move_to((30.0, 5.0))?
+        .line_to((30.0, 35.0))?;
+    let stroke = Stroke::new(Color::parse("#00000080")?).width(10.0).cap(Cap::Round);
+    for (case, path) in [
+        ("dots over dots", dotted),
+        ("a dot over a line", dotted_and_lined),
+        ("two lines crossing", crossed),
+    ] {
+        let image = stroked(path, stroke.clone(), 60)?;
+        let strongest = (0..60 * 60).map(|at| image.alpha(at % 60, at / 60)).max();
+        // a level of slack for the layer's rounding of 128/255; double painting would give 192
+        assert!(
+            matches!(strongest, Some(127..=129)),
+            "{case}: the strongest alpha is {strongest:?}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn the_width_is_seen_through_the_view_and_the_stroke_colour_keeps_its_alpha() -> Outcome {
     // a line from (2, 10) to (18, 10), 3 wide, in a 20 by 20 frame drawn 40 by 40: the view doubles everything, so
     // the line is from (4, 20) to (36, 20) and 6 wide: rows 17 to 22, columns 4 to 35 (butt ends)

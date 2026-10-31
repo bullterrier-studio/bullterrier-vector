@@ -119,7 +119,6 @@ fn paint(context: &mut RenderContext, shape: &Shape, view: &View, work: &Work) -
             .with_caps(cap(stroke.cap()))
             .with_miter_limit(stroke.miter_limit());
         let flatness = FLATNESS * view.scale();
-        context.set_paint(AlphaColor::from_rgba8(red, green, blue, alpha));
         // the outline has arcs for the round joins and ends; the rasteriser must be given lines only
         let curved = kurbo::stroke(
             outline.elements().iter().copied(),
@@ -144,9 +143,25 @@ fn paint(context: &mut RenderContext, shape: &Shape, view: &View, work: &Work) -
         if let Some(error) = refused {
             return Err(error);
         }
+        let dots = dots(&device, stroke.cap(), width, &mut charge)?;
+        // the outline and the dots overlap, and a translucent colour painted twice where they do would be darker than
+        // SVG's one stroke: they are painted opaque into a layer that has the colour's alpha
+        let layered = alpha < 255 && !dots.is_empty();
+        if layered {
+            context.push_layer(None, None, Some(f32::from(alpha) / 255.0), None, None);
+        }
+        context.set_paint(AlphaColor::from_rgba8(
+            red,
+            green,
+            blue,
+            if layered { 255 } else { alpha },
+        ));
         context.fill_path(&lines);
-        for dot in dots(&device, stroke.cap(), width, &mut charge)? {
+        for dot in dots {
             context.fill_path(&bez_path(&dot));
+        }
+        if layered {
+            context.pop_layer();
         }
     }
     if grouped {
