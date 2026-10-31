@@ -210,8 +210,9 @@ by the steps of that use. A stack with a copy:
 Sharing is defined on the drawing as a graph, never by writing references out:
 
 1. Equal drawings are merged, bottom up, by a structural hash: two calls are equal when their names and arguments are
-   equal and the drawings they build on or take are the same merged drawing. Two drawings built apart but equal are
-   one.
+   equal and the drawings they build on or take are the same merged drawing. Arguments are equal when canonical form
+   writes them as one text (`14 * x` and `x * 14`, `x * 5` and `x * (2 + 3)`; a shape's style is the steps after its
+   `shape` call, not part of it). Two drawings built apart but equal are one.
 2. A drawing is written in `drawings` if and only if two or more calls build on it or take it. Each step builds on the
    drawing before it in its array; a stack item, and an `other`, `target`, `avoid` or `drawing` argument, takes one.
    Every other drawing is written in place.
