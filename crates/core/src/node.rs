@@ -224,8 +224,6 @@ pub enum Domain {
     AtLeast(f64),
     /// A number from 0 to 1.
     Fraction,
-    /// A finite number at or below the limit.
-    UpTo(f64),
     /// A finite number above 0 and at or below the limit.
     PositiveUpTo(f64),
     /// One of these words.

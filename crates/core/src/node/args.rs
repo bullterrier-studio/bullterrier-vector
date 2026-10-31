@@ -77,18 +77,12 @@ impl Domain {
             Self::Coordinate => coordinate(name, value),
             Self::Fraction => fraction(name, value),
             Self::Choice(_) => Err(Error::parameter(name, "takes one of a set of words, not a number")),
-            Self::Finite
-            | Self::NonZero
-            | Self::Positive
-            | Self::AtLeast(_)
-            | Self::UpTo(_)
-            | Self::PositiveUpTo(_) => {
+            Self::Finite | Self::NonZero | Self::Positive | Self::AtLeast(_) | Self::PositiveUpTo(_) => {
                 let value = finite(name, value)?;
                 let accepted = match self {
                     Self::NonZero => value != 0.0,
                     Self::Positive => value > 0.0,
                     Self::AtLeast(least) => value >= least,
-                    Self::UpTo(most) => value <= most,
                     Self::PositiveUpTo(most) => value > 0.0 && value <= most,
                     _ => true,
                 };
@@ -107,7 +101,6 @@ impl Domain {
             Self::NonZero => String::from("a number other than 0"),
             Self::Positive => String::from("above 0"),
             Self::AtLeast(least) => format!("at least {least}"),
-            Self::UpTo(most) => format!("at most {most}"),
             Self::PositiveUpTo(most) => format!("above 0 and at most {most}"),
             Self::Any | Self::Finite | Self::Coordinate | Self::Fraction | Self::Choice(_) => String::from("accepted"),
         }

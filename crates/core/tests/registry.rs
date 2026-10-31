@@ -34,7 +34,6 @@ fn fits(domain: &Domain, default: &Literal) -> bool {
                     Domain::Positive => number > 0.0,
                     Domain::AtLeast(least) => number >= *least,
                     Domain::Fraction => (0.0..=1.0).contains(&number),
-                    Domain::UpTo(most) => number <= *most,
                     Domain::PositiveUpTo(most) => number > 0.0 && number <= *most,
                     _ => false,
                 }
@@ -128,7 +127,7 @@ fn the_default_check_names_an_argument_whose_default_is_outside_its_domain() {
 #[test]
 fn the_domain_oracle_agrees_with_api_md_at_its_boundaries() {
     // (domain, value, accepted)
-    let rows: [(Domain, Literal, bool); 35] = [
+    let rows: [(Domain, Literal, bool); 32] = [
         (Domain::Any, Literal::Number(f64::NAN), true),
         (Domain::Any, Literal::Text("x"), true),
         (Domain::Finite, Literal::Number(-3.5), true),
@@ -149,9 +148,6 @@ fn the_domain_oracle_agrees_with_api_md_at_its_boundaries() {
         (Domain::Fraction, Literal::Number(1.0), true),
         (Domain::Fraction, Literal::Number(1.0001), false),
         (Domain::Fraction, Literal::Number(-0.0001), false),
-        (Domain::UpTo(100_000.0), Literal::Number(100_000.0), true),
-        (Domain::UpTo(100_000.0), Literal::Number(100_000.5), false),
-        (Domain::UpTo(100_000.0), Literal::Number(f64::NEG_INFINITY), false),
         (Domain::PositiveUpTo(100_000.0), Literal::Number(100_000.0), true),
         (
             Domain::PositiveUpTo(100_000.0),
