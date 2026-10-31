@@ -122,14 +122,24 @@ proptest! {
 
 #[test]
 fn refilling_replaces_the_contents_whatever_they_were() -> Outcome {
+    // each fill, whatever the mesh held after the ones before, is what a new mesh would hold
     let small = Drawing::from(Path::rect(1.0, 1.0, 3.0, 3.0, 0.0)?).fill(Color::hex(0x00ff_0000));
-    let expected = mesh_of(&small, 10.0, 10.0)?;
-    assert_eq!(expected.indices().len(), 6);
-    let mut mesh = mesh_of(&scene()?, 200.0, 100.0)?;
-    small.to_mesh(Size::px(10.0, 10.0), &Values::new(), &mut mesh)?;
-    assert_eq!(mesh.vertices(), expected.vertices());
-    assert_eq!(mesh.indices(), expected.indices());
-    assert_eq!(mesh.ranges(), expected.ranges());
+    let circle = Drawing::from(Path::circle((5.0, 5.0), 4.0)?).fill(Color::hex(0x0000_00ff));
+    let mut mesh = Mesh::new();
+    for (case, drawing, side) in [
+        ("a scene", scene()?, 200.0),
+        ("a small rectangle", small.clone(), 10.0),
+        ("a circle", circle, 10.0),
+        ("the rectangle again", small, 10.0),
+        ("the scene again", scene()?, 200.0),
+    ] {
+        let expected = mesh_of(&drawing, side, side / 2.0)?;
+        drawing.to_mesh(Size::px(side, side / 2.0), &Values::new(), &mut mesh)?;
+        assert_ne!(expected.indices().len(), 0, "{case}");
+        assert_eq!(mesh.vertices(), expected.vertices(), "{case}");
+        assert_eq!(mesh.indices(), expected.indices(), "{case}");
+        assert_eq!(mesh.ranges(), expected.ranges(), "{case}");
+    }
     Ok(())
 }
 
