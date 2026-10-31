@@ -3,8 +3,14 @@
 //! Steps are told apart by their content, not by where they sit in memory or in a hash: each step's key (its verb, its
 //! arguments, the ids of the steps it builds on) is interned in a `BTreeMap` into a [`NodeId`], so equal steps built
 //! apart are one. A result is kept under its node and the values the step's free Params take where it is drawn, which
-//! is everything the output depends on. After each draw, a failed one included, the entries that draw did not use are
-//! dropped, so the cache holds one draw, however many values a caller tries.
+//! is everything the output depends on.
+//!
+//! What is kept is what a later draw can start from, not every step: a result is kept if it is what the draw
+//! returned, if the step after it (or the step that takes it as an item) reads other Params free than it does, or if
+//! the draw used it twice. A result that only feeds a step reading the same Params is made again whenever that step
+//! is, so a chain of steps that read no Param keeps one result, not one per step. After each draw, a failed one
+//! included, the entries that draw did not use are dropped, so the cache holds what one draw kept, however many
+//! values a caller tries.
 
 use crate::Shape;
 use std::collections::{BTreeMap, BTreeSet};
@@ -41,7 +47,7 @@ impl EntryKey {
 /// The shapes a step made, and where the results they were made from are.
 #[derive(Debug)]
 struct Entry {
-    shapes: Arc<[Shape]>,
+    shapes: Arc<Vec<Shape>>,
     /// The entries of the step before and of the drawings the step took.
     inputs: Vec<EntryKey>,
     /// The draw that last used it.
@@ -78,7 +84,7 @@ impl Cache {
     }
 
     /// The result kept under `key`, if there is one. It counts as used, and so does every result it was made of.
-    pub(crate) fn lookup(&mut self, key: &EntryKey) -> Option<Arc<[Shape]>> {
+    pub(crate) fn lookup(&mut self, key: &EntryKey) -> Option<Arc<Vec<Shape>>> {
         let shapes = Arc::clone(&self.entries.get(key)?.shapes);
         self.reused += 1;
         let mut pending = vec![key.clone()];
@@ -94,8 +100,8 @@ impl Cache {
     }
 
     /// Keeps `shapes` made from the results `inputs` as the result for `key`: one step computed.
-    pub(crate) fn store(&mut self, key: EntryKey, shapes: Vec<Shape>, inputs: Vec<EntryKey>) -> Arc<[Shape]> {
-        let shapes: Arc<[Shape]> = Arc::from(shapes);
+    pub(crate) fn store(&mut self, key: EntryKey, shapes: Vec<Shape>, inputs: Vec<EntryKey>) -> Arc<Vec<Shape>> {
+        let shapes = Arc::new(shapes);
         self.computed += 1;
         let used = self.draw;
         self.entries.insert(
@@ -107,6 +113,11 @@ impl Cache {
             },
         );
         shapes
+    }
+
+    /// Counts a step computed whose result is not kept.
+    pub(crate) fn computed_unkept(&mut self) {
+        self.computed += 1;
     }
 
     /// Ends a draw, whether it went through or failed: drops every result it did not use, and every step it did not

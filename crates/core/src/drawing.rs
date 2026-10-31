@@ -63,6 +63,20 @@ struct Step {
     /// The names of the Params fixed at this step: a `with_values` fixed them for the steps before it, or for the
     /// drawings the step takes, and no step since (nor another drawing it takes) has read them.
     fixed: BTreeSet<String>,
+    /// How many Params the step reads and no `with_values` fixed: `free().len()`, without the copies.
+    free_len: usize,
+    /// Whether the step before it reads exactly the same Params free, so that no value can change what the step before
+    /// made without changing what this step makes. The cache keeps a result only where a later draw can start from it.
+    same_free_as_before: bool,
+}
+
+/// The names of the Params of `reads` that `fixed` does not fix, in order.
+fn free_names<'a>(reads: &'a [Param], fixed: &BTreeSet<String>) -> Vec<&'a str> {
+    reads
+        .iter()
+        .filter(|param| !fixed.contains(param.name()))
+        .map(Param::name)
+        .collect()
 }
 
 impl Step {
@@ -138,6 +152,9 @@ impl Step {
         let depth = previous
             .map_or(1, |step| step.depth)
             .max(args.taken().map(Drawing::depth).max().map_or(1, |deepest| deepest + 1));
+        let free_here = free_names(&reads, &fixed);
+        let same_free_as_before = previous.is_some_and(|before| free_names(&before.reads, &before.fixed) == free_here);
+        let free_len = free_here.len();
         Ok(Self {
             node,
             key: args.key(),
@@ -148,6 +165,8 @@ impl Step {
             depth,
             reads,
             fixed,
+            free_len,
+            same_free_as_before,
         })
     }
 }

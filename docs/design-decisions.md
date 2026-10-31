@@ -289,13 +289,19 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 
 ## Drawings (V2b-2)
 
-- **Merging by equality, cache per family, eviction after each draw** (2026-10-31). A result is kept under the step's
-  structure (its call and the results it builds on, as numbers) and the values of the free Params it reads, so two
-  drawings built apart that are equal share entries. A drawing and every drawing derived from it by a step share one
-  cache, and a stack shares its first item's; `Drawing::stats()` reports the last draw of that family. After each draw
-  the entries it did not use are dropped. *Reason:* changing one value then computes only the steps that read it, and a
-  drawing used twice is computed once; keeping only the last draw bounds the memory by one draw. *Consequence:* a draw
-  with alternating values recomputes what the other left out.
+- **Merging by equality, cache per family, keep what a redraw starts from** (2026-10-31). A result is kept under the
+  step's structure (its call and the results it builds on, as numbers) and the values of the free Params it reads, so
+  two drawings built apart that are equal share entries. A drawing and every drawing derived from it by a step share one
+  cache, and a stack shares its first item's; `Drawing::stats()` reports the last draw of that family. The cache keeps
+  only the results a redraw can start from: what the draw returned, a result whose next step (or the stack that takes it
+  as an item) reads other Params free than it does, and a result the draw used twice. A result that only feeds a step
+  reading the same Params is made again with that step and is dropped, so a chain of steps that read no Param keeps one
+  result, not one per step. After each draw, a failed one included, the entries it did not use are dropped.
+  *Reason:* changing one value then computes only the steps that read it, and a drawing used twice is computed once;
+  keeping every step's result held a chain's length times its shape count (2,000 shapes through 1,000 steps took 927 MB
+  against 18 MB without a cache). *Consequence:* the memory kept is at most one result per place a Param starts being
+  read, so a chain whose every step reads a Param of its own still keeps every result; a draw with alternating values
+  recomputes what the other left out.
 - **Words are read by the core; a step is raised at its call in Python** (2026-10-31). The core reads a colour, join,
   cap, blend and unit from its word (`parse`) and writes it back (`name`), so a wrong word is the same
   `ParameterError` in every language. The Python bindings check the chain's error after each step and raise it there,

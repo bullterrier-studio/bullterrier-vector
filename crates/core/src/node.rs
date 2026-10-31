@@ -71,7 +71,7 @@ pub(crate) struct Inputs<'a> {
     /// The shapes of the drawing this step builds on; empty for a source.
     pub(crate) previous: &'a [Shape],
     /// The shapes of each drawing the node takes, in the order of its arguments.
-    pub(crate) taken: &'a [Arc<[Shape]>],
+    pub(crate) taken: &'a [Arc<Vec<Shape>>],
 }
 
 /// Where a step is, for its errors: `step 3 (rotate)`, or `source (stack)` for the first call of a chain.

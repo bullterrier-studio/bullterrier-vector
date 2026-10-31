@@ -49,7 +49,8 @@ fn six() -> Result<Drawing, Error> {
 fn a_changed_param_recomputes_the_steps_from_its_first_reader_on() -> Outcome {
     let chain = six()?;
     let rows = [
-        // (case, values, computed, reused): the entries are one per step each time
+        // (case, values, computed, reused): the entries are the three results a later draw can start from each time:
+        // step 1 (step 2 reads `a`), step 4 (step 5 reads `b`) and step 6 (the draw itself)
         ("cold: all six", Values::new(), 6, 0),
         ("a changed: steps 2 to 6", Values::new().set("a", 1.0), 5, 1),
         (
@@ -63,7 +64,7 @@ fn a_changed_param_recomputes_the_steps_from_its_first_reader_on() -> Outcome {
         ("a changed again: steps 2 to 6", Values::new().set("a", 2.0), 5, 1),
     ];
     for (case, values, computed, reused) in rows {
-        assert_eq!(stats_of(&chain, &values)?, counts(computed, reused, 6), "{case}");
+        assert_eq!(stats_of(&chain, &values)?, counts(computed, reused, 3), "{case}");
     }
     Ok(())
 }
@@ -82,11 +83,13 @@ fn a_drawing_stacked_with_itself_twelve_times_computes_each_distinct_step_once()
     }
     let shapes = drawing.shapes(&Values::new())?;
     assert_eq!(shapes.len(), 4096);
-    // distinct steps: the path, 200 translates and 12 stacks; each stack finds its second item already computed
-    assert_eq!(drawing.stats(), counts(213, 12, 213));
+    // distinct steps: the path, 200 translates and 12 stacks; each stack finds its second item already computed.
+    // Kept: the 12 results used twice (the 201-step chain and 11 stacks) and the last stack; the 200 translates and the
+    // path feed one step each that reads the same Params, so they are made again with it and not kept
+    assert_eq!(drawing.stats(), counts(213, 12, 13));
     // drawn again, the last step is served as it is
     drawing.shapes(&Values::new())?;
-    assert_eq!(drawing.stats(), counts(0, 1, 213));
+    assert_eq!(drawing.stats(), counts(0, 1, 13));
     Ok(())
 }
 
@@ -111,14 +114,31 @@ fn equal_drawings_built_apart_share_their_steps() -> Outcome {
 fn entries_of_the_values_before_are_gone_after_a_draw() -> Outcome {
     let chain = six()?;
     for step in 0..20 {
-        // each draw is a new `a`; the cache holds one entry per step, not one per value tried
+        // each draw is a new `a`; the cache holds the same three entries, not three more per value tried
         let values = Values::new().set("a", f64::from(step));
-        assert_eq!(stats_of(&chain, &values)?.entries, 6, "draw {step}");
+        assert_eq!(stats_of(&chain, &values)?.entries, 3, "draw {step}");
     }
     // gone: asking for an earlier value computes again
     stats_of(&chain, &Values::new().set("a", 3.0))?;
     assert_eq!(stats_of(&chain, &Values::new().set("a", 4.0))?.computed, 5);
     assert_eq!(stats_of(&chain, &Values::new().set("a", 3.0))?.computed, 5);
+    Ok(())
+}
+
+#[test]
+fn a_long_chain_that_reads_no_param_keeps_only_what_it_drew() -> Outcome {
+    // every step feeds a step that reads what it reads (nothing), so none is a place a later draw starts from
+    let mut chain = square()?;
+    for _ in 0..300 {
+        chain = chain.translate(1.0, 0.0);
+    }
+    assert_eq!(stats_of(&chain, &Values::new())?, counts(301, 0, 1));
+    assert_eq!(stats_of(&chain, &Values::new())?, counts(0, 1, 1));
+    // a Param read by the last step makes the step before it a place to start from: two entries, and 300 steps served
+    let a = slider("a", 0.0)?;
+    let read = chain.translate(&a, 0.0);
+    assert_eq!(stats_of(&read, &Values::new())?, counts(1, 1, 2));
+    assert_eq!(stats_of(&read, &Values::new().set("a", 5.0))?, counts(1, 1, 2));
     Ok(())
 }
 
@@ -152,15 +172,15 @@ fn failed_draws_do_not_pile_up_entries() -> Outcome {
 fn steps_before_a_hit_stay_for_the_next_draw() -> Outcome {
     let chain = six()?;
     stats_of(&chain, &Values::new().set("a", 1.0).set("b", 1.0))?;
-    // `b` changes: step 4 is served, steps 1 to 4 stay behind it, and steps 5 and 6 are new entries: six
+    // `b` changes: step 4 is served, step 1 stays behind it, and step 6 is a new entry (step 5 is not kept): three
     assert_eq!(
         stats_of(&chain, &Values::new().set("a", 1.0).set("b", 2.0))?,
-        counts(2, 1, 6)
+        counts(2, 1, 3)
     );
     // so `b` changing again still finds step 4
     assert_eq!(
         stats_of(&chain, &Values::new().set("a", 1.0).set("b", 3.0))?,
-        counts(2, 1, 6)
+        counts(2, 1, 3)
     );
     Ok(())
 }
@@ -172,11 +192,13 @@ fn the_drawings_a_served_step_was_made_of_stay_for_the_next_draw() -> Outcome {
     let left = square()?.translate(20.0, 0.0);
     let right = square()?.rotate(Deg(&a));
     let stacked = Drawing::new([left, right]);
-    assert_eq!(stats_of(&stacked, &Values::new())?, counts(4, 1, 4));
+    // kept: the path (used twice), the left translate (the stack reads `a`, it does not) and the stack; the rotate
+    // reads what the stack reads, so it is made again with it
+    assert_eq!(stats_of(&stacked, &Values::new())?, counts(4, 1, 3));
     // served as a whole: nothing below the stack is looked at
-    assert_eq!(stats_of(&stacked, &Values::new())?, counts(0, 1, 4));
+    assert_eq!(stats_of(&stacked, &Values::new())?, counts(0, 1, 3));
     // `a` changes: the left translate and the path are still there, and served; the rotate and the stack are computed
-    assert_eq!(stats_of(&stacked, &Values::new().set("a", 45.0))?, counts(2, 2, 4));
+    assert_eq!(stats_of(&stacked, &Values::new().set("a", 45.0))?, counts(2, 2, 3));
     Ok(())
 }
 
