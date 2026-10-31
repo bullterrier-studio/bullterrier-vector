@@ -16,7 +16,7 @@ impl Drawing {
     /// argument (`step 3 (rotate).angle`) if a number is outside what the argument accepts, with the index of the
     /// shape it was read for.
     pub fn shapes(&self, values: &Values) -> Result<Vec<Shape>, Error> {
-        let step = self.last.as_ref().map_err(Clone::clone)?;
+        let step = self.last.as_ref().map_err(|failure| failure.error.clone())?;
         if let Some(name) = values
             .names()
             .find(|name| step.reads.iter().all(|param| param.name() != *name))
@@ -36,7 +36,7 @@ impl Drawing {
 
     /// The shapes before the default paint is resolved.
     fn evaluate(&self, values: &Values) -> Result<Vec<Shape>, Error> {
-        evaluate(self.last.as_ref().map_err(Clone::clone)?, values)
+        evaluate(self.last.as_ref().map_err(|failure| failure.error.clone())?, values)
     }
 }
 

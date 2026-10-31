@@ -19,7 +19,21 @@ use std::sync::Arc;
 /// ([`Drawing::error`]) and returns it when it is drawn or its Params are asked for.
 #[derive(Debug, Clone)]
 pub struct Drawing {
-    last: Result<Arc<Step>, Error>,
+    last: Result<Arc<Step>, Failure>,
+}
+
+/// Why a chain holds no step: its first error, and, for a stack whose items disagree on a size, the items, so that
+/// [`Drawing::with_size`] can still give the stack a frame.
+#[derive(Debug, Clone)]
+struct Failure {
+    error: Error,
+    items: Option<Vec<Drawing>>,
+}
+
+impl From<Error> for Failure {
+    fn from(error: Error) -> Self {
+        Self { error, items: None }
+    }
 }
 
 /// The last call of a chain; the calls before it are reached through it.
@@ -102,7 +116,7 @@ impl Drawing {
     /// The drawing of a source `node` called with `given`.
     pub(crate) fn source(node: &'static dyn Node, given: Vec<(&'static str, Given)>) -> Self {
         Self {
-            last: Step::build(None, node, given).map(Arc::new),
+            last: Step::build(None, node, given).map(Arc::new).map_err(Failure::from),
         }
     }
 
@@ -110,19 +124,26 @@ impl Drawing {
     pub(crate) fn then(&self, node: &'static dyn Node, given: Vec<(&'static str, Given)>) -> Self {
         let Ok(step) = &self.last else { return self.clone() };
         Self {
-            last: Step::build(Some(step), node, given).map(Arc::new),
+            last: Step::build(Some(step), node, given)
+                .map(Arc::new)
+                .map_err(Failure::from),
         }
     }
 
     /// The items stacked in order, the first at the bottom, as a drawing of `size` if one is given.
     fn stack(items: Vec<Self>, size: Option<(f64, f64)>) -> Self {
-        let size = size.map_or(Given::Unset, |(width, height)| {
+        let given = size.map_or(Given::Unset, |(width, height)| {
             Given::Pair(Expr::from(width), Expr::from(height))
         });
-        Self::source(
+        let kept = items.clone();
+        let mut stack = Self::source(
             &node::stack::Stack,
-            vec![("items", Given::Drawings(items)), ("size", size)],
-        )
+            vec![("items", Given::Drawings(items)), ("size", given)],
+        );
+        if let (Err(failure), None) = (&mut stack.last, size) {
+            failure.items = Some(kept);
+        }
+        stack
     }
 
     /// The items stacked in order, the first at the bottom, each a [`Path`], a [`Shape`] or a `Drawing`. Shapes that
@@ -141,17 +162,23 @@ impl Drawing {
     }
 
     /// This drawing in a design frame of `width` by `height` design pixels. A drawing that is a stack is given the
-    /// frame; any other is stacked, alone, in one.
+    /// frame, which also settles a stack whose items differ in size; any other is stacked, alone, in one.
     ///
     /// Sizes above 0 and at most 100,000 are accepted; others leave the drawing with an [`error`](Drawing::error).
     #[must_use]
     pub fn with_size(&self, width: f64, height: f64) -> Self {
-        let Ok(step) = &self.last else { return self.clone() };
         let size = Some((width, height));
+        let step = match &self.last {
+            Ok(step) => step,
+            Err(Failure { items: Some(items), .. }) => return Self::stack(items.clone(), size),
+            Err(_) => return self.clone(),
+        };
         if step.previous.is_none() && std::ptr::eq(step.node.verb(), std::ptr::from_ref(&node::stack::STACK)) {
             return match step.args.drawings("items") {
                 Ok(items) => Self::stack(items.to_vec(), size),
-                Err(error) => Self { last: Err(error) },
+                Err(error) => Self {
+                    last: Err(error.into()),
+                },
             };
         }
         Self::stack(vec![self.clone()], size)
@@ -161,7 +188,7 @@ impl Drawing {
     /// step called on it keeps the error.
     #[must_use]
     pub fn error(&self) -> Option<&Error> {
-        self.last.as_ref().err()
+        self.last.as_ref().err().map(|failure| &failure.error)
     }
 
     /// The design frame `(width, height)` in design pixels, or `None` if neither the drawing nor anything it is made
@@ -177,7 +204,10 @@ impl Drawing {
     /// The first error of the chain that built the drawing; [`Error::Parameter`] naming the Param if two Params of
     /// one name differ in a field.
     pub fn parameters(&self) -> Result<Vec<Param>, Error> {
-        self.last.clone().map(|step| step.reads.clone())
+        self.last
+            .as_ref()
+            .map(|step| step.reads.clone())
+            .map_err(|failure| failure.error.clone())
     }
 }
 
