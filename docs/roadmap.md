@@ -18,14 +18,15 @@ stays as in CLAUDE.md.
    S batch needs only the task list.
 2. **Branch:** one short-lived branch from `main`, fast-forward merged, then deleted.
 3. **Build:** one implementer for the whole batch (two only if the context runs out), test first: see the test fail, then
-   pass. Commit after every task. While working run only the one test file; `uv run poe fast` once at the end of each
-   part, `uv run poe check` once before the merge.
+   pass. Commit after every finished task or fix, never leaving more than one uncommitted, so an interruption loses
+   nothing. While working run only the one test file; `uv run poe fast` once at the end of each part, `uv run poe
+   check` once before the merge.
 4. **Mutation checks:** at most about ten hand mutants per batch, on the settled edge cases and the arithmetic (a sign, a
    boundary, an ignored argument). Surviving mutants on core behaviour become tests; the rest are not chased.
-5. **Review:** M and L batches get one independent read-only review of the whole branch; S batches get the gate only.
-   A finding is fixed only after the controller replicates it (a failing test or quoted lines); one that cannot be
-   replicated is dropped. Fix Critical and Important findings; minors go to the ledger. Small fixes are read and checked
-   by the controller, not re-reviewed.
+5. **Review:** M and L batches get one independent review of the whole branch; S batches get the gate only. The reviewer
+   proves each finding (a failing test or a reproduction; one it cannot prove is dropped) and in the same run fixes the
+   Critical and Important ones it proved. Minor findings go to the controller, who ranks them, fixes the cheap useful
+   ones without ceremony and drops the rest.
 6. **Reports:** commits, public signatures, deviations from the plan, mutants killed or survived. No per-task narrative.
 
 Order: a short feedback loop first (the gate, a walking skeleton through every target), then the code API and the core,
@@ -211,10 +212,11 @@ Done when: the example programs that use only V2's calls run as far as `shapes()
 and the two agree; each evaluation counter a V2 node can reach raises `ParameterError` when passed, in a test (the
 others arrive with the first step that produces what they count).
 
-State: V2b-1 done in Rust, independently reviewed 2026-10-31 and the proven findings fixed (shapes, style, `Param`/`Expr`, the node contract and registry, `translate`,
-`rotate`, `scale`, the style steps, `only`, `without`, stacking, `with_values`, `parameters()`, `shapes()`, `MAX_SHAPES`
+State: V2b-1 done in Rust, independently reviewed 2026-10-31 and the proven findings fixed (shapes, style, `Param`/`Expr`,
+the node contract and registry, `translate`, `rotate`, `scale`, the style steps, `only`, `without`, stacking, `with_values`, `parameters()`, `shapes()`, `MAX_SHAPES`
 and `MAX_DEPTH`, the contract table). V2b-2 built (the result cache, the Python names `Drawing`, `Shape`, `Style`, `Param`
-and `Expr`, `star.py` and `series_bars.py` in a tested `examples/`); independent review and merge pending.
+and `Expr`, `star.py` and `series_bars.py` in a tested `examples/`), independently reviewed 2026-10-31 and the proven
+findings fixed. V2b is done.
 
 ### V2c JSON
 
