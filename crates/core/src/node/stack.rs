@@ -60,7 +60,10 @@ impl Node for Stack {
     }
 
     #[expect(clippy::cast_precision_loss, reason = "a list is far shorter than 2^53 shapes")]
-    fn evaluate(&self, _: &Args, inputs: Inputs<'_>, _: &Context<'_>) -> Result<Vec<Shape>, Error> {
+    fn evaluate(&self, _: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        // the list is charged before it is built, so that a refusal comes before the memory
+        cx.work
+            .made_shapes(inputs.taken.iter().map(Vec::len).sum(), &cx.place)?;
         let mut shapes: Vec<Shape> = inputs.taken.iter().flatten().cloned().collect();
         let unordered = shapes
             .iter()

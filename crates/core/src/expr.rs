@@ -1,17 +1,11 @@
 //! `Expr`: arithmetic on Params and numbers, worked out when a drawing is drawn.
 
+use crate::limits::MAX_DEPTH;
 use crate::node::Item;
 use crate::{Error, Param, Value, Values};
 use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
-
-/// The deepest expression a call accepts, counting a number or a Param as one level and each operator as one more
-/// than its deepest operand. It bounds the recursion that evaluates an expression and is the limit a saved drawing's
-/// loader applies.
-// constant: formats.md "Limits and security" sets MAX_DEPTH to 128 for documents; an expression follows it so a drawing
-// written in code can be saved and loaded back
-pub(crate) const MAX_DEPTH: usize = 128;
 
 /// The four binary operators.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

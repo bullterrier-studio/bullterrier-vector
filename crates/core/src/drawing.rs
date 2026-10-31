@@ -49,6 +49,8 @@ struct Step {
     /// The number of the step in the chain; 0 for the source.
     number: usize,
     size: Option<(f64, f64)>,
+    /// How many drawings deep the drawing nests: 1 for one that takes none, else 1 more than the deepest it takes.
+    depth: usize,
     /// The Params read, in the order they were first used, those a `with_values` fixed included.
     reads: Vec<Param>,
     /// The names of the Params fixed at this step: a `with_values` fixed them for the steps before it and no step
@@ -120,19 +122,40 @@ impl Step {
             .map_err(|error| error.at_argument(&place, None))?
             .or_else(|| previous.and_then(|step| step.size))
             .or_else(|| args.taken().find_map(Drawing::size));
+        let depth = previous
+            .map_or(1, |step| step.depth)
+            .max(args.taken().map(Drawing::depth).max().map_or(1, |deepest| deepest + 1));
         Ok(Self {
             node,
             args,
             previous: previous.cloned(),
             number: place.step,
             size,
+            depth,
             reads,
             fixed,
         })
     }
 }
 
+impl Drop for Step {
+    /// Drops the steps before this one in a loop instead of through each other: a chain has no limit on its length,
+    /// and dropping it step by step would overflow the stack.
+    fn drop(&mut self) {
+        let mut earlier = self.previous.take();
+        while let Some(step) = earlier {
+            // a step someone else still holds is theirs to drop
+            earlier = Arc::try_unwrap(step).ok().and_then(|mut owned| owned.previous.take());
+        }
+    }
+}
+
 impl Drawing {
+    /// How many drawings deep this one nests; 0 for one that holds an error.
+    pub(crate) fn depth(&self) -> usize {
+        self.last.as_ref().map_or(0, |step| step.depth)
+    }
+
     /// The drawing of a source `node` called with `given`.
     pub(crate) fn source(node: &'static dyn Node, given: Vec<(&'static str, Given)>) -> Self {
         Self {

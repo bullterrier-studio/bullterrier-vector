@@ -26,7 +26,8 @@ impl Node for PathSource {
         &PATH
     }
 
-    fn evaluate(&self, args: &Args, _: Inputs<'_>, _: &Context<'_>) -> Result<Vec<Shape>, Error> {
+    fn evaluate(&self, args: &Args, _: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        cx.work.made_shapes(1, &cx.place)?;
         Ok(vec![Shape::from_path(args.path("path")?.clone(), 0)])
     }
 }
@@ -54,7 +55,8 @@ impl Node for ShapeSource {
         &SHAPE
     }
 
-    fn evaluate(&self, args: &Args, _: Inputs<'_>, _: &Context<'_>) -> Result<Vec<Shape>, Error> {
+    fn evaluate(&self, args: &Args, _: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        cx.work.made_shapes(1, &cx.place)?;
         Ok(vec![args.shape("shape")?.clone()])
     }
 }

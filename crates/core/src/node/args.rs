@@ -3,6 +3,7 @@
 
 use super::{Arg, Context, Domain, Kind, Reads, Verb};
 use crate::geometry::{coordinate, finite, fraction};
+use crate::limits::MAX_DEPTH;
 use crate::{Color, Drawing, Error, Expr, Literal, Param, Path, Point, Select, Shape, Values};
 
 /// The place of a shape in the list a step works on, and how long the list is.
@@ -209,13 +210,24 @@ impl Args {
     }
 
     /// The checks of a call: every expression is within the depth limit, every constant one is worked out and accepted
-    /// by its argument's domain, then the verb's own rule across arguments. The error is unplaced.
+    /// by its argument's domain, drawings are not nested too deep, then the verb's own rule across arguments. The error is unplaced.
     pub(crate) fn validate(&self) -> Result<(), Error> {
         for (arg, expr) in self.expressions() {
             expr.check_depth().map_err(|error| relabel(error, arg.name))?;
             if !expr.reads_param() {
                 let value = expr.value(&Values::new()).map_err(|error| relabel(error, arg.name))?;
                 arg.domain.number(arg.name, value)?;
+            }
+        }
+        for (arg, given) in self.declared() {
+            if let Given::Drawings(items) = given {
+                let nested = items.iter().map(Drawing::depth).max().unwrap_or(0) + 1;
+                if nested > MAX_DEPTH {
+                    return Err(Error::parameter(
+                        arg.name,
+                        format!("are nested {nested} drawings deep, but MAX_DEPTH {MAX_DEPTH} is the most accepted"),
+                    ));
+                }
             }
         }
         self.verb.check.map_or(Ok(()), |check| check(self))

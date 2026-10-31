@@ -10,6 +10,7 @@ mod drawing;
 mod error;
 mod expr;
 mod geometry;
+mod limits;
 mod math;
 mod node;
 mod param;

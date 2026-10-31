@@ -47,6 +47,7 @@ pub(crate) mod values;
 
 pub(crate) use args::{Args, Given, Item};
 
+use crate::limits::Work;
 use crate::{Error, Shape, Values};
 use std::fmt;
 
@@ -98,6 +99,8 @@ pub(crate) struct Context<'a> {
     pub(crate) place: Place,
     /// The values the Params take here.
     pub(crate) env: &'a Values,
+    /// What the draw has made so far, to charge what this step creates.
+    pub(crate) work: &'a Work,
 }
 
 /// `map` applied to every shape of `previous` in order, with its [`Item`]. An error from `map` is placed at the step

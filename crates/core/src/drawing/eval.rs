@@ -1,6 +1,7 @@
 //! Drawing a `Drawing`: its steps evaluated, in order, to a list of shapes.
 
 use super::{Drawing, Step};
+use crate::limits::Work;
 use crate::node::{Context, Inputs};
 use crate::{Error, Shape, Values};
 use std::borrow::Cow;
@@ -19,18 +20,25 @@ impl Drawing {
     pub fn shapes(&self, values: &Values) -> Result<Vec<Shape>, Error> {
         let step = self.last.as_ref().map_err(|failure| failure.error.clone())?;
         values.names_within(&step.free())?;
-        Ok(evaluate(step, values)?.into_iter().map(Shape::painted).collect())
+        Ok(evaluate(step, values, &Work::new())?
+            .into_iter()
+            .map(Shape::painted)
+            .collect())
     }
 
     /// The shapes before the default paint is resolved.
-    fn evaluate(&self, values: &Values) -> Result<Vec<Shape>, Error> {
-        evaluate(self.last.as_ref().map_err(|failure| failure.error.clone())?, values)
+    fn evaluate(&self, values: &Values, work: &Work) -> Result<Vec<Shape>, Error> {
+        evaluate(
+            self.last.as_ref().map_err(|failure| failure.error.clone())?,
+            values,
+            work,
+        )
     }
 }
 
 /// The shapes after `last` and every step before it, in order, with each shape's `index` its place in the list. A step
 /// sees `values` with the values of every `with_values` after it laid over them.
-fn evaluate(last: &Arc<Step>, values: &Values) -> Result<Vec<Shape>, Error> {
+fn evaluate(last: &Arc<Step>, values: &Values, work: &Work) -> Result<Vec<Shape>, Error> {
     let mut chain = Vec::new();
     let mut cursor = Some(last);
     while let Some(step) = cursor {
@@ -56,11 +64,11 @@ fn evaluate(last: &Arc<Step>, values: &Values) -> Result<Vec<Shape>, Error> {
             .taken()
             .enumerate()
             .map(|(at, item)| {
-                item.evaluate(env)
+                item.evaluate(env, work)
                     .map_err(|error| error.inside(&format!("{place} / item {}", at + 1)))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let cx = Context { place, env };
+        let cx = Context { place, env, work };
         let inputs = Inputs {
             previous: &shapes,
             taken: &taken,
