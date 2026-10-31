@@ -1,8 +1,8 @@
 """The lint and type gate can fail: each rule family it promises rejects a known-bad file, naming the rule.
 
 An architecture test of the tooling: its subject is the configuration in pyproject.toml, so it runs ruff and mypy, the
-way `uv run poe check` does, on a copy of the package, its tests and the tool scripts into which one offending file at
-a time is written. A known-good file passes both, so a failure is the offence's and not the copy's.
+way `uv run poe check` does, on a copy of the package, its tests, the examples and the tool scripts into which one
+offending file at a time is written. A known-good file passes both, so a failure is the offence's and not the copy's.
 """
 
 import json
@@ -51,6 +51,7 @@ def checkout(tmp_path_factory) -> Path:
     shutil.copytree(ROOT / "src", root / "src", ignore=skip)
     shutil.copytree(ROOT / "tests", root / "tests", ignore=skip)
     shutil.copytree(ROOT / "tools", root / "tools", ignore=skip)
+    shutil.copytree(ROOT / "examples", root / "examples", ignore=skip)
     shutil.copy(ROOT / "pyproject.toml", root)
     return root
 
