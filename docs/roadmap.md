@@ -211,9 +211,9 @@ Done when: the example programs that use only V2's calls run as far as `shapes()
 and the two agree; each evaluation counter a V2 node can reach raises `ParameterError` when passed, in a test (the
 others arrive with the first step that produces what they count).
 
-State: V2b-1 done in Rust on its branch (shapes, style, `Param`/`Expr`, the node contract and registry, `translate`,
+State: V2b-1 done in Rust, independently reviewed 2026-10-31 and the proven findings fixed (shapes, style, `Param`/`Expr`, the node contract and registry, `translate`,
 `rotate`, `scale`, the style steps, `only`, `without`, stacking, `with_values`, `parameters()`, `shapes()`, `MAX_SHAPES`
-and `MAX_DEPTH`, the contract table); an uncached evaluator. V2b-2 (cache, Python, the examples) remains.
+and `MAX_DEPTH`, the contract table); an uncached evaluator, so a shared drawing is drawn once per use until the V2b-2 cache. V2b-2 (cache, Python, the examples) remains.
 
 ### V2c JSON
 
