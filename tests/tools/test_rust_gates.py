@@ -135,9 +135,9 @@ OFFENCES = {
     ),
     "pub where no user of the crate reaches it": (
         "rust-lint",
-        "crates/core/src/polygon.rs",
+        "crates/core/src/geometry.rs",
         appended("\n/// Probe.\npub fn reachable_only_inside() {}\n"),
-        ["unreachable-pub", "crates/core/src/polygon.rs"],
+        ["unreachable-pub", "crates/core/src/geometry.rs"],
     ),
     "unsafe code in the core": (
         "rust-lint",
