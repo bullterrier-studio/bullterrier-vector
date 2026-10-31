@@ -38,6 +38,12 @@ pub struct Mesh {
     generation: u64,
 }
 
+/// The tolerance the tessellator is given, in design pixels.
+// constant: the outlines are already straight lines, flattened to FLATNESS, so the tessellator flattens nothing and the
+// tolerance only decides when it takes two points to be one; its default 0.1 left 2 of 20,000 random strokes with
+// corners on a grid covered more than once, and 0.01, 0.001 and 0.0001 each left 1, so it is the flatness itself
+const FILL_TOLERANCE: f32 = 0.01;
+
 /// The floats a vertex holds.
 const VERTEX_FLOATS: usize = 8;
 
@@ -248,7 +254,9 @@ impl Maker<'_> {
             name,
             refused: None,
         };
-        let options = FillOptions::default().with_fill_rule(FillRule::NonZero);
+        let options = FillOptions::default()
+            .with_fill_rule(FillRule::NonZero)
+            .with_tolerance(FILL_TOLERANCE);
         let outcome = self.tessellator.tessellate_path(&outlines.build(), &options, &mut sink);
         let refused = sink.refused.take();
         if let Err(failure) = outcome {
