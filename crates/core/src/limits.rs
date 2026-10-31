@@ -28,6 +28,13 @@ pub(crate) const MAX_EXPR_NODES: usize = 10_000;
 // constant: formats.md "Limits and security" sets MAX_SEGMENTS to 10,000,000
 pub(crate) const MAX_SEGMENTS: usize = 10_000_000;
 
+/// The most tessellation work one draw's mesh may ask for: for each vertex the tessellator makes, the most edges of its
+/// layer that a sweep line crosses at once.
+// constant: measured on this machine in release builds, tessellating costs about 4 ns a unit however the outline is
+// built (a star polygon, a stroked one, a comb), so 250 million is about a second; a shape of ordinary size (a circle,
+// a glyph, a stroke around one) crosses 2 to 6 edges at a time and spends under a tenth of this on a million vertices
+pub(crate) const MAX_TESSELLATION_WORK: usize = 250_000_000;
+
 /// The longest document `from_json` reads and `to_json` writes, in bytes of UTF-8.
 // constant: formats.md "Limits and security" sets MAX_DOCUMENT_BYTES to 16 MiB
 pub(crate) const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
@@ -47,6 +54,7 @@ pub(crate) const MAX_PARAMS: usize = 1_000;
 pub(crate) struct Work {
     shapes: Cell<usize>,
     segments: Cell<usize>,
+    tessellation: Cell<usize>,
 }
 
 impl Work {
@@ -81,6 +89,23 @@ impl Work {
         self.segments.set(total);
         if total > MAX_SEGMENTS {
             return Err(Error::parameter(place, format!("MAX_SEGMENTS {MAX_SEGMENTS} passed")));
+        }
+        Ok(())
+    }
+
+    /// Charges `count` units of tessellation work made for `place`.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `place`, the counter and its limit, if the draw has now made more than
+    /// [`MAX_TESSELLATION_WORK`].
+    pub(crate) fn made_tessellation(&self, count: usize, place: &str) -> Result<(), Error> {
+        let total = self.tessellation.get().saturating_add(count);
+        self.tessellation.set(total);
+        if total > MAX_TESSELLATION_WORK {
+            return Err(Error::parameter(
+                place,
+                format!("MAX_TESSELLATION_WORK {MAX_TESSELLATION_WORK} passed"),
+            ));
         }
         Ok(())
     }

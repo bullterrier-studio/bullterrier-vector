@@ -222,3 +222,73 @@ fn the_outline_of_one_shapes_stroke_is_refused_past_max_segments() -> Outcome {
     assert!(message.contains("MAX_SEGMENTS 10000000"), "{message}");
     Ok(())
 }
+
+/// The star polygon {n/k} of `n` corners: every corner joined to the one `k` along, so that each edge crosses most of
+/// the others.
+fn star_polygon(n: usize, k: usize) -> Result<Path, bullterrier_vector::Error> {
+    #[expect(clippy::cast_precision_loss, reason = "test sizes are small")]
+    let corner = |index: usize| {
+        let turn = 2.0 * std::f64::consts::PI * ((index * k) % n) as f64 / n as f64;
+        (500.0 + 450.0 * libm::cos(turn), 500.0 + 450.0 * libm::sin(turn))
+    };
+    Path::polyline((0..n).map(corner), true)
+}
+
+#[test]
+fn a_tessellation_that_would_take_seconds_is_refused_naming_the_shape_and_the_counter() -> Outcome {
+    // Tessellating costs about (vertices made) x (edges crossing a sweep line): a star polygon of 2,001 corners makes
+    // 750,000 vertices with 2,000 edges alive at once, which is seconds, though far below MAX_SEGMENTS. The
+    // refused rows are drawn second, over a small rectangle, and are the shape named
+    let red = Color::hex(0x00ff_0000);
+    let stroke = Stroke::new(red).width(5.0);
+    let refused = [
+        (
+            "a star polygon filled",
+            Drawing::from(star_polygon(2001, 1000)?).fill(red),
+        ),
+        (
+            "a star polygon stroked",
+            Drawing::from(star_polygon(801, 400)?).fill(Color::NONE).stroke(stroke),
+        ),
+    ];
+    for (case, far) in refused {
+        let drawing = Drawing::new([rect(0.0, 0.0, 2.0, 2.0)?, far]).with_size(1000.0, 1000.0);
+        let (parameter, message) = parameter_refusal(mesh_of(&drawing, 1000.0, 1000.0))?;
+        assert_eq!(parameter, "shape 1", "{case}");
+        assert!(message.contains("MAX_TESSELLATION_WORK 250000000"), "{case}: {message}");
+    }
+    Ok(())
+}
+
+#[test]
+fn shapes_with_many_edges_but_little_crossing_are_drawn() -> Outcome {
+    let red = Color::hex(0x00ff_0000);
+    // 3,000 thin teeth side by side: 12,001 edges, none crossing, 6,000 alive at the widest sweep line
+    let mut comb = vec![(0.0, 900.0)];
+    for tooth in 0..3000_u32 {
+        let x = 10.0 + f64::from(tooth) * 0.2;
+        comb.extend([(x, 100.0), (x + 0.1, 100.0), (x + 0.1, 900.0), (x + 0.2, 900.0)]);
+    }
+    // (case, path, the stroke it has); a stroke of width 5 around teeth 0.1 apart would be a hostile comb of its own
+    let stroke = || Some(Stroke::new(red).width(5.0));
+    let rows = [
+        ("a comb of 3,000 teeth", Path::polyline(comb, true)?, None),
+        ("a star polygon of 201 corners", star_polygon(201, 100)?, stroke()),
+        (
+            "a circle across the frame",
+            Path::circle((500.0, 500.0), 450.0)?,
+            stroke(),
+        ),
+    ];
+    for (case, path, stroke) in rows {
+        let mut drawing = Drawing::from(path).fill(red);
+        if let Some(stroke) = stroke {
+            drawing = drawing.stroke(stroke);
+        }
+        let drawing = drawing.with_size(1000.0, 1000.0);
+        let mesh = mesh_of(&drawing, 1000.0, 1000.0)?;
+        check_layout(&mesh)?;
+        assert!(!mesh.indices().is_empty(), "{case}");
+    }
+    Ok(())
+}

@@ -33,6 +33,11 @@ png = "=0.18.1"
 # mesh and a new release may make others; used only in crates/core/src/output/mesh.rs (`std` off: libm, no IO)
 lyon_tessellation = { version = "=1.0.23", default-features = false }
 
+# The tessellator is optimised in debug builds too: the tests of the work limit make it do about a second of release-build
+# work, which would take most of a minute unoptimised
+[profile.dev.package.lyon_tessellation]
+opt-level = 3
+
 # Warnings, not errors, so a newer compiler's new lint never breaks a user's install; the gate (`poe check`) runs clippy
 # and rustdoc with `-D warnings`, so every one fails it.
 [workspace.lints.rust]

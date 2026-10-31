@@ -453,6 +453,7 @@ counter, its limit and the step:
 |---|---|---|
 | `MAX_SHAPES` | 1,000,000 | shapes made by any step, the stack of a drawing shared twice counting its shapes twice |
 | `MAX_SEGMENTS` | 10,000,000 | path segments made (by `resample`, `dash`, `hatch`, `trace`, the flattening for pixels; one shape's stroke outline, too, may not make more than this many) |
+| `MAX_TESSELLATION_WORK` | 250,000,000 | for the mesh, each vertex the tessellator makes counting the most edges of its layer a sweep line crosses at once (about a second of work; a circle, a glyph or a stroke around one costs under a tenth of it for a million vertices) |
 | `MAX_FIELD_SAMPLES` | 16,777,216 | samples of a field or flow (tracing an analytic field, a distance field, hatching) |
 | `MAX_COPIES` | 1,000,000 | copies made by `repeat` |
 | `MAX_GLYPHS` | 100,000 | glyphs shaped by `text` |

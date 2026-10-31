@@ -461,7 +461,9 @@ A shape is up to two layers, its fill and then its stroke, each covering every p
 stroke show darker where they overlap, unlike the pixels' one group per shape. A vertex alpha is the colour's alpha
 times the shape's opacity; a layer of alpha 0 has no triangles. A shape with an empty path adds nothing but keeps its
 number as `item`; `order` is 0 where a shape has no `order` attribute. Curves are flattened as for the pixels, to
-within 0.01 design pixels.
+within 0.01 design pixels. A shape whose tessellation would take more than about a second (an outline that
+crosses itself thousands of times, or has thousands of edges side by side) raises `ParameterError` naming the shape and
+`MAX_TESSELLATION_WORK`; pixels and SVG draw it.
 
 `into=mesh` refills that mesh in place of a new one and returns it; a draw that raises leaves it as it was. In
 Python `vertices`, `indices` and `ranges` return `array.array` copies (typecodes `f` and `I`), a new one at each

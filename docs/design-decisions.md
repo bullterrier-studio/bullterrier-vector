@@ -238,8 +238,14 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   outline filled the same way was right everywhere (111 triangles for a zig-zag). Lyon computes in f32, so working
   in design pixels keeps its numbers the drawing's own, and a power-of-two scale then gives exactly twice the
   positions at twice the size. *Consequence:* a shape's fill and stroke are two layers, so at opacity below 1 their
-  overlap shows darker than in the pixels' one group; a vertex is charged to `MAX_SEGMENTS` like an edge, though
-  a fill whose outline crosses itself thousands of times can take minutes to tessellate before that count is reached.
+  overlap shows darker than in the pixels' one group; a vertex is charged to `MAX_SEGMENTS` like an edge, and to
+  `MAX_TESSELLATION_WORK` for the time it takes: lyon's sweep keeps every edge it crosses alive, so a star polygon of
+  1,000 corners (237,000 vertices) took 1.6 s and one of 3,200 took 24 s, and a comb of 20,000 teeth, which crosses
+  nothing, 3.6 s, though all are far below 10 million vertices. Measured in release builds, vertices times the
+  most edges a horizontal line crosses (known before tessellating) cost 1 to 4.3 ns a unit in a star, a stroked star, a
+  comb and a zig-zag alike, so a budget of 250 million units bounds a draw to about a second whatever the outline; the
+  pixels (`vello_cpu`) draw the same inputs in under 0.03 s, so the limit belongs to the mesh. A limit on edges alone
+  would refuse a circle of radius 2,000 (1,024 edges, nothing crossing) before a star polygon that takes a second (900).
 
 ## Names and formats
 

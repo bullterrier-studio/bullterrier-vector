@@ -100,7 +100,9 @@ impl Drawing {
     /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 100,000;
     /// naming the shape if a coordinate or the stroke width of one lies beyond 10 million pixels, in design pixels or
     /// at this size, or if the edges flattened for it, the edges of its stroke's outline or the vertices made for the
-    /// draw pass 10 million; otherwise as [`Drawing::to_svg`]. [`Error::Geometry`] if the tessellator fails, which a
+    /// draw pass 10 million, or if the tessellation of the draw would take more than about a second (the vertices it
+    /// makes times the edges alive at a sweep line pass 250 million: an outline that crosses itself thousands of times,
+    /// or has thousands of edges side by side); otherwise as [`Drawing::to_svg`]. [`Error::Geometry`] if the tessellator fails, which a
     /// finite drawing within these limits does not make it do.
     pub fn to_mesh(&self, size: Size, values: &Values, into: &mut Mesh) -> Result<(), Error> {
         let (width, height) = size.checked()?;
@@ -215,6 +217,7 @@ impl Maker<'_> {
         }
         let first_index = self.buffers.indices.len();
         let mut sink = Sink {
+            sweep: crossing_at_most(rings),
             buffers: self.buffers,
             view,
             paint,
@@ -251,6 +254,34 @@ fn as_index(count: usize) -> u32 {
     count as u32
 }
 
+/// The most edges of `rings` that a horizontal line crosses at once, which is how many edges the tessellator's sweep
+/// keeps alive: every vertex it makes costs time in proportion.
+fn crossing_at_most(rings: &[Ring]) -> usize {
+    // (y, whether an edge starts there); at one y the ends come first, so that edges meeting there count once, and an
+    // edge along a sweep line is alive at no other
+    let mut events: Vec<(f32, bool)> = Vec::new();
+    for ring in rings.iter().filter(|ring| ring.len() >= 3) {
+        for (from, to) in ring.iter().zip(ring.iter().cycle().skip(1)) {
+            let (top, bottom) = (from[1].min(to[1]), from[1].max(to[1]));
+            if top < bottom {
+                events.push((top, true));
+                events.push((bottom, false));
+            }
+        }
+    }
+    events.sort_by(|left, right| left.0.total_cmp(&right.0).then(left.1.cmp(&right.1)));
+    let (mut alive, mut most) = (0_usize, 0_usize);
+    for (_, starts) in events {
+        if starts {
+            alive += 1;
+            most = most.max(alive);
+        } else {
+            alive -= 1;
+        }
+    }
+    most
+}
+
 /// The vertex of the tessellator's output as the buffers hold it.
 struct Sink<'a> {
     buffers: &'a mut Buffers,
@@ -260,6 +291,8 @@ struct Sink<'a> {
     first_vertex: u32,
     work: &'a Work,
     name: &'a str,
+    /// The most edges of the layer that a sweep line crosses at once: what each vertex costs the tessellator.
+    sweep: usize,
     /// The refusal that stopped the tessellation, kept since the tessellator can only report a failure of its own.
     refused: Option<Error>,
 }
@@ -279,9 +312,13 @@ impl GeometryBuilder for Sink<'_> {
 
 impl FillGeometryBuilder for Sink<'_> {
     fn add_fill_vertex(&mut self, vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
-        // each vertex is charged as an edge is, before it is kept: a drawing whose outline crosses itself many times
-        // makes a vertex at every crossing, and the tessellation stops at the first refusal
-        if let Err(error) = self.work.made_segments(1, self.name) {
+        // each vertex is charged as an edge is, and for the sweep it costs, before it is kept: a drawing whose outline
+        // crosses itself many times makes a vertex at every crossing, and the tessellation stops at the first refusal
+        if let Err(error) = self
+            .work
+            .made_segments(1, self.name)
+            .and_then(|()| self.work.made_tessellation(self.sweep, self.name))
+        {
             self.refused = Some(error);
             return Err(GeometryBuilderError::TooManyVertices);
         }
