@@ -2,19 +2,19 @@
 
 use super::{Path, Segment, SubPath};
 use crate::Error;
-use crate::geometry::{Point, Scale, finite, finite_point};
+use crate::geometry::{Point, Scale, coordinate, coordinate_point, finite};
 use crate::math::sin_cos_deg;
 
 impl Path {
     /// This path moved `dx` to the right and `dy` down.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `dx` or `dy` is NaN or infinite, or the move would carry a point beyond what a
-    /// number holds.
+    /// [`Error::Parameter`] if `dx` or `dy` is NaN, infinite or beyond ±1e100, or the move would carry a point beyond
+    /// ±1e100.
     pub fn translate(&self, dx: f64, dy: f64) -> Result<Self, Error> {
-        let (dx, dy) = (finite("dx", dx)?, finite("dy", dy)?);
+        let (dx, dy) = (coordinate("dx", dx)?, coordinate("dy", dy)?);
         self.map_each(|point| Ok(Point::new(point.x + dx, point.y + dy)))?
-            .finite("dx")
+            .within_limit("dx")
     }
 
     /// This path turned `angle` degrees clockwise (on the screen, with `y` down) about `about`, which defaults to the
@@ -22,8 +22,8 @@ impl Path {
     /// empty path is returned as it is.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `angle` or `about` is NaN or infinite, or the turn would carry a point beyond what a
-    /// number holds.
+    /// [`Error::Parameter`] if `angle` is NaN or infinite, `about` is NaN, infinite or beyond ±1e100, or the turn
+    /// would carry a point beyond ±1e100.
     pub fn rotate(&self, angle: f64, about: Option<Point>) -> Result<Self, Error> {
         let angle = finite("angle", angle)?;
         let (sin, cos) = sin_cos_deg(angle);
@@ -33,7 +33,7 @@ impl Path {
                 from_pivot.x * sin + from_pivot.y * cos,
             )
         })?
-        .finite("angle")
+        .within_limit("angle")
     }
 
     /// This path scaled by `by` about `about`, which defaults to the middle of its bounds: every point moves to
@@ -42,8 +42,8 @@ impl Path {
     /// it is.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `by` has a factor that is 0, NaN or infinite, `about` is NaN or infinite, or the
-    /// scaling would carry a point beyond what a number holds.
+    /// [`Error::Parameter`] if `by` has a factor that is 0, NaN or infinite, `about` is NaN, infinite or beyond
+    /// ±1e100, or the scaling would carry a point beyond ±1e100.
     pub fn scale(&self, by: impl Into<Scale>, about: Option<Point>) -> Result<Self, Error> {
         let Scale { x, y } = by.into();
         for factor in [x, y] {
@@ -52,7 +52,7 @@ impl Path {
             }
         }
         self.about(about, |from_pivot| Point::new(from_pivot.x * x, from_pivot.y * y))?
-            .finite("by")
+            .within_limit("by")
     }
 
     /// This path with every point, on and off the curve, replaced by what `map` returns for it: the start of each
@@ -61,15 +61,15 @@ impl Path {
     ///
     /// # Errors
     /// What `map` returns as an error, unchanged (the first one, and no point after it is mapped);
-    /// [`Error::Parameter`] naming `fn` if `map` returns a point that is NaN or infinite.
+    /// [`Error::Parameter`] naming `fn` if `map` returns a point with a coordinate that is NaN, infinite or beyond ±1e100.
     pub fn map_points(&self, mut map: impl FnMut(Point) -> Result<Point, Error>) -> Result<Self, Error> {
-        self.map_each(|point| finite_point("fn", map(point)?))
+        self.map_each(|point| coordinate_point("fn", map(point)?))
     }
 
     /// This path with each point moved by `turn`, which is given the point's offset from the pivot and returns the
     /// new offset; the pivot is `about` or the middle of the bounds. An empty path has no pivot and no points.
     fn about(&self, about: Option<Point>, turn: impl Fn(Point) -> Point) -> Result<Self, Error> {
-        let about = about.map(|point| finite_point("about", point)).transpose()?;
+        let about = about.map(|point| coordinate_point("about", point)).transpose()?;
         if self.subpaths.is_empty() {
             return Ok(self.clone());
         }

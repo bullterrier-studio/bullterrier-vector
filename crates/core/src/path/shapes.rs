@@ -2,7 +2,7 @@
 
 use super::{Path, Segment, SubPath};
 use crate::Error;
-use crate::geometry::{Point, finite, finite_point};
+use crate::geometry::{MAX_COORDINATE, Point, coordinate, coordinate_point, is_coordinate};
 use crate::math::sin_cos_deg;
 
 /// The most corners a polygon or a star may have.
@@ -20,10 +20,11 @@ impl Path {
     /// One open straight segment from `start` to `end`.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if a coordinate is NaN or infinite.
+    /// [`Error::Parameter`] if a coordinate is
+    /// NaN, infinite or beyond ±1e100.
     pub fn line(start: impl Into<Point>, end: impl Into<Point>) -> Result<Self, Error> {
-        let start = finite_point("start", start)?;
-        let end = finite_point("end", end)?;
+        let start = coordinate_point("start", start)?;
+        let end = coordinate_point("end", end)?;
         Ok(Self::of(SubPath {
             start,
             segments: vec![Segment::Line(end)],
@@ -35,11 +36,12 @@ impl Path {
     /// A closed polyline whose last point is its first does not store that point twice.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if there are fewer than 2 points or a coordinate is NaN or infinite.
+    /// [`Error::Parameter`] if there are fewer than 2 points or a coordinate is
+    /// NaN, infinite or beyond ±1e100.
     pub fn polyline<P: Into<Point>>(points: impl IntoIterator<Item = P>, closed: bool) -> Result<Self, Error> {
         let points = points
             .into_iter()
-            .map(|point| finite_point("points", point))
+            .map(|point| coordinate_point("points", point))
             .collect::<Result<Vec<_>, _>>()?;
         let Some((&start, rest)) = points.split_first().filter(|(_, rest)| !rest.is_empty()) else {
             return Err(Error::parameter(
@@ -59,12 +61,13 @@ impl Path {
     /// clockwise. A `radius` above 0 rounds the corners with quarter arcs.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if a number is NaN or infinite, `width` or `height` is negative, or `radius` is negative
+    /// [`Error::Parameter`] if `x`, `y`, `width`, `height` or `radius` is NaN, infinite or beyond ±1e100, `width` or `height` is
+    /// negative, or `radius` is negative
     /// or more than half the shorter side.
     pub fn rect(x: f64, y: f64, width: f64, height: f64, radius: f64) -> Result<Self, Error> {
-        let (x, y) = (finite("x", x)?, finite("y", y)?);
-        let (width, height) = (finite("width", width)?, finite("height", height)?);
-        let radius = finite("radius", radius)?;
+        let (x, y) = (coordinate("x", x)?, coordinate("y", y)?);
+        let (width, height) = (coordinate("width", width)?, coordinate("height", height)?);
+        let radius = coordinate("radius", radius)?;
         for (name, size) in [("width", width), ("height", height)] {
             if size < 0.0 {
                 return Err(Error::parameter(name, format!("must be 0 or more, got {size}")));
@@ -119,16 +122,16 @@ impl Path {
             segments,
             closed: false,
         };
-        Self::of(sub.closed()).finite("width")
+        Self::of(sub.closed()).within_limit("width")
     }
 
     /// A closed circle of four cubic arcs, starting at the top and running clockwise.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `center` is NaN or infinite, `radius` is not a finite number above 0, or the circle
-    /// would reach beyond what a number holds.
+    /// [`Error::Parameter`] if `center` is NaN, infinite or beyond ±1e100, `radius` is not a number above 0 and
+    /// within ±1e100, or the circle would reach beyond ±1e100.
     pub fn circle(center: impl Into<Point>, radius: f64) -> Result<Self, Error> {
-        let center = finite_point("center", center)?;
+        let center = coordinate_point("center", center)?;
         let radius = positive("radius", radius)?;
         let (cx, cy) = (center.x, center.y);
         let handle = KAPPA * radius;
@@ -159,33 +162,34 @@ impl Path {
             ],
             closed: false,
         };
-        Self::of(sub.closed()).finite("radius")
+        Self::of(sub.closed()).within_limit("radius")
     }
 
     /// A closed regular polygon of `sides` corners on a circle of `radius` round `center`: the first corner at the
     /// top, the rest clockwise.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `center` is NaN or infinite, `radius` is not a finite number above 0, `sides` is not
-    /// from 3 to 100 000, or the corners would reach beyond what a number holds.
+    /// [`Error::Parameter`] if `center` is NaN, infinite or beyond ±1e100, `radius` is not a number above 0 and
+    /// within ±1e100, `sides` is not from 3 to 100 000, or the corners would reach beyond ±1e100.
     pub fn polygon(center: impl Into<Point>, radius: f64, sides: i64) -> Result<Self, Error> {
-        let center = finite_point("center", center)?;
+        let center = coordinate_point("center", center)?;
         let radius = positive("radius", radius)?;
         let count = count("sides", sides, MIN_SIDES)?;
-        Self::round_the_clock(center, count, |_| radius).finite("radius")
+        Self::round_the_clock(center, count, |_| radius).within_limit("radius")
     }
 
     /// A closed star of `points` tips on a circle of radius `outer` round `center`, with a notch of radius `inner`
     /// between each two tips: a tip at the top, the rest clockwise. `inner` may exceed `outer`.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `center` is NaN or infinite, `outer` or `inner` is not a finite number above 0,
-    /// `points` is not from 2 to 100 000, or the star would reach beyond what a number holds.
+    /// [`Error::Parameter`] if `center` is NaN, infinite or beyond ±1e100, `outer` or `inner` is not a number above 0
+    /// and within ±1e100, `points` is not from 2 to 100 000, or the star would reach beyond ±1e100.
     pub fn star(center: impl Into<Point>, outer: f64, inner: f64, points: i64) -> Result<Self, Error> {
-        let center = finite_point("center", center)?;
+        let center = coordinate_point("center", center)?;
         let (outer, inner) = (positive("outer", outer)?, positive("inner", inner)?);
         let count = count("points", points, MIN_POINTS)?;
-        Self::round_the_clock(center, 2 * count, |index| if index % 2 == 0 { outer } else { inner }).finite("outer")
+        Self::round_the_clock(center, 2 * count, |index| if index % 2 == 0 { outer } else { inner })
+            .within_limit("outer")
     }
 
     /// A closed polygon of `corners` vertices evenly round `center`, the first straight up, vertex `index` at
@@ -213,18 +217,19 @@ impl Path {
         }
     }
 
-    /// This path, or the error naming `parameter` if a computed coordinate is NaN or infinite.
-    pub(super) fn finite(self, parameter: &str) -> Result<Self, Error> {
-        if self
+    /// This path, or the error naming `parameter` if a computed coordinate is NaN, infinite or beyond
+    /// `MAX_COORDINATE`.
+    pub(super) fn within_limit(self, parameter: &str) -> Result<Self, Error> {
+        let beyond = self
             .all_points()
-            .all(|point| point.x.is_finite() && point.y.is_finite())
-        {
-            Ok(self)
-        } else {
-            Err(Error::parameter(
+            .flat_map(|point| [point.x, point.y])
+            .find(|&value| !is_coordinate(value));
+        match beyond {
+            None => Ok(self),
+            Some(value) => Err(Error::parameter(
                 parameter,
-                "too large: the outline would reach beyond what a finite number holds",
-            ))
+                format!("too large: a coordinate would be {value}, beyond ±{MAX_COORDINATE:e}"),
+            )),
         }
     }
 
@@ -240,14 +245,14 @@ impl Path {
     }
 }
 
-/// `value`, or the error naming `parameter` unless it is a finite number above 0.
+/// `value`, or the error naming `parameter` unless it is a number above 0 and within `MAX_COORDINATE`.
 fn positive(parameter: &str, value: f64) -> Result<f64, Error> {
-    if value.is_finite() && value > 0.0 {
-        Ok(value)
+    if value > 0.0 {
+        coordinate(parameter, value)
     } else {
         Err(Error::parameter(
             parameter,
-            format!("must be a finite number above 0, got {value}"),
+            format!("must be a number above 0, got {value}"),
         ))
     }
 }

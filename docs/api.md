@@ -93,7 +93,7 @@ Building returns a new path each call:
 | `Path.circle` | `Path.circle(center, radius)` | a closed circle | `radius` not above 0 |
 | `Path.polygon` | `Path.polygon(center, radius, sides)` | a regular polygon, a corner at the top | `sides` outside 3 to 100000; `radius` not above 0 |
 | `Path.star` | `Path.star(center, outer, inner, *, points=5)` | a star, a tip at the top; `inner` may exceed `outer` | `points` outside 2 to 100000; a radius not above 0 |
-| `Path.from_svg_path` | `Path.from_svg_path(data)` | the path an SVG `d` attribute describes; arcs become cubics, one per quarter turn at most; empty data is an empty path | `data` malformed, or a coordinate not finite (names the first bad command and its byte offset) |
+| `Path.from_svg_path` | `Path.from_svg_path(data)` | the path an SVG `d` attribute describes; arcs become cubics, one per quarter turn at most; empty data is an empty path | `data` malformed, or a coordinate not finite or beyond ±1e100 (names the first bad command and its byte offset) |
 
 Measuring and hit-testing (on `Path` only):
 
@@ -114,6 +114,8 @@ a point it returns that is not finite is a `ParameterError` naming `fn`.
 
 Settled edge cases:
 - **Plain numbers** are finite or a `ParameterError` naming the argument: a NaN or an infinity never reaches a result.
+- **Coordinates** are within ±1e100: a point, size or radius beyond it, or one a transform, arc or constructor would
+  produce, is a `ParameterError` naming the argument and the value.
 - **Corners and boundaries.** `tangent_at` at a corner is the direction *leaving* it (the next segment's); at `at=1` it is
   the last segment's, and on a closed sub-path the same as at 0; segments of no length are skipped. A position on the
   boundary between two sub-paths belongs to the later one. `locate` of a point equally near several places gives the

@@ -14,7 +14,7 @@ impl Path {
     ///
     /// # Errors
     /// [`Error::Parameter`] if `start` or `end` is outside 0 to 1 or NaN, if `start` is after `end` (to travel the
-    /// other way, [`Path::reverse`] the result), or if `near` is NaN or infinite; [`Error::Geometry`] if the path is
+    /// other way, [`Path::reverse`] the result), or if `near` is NaN, infinite or beyond ±1e100; [`Error::Geometry`] if the path is
     /// empty.
     pub fn slice(&self, start: f64, end: f64, near: Option<Point>) -> Result<Self, Error> {
         let start = fraction("start", start)?;

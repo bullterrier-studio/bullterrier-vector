@@ -3,10 +3,11 @@
 use super::arc::arc_segments;
 use super::{Path, Segment, SubPath};
 use crate::Error;
-use crate::geometry::Point;
+use crate::geometry::{MAX_COORDINATE, Point, is_coordinate};
+use std::borrow::Cow;
 
 /// Why a command could not be read, said without the command and the place, which the caller adds.
-type Reason = &'static str;
+type Reason = Cow<'static, str>;
 
 impl Path {
     /// The path an SVG path data string (the `d` attribute of a `<path>`) describes: all of `MmLlHhVvCcSsQqTtAaZz`,
@@ -18,7 +19,7 @@ impl Path {
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `data`, if the data does not follow SVG's grammar or a coordinate it gives or
-    /// works out is not finite. The message names the first bad command and its byte offset.
+    /// works out is not finite or is beyond 1e100 in either direction. The message names the first bad command and its byte offset.
     pub fn from_svg_path(data: &str) -> Result<Self, Error> {
         Reader::new(data).read()
     }
@@ -70,7 +71,7 @@ impl<'a> Reader<'a> {
         self.skip_whitespace();
         while let Some(letter) = self.peek() {
             let offset = self.at;
-            let fail = |reason: Reason| failure(letter, offset, reason);
+            let fail = |reason: &'static str| failure(letter, offset, reason);
             let Some(count) = arity(letter) else {
                 return Err(fail("not a path command"));
             };
@@ -149,7 +150,7 @@ impl<'a> Reader<'a> {
         let value = match self.peek() {
             Some('0') => 0.0,
             Some('1') => 1.0,
-            _ => return Err("expected an arc flag, 0 or 1"),
+            _ => return Err("expected an arc flag, 0 or 1".into()),
         };
         self.at += 1;
         Ok(value)
@@ -169,7 +170,7 @@ impl<'a> Reader<'a> {
             fraction = self.digits();
         }
         if whole + fraction == 0 {
-            return Err("expected a number");
+            return Err("expected a number".into());
         }
         if matches!(self.peek(), Some('e' | 'E')) {
             self.at += 1;
@@ -177,7 +178,7 @@ impl<'a> Reader<'a> {
                 self.at += 1;
             }
             if self.digits() == 0 {
-                return Err("expected digits in the exponent");
+                return Err("expected digits in the exponent".into());
             }
         }
         let value: f64 = self
@@ -188,7 +189,7 @@ impl<'a> Reader<'a> {
         if value.is_finite() {
             Ok(value)
         } else {
-            Err("a number is out of range")
+            Err("a number is out of range".into())
         }
     }
 
@@ -294,10 +295,14 @@ fn reflection(pen: Point, previous: Option<Point>) -> Point {
 }
 
 fn checked(point: Point) -> Result<Point, Reason> {
-    if point.x.is_finite() && point.y.is_finite() {
+    if is_coordinate(point.x) && is_coordinate(point.y) {
         Ok(point)
     } else {
-        Err("a coordinate is out of range")
+        Err(format!(
+            "a coordinate ({}, {}) is not within ±{MAX_COORDINATE:e}",
+            point.x, point.y
+        )
+        .into())
     }
 }
 
@@ -310,7 +315,7 @@ fn checked_segment(segment: Segment) -> Result<(), Reason> {
 }
 
 /// The error for `letter`'s group that began at byte `offset`.
-fn failure(letter: char, offset: usize, reason: Reason) -> Error {
+fn failure(letter: char, offset: usize, reason: impl std::fmt::Display) -> Error {
     Error::parameter("data", format!("command `{letter}` at byte {offset}: {reason}"))
 }
 

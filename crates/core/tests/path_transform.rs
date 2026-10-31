@@ -51,8 +51,8 @@ fn translating_by_a_number_that_is_not_one_is_refused_naming_it() -> Outcome {
     // the same goes for an empty path, which would otherwise be left alone
     parameter_refusal(Path::new().translate(f64::NAN, 1.0))?;
     // a move that carries a point beyond what a number holds
-    let far = Path::line((1.5e308, 0.0), (2.0, 0.0))?;
-    let (name, message) = parameter_refusal(far.translate(1.5e308, 0.0))?;
+    let far = Path::line((9e99, 0.0), (2.0, 0.0))?;
+    let (name, message) = parameter_refusal(far.translate(9e99, 0.0))?;
     assert_eq!(
         (name.as_str(), message.contains("too large")),
         ("dx", true),
@@ -146,9 +146,8 @@ fn turning_by_something_that_is_not_a_number_is_refused_naming_it() -> Outcome {
     assert_eq!((name.as_str(), message.contains("NaN")), ("about", true), "{message}");
     parameter_refusal(Path::new().rotate(f64::NAN, None))?;
     parameter_refusal(Path::new().rotate(30.0, Some(Point::new(f64::NAN, 0.0))))?;
-    // a turn that carries a point beyond what a number holds: the corner (1.7e308, 1.7e308) turned an eighth reaches
-    // 2.4e308 down
-    let far = Path::line((1.7e308, 1.7e308), (0.0, 0.0))?;
+    // a turn that carries a point beyond the limit: the corner (9e99, 9e99) turned an eighth reaches 1.27e100 down
+    let far = Path::line((9e99, 9e99), (0.0, 0.0))?;
     let (name, message) = parameter_refusal(far.rotate(45.0, Some(Point::new(0.0, 0.0))))?;
     assert_eq!(
         (name.as_str(), message.contains("too large")),
@@ -327,7 +326,7 @@ fn scaling_by_zero_or_something_that_is_not_a_number_is_refused_naming_it() -> O
     }
     line.scale((-1.0, 1e-3), None)?;
     // a factor that carries a point beyond what a number holds
-    let (name, message) = parameter_refusal(Path::line((1.0, 1.0), (1e300, 0.0))?.scale(1e10, None))?;
+    let (name, message) = parameter_refusal(Path::line((1.0, 1.0), (1e90, 0.0))?.scale(1e20, None))?;
     assert_eq!(
         (name.as_str(), message.contains("too large")),
         ("by", true),

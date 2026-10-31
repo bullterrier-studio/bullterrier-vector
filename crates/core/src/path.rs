@@ -1,7 +1,7 @@
 //! `Path`: a Bezier outline as a plain value.
 
 use crate::Error;
-use crate::geometry::{Point, finite_point};
+use crate::geometry::{Point, coordinate_point};
 
 mod arc;
 mod bounds;
@@ -61,7 +61,8 @@ impl SubPath {
 }
 
 /// A Bezier outline: one or more sub-paths, each open or closed, made of straight, quadratic and cubic segments with
-/// finite coordinates (design pixels, `y` pointing down).
+/// coordinates that are finite and within ±1e100 (design pixels, `y` pointing down): the squares and sums that
+/// measuring does stay finite.
 ///
 /// A `Path` is a plain value. Every verb leaves the path it is called on alone and returns a new one. A path is built
 /// from [`Path::start`] (or [`Path::new`] and [`Path::move_to`]) with [`Path::line_to`], [`Path::quad_to`],
@@ -81,7 +82,7 @@ impl Path {
     /// A path with one sub-path that holds only `point`.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `point` is NaN or infinite.
+    /// [`Error::Parameter`] if `point` is NaN, infinite or beyond ±1e100.
     pub fn start(point: impl Into<Point>) -> Result<Self, Error> {
         Self::new().move_to(point)
     }
@@ -89,9 +90,9 @@ impl Path {
     /// This path followed by a new sub-path that holds only `point`.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `point` is NaN or infinite.
+    /// [`Error::Parameter`] if `point` is NaN, infinite or beyond ±1e100.
     pub fn move_to(&self, point: impl Into<Point>) -> Result<Self, Error> {
-        let point = finite_point("point", point)?;
+        let point = coordinate_point("point", point)?;
         let mut next = self.clone();
         next.subpaths.push(SubPath::open(point));
         Ok(next)
@@ -102,9 +103,10 @@ impl Path {
     /// After [`Path::close`] the segment starts a new sub-path at the start of the closed one, as in SVG.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if there is no sub-path yet (call [`Path::move_to`] first) or `point` is NaN or infinite.
+    /// [`Error::Parameter`] if there is no sub-path yet (call [`Path::move_to`] first) or `point` is
+    /// NaN, infinite or beyond ±1e100.
     pub fn line_to(&self, point: impl Into<Point>) -> Result<Self, Error> {
-        let point = finite_point("point", point)?;
+        let point = coordinate_point("point", point)?;
         self.with_segment("line_to", Segment::Line(point))
     }
 
@@ -113,8 +115,8 @@ impl Path {
     /// # Errors
     /// As [`Path::line_to`], naming `control` or `point`.
     pub fn quad_to(&self, control: impl Into<Point>, point: impl Into<Point>) -> Result<Self, Error> {
-        let control = finite_point("control", control)?;
-        let point = finite_point("point", point)?;
+        let control = coordinate_point("control", control)?;
+        let point = coordinate_point("point", point)?;
         self.with_segment("quad_to", Segment::Quad(control, point))
     }
 
@@ -128,9 +130,9 @@ impl Path {
         control2: impl Into<Point>,
         point: impl Into<Point>,
     ) -> Result<Self, Error> {
-        let control1 = finite_point("control1", control1)?;
-        let control2 = finite_point("control2", control2)?;
-        let point = finite_point("point", point)?;
+        let control1 = coordinate_point("control1", control1)?;
+        let control2 = coordinate_point("control2", control2)?;
+        let point = coordinate_point("point", point)?;
         self.with_segment("curve_to", Segment::Cubic(control1, control2, point))
     }
 

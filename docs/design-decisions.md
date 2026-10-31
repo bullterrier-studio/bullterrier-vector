@@ -230,6 +230,12 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   as the same value, never with an exponent, and `-0` as `0`, so `Path.from_svg_path(p.to_svg_path()) == p` exactly,
   at any size. *Reason:* a fixed number of decimals (the skeleton's six) loses precision on small paths and bloats
   large ones.
+- **A coordinate is within ±1e100** (2026-10-31, from the V2a review). Every coordinate a path holds, given or worked
+  out (a transform, an arc, a constructor, `map_points`), lies within ±1e100 design pixels, and a query point too;
+  beyond that is a `ParameterError` naming the value, where the number enters. *Reason:* measuring squares
+  differences, so from about 1.4e154 the length overflowed to infinity, `slice` panicked and `point_at(0)` was not
+  the start; 1e100 leaves room for squares, sums of squares and sums of lengths over any number of segments, and no
+  drawing comes near it. *Consequence:* a result never holds a NaN or an infinity, with no check after the fact.
 
 ## Engineering
 

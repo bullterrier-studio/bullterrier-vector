@@ -61,6 +61,13 @@ impl From<(f64, f64)> for Scale {
     }
 }
 
+/// The largest absolute value a coordinate may have, in design pixels.
+// constant: 1e100 leaves the headroom measuring needs. A difference of two coordinates is below 2e100, so its square
+// and the sum of two squares (8e200) are far below the 1.8e308 a number holds, as are the sums of lengths over any
+// number of segments memory allows (a length is below 3e100); a limit near the square root of the largest number
+// (1.3e154) would already overflow. No drawing is anywhere near 1e100 design pixels.
+pub(crate) const MAX_COORDINATE: f64 = 1e100;
+
 /// `value`, or the error naming `parameter` if it is NaN or infinite.
 pub(crate) fn finite(parameter: &str, value: f64) -> Result<f64, Error> {
     if value.is_finite() {
@@ -73,15 +80,36 @@ pub(crate) fn finite(parameter: &str, value: f64) -> Result<f64, Error> {
     }
 }
 
-/// `point`, or the error naming `parameter` if a coordinate is NaN or infinite.
-pub(crate) fn finite_point(parameter: &str, point: impl Into<Point>) -> Result<Point, Error> {
+/// Whether `value` is a number a coordinate may be: finite and within [`MAX_COORDINATE`].
+pub(crate) fn is_coordinate(value: f64) -> bool {
+    value.abs() <= MAX_COORDINATE
+}
+
+/// `value` as a position or a size, or the error naming `parameter` unless it is a number within `MAX_COORDINATE`
+/// of 0.
+pub(crate) fn coordinate(parameter: &str, value: f64) -> Result<f64, Error> {
+    if is_coordinate(value) {
+        Ok(value)
+    } else {
+        Err(Error::parameter(
+            parameter,
+            format!("must be a number within ±{MAX_COORDINATE:e}, got {value}"),
+        ))
+    }
+}
+
+/// `point`, or the error naming `parameter` unless both coordinates are numbers within `MAX_COORDINATE` of 0.
+pub(crate) fn coordinate_point(parameter: &str, point: impl Into<Point>) -> Result<Point, Error> {
     let point = point.into();
-    if point.x.is_finite() && point.y.is_finite() {
+    if is_coordinate(point.x) && is_coordinate(point.y) {
         Ok(point)
     } else {
         Err(Error::parameter(
             parameter,
-            format!("must be finite numbers, got ({}, {})", point.x, point.y),
+            format!(
+                "must be numbers within ±{MAX_COORDINATE:e}, got ({}, {})",
+                point.x, point.y
+            ),
         ))
     }
 }

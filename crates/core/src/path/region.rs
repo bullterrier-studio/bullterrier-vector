@@ -3,7 +3,7 @@
 use super::curve::flatten;
 use super::{Path, SubPath};
 use crate::Error;
-use crate::geometry::{Point, finite_point};
+use crate::geometry::{Point, coordinate_point};
 
 impl Path {
     /// Whether `point` is inside the region the outline fills, by the nonzero rule: the outline winds round it at
@@ -12,9 +12,9 @@ impl Path {
     /// the outline may be either.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `point` is NaN or infinite.
+    /// [`Error::Parameter`] if `point` is NaN, infinite or beyond ±1e100.
     pub fn contains(&self, point: impl Into<Point>) -> Result<bool, Error> {
-        let point = finite_point("point", point)?;
+        let point = coordinate_point("point", point)?;
         let winding: i32 = self
             .subpaths
             .iter()

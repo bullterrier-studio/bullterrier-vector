@@ -3,7 +3,7 @@
 use super::Path;
 use super::walk::Walk;
 use crate::Error;
-use crate::geometry::{Point, finite_point, fraction};
+use crate::geometry::{Point, coordinate_point, fraction};
 
 impl Path {
     /// The length of the outline in design pixels, measured along a flattening that stays within a hundredth of a
@@ -21,7 +21,7 @@ impl Path {
     /// [`Path::locate`] and [`Path::slice`] too. A path with no length has one point, its first.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `at` is outside 0 to 1 or NaN, or `near` is NaN or infinite; [`Error::Geometry`] if
+    /// [`Error::Parameter`] if `at` is outside 0 to 1 or NaN, or `near` is NaN, infinite or beyond ±1e100; [`Error::Geometry`] if
     /// the path is empty.
     pub fn point_at(&self, at: f64, near: Option<Point>) -> Result<Point, Error> {
         let at = fraction("at", at)?;
@@ -37,7 +37,7 @@ impl Path {
     /// a closed one the same as at 0. Segments of no length are passed over.
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `at` is outside 0 to 1 or NaN, or `near` is NaN or infinite; [`Error::Geometry`] if
+    /// [`Error::Parameter`] if `at` is outside 0 to 1 or NaN, or `near` is NaN, infinite or beyond ±1e100; [`Error::Geometry`] if
     /// the path is empty or has no length, and so no direction.
     pub fn tangent_at(&self, at: f64, near: Option<Point>) -> Result<Point, Error> {
         let at = fraction("at", at)?;
@@ -50,7 +50,7 @@ impl Path {
 
     /// The walk of a path that has something on it, from the point nearest `near` if there is one.
     pub(super) fn nonempty_walk(&self, verb: &str, near: Option<Point>) -> Result<Walk<'_>, Error> {
-        let near = near.map(|near| finite_point("near", near)).transpose()?;
+        let near = near.map(|near| coordinate_point("near", near)).transpose()?;
         if self.subpaths.is_empty() {
             Err(Error::geometry(verb, "the path is empty"))
         } else {
@@ -63,9 +63,9 @@ impl Path {
     /// is located at 0. `near` is as for [`Path::point_at`].
     ///
     /// # Errors
-    /// [`Error::Parameter`] if `point` or `near` is NaN or infinite; [`Error::Geometry`] if the path is empty.
+    /// [`Error::Parameter`] if `point` or `near` is NaN, infinite or beyond ±1e100; [`Error::Geometry`] if the path is empty.
     pub fn locate(&self, point: impl Into<Point>, near: Option<Point>) -> Result<f64, Error> {
-        let point = finite_point("point", point)?;
+        let point = coordinate_point("point", point)?;
         Ok(self.nonempty_walk("locate", near)?.locate(point))
     }
 }

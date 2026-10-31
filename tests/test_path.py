@@ -503,6 +503,54 @@ def test_a_bad_call_raises_its_error_class_naming_the_argument_and_the_value(
     assert type(raised.value) is error
 
 
+# A coordinate beyond ±1e100 is refused where it enters: the value written out in full is in the message.
+_FAR = 1e200
+_FAR_TEXT = "1000000000000000"
+
+
+@pytest.mark.parametrize(
+    ("call", "name"),
+    [
+        pytest.param(lambda: Path().move_to((_FAR, 0)), "point", id="move_to"),
+        pytest.param(lambda: Path().move_to((0, 0)).line_to((0, -_FAR)), "point", id="line_to"),
+        pytest.param(lambda: Path().move_to((0, 0)).quad_to((_FAR, 0), (1, 1)), "control", id="quad_to control"),
+        pytest.param(
+            lambda: Path().move_to((0, 0)).curve_to((1, 1), (0, _FAR), (2, 2)), "control2", id="curve_to control2"
+        ),
+        pytest.param(lambda: Path.line((0, 0), (_FAR, 0)), "end", id="line"),
+        pytest.param(lambda: Path.polyline([(0, 0), (_FAR, _FAR)]), "points", id="polyline"),
+        pytest.param(lambda: Path.rect(_FAR, 0, 1, 1), "x", id="rect x"),
+        pytest.param(lambda: Path.circle((0, 0), _FAR), "radius", id="circle radius"),
+        pytest.param(lambda: Path.polygon((_FAR, 0), 10, 5), "center", id="polygon center"),
+        pytest.param(lambda: Path.star((0, 0), 10, _FAR, points=5), "inner", id="star inner"),
+        pytest.param(lambda: Path.from_svg_path("M0 0 M1 0 L1e200 0"), "data", id="path data"),
+        pytest.param(lambda: line().translate(_FAR, 0), "dx", id="translate"),
+        pytest.param(lambda: line().rotate(30, about=(_FAR, 0)), "about", id="rotate about"),
+        pytest.param(lambda: line().scale(2, about=(0, _FAR)), "about", id="scale about"),
+        pytest.param(lambda: line().map_points(lambda point: (_FAR, 0)), "fn", id="map_points"),
+        pytest.param(lambda: line().locate((_FAR, 0)), "point", id="locate"),
+        pytest.param(lambda: line().contains((0, _FAR)), "point", id="contains"),
+        pytest.param(lambda: line().point_at(0.5, near=(_FAR, 0)), "near", id="point_at near"),
+        pytest.param(lambda: line().tangent_at(0.5, near=(_FAR, 0)), "near", id="tangent_at near"),
+        pytest.param(lambda: line().slice(0, 0.5, near=(_FAR, 0)), "near", id="slice near"),
+        pytest.param(lambda: Path.line((0, 0), (9e99, 0)).translate(9e99, 0), "dx", id="translate past the limit"),
+    ],
+)
+def test_a_coordinate_beyond_the_limit_is_a_parameter_error_naming_it(call: Callable[[], object], name: str):
+    with pytest.raises(btvec.ParameterError) as raised:
+        call()
+    message = str(raised.value)
+    assert name in message, message
+    assert "1e100" in message or "too large" in message, message
+
+
+def test_a_path_within_the_limit_measures_like_any_other():
+    big = Path.line((-1e99, 0), (1e99, 0))
+    assert big.length == pytest.approx(2e99)
+    assert big.point_at(0) == Point(-1e99, 0)
+    assert big.slice(0, 0.5).point_at(1).x == pytest.approx(0, abs=1e87)
+
+
 def test_both_errors_are_catchable_as_the_package_error():
     with pytest.raises(btvec.BullterrierVectorError):
         line().point_at(2)

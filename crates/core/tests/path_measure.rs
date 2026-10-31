@@ -518,7 +518,8 @@ fn locating_is_refused_on_an_empty_path_and_for_points_that_are_not_numbers() ->
     assert_eq!((name.as_str(), message.contains("NaN")), ("point", true), "{message}");
     let (name, message) = parameter_refusal(line.locate((1.0, f64::INFINITY), None))?;
     assert_eq!((name.as_str(), message.contains("inf")), ("point", true), "{message}");
-    line.locate((1e300, -1e300), None)?;
+    // a far point is located as well as a near one, up to the limit
+    line.locate((1e99, -1e99), None)?;
     Ok(())
 }
 

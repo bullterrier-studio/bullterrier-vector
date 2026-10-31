@@ -436,7 +436,7 @@ fn a_circle_refuses_a_radius_that_is_not_above_zero_or_a_centre_that_is_not_fini
         ((f64::NAN, 0.0), 1.0, "center", "NaN"),
         ((0.0, f64::INFINITY), 1.0, "center", "inf"),
         // the arcs would reach beyond what a number holds
-        ((1.0e308, 0.0), 1.0e308, "radius", "finite"),
+        ((9.0e99, 0.0), 9.0e99, "radius", "too large"),
     ];
     for (centre, radius, argument, value) in table {
         let (name, message) = parameter_refusal(Path::circle(centre, radius))?;
@@ -1098,7 +1098,7 @@ fn malformed_data_is_refused_naming_the_first_bad_command_and_its_byte() -> Outc
         ("M0 0 L1 2 Z 5", "`Z` at byte 10"),
         ("M0 0 Z,", "`Z` at byte 5"),
         ("M0 0 Q1 2 3", "`Q` at byte 5"),
-        ("M1e308 0 l1e308 0", "`l` at byte 9"),
+        ("M9e99 0 l9e99 0", "`l` at byte 8"),
         ("M0 0 L1 2 \u{e9}", "`\u{e9}` at byte 10"),
     ];
     for (data, carries) in table {
