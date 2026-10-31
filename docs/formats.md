@@ -452,7 +452,7 @@ counter, its limit and the step:
 | Counter | Limit | Counts, per draw |
 |---|---|---|
 | `MAX_SHAPES` | 1,000,000 | shapes made by any step, the stack of a drawing shared twice counting its shapes twice |
-| `MAX_SEGMENTS` | 10,000,000 | path segments made (by `resample`, `dash`, `hatch`, `trace`, the flattening for pixels, a stroke's outline included) |
+| `MAX_SEGMENTS` | 10,000,000 | path segments made (by `resample`, `dash`, `hatch`, `trace`, the flattening for pixels; one shape's stroke outline, too, may not make more than this many) |
 | `MAX_FIELD_SAMPLES` | 16,777,216 | samples of a field or flow (tracing an analytic field, a distance field, hatching) |
 | `MAX_COPIES` | 1,000,000 | copies made by `repeat` |
 | `MAX_GLYPHS` | 100,000 | glyphs shaped by `text` |

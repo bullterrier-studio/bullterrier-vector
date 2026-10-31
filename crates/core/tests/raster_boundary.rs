@@ -137,9 +137,10 @@ fn flattening_more_than_ten_million_edges_in_a_draw_is_refused_naming_the_shape_
 }
 
 #[test]
-fn the_outline_of_a_stroke_counts_against_max_segments_too() -> Outcome {
+fn the_outline_of_one_shapes_stroke_is_refused_past_max_segments() -> Outcome {
     // 1,000 points that turn back on themselves, joined round at the widest stroke the bound allows: each join is an arc
-    // of about 25,000 edges, 25 million in all, though the path itself is 1,000 edges; the shape is named
+    // of about 25,000 edges, 25 million in all, though the path itself is 1,000 edges; the shape is named. (The outlines of
+    // different shapes are not added up: thousands of stroked circles are millions of edges and are drawn)
     let zigzag: Vec<(f64, f64)> = (0..1000u32)
         .map(|index| (500.0 + f64::from(index % 2) * 3.0, 500.0 + f64::from(index) * 0.001))
         .collect();

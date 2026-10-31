@@ -23,8 +23,8 @@ pub(crate) const MAX_DEPTH: usize = 128;
 // written by hand and evaluates in microseconds
 pub(crate) const MAX_EXPR_NODES: usize = 10_000;
 
-/// The most straight edges one draw's pixel output may flatten curves and stroke outlines into, counted as they are
-/// made.
+/// The most straight edges one draw's pixel output may flatten curves into, counted as they are made; also the most
+/// that the outline of one shape's stroke may have.
 // constant: formats.md "Limits and security" sets MAX_SEGMENTS to 10,000,000
 pub(crate) const MAX_SEGMENTS: usize = 10_000_000;
 
