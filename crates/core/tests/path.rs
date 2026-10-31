@@ -2,10 +2,12 @@
 //! bounds. Geometry is checked against closed forms, written here independently of the implementation, on the path
 //! data `to_svg_path` writes.
 
+mod common;
+
 use bullterrier_vector::{Error, Path, Point, Rect};
+use common::{Outcome, distance, log_uniform, parameter_refusal};
 use proptest::prelude::*;
 
-type Outcome = Result<(), Box<dyn std::error::Error>>;
 /// A path command: its letter and the numbers after it.
 type Command = (char, Vec<f64>);
 /// The four points of a cubic arc: where it starts, its two handles, where it ends.
@@ -33,16 +35,6 @@ fn commands(data: &str) -> Result<Vec<Command>, Box<dyn std::error::Error>> {
         }
     }
     Ok(found)
-}
-
-/// The parameter and message of the `Error::Parameter` an operation returned; an error if it succeeded or failed
-/// otherwise.
-fn parameter_refusal<T>(outcome: Result<T, Error>) -> Result<(String, String), Box<dyn std::error::Error>> {
-    match outcome {
-        Err(Error::Parameter { parameter, message }) => Ok((parameter, message)),
-        Err(other) => Err(format!("expected a parameter error, got {other}").into()),
-        Ok(_) => Err("expected a parameter error, but it succeeded".into()),
-    }
 }
 
 #[test]
@@ -270,16 +262,6 @@ fn shoelace_area(corners: &[(f64, f64)]) -> f64 {
         doubled += x * next_y - next_x * y;
     }
     doubled / 2.0
-}
-
-fn distance(from: (f64, f64), to: (f64, f64)) -> f64 {
-    let (dx, dy) = (to.0 - from.0, to.1 - from.1);
-    (dx * dx + dy * dy).sqrt()
-}
-
-/// Numbers spread evenly over the orders of magnitude from `10^low` to `10^high`: sizes are log-uniform.
-fn log_uniform(low: f64, high: f64) -> impl Strategy<Value = f64> {
-    (low..high).prop_map(|exponent| libm::pow(10.0, exponent))
 }
 
 /// The handle length that makes a cubic quarter arc follow a circle: 4/3 (sqrt 2 - 1) of its radius.

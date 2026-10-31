@@ -5,8 +5,11 @@ use crate::geometry::{Point, finite_point};
 
 mod arc;
 mod bounds;
+mod curve;
+mod measure;
 mod read;
 mod shapes;
+mod walk;
 mod write;
 
 /// One piece of a sub-path, ending at the point it names last. The pieces are absolute: each starts where the one

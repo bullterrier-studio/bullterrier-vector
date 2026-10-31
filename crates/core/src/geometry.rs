@@ -64,3 +64,15 @@ pub(crate) fn finite_point(parameter: &str, point: impl Into<Point>) -> Result<P
         ))
     }
 }
+
+/// `value`, or the error naming `parameter` unless it is a number from 0 to 1.
+pub(crate) fn fraction(parameter: &str, value: f64) -> Result<f64, Error> {
+    if (0.0..=1.0).contains(&value) {
+        Ok(value)
+    } else {
+        Err(Error::parameter(
+            parameter,
+            format!("must be a number from 0 to 1, got {value}"),
+        ))
+    }
+}
