@@ -1,8 +1,8 @@
 //! `Style`: how a shape is painted.
 
 use super::color::Color;
-use crate::Path;
 use crate::key::{Key, Keyed};
+use crate::{Error, Path};
 
 /// The width of a stroke when none is given, in design pixels.
 // constant: api.md "Style" (`stroke(color, *, width=2, ...)`), which is also the width of the default paint of an
@@ -15,6 +15,16 @@ pub(crate) const DEFAULT_MITER_LIMIT: f64 = 4.0;
 
 /// The colour of the default paint.
 const BLACK: Color = Color::hex(0x00_00_00);
+
+/// The refusal of `text` for the argument `argument`, which takes one of `words`.
+fn refused(argument: &str, words: &[&str], text: &str) -> Error {
+    let listed = words
+        .iter()
+        .map(|word| format!("{word:?}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Error::parameter(argument, format!("must be one of {listed}, got {text:?}"))
+}
 
 /// How the corners of a stroke are joined.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +48,14 @@ impl Join {
             Self::Miter => "miter",
             Self::Bevel => "bevel",
         }
+    }
+
+    /// The join written as `text`, one of `"round"`, `"miter"` or `"bevel"`.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `join` if `text` is none of them.
+    pub fn parse(text: &str) -> Result<Self, Error> {
+        Self::named(text).ok_or_else(|| refused("join", Self::NAMES, text))
     }
 
     /// The join written as `name`.
@@ -72,6 +90,14 @@ impl Cap {
         }
     }
 
+    /// The cap written as `text`, one of `"butt"`, `"round"` or `"square"`.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `cap` if `text` is none of them.
+    pub fn parse(text: &str) -> Result<Self, Error> {
+        Self::named(text).ok_or_else(|| refused("cap", Self::NAMES, text))
+    }
+
     /// The cap written as `name`.
     pub(crate) fn named(name: &str) -> Option<Self> {
         [Self::Butt, Self::Round, Self::Square]
@@ -99,6 +125,14 @@ impl Blend {
             Self::Normal => "normal",
             Self::Multiply => "multiply",
         }
+    }
+
+    /// The blend written as `text`, one of `"normal"` or `"multiply"`.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `mode` if `text` is none of them.
+    pub fn parse(text: &str) -> Result<Self, Error> {
+        Self::named(text).ok_or_else(|| refused("mode", Self::NAMES, text))
     }
 
     /// The blend written as `name`.

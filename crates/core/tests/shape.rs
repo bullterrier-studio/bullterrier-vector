@@ -76,6 +76,37 @@ fn a_colour_that_is_not_hex_is_refused_naming_the_colour_and_the_text() -> Outco
 }
 
 #[test]
+fn a_join_a_cap_and_a_blend_are_read_from_their_words() -> Outcome {
+    assert_eq!(Join::parse("round")?, Join::Round);
+    assert_eq!(Join::parse("miter")?, Join::Miter);
+    assert_eq!(Join::parse("bevel")?, Join::Bevel);
+    assert_eq!(Cap::parse("butt")?, Cap::Butt);
+    assert_eq!(Cap::parse("round")?, Cap::Round);
+    assert_eq!(Cap::parse("square")?, Cap::Square);
+    assert_eq!(Blend::parse("normal")?, Blend::Normal);
+    assert_eq!(Blend::parse("multiply")?, Blend::Multiply);
+    Ok(())
+}
+
+#[test]
+fn another_word_is_refused_naming_the_argument_the_words_and_the_text() -> Outcome {
+    // (the argument, the refusal, a word it lists)
+    let rows = [
+        ("join", parameter_refusal(Join::parse("Round")), "bevel"),
+        ("cap", parameter_refusal(Cap::parse("")), "square"),
+        ("mode", parameter_refusal(Blend::parse("screen")), "multiply"),
+    ];
+    for (argument, refusal, listed) in rows {
+        let (name, message) = refusal?;
+        assert!(
+            name == argument && message.contains(listed),
+            "{argument}: named {name}, said {message}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn a_colour_from_a_hex_number_is_opaque() -> Outcome {
     assert_eq!(Color::hex(0xff_4f_9a).rgba(), Some([0xff, 0x4f, 0x9a, 0xff]));
     assert_eq!(Color::hex(0x00_00_00).rgba(), Some([0, 0, 0, 0xff]));
