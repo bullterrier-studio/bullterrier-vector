@@ -6,7 +6,7 @@
 //! ```text
 //! trait Node: Sync {
 //!     fn verb(&self) -> &'static Verb;      // name, role, arguments: the declaration
-//!     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &mut Context<'_>) -> Result<Vec<Shape>, Error>;
+//!     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error>;
 //! }
 //! ```
 //!

@@ -363,8 +363,8 @@ the argument and the value; a division by zero raises `ParameterError` naming th
 
 A Param's value at draw time is a number, or a list with one number per shape (`pulse=[...]`): the way to give each
 item a value from the caller's own signal. Entry `i` goes to the shape whose `index` is `i` at the step that reads the
-Param. A list whose length differs from the number of shapes there raises `ParameterError` naming the Param, the step
-and both counts.
+Param. A list is checked where a step reads it: one whose length differs from the number of shapes there raises
+`ParameterError` naming the Param, the step and both counts; a list that no step reads with shapes is not checked.
 
 Per-item numbers take a value per shape, from its attributes:
 
