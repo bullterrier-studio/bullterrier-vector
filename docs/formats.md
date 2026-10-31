@@ -486,6 +486,16 @@ registered, with a test named after it; every later call brings its own checks a
 | `font-checks` | with the font supplied: an axis or feature the font lacks, an axis value outside its range (`ParameterError`: the caller supplied the wrong font) |
 | `inputs-supplied` | an input the document declares that `inputs` does not give, a name in `inputs` the document does not declare, two names with equal bytes, bytes that do not match `sha256`, a font the library cannot read, a map whose bytes are not `width × height` (a checked multiply: an overflow is a mismatch; `ParameterError`) |
 
+As built (V2c). `json-text` and `limits` run while the text is read: the parser stops at `MAX_DEPTH` levels of text, so a
+deeper text is reported as the nesting limit even where a reference check would have failed first, and the byte limit is
+checked before the first byte is read. What the schema states value by value (version, names, types, arguments, the
+range of a literal, the rules of an expression) is found while reading, before `drawing-declared`; the listed checks
+then run in their order. `with-values` and `call-checks` need the calls made, so the first failure of the first kind
+anywhere in the document is reported before the first of the second. A value a call refuses is a `FormatError` at the
+value's pointer with the call's own message. `input-declared`, `font-checks` and `inputs-supplied` wait for the first call
+that reads an input: until then a document that declares an input is refused by `input-used`, and `from_json` takes no
+`inputs`.
+
 ## Extension
 
 A new call is added by name, without changing the format's core. Each built-in registers its name, whether it is a

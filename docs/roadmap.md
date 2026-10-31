@@ -229,14 +229,16 @@ findings fixed. V2b is done.
 - `from_json` is a parser of hostile bytes: a property test feeds it arbitrary bytes and arbitrary JSON, and it returns
   a value or an `Error`, never panics.
 
-Done when: each V2 example round-trips through JSON to equal canonical text and equal `shapes()` (V3 adds equal render
-bytes); a property test round-trips random trees from the registry to the same canonical text; the generated schema
-agrees with the draft; the loader rejects a document for each check whose calls are registered.
+Done when: each V2 example whose calls are registered round-trips through JSON to equal canonical text and equal
+`shapes()` (V3 adds equal render bytes; the others as their calls arrive); a property test round-trips random trees from
+the registry to the same canonical text; the generated schema agrees with the draft; the loader rejects a document for
+each check whose calls are registered.
 
-State: V2c-1 built in Rust: `Drawing::to_json`, `Drawing::from_json` (a strict in-crate parser), `Error::Format` and the
-Python `FormatError`; the loader's checks whose calls are registered, each tested by name and in order; `series_bars.json`
-round-trips and random trees from the registry round-trip. Not yet: the Python `to_json`/`from_json` and the generated
-schema. These checks wait for the calls that reach them:
+State: built, independent review pending. In Rust and Python: `Drawing::to_json`, `Drawing::from_json` (a strict in-crate
+parser), `drawing_schema()` (generated from `verbs()`, agreeing with the draft on every example and test document whose
+calls are registered), `Error::Format` and `FormatError`, `MAX_PARAMS`; the loader's checks whose calls are registered,
+each tested by name and in order; `series_bars.json`, the two Python examples and random trees from the registry
+round-trip. The other example documents round-trip as their calls arrive. These checks wait for the calls that reach them:
 
 | Check | Waits for |
 |---|---|
