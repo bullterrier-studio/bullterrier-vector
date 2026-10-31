@@ -137,6 +137,16 @@ fn a_chain_of_a_hundred_thousand_steps_draws_and_drops_without_overflowing_the_s
     Ok(())
 }
 
+#[test]
+fn a_chain_of_a_hundred_thousand_steps_prints_without_overflowing_the_stack() {
+    let mut drawing = nothing();
+    for _ in 0..100_000 {
+        drawing = drawing.translate(1.0, 0.0);
+    }
+    let printed = format!("{drawing:?}");
+    assert!(printed.len() < 200 && printed.contains("100001"), "{printed}");
+}
+
 // MAX_EXPR_NODES ----------------------------------------------------------------------------------------------------
 
 #[test]

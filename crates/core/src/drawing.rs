@@ -13,6 +13,7 @@ pub use transform::{Deg, Pivot, Rotate, ScaleBy};
 use crate::node::{self, Args, Given, Node, Place};
 use crate::{Error, Expr, Param, Path, Shape};
 use std::collections::BTreeSet;
+use std::fmt;
 use std::sync::Arc;
 
 /// An immutable tree of steps that evaluates to a list of [`Shape`]s: a source (a [`Path`], a [`Shape`] or a stack of
@@ -21,7 +22,7 @@ use std::sync::Arc;
 ///
 /// A step is a method that returns the next drawing and never fails: a drawing keeps the first error of its chain
 /// ([`Drawing::error`]) and returns it when it is drawn or its Params are asked for.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Drawing {
     last: Result<Arc<Step>, Failure>,
 }
@@ -41,7 +42,6 @@ impl From<Error> for Failure {
 }
 
 /// The last call of a chain; the calls before it are reached through it.
-#[derive(Debug)]
 struct Step {
     node: &'static dyn Node,
     args: Args,
@@ -141,6 +141,24 @@ impl Step {
             reads,
             fixed,
         })
+    }
+}
+
+impl fmt::Debug for Drawing {
+    /// A summary: a chain has no limit on its length and the drawings it takes nest, so printing it step by step would
+    /// overflow the stack.
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.last {
+            Ok(step) => formatter
+                .debug_struct("Drawing")
+                .field("steps", &(step.number + 1))
+                .field("size", &step.size)
+                .finish(),
+            Err(failure) => formatter
+                .debug_struct("Drawing")
+                .field("error", &failure.error)
+                .finish(),
+        }
     }
 }
 
