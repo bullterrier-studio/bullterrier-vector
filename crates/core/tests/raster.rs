@@ -5,7 +5,7 @@
 mod common;
 
 use bullterrier_vector::{Color, Drawing, Path, Size, Values};
-use common::pixels::{SIZE_REFUSALS, render};
+use common::pixels::{pixel_size_refusals, render};
 use common::{Outcome, parameter_refusal};
 
 fn empty() -> Drawing {
@@ -28,12 +28,7 @@ fn nothing_drawn_is_transparent_black_of_the_stated_length() -> Outcome {
 
 #[test]
 fn a_size_outside_whole_pixels_from_1_to_65000_is_refused_naming_the_side() -> Outcome {
-    let past_the_limit = [
-        ("one past the limit wide", 65_001.0, 10.0, "width", "65001"),
-        ("one past the limit high", 10.0, 65_001.0, "height", "65001"),
-        ("the svg limit wide", 100_000.0, 1.0, "width", "100000"),
-    ];
-    for (case, width, height, side, shown) in SIZE_REFUSALS.into_iter().chain(past_the_limit) {
+    for (case, width, height, side, shown) in pixel_size_refusals() {
         let (parameter, message) = parameter_refusal(rgba(&empty(), width, height))?;
         assert_eq!(parameter, side, "{case}");
         assert!(message.contains(shown), "{case}: {message}");
@@ -50,20 +45,6 @@ fn the_largest_sides_are_accepted_with_a_shape_over_the_whole_canvas() -> Outcom
         assert_eq!(image.bytes.len(), width * height * 4);
         assert_eq!(image.pixel(width - 1, height - 1), [0x33, 0x66, 0x99, 255]);
         assert_eq!(image.pixel(0, 0), [0x33, 0x66, 0x99, 255]);
-    }
-    Ok(())
-}
-
-#[test]
-fn more_than_2_to_the_27_pixels_are_refused_before_anything_is_allocated() -> Outcome {
-    // 2^27 pixels are 16384 by 8192; one more column is over, and so is the largest square the sides allow
-    for (width, height) in [(16_385.0, 8192.0), (8192.0, 16_385.0), (65_000.0, 65_000.0)] {
-        let (parameter, message) = parameter_refusal(rgba(&empty(), width, height))?;
-        assert_eq!(parameter, "size", "{width} by {height}");
-        assert!(
-            message.contains(&format!("width {width}")) && message.contains(&format!("height {height}")),
-            "{message}"
-        );
     }
     Ok(())
 }

@@ -63,6 +63,38 @@ pub(crate) const SIZE_REFUSALS: [(&str, f64, f64, &str, &str); 8] = [
     ("negative", 10.0, -4.0, "height", "-4"),
 ];
 
+/// The rows a pixel output refuses as a size: those every output refuses, then the pixel limits (65,000 a side, 2^27
+/// pixels in all). One table for `to_rgba` and `to_png`.
+pub(crate) fn pixel_size_refusals() -> Vec<(&'static str, f64, f64, &'static str, &'static str)> {
+    let pixel_limits = [
+        ("one past the limit wide", 65_001.0, 10.0, "width", "65001"),
+        ("one past the limit high", 10.0, 65_001.0, "height", "65001"),
+        ("the svg limit wide", 100_000.0, 1.0, "width", "100000"),
+        (
+            "one column past 2^27 pixels",
+            16_385.0,
+            8192.0,
+            "size",
+            "width 16385 by height 8192",
+        ),
+        (
+            "one row past 2^27 pixels",
+            8192.0,
+            16_385.0,
+            "size",
+            "width 8192 by height 16385",
+        ),
+        (
+            "the largest square",
+            65_000.0,
+            65_000.0,
+            "size",
+            "width 65000 by height 65000",
+        ),
+    ];
+    SIZE_REFUSALS.into_iter().chain(pixel_limits).collect()
+}
+
 /// The area where the axis-aligned rectangle `[left, right] x [top, bottom]` overlaps the pixel square in column `x`
 /// and row `y`: exact, by clipping.
 pub(crate) fn overlap(rect: (f64, f64, f64, f64), x: usize, y: usize) -> f64 {

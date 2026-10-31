@@ -12,6 +12,7 @@ publish.workspace = true
 libm.workspace = true
 vello_cpu.workspace = true
 kurbo.workspace = true
+png.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

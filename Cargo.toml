@@ -25,6 +25,9 @@ roxmltree = "0.21"  # the SVG oracle of the output tests
 # same and a new release may move an edge by a level; used only in crates/core/src/output/raster.rs
 vello_cpu = { version = "=0.3.0", default-features = false, features = ["std", "u8_pipeline"] }
 kurbo = "=0.13.1"
+# the PNG encoder (docs/design-decisions.md, "PNG"): pinned exactly, because its bytes may change between releases; it
+# has no default features; used only in crates/core/src/output/png.rs
+png = "=0.18.1"
 
 # Warnings, not errors, so a newer compiler's new lint never breaks a user's install; the gate (`poe check`) runs clippy
 # and rustdoc with `-D warnings`, so every one fails it.

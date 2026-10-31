@@ -1,6 +1,7 @@
-//! Drawing a drawing: the output size every output takes, and the outputs (SVG and pixels so far). All of them place
+//! Drawing a drawing: the output size every output takes, and the outputs (SVG, pixels and PNG so far). All of them place
 //! the design frame in the output the same way (`view`), so that a picture is the same picture in each.
 
+mod png;
 mod raster;
 mod svg;
 mod view;
