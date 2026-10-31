@@ -212,6 +212,19 @@ fn a_circle_is_walked_from_the_top_clockwise_and_stays_on_the_circle() -> Outcom
 }
 
 #[test]
+fn a_curve_that_speeds_up_and_slows_down_is_still_walked_by_arc_length() -> Outcome {
+    // x(t) = 100 (3 t^2 - 2 t^3) on a line: the same 100 pixels as a line, but the curve crawls at both ends; a
+    // quarter of the length along is x = 25, where the curve itself is only at t = 0.3 with x = 21.6
+    let eased = Path::start((0.0, 0.0))?.curve_to((0.0, 0.0), (100.0, 0.0), (100.0, 0.0))?;
+    assert!(close(eased.length(), 100.0, 1e-9), "{}", eased.length());
+    for (at, x) in [(0.1, 10.0), (0.25, 25.0), (0.5, 50.0), (0.8, 80.0)] {
+        let found = point_at(&eased, at)?.0;
+        assert!((found - x).abs() <= 0.02, "at {at}: x is {found}, expected {x}");
+    }
+    Ok(())
+}
+
+#[test]
 fn sub_paths_are_walked_in_order_and_a_boundary_belongs_to_the_later_one() -> Outcome {
     // 10 along y = 0, then 30 down x = 0 from (0, 5): 40 in all
     let path = Path::line((0.0, 0.0), (10.0, 0.0))?

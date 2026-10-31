@@ -71,17 +71,23 @@ impl Curve {
         }
     }
 
-    /// Whether the curve stays within [`FLATNESS`] of the straight edge between its ends: its control points do
-    /// (and a curve lies within the hull of its control points).
+    /// Whether the curve is, to within [`FLATNESS`], the straight edge between its ends walked at an even pace: its
+    /// control points lie within [`FLATNESS`] of the evenly spaced points of the edge. Then the curve at every
+    /// parameter `t` is within [`FLATNESS`] of the edge at fraction `t`, so a position along the edge is a position
+    /// along the curve.
     fn is_flat(self) -> bool {
-        let (a, b, controls): (Point, Point, &[Point]) = match &self {
+        let (even, controls): (Vec<Point>, Vec<Point>) = match self {
             Self::Line(..) => return true,
-            Self::Quad(a, c, b) => (*a, *b, &[*c]),
-            Self::Cubic(a, c1, c2, b) => (*a, *b, &[*c1, *c2]),
+            Self::Quad(start, control, end) => (vec![lerp(start, end, 0.5)], vec![control]),
+            Self::Cubic(start, control1, control2, end) => (
+                vec![lerp(start, end, 1.0 / 3.0), lerp(start, end, 2.0 / 3.0)],
+                vec![control1, control2],
+            ),
         };
-        controls
-            .iter()
-            .all(|&control| squared_distance_to_edge(control, a, b) <= FLATNESS * FLATNESS)
+        even.iter().zip(&controls).all(|(even, control)| {
+            let (dx, dy) = (control.x - even.x, control.y - even.y);
+            dx * dx + dy * dy <= FLATNESS * FLATNESS
+        })
     }
 
     /// Appends the straight edges that stand for this curve, as segment number `segment` over the parameter range
@@ -120,19 +126,6 @@ pub(super) fn lerp_number(a: f64, b: f64, t: f64) -> f64 {
 
 fn lerp(a: Point, b: Point, t: f64) -> Point {
     Point::new(lerp_number(a.x, b.x, t), lerp_number(a.y, b.y, t))
-}
-
-/// The squared distance from `point` to the nearest point of the straight edge from `a` to `b`.
-fn squared_distance_to_edge(point: Point, a: Point, b: Point) -> f64 {
-    let (along_x, along_y) = (b.x - a.x, b.y - a.y);
-    let squared_length = along_x * along_x + along_y * along_y;
-    let share = if squared_length == 0.0 {
-        0.0
-    } else {
-        (((point.x - a.x) * along_x + (point.y - a.y) * along_y) / squared_length).clamp(0.0, 1.0)
-    };
-    let (dx, dy) = (point.x - (a.x + along_x * share), point.y - (a.y + along_y * share));
-    dx * dx + dy * dy
 }
 
 impl Segment {
