@@ -156,21 +156,14 @@ impl Maker<'_> {
         }
         reachable(&polylines, view).map_err(|error| in_shape(shape, "", error))?;
         let style = shape.style();
+        // a shape no generator ranked has order 0
+        let order = shape.attributes().order().unwrap_or(0.0);
         #[expect(
             clippy::cast_precision_loss,
-            reason = "a list of at most a million shapes: exact in an f32"
+            clippy::cast_possible_truncation,
+            reason = "a list of at most a million shapes is exact in an f32, and an order from 0 to 1 loses nothing visible"
         )]
-        let (item, order) = (
-            shape.index() as f32,
-            // a shape no generator ranked has order 0
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "an order from 0 to 1 loses nothing visible"
-            )]
-            {
-                shape.attributes().order().unwrap_or(0.0) as f32
-            },
-        );
+        let (item, order) = (shape.index() as f32, order as f32);
         let paint = |rgba: [u8; 4]| {
             let alpha = f64::from(rgba[3]) / 255.0 * style.opacity();
             Paint {
