@@ -1,6 +1,7 @@
 //! `Color`: a paint colour, or no paint.
 
 use crate::Error;
+use crate::key::{Key, Keyed};
 use std::fmt;
 
 /// The alpha of a colour written without one.
@@ -58,6 +59,18 @@ impl Color {
     #[must_use]
     pub fn rgba(self) -> Option<[u8; 4]> {
         self.rgba
+    }
+}
+
+impl Keyed for Color {
+    fn write_key(&self, key: &mut Key) {
+        match self.rgba {
+            None => key.word(0),
+            Some(rgba) => {
+                key.word(1);
+                key.word(u64::from(u32::from_be_bytes(rgba)));
+            }
+        }
     }
 }
 

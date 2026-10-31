@@ -1,5 +1,6 @@
 //! `Expr`: arithmetic on Params and numbers, worked out when a drawing is drawn.
 
+use crate::key::{Key, Keyed};
 use crate::limits::{MAX_DEPTH, MAX_EXPR_NODES};
 use crate::node::Item;
 use crate::{Error, Param, Value, Values};
@@ -248,6 +249,37 @@ impl Expr {
                 "expression",
                 format!("({self}) is not a finite number, it is {number}"),
             ))
+        }
+    }
+}
+
+impl Keyed for Expr {
+    /// The tree in prefix order. The depth must have been checked, which bounds the recursion.
+    fn write_key(&self, key: &mut Key) {
+        match &self.0.node {
+            Node::Const(number) => {
+                key.word(0);
+                key.number(*number);
+            }
+            Node::Param(param) => {
+                key.word(1);
+                key.of(param);
+            }
+            Node::Neg(inner) => {
+                key.word(2);
+                key.of(inner);
+            }
+            Node::Binary(op, left, right) => {
+                key.word(3);
+                key.word(match op {
+                    Op::Add => 0,
+                    Op::Sub => 1,
+                    Op::Mul => 2,
+                    Op::Div => 3,
+                });
+                key.of(left);
+                key.of(right);
+            }
         }
     }
 }

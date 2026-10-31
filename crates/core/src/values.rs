@@ -1,5 +1,6 @@
 //! `Values`: the numbers a caller gives the Params of a drawing when drawing it.
 
+use crate::key::{Key, Keyed};
 use crate::{Error, Param};
 use std::collections::BTreeMap;
 
@@ -10,6 +11,24 @@ pub enum Value {
     Number(f64),
     /// One number per shape: entry `i` goes to the shape whose `index` is `i` at the step that reads the Param.
     List(Vec<f64>),
+}
+
+impl Keyed for Value {
+    fn write_key(&self, key: &mut Key) {
+        match self {
+            Self::Number(number) => {
+                key.word(0);
+                key.number(*number);
+            }
+            Self::List(numbers) => {
+                key.word(1);
+                key.count(numbers.len());
+                for number in numbers {
+                    key.number(*number);
+                }
+            }
+        }
+    }
 }
 
 impl From<f64> for Value {
@@ -33,6 +52,16 @@ impl From<Vec<f64>> for Value {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Values {
     by_name: BTreeMap<String, Value>,
+}
+
+impl Keyed for Values {
+    fn write_key(&self, key: &mut Key) {
+        key.count(self.by_name.len());
+        for (name, value) in &self.by_name {
+            key.text(name);
+            key.of(value);
+        }
+    }
 }
 
 impl Values {

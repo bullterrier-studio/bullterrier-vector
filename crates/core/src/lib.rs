@@ -10,6 +10,7 @@ mod drawing;
 mod error;
 mod expr;
 mod geometry;
+mod key;
 mod limits;
 mod math;
 mod node;
@@ -19,7 +20,7 @@ mod registry;
 mod shape;
 mod values;
 
-pub use drawing::{Deg, Drawing, Pivot, Rotate, ScaleBy, Select, Stroke, Wanted};
+pub use drawing::{Deg, Drawing, Pivot, Rotate, ScaleBy, Select, Stats, Stroke, Wanted};
 pub use error::Error;
 pub use expr::Expr;
 pub use geometry::{Point, Rect, Scale};

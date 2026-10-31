@@ -11,6 +11,7 @@ pub use style::{Blend, Cap, Join, StrokeStyle, Style};
 pub(crate) use style::{DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH};
 
 use crate::Path;
+use crate::key::{Key, Keyed};
 
 /// One path with the style it is painted in and the attributes its generator wrote: what [`Drawing::shapes`]
 /// returns. A shape is a value to read; `Drawing::from` puts it back into a drawing with its style and attributes.
@@ -22,6 +23,15 @@ pub struct Shape {
     style: Style,
     attributes: Attributes,
     index: usize,
+}
+
+impl Keyed for Shape {
+    fn write_key(&self, key: &mut Key) {
+        key.of(&self.path);
+        key.of(&self.style);
+        key.of(&self.attributes);
+        key.count(self.index);
+    }
 }
 
 impl Shape {

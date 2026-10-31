@@ -2,6 +2,7 @@
 
 use crate::Error;
 use crate::geometry::finite;
+use crate::key::{Key, Keyed};
 
 /// The names a Param may not take: in Python an output option of the same name sits beside the Param values.
 // constant: the output options of api.md "Outputs" (`to_mesh`'s `into`, `to_plotter_svg`'s `pen_mm`)
@@ -56,6 +57,23 @@ pub struct Param {
     max: f64,
     unit: Unit,
     meaning: String,
+}
+
+impl Keyed for Param {
+    /// What decides the number a Param reads: its name, default, range and unit. Its meaning is for people.
+    fn write_key(&self, key: &mut Key) {
+        key.text(&self.name);
+        key.number(self.default);
+        key.number(self.min);
+        key.number(self.max);
+        key.word(match self.unit {
+            Unit::None => 0,
+            Unit::Px => 1,
+            Unit::Deg => 2,
+            Unit::Cycle => 3,
+            Unit::Fraction => 4,
+        });
+    }
 }
 
 impl Param {

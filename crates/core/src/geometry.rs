@@ -1,6 +1,7 @@
 //! The two plain values geometry is made of: a point and a rectangle.
 
 use crate::Error;
+use crate::key::{Key, Keyed};
 
 /// A position in design pixels. `y` points down.
 ///
@@ -18,6 +19,13 @@ impl Point {
     #[must_use]
     pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
+    }
+}
+
+impl Keyed for Point {
+    fn write_key(&self, key: &mut Key) {
+        key.number(self.x);
+        key.number(self.y);
     }
 }
 

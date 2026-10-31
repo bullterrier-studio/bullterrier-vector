@@ -2,6 +2,7 @@
 
 use super::color::Color;
 use crate::Path;
+use crate::key::{Key, Keyed};
 
 /// The width of a stroke when none is given, in design pixels.
 // constant: api.md "Style" (`stroke(color, *, width=2, ...)`), which is also the width of the default paint of an
@@ -248,5 +249,25 @@ impl Style {
     #[must_use]
     pub fn blend(&self) -> Blend {
         self.blend
+    }
+}
+
+impl Keyed for StrokeStyle {
+    fn write_key(&self, key: &mut Key) {
+        key.of(&self.color);
+        key.number(self.width);
+        key.text(self.join.name());
+        key.text(self.cap.name());
+        key.number(self.miter_limit);
+    }
+}
+
+impl Keyed for Style {
+    fn write_key(&self, key: &mut Key) {
+        key.of(&self.fill);
+        key.of(&self.stroke);
+        key.number(self.opacity);
+        key.text(self.blend.name());
+        key.word(u64::from(self.painted));
     }
 }

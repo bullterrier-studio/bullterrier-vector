@@ -63,8 +63,8 @@ impl Node for Stack {
     fn evaluate(&self, _: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         // the list is charged before it is built, so that a refusal comes before the memory
         cx.work
-            .made_shapes(inputs.taken.iter().map(Vec::len).sum(), &cx.place)?;
-        let mut shapes: Vec<Shape> = inputs.taken.iter().flatten().cloned().collect();
+            .made_shapes(inputs.taken.iter().map(|shapes| shapes.len()).sum(), &cx.place)?;
+        let mut shapes: Vec<Shape> = inputs.taken.iter().flat_map(|shapes| shapes.iter()).cloned().collect();
         let unordered = shapes
             .iter()
             .filter(|shape| shape.attributes().order().is_none())

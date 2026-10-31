@@ -2,6 +2,8 @@
 //! that spread proptest sizes over orders of magnitude. Each test file uses some of them.
 #![allow(dead_code, reason = "each test file uses a different part")]
 
+pub(crate) mod ops;
+
 use bullterrier_vector::{Error, Path};
 use proptest::prelude::*;
 use std::f64::consts::PI;

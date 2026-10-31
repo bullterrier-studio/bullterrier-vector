@@ -3,6 +3,7 @@
 
 use super::{Arg, Context, Domain, Kind, Reads, Verb};
 use crate::geometry::{coordinate, finite, fraction};
+use crate::key::Key;
 use crate::limits::MAX_DEPTH;
 use crate::{Color, Drawing, Error, Expr, Literal, Param, Path, Point, Select, Shape, Values};
 
@@ -125,6 +126,56 @@ impl Args {
             })
             .collect();
         Self { verb, values }
+    }
+
+    /// The call as numbers: the verb and every argument's value, which is everything but the steps it builds on that
+    /// decides the shapes it makes. A drawing the call takes counts only as an item: its own key is its own.
+    pub(crate) fn key(&self) -> Vec<u64> {
+        let mut key = Key::new();
+        key.text(self.verb.name);
+        for given in &self.values {
+            match given {
+                Given::Number(expr) => {
+                    key.word(0);
+                    key.of(expr);
+                }
+                Given::Pair(first, second) => {
+                    key.word(1);
+                    key.of(first);
+                    key.of(second);
+                }
+                Given::Text(text) => {
+                    key.word(2);
+                    key.text(text);
+                }
+                Given::Color(color) => {
+                    key.word(3);
+                    key.of(color);
+                }
+                Given::Path(path) => {
+                    key.word(4);
+                    key.of(path);
+                }
+                Given::Shape(shape) => {
+                    key.word(5);
+                    key.of(shape);
+                }
+                Given::Drawings(items) => {
+                    key.word(6);
+                    key.count(items.len());
+                }
+                Given::Select(select) => {
+                    key.word(7);
+                    key.of(select);
+                }
+                Given::Values(values) => {
+                    key.word(8);
+                    key.of(values);
+                }
+                Given::Unset => key.word(9),
+            }
+        }
+        key.finish()
     }
 
     /// Each declared argument with its value.

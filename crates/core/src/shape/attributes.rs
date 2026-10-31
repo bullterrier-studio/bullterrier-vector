@@ -1,6 +1,7 @@
 //! `Attributes`: what a generator wrote about a shape.
 
 use crate::Point;
+use crate::key::{Key, Keyed};
 
 /// What the step that made a shape wrote about it, each present only where a step wrote it: a shape of a path has
 /// none. The shape's `index` is not here: it is its place in the current list, which every step renumbers.
@@ -122,5 +123,36 @@ impl Attributes {
     #[must_use]
     pub fn origin(&self) -> Option<Point> {
         self.origin
+    }
+}
+
+impl Keyed for Single {
+    fn write_key(&self, key: &mut Key) {
+        match self {
+            Self::Number(number) => {
+                key.word(0);
+                key.number(*number);
+            }
+            Self::Char(character) => {
+                key.word(1);
+                key.word(u64::from(u32::from(*character)));
+            }
+            Self::Point(point) => {
+                key.word(2);
+                key.of(point);
+            }
+        }
+    }
+}
+
+impl Keyed for Attributes {
+    fn write_key(&self, key: &mut Key) {
+        for whole in [self.glyph, self.word, self.line, self.part, self.copy] {
+            key.of(&whole.map(u64::from));
+        }
+        key.of(&self.char.map(u32::from).map(u64::from));
+        key.of(&self.level);
+        key.of(&self.order);
+        key.of(&self.origin);
     }
 }

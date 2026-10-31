@@ -1,11 +1,12 @@
 //! The limits that keep a small drawing from asking for unbounded work, through the public API: the shapes a draw
 //! makes, how deep drawings nest, and a long chain of steps. Expected values are written by hand from the rule in
-//! formats.md "Limits and security": a step is charged for the shapes it makes, a source one and a stack its whole
-//! list, so a drawing used twice in a stack is charged twice.
+//! formats.md "Limits and security": a step is charged for the shapes it makes when it is computed, a source one and a
+//! stack its whole list, so a drawing used twice in a stack is charged for its stack each time, and for itself once:
+//! equal sources are one step, computed once, so the sources of these tests differ.
 
 mod common;
 
-use bullterrier_vector::{Drawing, Error, Param, Path, Values};
+use bullterrier_vector::{Color, Drawing, Error, Param, Path, Values};
 use common::{Outcome, parameter_refusal};
 
 /// A drawing of one shape that is an empty path, which keeps a million of them cheap.
@@ -13,9 +14,18 @@ fn nothing() -> Drawing {
     Drawing::from(Path::new())
 }
 
-/// A stack of `count` empty shapes: `count` shapes made by sources and `count` by the stack.
-fn flat(count: usize) -> Drawing {
-    Drawing::new((0..count).map(|_| Path::new()))
+/// A drawing of one shape that is a point, and no other call gives the same: a source of its own.
+#[expect(clippy::cast_precision_loss, reason = "the counts are far below 2^53")]
+fn alone(number: usize) -> Result<Drawing, Error> {
+    Ok(Drawing::from(Path::start((number as f64, 0.0))?))
+}
+
+/// A stack of `count` shapes of different sources: `count` shapes made by sources and `count` by the stack. The
+/// sources are numbered from `first`, so that two stacks do not share them.
+fn flat(first: usize, count: usize) -> Result<Drawing, Error> {
+    Ok(Drawing::new(
+        (first..first + count).map(alone).collect::<Result<Vec<_>, _>>()?,
+    ))
 }
 
 fn drawn(drawing: &Drawing) -> Result<usize, Error> {
@@ -27,18 +37,18 @@ fn drawn(drawing: &Drawing) -> Result<usize, Error> {
 #[test]
 fn a_draw_is_charged_for_the_shapes_it_makes_and_refused_past_a_million() -> Outcome {
     // (case, the drawing, the shapes made, whether the draw is accepted)
-    let nested = |inner: usize, extra: usize| {
-        let mut items = vec![flat(inner)];
-        items.extend((0..extra).map(|_| nothing()));
-        Drawing::new(items)
+    let nested = |inner: usize, extra: usize| -> Result<Drawing, Error> {
+        let mut items = vec![flat(0, inner)?];
+        items.extend((inner..inner + extra).map(alone).collect::<Result<Vec<_>, _>>()?);
+        Ok(Drawing::new(items))
     };
     let rows = [
         // 500,000 sources and a stack of 500,000
-        ("flat, exactly at the limit", flat(500_000), 1_000_000, true),
-        ("flat, two past", flat(500_001), 1_000_002, false),
+        ("flat, exactly at the limit", flat(0, 500_000)?, 1_000_000, true),
+        ("flat, two past", flat(0, 500_001)?, 1_000_002, false),
         // 2 x 333,332 for the inner stack, 2 sources, and a stack of 333,334
-        ("nested, exactly at the limit", nested(333_332, 2), 1_000_000, true),
-        ("nested, one past", nested(333_333, 1), 1_000_001, false),
+        ("nested, exactly at the limit", nested(333_332, 2)?, 1_000_000, true),
+        ("nested, one past", nested(333_333, 1)?, 1_000_001, false),
     ];
     for (case, drawing, made, accepted) in rows {
         assert_eq!(drawing.error(), None, "{case}");
@@ -57,12 +67,11 @@ fn a_draw_is_charged_for_the_shapes_it_makes_and_refused_past_a_million() -> Out
 
 #[test]
 fn a_shape_put_back_into_a_drawing_is_charged_like_a_path() -> Outcome {
-    let shape = nothing()
-        .shapes(&Values::new())?
-        .pop()
-        .ok_or("the drawing made no shape")?;
+    // 500,001 different shapes: one source, a fill each, and the stack of them (500,002 shapes made)
+    let painted = Drawing::new((0..=500_000_u32).map(|number| nothing().fill(Color::hex(number))));
+    let shapes = painted.shapes(&Values::new())?;
     // each shape source is one shape, and the stack of them is its whole list: 500,000 of each is the limit
-    let of_shapes = |count: usize| Drawing::new((0..count).map(|_| Drawing::from(shape.clone())));
+    let of_shapes = |count: usize| Drawing::new(shapes.iter().take(count).cloned().map(Drawing::from));
     assert_eq!(drawn(&of_shapes(500_000))?, 500_000);
     let (name, message) = parameter_refusal(of_shapes(500_001).shapes(&Values::new()))?;
     assert!(
@@ -95,8 +104,8 @@ fn a_stack_of_a_drawing_with_itself_is_charged_each_time_and_stops() -> Outcome 
 
 #[test]
 fn the_refusal_names_the_stack_inside_the_item_it_is_in() -> Outcome {
-    let inner = flat(500_001);
-    let outer = Drawing::new([nothing(), inner]).translate(1.0, 0.0);
+    let inner = flat(1, 500_001)?;
+    let outer = Drawing::new([alone(0)?, inner]).translate(1.0, 0.0);
     let (name, _) = parameter_refusal(outer.shapes(&Values::new()))?;
     assert_eq!(name, "source (stack) / item 2 / source (stack)");
     Ok(())

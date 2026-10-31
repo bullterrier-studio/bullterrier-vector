@@ -1,15 +1,18 @@
 //! `Drawing`: a tree of steps that evaluates to a list of shapes.
 
+mod cache;
 mod eval;
 mod select;
 mod style;
 mod transform;
 mod values;
 
+pub use cache::Stats;
 pub use select::{Select, Wanted};
 pub use style::Stroke;
 pub use transform::{Deg, Pivot, Rotate, ScaleBy};
 
+use self::cache::Shared;
 use crate::node::{self, Args, Given, Node, Place};
 use crate::{Error, Expr, Param, Path, Shape};
 use std::collections::BTreeSet;
@@ -25,6 +28,8 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct Drawing {
     last: Result<Arc<Step>, Failure>,
+    /// The cache of evaluated steps, shared by every drawing derived from this one.
+    cache: Shared,
 }
 
 /// Why a chain holds no step: its first error, and, for a stack whose items disagree on a size, the items, so that
@@ -45,6 +50,8 @@ impl From<Error> for Failure {
 struct Step {
     node: &'static dyn Node,
     args: Args,
+    /// The call as numbers, to tell equal steps from different ones; see [`Args::key`].
+    key: Vec<u64>,
     previous: Option<Arc<Step>>,
     /// The number of the step in the chain; 0 for the source.
     number: usize,
@@ -133,6 +140,7 @@ impl Step {
             .max(args.taken().map(Drawing::depth).max().map_or(1, |deepest| deepest + 1));
         Ok(Self {
             node,
+            key: args.key(),
             args,
             previous: previous.cloned(),
             number: place.step,
@@ -144,6 +152,10 @@ impl Step {
     }
 }
 
+#[expect(
+    clippy::missing_fields_in_debug,
+    reason = "the cache holds results, not a description of the drawing"
+)]
 impl fmt::Debug for Drawing {
     /// A summary: a chain has no limit on its length and the drawings it takes nest, so printing it step by step would
     /// overflow the stack.
@@ -184,6 +196,7 @@ impl Drawing {
     pub(crate) fn source(node: &'static dyn Node, given: Vec<(&'static str, Given)>) -> Self {
         Self {
             last: Step::build(None, node, given).map(Arc::new).map_err(Failure::from),
+            cache: Shared::default(),
         }
     }
 
@@ -194,6 +207,7 @@ impl Drawing {
             last: Step::build(Some(step), node, given)
                 .map(Arc::new)
                 .map_err(Failure::from),
+            cache: self.cache.clone(),
         }
     }
 
@@ -203,12 +217,17 @@ impl Drawing {
             Given::Pair(Expr::from(width), Expr::from(height))
         });
         let kept = items.clone();
+        let cache = items.first().map(|first| first.cache.clone());
         let mut stack = Self::source(
             &node::stack::Stack,
             vec![("items", Given::Drawings(items)), ("size", given)],
         );
         if let (Err(failure), None) = (&mut stack.last, size) {
             failure.items = Some(kept);
+        }
+        // the stack shares the cache of its first item, so that the item is computed once however it is drawn
+        if let Some(cache) = cache {
+            stack.cache = cache;
         }
         stack
     }
@@ -245,6 +264,7 @@ impl Drawing {
                 Ok(items) => Self::stack(items.to_vec(), size),
                 Err(error) => Self {
                     last: Err(error.into()),
+                    cache: self.cache.clone(),
                 },
             };
         }

@@ -50,6 +50,7 @@ pub(crate) use args::{Args, Given, Item};
 use crate::limits::Work;
 use crate::{Error, Shape, Values};
 use std::fmt;
+use std::sync::Arc;
 
 /// A source or a step of a drawing: its declaration and what it does. A unit struct implements it.
 pub(crate) trait Node: Sync + fmt::Debug {
@@ -70,7 +71,7 @@ pub(crate) struct Inputs<'a> {
     /// The shapes of the drawing this step builds on; empty for a source.
     pub(crate) previous: &'a [Shape],
     /// The shapes of each drawing the node takes, in the order of its arguments.
-    pub(crate) taken: &'a [Vec<Shape>],
+    pub(crate) taken: &'a [Arc<[Shape]>],
 }
 
 /// Where a step is, for its errors: `step 3 (rotate)`, or `source (stack)` for the first call of a chain.

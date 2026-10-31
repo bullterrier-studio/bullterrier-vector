@@ -2,6 +2,7 @@
 
 use super::Drawing;
 use crate::Point;
+use crate::key::{Key, Keyed};
 use crate::node::{Given, select};
 use crate::shape::Single;
 use std::collections::BTreeMap;
@@ -56,6 +57,19 @@ impl<T: Into<Wanted>, const N: usize> From<[T; N]> for Wanted {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Select {
     by_name: BTreeMap<String, Wanted>,
+}
+
+impl Keyed for Select {
+    fn write_key(&self, key: &mut Key) {
+        key.count(self.by_name.len());
+        for (name, wanted) in &self.by_name {
+            key.text(name);
+            key.count(wanted.0.len());
+            for single in &wanted.0 {
+                key.of(single);
+            }
+        }
+    }
 }
 
 impl Select {

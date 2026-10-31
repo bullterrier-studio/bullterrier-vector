@@ -2,6 +2,7 @@
 
 use crate::Error;
 use crate::geometry::{Point, coordinate_point};
+use crate::key::{Key, Keyed};
 
 mod arc;
 mod bounds;
@@ -70,6 +71,36 @@ impl SubPath {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Path {
     subpaths: Vec<SubPath>,
+}
+
+impl Keyed for Path {
+    fn write_key(&self, key: &mut Key) {
+        key.count(self.subpaths.len());
+        for subpath in &self.subpaths {
+            key.of(&subpath.start);
+            key.word(u64::from(subpath.closed));
+            key.count(subpath.segments.len());
+            for segment in &subpath.segments {
+                match *segment {
+                    Segment::Line(end) => {
+                        key.word(0);
+                        key.of(&end);
+                    }
+                    Segment::Quad(control, end) => {
+                        key.word(1);
+                        key.of(&control);
+                        key.of(&end);
+                    }
+                    Segment::Cubic(first, second, end) => {
+                        key.word(2);
+                        key.of(&first);
+                        key.of(&second);
+                        key.of(&end);
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl Path {
