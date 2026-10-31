@@ -245,10 +245,14 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   most edges a horizontal line crosses (known before tessellating) cost 1 to 4.3 ns a unit in a star, a stroked star, a
   comb and a zig-zag alike, so a budget of 250 million units bounds a draw to about a second whatever the outline; the
   pixels (`vello_cpu`) draw the same inputs in under 0.03 s, so the limit belongs to the mesh. A limit on edges alone
-  would refuse a circle of radius 2,000 (1,024 edges, nothing crossing) before a star polygon that takes a second (900). *Known defect:* in 12 to 25 of 20,000
-  random round-join strokes lyon's nonzero fill covers a patch three times (miter joins: 1; fills: 0 of 20,000), and a
-  tessellation of the bevel outline plus a disc at every vertex covered none twice in the same 20,000; a fix needs that
-  union built for round strokes (more vertices) or a newer lyon, so it waits for the owner.
+  would refuse a circle of radius 2,000 (1,024 edges, nothing crossing) before a star polygon that takes a second (900). *Round strokes:* kurbo's outline with arcs for round joins and ends, filled
+  by lyon, covered a patch of 25 of 20,000 random strokes three times, which a translucent colour or a multiply shows;
+  a disc added over a bevel outline left holes (9 of 20,000) because lyon fails where a polygon overlaps one tangent to it.
+  The stroke is now the bevel and butt-end outline plus, beside it and running the same way round, a circular segment
+  where a corner turns enough for the bevel to be over 0.01 short of the arc and a half disc at each open end: none of
+  20,000 random strokes is covered twice or missed, with real corners, whole-number corners or miter and bevel joins; with
+  corners on a coarse grid, where edges coincide, 1 of 20,000 (56 before), also seen with plain bevel and miter joins.
+  A smooth curve gains no triangles, and the scenes measured gained under 6%.
 
 ## Names and formats
 

@@ -458,9 +458,7 @@ nothing. A new mesh is generation 0 and empty; a fill whose buffers differ from 
 fill with something to draw gives 1), and one that makes the same buffers leaves it.
 
 A shape is up to two layers, its fill and then its stroke, each covering every point once, so a translucent fill and
-stroke show darker where they overlap, unlike the pixels' one group per shape. Known exception: a stroke with round
-joins or ends that doubles back at a sharp turn may have a patch covered three times (about 1 in 1,000 random strokes),
-which a translucent colour or a multiply shows darker. A vertex alpha is the colour's alpha
+stroke show darker where they overlap, unlike the pixels' one group per shape. A vertex alpha is the colour's alpha
 times the shape's opacity; a layer of alpha 0 has no triangles. A shape with an empty path adds nothing but keeps its
 number as `item`; `order` is 0 where a shape has no `order` attribute. Curves are flattened as for the pixels, to
 within 0.01 design pixels. A shape whose tessellation would take more than about a second (an outline that
