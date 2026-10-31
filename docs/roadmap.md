@@ -161,7 +161,7 @@ Done when: properties pass (length against closed forms, `reverse` twice is the 
 `reverse().point_at(1 - t)`, the length of `slice(a, b)` is `(b - a)` times the length, a split's parts sum to the
 whole, `contains` against a brute-force sampler); the bindings expose the same calls.
 
-State: built (Rust core, Python bindings, docs); independent review and merge pending.
+State: done; independently reviewed 2026-10-31 and the proven findings fixed (design-decisions.md).
 
 ### V2b Drawings
 
