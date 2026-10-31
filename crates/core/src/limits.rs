@@ -17,6 +17,12 @@ pub(crate) const MAX_SHAPES: usize = 1_000_000;
 // code follow it so that what is written in code can be saved and loaded back
 pub(crate) const MAX_DEPTH: usize = 128;
 
+/// The most nodes an expression may have, a shared part counted each time it is used, as evaluation visits it. It
+/// bounds the work of one number: an expression that adds itself to itself 28 times is 2^29 nodes.
+// constant: neither formats.md nor api.md names a limit on expressions; 10,000 nodes is far beyond any expression
+// written by hand and evaluates in microseconds
+pub(crate) const MAX_EXPR_NODES: usize = 10_000;
+
 /// What one draw has made so far. A node charges what it creates as it creates it, before it allocates.
 #[derive(Debug, Default)]
 pub(crate) struct Work {

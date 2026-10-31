@@ -7,6 +7,7 @@ mod common;
 use bullterrier_vector::{Error, Expr, Param, Unit, Values};
 use common::{Outcome, log_uniform, parameter_refusal};
 use proptest::prelude::*;
+use std::time::Instant;
 
 /// A bounded Param from -1000 to 1000 with the given default.
 fn param(name: &str, default: f64) -> Result<Param, Error> {
@@ -289,6 +290,44 @@ fn an_expression_deeper_than_128_levels_is_refused() -> Outcome {
         ok = 1.0 - ok;
     }
     assert_eq!(value(&ok)?, 0.0);
+    Ok(())
+}
+
+/// An expression of exactly `nodes` nodes (a number, a Param or an operator is one) that is shallow: an odd count is
+/// an operator over two halves, an even one a negation, the only operator with one operand.
+fn with_nodes(nodes: usize) -> Expr {
+    if nodes <= 1 {
+        Expr::from(1.0)
+    } else if nodes % 2 == 0 {
+        -with_nodes(nodes - 1)
+    } else {
+        let left = (nodes - 1) / 2;
+        with_nodes(left) + with_nodes(nodes - 1 - left)
+    }
+}
+
+#[test]
+fn an_expression_of_more_than_10000_nodes_is_refused_counting_shared_nodes_each_time() -> Outcome {
+    value(&with_nodes(10_000))?;
+    let (_, message) = parameter_refusal(value(&with_nodes(10_001)))?;
+    assert!(
+        message.contains("MAX_EXPR_NODES") && message.contains("10000"),
+        "{message}"
+    );
+    // `e + e` shares its operand but is worked out twice: 28 doublings are 2^29 - 1 nodes and 19 s of work
+    let x = param("x", 1.0)?;
+    let mut shared = Expr::from(&x);
+    for _ in 0..28 {
+        shared = &shared + &shared;
+    }
+    let started = Instant::now();
+    let (_, message) = parameter_refusal(value(&shared))?;
+    assert!(message.contains("MAX_EXPR_NODES"), "{message}");
+    assert!(
+        started.elapsed().as_secs_f64() < 1.0,
+        "refused after {:?}",
+        started.elapsed()
+    );
     Ok(())
 }
 

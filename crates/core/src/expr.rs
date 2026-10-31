@@ -1,6 +1,6 @@
 //! `Expr`: arithmetic on Params and numbers, worked out when a drawing is drawn.
 
-use crate::limits::MAX_DEPTH;
+use crate::limits::{MAX_DEPTH, MAX_EXPR_NODES};
 use crate::node::Item;
 use crate::{Error, Param, Value, Values};
 use std::fmt;
@@ -43,6 +43,9 @@ struct Tree {
     depth: usize,
     /// Whether any Param is read below.
     reads_param: bool,
+    /// The nodes evaluation visits: one for each number, Param and operator, a shared operand counted each time it is
+    /// reached. It saturates, since a loop can double an expression past any count.
+    nodes: usize,
 }
 
 impl Node {
@@ -86,23 +89,26 @@ impl Drop for Tree {
 pub struct Expr(Arc<Tree>);
 
 impl Expr {
-    fn new(node: Node, depth: usize, reads_param: bool) -> Self {
+    fn new(node: Node, depth: usize, reads_param: bool, nodes: usize) -> Self {
         Self(Arc::new(Tree {
             node,
             depth,
             reads_param,
+            nodes,
         }))
     }
 
     fn binary(op: Op, left: Self, right: Self) -> Self {
         let depth = 1 + left.0.depth.max(right.0.depth);
         let reads_param = left.0.reads_param || right.0.reads_param;
-        Self::new(Node::Binary(op, left, right), depth, reads_param)
+        let nodes = left.0.nodes.saturating_add(right.0.nodes).saturating_add(1);
+        Self::new(Node::Binary(op, left, right), depth, reads_param, nodes)
     }
 
     fn negate(inner: Self) -> Self {
         let (depth, reads_param) = (1 + inner.0.depth, inner.0.reads_param);
-        Self::new(Node::Neg(inner), depth, reads_param)
+        let nodes = inner.0.nodes.saturating_add(1);
+        Self::new(Node::Neg(inner), depth, reads_param, nodes)
     }
 
     /// How tightly the expression binds when it is an operand: `+` and `-` loosest, then `*` and `/`, then
@@ -134,15 +140,15 @@ impl Expr {
     /// # Errors
     /// [`Error::Parameter`] naming the Param if a value given for it is not accepted, or if it was given a list (a
     /// list has an entry per shape, so it is read where there are shapes); naming the expression if it is deeper than
-    /// 128 levels, if it divides by zero, or if any step of it is NaN or infinite.
+    /// 128 levels or has more than 10,000 nodes (a shared part counted each time), if it divides by zero, or if any step of it is NaN or infinite.
     pub fn value(&self, values: &Values) -> Result<f64, Error> {
-        self.check_depth()?;
+        self.check_limits()?;
         self.evaluate(values, None)
     }
 
     /// The value for the shape `item` of a list: a Param given a list reads the entry at the shape's index.
     pub(crate) fn value_at(&self, values: &Values, item: Item) -> Result<f64, Error> {
-        self.check_depth()?;
+        self.check_limits()?;
         self.evaluate(values, Some(item))
     }
 
@@ -151,13 +157,23 @@ impl Expr {
         self.0.reads_param
     }
 
-    /// An error unless the expression is at most [`MAX_DEPTH`] levels deep, which bounds the recursion that
-    /// evaluates and prints it.
-    pub(crate) fn check_depth(&self) -> Result<(), Error> {
+    /// An error unless the expression is at most [`MAX_DEPTH`] levels deep, which bounds the recursion that evaluates
+    /// and prints it, and has at most [`MAX_EXPR_NODES`] nodes, which bounds the work of evaluating it. It does not
+    /// evaluate anything.
+    pub(crate) fn check_limits(&self) -> Result<(), Error> {
         if self.0.depth > MAX_DEPTH {
             return Err(Error::parameter(
                 "expression",
                 format!("is {} levels deep, but at most {MAX_DEPTH} are accepted", self.0.depth),
+            ));
+        }
+        if self.0.nodes > MAX_EXPR_NODES {
+            return Err(Error::parameter(
+                "expression",
+                format!(
+                    "has {} nodes (a shared part counted each time it is used), but MAX_EXPR_NODES {MAX_EXPR_NODES} is the most accepted",
+                    self.0.nodes
+                ),
             ));
         }
         Ok(())
@@ -237,19 +253,19 @@ impl Expr {
 impl From<f64> for Expr {
     /// A plain number. A negative zero is stored as zero.
     fn from(number: f64) -> Self {
-        Self::new(Node::Const(number + 0.0), 1, false)
+        Self::new(Node::Const(number + 0.0), 1, false, 1)
     }
 }
 
 impl From<&Param> for Expr {
     fn from(param: &Param) -> Self {
-        Self::new(Node::Param(param.clone()), 1, true)
+        Self::new(Node::Param(param.clone()), 1, true, 1)
     }
 }
 
 impl From<Param> for Expr {
     fn from(param: Param) -> Self {
-        Self::new(Node::Param(param), 1, true)
+        Self::new(Node::Param(param), 1, true, 1)
     }
 }
 

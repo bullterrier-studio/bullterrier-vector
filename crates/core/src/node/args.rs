@@ -209,11 +209,11 @@ impl Args {
         Ok(reads)
     }
 
-    /// The checks of a call: every expression is within the depth limit, every constant one is worked out and accepted
+    /// The checks of a call: every expression is within the depth and size limits, every constant one is worked out and accepted
     /// by its argument's domain, drawings are not nested too deep, then the verb's own rule across arguments. The error is unplaced.
     pub(crate) fn validate(&self) -> Result<(), Error> {
         for (arg, expr) in self.expressions() {
-            expr.check_depth().map_err(|error| relabel(error, arg.name))?;
+            expr.check_limits().map_err(|error| relabel(error, arg.name))?;
             if !expr.reads_param() {
                 let value = expr.value(&Values::new()).map_err(|error| relabel(error, arg.name))?;
                 arg.domain.number(arg.name, value)?;

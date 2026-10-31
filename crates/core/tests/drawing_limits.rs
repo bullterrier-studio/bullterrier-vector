@@ -5,8 +5,9 @@
 
 mod common;
 
-use bullterrier_vector::{Drawing, Error, Path, Values};
+use bullterrier_vector::{Drawing, Error, Param, Path, Values};
 use common::{Outcome, parameter_refusal};
+use std::time::Instant;
 
 /// A drawing of one shape that is an empty path, which keeps a million of them cheap.
 fn nothing() -> Drawing {
@@ -133,5 +134,30 @@ fn a_chain_of_a_hundred_thousand_steps_draws_and_drops_without_overflowing_the_s
     let shapes = drawing.shapes(&Values::new())?;
     assert_eq!(shapes[0].path().to_svg_path(), "M100000 0 L100001 0");
     assert_eq!(drawing.parameters()?, vec![]);
+    Ok(())
+}
+
+// MAX_EXPR_NODES ----------------------------------------------------------------------------------------------------
+
+#[test]
+fn an_expression_that_shares_itself_is_refused_at_the_call_without_being_worked_out() -> Outcome {
+    // each doubling shares the expression and reads it twice: 2^29 - 1 nodes, 19 s of evaluation
+    let x = Param::new("x", 1.0, 0.0, 10.0)?;
+    let mut shared = bullterrier_vector::Expr::from(&x);
+    for _ in 0..28 {
+        shared = &shared + &shared;
+    }
+    let started = Instant::now();
+    let drawing = nothing().translate(&shared, 0.0);
+    let (name, message) = parameter_refusal(Err::<(), _>(drawing.error().cloned().ok_or("no error held")?))?;
+    assert!(
+        name.contains("translate") && message.contains("MAX_EXPR_NODES"),
+        "{name}: {message}"
+    );
+    assert!(
+        started.elapsed().as_secs_f64() < 1.0,
+        "refused after {:?}",
+        started.elapsed()
+    );
     Ok(())
 }
