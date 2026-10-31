@@ -131,3 +131,14 @@ pub(crate) fn clearance(corners: &[(f64, f64)], point: (f64, f64)) -> f64 {
     }
     nearest
 }
+
+/// The area the closed polygon through `corners` encloses, positive when it runs clockwise on screen (`y` down): the
+/// shoelace formula.
+pub(crate) fn shoelace_area(corners: &[(f64, f64)]) -> f64 {
+    let mut doubled = 0.0;
+    for (index, (x, y)) in corners.iter().enumerate() {
+        let (next_x, next_y) = corners[(index + 1) % corners.len()];
+        doubled += x * next_y - next_x * y;
+    }
+    doubled / 2.0
+}

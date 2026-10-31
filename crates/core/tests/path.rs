@@ -5,7 +5,7 @@
 mod common;
 
 use bullterrier_vector::{Error, Path, Point, Rect};
-use common::{Outcome, build, commands, distance, log_uniform, parameter_refusal, step};
+use common::{Outcome, build, commands, distance, log_uniform, parameter_refusal, shoelace_area, step};
 use proptest::prelude::*;
 
 /// The four points of a cubic arc: where it starts, its two handles, where it ends.
@@ -227,17 +227,6 @@ fn end_points(data: &str) -> Result<Vec<(f64, f64)>, Box<dyn std::error::Error>>
             _ => Err("a command without a point".into()),
         })
         .collect()
-}
-
-/// The area the closed polygon through `corners` encloses, positive when it runs clockwise on screen (`y` down): the
-/// shoelace formula.
-fn shoelace_area(corners: &[(f64, f64)]) -> f64 {
-    let mut doubled = 0.0;
-    for (index, (x, y)) in corners.iter().enumerate() {
-        let (next_x, next_y) = corners[(index + 1) % corners.len()];
-        doubled += x * next_y - next_x * y;
-    }
-    doubled / 2.0
 }
 
 /// The handle length that makes a cubic quarter arc follow a circle: 4/3 (sqrt 2 - 1) of its radius.

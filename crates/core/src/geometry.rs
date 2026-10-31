@@ -40,6 +40,27 @@ pub struct Rect {
     pub height: f64,
 }
 
+/// How much to scale by: one factor for both directions, or a pair for across and down separately. A number or an
+/// `(x, y)` tuple of numbers goes anywhere a `Scale` is asked for. A negative factor mirrors; 0 is refused where it is
+/// used.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Scale {
+    pub(crate) x: f64,
+    pub(crate) y: f64,
+}
+
+impl From<f64> for Scale {
+    fn from(factor: f64) -> Self {
+        Self { x: factor, y: factor }
+    }
+}
+
+impl From<(f64, f64)> for Scale {
+    fn from((x, y): (f64, f64)) -> Self {
+        Self { x, y }
+    }
+}
+
 /// `value`, or the error naming `parameter` if it is NaN or infinite.
 pub(crate) fn finite(parameter: &str, value: f64) -> Result<f64, Error> {
     if value.is_finite() {

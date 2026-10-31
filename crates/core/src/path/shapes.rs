@@ -214,7 +214,7 @@ impl Path {
     }
 
     /// This path, or the error naming `parameter` if a computed coordinate is NaN or infinite.
-    fn finite(self, parameter: &str) -> Result<Self, Error> {
+    pub(super) fn finite(self, parameter: &str) -> Result<Self, Error> {
         if self
             .all_points()
             .all(|point| point.x.is_finite() && point.y.is_finite())
