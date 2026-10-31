@@ -1,6 +1,6 @@
 # Design
 
-Status: planned; the repository has the scaffold, its gates and CI workflows, and one skeleton function; see
+Status: planned; the repository has the scaffold, its gates and CI workflows, and the geometry value `Path` (V2a); see
 [docs/roadmap.md](roadmap.md).
 
 Draft for review, 2026-10-28. Batches that build it: [roadmap.md](roadmap.md). Decisions and their reasons:

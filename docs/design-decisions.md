@@ -196,6 +196,41 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **JSON for drawing files** (2026-10-28), with a JSON Schema. *Reason:* native in the browser and npm, read by every
   language; deep node trees are awkward in TOML.
 
+## Geometry (V2a)
+
+- **No curve crate** (2026-10-31). Curves, measuring, hit-testing and SVG path data are our own code on `libm`. *Reason:*
+  `clippy.toml` bans the platform's transcendental functions only in this workspace's code; a curve crate's maths
+  would reach the output unchecked and leave the native-against-WebAssembly differential test (V3) as the only guard
+  for bit-identical bytes. The surface needed is small (flattening, arc length, nearest point, nonzero winding).
+  *Consequence:* the same maths in every language; booleans and offsets (V8, V9) face the same question.
+- **Arcs are cubics, one per quarter turn at most** (2026-10-31). An SVG arc is converted from endpoint to centre form
+  (SVG 1.1, F.6.5), then cut into `ceil(sweep / 90°)` equal pieces, each a cubic with handles `4/3 tan(piece / 4)`.
+  A circle is four cubics (kappa `0.5522847498307936`), straying from the circle by at most 2.7e-4 of the radius.
+  *Reason:* one rule, so reading path data and `Path.circle` agree, and a path holds exact coordinates.
+- **One flattening serves every measure** (2026-10-31). Length, `point_at`, `tangent_at`, `locate` and `slice` read one
+  walk over the same flattened edges, so they agree by construction. A curve is flat when its control points lie
+  within `FLATNESS` (0.01 design pixels, independent of the output size) of the evenly spaced points of its chord, not
+  merely near the chord line. *Reason:* that bounds the pace too: the curve at parameter `t` is within `FLATNESS` of
+  the edge at fraction `t`, so a position along an edge is a position along the curve. A distance-only test would let
+  a position drift along the curve.
+- **`tangent_at` leaves, `locate` takes the first, `slice` has a direction** (2026-10-31). At a corner the tangent is
+  the direction leaving it, since a draw-on or a dash starts there; a position on the boundary between sub-paths
+  belongs to the later one; `locate` of an equally near point gives the smallest position, and a closed start is 0,
+  never 1. `slice(start, end)` with `start` above `end` is a `ParameterError`, not a hidden reversal (`reverse`
+  exists); `slice(a, a)` is a lone start, so the result is still a path at that point; a closed sub-path wholly
+  inside the piece keeps its close flag, so `slice(0, 1)` of an outline is the outline. *Reason:* each rule is the one
+  a draw-on or a dash march needs to give the same picture at 0, at 1 and at a corner, with no special case in the
+  caller.
+- **The `Error` shape** (2026-10-31). `Error::Parameter { parameter, message }` and `Error::Geometry { verb, message }`
+  hold owned strings, and the enum is `#[non_exhaustive]`. *Reason:* a drawing prefixes the place of a failure
+  (`step 3 (rotate).angle`), which `&'static str` fields cannot hold, and `Error::Format` arrives with the JSON
+  loader (V2c) without breaking a caller's `match`. The core owns every range check; the bindings only choose the
+  exception class.
+- **Shortest round-trip numbers in path data** (2026-10-31). A number is written as the shortest text that reads back
+  as the same value, never with an exponent, and `-0` as `0`, so `Path.from_svg_path(p.to_svg_path()) == p` exactly,
+  at any size. *Reason:* a fixed number of decimals (the skeleton's six) loses precision on small paths and bloats
+  large ones.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

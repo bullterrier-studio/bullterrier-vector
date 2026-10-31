@@ -14,8 +14,8 @@ public: no absolute paths, no references to folders outside the repository.
 
 ```bash
 uv sync && uv run poe setup                      # once per clone: environment (builds the Rust extension: needs rustup), git hooks, commit template, cargo tools
-cargo test -p bullterrier-vector square          # the Rust tests near your change, while you work
-uv run pytest tests/test_polygon.py -n 0         # the Python tests near your change
+cargo test -p bullterrier-vector --test path     # the Rust tests near your change, while you work
+uv run pytest tests/test_path.py -n 0            # the Python tests near your change
 uv run poe fast                                  # the inner loop: seconds when warm
 uv run poe check                                 # the whole gate, before you report or merge
 ```
@@ -23,8 +23,9 @@ uv run poe check                                 # the whole gate, before you re
 Needs [rustup](https://rustup.rs): the first `cargo` command in the checkout fetches the toolchain `rust-toolchain.toml` pins and
 the `wasm32-unknown-unknown` target. `uv run poe` lists every task.
 
-**State:** the scaffold (workspace, gates, hooks, CI workflows) and one walking-skeleton function, `polygon_svg(sides, radius)`, from the Rust
-core to Python; the core also builds for WebAssembly. The rest is planned (`docs/roadmap.md`); the skeleton is replaced in V2.
+**State:** the scaffold (workspace, gates, hooks, CI workflows) and the geometry value `Path` (with `Point` and `Rect`) from the
+Rust core to Python (V2a: build, measure, cut, move, hit-test, SVG path data); the core also builds for WebAssembly. The rest is
+planned (`docs/roadmap.md`): drawings and JSON are V2b and V2c.
 Maintainers may keep machine-specific notes in a git-ignored `.local/` folder and batch plans in the git-ignored
 `.superpowers/plans/`: read them when present; never commit or cite them.
 
@@ -66,7 +67,7 @@ Two crates in one Cargo workspace; the package version is the workspace's.
 
 | Path | What |
 |---|---|
-| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `math.rs`, `polygon.rs`; `tests/` |
+| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `tests/` |
 | `crates/python` | PyO3 bindings building the extension `bullterrier_vector._native._core`; generic, passes values to the core unchecked; no Rust tests |
 | `src/bullterrier_vector/` | the Python package: `errors.py` (the bottom layer, imports nothing from the package), `_native/` (the extension and its stub `_core.pyi`), `__init__.py` (the public API) |
 | `tests/` | the Python suite (`test_*.py`); `tests/tools/` tests the tooling and the gates |
@@ -78,7 +79,7 @@ fails the gate). Python reaches the core only through the bindings crate (`deny.
 `Error` maps to the Python exceptions in the bindings; the core owns every range check, so every language gets the same error.
 
 The design's planned modules (geometry, type, scene, parameters, nodes, output, json), each hiding one decision, are in the table in
-`docs/design.md`, "Shape of the library"; only `math`, `error` and the skeleton exist yet. A crate that does one of these jobs is never exposed in the API.
+`docs/design.md`, "Shape of the library"; only `math`, `error` and geometry (`geometry`, `path`) exist yet. A crate that does one of these jobs is never exposed in the API.
 
 ## The rules
 
@@ -94,12 +95,12 @@ formatter, 6 and 7, and "Fixing defects".
    `clippy.toml`. `sqrt` and `mul_add` are allowed.
 4. **No clock, no hash-ordered collections, no IO in the core**, as banned in `clippy.toml` (the ban list lives there,
    with the reason beside each entry): use `BTreeMap`/`BTreeSet` and take bytes from the caller. One formatter writes every
-   number into SVG (now `number` in `polygon.rs`): no other `format!` of a coordinate.
+   number into SVG (now `number` in `path/write.rs`): no other `format!` of a coordinate.
 5. **The core builds for `wasm32-unknown-unknown` in every gate run** (`rust-wasm`): a native-only API in it fails there.
 6. **Errors by kind.** Callers catch `BullterrierVectorError` (`bullterrier_vector.errors`). Library code raises a subclass
    (`ParameterError`), never a bare `ValueError`, for anything a caller can get wrong; each also inherits the matching builtin.
-   In Rust, `bullterrier_vector::Error` is `#[non_exhaustive]`: a new kind is a new variant (`Error::Format` for a document
-   `from_json` cannot read, from V2).
+   In Rust, `bullterrier_vector::Error` is `#[non_exhaustive]` (`Parameter`, `Geometry`): a new kind is a new variant
+   (`Error::Format` for a document `from_json` cannot read, from V2c).
 7. **No backwards-compatibility shims, aliases or re-exports before 1.0** unless the owner asks: change the callers.
 8. The library never prints and never configures logging.
 
@@ -151,7 +152,7 @@ lint; an empty one fails). `dead-code` is vulture on
 `src`. `build-check` builds the sdist and wheel into `dist/check` (`dist/` is git-ignored, as is `audit`'s `dist/audit`)
 and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist's Rust sources, the licence files, one
 extension, check-wheel-contents); `tools/check_installed.py` smoke-checks an installed artifact (its file, version, import
-location, the documented square). `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix`
+location, the documented exceptions). `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix`
 applies every automatic fix (`ruff check --fix`, `ruff format`, `cargo fmt`).
 
 Each gate has a test proving it fails on a known-bad input (`tests/tools/`, marker `gate`: builds copies of the workspace, slow,
@@ -224,8 +225,8 @@ Writing tests:
 - **No change-detectors:** test a rule with a known-bad input; never restate configuration.
 - **Slow tests in groups:** a module whose module-scoped fixture spawns tools (ruff, mypy, poe, cargo, git) carries
   `pytestmark = pytest.mark.xdist_group("<module>")`.
-- **Running:** one Rust test file: `cargo test -p bullterrier-vector --test polygon`; one Python file:
-  `uv run pytest tests/test_polygon.py -n 0` (`-p no:randomly` for fixed order); all Python tests: `uv run poe test`.
+- **Running:** one Rust test file: `cargo test -p bullterrier-vector --test path`; one Python file:
+  `uv run pytest tests/test_path.py -n 0` (`-p no:randomly` for fixed order); all Python tests: `uv run poe test`.
 - **Fast feedback (agents):** while iterating or doing red-green TDD run only the tests covering your change (a filter, one file),
   and `uv run poe fast` between steps. Run `uv run poe check` once when the work is finished, before you report. If it fails, fix
   and rerun only the failing tests, then `check` once more.

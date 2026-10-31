@@ -149,16 +149,19 @@ brute-force sampling, metamorphic relations).
 
 - `Path` as a value: build, measure (length, point and tangent at a fraction of the length), split, slice, reverse,
   hit-test (nonzero rule). The edge cases of `slice` (start above end, `slice(0, 0)`, a closed result), `tangent_at` at
-  a corner and `locate` ties are settled in the plan and tested.
+  a corner and `locate` ties are settled in api.md ("Path") and tested.
 - `Path.polygon`, `Path.star`, `Path.from_svg_path` and `to_svg_path` (arcs to cubics by one fixed rule), `translate`,
-  `rotate`, `scale` on a `Path`. Replaces S0's skeleton function.
+  `rotate`, `scale` on a `Path`. Replaced S0's skeleton function.
 - Every internal sampling step (curve flattening for measuring) in design pixels, independent of the output size, each a
   named constant (`// constant:`; api.md, "Conventions").
-- The `Error` redesign (below).
+- The `Error` redesign: `Error::Parameter` and `Error::Geometry` with owned strings, non-exhaustive (design-decisions.md,
+  "Geometry (V2a)").
 
 Done when: properties pass (length against closed forms, `reverse` twice is the identity, `point_at(t)` equals
 `reverse().point_at(1 - t)`, the length of `slice(a, b)` is `(b - a)` times the length, a split's parts sum to the
 whole, `contains` against a brute-force sampler); the bindings expose the same calls.
+
+State: built (Rust core, Python bindings, docs); independent review and merge pending.
 
 ### V2b Drawings
 
@@ -200,13 +203,9 @@ bytes); a property test round-trips random trees from the registry to the same c
 agrees with the draft; the loader rejects a document for each check whose calls are registered.
 
 Carried from the S0 review:
-- `polygon_svg` accepts radii that draw nothing (viewBox `0 0 0 0` at radius 1e-9) and rounds to 6 fixed decimals, which
-  does not scale with size: V2a needs relative precision or a real lower bound.
-- The proptest radii are uniform, so small radii are almost never sampled: use log-uniform.
-- The `Error` shape (`parameter: &'static str`, public fields, derived `Eq`) will not fit nested node paths: mark it
-  non-exhaustive or redesign it in V2a; it also carries a pointer for `Error::Format`.
-- Clippy checks only this workspace's code, so the curve, boolean and raster crates chosen in V2 must use `libm` for
-  their maths; otherwise the V3 native-against-WebAssembly differential test is the only guard.
+- Clippy checks only this workspace's code, so the boolean and raster crates chosen in V2 must use `libm` for their
+  maths; otherwise the V3 native-against-WebAssembly differential test is the only guard. (V2a wrote its own curve
+  code on `libm`; see design-decisions.md, "No curve crate".)
 
 ## V3 Output, WebAssembly, the same bytes everywhere
 

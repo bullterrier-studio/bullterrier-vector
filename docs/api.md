@@ -1,7 +1,7 @@
 # The code API
 
-Status: V1a, designed from the example programs in [examples/](examples/); waiting for the owner's review. Nothing here
-is built yet ([roadmap.md](roadmap.md)). Reasons: [design-decisions.md](design-decisions.md), "The code API". The JSON
+Status: V1a, designed from the example programs in [examples/](examples/); waiting for the owner's review. Built so far
+(V2a): `Path`, `Point`, `Rect`, `Path.map_points` and the errors; the rest is not ([roadmap.md](roadmap.md)). Reasons: [design-decisions.md](design-decisions.md), "The code API". The JSON
 form of a drawing: [formats.md](formats.md).
 
 Signatures are Python's; "Languages" gives the Rust and JavaScript forms. The library is imported under the alias
@@ -83,17 +83,17 @@ Building returns a new path each call:
 |---|---|---|---|
 | `Path` | `Path()` | an empty path | |
 | `move_to` | `move_to(point)` | starts a new sub-path at `point` | |
-| `line_to` | `line_to(point)` | a straight segment to `point` | `ParameterError` before any `move_to` |
+| `line_to` | `line_to(point)` | a straight segment to `point`; after `close()` it starts a new sub-path at the closed one's start | `ParameterError` before any `move_to` |
 | `curve_to` | `curve_to(control1, control2, point)` | a cubic Bezier segment to `point` | as `line_to` |
 | `quad_to` | `quad_to(control, point)` | a quadratic Bezier segment to `point` | as `line_to` |
 | `close` | `close()` | closes the open sub-path: a straight line back to its start is implied, not a segment of its own | as `line_to` |
 | `Path.line` | `Path.line(start, end)` | one open segment | |
-| `Path.polyline` | `Path.polyline(points, *, closed=False)` | straight segments through `points` | fewer than 2 points |
-| `Path.rect` | `Path.rect(x, y, width, height, *, radius=0)` | a closed rectangle, corners rounded by `radius` | a negative size; `radius` over half the shorter side |
+| `Path.polyline` | `Path.polyline(points, *, closed=False)` | straight segments through `points`; a closed one whose last point is its first does not store it twice | fewer than 2 points |
+| `Path.rect` | `Path.rect(x, y, width, height, *, radius=0)` | a closed rectangle from the left end of its top edge, corners rounded by `radius` | a negative size; `radius` negative or over half the shorter side |
 | `Path.circle` | `Path.circle(center, radius)` | a closed circle | `radius` not above 0 |
-| `Path.polygon` | `Path.polygon(center, radius, sides)` | a regular polygon, a corner at the top | `sides` below 3 |
-| `Path.star` | `Path.star(center, outer, inner, *, points=5)` | a star, a tip at the top | `points` below 2; a radius not above 0 |
-| `Path.from_svg_path` | `Path.from_svg_path(data)` | the path an SVG `d` attribute describes | `data` malformed (names the first bad command) |
+| `Path.polygon` | `Path.polygon(center, radius, sides)` | a regular polygon, a corner at the top | `sides` outside 3 to 100000; `radius` not above 0 |
+| `Path.star` | `Path.star(center, outer, inner, *, points=5)` | a star, a tip at the top; `inner` may exceed `outer` | `points` outside 2 to 100000; a radius not above 0 |
+| `Path.from_svg_path` | `Path.from_svg_path(data)` | the path an SVG `d` attribute describes; arcs become cubics, one per quarter turn at most; empty data is an empty path | `data` malformed, or a coordinate not finite (names the first bad command and its byte offset) |
 
 Measuring and hit-testing (on `Path` only):
 
@@ -101,15 +101,32 @@ Measuring and hit-testing (on `Path` only):
 |---|---|---|---|
 | `length` | property | the length in design pixels | |
 | `bounds` | property | the smallest `Rect(x, y, width, height)` around the outline | `GeometryError` on an empty path |
-| `point_at` | `point_at(at, *, near=None)` | the point a fraction `at` of the way along | `ParameterError`: `at` outside 0..1; `GeometryError`: an empty path |
-| `tangent_at` | `tangent_at(at, *, near=None)` | the unit direction of travel there | as `point_at` |
+| `point_at` | `point_at(at, *, near=None)` | the point a fraction `at` of the way along | `ParameterError`: `at` outside 0..1 or NaN; `GeometryError`: an empty path |
+| `tangent_at` | `tangent_at(at, *, near=None)` | the unit direction of travel there | as `point_at`; `GeometryError` also for a path with no length |
 | `locate` | `locate(point, *, near=None)` | the position 0..1 of the point on the path nearest `point` | `GeometryError`: an empty path |
-| `contains` | `contains(point)` | whether `point` is inside the filled region (nonzero rule) | |
-| `split` | `split()` | a `list[Path]` of its parts: each closed outline with the holes inside it, and each open line | |
+| `contains` | `contains(point)` | whether `point` is inside the filled region (nonzero rule; an open sub-path fills as if closed; a point exactly on the outline may be either) | `ParameterError`: `point` not finite |
+| `split` | `split()` | a `list[Path]` of its parts, in path order: each closed outline with the holes inside it, and each open line; a closed sub-path inside an odd number of others is a hole of the innermost, inside an even number it is a part of its own | |
 | `map_points` | `map_points(fn)` | the path with every point, on and off the curve, passed through `fn(point) -> point` | what `fn` raises |
 | `to_svg_path` | `to_svg_path()` | SVG path data for the path | |
 
-`map_points` is the one verb that takes a callback, so it has no step on `Drawing`.
+`map_points` is the one verb that takes a callback, so it has no step on `Drawing`. What `fn` raises comes out unchanged;
+a point it returns that is not finite is a `ParameterError` naming `fn`.
+
+Settled edge cases:
+- **Plain numbers** are finite or a `ParameterError` naming the argument: a NaN or an infinity never reaches a result.
+- **Corners and boundaries.** `tangent_at` at a corner is the direction *leaving* it (the next segment's); at `at=1` it is
+  the last segment's, and on a closed sub-path the same as at 0; segments of no length are skipped. A position on the
+  boundary between two sub-paths belongs to the later one. `locate` of a point equally near several places gives the
+  smallest position, and the start of a closed sub-path is 0, never 1. Of equally near places `near` takes the first
+  as written.
+- **No length.** A path that is only a start point (a lone `M`) has length 0; `point_at` gives that point, `locate` 0,
+  and `tangent_at` raises `GeometryError`: it has no direction.
+- **Empty path.** Length 0; `bounds`, `point_at`, `tangent_at`, `locate` and `slice` raise `GeometryError`; `split` gives
+  `[]`; `translate`, `rotate`, `scale` and `reverse` give the empty path.
+- **`slice`.** `start` above `end` is a `ParameterError` (`reverse()` runs a path backwards); `slice(a, a)` is a lone
+  `M` at that point (length 0, not empty). A closed sub-path wholly inside the piece stays closed, so `slice(0, 1)` of a
+  closed outline is closed again; any other piece is open. Curves stay curves, cut where the positions fall.
+- **`reverse`** reverses the order of the sub-paths and each of them, so `point_at(t)` equals `reverse().point_at(1 - t)`.
 
 ## Verbs on Path and Drawing
 
@@ -124,8 +141,8 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | Verb | Signature | Promise | Errors |
 |---|---|---|---|
 | `translate` | `translate(dx, dy)` | moves by `dx`, `dy` | |
-| `rotate` | `rotate(angle, *, about=None)` | turns clockwise about `about` | |
-| `scale` | `scale(by, *, about=None)` | scales by `by`, or by `(x, y)` separately, about `about`; a negative value mirrors | `by` (or a component) equal to 0 |
+| `rotate` | `rotate(angle, *, about=None)` | turns clockwise on the screen (`y` down) about `about`; `angle` in degrees, any size, wrapping; multiples of 90 are exact | |
+| `scale` | `scale(by, *, about=None)` | scales by a number `by`, or by an `(x, y)` pair separately, about `about`; a negative value mirrors | `by` (or a component) equal to 0 |
 | `union` | `union(other)` | the region inside either | `GeometryError` (below) |
 | `subtract` | `subtract(other)` | the region inside this and outside `other` | `GeometryError` |
 | `intersect` | `intersect(other)` | the region inside both | `GeometryError` |
@@ -134,7 +151,7 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | `outline` | `outline(width, *, join="round", cap="round", miter_limit=4)` | the region a stroke of `width` paints, as a closed outline; caps `butt`, `round`, `square` | `width` not above 0; `miter_limit` below 1 |
 | `drop_parts` | `drop_parts(*, smaller_than)` | without the parts whose area is below `smaller_than` square pixels | `smaller_than` below 0 |
 | `fill_holes` | `fill_holes(*, smaller_than)` | with the holes whose area is below `smaller_than` filled | `smaller_than` below 0 |
-| `slice` | `slice(start, end, *, near=None)` | the piece between two positions along it (draw-on: `slice(0, progress)`); with `near`, a closed sub-path is measured from its point nearest `near`, as for every verb that takes it | a position outside 0..1 |
+| `slice` | `slice(start, end, *, near=None)` | the piece between two positions along it (draw-on: `slice(0, progress)`); with `near`, a closed sub-path is measured from its point nearest `near`, as for every verb that takes it | a position outside 0..1; `start` above `end`; on a `Path`, `GeometryError`: an empty path |
 | `reverse` | `reverse()` | the same outline travelled the other way | |
 | `dash` | `dash(pattern, *, phase=0, near=None)` | the pieces a dash pattern (`[on, off, ...]` in pixels) leaves; `phase` in cycles of the pattern, wrapping | an empty pattern; a length not above 0 |
 | `resample` | `resample(spacing)` | straight segments with corners `spacing` pixels apart along it | `spacing` not above 0 |
@@ -482,7 +499,8 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toMesh(w, h, values, { into: mesh })`, `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })` |
 | Units as types | | `Deg(..)` for every angle (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`); `Size::px(w, h)` (whole output pixels, else an error at the draw) and `Size::mm(w, h)` for output sizes | |
 | Colours | `"#ff4f9a"` | `Color::hex(0xff4f9a)`, `Color::NONE` | `"#ff4f9a"` |
-| Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`reverse`, `contains`); a verb that takes a plain number returns a `Result`, as a NaN or an infinity is a `ParameterError` (`path.translate(1.0, 2.0)?`); a path is built from `Path::start(point)`, so no segment comes before a start. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | exceptions of the exported classes `btvec.ParameterError`, `btvec.GeometryError` and `btvec.FormatError` (all `btvec.BullterrierVectorError`), for `instanceof` |
+| Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`reverse`, `split`, `length`); a verb that takes a plain number returns a `Result`, as a NaN or an infinity is a `ParameterError` (`path.translate(1.0, 2.0)?`); a path is built from `Path::start(point)`, so no segment comes before a start. `Error` is `#[non_exhaustive]`: `Error::Parameter { parameter, message }` and `Error::Geometry { verb, message }`, owned strings so a drawing can prefix the step. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | exceptions of the exported classes `btvec.ParameterError`, `btvec.GeometryError` and `btvec.FormatError` (all `btvec.BullterrierVectorError`), for `instanceof` |
+| Optional `Path` arguments | keywords: `point_at(0.5, near=p)`, `rotate(30, about=p)`, `Path.rect(0, 0, w, h, radius=8)`, `scale((2, 3))` | plain arguments, `None` for the default: `point_at(0.5, Some(p))?`, `rotate(30.0, None)?`, `Path::rect(0.0, 0.0, w, h, 8.0)?`; `scale` takes a number or a pair through `Scale`: `scale(2.0, None)?`, `scale((2.0, 3.0), None)?`; `Path::polyline(points, closed)` and `Path::star(center, outer, inner, points)` take their options in place; `map_points` takes `FnMut(Point) -> Result<Point, Error>` | an options object last: `pointAt(0.5, { near: p })`, `scale([2, 3])` |
 | Bytes in | `bytes` | `Vec<u8>` | `Uint8Array` |
 | Frame export | `btvec.frames` | the caller's loop over `to_png` | the caller's loop over `toRgba` or `toMesh` |
 

@@ -297,14 +297,17 @@ rounded.
 - **Colours** are `"#rrggbb"` or `"#rrggbbaa"`, hex digits in either case; `fill` also takes `"none"`. No names, no
   three-digit form, no `rgb()`.
 - **Path data** is SVG path data. A `Path` is a list of sub-paths, each a start, its segments (straight, quadratic,
-  cubic) and whether it is closed, and its written form is one-to-one with it: each sub-path is `M x y`, then its
-  segments as `L`, `Q` and `C` with absolute coordinates, then `Z` if it is closed. `Z` is the close flag and writes
-  no segment: the line back to the start is implied, of no length when the last segment ends there. A sub-path with no
-  segments (a lone `M`) is written too. Each letter is followed by its numbers, every number and command separated by
-  one space, numbers as in JSON ("Canonical form"): `"M0 0 L1080 0 L1080 1350 L0 1350 Z"`. Reading takes any SVG path
-  data and normalises it into this form, as `Path.from_svg_path` does: relative commands made absolute, `H` and `V` as
-  `L`, `S` and `T` as `C` and `Q` with the reflected control point, `A` as cubic curves. A path holds exact
-  coordinates, so a circle is four cubic curves with their control points, not a centre and a radius.
+  cubic) and whether it is closed, and its written form is one-to-one with it: each sub-path is `M` and its start, then
+  its segments as `L`, `Q` and `C` with absolute coordinates, then `Z` if it is closed. `Z` is the close flag and
+  writes no segment: the line back to the start is implied, of no length when the last segment ends there. A sub-path
+  with no segments (a lone `M`) is written too. A letter is glued to its first number and one space separates
+  everything else: `"M0 0 L1080 0 L1080 1350 L0 1350 Z"`, `"M0 0 Q5 5 10 0"`. A number is the shortest text that reads
+  back as the same value, as in JSON ("Canonical form") but never with an exponent (`0.0000001`, not `1e-7`), and `-0`
+  is `0`. An empty path is the empty string. Reading takes any SVG path data and normalises it into this form, as
+  `Path.from_svg_path` does: relative commands made absolute, `H` and `V` as `L`, `S` and `T` as `C` and `Q` with the
+  reflected control point, `A` as cubic curves (one per quarter turn at most). A path holds exact coordinates, so a
+  circle is four cubic curves with their control points, not a centre and a radius, and reading what was written gives
+  the same path.
 - **Text** is any JSON string; `"\n"` breaks a line.
 
 ## Params

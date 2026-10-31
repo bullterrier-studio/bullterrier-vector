@@ -51,8 +51,8 @@ checkout.
 ## Working
 
 ```bash
-cargo test -p bullterrier-vector square          # the Rust tests near your change (a name filter)
-uv run pytest tests/test_polygon.py -n 0         # the Python tests near your change, in one process
+cargo test -p bullterrier-vector --test path     # the Rust tests near your change (one test file)
+uv run pytest tests/test_path.py -n 0            # the Python tests near your change, in one process
 uv run poe fast                                  # the inner loop: format, lint, types, the quick tests
 uv run poe check                                 # the whole gate: before you push or merge
 ```
