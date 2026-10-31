@@ -92,6 +92,30 @@ fn a_param_is_refused_naming_the_argument_and_the_value() -> Outcome {
 }
 
 #[test]
+fn a_unit_is_read_from_its_word_and_written_back() -> Outcome {
+    // (word, unit): the plain number is the empty word
+    let rows = [
+        ("", Unit::None),
+        ("px", Unit::Px),
+        ("deg", Unit::Deg),
+        ("cycle", Unit::Cycle),
+        ("fraction", Unit::Fraction),
+    ];
+    for (word, unit) in rows {
+        assert_eq!(Unit::parse(word)?, unit, "reading {word:?}");
+        assert_eq!(unit.name(), word, "writing {unit:?}");
+    }
+    for word in ["PX", "degrees", "none", " px"] {
+        let (name, message) = parameter_refusal(Unit::parse(word))?;
+        assert!(
+            name == "unit" && message.contains(&format!("{word:?}")) && message.contains("fraction"),
+            "{word:?}: named {name}, said {message}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn a_cyclic_unit_needs_a_range_of_exactly_one_turn() -> Outcome {
     // (unit, min, max, accepted): a degree turn is 360, a cycle is 1
     let rows = [

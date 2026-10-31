@@ -33,6 +33,32 @@ pub enum Unit {
 }
 
 impl Unit {
+    /// Every unit, in the order of the variants.
+    const ALL: [Self; 5] = [Self::None, Self::Px, Self::Deg, Self::Cycle, Self::Fraction];
+
+    /// The unit written as `text`: `""` (a plain number), `"px"`, `"deg"`, `"cycle"` or `"fraction"`.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `unit` if `text` is none of them.
+    pub fn parse(text: &str) -> Result<Self, Error> {
+        Self::ALL.into_iter().find(|unit| unit.name() == text).ok_or_else(|| {
+            let listed = Self::ALL.map(|unit| format!("{:?}", unit.name())).join(", ");
+            Error::parameter("unit", format!("must be one of {listed}, got {text:?}"))
+        })
+    }
+
+    /// The word this unit is written as; the plain number is the empty word.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::None => "",
+            Self::Px => "px",
+            Self::Deg => "deg",
+            Self::Cycle => "cycle",
+            Self::Fraction => "fraction",
+        }
+    }
+
     /// The size of one turn if the unit is cyclic.
     fn turn(self) -> Option<f64> {
         match self {
