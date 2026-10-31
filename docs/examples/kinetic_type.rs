@@ -21,18 +21,18 @@ const BLUE: Color = Color::hex(0x2a5bff);
 fn main() -> Result<(), Box<dyn Error>> {
     let font = Font::new(fs::read("fonts/Anybody[wdth,wght].ttf")?)?;
 
-    let weight = Param::new("weight", 600.0, 100.0..=780.0)?.meaning("how heavy the letters are, before a pulse");
-    let rise = Param::new("rise", 0.0, 0.0..=1.0)?
-        .unit(Unit::Fraction)
+    let weight = Param::new("weight", 600.0, 100.0, 780.0)?.meaning("how heavy the letters are, before a pulse");
+    let rise = Param::new("rise", 0.0, 0.0, 1.0)?
+        .unit(Unit::Fraction)?
         .meaning("how far the blue plane has risen");
-    let ink = Param::new("ink", 0.0, 0.0..=1.0)?
-        .unit(Unit::Fraction)
+    let ink = Param::new("ink", 0.0, 0.0, 1.0)?
+        .unit(Unit::Fraction)?
         .meaning("0: hairlines only; 1: the riso print");
-    let burst = Param::new("burst", 0.0, 0.0..=1.0)?
-        .unit(Unit::Fraction)
+    let burst = Param::new("burst", 0.0, 0.0, 1.0)?
+        .unit(Unit::Fraction)?
         .meaning("how hard the last hit was");
-    let pulse = Param::new("pulse", 0.0, 0.0..=1.0)?
-        .unit(Unit::Fraction)
+    let pulse = Param::new("pulse", 0.0, 0.0, 1.0)?
+        .unit(Unit::Fraction)?
         .meaning("a kick, per letter");
 
     // One shape per letter; each line fitted to the width by the width axis once, at the calm pose.

@@ -189,23 +189,31 @@ State: done; independently reviewed 2026-10-31 and the proven findings fixed (de
 - The node trait and its contract, written first (inputs, the evaluation context, each argument's kind: expression,
   whole number, per-item, read once, literal; shape-by-shape or whole-list; how an error names its verb and place), and
   the registry vocabulary that can generate the draft schema (read-once, literal-only, nonzero, cross-argument rules, a
-  per-call check hook). Each geometry verb is declared once; its `Path` method, `Drawing` step, stubs and schema entry
-  are generated from the declaration.
+  per-call check hook). Each verb is declared once; the declaration gives its call-time and draw-time validation, its
+  evaluation and the registry. The typed builders and the binding methods and stubs are written by hand over it until
+  generating them pays (design-decisions.md, "Registry vocabulary"); V2c generates the schema entry.
 - Evaluation of a tree on the merged graph of formats.md ("Shared drawings"), a chain's steps walked in a loop; a cache
   so that changing one value re-evaluates only what depends on it; the evaluation counters of formats.md ("Limits and
   security"), checked as the work is done.
 - Parameters and expression arithmetic, `with_values`, `parameters()`, `shapes()`; validate, wrap cyclic angles.
   Per-item numbers (`by_index`, `random`, `stagger`) arrive with V7.
-- Built-ins: `translate`, `rotate`, `scale`, stacking (`Drawing(...)`), over the V2a `Path` constructors.
+- Built-ins: `translate`, `rotate`, `scale`, the style steps (`fill`, `stroke`, `opacity`, `blend`), `only` and
+  `without` (the first readers of attributes), stacking (`Drawing(...)`), over the V2a `Path` constructors.
 - Contract tests over every registered node, enrolled exactly (a node registered without a row fails): determinism, values
-  within range, the same result at any size, a cached evaluation equal to a fresh one after random edits.
+  within range, the same result at any design size (the 1x against 2x output check needs outputs: V3), a cached
+  evaluation equal to a fresh one after random edits.
 - The example programs of `docs/examples/` start to run here, as far as `shapes()`: the Python ones move to a tested
   top-level `examples/`, the Rust one to `crates/core/examples/`, the JavaScript ones under the npm package.
   `docs/examples/` is never added to the documentation filter (`is_documentation`, the `changes` filter in `ci.yml`):
   its programs are code.
 
 Done when: the example programs that use only V2's calls run as far as `shapes()`; each `Path` verb has its `Drawing` step
-and the two agree; each evaluation counter raises `ParameterError` when passed, in a test.
+and the two agree; each evaluation counter a V2 node can reach raises `ParameterError` when passed, in a test (the
+others arrive with the first step that produces what they count).
+
+State: V2b-1 done in Rust on its branch (shapes, style, `Param`/`Expr`, the node contract and registry, `translate`,
+`rotate`, `scale`, the style steps, `only`, `without`, stacking, `with_values`, `parameters()`, `shapes()`, `MAX_SHAPES`
+and `MAX_DEPTH`, the contract table); an uncached evaluator. V2b-2 (cache, Python, the examples) remains.
 
 ### V2c JSON
 

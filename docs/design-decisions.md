@@ -237,6 +237,54 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   the start; 1e100 leaves room for squares, sums of squares and sums of lengths over any number of segments, and no
   drawing comes near it. *Consequence:* a result never holds a NaN or an infinity, with no check after the fact.
 
+## Drawings (V2b-1)
+
+- **The node contract** (2026-10-31). A node is a crate-private unit struct whose declaration (name, role, arguments) is
+  static data; it evaluates the whole list, and a shape-by-shape node loops through one helper that numbers the shape
+  and places its errors. It reads an argument only through an accessor that evaluates the expression for that shape,
+  applies the argument's declared range and names the argument in the error. Its context is the place, the Param values
+  as that place sees them and the counters of the draw: no clock, no caller state. *Reason:* each range is declared
+  once and checked in one place; a node cannot leave a default method unimplemented. Kinds with no consumer yet (whole
+  numbers, per-item numbers, read once) are declared by the first node that needs them, so no variant is dead code.
+  The contract is written in the module docs of `node.rs`.
+- **Registry vocabulary and what is generated** (2026-10-31). `verbs()` lists `Verb`s of `Arg`s with a kind, a default,
+  whether the value is read per shape or is a literal, and a range (`Domain`); a per-call check covers a rule across
+  arguments. From the declaration come the call-time checks, the draw-time checks, the evaluation and the list. The
+  typed builders (`Drawing::translate`...), the binding methods and stubs are hand-written one-liners, and V2c generates
+  the schema entry. *Reason:* thirteen verbs, three of them geometry, do not pay for a macro or a build script; the
+  contract table fails a registered verb with no row and a `Number` argument with no range rows, so a missing surface
+  shows. *Consequence:* revisit at V3 or when a verb needs more than a one-liner; V2c's schema agreement test is the
+  second guard.
+- **Counters charge creation** (2026-10-31). A source charges the shapes it makes and a stack its whole list (a drawing
+  used twice is charged twice), against `MAX_SHAPES` (1,000,000); steps that change or drop shapes charge nothing. The
+  charge comes before the allocation. Drawings nested more than `MAX_DEPTH` (128, the document limit, also the limit of
+  an expression) deep hold an error, and a chain of steps costs no depth: it is walked in a loop and dropped in one. The
+  other four counters arrive with the first step that produces what they count. *Reason:* the counters bound memory
+  blow-up (a stack of itself 60 times), not the length of a chain, and the cache (V2b-2) serves repeats without
+  charging.
+- **Order of a stack** (2026-10-31). A stack writes `order` on the shapes that carry none, spread 0..1 over those shapes
+  in list order (one shape: 0); a path or shape source writes none, so `Drawing(path)` equals the path. *Reason:*
+  api.md says both "the shapes that carry none" and "over the shapes a generator made"; this reading lets a text keep
+  its per-letter order beside a rectangle.
+- **Style `painted`** (2026-10-31). A private flag says a fill or a stroke was set, `fill("none")` included. `shapes()`
+  resolves the default paint of an unpainted shape and sets the flag, so a shape put back into a stack draws as it did.
+  *Reason:* `None` could not mean both unset and none (see "`Style` holds the paint as drawn").
+- **The place of a step** (2026-10-31). The source of a chain is `source (stack)`, the steps after it are numbered from 1
+  (`step 1 (translate)`), the drawings a step takes are `item 1`, `item 2`, ..., joined with ` / `, and an argument
+  follows a dot: `source (stack) / item 2 / step 1 (translate).dx`; the message of a per-shape error starts with
+  `shape 7: ` (from 0). *Reason:* a stack is always the source of its chain, so its place has no number, and the
+  reader can follow the path from the outside in.
+- **`with_values` fixes for the steps before it** (2026-10-31). The steps before it and the drawings they take see its
+  values, wrapped for a cyclic Param and checked against the Param's range at the call; a step after it reads the
+  Param as before, which brings it back into `parameters()` at its place in the order first used. A fixed Param is not
+  the caller's to give and still counts for the one-name rule. *Reason:* api.md and formats.md say "for the drawing
+  before it"; a drawing used in two places is fixed at one of them only. A value given when drawing is checked where a
+  step reads it, so the error names the step and the shape; a value nothing reads is not checked.
+- **`only` and `without` refuse an attribute only when there is something to ask** (2026-10-31). A name that is not an
+  attribute, or a value its attribute cannot hold, is refused at the call; a known name that no shape of a non-empty list
+  carries is refused when drawn, naming it. An empty list passes. *Reason:* a live text of no letters must not
+  raise from the next `only(char="O")`.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

@@ -1,7 +1,10 @@
 # The code API
 
-Status: V1a, designed from the example programs in [examples/](examples/); waiting for the owner's review. Built so far
-(V2a): `Path`, `Point`, `Rect`, `Path.map_points` and the errors; the rest is not ([roadmap.md](roadmap.md)). Reasons: [design-decisions.md](design-decisions.md), "The code API". The JSON
+Status: V1a, designed from the example programs in [examples/](examples/); waiting for the owner's review. Built so far:
+in Rust, `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V2a), and `Param`, `Expr`, `Values`, `Shape`, `Style`
+and `Drawing` with `translate`, `rotate`, `scale`, `fill`, `stroke`, `opacity`, `blend`, `only`, `without`, `with_values`,
+`parameters()`, `shapes()` and `size` (V2b-1); in Python, `Path`, `Point`, `Rect` and the errors. The rest is not
+([roadmap.md](roadmap.md)). Reasons: [design-decisions.md](design-decisions.md), "The code API". The JSON
 form of a drawing: [formats.md](formats.md).
 
 Signatures are Python's; "Languages" gives the Rust and JavaScript forms. The library is imported under the alias
@@ -195,7 +198,7 @@ without `tone`.
 `Drawing(*items, size=None)`: the items (paths, shapes, drawings) stacked in order, the first at the bottom. `size` is
 the design frame `(width, height)` in design pixels; outputs scale it to their size. Without one, a drawing takes the
 size its items have; items whose sizes differ raise `ParameterError` naming both; with none at all, design pixels are
-output pixels. `Drawing(x)` of one item and no size draws and saves exactly as `x` does (a path becomes a one-shape
+output pixels. A size is above 0 and at most 100,000 a side; others raise `ParameterError`. `Drawing(x)` of one item and no size draws and saves exactly as `x` does (a path becomes a one-shape
 `Drawing`; a drawing is returned as it is).
 
 ### Items
@@ -210,8 +213,10 @@ output pixels. `Drawing(x)` of one item and no size draws and saves exactly as `
 
 `index` is every shape's place in the current list. Generators write the rest: `text` writes `glyph`, `char`, `word`,
 `line`, `order` and a typographic `origin`; `repeat` writes `copy` and, on shapes that carry none, `order` (0..1 over
-the copies); `trace` writes `level`; `Drawing(...)` writes `order` by stacking order on the shapes that carry none.
-`order` runs 0..1 over the shapes a generator made (a single shape has 0) and survives `split` and `only`; `index`
+the copies); `trace` writes `level`; `Drawing(...)` writes `order` on the shapes that carry none.
+`order` runs 0..1 over the shapes the step that writes it writes it on, in list order (a single shape has 0; a stack
+spreads it over its shapes that carry none, so a text keeps its per-letter order beside a rectangle) and survives
+`split` and `only`; `index`
 counts the current list. A shape whose path becomes empty stays in the list and draws nothing, so `index`, `order` and
 per-item lists keep their meaning; only `only`, `without` and `merge` remove shapes.
 
@@ -240,7 +245,7 @@ a `Path`, a style step returns a `Drawing` of that path.
 | Method | Signature | Promise | Errors |
 |---|---|---|---|
 | `with_values` | `with_values(**values)` | the same drawing with these Params fixed; they leave `parameters()` | as outputs (below) |
-| `parameters` | `parameters()` | every `Param` the drawing reads, in the order first used (the walk of [formats.md](formats.md), "Params") | two Params with one name that differ in a field (Params equal in all five fields are one) |
+| `parameters` | `parameters()` | every `Param` the drawing reads, in the order first used (the walk of [formats.md](formats.md), "Params") | two Params with one name that differ in a field (Params equal in all six fields are one) |
 | `shapes` | `shapes(**values)` | the evaluated shapes, in design pixels | as outputs |
 | `size` | property | the design frame, or `None` | |
 
@@ -496,12 +501,12 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 
 | | Python | Rust | JavaScript |
 |---|---|---|---|
-| Constructors | `btvec.Drawing(a, b, size=(w, h))`, `btvec.Font(data)`, `btvec.Param("rise", default=0, min=0, max=1)` | `Drawing::new([a, b]).with_size(w, h)`, `Drawing::from(path)`, `Font::new(data)?`, `Param::new("rise", 0.0, 0.0..=1.0)?.unit(Unit::Fraction)` | `new btvec.Drawing([a, b], { size: [w, h] })`, `new btvec.Font(data)`, `new btvec.Param("rise", { default: 0, min: 0, max: 1 })` |
-| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7)`); the required argument alone converts into it (`.rotate(Deg(30.0))`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7) * &burst)`) | an options object last (`{ width: 1.5 }`) |
+| Constructors | `btvec.Drawing(a, b, size=(w, h))`, `btvec.Font(data)`, `btvec.Param("rise", default=0, min=0, max=1)` | `Drawing::new([a, b]).with_size(w, h)`, `Drawing::from(path)`, `Font::new(data)?`, `Param::new("rise", 0.0, 0.0, 1.0)?.unit(Unit::Fraction)?` | `new btvec.Drawing([a, b], { size: [w, h] })`, `new btvec.Font(data)`, `new btvec.Param("rise", { default: 0, min: 0, max: 1 })` |
+| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`) | an options object last (`{ width: 1.5 }`) |
 | Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods (`add`, `sub`, `mul`, `div`, `neg`), read in source order: `pulse.mul(0.08).add(1)`; a number that comes first is lifted once with `btvec.expr(n)`: `btvec.expr(1).sub(rise).mul(HEIGHT)` |
 | Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` | an object: `toPng(1080, 1350, { weight: 820 })` |
 | Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toMesh(w, h, values, { into: mesh })`, `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })` |
-| Units as types | | `Deg(..)` for every angle (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`); `Size::px(w, h)` (whole output pixels, else an error at the draw) and `Size::mm(w, h)` for output sizes | |
+| Units as types | | `Deg(..)` for every angle of a `Drawing` step (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`); a `Path` method takes plain degrees (`rotate(30.0, None)?`); `Size::px(w, h)` (whole output pixels, else an error at the draw) and `Size::mm(w, h)` for output sizes | |
 | Colours | `"#ff4f9a"` | `Color::hex(0xff4f9a)`, `Color::NONE` | `"#ff4f9a"` |
 | Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`reverse`, `split`, `length`); a verb that takes a plain number returns a `Result`, as a NaN or an infinity is a `ParameterError` (`path.translate(1.0, 2.0)?`); a path is built from `Path::start(point)`, so no segment comes before a start. `Error` is `#[non_exhaustive]`: `Error::Parameter { parameter, message }` and `Error::Geometry { verb, message }`, owned strings so a drawing can prefix the step. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | exceptions of the exported classes `btvec.ParameterError`, `btvec.GeometryError` and `btvec.FormatError` (all `btvec.BullterrierVectorError`), for `instanceof` |
 | Optional `Path` arguments | keywords: `point_at(0.5, near=p)`, `rotate(30, about=p)`, `Path.rect(0, 0, w, h, radius=8)`, `scale((2, 3))` | plain arguments, `None` for the default: `point_at(0.5, Some(p))?`, `rotate(30.0, None)?`, `Path::rect(0.0, 0.0, w, h, 8.0)?`; `scale` takes a number or a pair through `Scale`: `scale(2.0, None)?`, `scale((2.0, 3.0), None)?`; `Path::polyline(points, closed)` and `Path::star(center, outer, inner, points)` take their options in place; `map_points` takes `FnMut(Point) -> Result<Point, Error>` | an options object last: `pointAt(0.5, { near: p })`, `scale([2, 3])` |

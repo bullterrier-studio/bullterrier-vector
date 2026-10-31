@@ -190,7 +190,8 @@ A `Drawing` is a tree of steps; each step is a node. A node takes zero or more i
 list of shapes. A generator (text, trace, a literal path) has no inputs, a modifier (wobble, offset, draw-on) has one, a
 combiner (group, boolean) has several. One trait, one registry, one way to describe parameters, rather than separate
 hierarchies for shapes, modifiers and repeaters. The chainable methods of the code API build this tree; JSON is the same
-tree written down.
+tree written down. The contract itself (inputs, the evaluation context, the kinds of argument, how an error names its
+step) is the module documentation of `crates/core/src/node.rs`.
 
 ### Shapes carry attributes
 

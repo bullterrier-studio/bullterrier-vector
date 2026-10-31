@@ -24,8 +24,9 @@ Needs [rustup](https://rustup.rs): the first `cargo` command in the checkout fet
 the `wasm32-unknown-unknown` target. `uv run poe` lists every task.
 
 **State:** the scaffold (workspace, gates, hooks, CI workflows) and the geometry value `Path` (with `Point` and `Rect`) from the
-Rust core to Python (V2a: build, measure, cut, move, hit-test, SVG path data); the core also builds for WebAssembly. The rest is
-planned (`docs/roadmap.md`): drawings and JSON are V2b and V2c.
+Rust core to Python (V2a: build, measure, cut, move, hit-test, SVG path data); the core also builds for WebAssembly. In Rust
+only (V2b-1): drawings (`Drawing`, `Shape`, `Style`, `Param`, `Expr`, `Values`, the verbs listed by `verbs()`), evaluated
+without a cache. The rest is planned (`docs/roadmap.md`): the cache and the Python names are V2b-2, JSON is V2c.
 Maintainers may keep machine-specific notes in a git-ignored `.local/` folder and batch plans in the git-ignored
 `.superpowers/plans/`: read them when present; never commit or cite them.
 
@@ -67,7 +68,7 @@ Two crates in one Cargo workspace; the package version is the workspace's.
 
 | Path | What |
 |---|---|
-| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `tests/` |
+| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation); `limits.rs` (`MAX_SHAPES`, `MAX_DEPTH`, the counter); `tests/` |
 | `crates/python` | PyO3 bindings building the extension `bullterrier_vector._native._core`; generic, passes values to the core unchecked; no Rust tests |
 | `src/bullterrier_vector/` | the Python package: `errors.py` (the bottom layer, imports nothing from the package), `_native/` (the extension and its stub `_core.pyi`), `__init__.py` (the public API) |
 | `tests/` | the Python suite (`test_*.py`); `tests/tools/` tests the tooling and the gates |
@@ -79,7 +80,8 @@ fails the gate). Python reaches the core only through the bindings crate (`deny.
 `Error` maps to the Python exceptions in the bindings; the core owns every range check, so every language gets the same error.
 
 The design's planned modules (geometry, type, scene, parameters, nodes, output, json), each hiding one decision, are in the table in
-`docs/design.md`, "Shape of the library"; only `math`, `error` and geometry (`geometry`, `path`) exist yet. A crate that does one of these jobs is never exposed in the API.
+`docs/design.md`, "Shape of the library"; `math`, `error`, geometry (`geometry`, `path`) and the core of scene, parameters and
+nodes (`drawing`, `shape`, `node`, `param`, `expr`, `registry`) exist so far. A crate that does one of these jobs is never exposed in the API.
 
 ## The rules
 
