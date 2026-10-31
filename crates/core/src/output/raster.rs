@@ -7,6 +7,7 @@ use crate::limits::Work;
 use crate::path::{FLATNESS, Polyline};
 use crate::{Blend, Cap, Drawing, Error, Join, Path, Point, Shape, Values};
 use kurbo::{BezPath, StrokeOpts};
+use std::cell::Cell;
 use vello_cpu::color::AlphaColor;
 use vello_cpu::peniko::{BlendMode, Compose, Fill, ImageAlphaType, Mix};
 use vello_cpu::{Level, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources};
@@ -127,7 +128,22 @@ fn paint(context: &mut RenderContext, shape: &Shape, view: &View, work: &Work) -
             flatness,
         );
         let mut lines = BezPath::new();
-        kurbo::flatten(curved, flatness, |element| lines.push(element));
+        let mut refused = None;
+        let stopped = Cell::new(false);
+        // each edge is charged before it is kept, and the walk ends at the first refusal, so that a join of a very wide
+        // stroke can fill neither the memory nor the time
+        let walked = curved.into_iter().take_while(|_| !stopped.get());
+        kurbo::flatten(walked, flatness, |element| {
+            if let Err(error) = charge(1) {
+                refused.get_or_insert(error);
+                stopped.set(true);
+            } else if !stopped.get() {
+                lines.push(element);
+            }
+        });
+        if let Some(error) = refused {
+            return Err(error);
+        }
         context.fill_path(&lines);
         for dot in dots(&device, stroke.cap(), width, &mut charge)? {
             context.fill_path(&bez_path(&dot));

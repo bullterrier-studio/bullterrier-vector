@@ -433,7 +433,7 @@ The same drawing and values give the same bytes on every target. `to_json` raise
 limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises
 `FormatError`. Errors (`ParameterError`): a width or height that is not a whole number from 1 to 100,000 (to 65,000 for
 pixel outputs, which also refuse more than 2^27 pixels, naming `size`), a coordinate or stroke width beyond 10 million
-device pixels in a pixel output, or more than 10,000,000 edges flattened in one draw (both naming the shape), a value for no Param (the message lists the Params), a value
+device pixels in a pixel output, or more than 10,000,000 edges flattened in one draw, the outlines of strokes included (both naming the shape), a value for no Param (the message lists the Params), a value
 outside its Param's range, a list of the wrong length; and whatever a step raises. How fonts and maps are referred to in JSON: [formats.md](formats.md), "Inputs".
 
 ### Mesh

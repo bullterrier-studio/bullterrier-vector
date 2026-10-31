@@ -135,3 +135,20 @@ fn flattening_more_than_ten_million_edges_in_a_draw_is_refused_naming_the_shape_
     assert!(message.contains("MAX_SEGMENTS 10000000"), "{message}");
     Ok(())
 }
+
+#[test]
+fn the_outline_of_a_stroke_counts_against_max_segments_too() -> Outcome {
+    // 1,000 points that turn back on themselves, joined round at the widest stroke the bound allows: each join is an arc
+    // of about 25,000 edges, 25 million in all, though the path itself is 1,000 edges; the shape is named
+    let zigzag: Vec<(f64, f64)> = (0..1000u32)
+        .map(|index| (500.0 + f64::from(index % 2) * 3.0, 500.0 + f64::from(index) * 0.001))
+        .collect();
+    let stroke = Stroke::new(red()?).width(1.0e7).join(Join::Round).cap(Cap::Butt);
+    let drawing = Drawing::from(Path::polyline(zigzag, false)?)
+        .fill(Color::NONE)
+        .stroke(stroke);
+    let (parameter, message) = parameter_refusal(drawing.to_rgba(Size::px(1000.0, 1000.0), &Values::new()))?;
+    assert_eq!(parameter, "shape 0");
+    assert!(message.contains("MAX_SEGMENTS 10000000"), "{message}");
+    Ok(())
+}

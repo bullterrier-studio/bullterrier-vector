@@ -204,7 +204,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   draws the disc or square of a zero-length sub-path under a round or square end, which `kurbo` leaves out. *Reason:*
   `vello_cpu` flattens at a fixed quarter of a pixel, which took 2.5% off the area of a circle of radius 10; with our
   flattening it is within 0.02%, and measure, pixels and the mesh agree on one polygon. Flattening is charged to
-  `MAX_SEGMENTS` after each curve. *Consequence:* a drawing shown 25 times larger than its frame is flattened more
+  `MAX_SEGMENTS` after each curve, and so is each edge of a stroke's outline, since a round join of a wide stroke
+  makes thousands of edges from one vertex. *Consequence:* a drawing shown 25 times larger than its frame is flattened more
   coarsely than the crate would have, since the flatness is in design pixels; the stroker can lose a sliver of the inside
   of a sharp turn after a segment shorter than half the stroke width (`lyon_tessellation` for V3d may replace it);
   200 mixed shapes at 1080p took 13.3 ms instead of 10.8 with opacity (3.7 instead of 7.6 without), the stroke expansion
