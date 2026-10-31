@@ -22,6 +22,13 @@ pub enum Error {
         /// What is wrong with the geometry.
         message: String,
     },
+    /// A JSON document that `Drawing::from_json` cannot read.
+    Format {
+        /// The JSON Pointer (RFC 6901) of the offending value, `""` for the document as a whole.
+        pointer: String,
+        /// What is wrong.
+        message: String,
+    },
 }
 
 impl Error {
@@ -61,6 +68,7 @@ impl Error {
                 verb: place.to_string(),
                 message: prefix(message),
             },
+            format @ Self::Format { .. } => format,
         }
     }
 
@@ -76,6 +84,7 @@ impl Error {
                 verb: format!("{prefix} / {verb}"),
                 message,
             },
+            format @ Self::Format { .. } => format,
         }
     }
 }
@@ -90,6 +99,8 @@ impl fmt::Display for Error {
             | Self::Geometry { verb: name, message } => {
                 write!(formatter, "{name}: {message}")
             }
+            Self::Format { pointer, message } if pointer.is_empty() => write!(formatter, "document: {message}"),
+            Self::Format { pointer, message } => write!(formatter, "{pointer}: {message}"),
         }
     }
 }

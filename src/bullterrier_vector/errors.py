@@ -2,12 +2,12 @@
 purpose.
 
 Each subclass also inherits the builtin exception it replaces, so code that already catches `ValueError` keeps working.
-The Rust extension raises `ParameterError` and `GeometryError` itself, importing it from here.
+The Rust extension raises `ParameterError`, `GeometryError` and `FormatError` itself, importing it from here.
 
 Dependency direction: the bottom layer: it imports nothing from bullterrier_vector.
 """
 
-__all__ = ["BullterrierVectorError", "GeometryError", "ParameterError"]
+__all__ = ["BullterrierVectorError", "FormatError", "GeometryError", "ParameterError"]
 
 
 class BullterrierVectorError(Exception):
@@ -20,3 +20,7 @@ class ParameterError(BullterrierVectorError, ValueError):
 
 class GeometryError(BullterrierVectorError):
     """The geometry cannot do what was asked, such as the bounds of an empty path; the message names the verb."""
+
+
+class FormatError(BullterrierVectorError, ValueError):
+    """A document `from_json` cannot read; the message starts with the JSON Pointer of the offending value."""

@@ -17,6 +17,7 @@ use crate::expr::Num;
 pyo3::import_exception!(bullterrier_vector.errors, BullterrierVectorError);
 pyo3::import_exception!(bullterrier_vector.errors, ParameterError);
 pyo3::import_exception!(bullterrier_vector.errors, GeometryError);
+pyo3::import_exception!(bullterrier_vector.errors, FormatError);
 
 /// The Rust core of bullterrier-vector, for Python.
 #[pymodule]
@@ -31,11 +32,12 @@ mod _core {
     use super::{PyPath, PyPoint, PyRect};
 }
 
-/// The Python exception for a core error: one class per kind, `ParameterError` and `GeometryError`.
+/// The Python exception for a core error: one class per kind: `ParameterError`, `GeometryError` and `FormatError`.
 pub(crate) fn exception(error: &vector::Error) -> PyErr {
     match error {
         vector::Error::Parameter { .. } => ParameterError::new_err(error.to_string()),
         vector::Error::Geometry { .. } => GeometryError::new_err(error.to_string()),
+        vector::Error::Format { .. } => FormatError::new_err(error.to_string()),
         // `Error` is non-exhaustive: a variant this binding does not map yet is still a package error, never a panic
         _ => BullterrierVectorError::new_err(error.to_string()),
     }

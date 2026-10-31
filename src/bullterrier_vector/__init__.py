@@ -5,12 +5,13 @@ For now the package holds the geometry value `Path` (with `Point` and `Rect`), d
 """
 
 from bullterrier_vector._native._core import Drawing, Expr, Param, Path, Point, Rect, Shape, Style
-from bullterrier_vector.errors import BullterrierVectorError, GeometryError, ParameterError
+from bullterrier_vector.errors import BullterrierVectorError, FormatError, GeometryError, ParameterError
 
 __all__ = [
     "BullterrierVectorError",
     "Drawing",
     "Expr",
+    "FormatError",
     "GeometryError",
     "Param",
     "ParameterError",

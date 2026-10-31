@@ -10,6 +10,7 @@ import bullterrier_vector as btvec
     [
         pytest.param(btvec.ParameterError, ValueError, id="parameter-is-a-value-error"),
         pytest.param(btvec.GeometryError, None, id="geometry-has-no-builtin-base"),
+        pytest.param(btvec.FormatError, ValueError, id="format-is-a-value-error"),
     ],
 )
 def test_each_error_is_a_package_error_and_inherits_only_what_is_documented(
@@ -22,3 +23,8 @@ def test_each_error_is_a_package_error_and_inherits_only_what_is_documented(
 def test_a_geometry_error_is_not_a_parameter_error() -> None:
     assert not issubclass(btvec.GeometryError, btvec.ParameterError)
     assert not issubclass(btvec.ParameterError, btvec.GeometryError)
+
+
+def test_a_format_error_is_neither_a_parameter_nor_a_geometry_error() -> None:
+    assert not issubclass(btvec.FormatError, btvec.ParameterError)
+    assert not issubclass(btvec.FormatError, btvec.GeometryError)
