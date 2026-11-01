@@ -288,8 +288,9 @@ Once per clone: `uv run poe setup` (hooks and commit template). Before every pus
 check formatting (rustfmt, ruff) and the message; compiling and testing wait for the gate. The pre-push hook runs the whole gate
 for a push to `main` or a tag, and for any push while local `main` has unpushed code or git cannot say. (Pre-commit does not
 call the hook at all for a tag that points at a commit the remote already has: "nothing to push".) It skips the gate for a
-branch other than `main` while `main` has no unpushed code, and for a push whose changes (and `main`'s unpushed ones) are
-documentation only.
+branch other than `main` while `main` has no unpushed code, for a push whose changes (and `main`'s unpushed ones) are
+documentation only, and for a push of exactly the tree a passing `uv run poe check` ran on (it must have started and
+ended on a clean working tree; the record is in the git folder, so commit before you run `check`).
 - **Trunk-based:** short-lived branch `<type>/<short-description>` (`feat/polygon-rotation`), merged into `main` and deleted when
   the work is complete; nothing unmerged is left behind. No worktrees unless the owner asks. Rebase on `main` before reporting.
   Never push.

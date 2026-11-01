@@ -495,6 +495,11 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **Same output on every target is a differential test, not golden files** (2026-10-28). The same drawings are rendered
   natively and in WebAssembly and compared byte for byte. *Reason:* committed golden images go stale and get updated
   without review; a differential test needs no reviewed baseline.
+- **A gate that passed is not repeated on the same tree** (2026-11-01). `poe check` notes the tree of `HEAD` when it
+  starts and, when every step passed, records it in the git folder if the working tree was clean at both ends and `HEAD`
+  was unchanged; the pre-push hook skips the gate for a tip with that tree. *Reason:* the hook repeated a 6-minute gate
+  on contents just checked, and a slow loop gets worked around. *Consequence:* nothing is skipped that was not checked;
+  an edit, a commit during the run or any uncommitted file means no record, and CI checks everything again.
 - **Bounded depth, not a bigger stack** (2026-11-01). Whatever a caller can build has its depth limited where it is
   built, so no walk recurses over unbounded depth: drawings nested past `MAX_DEPTH` (128) are refused when built, the
   parser refuses a document nested past it before the loader recurses, and an expression past 128 levels becomes a node
