@@ -23,7 +23,7 @@
 
 mod common;
 
-use bullterrier_vector::{Align, Drawing, Error, Font, Path, Shape, Size, Text, Values, text};
+use bullterrier_vector::{Align, Drawing, Error, Font, Param, Path, Shape, Size, Text, Values, text};
 use common::fonts::{fraunces, synthetic};
 use common::{Outcome, parameter_refusal};
 use proptest::prelude::*;
@@ -344,6 +344,33 @@ fn bytes_that_are_no_font_are_refused_naming_data() -> Outcome {
     Ok(())
 }
 
+/// The position in `font` of the record of the table `tag` in the table directory (12 bytes in, 16 to a record).
+fn record_of(font: &[u8], tag: &[u8; 4]) -> Result<usize, Box<dyn std::error::Error>> {
+    let tables = usize::from(u16::from_be_bytes([font[4], font[5]]));
+    (0..tables)
+        .map(|at| 12 + 16 * at)
+        .find(|record| &font[*record..*record + 4] == tag)
+        .ok_or_else(|| format!("no {} table", String::from_utf8_lossy(tag)).into())
+}
+
+#[test]
+fn a_font_the_library_cannot_draw_is_refused_when_it_is_made() -> Outcome {
+    // a real font with one field changed: the units per em in `head` (offset 18 of the table), and the `glyf` table
+    // renamed, so that the font has no outlines
+    let mut small_em = common::fonts::FRAUNCES.to_vec();
+    let head = u32::from_be_bytes(small_em[record_of(&small_em, b"head")? + 8..][..4].try_into()?) as usize;
+    small_em[head + 18..head + 20].copy_from_slice(&8_u16.to_be_bytes());
+    let mut no_outlines = common::fonts::FRAUNCES.to_vec();
+    let glyf = record_of(&no_outlines, b"glyf")?;
+    no_outlines[glyf..glyf + 4].copy_from_slice(b"glyg");
+    for (bytes, named) in [(small_em, "8 units per em"), (no_outlines, "no outlines")] {
+        let (parameter, message) = parameter_refusal(Font::new(bytes))?;
+        assert_eq!(parameter, "data");
+        assert!(message.contains(named), "{message}");
+    }
+    Ok(())
+}
+
 #[test]
 fn a_font_longer_than_the_limit_is_refused_before_it_is_read() -> Outcome {
     let (parameter, message) = parameter_refusal(Font::new(vec![0_u8; 32 * 1024 * 1024 + 1]))?;
@@ -364,6 +391,24 @@ fn a_size_not_above_zero_is_refused_naming_the_step_and_the_value() -> Outcome {
         assert_eq!(parameter, "source (text).size");
         assert!(message.contains(&size.to_string()), "{message}");
     }
+    Ok(())
+}
+
+#[test]
+fn a_number_read_once_takes_a_param_but_never_a_list() -> Outcome {
+    let size = Param::new("size", 100.0, 1.0, 1000.0)?;
+    let drawing = text("Hi", Text::new(&fraunces()?).size(&size));
+    assert_eq!(drawing.error(), None);
+    let wide = drawing.shapes(&Values::new().set("size", 200.0))?;
+    let narrow = drawing.shapes(&Values::new().set("size", 100.0))?;
+    assert!(
+        wide[1].path().bounds()?.x > narrow[1].path().bounds()?.x,
+        "a Param feeds the size"
+    );
+    // even a list of one number: a text has no shapes to give an entry to
+    let (parameter, message) = parameter_refusal(drawing.shapes(&Values::new().set("size", vec![150.0])))?;
+    assert_eq!(parameter, "source (text).size");
+    assert!(message.contains("list"), "{message}");
     Ok(())
 }
 
