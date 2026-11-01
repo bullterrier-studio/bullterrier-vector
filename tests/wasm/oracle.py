@@ -28,6 +28,9 @@ FONTS = {
 }
 FRAUNCES = btvec.Font(FONTS["fraunces"], name="fraunces")
 SYNTHETIC = btvec.Font(FONTS["synthetic"], name="synthetic")
+# The fonts that come with the library are not stored here: a document names them by digest and loads without bytes
+BRICOLAGE = btvec.Font.bundled("bricolage_grotesque")
+BUNDLED_FRAUNCES = btvec.Font.bundled("fraunces")
 
 
 # The corpus: drawings the native extension and the WebAssembly package are compared on, built through the public API.
@@ -226,6 +229,12 @@ def text_drawings() -> list[Entry]:
         "text_heavy_glyph_and_moved_square": sized(
             btvec.text("BCB", font=SYNTHETIC, size=100, anchor=(10, 110)).fill(BLUE)
         ),
+        "text_bundled_bricolage": sized(
+            at_90("Hamburg", font=BRICOLAGE, axes={"wght": 500, "wdth": 80, "opsz": 40}).fill(INK)
+        ),
+        "text_bundled_fraunces": sized(
+            at_90("Hamburg fi", font=BUNDLED_FRAUNCES, axes={"wght": 600, "SOFT": 100, "WONK": 0, "opsz": 72}).fill(RED)
+        ),
     }
     draws: dict[str, list[Draw]] = {
         "text_param_axis": [(400, 160, {}), (400, 160, {"wght": 700}), (200, 80, {"wght": [300, 700, 300, 700]})],
@@ -345,8 +354,9 @@ def compared(drawing: btvec.Drawing, name: str, index: int, draw: Draw, pixels: 
 
 
 def inputs_of(text: str) -> dict[str, str]:
-    """The inputs a document declares, each as the key of `FONTS` its font is stored under (the same as its name)."""
-    return {name: name for name in json.loads(text).get("inputs", {})}
+    """The inputs a document declares that a loader supplies, each as the key of `FONTS` its font is stored under (the
+    same as its name); a bundled font is declared too, and loads with no bytes."""
+    return {name: name for name in json.loads(text).get("inputs", {}) if name in FONTS}
 
 
 def compared_corpus(pixels: Path) -> list[dict[str, Any]]:

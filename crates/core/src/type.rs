@@ -2,6 +2,7 @@
 //! it is made; [`text`] is the drawing of a string in a font. The font, shaping and outline crates (`read-fonts`,
 //! `harfrust`) are used only inside this module, and none of their types is part of the API.
 
+mod bundled;
 mod font;
 mod layout;
 mod outline;

@@ -17,7 +17,7 @@ pub(crate) struct PyFont(pub(crate) vector::Font);
 
 #[pymethods]
 impl PyFont {
-    /// The font in `data`, the bytes of a `.ttf` or `.otf` file. `name` is what a saved drawing calls it.
+    /// The font in `data`, the bytes of a `.ttf`, `.otf` or `.woff2` file. `name` is what a saved drawing calls it.
     #[new]
     #[pyo3(signature = (data, *, name=None))]
     fn new(data: &Bound<'_, PyAny>, name: Option<&str>) -> PyResult<Self> {
@@ -26,6 +26,19 @@ impl PyFont {
             Some(name) => Ok(Self(raised(font.named(name))?)),
             None => Ok(Self(font)),
         }
+    }
+
+    /// A font that comes with the library, by name (`Font.bundled_names()`). It is called `name` in a saved drawing, and
+    /// a document that names it by its `sha256` loads without its bytes being supplied.
+    #[staticmethod]
+    fn bundled(name: &str) -> PyResult<Self> {
+        Ok(Self(raised(vector::Font::bundled(name))?))
+    }
+
+    /// The names of the fonts that come with the library, in order.
+    #[staticmethod]
+    fn bundled_names() -> Vec<&'static str> {
+        vector::Font::bundled_names()
     }
 
     /// The name a saved drawing calls the font, or `None`.

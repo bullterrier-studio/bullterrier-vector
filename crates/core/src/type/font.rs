@@ -1,6 +1,6 @@
 //! `Font`: the bytes of a TrueType or OpenType font, read once.
 
-use super::unpack;
+use super::{bundled, unpack};
 use crate::key::{Key, Keyed};
 use crate::limits::MAX_FONT_BYTES;
 use crate::param::is_name;
@@ -93,6 +93,42 @@ impl Font {
                 name: None,
             }),
         })
+    }
+
+    /// A font that comes with the library, by name; [`Font::bundled_names`] lists them. The font is called `name` in a
+    /// saved drawing, and a document that names it by its `sha256` loads without the bytes being supplied.
+    ///
+    /// The axes are those of the font file, at its own defaults: `fraunces` opens at the black 9 pt cut (`wght` 900,
+    /// `opsz` 9, `WONK` 1), `bricolage_grotesque` at its extra bold 96 pt cut (`wght` 800, `opsz` 96); set `axes` to
+    /// draw another.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `name` if no bundled font has it (the message lists the names).
+    pub fn bundled(name: &str) -> Result<Self, Error> {
+        let Some((_, bytes)) = bundled::FONTS.iter().find(|(own, _)| *own == name) else {
+            return Err(Error::parameter(
+                "name",
+                format!(
+                    "is {name:?}, but the bundled fonts are {}",
+                    Self::bundled_names().join(", ")
+                ),
+            ));
+        };
+        Self::new(*bytes)?.named(name)
+    }
+
+    /// The names of the fonts that come with the library, in order: what [`Font::bundled`] takes.
+    #[must_use]
+    pub fn bundled_names() -> Vec<&'static str> {
+        bundled::FONTS.iter().map(|(name, _)| *name).collect()
+    }
+
+    /// The bytes of the bundled font whose SHA-256 is `sha256` (64 lower-case hexadecimal digits), if there is one.
+    pub(crate) fn bundled_bytes(sha256: &str) -> Option<&'static [u8]> {
+        bundled::FONTS
+            .iter()
+            .map(|(_, bytes)| *bytes)
+            .find(|bytes| hex(&Sha256::digest(bytes)) == sha256)
     }
 
     /// This font called `name` in a saved drawing: letters, digits and `_`, starting with a letter.

@@ -1,7 +1,7 @@
 //! The inputs of a document: what the caller supplies by name (formats.md, "Inputs"), and the loader's check
 //! `inputs-supplied`.
 
-use super::doc::{Doc, InputKind};
+use super::doc::{Doc, InputDecl, InputKind};
 use crate::{Error, Font};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -40,21 +40,29 @@ impl fmt::Debug for Inputs {
     }
 }
 
-/// `inputs-supplied`: the fonts of `doc`, each read from the bytes supplied under its name.
+/// `inputs-supplied`: the fonts of `doc`, each read from the bytes supplied under its name, or, for a font whose
+/// `sha256` is that of a bundled font and which `supplied` does not give, from the bundled one.
 ///
 /// # Errors
-/// [`Error::Parameter`] naming `inputs` if the document declares an input that `supplied` does not give, or `supplied`
-/// gives a name the document does not declare, two names have equal bytes, bytes do not match the `sha256` of their
+/// [`Error::Parameter`] naming `inputs` if the document declares an input that neither `supplied` nor the library gives, or
+/// `supplied` gives a name the document does not declare, two names have equal bytes, bytes do not match the `sha256` of their
 /// input, or a font cannot be read.
 pub(super) fn fonts(doc: &Doc, supplied: &Inputs) -> Result<BTreeMap<String, Font>, Error> {
     let refuse = |name: &str, message: String| Error::parameter(&format!("inputs.{name}"), message);
+    let mut given: Vec<(&InputDecl, &[u8])> = Vec::new();
     for declared in &doc.inputs {
-        if !supplied.by_name.contains_key(&declared.name) {
+        let bundled = declared
+            .sha256
+            .as_deref()
+            .filter(|_| declared.kind == InputKind::Font)
+            .and_then(Font::bundled_bytes);
+        let Some(bytes) = supplied.by_name.get(&declared.name).map(Vec::as_slice).or(bundled) else {
             return Err(refuse(
                 &declared.name,
                 "is declared by the document, but `inputs` does not give it".into(),
             ));
-        }
+        };
+        given.push((declared, bytes));
     }
     if let Some(name) = supplied
         .by_name
@@ -67,8 +75,7 @@ pub(super) fn fonts(doc: &Doc, supplied: &Inputs) -> Result<BTreeMap<String, Fon
         ));
     }
     let mut by_bytes: BTreeMap<&[u8], &str> = BTreeMap::new();
-    for declared in &doc.inputs {
-        let bytes = &supplied.by_name[&declared.name];
+    for &(declared, bytes) in &given {
         if let Some(first) = by_bytes.insert(bytes, &declared.name) {
             return Err(refuse(
                 &declared.name,
@@ -77,8 +84,8 @@ pub(super) fn fonts(doc: &Doc, supplied: &Inputs) -> Result<BTreeMap<String, Fon
         }
     }
     let mut fonts = BTreeMap::new();
-    for declared in doc.inputs.iter().filter(|declared| declared.kind == InputKind::Font) {
-        let font = Font::new(supplied.by_name[&declared.name].as_slice())
+    for &(declared, bytes) in given.iter().filter(|(declared, _)| declared.kind == InputKind::Font) {
+        let font = Font::new(bytes)
             .map_err(|error| refuse(&declared.name, super::read::reason(&error)))?
             .named(declared.name.as_str())?;
         if let Some(expected) = declared.sha256.as_deref()
