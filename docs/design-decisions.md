@@ -254,6 +254,25 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   corners on a coarse grid, where edges coincide, 1 of 20,000 (56 before), also seen with plain bevel and miter joins.
   A smooth curve gains no triangles, and the scenes measured gained under 6%.
 
+- **Native against WebAssembly: exact for what we compute, a measured tolerance for pixels** (2026-11-01). The
+  differential test (`poe wasm-test`) draws 44 drawings natively through the Python extension and in WebAssembly through
+  Node, from the same JSON documents: the SVG text and the three mesh buffers (hashed with `hashlib` on one side and
+  `node:crypto` on the other), the generation and the lengths are compared exactly; the pixels are compared as the
+  premultiplied colour and the alpha (the values drawn), and may differ by 2 levels on 0.02% of the values of a draw. A
+  PNG is decoded with `node:zlib` and must hold exactly the pixels of `toRgba`. *Measurement:* on 48 draws (3,450,660
+  channel values), Apple silicon NEON natively against WebAssembly simd128, 4 values differed, none by more than 1
+  level (2 as straight alpha, where a division by a small alpha magnifies a rounding), at most 0.005% of one draw; the
+  tolerance is twice the level and four times the fraction. A larger difference fails and prints the count and the first
+  pixel. *Reason:* the rasteriser crate chooses its arithmetic by target, so equal bytes are not promised, and the
+  buffers and text we write are our own arithmetic, so a difference there is a defect. The mesh buffers matched exactly
+  on the machine measured. *Consequence:* x86 and a real browser were not measured; the tolerance is to be revisited by
+  measurement if CI on another architecture fails it, not loosened.
+- **A `Mesh` is lent to a call as an argument, not in an options object** (2026-11-01). JavaScript refills a mesh with
+  `drawing.toMeshInto(mesh, w, h, values)` and gets a new one from `toMesh`; `wasmMemory()` returns the memory the
+  buffers are in. *Reason:* wasm-bindgen lends an exported object to a call only as an argument of its own; read out of
+  an options object it would be taken over and the caller's object invalidated, which would lose it when the call
+  throws. The memory is a function because the module's own export of it is called `memory`.
+
 ## Names and formats
 
 - **Name `bullterrier-vector`** (2026-10-28): crate and PyPI distribution `bullterrier-vector`, import and Rust library

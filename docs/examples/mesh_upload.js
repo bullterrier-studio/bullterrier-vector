@@ -1,7 +1,7 @@
 // A mesh upload from WebAssembly in a page: the drawing becomes triangles in WebAssembly memory, and the page wraps
 // typed arrays over that memory and hands them to WebGL, without copying them through JavaScript objects.
 //
-// The pointer pattern: `toMesh` fills a Mesh whose buffers live in WebAssembly memory and reports where they are
+// The pointer pattern: `toMeshInto` fills a Mesh whose buffers live in WebAssembly memory and reports where they are
 // (a pointer, a byte offset, and a length, in elements) and a generation that changes exactly when their contents
 // change. The page makes its views fresh after each call (a pointer can move, and the memory can grow) and uploads only
 // when the generation moved. Each vertex is 8 floats: x, y (output pixels, y down), r, g, b, a (premultiplied), item,
@@ -29,15 +29,15 @@ gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());
 describeVertexLayout(gl, program); // 8 floats a vertex, 32 bytes apart
 gl.enable(gl.BLEND);
 
-let mesh = null;
+const mesh = new btvec.Mesh();
 let uploaded = null;
 let ranges = new Uint32Array(0);
 
 function draw(now) {
   // the clock is the page's: one turn every 12 s; an angle wraps, so `spin` may grow without end
-  mesh = drawing.toMesh(canvas.width, canvas.height, { spin: (now / 1000) * 30 }, { into: mesh });
+  drawing.toMeshInto(mesh, canvas.width, canvas.height, { spin: (now / 1000) * 30 });
   if (mesh.generation !== uploaded) {
-    const memory = btvec.memory.buffer;
+    const memory = btvec.wasmMemory().buffer; // fresh after every call: the memory may have grown
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(memory, mesh.verticesPtr, mesh.verticesLength), gl.DYNAMIC_DRAW);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(memory, mesh.indicesPtr, mesh.indicesLength), gl.DYNAMIC_DRAW);
     ranges = new Uint32Array(memory, mesh.rangesPtr, mesh.rangesLength).slice(); // a copy: read every frame

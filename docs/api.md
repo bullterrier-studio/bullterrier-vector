@@ -435,9 +435,13 @@ opens nothing.
 | `drawing_schema` | `btvec.drawing_schema()` | the JSON Schema of the format, as text, generated from the registered calls |
 
 In JavaScript (the package built from `crates/wasm`) a document loads with `Drawing.fromJson(text)`; a drawing has
-`toJson()`, `toSvg(width, height, values?)` (`values`: an object of Param names to a number or an array of numbers),
-`parameters()` (plain objects `{ name, default, min, max, unit, meaning }`; `unit` is `""` for none) and `size` (`[w, h]`
-or `undefined`). The other outputs follow when they exist.
+`toJson()`, `parameters()` (plain objects `{ name, default, min, max, unit, meaning }`; `unit` is `""` for none), `size`
+(`[w, h]` or `undefined`) and the outputs, each `(width, height, values?)` with `values` an object of Param names to a
+number or an array of numbers: `toSvg` (a string), `toRgba` and `toPng` (a `Uint8Array`, a copy), `toMesh` (a new
+`Mesh`) and `toMeshInto(mesh, width, height, values?)` (refills `mesh`, below). Errors are as in Python, thrown as
+`Error`s named by kind. The same drawing gives the same SVG text and mesh buffers in WebAssembly as natively, exactly;
+the pixels look the same, within a level on a few edge pixels (the rasteriser crate is only required to look the same on
+every target).
 
 The same drawing and values give the same bytes on every target. `to_json` raises `ParameterError` for a drawing beyond a
 limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises
@@ -468,10 +472,14 @@ crosses itself thousands of times, or has thousands of edges side by side) raise
 `into=mesh` refills that mesh in place of a new one and returns it; a draw that raises leaves it as it was. In
 Python `vertices`, `indices` and `ranges` return `array.array` copies (typecodes `f` and `I`), a new one at each
 read, which `numpy.asarray` reads through the buffer protocol; the copy keeps the bindings free of `unsafe`. In
-JavaScript, `mesh.verticesPtr`, `mesh.indicesPtr` and `mesh.rangesPtr` (byte offsets) and the matching `...Length`
-(in elements) locate the buffers in `btvec.memory`; make the typed-array views fresh after every call, since a pointer
-can move and the memory can grow; `mesh.free()` returns the buffers to WebAssembly at once instead of when the mesh is
-collected
+JavaScript, `new Mesh()` is empty (generation 0), `drawing.toMesh(w, h, values)` returns a new one and
+`drawing.toMeshInto(mesh, w, h, values)` refills one in place (the buffers are reused, and it is left as it was if the
+call throws; there is no `{ into }` options object because wasm-bindgen lends an object to a call only as an argument of
+its own). `mesh.verticesPtr`, `mesh.indicesPtr` and `mesh.rangesPtr` (byte offsets) and the matching `...Length`
+(in elements) locate the buffers, which are the core's own and are not copied, in `btvec.wasmMemory()` (a
+`WebAssembly.Memory`); `mesh.generation` is a number. Make the typed-array views fresh after every call, since a pointer
+can move and the memory can grow, which detaches the arrays made before; `mesh.free()` returns the buffers to
+WebAssembly at once instead of when the mesh is collected
 ([mesh_upload.js](examples/mesh_upload.js)).
 
 The mesh is a display format; pixels and SVG stay the reference. What each step becomes: opacity goes into the
@@ -566,7 +574,7 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`) | an options object last (`{ width: 1.5 }`) |
 | Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods (`add`, `sub`, `mul`, `div`, `neg`), read in source order: `pulse.mul(0.08).add(1)`; a number that comes first is lifted once with `btvec.expr(n)`: `btvec.expr(1).sub(rise).mul(HEIGHT)` |
 | Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` | an object: `toPng(1080, 1350, { weight: 820 })` |
-| Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toMesh(w, h, values, { into: mesh })`, `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })` |
+| Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })`; a `Mesh` is lent as its own argument: `toMeshInto(mesh, w, h, values)` |
 | Units as types | | `Deg(..)` for every angle of a `Drawing` step (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`); a `Path` method takes plain degrees (`rotate(30.0, None)?`); `Size::px(w, h)` (whole output pixels, else an error at the draw) and `Size::mm(w, h)` for output sizes | |
 | Colours | `"#ff4f9a"` | `Color::hex(0xff4f9a)`, `Color::NONE` | `"#ff4f9a"` |
 | Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`reverse`, `split`, `length`); a verb that takes a plain number returns a `Result`, as a NaN or an infinity is a `ParameterError` (`path.translate(1.0, 2.0)?`); a path is built from `Path::start(point)`, so no segment comes before a start. `Error` is `#[non_exhaustive]`: `Error::Parameter { parameter, message }` and `Error::Geometry { verb, message }`, owned strings so a drawing can prefix the step. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | thrown `Error` objects whose `name` is `"ParameterError"`, `"GeometryError"` or `"FormatError"` and whose message is the core's (the same text as Python's). No classes to `instanceof`: wasm-bindgen cannot define subclasses; the `name` is the contract. A value of a type a call cannot read is a plain `TypeError` |

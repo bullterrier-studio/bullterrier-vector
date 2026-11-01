@@ -68,6 +68,9 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). The spikes X1 and X2 and the frame export V4 wait until
+a piece needs them.
+
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
 ## V0 Taste prototype
@@ -257,21 +260,25 @@ Carried from the S0 review:
 - SVG writer; pixels at any size on the CPU.
 - Mesh output (`to_mesh`, api.md "Mesh"): triangles with positions, colours and per-item attributes, and draw ranges
   with their blend mode, in three flat buffers; knockouts resolved by booleans; a blurred shadow raises. A pointer, a
-  length and a generation across WebAssembly; typed copies in Python. Covered by the differential tests
-  below.
+  length and a generation across WebAssembly; typed copies in Python (done: V3d, V3f). Covered by the differential
+  tests below.
 - `uv run poe look <drawing>`: draws to PNG and SVG in a git-ignored folder, for a person or an agent to look at (done:
   V3c).
 - The WebAssembly package (wasm-bindgen): build, a smoke test in Node (done: V3e).
-- Differential tests: the core's drawings rendered natively and in WebAssembly give identical bytes (pixels: within one
-  level of each value, as the rasteriser crate is required to look the same, not to match byte for byte); and a drawing
-  drawn at 1x and at 2x gives the same geometry (SVG and mesh coordinates at 2x are exactly twice those at 1x).
-- Benchmark: time to draw a reference drawing at 1080p, tracked from here on.
+- Differential tests: the core's drawings rendered natively and in WebAssembly give identical bytes (pixels: within a
+  measured tolerance, as the rasteriser crate is required to look the same, not to match byte for byte); and a drawing
+  drawn at 1x and at 2x gives the same geometry (SVG and mesh coordinates at 2x are exactly twice those at 1x). Done:
+  V3f, 44 drawings, in `poe wasm-test`.
+- Benchmark: time to draw a reference drawing at 1080p, tracked from here on (done: V3f, `uv run poe bench`, numbers in
+  [benchmarks.md](benchmarks.md)).
 
 State: V3a done in Rust and Python (`Size`, the view, `Drawing.to_svg`, the star example writes SVG); V3e done: the
 WebAssembly package loads a document and writes its SVG, equal to the native text, in Node (`poe wasm-test`); V3b done in Rust and
 Python (`Drawing.to_rgba`, through `vello_cpu`); V3c done in Rust and Python (`Drawing.to_png`, through the `png` crate,
-and `uv run poe look`); V3d done in Rust and Python (`Drawing.to_mesh`, `Mesh`, through `lyon_tessellation`). The
-WebAssembly bindings of pixels, PNG and the mesh, the differential tests and the benchmark are to do.
+and `uv run poe look`); V3d done in Rust and Python (`Drawing.to_mesh`, `Mesh`, through `lyon_tessellation`); V3f done:
+`toRgba`, `toPng` and `toMesh` in the WebAssembly package, the native-against-WebAssembly tests, `uv run poe bench`, and
+the star example in Rust and Node. **V3 is done and M1, a star everywhere, is reached**: one star as SVG and as pixels
+from Python, Rust and Node (`tests/wasm/star.test.mjs`).
 
 ## X1 Spike: GPU display
 

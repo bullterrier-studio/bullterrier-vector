@@ -63,7 +63,8 @@ uv run poe check                                 # the whole gate: before you pu
 `check` also builds the sdist and the wheel (`poe build-check`, into the git-ignored `dist/check`) and runs the tests
 that prove each gate fails on bad input. The build runs in an isolated environment, so it needs the network or a warm
 uv cache. `uv run poe audit` (known vulnerabilities in the locked dependencies) needs the network and is not part of
-`check`; CI runs it.
+`check`; CI runs it. `uv run poe bench` times the outputs on a reference drawing, natively and (after `poe wasm-test`
+built `pkg/`) in Node; it is not part of `check` and asserts nothing about time (numbers in `docs/benchmarks.md`).
 
 The commit hooks check formatting and the commit message; the pre-push hook runs `check` for pushes that touch code
 (`CLAUDE.md`, "Git conventions", says exactly when). Commits follow [Conventional Commits](https://www.conventionalcommits.org):
