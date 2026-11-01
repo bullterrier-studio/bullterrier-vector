@@ -291,7 +291,7 @@ impl Expr {
                             return Err(Error::parameter(
                                 param.name(),
                                 format!(
-                                    "was given a list of {} numbers, but there are {} shapes here",
+                                    "was given a list of {} numbers, but there are {} items here",
                                     numbers.len(),
                                     item.count
                                 ),

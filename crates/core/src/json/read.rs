@@ -1,13 +1,14 @@
 //! Reading a parsed document into [`Doc`]: what the schema checks, value by value. The shape of each call comes from
 //! its verb's declaration in the registry (`Kind`, `Reads`, `Domain`, defaults); nothing here lists a call.
 
-use super::doc::{Call, Doc, Ex, Fixed, InputDecl, InputKind, ParamDecl, Value, VerbCall, What};
+use super::doc::{Call, Doc, Ex, Fixed, InputDecl, InputKind, ParamDecl, Setting, Value, VerbCall, What};
 use super::value::{Json, pointer_token};
 use super::{bare, expression_word};
 use crate::expr::Op;
 use crate::limits::{MAX_CALLS, MAX_PARAMS};
 use crate::param::is_name;
 use crate::shape::{Holds, SELECTABLE, Single};
+use crate::r#type::is_tag;
 use crate::{Arg, Attributes, Color, Domain, Error, Kind, Point, Reads, Role, Select, Unit, Verb, Wanted};
 
 /// The version of the library, named in the errors that say a document is from a newer one.
@@ -383,6 +384,36 @@ impl Reader {
             }
             Kind::Attributes => select(pointer, json).map(Value::Select),
             Kind::Values => values(pointer, json).map(Value::Values),
+            Kind::Axes => tagged(pointer, json)?
+                .into_iter()
+                .map(|(tag, here, value)| {
+                    Ok(Setting {
+                        value: self.number(arg, &here, value)?,
+                        tag,
+                        pointer: here,
+                    })
+                })
+                .collect::<Result<_, Error>>()
+                .map(Value::Axes),
+            Kind::Features => tagged(pointer, json)?
+                .into_iter()
+                .map(|(tag, here, value)| {
+                    let number = number_at(&here, value)?;
+                    whole_u32(number)
+                        .map(|value| Setting {
+                            tag,
+                            pointer: here.clone(),
+                            value,
+                        })
+                        .ok_or_else(|| {
+                            refuse(
+                                &here,
+                                format!("must be a whole number from 0 to {}, got {number}", u32::MAX),
+                            )
+                        })
+                })
+                .collect::<Result<_, Error>>()
+                .map(Value::Features),
             Kind::Font => match json {
                 Json::String(name) if is_name(name) => Ok(Value::Font {
                     name: name.clone(),
@@ -654,6 +685,27 @@ fn attributes(pointer: &str, json: &Json) -> Result<Attributes, Error> {
         }
     }
     Ok(written)
+}
+
+/// The entries of an object keyed by font tags, as the tag, the pointer of the entry and the value.
+fn tagged<'a>(pointer: &str, json: &'a Json) -> Result<Vec<(String, String, &'a Json)>, Error> {
+    let Json::Object(members) = json else {
+        return Err(refuse(
+            pointer,
+            format!("must be an object of tags, not {}", json.describe()),
+        ));
+    };
+    members
+        .iter()
+        .map(|(tag, value)| {
+            let here = at(pointer, tag);
+            if is_tag(tag) {
+                Ok((tag.clone(), here, value))
+            } else {
+                Err(refuse(&here, "is not a tag: a tag is four printable ASCII characters"))
+            }
+        })
+        .collect()
 }
 
 /// `number` as a `u32` if it is one.

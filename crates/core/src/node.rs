@@ -36,6 +36,8 @@
 //! |---|---|
 //! | read once ([`Reads::Once`]) | an `Expr` read once for the whole call: a Param that is given a list is refused. `text`'s `size`, `tracking`, `leading` and `anchor` |
 //! | font ([`Kind::Font`]) | a [`Font`](crate::Font), by its bytes: a document names it and the caller supplies the bytes |
+//! | axes ([`Kind::Axes`]) | tags to expressions, read per item where the items are the characters of the text: `text`'s `axes`. A Param given a list gives character `i` entry `i` |
+//! | features ([`Kind::Features`]) | tags to whole numbers, constants: `text`'s `features` |
 //!
 //! Two more kinds of argument are declared by the first node that needs them, not before, so that no variant exists
 //! without a consumer and a test: a whole number (an expression whose value must be whole within ±(2^53 - 1)),
@@ -198,6 +200,11 @@ pub enum Kind {
     Values,
     /// A [`Font`](crate::Font): a document names an input, and the caller supplies its bytes.
     Font,
+    /// Variable-font axis values: four-character tags, each with a number or an expression ([`Reads::PerItem`]).
+    Axes,
+    /// OpenType feature values: four-character tags, each with a whole number from 0 to 4,294,967,295, never an
+    /// expression.
+    Features,
 }
 
 /// How an argument's value is read.

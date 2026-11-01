@@ -344,6 +344,16 @@ fn plausible() -> impl Strategy<Value = Val> {
         })
 }
 
+/// An object of font tags, some of them the font's and some not, each with `value`: no key twice.
+fn tagged(value: impl Strategy<Value = Val>) -> impl Strategy<Value = Val> {
+    prop::collection::btree_map(
+        prop::sample::select(&["wght", "wdth", "liga", "kern", "ss01", "wgt", "", "weight"][..]),
+        value,
+        0..4,
+    )
+    .prop_map(|members| Val::Object(members.into_iter().collect()))
+}
+
 /// A document of one `text` call whose arguments, and the declaration of its inputs, are right more often than not.
 fn text_documents() -> impl Strategy<Value = (Val, bool)> {
     let word = |choices: &'static [&'static str]| prop::sample::select(choices).prop_map(Val::Text);
@@ -356,6 +366,12 @@ fn text_documents() -> impl Strategy<Value = (Val, bool)> {
         number().prop_map(|leading| ("leading", leading)),
         word(&["left", "center", "right", "middle"]).prop_map(|align| ("align", align)),
         point().prop_map(|anchor| ("anchor", anchor)),
+        tagged(number()).prop_map(|axes| ("axes", axes)),
+        tagged(
+            prop::sample::select(&["0", "1", "2", "-1", "1.5", "4294967295", "4294967296", "1e300"][..])
+                .prop_map(Val::Number)
+        )
+        .prop_map(|features| ("features", features)),
     ];
     let input = || {
         (

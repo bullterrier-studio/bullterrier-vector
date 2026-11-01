@@ -39,6 +39,10 @@ pub(crate) enum Given {
     Values(Values),
     /// A font.
     Font(Font),
+    /// Variable-font axis values by four-character tag, in tag order, each a number or an expression, one per item.
+    Axes(Vec<(String, Expr)>),
+    /// OpenType feature values by four-character tag, in tag order.
+    Features(Vec<(String, u32)>),
     /// Left out.
     Unset,
 }
@@ -181,6 +185,22 @@ impl Args {
                     key.word(10);
                     key.of(font);
                 }
+                Given::Axes(axes) => {
+                    key.word(11);
+                    key.count(axes.len());
+                    for (tag, expr) in axes {
+                        key.text(tag);
+                        key.of(expr);
+                    }
+                }
+                Given::Features(features) => {
+                    key.word(12);
+                    key.count(features.len());
+                    for (tag, value) in features {
+                        key.text(tag);
+                        key.word(u64::from(*value));
+                    }
+                }
                 Given::Unset => key.word(9),
             }
         }
@@ -198,6 +218,7 @@ impl Args {
             let found: Vec<&Expr> = match given {
                 Given::Number(only) => vec![only],
                 Given::Pair(first, second) => vec![first, second],
+                Given::Axes(axes) => axes.iter().map(|(_, expr)| expr).collect(),
                 _ => Vec::new(),
             };
             found.into_iter().map(move |expr| (arg, expr))
@@ -246,6 +267,12 @@ impl Args {
                 }
                 Given::Pair(first, second) => {
                     for expr in [first, second] {
+                        expr.collect_params(&mut reads.all);
+                        expr.collect_params(&mut reads.free);
+                    }
+                }
+                Given::Axes(axes) => {
+                    for (_, expr) in axes {
                         expr.collect_params(&mut reads.all);
                         expr.collect_params(&mut reads.free);
                     }
@@ -435,6 +462,46 @@ impl Args {
         match self.find(name)? {
             (_, Given::Font(font)) => Ok(font),
             _ => Err(self.misread(name, "a font")),
+        }
+    }
+
+    /// The axis values of `name` for each of `count` items, by tag: the number each expression has for item `i` (a
+    /// Param given a list reads entry `i`), within the argument's domain. Nothing if the call left the argument out.
+    pub(crate) fn axes(&self, cx: &Context<'_>, name: &str, count: usize) -> Result<Vec<(String, Vec<f64>)>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(Vec::new()),
+            (arg, Given::Axes(axes)) => axes
+                .iter()
+                .map(|(tag, expr)| {
+                    let read = |expr: &Expr, item: Item| {
+                        let value = expr.value_at(cx.env, item).map_err(|error| relabel(error, name))?;
+                        arg.domain.number(name, value)
+                    };
+                    let values = (0..count)
+                        .map(|index| read(expr, Item { index, count }))
+                        .collect::<Result<_, _>>()?;
+                    Ok((tag.clone(), values))
+                })
+                .collect(),
+            _ => Err(self.misread(name, "axis values")),
+        }
+    }
+
+    /// The features of `name` with their values, in tag order; none if the call left the argument out.
+    pub(crate) fn features(&self, name: &str) -> Result<&[(String, u32)], Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(&[]),
+            (_, Given::Features(features)) => Ok(features),
+            _ => Err(self.misread(name, "features")),
+        }
+    }
+
+    /// The axes of `name` as written, none if the call left the argument out.
+    pub(crate) fn written_axes(&self, name: &str) -> Result<&[(String, Expr)], Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(&[]),
+            (_, Given::Axes(axes)) => Ok(axes),
+            _ => Err(self.misread(name, "axis values")),
         }
     }
 

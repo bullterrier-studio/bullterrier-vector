@@ -84,7 +84,7 @@ fn a_list_of_the_wrong_length_is_refused_naming_the_param_the_step_and_both_coun
     let drawing = Drawing::from(Path::line((0.0, 0.0), (2.0, 1.0))?).translate(&slide, 0.0);
     let (name, message) = parameter_refusal(drawing.shapes(&Values::new().set("slide", vec![1.0, 2.0, 3.0])))?;
     assert_eq!(name, "step 1 (translate).dx");
-    for text in ["slide", "3", "1 shape"] {
+    for text in ["slide", "3", "1 item"] {
         assert!(message.contains(text), "{text:?} not in {message}");
     }
     Ok(())

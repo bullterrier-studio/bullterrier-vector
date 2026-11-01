@@ -1,24 +1,24 @@
 //! Glyph outlines: a glyph's contours in font units, and the `Path` they make at a place and size.
 
-use super::font::Font;
 use crate::geometry::{MAX_COORDINATE, is_coordinate};
 use crate::path::Builder;
 use crate::{Error, Path, Point};
+use read_fonts::model::Font as Model;
 use read_fonts::model::glyph::outline::{DrawMemory, DrawOptions, OutlineGlyphs, PathElement};
 use read_fonts::types::GlyphId;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-/// The outlines of a font, each drawn from the font once and kept for the glyphs that use it again.
+/// The outlines of a font at one location, each drawn from the font once and kept for the glyphs that use it again.
 pub(super) struct Outlines<'a> {
     glyphs: OutlineGlyphs<'a>,
     drawn: BTreeMap<u32, Option<Rc<Vec<PathElement>>>>,
 }
 
 impl<'a> Outlines<'a> {
-    pub(super) fn new(font: &'a Font) -> Self {
+    pub(super) fn new(font: &'a Model) -> Self {
         Self {
-            glyphs: font.model().outline_glyphs(),
+            glyphs: font.outline_glyphs(),
             drawn: BTreeMap::new(),
         }
     }

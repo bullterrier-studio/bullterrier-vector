@@ -59,6 +59,11 @@ pub(crate) const MAX_FONT_BYTES: usize = 32 * 1024 * 1024;
 // charged to `MAX_OUTLINE_SEGMENTS` and the shapes to `MAX_SHAPES`
 pub(crate) const MAX_GLYPHS: usize = 100_000;
 
+/// The most axes, and the most features, one `text` call gives.
+// constant: the fonts that exist have under 20 axes (Roboto Flex 13) and a few dozen features; an axis costs memory in
+// every run of a text and a feature time in every shaping, so a call may not name thousands
+pub(crate) const MAX_SETTINGS: usize = 64;
+
 /// The most segments the glyph outlines of one draw may have, counted as they are put into shapes.
 // constant: an ordinary glyph has 20 to 60 segments, so 10 million is 150,000 glyphs; the same as `MAX_SEGMENTS`
 pub(crate) const MAX_OUTLINE_SEGMENTS: usize = 10_000_000;

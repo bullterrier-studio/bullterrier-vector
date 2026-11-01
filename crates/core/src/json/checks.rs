@@ -3,11 +3,11 @@
 //! `with-values` and `call-checks` while the drawing is built: see `build.rs`.)
 
 use super::depth;
-use super::doc::{Call, Doc, InputKind, Value, What};
+use super::doc::{Call, Doc, Ex, InputKind, Value, What};
 use super::read::reason;
 use super::value::{Json, pointer_token};
 use crate::limits::MAX_DEPTH;
-use crate::{Error, Param, Path};
+use crate::{Error, Font, Param, Path};
 use std::collections::{BTreeMap, BTreeSet};
 
 fn refuse(pointer: &str, message: impl Into<String>) -> Error {
@@ -67,6 +67,7 @@ fn params_of(call: &Call) -> Vec<(&str, &str)> {
                     first.params(&mut found);
                     second.params(&mut found);
                 }
+                Value::Axes(axes) => axes.iter().for_each(|axis| axis.value.params(&mut found)),
                 Value::Values(fixed) => found.extend(fixed.iter().map(|one| (one.name.as_str(), one.pointer.as_str()))),
                 _ => {}
             }
@@ -264,6 +265,7 @@ fn first_reads<'a>(
                             first.params(&mut found);
                             second.params(&mut found);
                         }
+                        Value::Axes(axes) => axes.iter().for_each(|axis| axis.value.params(&mut found)),
                         Value::Drawings(items) => {
                             for item in items {
                                 first_reads(item, entries, walked, read);
@@ -306,6 +308,52 @@ fn inputs(doc: &Doc) -> Result<(), Error> {
         Some(input) => Err(refuse(&input.pointer, "is read by no call")),
         None => Ok(()),
     }
+}
+
+/// `font-checks`: with the fonts supplied, the axes and features a call names are the font's, and an axis value written
+/// as a number lies in its range.
+///
+/// # Errors
+/// [`Error::Parameter`] naming `inputs.` and the input: the caller supplied a font the document was not written for.
+pub(super) fn fonts(doc: &Doc, fonts: &BTreeMap<String, Font>) -> Result<(), Error> {
+    each_call_of(doc, |call| {
+        let What::Verb(verb) = &call.what else { return Ok(()) };
+        let Some((name, font)) = verb.args.iter().find_map(|(_, value)| match value {
+            Value::Font { name, .. } => fonts.get(name).map(|font| (name, font)),
+            _ => None,
+        }) else {
+            return Ok(());
+        };
+        let wrong = |error: Error, pointer: &str| match error {
+            Error::Parameter { message, .. } => Error::parameter(
+                &format!("inputs.{name}"),
+                format!("{message}; the document uses it at {pointer}"),
+            ),
+            other => other,
+        };
+        for (_, value) in &verb.args {
+            match value {
+                Value::Axes(axes) => {
+                    for axis in axes {
+                        let number = match axis.value {
+                            Ex::Number(number) => Some(number),
+                            _ => None,
+                        };
+                        font.check_axis(&axis.tag, number)
+                            .map_err(|error| wrong(error, &axis.pointer))?;
+                    }
+                }
+                Value::Features(features) => {
+                    for feature in features {
+                        font.check_feature(&feature.tag)
+                            .map_err(|error| wrong(error, &feature.pointer))?;
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    })
 }
 
 /// `drawing-used`.

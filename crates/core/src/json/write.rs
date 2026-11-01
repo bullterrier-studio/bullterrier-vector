@@ -226,6 +226,17 @@ impl<'a> Writer<'a> {
                     .ok_or_else(|| Error::parameter("to_json", "a font of the drawing is not among its inputs"))?;
                 Json::text(name)
             }
+            Given::Axes(axes) => Json::Object(
+                axes.iter()
+                    .map(|(tag, expr)| Ok((tag.clone(), self.expression(expr)?)))
+                    .collect::<Result<_, Error>>()?,
+            ),
+            Given::Features(features) => Json::Object(
+                features
+                    .iter()
+                    .map(|(tag, value)| (tag.clone(), Json::Number(f64::from(*value))))
+                    .collect(),
+            ),
             Given::Unset => Json::Null,
         })
     }

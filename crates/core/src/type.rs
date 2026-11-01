@@ -9,5 +9,6 @@ mod shaping;
 mod text;
 
 pub use font::Font;
+pub(crate) use font::is_tag;
 pub(crate) use layout::{Settings, typeset};
 pub use text::{Align, Text, text};

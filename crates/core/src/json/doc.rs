@@ -84,6 +84,17 @@ pub(super) enum Value {
         name: String,
         pointer: String,
     },
+    /// Axis values by tag, in tag order.
+    Axes(Vec<Setting<Ex>>),
+    /// Feature values by tag, in tag order.
+    Features(Vec<Setting<u32>>),
+}
+
+/// An entry of an object keyed by a font tag: the tag, the pointer of the entry, and its value.
+pub(super) struct Setting<T> {
+    pub(super) tag: String,
+    pub(super) pointer: String,
+    pub(super) value: T,
 }
 
 /// A Param a `with_values` fixes, and the value it is fixed to.

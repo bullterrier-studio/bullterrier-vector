@@ -3,6 +3,7 @@
 use super::font::Font;
 use crate::node::{Given, text::TextNode};
 use crate::{Drawing, Expr, Point};
+use std::collections::BTreeMap;
 
 /// Where a line stands against the anchor of [`Text`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,6 +56,8 @@ pub struct Text {
     leading: Option<Expr>,
     align: Option<Align>,
     anchor: Option<Point>,
+    axes: BTreeMap<String, Expr>,
+    features: BTreeMap<String, u32>,
 }
 
 impl Text {
@@ -69,6 +72,8 @@ impl Text {
             leading: None,
             align: None,
             anchor: None,
+            axes: BTreeMap::new(),
+            features: BTreeMap::new(),
         }
     }
 
@@ -107,6 +112,40 @@ impl Text {
         self.anchor = Some(anchor.into());
         self
     }
+
+    /// This text with the variable-font axes given, each a four-letter tag (`"wght"`) and a number, a `Param` or an
+    /// expression in the font's own units: `Text::axes([("wght", &weight)])`. An axis not given is at its default. If a
+    /// tag is given twice the last wins, and the axes given replace those of an earlier call.
+    ///
+    /// Each *character* of the text has its own value: a `Param` given a list when drawn gives character `i` entry `i`
+    /// (a list has an entry for every character of the text, spaces and line breaks included), and the advances follow.
+    /// Characters of one value are shaped together; where the value changes, the text is shaped again, so that kerning,
+    /// ligatures, mark positioning and joining do not reach across the change.
+    ///
+    /// A tag the font lacks, a tag that is not four printable ASCII characters, more than 64 axes, a number that is not
+    /// finite or outside the font's range for the axis leave the drawing with an [`error`](Drawing::error) naming
+    /// `axes`; for a number that reads a `Param`, the draw is refused.
+    #[must_use]
+    pub fn axes<T: Into<String>, V: Into<Expr>>(mut self, axes: impl IntoIterator<Item = (T, V)>) -> Self {
+        self.axes = axes
+            .into_iter()
+            .map(|(tag, value)| (tag.into(), value.into()))
+            .collect();
+        self
+    }
+
+    /// This text with the OpenType features given, each a four-character tag and a whole number: `0` switches the
+    /// feature off (`("liga", 0)`), `1` on, and a larger number selects the alternate of a feature that has them. A
+    /// feature not given is as the font and the shaper default it. If a tag is given twice the last wins, and the
+    /// features given replace those of an earlier call.
+    ///
+    /// A tag the font lacks, a tag that is not four printable ASCII characters or more than 64 features leave the drawing
+    /// with an [`error`](Drawing::error) naming `features`.
+    #[must_use]
+    pub fn features<T: Into<String>>(mut self, features: impl IntoIterator<Item = (T, u32)>) -> Self {
+        self.features = features.into_iter().map(|(tag, value)| (tag.into(), value)).collect();
+        self
+    }
 }
 
 impl From<&Font> for Text {
@@ -120,8 +159,9 @@ impl From<&Font> for Text {
 /// with the attributes `glyph`, `char`, `word`, `line`, `order` and `origin`. A `"\n"` in `content` breaks a line. The
 /// outlines keep the font's own contours, which may overlap; they fill as the font draws them.
 ///
-/// The text is drawn at the size, tracking, leading, alignment and anchor of `options`. A line is shaped as one run in
-/// the script and direction of its first strong character: a line that mixes directions is not reordered.
+/// The text is drawn at the size, tracking, leading, alignment, anchor, axes and features of `options`. A line is
+/// shaped as one run in the script and direction of its first strong character (a line that mixes directions is not
+/// reordered), or as several where the axis values change between characters ([`Text::axes`]).
 ///
 /// A text with more than 100,000 characters, a size not above 0, a number that is not finite, an anchor or a
 /// coordinate beyond ±1e100 leaves the drawing with an [`error`](Drawing::error), or, for numbers that read a Param,
@@ -147,6 +187,12 @@ pub fn text(content: impl Into<String>, options: impl Into<Text>) -> Drawing {
     }
     if let Some(anchor) = options.anchor {
         given.push(("anchor", Given::Pair(Expr::from(anchor.x), Expr::from(anchor.y))));
+    }
+    if !options.axes.is_empty() {
+        given.push(("axes", Given::Axes(options.axes.into_iter().collect())));
+    }
+    if !options.features.is_empty() {
+        given.push(("features", Given::Features(options.features.into_iter().collect())));
     }
     Drawing::source(&TextNode, given)
 }

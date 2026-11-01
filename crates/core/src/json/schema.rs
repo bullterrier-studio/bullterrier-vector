@@ -156,6 +156,8 @@ fn argument(arg: &Arg) -> Json {
         Kind::Drawings => Json::object([("type", Json::text("array")), ("items", reference("drawing"))]),
         Kind::Attributes => selection(),
         Kind::Font => reference("name"),
+        Kind::Axes => tagged(value(arg)),
+        Kind::Features => tagged(whole()),
         Kind::Values => Json::object([
             ("type", Json::text("object")),
             ("propertyNames", reference("param_name")),
@@ -173,6 +175,15 @@ fn argument(arg: &Arg) -> Json {
         Some(Literal::Text(default)) => with(schema, "default", Json::text(default)),
         Some(Literal::Unset) | None => schema,
     }
+}
+
+/// An object whose keys are font tags and whose values are `value`.
+fn tagged(value: Json) -> Json {
+    Json::object([
+        ("type", Json::text("object")),
+        ("propertyNames", reference("tag")),
+        ("additionalProperties", value),
+    ])
 }
 
 /// One number of an argument: a literal within the domain, or an expression where the argument reads one per shape.
@@ -195,7 +206,7 @@ fn value(arg: &Arg) -> Json {
     }
 }
 
-/// A whole number from 0 to the largest an attribute holds (`u32`).
+/// A whole number from 0 to the largest an attribute or a feature holds (`u32`).
 fn whole() -> Json {
     Json::object([
         ("type", Json::text("integer")),

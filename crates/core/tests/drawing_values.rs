@@ -307,7 +307,7 @@ fn a_list_can_be_fixed_and_goes_to_the_shapes_by_index() -> Outcome {
     )?;
     assert_eq!(name, "step 1 (translate).dx");
     assert!(
-        message.contains('p') && message.contains('2') && message.contains("3 shapes"),
+        message.contains('p') && message.contains('2') && message.contains("3 items"),
         "{message}"
     );
     Ok(())
@@ -378,7 +378,7 @@ fn a_list_goes_to_the_shape_with_that_index_at_the_step_that_reads_it() -> Outco
     // a list for the four it started with no longer fits
     let (name, message) = parameter_refusal(three.shapes(&Values::new().set("p", vec![1.0, 2.0, 3.0, 4.0])))?;
     assert_eq!(name, "step 2 (translate).dx");
-    assert!(message.contains('4') && message.contains("3 shapes"), "{message}");
+    assert!(message.contains('4') && message.contains("3 items"), "{message}");
     // read before the filter, the list is for four shapes
     let early = four.translate(&p, 0.0).without(Select::new().attribute("index", 1));
     assert_eq!(

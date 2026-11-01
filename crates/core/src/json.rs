@@ -68,6 +68,7 @@ impl Drawing {
         let doc = read::document(&top)?;
         let checked = checks::run(&doc, &top)?;
         let fonts = inputs::fonts(&doc, inputs)?;
+        checks::fonts(&doc, &fonts)?;
         build::build(&doc, &checked, &fonts)
     }
 }

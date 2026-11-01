@@ -146,6 +146,19 @@ impl<'a> Builder<'a> {
                     .ok_or_else(|| refuse(pointer, format!("{name:?} is not an entry of `inputs`")))?
                     .clone(),
             ),
+            Value::Axes(axes) if axes.is_empty() => Given::Unset,
+            Value::Axes(axes) => Given::Axes(
+                axes.iter()
+                    .map(|axis| Ok((axis.tag.clone(), self.expr(&axis.value)?)))
+                    .collect::<Result<_, Error>>()?,
+            ),
+            Value::Features(features) if features.is_empty() => Given::Unset,
+            Value::Features(features) => Given::Features(
+                features
+                    .iter()
+                    .map(|feature| (feature.tag.clone(), feature.value))
+                    .collect(),
+            ),
             Value::Values(fixed) => Given::Values(fixed.iter().fold(Values::new(), |values, one| {
                 values.set(one.name.clone(), one.value.clone())
             })),

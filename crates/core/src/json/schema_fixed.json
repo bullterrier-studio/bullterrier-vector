@@ -29,6 +29,7 @@
   },
   "$defs": {
     "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*(?![\\s\\S])" },
+    "tag": { "type": "string", "pattern": "^[\\x20-\\x7E]{4}(?![\\s\\S])" },
     "color": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})(?![\\s\\S])" },
     "path_data": { "type": "string", "pattern": "^(\\s*[Mm][MmZzLlHhVvCcSsQqTtAa0-9eE.,+\\-\\s]*)?$" },
     "number": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/expression" }] },
