@@ -103,7 +103,7 @@ nodes (`drawing`, `shape`, `node`, `param`, `expr`, `registry`), `json` and `out
 
 ## The rules
 
-Gated (the gate fails): rules 3, 4 (the bans), 5, and 8 (no printing). Convention (reviewed, not gated): 1, 2, 4's one number
+Gated (the gate fails): rules 3, 4 (the bans), 5, 8 (no printing) and 9 (the stack tests). Convention (reviewed, not gated): 1, 2, 4's one number
 formatter, 6 and 7, and "Fixing defects".
 
 1. **No hidden tunables.** Every value that shapes a result is a named, documented parameter in the field's own terms. Exempt:
@@ -124,6 +124,10 @@ formatter, 6 and 7, and "Fixing defects".
    (`Error::Format` for a document `from_json` cannot read).
 7. **No backwards-compatibility shims, aliases or re-exports before 1.0** unless the owner asks: change the callers.
 8. The library never prints and never configures logging.
+9. **Bounded depth.** Anything a caller can build or load has a depth limit enforced where it is built, never in a walk
+   over it, so no recursion runs over unbounded depth and nothing needs a bigger stack than the 256 KB minimum
+   (`docs/design-decisions.md`, "Bounded depth"). A new node, step or reader adds its deepest structure to the stack
+   tests (`tests/test_stack_depth.py`, `tests/wasm/depth.test.mjs`, `crates/core/tests/expr.rs`).
 
 ## Rust code
 
@@ -169,7 +173,7 @@ code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `ru
 installed at the versions `Cargo.toml` pins (`poe setup` installs them) and that the command's version is that of the
 `wasm-bindgen` crate in `Cargo.lock`. `rust-wasm` builds the core and the bindings crate for WebAssembly. `wasm-test` (needs Node)
 builds the package in release with `RUSTFLAGS=-C target-feature=+simd128` (set by the task, for that build alone),
-runs `wasm-bindgen --target nodejs` into the ignored `pkg/` and runs `tests/wasm` in Node against `tests/wasm/oracle.py`'s
+runs `wasm-bindgen --target nodejs` into the ignored `pkg/` and runs `tests/wasm` in Node (with a 2 GB JavaScript heap cap) against `tests/wasm/oracle.py`'s
 native answers (exact SVG text, mesh buffers, JSON, Param descriptions, error names and messages; pixels and PNG within a
 measured tolerance, `tests/wasm/compare.mjs`; the star from Python, Rust and Node); `fast` leaves it out. `rust-deny` is offline (bans, licences, sources;
 `deny.toml`); `uv run poe audit` adds the advisories and needs the network (CI runs it with every code change and weekly).

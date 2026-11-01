@@ -495,6 +495,20 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **Same output on every target is a differential test, not golden files** (2026-10-28). The same drawings are rendered
   natively and in WebAssembly and compared byte for byte. *Reason:* committed golden images go stale and get updated
   without review; a differential test needs no reviewed baseline.
+- **Bounded depth, not a bigger stack** (2026-11-01). Whatever a caller can build has a depth limit enforced where it is
+  built, so no walk recurses over unbounded depth: drawings nested more than `MAX_DEPTH` (128) are refused when built, a
+  document's nesting is refused by the parser before the loader recurses, and an expression past 128 levels becomes a
+  node that keeps no operands (an operator never fails, so a loop can build one; the call that uses it is refused). The
+  smallest supported thread stack is **256 KB**: a Python thread gets 512 KB on macOS, the main thread 8 MB, and in
+  WebAssembly a worker needs **0.5 MB** (below about 0.25 MB the engine throws a catchable `RangeError`). Measured need,
+  release build: 128 nested drawings about 52 KB, the deepest document `from_json` reads 96 to 128 KB. *Reason:* an
+  overflow is a segfault in the caller's process, and a crash a user meets is worse than a refusal. Growing the stack
+  (`stacker`) was tried elsewhere and rejected here: it cannot grow the WebAssembly engine's stack, loses CPython's
+  overflow guard on 3.14 and later, adds `unsafe`, a C compiler to the sdist build and a slower drop, and turns a bounded
+  stack into unbounded memory; checking the remaining stack would make the result depend on the caller's thread, against
+  rule 2. *Consequence:* `tests/test_stack_depth.py`, `tests/wasm/depth.test.mjs` and `tests/expr.rs` build the deepest
+  structures and run every output on the minimum stack, in `check` and in CI; a new node or walk adds its structure to
+  them.
 - **Platforms** (2026-10-28). One abi3 wheel (every Python from 3.12) for Linux x86_64 and aarch64 (manylinux_2_28), macOS
   arm64 and x86_64, and Windows x86_64; the sdist, which builds the extension with rustup, covers every other platform.
   No musl wheel. *Reason:* no dependency sets a floor, so this is the conventional set; revisit when asked.

@@ -542,7 +542,10 @@ A drawing that reads more than 1,000 Params of different names (`MAX_PARAMS`) ra
 passes it.
 
 Plain numbers are checked when a call is made; Params, expressions and lists when the drawing is drawn; geometry when it
-is computed. In Python and JavaScript the error points at the call that caused it; in Rust, eager calls return a
+is computed. Depth is bounded: drawings nested more than 128 deep are refused when built, an expression more than 128 levels
+deep is refused when used (printing and comparing it are safe, however long a loop made it), and `from_json` refuses a
+document nested more than 128 levels. All of it needs a thread stack of at least 256 KB (a Python thread has 512 KB on
+macOS; a WebAssembly worker, 0.5 MB). In Python and JavaScript the error points at the call that caused it; in Rust, eager calls return a
 `Result` and a drawing's chain reports its first error at the first draw ("Languages").
 
 ## Conventions
