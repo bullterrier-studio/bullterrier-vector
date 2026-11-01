@@ -653,6 +653,7 @@ def test_a_parameter_error_from_a_step_is_a_value_error_and_a_package_error():
 # --- every registered verb has a row --------------------------------------------------------------------------------
 
 ROOT = FilePath(__file__).resolve().parents[1]
+SYNTHETIC = btvec.Font((ROOT / "crates" / "core" / "tests" / "fonts" / "synthetic.ttf").read_bytes())
 
 
 def registered_verbs() -> set[str]:
@@ -698,18 +699,14 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
         {},
         [row("M3 0 L13 0 L13 10 L3 10 Z")],
     ),
+    # synthetic.ttf, 1000 to the em: the square C (0 0 to 100 100) which the font's kern feature moves by (50, 20)
+    "text": (lambda: btvec.text("C", font=SYNTHETIC, size=1000), {}, [row("M50 -20 L50 -120 L150 -120 L150 -20 Z")]),
 }
 
 
-# Verbs the core registers that the Python package does not reach yet, each with the batch that brings it (the bindings
-# of `text` and `Font`, V5c). The entry goes when its row is added to VERB_ROWS.
-NOT_YET_IN_PYTHON = {"text": "V5c"}
-
-
 def test_the_table_has_a_row_for_every_registered_verb_and_no_other():
-    # a verb added to the core without a row here, or listed as pending, fails by its name
-    assert set(VERB_ROWS) | set(NOT_YET_IN_PYTHON) == registered_verbs()
-    assert not set(VERB_ROWS) & set(NOT_YET_IN_PYTHON), "a verb with a row is no longer pending"
+    # a verb added to the core without a row here fails by its name
+    assert set(VERB_ROWS) == registered_verbs()
 
 
 @pytest.mark.parametrize("verb", sorted(VERB_ROWS))

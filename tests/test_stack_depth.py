@@ -7,8 +7,12 @@ The expected result is only "finished": what each output looks like is tested wh
 
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
+
+# the font whose glyph `A` is a chain of 64 composites, the deepest nesting the reader draws (crates/core/tests/fonts)
+DEEPEST_COMPOSITES = Path(__file__).resolve().parents[1] / "crates" / "core" / "tests" / "fonts" / "synthetic.ttf"
 
 SMALLEST_STACK_KB = 256  # the smallest thread stack supported; design-decisions.md says why this number
 
@@ -22,7 +26,7 @@ import traceback
 
 import bullterrier_vector as btvec
 
-scenario, stack_kb = sys.argv[1], int(sys.argv[2])
+scenario, stack_kb, font_file = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 other = btvec.Path.circle((5, 5), 1).fill("#445566")
 
 
@@ -51,15 +55,16 @@ def deepest_json_drawing():
             continue
 
 
-def every_output(drawing):
+def every_output(drawing, params=True):
     for name in ("shapes", "to_svg", "to_rgba", "to_png", "to_mesh"):
         step(name)
         method = getattr(drawing, name)
         method() if name == "shapes" else method(10, 10)
-    step("with_values")
-    drawing.with_values(x=2)
-    step("draw with values")
-    drawing.to_rgba(10, 10, x=3)
+    if params:
+        step("with_values")
+        drawing.with_values(x=2)
+        step("draw with values")
+        drawing.to_rgba(10, 10, x=3)
     step("parameters")
     drawing.parameters()
     step("repr")
@@ -125,6 +130,18 @@ def run():
                 pass
             else:
                 raise SystemExit("a hostile document was read")
+    elif scenario == "text_in_the_deepest_composite_glyph":
+        step("font")
+        font_bytes = open(font_file, "rb").read()
+        font = btvec.Font(font_bytes, name="deep")
+        step("text")
+        drawing = btvec.text("AAA", font=font, size=100)
+        every_output(drawing, params=False)
+        step("to_json and from_json")
+        loaded = btvec.Drawing.from_json(drawing.to_json(), inputs={"deep": font_bytes})
+        every_output(loaded, params=False)
+        step("drop")
+        del drawing, loaded, font
     elif scenario == "a_probe_that_dies":  # known-bad input for this test's own runner
         step("about to die")
         os._exit(7)
@@ -149,7 +166,7 @@ thread.join()
 def run_probe(scenario: str, stack_kb: int = SMALLEST_STACK_KB) -> subprocess.CompletedProcess[str]:
     """Run `scenario` in a fresh Python with a thread of `stack_kb` KB."""
     return subprocess.run(
-        [sys.executable, "-c", PROBE, scenario, str(stack_kb)],
+        [sys.executable, "-c", PROBE, scenario, str(stack_kb), str(DEEPEST_COMPOSITES)],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -172,6 +189,7 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
         pytest.param("expression_a_loop_builds", id="expression-100000-levels-built-by-a-loop"),
         pytest.param("deepest_document", id="deepest-document-to_json-accepts"),
         pytest.param("hostile_documents", id="documents-nested-100000-levels"),
+        pytest.param("text_in_the_deepest_composite_glyph", id="text-of-a-glyph-of-64-nested-composites"),
     ],
 )
 def test_the_deepest_structures_work_on_the_smallest_supported_thread_stack(scenario):

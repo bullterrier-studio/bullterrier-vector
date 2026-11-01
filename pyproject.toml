@@ -235,6 +235,12 @@ module = ["tests.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
+# fontTools ships no type information; it is the test oracle for fonts (tests/test_text.py) and its values are
+# used as `Any`
+[[tool.mypy.overrides]]
+module = ["fontTools.*"]
+ignore_missing_imports = true
+
 # Read by tools/check_dists.py (`poe build-check`): each wheel holds exactly src/bullterrier_vector minus these, plus its
 # own build of the extension, so a shipped test or stray file fails (W102), and so does package code left out of the
 # wheel (W101: py.typed and the stub included).
@@ -247,6 +253,7 @@ dev = [
     "actionlint-py>=1.7.12.25",
     "check-wheel-contents>=0.6.3",
     "deptry>=0.25.1",
+    "fonttools>=4.68.0",
     "jsonschema>=4.26.0",
     "mypy>=2.4.1",
     "pip-audit>=2.10.1",

@@ -6,6 +6,7 @@ mod drawing;
 mod expr;
 mod mesh;
 mod shape;
+mod text;
 
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
@@ -31,6 +32,8 @@ mod _core {
     use super::mesh::PyMesh;
     #[pymodule_export]
     use super::shape::{PyShape, PyStyle};
+    #[pymodule_export]
+    use super::text::{PyFont, text};
     #[pymodule_export]
     use super::{PyPath, PyPoint, PyRect, drawing_schema};
 }

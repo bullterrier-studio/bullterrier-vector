@@ -3,6 +3,7 @@
 use crate::expr::{Num, PyExpr, PyParam};
 use crate::mesh::PyMesh;
 use crate::shape::PyShape;
+use crate::text::bytes_of;
 use crate::{PyPath, PyPoint, exception, raised};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
@@ -16,7 +17,7 @@ use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
 pub(crate) struct PyDrawing(vector::Drawing);
 
 /// The drawing a step made, or the error it left: a step that cannot be taken is raised at the call that made it.
-fn checked(drawing: vector::Drawing) -> PyResult<PyDrawing> {
+pub(crate) fn checked(drawing: vector::Drawing) -> PyResult<PyDrawing> {
     match drawing.error() {
         Some(error) => Err(exception(error)),
         None => Ok(PyDrawing(drawing)),
@@ -279,9 +280,10 @@ impl PyDrawing {
         raised(self.0.to_json())
     }
 
-    /// The drawing a JSON document describes.
+    /// The drawing a JSON document describes, given the bytes of the inputs it names (its fonts) by name.
     #[staticmethod]
-    fn from_json(py: Python<'_>, text: &Bound<'_, PyString>) -> PyResult<Self> {
+    #[pyo3(signature = (text, *, inputs=None))]
+    fn from_json(py: Python<'_>, text: &Bound<'_, PyString>, inputs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
         // a `str` holding a lone surrogate has no UTF-8 form: that is a problem in the text, so a `FormatError`
         let text = text.to_str().map_err(|_| {
             exception(&vector::Error::Format {
@@ -289,9 +291,14 @@ impl PyDrawing {
                 message: "the text is not valid UTF-8 (it holds a lone surrogate)".to_owned(),
             })
         })?;
-        checked(raised(
-            py.detach(|| vector::Drawing::from_json(text, &vector::Inputs::new())),
-        )?)
+        let mut supplied = vector::Inputs::new();
+        if let Some(inputs) = inputs {
+            for (name, bytes) in inputs {
+                let bytes = bytes_of(&format!("inputs[{name}]"), &bytes)?;
+                supplied = supplied.set(name.extract::<String>()?, bytes.to_vec());
+            }
+        }
+        checked(raised(py.detach(|| vector::Drawing::from_json(text, &supplied)))?)
     }
 
     /// Every Param the drawing reads, in the order first used.

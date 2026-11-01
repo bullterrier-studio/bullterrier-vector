@@ -6,7 +6,20 @@ from typing import final
 
 from typing_extensions import disjoint_base
 
-__all__ = ["Drawing", "Expr", "Mesh", "Param", "Path", "Point", "Rect", "Shape", "Style", "drawing_schema"]
+__all__ = [
+    "Drawing",
+    "Expr",
+    "Font",
+    "Mesh",
+    "Param",
+    "Path",
+    "Point",
+    "Rect",
+    "Shape",
+    "Style",
+    "drawing_schema",
+    "text",
+]
 
 type _PointLike = Point | tuple[float, float]
 type _Num = float | Expr
@@ -194,7 +207,7 @@ class Drawing:
     def with_values(self, **given: _Values) -> Drawing: ...
     def to_json(self) -> str: ...
     @staticmethod
-    def from_json(text: str) -> Drawing: ...
+    def from_json(text: str, *, inputs: Mapping[str, bytes | bytearray] | None = None) -> Drawing: ...
     def parameters(self) -> list[Param]: ...
     def shapes(self, **given: _Values) -> list[Shape]: ...
     def to_svg(self, width: float, height: float, /, **given: _Values) -> str: ...
@@ -214,4 +227,26 @@ class Mesh:
     @property
     def generation(self) -> int: ...
 
+@final
+class Font:
+    def __new__(cls, data: bytes | bytearray, *, name: str | None = None) -> Font: ...
+    @property
+    def name(self) -> str | None: ...
+    @property
+    def axes(self) -> dict[str, Param]: ...
+    @property
+    def features(self) -> list[str]: ...
+
+def text(
+    content: str,
+    *,
+    font: Font,
+    size: _Num = 100,
+    axes: Mapping[str, _Num] | None = None,
+    features: Mapping[str, int] | None = None,
+    tracking: _Num = 0,
+    leading: _Num | None = None,
+    align: str = "left",
+    anchor: _PointLike = (0, 0),
+) -> Drawing: ...
 def drawing_schema() -> str: ...
