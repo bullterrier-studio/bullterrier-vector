@@ -37,7 +37,9 @@ def has_encoder(name: str) -> bool:
     path = shutil.which("ffmpeg")
     if path is None:
         return False
-    listing = subprocess.run([path, "-hide_banner", "-encoders"], capture_output=True, text=True, check=False)
+    listing = subprocess.run(
+        [path, "-hide_banner", "-encoders"], capture_output=True, text=True, encoding="utf-8", check=False
+    )
     return name in listing.stdout
 
 
@@ -61,7 +63,7 @@ def probe(clip: Path) -> dict:
         "ffprobe", "-v", "error", "-count_frames", "-select_streams", "v:0", "-show_streams", "-show_format",
         "-of", "json", str(clip),
     ]  # fmt: skip
-    answer = json.loads(subprocess.run(command, capture_output=True, text=True, check=True).stdout)
+    answer = json.loads(subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=True).stdout)
     return {"stream": answer["streams"][0], "duration": float(answer["format"]["duration"])}
 
 

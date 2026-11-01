@@ -125,7 +125,7 @@ def _write_clip(
         with tempfile.TemporaryFile() as log:
             # argv is a list run without a shell: ffmpeg found on the PATH, fixed flags, numbers and our own path
             with subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=log) as process:  # noqa: S603  see above
-                stdin = cast("IO[bytes]", process.stdin)  # PIPE was asked for
+                stdin = cast(IO[bytes], process.stdin)  # PIPE was asked for
                 try:
                     for rgba in chain([first], pixels):
                         stdin.write(rgba)
