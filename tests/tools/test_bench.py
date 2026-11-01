@@ -183,3 +183,34 @@ def test_the_reference_drawing_mixes_fills_strokes_translucency_and_multiply(ref
     assert any(style.opacity < 1 for style in styles)
     assert any(style.blend == "multiply" for style in styles)
     assert json.loads(reference(200).to_json())["version"] == 1
+
+
+@pytest.fixture(scope="module")
+def median_ms() -> Callable[..., float]:
+    """The tool's `median_ms`, as its module docstring promises it."""
+    return runpy.run_path(str(ROOT / "tools" / "bench.py"))["median_ms"]
+
+
+def ticking(*durations: float) -> Callable[[], float]:
+    """A clock that reads `durations` apart, one pair of readings per timed call."""
+    readings = iter([reading for duration in durations for reading in (0.0, duration)])
+    return lambda: next(readings)
+
+
+@pytest.mark.parametrize(
+    ("durations", "expected"),
+    [
+        pytest.param((0.005, 0.001, 0.003), 3.0, id="the middle of an odd number, not the smallest or the first"),
+        pytest.param((0.001, 0.002, 0.003, 0.010), 2.5, id="the mean of the middle two of an even number"),
+        pytest.param((0.004,), 4.0, id="a single call"),
+    ],
+)
+def test_the_median_is_the_middle_time_in_milliseconds(median_ms, durations, expected):
+    assert median_ms(lambda: None, 0, len(durations), ticking(*durations)) == pytest.approx(expected)
+
+
+def test_warmups_are_called_but_not_timed(median_ms):
+    calls = []
+    # a clock with room for the 2 timed calls only: a timed warmup would run it dry
+    assert median_ms(lambda: calls.append(1), 3, 2, ticking(0.001, 0.003)) == pytest.approx(2.0)
+    assert len(calls) == 5

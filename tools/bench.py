@@ -11,7 +11,8 @@ the WebAssembly column is left out and one line on stderr says why; `--require-n
 for a person to read: nothing asserts on time. Results are recorded by hand in docs/benchmarks.md.
 
 Interface:
-    reference_drawing(shapes=200, seed=1) -> Drawing  the drawing that is timed
+    reference_drawing(shapes=200, seed=1, size=(1920, 1080)) -> Drawing  the drawing that is timed
+    median_ms(call, warmups, repeats, clock=time.perf_counter) -> float  the median time of `call` in milliseconds
     main(argv) -> exit code: 0 the table was printed, 1 a bad request or, with `--require-node`, no WebAssembly column
 """
 
@@ -107,15 +108,18 @@ def reference_drawing(shapes: int = SHAPES, seed: int = SEED, size: tuple[int, i
     return btvec.Drawing(*items, size=(size[0], size[1]))
 
 
-def median_ms(call: Callable[[], object], warmups: int, repeats: int) -> float:
-    """The median wall time of `repeats` calls of `call`, in milliseconds, after `warmups` calls that are not timed."""
+def median_ms(
+    call: Callable[[], object], warmups: int, repeats: int, clock: Callable[[], float] = time.perf_counter
+) -> float:
+    """The median time of `repeats` calls of `call`, in milliseconds as `clock` (seconds) reads them, after `warmups`
+    calls that are not timed."""
     for _ in range(warmups):
         call()
     times = []
     for _ in range(repeats):
-        start = time.perf_counter()
+        start = clock()
         call()
-        times.append((time.perf_counter() - start) * 1000)
+        times.append((clock() - start) * 1000)
     return statistics.median(times)
 
 
