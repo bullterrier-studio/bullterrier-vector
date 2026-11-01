@@ -7,6 +7,7 @@ difference is a defect in the glue, the target or the build. Usage: `python test
 
 import hashlib
 import json
+import runpy
 import subprocess
 import sys
 from collections.abc import Callable
@@ -38,16 +39,10 @@ SHARP = [(10, 20), (40, 20), (22, 50), (54, 26)]  # two turns, of 60 and 23 degr
 
 
 def star_drawing() -> btvec.Drawing:
-    """The star of examples/star.py: a filled and stroked outline, a dot on the tip and a tangent line."""
-    outline = btvec.Path.star((200, 200), outer=150, inner=60, points=5)
-    tip = outline.point_at(0)
-    halfway = outline.point_at(0.5)
-    return btvec.Drawing(
-        outline.fill(GOLD).stroke(INK, width=4),
-        btvec.Path.circle(tip, 8).fill(RED),
-        btvec.Path.line(halfway, halfway + 40 * outline.tangent_at(0.5)).stroke(RED),
-        size=(400, 400),
-    )
+    """The `drawing` examples/star.py leaves when run: the star has one definition on the Python side."""
+    drawing = runpy.run_path(str(ROOT / "examples" / "star.py"))["drawing"]
+    assert isinstance(drawing, btvec.Drawing)
+    return drawing
 
 
 def framed(*items: btvec.Path | btvec.Drawing) -> btvec.Drawing:

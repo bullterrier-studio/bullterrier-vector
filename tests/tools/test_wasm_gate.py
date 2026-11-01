@@ -34,6 +34,7 @@ WORKSPACE_FILES = [
 GLUE = "crates/wasm/src/lib.rs"
 RUST_STAR = "crates/core/examples/star.rs"
 NODE_STAR = "crates/wasm/examples/star.mjs"
+PYTHON_STAR = "examples/star.py"
 ORACLE = "tests/wasm/oracle.py"
 
 
@@ -50,7 +51,9 @@ def workspace(tmp_path_factory) -> Path:
         shutil.copy(ROOT / name, root)
     shutil.copytree(ROOT / "crates", root / "crates")
     shutil.copytree(ROOT / "tests" / "wasm", root / "tests" / "wasm", ignore=shutil.ignore_patterns("__pycache__"))
-    # the oracle reads an example document of the format
+    # the oracle reads an example document of the format and the star of examples/star.py
+    (root / "examples").mkdir()
+    shutil.copy(ROOT / "examples" / "star.py", root / "examples" / "star.py")
     shutil.copytree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
     return root
 
@@ -163,6 +166,12 @@ OFFENCES = {
         RUST_STAR,
         "Path::star((200.0, 200.0), 150.0, 60.0, 5)",
         "Path::star((200.0, 200.0), 151.0, 60.0, 5)",
+        ["✖ the SVG of the star is the same text from Python, Rust and Node", "Rust against Python"],
+    ),
+    "a Python example that draws a bigger star": (
+        PYTHON_STAR,
+        "outer=150",
+        "outer=151",
         ["✖ the SVG of the star is the same text from Python, Rust and Node", "Rust against Python"],
     ),
     "a Node example that draws at another size": (
