@@ -54,7 +54,7 @@ pub(crate) static TEXT: Verb = Verb {
             kind: Kind::Text,
             default: Some(Literal::Text("left")),
             reads: Reads::Literal,
-            domain: Domain::Choice(Align::NAMES),
+            domain: Domain::Choice(&Align::NAMES),
         },
         Arg {
             name: "anchor",

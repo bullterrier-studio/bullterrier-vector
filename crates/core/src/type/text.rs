@@ -16,12 +16,23 @@ pub enum Align {
 }
 
 impl Align {
-    /// The words an alignment is written as, in the order of the variants.
-    pub(crate) const NAMES: &'static [&'static str] = &["left", "center", "right"];
+    /// Every alignment: the one list the words below are made from.
+    const ALL: [Self; 3] = [Self::Left, Self::Center, Self::Right];
+
+    /// The words an alignment is written as, in the order of [`Align::ALL`].
+    pub(crate) const NAMES: [&'static str; 3] = {
+        let mut names = [""; 3];
+        let mut at = 0;
+        while at < names.len() {
+            names[at] = Self::ALL[at].name();
+            at += 1;
+        }
+        names
+    };
 
     /// The word this alignment is written as.
     #[must_use]
-    pub fn name(self) -> &'static str {
+    pub const fn name(self) -> &'static str {
         match self {
             Self::Left => "left",
             Self::Center => "center",
@@ -31,9 +42,7 @@ impl Align {
 
     /// The alignment written as `name`.
     pub(crate) fn named(name: &str) -> Option<Self> {
-        [Self::Left, Self::Center, Self::Right]
-            .into_iter()
-            .find(|align| align.name() == name)
+        Self::ALL.into_iter().find(|align| align.name() == name)
     }
 }
 
