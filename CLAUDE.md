@@ -27,7 +27,7 @@ the `wasm32-unknown-unknown` target. `uv run poe` lists every task.
 **State:** the scaffold (workspace, gates, hooks, CI workflows) and the geometry value `Path` (with `Point` and `Rect`) from the
 Rust core to Python (V2a: build, measure, cut, move, hit-test, SVG path data); the core also builds for WebAssembly. Drawings
 (V2b): `Drawing`, `Shape`, `Style`, `Param`, `Expr` and the verbs listed by `verbs()`, evaluated with a result cache, in Rust
-and Python; `examples/series_bars.py` runs as far as `shapes()`. JSON (V2c): `Drawing.to_json`,
+and Python; `examples/series_bars.py` runs as far as `shapes()`, and `examples/poster.py` draws a small poster (`uv run poe look examples/poster.py`). JSON (V2c): `Drawing.to_json`,
 `Drawing.from_json` and `drawing_schema()` (the schema generated from the registrations) in Rust and Python, for the calls
 registered so far. Output (V3a): `Size` and `Drawing.to_svg(size, values)` in Rust, `Drawing.to_svg(width, height, /, **values)` in
 Python, and `examples/star.py` writes its SVG. Pixels (V3b): `Drawing::to_rgba(size, values)` in Rust and `Drawing.to_rgba(width,
