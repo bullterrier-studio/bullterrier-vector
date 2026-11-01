@@ -345,12 +345,12 @@ fn bytes_that_are_no_font_are_refused_naming_data() -> Outcome {
 }
 
 /// The position in `font` of the record of the table `tag` in the table directory (12 bytes in, 16 to a record).
-fn record_of(font: &[u8], tag: &[u8; 4]) -> Result<usize, Box<dyn std::error::Error>> {
+fn record_of(font: &[u8], tag: [u8; 4]) -> Result<usize, Box<dyn std::error::Error>> {
     let tables = usize::from(u16::from_be_bytes([font[4], font[5]]));
     (0..tables)
         .map(|at| 12 + 16 * at)
-        .find(|record| &font[*record..*record + 4] == tag)
-        .ok_or_else(|| format!("no {} table", String::from_utf8_lossy(tag)).into())
+        .find(|record| font[*record..*record + 4] == tag)
+        .ok_or_else(|| format!("no {} table", String::from_utf8_lossy(&tag)).into())
 }
 
 #[test]
@@ -358,10 +358,10 @@ fn a_font_the_library_cannot_draw_is_refused_when_it_is_made() -> Outcome {
     // a real font with one field changed: the units per em in `head` (offset 18 of the table), and the `glyf` table
     // renamed, so that the font has no outlines
     let mut small_em = common::fonts::FRAUNCES.to_vec();
-    let head = u32::from_be_bytes(small_em[record_of(&small_em, b"head")? + 8..][..4].try_into()?) as usize;
+    let head = u32::from_be_bytes(small_em[record_of(&small_em, *b"head")? + 8..][..4].try_into()?) as usize;
     small_em[head + 18..head + 20].copy_from_slice(&8_u16.to_be_bytes());
     let mut no_outlines = common::fonts::FRAUNCES.to_vec();
-    let glyf = record_of(&no_outlines, b"glyf")?;
+    let glyf = record_of(&no_outlines, *b"glyf")?;
     no_outlines[glyf..glyf + 4].copy_from_slice(b"glyg");
     for (bytes, named) in [(small_em, "8 units per em"), (no_outlines, "no outlines")] {
         let (parameter, message) = parameter_refusal(Font::new(bytes))?;
