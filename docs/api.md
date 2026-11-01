@@ -440,8 +440,8 @@ In JavaScript (the package built from `crates/wasm`) a document loads with `Draw
 number or an array of numbers: `toSvg` (a string), `toRgba` and `toPng` (a `Uint8Array`, a copy), `toMesh` (a new
 `Mesh`) and `toMeshInto(mesh, width, height, values?)` (refills `mesh`, below). Errors are as in Python, thrown as
 `Error`s named by kind. The same drawing gives the same SVG text and mesh buffers in WebAssembly as natively, exactly;
-the pixels look the same, within a level on a few edge pixels (the rasteriser crate is only required to look the same on
-every target).
+the pixels look the same: at most 2 levels apart on at most 0.02% of the values of a picture (the rasteriser crate is only
+required to look the same on every target).
 
 The same drawing and values give the same bytes on every target. `to_json` raises `ParameterError` for a drawing beyond a
 limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises

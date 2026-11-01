@@ -8,7 +8,7 @@ time: the numbers are recorded here by hand, to compare later runs on the same m
 
 ## Results
 
-Apple M4 (arm64, 10 cores), macOS, Node 26.11, commit `3579859`, 2026-11-01. Three runs in a row; the first ran while the
+Apple M4 (arm64, 10 cores), macOS, Node 26.11, the V3f batch, 2026-11-01. Three runs in a row; the first ran while the
 machine was busy, the other two on a quiet one.
 
 | Run | `to_rgba` native | `to_rgba` WebAssembly | `to_mesh` native | `to_mesh` WebAssembly |
