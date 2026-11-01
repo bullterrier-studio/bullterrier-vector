@@ -34,7 +34,7 @@ RED = "#e2412e"
 BLUE = "#336699"
 FRAME = (100, 100)
 CORNER = [(15, 85), (50, 15), (85, 85)]  # a sharp corner for the joins and the miter limit
-SHARP = [(10, 50), (90, 40), (10, 60)]  # a very sharp turn
+SHARP = [(10, 20), (40, 20), (22, 50), (54, 26)]  # two turns, of 60 and 23 degrees: miter ratios 2 and 5
 
 
 def star_drawing() -> btvec.Drawing:
@@ -73,7 +73,7 @@ def joins_and_caps() -> list[Entry]:
     drawings = {
         **{f"join_{join}": corner.stroke(INK, width=12, join=join) for join in ("miter", "round", "bevel")},
         **{f"cap_{cap}": line.stroke(INK, width=16, cap=cap) for cap in ("butt", "round", "square")},
-        **{f"miter_limit_{limit}": sharp.stroke(INK, width=8, join="miter", miter_limit=limit) for limit in (1, 2, 10)},
+        **{f"miter_limit_{limit}": sharp.stroke(INK, width=8, join="miter", miter_limit=limit) for limit in (1, 3, 10)},
     }
     return [(name, framed(drawing), [(100, 100, {})]) for name, drawing in drawings.items()]
 

@@ -128,6 +128,21 @@ for (const { name, json, draws } of native.corpus) {
   });
 }
 
+test("every draw of the corpus that draws something holds a mesh and pixels no other draw holds", () => {
+  const seen = new Map();
+  for (const { name, draws } of native.corpus) {
+    for (const draw of draws) {
+      if (draw.mesh.vertices_length === 0) continue;
+      const label = `${name} ${draw.width}x${draw.height}`;
+      const pixels = sha256(nativePixels(draw.rgba_file));
+      for (const key of [`mesh ${draw.mesh.vertices_sha256}`, `pixels ${pixels}`]) {
+        assert.equal(seen.get(key), undefined, `${label} and ${seen.get(key)} are the same draw (${key.split(" ")[0]}): a row that changes nothing tests nothing`);
+        seen.set(key, label);
+      }
+    }
+  }
+});
+
 const star = native.corpus.find((entry) => entry.name === "star");
 const lifted = native.corpus.find((entry) => entry.name === "lifted_list");
 
