@@ -113,7 +113,8 @@ fn read_values(given: Option<Values>) -> Result<vector::Values, JsValue> {
     Ok(values)
 }
 
-/// A drawing: a tree of steps that evaluates to shapes, loaded from a JSON document and drawn as SVG.
+/// A drawing: a tree of steps that evaluates to shapes, loaded from a JSON document and drawn as SVG, pixels, a PNG
+/// file or a mesh.
 #[wasm_bindgen(js_name = Drawing)]
 pub struct Drawing(vector::Drawing);
 
@@ -174,10 +175,143 @@ impl Drawing {
             .collect())
     }
 
+    /// The drawing as straight-alpha RGBA bytes of `width` by `height` pixels, rows from the top, with each Param at
+    /// the value given by name (as `toSvg`).
+    ///
+    /// # Errors
+    /// As `toSvg`; the sides are whole numbers from 1 to 65,000, at most 2^27 pixels in all.
+    #[wasm_bindgen(js_name = toRgba)]
+    pub fn to_rgba(&self, width: f64, height: f64, values: Option<Values>) -> Result<Vec<u8>, JsValue> {
+        raised(self.0.to_rgba(vector::Size::px(width, height), &read_values(values)?))
+    }
+
+    /// The drawing as a PNG file of `width` by `height` pixels: the pixels of `toRgba`, 8 bits a channel.
+    ///
+    /// # Errors
+    /// As `toRgba`.
+    #[wasm_bindgen(js_name = toPng)]
+    pub fn to_png(&self, width: f64, height: f64, values: Option<Values>) -> Result<Vec<u8>, JsValue> {
+        raised(self.0.to_png(vector::Size::px(width, height), &read_values(values)?))
+    }
+
+    /// The triangles of the drawing at `width` by `height` pixels, in a new `Mesh`.
+    ///
+    /// # Errors
+    /// As `toSvg`.
+    #[wasm_bindgen(js_name = toMesh)]
+    pub fn to_mesh(&self, width: f64, height: f64, values: Option<Values>) -> Result<Mesh, JsValue> {
+        let mut mesh = Mesh::new();
+        self.to_mesh_into(&mut mesh, width, height, values)?;
+        Ok(mesh)
+    }
+
+    /// Fills `mesh` with the triangles of the drawing, in place: its buffers are reused, and it is left as it was if
+    /// this throws.
+    ///
+    /// # Errors
+    /// As `toSvg`.
+    #[wasm_bindgen(js_name = toMeshInto)]
+    pub fn to_mesh_into(
+        &self,
+        mesh: &mut Mesh,
+        width: f64,
+        height: f64,
+        values: Option<Values>,
+    ) -> Result<(), JsValue> {
+        raised(
+            self.0
+                .to_mesh(vector::Size::px(width, height), &read_values(values)?, &mut mesh.0),
+        )
+    }
+
     /// The design frame `[width, height]` in design pixels, or `undefined`.
     #[wasm_bindgen(getter, unchecked_return_type = "[number, number] | undefined")]
     #[must_use]
     pub fn size(&self) -> Option<Vec<JsValue>> {
         self.0.size().map(|(width, height)| vec![width.into(), height.into()])
     }
+}
+
+/// The triangles of a drawing in three buffers that live in WebAssembly memory (`wasmMemory()`): a page makes typed arrays
+/// over them from the pointers and lengths, and uploads them as they are. The vertices are `Float32Array` data, 8
+/// floats each (`x, y, r, g, b, a, item, order`); the indices and the ranges are `Uint32Array` data (3 per triangle; 3
+/// per draw range: first index, index count, blend).
+#[wasm_bindgen(js_name = Mesh)]
+pub struct Mesh(vector::Mesh);
+
+#[wasm_bindgen(js_class = Mesh)]
+impl Mesh {
+    /// An empty mesh, generation 0.
+    #[wasm_bindgen(constructor)]
+    #[must_use]
+    #[expect(
+        clippy::new_without_default,
+        reason = "a JavaScript constructor: there is no Default to call"
+    )]
+    pub fn new() -> Self {
+        Self(vector::Mesh::new())
+    }
+
+    /// Where the vertices start: a byte offset into `wasmMemory()`.
+    #[wasm_bindgen(getter, js_name = verticesPtr)]
+    #[must_use]
+    pub fn vertices_ptr(&self) -> usize {
+        self.0.vertices().as_ptr().addr()
+    }
+
+    /// Where the indices start: a byte offset into `wasmMemory()`.
+    #[wasm_bindgen(getter, js_name = indicesPtr)]
+    #[must_use]
+    pub fn indices_ptr(&self) -> usize {
+        self.0.indices().as_ptr().addr()
+    }
+
+    /// Where the draw ranges start: a byte offset into `wasmMemory()`.
+    #[wasm_bindgen(getter, js_name = rangesPtr)]
+    #[must_use]
+    pub fn ranges_ptr(&self) -> usize {
+        self.0.ranges().as_ptr().addr()
+    }
+
+    /// The number of floats in the vertices (8 a vertex).
+    #[wasm_bindgen(getter, js_name = verticesLength)]
+    #[must_use]
+    pub fn vertices_length(&self) -> usize {
+        self.0.vertices().len()
+    }
+
+    /// The number of integers in the indices (3 a triangle).
+    #[wasm_bindgen(getter, js_name = indicesLength)]
+    #[must_use]
+    pub fn indices_length(&self) -> usize {
+        self.0.indices().len()
+    }
+
+    /// The number of integers in the draw ranges (3 a range).
+    #[wasm_bindgen(getter, js_name = rangesLength)]
+    #[must_use]
+    pub fn ranges_length(&self) -> usize {
+        self.0.ranges().len()
+    }
+
+    /// A number that changes exactly when the contents change: 0 for a new mesh, and 1 more for each fill that makes
+    /// buffers different from what the mesh held.
+    #[wasm_bindgen(getter)]
+    #[must_use]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a count of fills: 2^53 of them is out of reach"
+    )]
+    pub fn generation(&self) -> f64 {
+        self.0.generation() as f64
+    }
+}
+
+/// The WebAssembly memory the buffers of a [`Mesh`] are in. Make typed arrays over `wasmMemory().buffer` after each
+/// call, not before: the memory can grow in any call, and the arrays made earlier are then detached. (Not called
+/// `memory`: that is the name of the module's own export of it.)
+#[wasm_bindgen(js_name = wasmMemory, unchecked_return_type = "WebAssembly.Memory")]
+#[must_use]
+pub fn wasm_memory() -> JsValue {
+    wasm_bindgen::memory()
 }
