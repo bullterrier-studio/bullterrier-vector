@@ -1,7 +1,8 @@
 """A typography-first vector graphics scripting library: pictures written as code, drawn as SVG or pixels.
 
 For now the package holds the geometry value `Path` (with `Point` and `Rect`), drawings (`Drawing`, `Shape`, `Style`,
-`Param`, `Expr`), their JSON (`Drawing.to_json`, `Drawing.from_json`, `drawing_schema`) and the exceptions.
+`Param`, `Expr`), their JSON (`Drawing.to_json`, `Drawing.from_json`, `drawing_schema`), `frames` (a function of time
+to a PNG sequence or a clip) and the exceptions.
 """
 
 from bullterrier_vector._native._core import (
@@ -17,6 +18,7 @@ from bullterrier_vector._native._core import (
     drawing_schema,
 )
 from bullterrier_vector.errors import BullterrierVectorError, FormatError, GeometryError, ParameterError
+from bullterrier_vector.frame_export import frames
 
 __all__ = [
     "BullterrierVectorError",
@@ -33,4 +35,5 @@ __all__ = [
     "Shape",
     "Style",
     "drawing_schema",
+    "frames",
 ]
