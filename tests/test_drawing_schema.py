@@ -48,6 +48,15 @@ def with_param(step: Any, **param: Any) -> dict[str, Any]:
     return {"version": 1, "params": [description], "root": [{"path": SQUARE}, step]}
 
 
+def text_with(arguments: dict[str, Any]) -> dict[str, Any]:
+    """A document whose root is one `text` in the font input `a`, with `arguments` added."""
+    return {
+        "version": 1,
+        "inputs": {"a": {"kind": "font"}},
+        "root": [{"text": {"content": "HI", "font": "a", **arguments}}],
+    }
+
+
 def test_the_schema_is_a_valid_draft_2020_12_schema() -> None:
     Draft202012Validator.check_schema(SCHEMA)
 
@@ -472,6 +481,28 @@ AGREED = [
         id="exactly MAX_PARAMS Params",
     ),
     pytest.param(with_param({"opacity": {"alpha": {"neg": {"param": "x"}}}}), True, id="an alpha read from a Param"),
+    pytest.param(text_with({"axes": {"wght": 700, "wdth": -1e300}}), True, id="axis values"),
+    pytest.param(text_with({"axes": {}}), True, id="no axes"),
+    pytest.param(text_with({"axes": {"wght": "bold"}}), False, id="an axis value that is a string"),
+    pytest.param(text_with({"axes": {"wg t": 1}}), True, id="a tag with a space"),
+    pytest.param(text_with({"axes": {"wght ": 1}}), False, id="a tag of five characters"),
+    pytest.param(text_with({"axes": {"w\u00e9ht": 1}}), False, id="a tag with a letter past ASCII"),
+    pytest.param(text_with({"axes": [700]}), False, id="axes as an array"),
+    pytest.param(text_with({"features": {"liga": 0, "ss01": 4294967295}}), True, id="the largest feature value"),
+    pytest.param(text_with({"features": {"liga": 4294967296}}), False, id="a feature value past u32"),
+    pytest.param(text_with({"features": {"liga": 1.5}}), False, id="a feature value that is not whole"),
+    pytest.param(text_with({"features": {"liga": -1}}), False, id="a negative feature value"),
+    pytest.param(text_with({"features": {"lig": 1}}), False, id="a feature tag of three letters"),
+    pytest.param(
+        {
+            "version": 1,
+            "params": [{"name": "x", "default": 400, "min": 300, "max": 700, "unit": "", "meaning": ""}],
+            "inputs": {"a": {"kind": "font"}},
+            "root": [{"text": {"content": "HI", "font": "a", "axes": {"wght": {"mul": [2, {"param": "x"}]}}}}],
+        },
+        True,
+        id="an axis read from a Param",
+    ),
 ]
 
 # The calls the library registers, written out by hand: a call registered later is added here, and from then on the
@@ -525,9 +556,9 @@ def keys_of(value: Any) -> set[str]:
 
 
 UNREGISTERED = call_names(SCHEMA) - REGISTERED
-# The arguments of `text` that a later batch registers (V5b: axes, features; V6: width, fit, inside): a document that
-# gives one waits for it, as one that uses an unregistered call does.
-LATER_TEXT_ARGUMENTS = {"axes", "features", "width", "fit", "inside"}
+# The arguments of `text` that a later batch registers (V6: width, fit, inside): a document that gives one waits for
+# it, as one that uses an unregistered call does.
+LATER_TEXT_ARGUMENTS = {"width", "fit", "inside"}
 
 
 def waits_for_a_later_batch(document: Any) -> bool:

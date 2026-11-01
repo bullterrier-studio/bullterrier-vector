@@ -280,6 +280,17 @@ fn kerning_and_ligatures_do_not_cross_a_change_of_weight() -> Outcome {
 }
 
 #[test]
+fn tracking_is_added_where_the_weight_changes_too() -> Outcome {
+    // H at 300 is 1608 wide; tracking 500 thousandths of an em is 1000 pixels at 2000 to the em; then H at 700, 1752 wide
+    let font = fraunces()?;
+    let wght = font.axes().remove(0);
+    let drawing = text("HH", at_em(&font).axes([("wght", &wght)]).tracking(500.0));
+    let shapes = drawing.shapes(&Values::new().set("wght", vec![300.0, 700.0]))?;
+    assert_eq!(middle(&shapes, 1)?, 1608.0 + 1000.0 + 1752.0 / 2.0);
+    Ok(())
+}
+
+#[test]
 fn a_ramp_over_thousands_of_characters_is_drawn() -> Outcome {
     let font = fraunces()?;
     let wght = font.axes().remove(0);
