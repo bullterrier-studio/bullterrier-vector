@@ -430,6 +430,43 @@ def test_an_axis_a_param_cannot_hold_is_not_listed_but_is_named_when_one_is_refu
         btvec.text("A", font=font, axes={"nope": 1})
 
 
+def hebrew_font() -> bytes:
+    """A font of two Hebrew letters, squares 400 and 100 units wide and 500 and 200 units to advance, with a `wght` axis
+    that moves nothing: only the cut of a text into runs can differ between two weights."""
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder([".notdef", "alef", "bet"])
+    builder.setupCharacterMap({0x5D0: "alef", 0x5D1: "bet"})
+    glyphs = {".notdef": TTGlyphPen(None).glyph()}
+    for name, width in (("alef", 400), ("bet", 100)):
+        pen = TTGlyphPen(None)
+        pen.moveTo((0, 0))
+        for point in ((0, 100), (width, 100), (width, 0)):
+            pen.lineTo(point)
+        pen.closePath()
+        glyphs[name] = pen.glyph()
+    builder.setupGlyf(glyphs)
+    builder.setupHorizontalMetrics({".notdef": (500, 0), "alef": (500, 0), "bet": (200, 0)})
+    builder.setupHorizontalHeader(ascent=800, descent=-200)
+    builder.setupNameTable({"familyName": "Probe", "styleName": "Regular"})
+    builder.setupOS2()
+    builder.setupPost()
+    builder.setupFvar([("wght", 100, 400, 900, "Weight")], [])
+    out = BytesIO()
+    builder.save(out)
+    return out.getvalue()
+
+
+def test_a_right_to_left_line_cut_into_runs_stands_as_it_does_uncut() -> None:
+    font = btvec.Font(hebrew_font())
+    line = "אבב"  # alef, bet, bet: read from the right, so alef stands rightmost
+    uncut = btvec.text(line, font=font, size=1000).shapes()
+    cut = btvec.text(line, font=font, size=1000, axes={"wght": font.axes["wght"]}).shapes(wght=[100, 100, 900])
+    assert [(shape.path.bounds.x, shape.path.bounds.width) for shape in cut] == [
+        (shape.path.bounds.x, shape.path.bounds.width) for shape in uncut
+    ]
+    assert [shape.path.bounds.width for shape in uncut] == [100, 100, 400]  # the independent oracle: hand reading
+
+
 # --- bad arguments name the argument and the value ----------------------------------------------------------------
 
 

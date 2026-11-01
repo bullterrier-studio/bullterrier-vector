@@ -2,7 +2,7 @@
 
 use super::font::{Font, tag_of};
 use super::outline::{self, Outlines};
-use super::shaping::{Placed, Shaper};
+use super::shaping::{Placed, Segment, Shaper};
 use super::text::Align;
 use crate::geometry::{MAX_COORDINATE, is_coordinate};
 use crate::node::Context;
@@ -259,9 +259,15 @@ pub(crate) fn typeset(font: &Font, content: &str, settings: &Settings, cx: &Cont
     reason = "a line has at most MAX_GLYPHS characters, far fewer than 2^32 bytes"
 )]
 fn shape_line(line: &str, of_character: &[usize], shapers: &[Shaper<'_>]) -> Result<Vec<(Placed, usize)>, Error> {
+    let segment = Segment::of(line);
+    let mut runs = runs(line, of_character);
+    // a line read from the right has its first run rightmost, as its first character is
+    if segment.backward() {
+        runs.reverse();
+    }
     let mut glyphs = Vec::new();
-    for (range, location) in runs(line, of_character) {
-        let shaped = shapers[location].run(&line[range.clone()], range.start as u32)?;
+    for (range, location) in runs {
+        let shaped = shapers[location].run(&line[range.clone()], range.start as u32, segment)?;
         glyphs.extend(shaped.into_iter().map(|one| (one, location)));
     }
     Ok(glyphs)
