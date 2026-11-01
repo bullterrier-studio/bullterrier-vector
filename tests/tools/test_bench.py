@@ -49,6 +49,8 @@ def layout(tmp_path: Path) -> Path:
     (tmp_path / "tools").mkdir()
     for name in ("bench.py", "bench.mjs"):
         shutil.copy(ROOT / "tools" / name, tmp_path / "tools" / name)
+    (tmp_path / "examples" / "fonts").mkdir(parents=True)  # the font of --text
+    shutil.copy(ROOT / "examples" / "fonts" / "anybody-subset.ttf", tmp_path / "examples" / "fonts")
     return tmp_path
 
 
@@ -95,6 +97,26 @@ def test_the_native_table_has_a_row_for_each_output(bench):
     assert header == "reference drawing: a star and 5 shapes at 80x60, median of 2 calls in milliseconds"
     assert columns.split()[:2] == ["output", "native"]
     assert set(rows(result.out)) == {"to_rgba", "to_mesh"}
+
+
+def test_text_adds_the_rows_of_a_headline_whose_weight_moves_and_of_a_text_of_a_weight_a_letter(bench):
+    result = bench(*TINY, "--text")
+    assert result.code == 0, result.err
+    header, *timed = result.out.splitlines()[4:]
+    assert header == "text: 'NO\\nSLEEP' in a variable font, median of 2 calls in milliseconds"
+    assert [line.rsplit(None, 1)[0] for line in timed] == [
+        "shapes, the weight moves",
+        "to_rgba 1080x1350, the weight moves",
+        "to_mesh 1080x1350, the weight moves",
+        "shapes, a weight for each letter",
+        "shapes, 998 letters, the weight moves",
+        "shapes, 100000 letters each at its own weight (once)",
+    ]
+    assert all(float(line.rsplit(None, 1)[1]) >= 0 for line in timed)  # a number; nothing asserts on time
+
+
+def test_without_text_no_text_row_is_printed(bench):
+    assert "text:" not in bench(*TINY).out
 
 
 def test_a_missing_package_is_one_line_and_the_native_column_stays(bench):

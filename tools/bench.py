@@ -1,6 +1,6 @@
 """Time the outputs on one reference drawing, natively and in WebAssembly, and print a table.
 
-    uv run poe bench [--shapes N] [--size WxH] [--repeats N] [--warmups N] [--require-node]
+    uv run poe bench [--shapes N] [--size WxH] [--repeats N] [--warmups N] [--require-node] [--text]
 
 The reference drawing is a star and `--shapes` (default 200) filled, stroked, translucent and multiply shapes from a
 seeded generator, at 1920x1080 by default. `to_rgba` and `to_mesh` are each called `--warmups` times (default 3) and
@@ -9,6 +9,11 @@ the Python extension (`time.perf_counter`). The WebAssembly column is the packag
 in Node (`performance.now`) on the same drawing, loaded from its JSON. Without Node, or without the package in `pkg/`,
 the WebAssembly column is left out and one line on stderr says why; `--require-node` makes that exit 1. The numbers are
 for a person to read: nothing asserts on time. Results are recorded by hand in docs/benchmarks.md.
+
+`--text` adds the cost of type, natively: a headline of two lines in a variable font (examples/fonts) whose weight is a
+Param, timed as `shapes` (shaping and outlines), as `to_rgba` and as `to_mesh` at a new weight on every call, so none is
+answered from the cache; as `shapes` with a weight for each letter, and for a page of capitals; and once, a text of
+100,000 letters each at its own weight.
 
 Interface:
     reference_drawing(shapes=200, seed=1, size=(1920, 1080)) -> Drawing  the drawing that is timed
@@ -26,6 +31,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
+from itertools import count
 from pathlib import Path
 
 import bullterrier_vector as btvec
@@ -34,6 +40,12 @@ ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = ROOT / "pkg" / "bullterrier_vector_wasm.js"
 NODE_SCRIPT = Path(__file__).resolve().with_name("bench.mjs")
 OUTPUTS = ("to_rgba", "to_mesh")
+FONT = ROOT / "examples" / "fonts" / "anybody-subset.ttf"
+HEADLINE = "NO\nSLEEP"
+HEADLINE_SIZE = (1080, 1350)
+PAGE = "\n".join(["THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG 0123456789 " * 2] * 9)  # about a page of capitals
+PAGE_LETTERS = len(PAGE)
+DISTINCT_LETTERS = 100_000  # the most letters a text holds (MAX_GLYPHS), each at its own weight
 # constant: the reference scene's own numbers, fixed so that results recorded at different times compare
 SEED = 1
 SHAPES = 200
@@ -175,6 +187,55 @@ def table(
     return "\n".join(lines)
 
 
+def text_times(warmups: int, repeats: int) -> dict[str, float]:
+    """The median milliseconds of the headline in `FONT` when its weight moves, through the Python extension, and (last)
+    the milliseconds of one `shapes` call over `DISTINCT_LETTERS` letters each at its own weight."""
+    font = btvec.Font(FONT.read_bytes())
+    weight = font.axes["wght"]
+    span = weight.max - weight.min
+    headline = btvec.text(HEADLINE, font=font, size=800, axes={"wdth": 50, "wght": weight}, leading=640)
+    steps = count()
+
+    def moved() -> float:
+        """A weight the earlier calls did not use, within the axis."""
+        return weight.min + (next(steps) * 0.37) % span
+
+    def each_letter(letters: int) -> list[float]:
+        """A weight for each of `letters` letters, none equal to another."""
+        return [weight.min + (next(steps) * 0.37) % span for _ in range(letters)]
+
+    page = btvec.text(PAGE, font=font, size=40, axes={"wght": weight})
+    width, height = HEADLINE_SIZE
+    times = {
+        "shapes, the weight moves": median_ms(lambda: headline.shapes(wght=moved()), warmups, repeats),
+        f"to_rgba {width}x{height}, the weight moves": median_ms(
+            lambda: headline.to_rgba(width, height, wght=moved()), warmups, repeats
+        ),
+        f"to_mesh {width}x{height}, the weight moves": median_ms(
+            lambda: headline.to_mesh(width, height, wght=moved()), warmups, repeats
+        ),
+        "shapes, a weight for each letter": median_ms(
+            lambda: headline.shapes(wght=each_letter(len(HEADLINE))), warmups, repeats
+        ),
+        f"shapes, {PAGE_LETTERS} letters, the weight moves": median_ms(
+            lambda: page.shapes(wght=moved()), warmups, repeats
+        ),
+    }
+    long = btvec.text("H" * DISTINCT_LETTERS, font=font, size=12, axes={"wght": weight})
+    values = [weight.min + span * i / DISTINCT_LETTERS for i in range(DISTINCT_LETTERS)]
+    start = time.perf_counter()
+    long.shapes(wght=values)
+    times[f"shapes, {DISTINCT_LETTERS} letters each at its own weight (once)"] = (time.perf_counter() - start) * 1000
+    return times
+
+
+def text_table(times: dict[str, float], repeats: int) -> str:
+    """The rows of `text_times`: what was timed and its milliseconds."""
+    header = f"text: {HEADLINE!r} in a variable font, median of {repeats} calls in milliseconds"
+    width = max(len(name) for name in times)
+    return "\n".join([header, *(f"{name.ljust(width)}  {ms:.3f}" for name, ms in times.items())])
+
+
 def parse_size(text: str) -> tuple[int, int]:
     """`(width, height)` of a size written `WxH`."""
     found = re.fullmatch(r"(\d+)x(\d+)", text)
@@ -191,6 +252,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repeats", type=int, default=REPEATS, help=f"timed calls (default {REPEATS})")
     parser.add_argument("--warmups", type=int, default=WARMUPS, help=f"calls before timing (default {WARMUPS})")
     parser.add_argument("--require-node", action="store_true", help="exit 1 when the WebAssembly column is missing")
+    parser.add_argument("--text", action="store_true", help="also time text when its weight moves (native)")
     arguments = parser.parse_args(argv)
     try:
         if min(arguments.shapes, arguments.warmups) < 0 or arguments.repeats < 1:
@@ -198,6 +260,7 @@ def main(argv: list[str] | None = None) -> int:
         size = parse_size(arguments.size)
         drawing = reference_drawing(arguments.shapes, size=size)
         native = native_times(drawing, size, arguments.warmups, arguments.repeats)
+        typed = text_times(arguments.warmups, arguments.repeats) if arguments.text else None
     except (BenchError, btvec.errors.BullterrierVectorError) as error:
         print(f"bench: {error}", file=sys.stderr)
         return 1
@@ -208,6 +271,8 @@ def main(argv: list[str] | None = None) -> int:
     except BenchError as error:
         problem = f"bench: no WebAssembly column: {error}"
     print(table(arguments.shapes, size, arguments.repeats, native, node))
+    if typed:
+        print(text_table(typed, arguments.repeats))
     if problem:
         print(problem, file=sys.stderr)
     return 1 if problem and arguments.require_node else 0
