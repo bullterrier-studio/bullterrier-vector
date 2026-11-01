@@ -17,6 +17,10 @@ const { Drawing, Mesh, wasmMemory: memory } = require("../../pkg/bullterrier_vec
 const native = JSON.parse(readFileSync(new URL("../../pkg/oracle.json", import.meta.url), "utf-8"));
 const nativePixels = (file) => new Uint8Array(readFileSync(new URL(`../../pkg/oracle-pixels/${file}`, import.meta.url)));
 
+/** The fonts a document names, from the names to the keys of `native.fonts`, as the Buffers a loader gives `inputs`. */
+const inputsOf = (names) =>
+  Object.fromEntries(Object.entries(names).map(([name, key]) => [name, Buffer.from(native.fonts[key], "base64")]));
+
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 /** A PNG file read back: its chunk types, its header and its pixels as RGBA bytes (unfiltered by the rules of the PNG
@@ -85,8 +89,8 @@ function describe(mesh) {
   };
 }
 
-for (const { name, json, draws } of native.corpus) {
-  const drawing = Drawing.fromJson(json);
+for (const { name, json, inputs, draws } of native.corpus) {
+  const drawing = Drawing.fromJson(json, inputsOf(inputs));
   const each = (check) => () => draws.forEach((draw) => check(draw, `${name} ${draw.width}x${draw.height}`));
 
   test(`${name}: the svg text is the native one`, () => {

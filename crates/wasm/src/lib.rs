@@ -3,6 +3,7 @@
 //! only converts between JavaScript's values and the core's, and gives each core error its JavaScript `Error`.
 
 use bullterrier_vector as vector;
+use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -23,6 +24,16 @@ extern "C" {
     /// What a caller gives the Params: an object of their names to numbers, or to arrays with a number per shape.
     #[wasm_bindgen(typescript_type = "Record<string, number | number[]>")]
     pub type Values;
+
+    /// What a caller gives a document for its inputs (its fonts): an object of their names to the bytes of each.
+    #[wasm_bindgen(typescript_type = "Record<string, Uint8Array>")]
+    pub type Inputs;
+
+    /// JavaScript's `Uint8Array`: whether a value is one, and a copy of its bytes.
+    #[wasm_bindgen(js_name = Uint8Array)]
+    type Bytes;
+    #[wasm_bindgen(js_namespace = Uint8Array, js_name = from)]
+    fn bytes_of(array: &JsValue) -> Vec<u8>;
 
     /// JavaScript's `Error`, to give an error the name of its kind.
     #[wasm_bindgen(js_name = Error)]
@@ -113,6 +124,26 @@ fn read_values(given: Option<Values>) -> Result<vector::Values, JsValue> {
     Ok(values)
 }
 
+/// The bytes an object gives the inputs of a document by name: each a `Uint8Array` (a Node `Buffer` is one).
+fn read_inputs(given: Option<Inputs>) -> Result<vector::Inputs, JsValue> {
+    let mut inputs = vector::Inputs::new();
+    let Some(given) = given else {
+        return Ok(inputs);
+    };
+    let given: &JsValue = given.as_ref();
+    if !given.is_object() {
+        return Err(refuse("inputs", "an object of names to Uint8Arrays", given));
+    }
+    for name in keys_of(given) {
+        let bytes = member(given, &name);
+        if !bytes.is_instance_of::<Bytes>() {
+            return Err(refuse(&format!("inputs.{name}"), "a Uint8Array", &bytes));
+        }
+        inputs = inputs.set(name, bytes_of(&bytes));
+    }
+    Ok(inputs)
+}
+
 /// A drawing: a tree of steps that evaluates to shapes, loaded from a JSON document and drawn as SVG, pixels, a PNG
 /// file or a mesh.
 #[wasm_bindgen(js_name = Drawing)]
@@ -120,18 +151,23 @@ pub struct Drawing(vector::Drawing);
 
 #[wasm_bindgen(js_class = Drawing)]
 impl Drawing {
-    /// The drawing a JSON document describes.
+    /// The drawing a JSON document describes, given the bytes of the inputs it names (its fonts) by name.
     ///
     /// # Errors
     /// Throws an `Error` named `FormatError` if the text is not a document the library reads; its message starts
-    /// with the JSON Pointer of the offending value. A `TypeError` if `text` is not a string (wasm-bindgen would
-    /// read any value as one and trap).
+    /// with the JSON Pointer of the offending value. A `ParameterError` naming `inputs.<name>` for an input the
+    /// document declares and `inputs` lacks, or the reverse, bytes that are not the declared font, or a font the
+    /// library cannot read. A `TypeError` if `text` is not a string (wasm-bindgen would read any value as one and
+    /// trap), or `inputs` is not an object of `Uint8Array`s.
     #[wasm_bindgen(js_name = fromJson)]
-    pub fn from_json(#[wasm_bindgen(unchecked_param_type = "string")] text: &JsValue) -> Result<Drawing, JsValue> {
+    pub fn from_json(
+        #[wasm_bindgen(unchecked_param_type = "string")] text: &JsValue,
+        inputs: Option<Inputs>,
+    ) -> Result<Drawing, JsValue> {
         let Some(text) = text.as_string() else {
             return Err(refuse("text", "a string", text));
         };
-        raised(vector::Drawing::from_json(&text, &vector::Inputs::new())).map(Self)
+        raised(vector::Drawing::from_json(&text, &read_inputs(inputs)?)).map(Self)
     }
 
     /// The drawing as JSON in the canonical form.

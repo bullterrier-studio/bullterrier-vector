@@ -37,7 +37,11 @@ test("values are optional", () => {
   assert.equal(Drawing.fromJson(json).toSvg(400, 400), draws[0].svg);
 });
 
-for (const { call, json, width, height, values, name, message } of native.refusals) {
+/** The fonts a refusal supplies, by the name the document gives them, as the Buffers a loader gives `inputs`. */
+const fontsOf = (names) =>
+  Object.fromEntries(Object.entries(names).map(([name, key]) => [name, Buffer.from(native.fonts[key], "base64")]));
+
+for (const { call, json, fonts, width, height, values, name, message } of native.refusals) {
   test(`${call} refuses with the native ${name}: ${message.slice(0, 40)}`, () => {
     const refusal = (error) => {
       assert.ok(error instanceof Error);
@@ -46,9 +50,9 @@ for (const { call, json, width, height, values, name, message } of native.refusa
       return true;
     };
     if (call === "fromJson") {
-      assert.throws(() => Drawing.fromJson(json), refusal);
+      assert.throws(() => Drawing.fromJson(json, fontsOf(fonts)), refusal);
     } else {
-      assert.throws(() => Drawing.fromJson(json)[call](width, height, values), refusal);
+      assert.throws(() => Drawing.fromJson(json, fontsOf(fonts))[call](width, height, values), refusal);
     }
   });
 }
@@ -83,3 +87,42 @@ for (const [label, value] of [
     );
   });
 }
+
+// a document with a font in it: the loader gives the bytes by the name the document calls them
+const text = native.corpus.find((entry) => entry.name === "text_param_axis");
+const fraunces = Buffer.from(native.fonts.fraunces, "base64");
+
+test("a text document loads given its font and writes itself back as it was written", () => {
+  const drawing = Drawing.fromJson(text.json, { fraunces });
+  assert.equal(drawing.toJson(), text.json);
+  assert.deepEqual(drawing.parameters().map((parameter) => parameter.name), ["wght"]);
+});
+
+test("the bytes of the font may be any Uint8Array, a view into a larger buffer too", () => {
+  const larger = new Uint8Array(fraunces.length + 100);
+  larger.set(fraunces, 40);
+  const view = larger.subarray(40, 40 + fraunces.length);
+  const expected = Drawing.fromJson(text.json, { fraunces }).toSvg(400, 160);
+  assert.equal(Drawing.fromJson(text.json, { fraunces: new Uint8Array(fraunces) }).toSvg(400, 160), expected);
+  assert.equal(Drawing.fromJson(text.json, { fraunces: view }).toSvg(400, 160), expected);
+});
+
+for (const [label, inputs, named] of [
+  ["a string", "fraunces", "inputs"],
+  ["a font as a string", { fraunces: "bytes" }, "inputs.fraunces"],
+  ["a font as an array of numbers", { fraunces: [...fraunces.subarray(0, 8)] }, "inputs.fraunces"],
+  ["a font as an ArrayBuffer", { fraunces: fraunces.buffer }, "inputs.fraunces"],
+  ["a font as undefined", { fraunces: undefined }, "inputs.fraunces"],
+]) {
+  test(`fromJson given inputs that are ${label} is a TypeError naming ${named}`, () => {
+    assert.throws(
+      () => Drawing.fromJson(text.json, inputs),
+      (error) => error instanceof TypeError && error.message.includes(named),
+    );
+  });
+}
+
+test("a document without inputs loads with an empty inputs object or none", () => {
+  const { json } = native.documents.star;
+  assert.equal(Drawing.fromJson(json, {}).toJson(), Drawing.fromJson(json).toJson());
+});

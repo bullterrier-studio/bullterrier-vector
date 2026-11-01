@@ -5,6 +5,7 @@ documents, sizes and values and expect exactly these results. The two are differ
 difference is a defect in the glue, the target or the build. Usage: `python tests/wasm/oracle.py <output file>`.
 """
 
+import base64
 import hashlib
 import json
 import runpy
@@ -18,6 +19,15 @@ import bullterrier_vector as btvec
 
 ROOT = Path(__file__).resolve().parents[2]
 BARS = (ROOT / "docs" / "examples" / "json" / "series_bars.json").read_text(encoding="utf-8")
+FONT_FILES = ROOT / "crates" / "core" / "tests" / "fonts"
+# The fonts of the text drawings by the name a document calls them (`Font(..., name=)`): the bytes are what a loader
+# gives `inputs`, in the oracle file and to the native extension alike.
+FONTS = {
+    "fraunces": (FONT_FILES / "fraunces-subset.ttf").read_bytes(),
+    "synthetic": (FONT_FILES / "synthetic.ttf").read_bytes(),
+}
+FRAUNCES = btvec.Font(FONTS["fraunces"], name="fraunces")
+SYNTHETIC = btvec.Font(FONTS["synthetic"], name="synthetic")
 
 
 # The corpus: drawings the native extension and the WebAssembly package are compared on, built through the public API.
@@ -186,7 +196,50 @@ def transforms_and_params() -> list[Entry]:
     ]
 
 
-CORPUS_PARTS: list[Callable[[], list[Entry]]] = [joins_and_caps, shapes, painting, transforms_and_params]
+def text_drawings() -> list[Entry]:
+    """Text: kerning, a ligature, a composite glyph, a variable axis (a number, a Param, a value a character), tracking,
+    lines, a stroked outline; and the synthetic font's glyph of 64 nested composites, one of 3999 segments and a
+    moved square. The outlines of a font are computed by us (libm only), so the SVG text and the mesh are exact."""
+    frame = (400, 160)
+    weight = btvec.Param("wght", default=400, min=300, max=700, meaning="the weight")
+
+    def sized(*items: btvec.Drawing) -> btvec.Drawing:
+        return btvec.Drawing(*items, size=frame)
+
+    def at_90(content: str, font: btvec.Font = FRAUNCES, **options: Any) -> btvec.Drawing:
+        return btvec.text(content, font=font, size=90, anchor=(12, 110), **options)
+
+    drawings = {
+        "text_kerned_ligature_composite": sized(at_90("AV fi\u00e9").fill(INK)),
+        "text_lightest": sized(at_90("Hif", axes={"wght": 300}).fill(INK)),
+        "text_heaviest": sized(at_90("Hif", axes={"wght": 700}).fill(INK)),
+        "text_between": sized(at_90("H\u00e9", axes={"wght": 537.5}).fill(RED)),
+        "text_liga_off": sized(at_90("fifi", features={"liga": 0, "kern": 0}).fill(INK)),
+        "text_param_axis": sized(at_90("HiHi", axes={"wght": weight}).fill(BLUE)),
+        "text_lines_tracked": sized(
+            btvec.text(
+                "AV\nTo", font=FRAUNCES, size=60, tracking=80, leading=62, align="center", anchor=(200, 60)
+            ).fill(GOLD)
+        ),
+        "text_stroked": sized(at_90("Ho").fill(GOLD).stroke(INK, width=3)),
+        "text_composites_64_deep": sized(btvec.text("AAA", font=SYNTHETIC, size=100, anchor=(10, 110)).fill(RED)),
+        "text_heavy_glyph_and_moved_square": sized(
+            btvec.text("BCB", font=SYNTHETIC, size=100, anchor=(10, 110)).fill(BLUE)
+        ),
+    }
+    draws: dict[str, list[Draw]] = {
+        "text_param_axis": [(400, 160, {}), (400, 160, {"wght": 700}), (200, 80, {"wght": [300, 700, 300, 700]})],
+    }
+    return [(name, drawing, draws.get(name, [(400, 160, {}), (200, 80, {})])) for name, drawing in drawings.items()]
+
+
+CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
+    joins_and_caps,
+    shapes,
+    painting,
+    transforms_and_params,
+    text_drawings,
+]
 
 
 def corpus() -> list[Entry]:
@@ -232,14 +285,27 @@ SNAKE = {"toSvg": "to_svg", "toRgba": "to_rgba", "toPng": "to_png", "toMesh": "t
 
 def refused(call: str, text: str, width: float = 10, height: float = 10, **values: float) -> dict[str, Any]:
     """A call the core refuses: the exception class and message the native extension raises for it."""
+    return refusal(call, text, {}, width, height, values)
+
+
+def refused_loading(text: str, fonts: dict[str, str]) -> dict[str, Any]:
+    """`fromJson` of `text` given these inputs (names to keys of `FONTS`), which the core refuses."""
+    return refusal("fromJson", text, fonts, 10, 10, {})
+
+
+def refusal(
+    call: str, text: str, fonts: dict[str, str], width: float, height: float, values: dict[str, float]
+) -> dict[str, Any]:
+    """What the native extension raises for `call` on `text` loaded with `fonts` (the inputs a loader supplies)."""
     try:
-        drawing = btvec.Drawing.from_json(text)
+        drawing = btvec.Drawing.from_json(text, inputs={name: FONTS[key] for name, key in fonts.items()})
         if call != "fromJson":
             getattr(drawing, SNAKE[call])(width, height, **values)
     except btvec.BullterrierVectorError as error:
         return {
             "call": call,
             "json": text,
+            "fonts": fonts,
             "width": width,
             "height": height,
             "values": values,
@@ -278,13 +344,19 @@ def compared(drawing: btvec.Drawing, name: str, index: int, draw: Draw, pixels: 
     }
 
 
+def inputs_of(text: str) -> dict[str, str]:
+    """The inputs a document declares, each as the key of `FONTS` its font is stored under (the same as its name)."""
+    return {name: name for name in json.loads(text).get("inputs", {})}
+
+
 def compared_corpus(pixels: Path) -> list[dict[str, Any]]:
-    """The corpus: each drawing as the document `to_json` writes, and the native answers for its draws."""
+    """The corpus: each drawing as the document `to_json` writes, its inputs, and the native answers for its draws."""
     pixels.mkdir(parents=True, exist_ok=True)
     return [
         {
             "name": name,
             "json": drawing.to_json(),
+            "inputs": inputs_of(drawing.to_json()),
             "draws": [compared(drawing, name, index, draw, pixels) for index, draw in enumerate(draws)],
         }
         for name, drawing, draws in corpus()
@@ -314,7 +386,9 @@ def main(output: Path) -> None:
     """Write the answers to `output`, and the native pixels of the corpus to a folder beside it."""
     star_json = star_drawing().to_json()
     lifted_json = lifted().to_json()
+    text_json = btvec.text("H", font=FRAUNCES).to_json()
     answers = {
+        "fonts": {key: base64.b64encode(data).decode("ascii") for key, data in FONTS.items()},
         "documents": {
             "series_bars": document(BARS, [drawn(BARS, 1080, 1080), drawn(BARS, 540, 270)]),
             "star": document(star_json, [drawn(star_json, 400, 400), drawn(star_json, 800, 300)]),
@@ -336,6 +410,9 @@ def main(output: Path) -> None:
             refused("toSvg", star_json, 10, 1080.5),
             refused("toSvg", lifted_json, 100, 100, nope=1),
             refused("toSvg", lifted_json, 100, 100, lift=500),
+            refused("fromJson", text_json),  # the font is declared and not supplied
+            refused_loading(text_json, {"fraunces": "synthetic"}),  # other bytes than the declared font
+            refused_loading(star_json, {"fraunces": "fraunces"}),  # an input nothing declares
             *[
                 refused(call, json_text, width, height, **values)
                 for call in ("toRgba", "toPng", "toMesh")
