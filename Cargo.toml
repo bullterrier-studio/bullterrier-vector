@@ -42,6 +42,10 @@ harfrust = { version = "=0.15.0", default-features = false, features = ["libm"] 
 # SHA-256 of a font's bytes: the digest that names a font in a document and in the cache key; used only in
 # crates/core/src/type/font.rs
 sha2 = { version = "=0.11.1", default-features = false }
+# WOFF2 unpacking (docs/design-decisions.md, "Fonts"): pinned exactly, because the bytes it makes are the font read;
+# pure Rust with no `std`, so it runs the same in WebAssembly; WOFF (which needs its `z` feature) is not read. Used only
+# in crates/core/src/type/unpack.rs
+wuff = { version = "=0.2.9", default-features = false, features = ["brotli"] }
 
 # The tessellator is optimised in debug builds too: the tests of the work limit make it do about a second of release-build
 # work, which would take most of a minute unoptimised

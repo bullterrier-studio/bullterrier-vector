@@ -14,6 +14,10 @@
 //! It has 2000 units to the em, `H` 1656 wide, a kerning pair (`A` `V`: 1334 of 1424), the `fi` ligature as one glyph
 //! of 1333, and `é` as a composite of `e` and an accent.
 //!
+//! `fraunces-subset.woff2` and `fraunces-subset.woff` are that file in the two web containers, made by fontTools (with
+//! `brotli`) and lossless (`recalcTimestamp=False` keeps the `head` table): `TTFont(path, recalcTimestamp=False)`, then
+//! `font.flavor = "woff2"` (or `"woff"`) and `font.save(...)`.
+//!
 //! `synthetic.ttf` is made by this script (`uvx --from fonttools python script.py`): `A` is a chain of 64 composites
 //! (the deepest the reader draws), each placing the one before with a scaled offset; `B` is a glyph of 3999 straight
 //! segments; `C` is a square that the `kern` feature moves by (50, 20) without moving the pen (`HarfBuzz`: `x_advance` 500,
@@ -94,6 +98,8 @@
 use bullterrier_vector::{Error, Font};
 
 pub(crate) const FRAUNCES: &[u8] = include_bytes!("../fonts/fraunces-subset.ttf");
+pub(crate) const FRAUNCES_WOFF2: &[u8] = include_bytes!("../fonts/fraunces-subset.woff2");
+pub(crate) const FRAUNCES_WOFF: &[u8] = include_bytes!("../fonts/fraunces-subset.woff");
 pub(crate) const SYNTHETIC: &[u8] = include_bytes!("../fonts/synthetic.ttf");
 pub(crate) const MARKS: &[u8] = include_bytes!("../fonts/marks.ttf");
 

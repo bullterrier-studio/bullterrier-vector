@@ -1,5 +1,6 @@
 //! `Font`: the bytes of a TrueType or OpenType font, read once.
 
+use super::unpack;
 use crate::key::{Key, Keyed};
 use crate::limits::MAX_FONT_BYTES;
 use crate::param::is_name;
@@ -33,12 +34,14 @@ struct Shared {
 }
 
 impl Font {
-    /// The font in `data`, the bytes of a `.ttf` or `.otf` file.
+    /// The font in `data`, the bytes of a `.ttf`, `.otf` or `.woff2` file. A WOFF2 file is unpacked here; the font is
+    /// still its supplied bytes (a saved drawing names the file, not what is inside it).
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `data` if it is longer than `MAX_FONT_BYTES` (32 MiB), is not a font the library
-    /// reads (a font collection, a Type 1 font, a bare CFF font, a web font and anything that is no font), has no
-    /// outlines (a bitmap or colour font), or has a units-per-em outside 16 to 16384.
+    /// [`Error::Parameter`] naming `data` if it is longer than `MAX_FONT_BYTES` (32 MiB, unpacked too), is not a font
+    /// the library reads (a font collection, a Type 1 font, a bare CFF font, a WOFF font, a WOFF2 file that is damaged
+    /// and anything that is no font), has no outlines (a bitmap or colour font), or has a units-per-em outside 16 to
+    /// 16384.
     pub fn new(data: impl Into<Vec<u8>>) -> Result<Self, Error> {
         let data = data.into();
         if data.len() > MAX_FONT_BYTES {
@@ -47,6 +50,8 @@ impl Font {
                 data.len()
             )));
         }
+        let sha256 = Sha256::digest(&data).into();
+        let data = unpack::sfnt(data).map_err(|reason| refuse(format!("is {reason}")))?;
         match Format::new(&data) {
             Some(Format::Sfnt(1)) => {}
             Some(Format::Sfnt(count)) => {
@@ -65,7 +70,6 @@ impl Font {
                 ));
             }
         }
-        let sha256 = Sha256::digest(&data).into();
         let model = Model::new(data, 0).ok_or_else(|| refuse("is not a font the library can read".into()))?;
         let metrics = model.metrics();
         if metrics.raw_units_per_em == 0 {

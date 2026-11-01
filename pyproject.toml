@@ -235,10 +235,10 @@ module = ["tests.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
-# fontTools ships no type information; it is the test oracle for fonts (tests/test_text.py) and its values are
-# used as `Any`
+# fontTools and brotli ship no type information; fontTools is the test oracle for fonts (tests/test_text.py) and its
+# values are used as `Any`; brotli writes the WOFF2 streams of tests/test_font_containers.py
 [[tool.mypy.overrides]]
-module = ["fontTools.*"]
+module = ["fontTools.*", "brotli"]
 ignore_missing_imports = true
 
 # Read by tools/check_dists.py (`poe build-check`): each wheel holds exactly src/bullterrier_vector minus these, plus its
@@ -251,6 +251,7 @@ package_omit = ["__pycache__", "*.pyc", ".*", "test_*.py"]
 [dependency-groups]
 dev = [
     "actionlint-py>=1.7.12.25",
+    "brotli>=1.2.1",
     "check-wheel-contents>=0.6.3",
     "deptry>=0.25.1",
     "fonttools>=4.68.0",

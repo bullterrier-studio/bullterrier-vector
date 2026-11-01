@@ -7,6 +7,7 @@ mod layout;
 mod outline;
 mod shaping;
 mod text;
+mod unpack;
 
 pub use font::Font;
 pub(crate) use font::is_tag;

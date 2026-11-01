@@ -17,6 +17,7 @@ lyon_tessellation.workspace = true
 read-fonts.workspace = true
 harfrust.workspace = true
 sha2.workspace = true
+wuff.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

@@ -49,7 +49,8 @@ pub(crate) const MAX_CALLS: usize = 100_000;
 // Params already read, so a drawing of 8,000 stalls for seconds, and no drawing a person made has a tenth of that
 pub(crate) const MAX_PARAMS: usize = 1_000;
 
-/// The longest font `Font::new` reads, in bytes.
+/// The longest font `Font::new` reads, in bytes: the file given, and the font a WOFF2 file unpacks to (a file of a few
+/// hundred kilobytes can unpack to many megabytes; the decoder stops at 128 MiB and a ratio of 100 to 1 by itself).
 // constant: a font with every glyph of Unicode in one file is about 20 MB (Noto Sans CJK, 16 MB per weight); this
 // leaves room for it and for variable fonts of 30 MB, and stops a hostile input from asking for more
 pub(crate) const MAX_FONT_BYTES: usize = 32 * 1024 * 1024;
