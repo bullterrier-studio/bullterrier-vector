@@ -310,6 +310,21 @@ def star_everywhere(pixels: Path) -> dict[str, Any]:
     }
 
 
+def deepest_document() -> str:
+    """The document of the deepest nesting `to_json` accepts: drawings nested over a leaf that reads a Param."""
+    x = btvec.Param("x", default=1, min=0, max=10)
+    other = btvec.Path.circle((5, 5), 1).fill("#445566")
+    for levels in range(128, 0, -1):
+        try:
+            drawing = btvec.Path.circle((5, 5), 2).fill("#112233").translate(x, 0)
+            for _ in range(levels - 1):
+                drawing = btvec.Drawing(drawing, other)
+            return drawing.to_json()
+        except btvec.BullterrierVectorError:
+            continue
+    raise AssertionError("not even one drawing can be saved")
+
+
 def main(output: Path) -> None:
     """Write the answers to `output`, and the native pixels of the corpus to a folder beside it."""
     star_json = star_drawing().to_json()
@@ -327,6 +342,7 @@ def main(output: Path) -> None:
                 ],
             ),
         },
+        "deepest_document": deepest_document(),
         "corpus": compared_corpus(output.parent / "oracle-pixels"),
         "star": star_everywhere(output.parent / "oracle-pixels"),
         "refusals": [
