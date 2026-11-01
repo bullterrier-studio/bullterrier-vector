@@ -345,7 +345,10 @@ proptest! {
         }
     }
 
-    /// Every outline is finite and closed, whatever the string, size and tracking.
+    /// Every outline is finite and closed, and sits inside the box the font's own glyphs allow around its line:
+    /// between 0.74 em above and 0.02 em below its baseline (the highest and lowest ink of the glyphs drawn here,
+    /// 1475 and -36 of 2000 in the font file, from fontTools), and along the line within the widest advance (1.04 em)
+    /// and the tracking of the characters before it.
     #[test]
     fn outlines_are_finite_and_closed(size in 1.0_f64..1e6, tracking in -500.0_f64..500.0, content in "[HiToFeAVC .\\-lfé\n]{0,12}") {
         let font = fraunces()?;
@@ -354,8 +357,13 @@ proptest! {
             prop_assert_eq!(data.matches('M').count(), data.matches('Z').count(), "{}", data);
             let bounds = shape.path().bounds()?;
             prop_assert!([bounds.x, bounds.y, bounds.width, bounds.height].iter().all(|number| number.is_finite()));
-            // an outline sits near its pen: within a few ems of the origin
-            prop_assert!(bounds.x.abs() < 40.0 * size + 12.0 * 600.0 * size && bounds.y.abs() < 4.0 * size + 12.0 * size, "{:?}", bounds);
+            let line = f64::from(shape.attributes().line().ok_or_else(|| TestCaseError::fail("no line"))?);
+            let baseline = line * 1.2 * size;
+            let (top, bottom) = (bounds.y, bounds.y + bounds.height);
+            prop_assert!(top >= baseline - 0.74 * size && bottom <= baseline + 0.02 * size, "{:?} on baseline {}", bounds, baseline);
+            let characters = content.chars().count() as f64;
+            let reach = characters * (1.04 + tracking.abs() / 1000.0) * size;
+            prop_assert!(bounds.x >= -reach && bounds.x + bounds.width <= reach, "{:?} within ±{}", bounds, reach);
         }
     }
 }
