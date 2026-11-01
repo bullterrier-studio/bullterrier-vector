@@ -505,13 +505,46 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   hold, a line that mixes directions is not reordered, and a line break is a hard break. Attributes number the glyphs
   as they are drawn, left to right: `glyph` counts the shapes made (a space has none), `word` the runs of
   non-whitespace characters from 0 over the whole text, `line` the lines. *Consequence:* V5b shapes once per run of
-  equal axis location, so kerning and ligatures do not cross a change of location.
+  equal axis location (next entry), so kerning and ligatures do not cross a change of location.
 - **`Reads::Once`** (2026-11-01). `text`'s `size`, `tracking`, `leading` and `anchor` are read once for the whole
   call: a Param can feed them a number, never a list (a list has an entry per shape, and a text has none until it is
   drawn). The check is `Expr::value`, which already refuses a list, so no second rule exists.
 - **The origin of a glyph** (2026-11-01): the middle of its advance, half the font's cap height (`OS/2`) above its
   baseline, where api.md says a glyph turns and scales. A font that states no cap height (none, or `sCapHeight` 0) gets 0.7 em
   (`CAP_HEIGHT`, which only places `origin`).
+
+## Axes and features (V5b)
+
+- **An item of `axes` is a source character, and a change of value cuts the shaping** (2026-11-01). A per-glyph value
+  cannot be defined after shaping: a ligature merges characters and the shaper decides the glyphs from the axis values
+  (advances, `kern`, `GSUB` all vary with the location). So the unit is the character of `content`, counted by `chars()`
+  with spaces and line breaks (a list given for `"H\nH"` has three entries; the rule is one sentence a caller can
+  predict, and a count that skipped breaks would make a list's length depend on the layout). The value of every
+  character is read first (no shaping pass at the default location to learn clusters: the characters decide), a line
+  is cut into runs of consecutive characters with equal location (equal as `f32`, which is what the font stores), and
+  each run is shaped alone at its location (`instance_builder().variations`), with its own outlines. *Consequence:*
+  kerning, ligatures, mark attachment and cursive joins do not cross a change of value, and a location per character
+  costs a shaping per run; a text with equal values (a constant or a Param without a list) is one run per line, as
+  before. *Rejected:* shaping once at the default location and moving glyphs by the difference of advances (kerning and
+  ligatures would then be those of the wrong weight, and a ligature could not split); a value per shape (the shapes
+  do not exist before the text is shaped).
+- **`Font::axes` are `Param`s; ranges are the font's** (2026-11-01). The font's own range, default and name become a
+  `Param` (the existing descriptor, no second type), so a slider, `parameters()` and `to_json` treat a font axis as any
+  Param. An axis a `Param` cannot hold (minimum not below maximum, a tag that is not a name, a repeated tag) is left out of
+  the list; it can still be set by tag, as the check is against the font's record, not the `Param`. A value outside the
+  range is refused, never clamped, and a Param wider than the font's range is checked when drawn.
+- **Features are literal `u32`s, tags are four printable ASCII characters** (2026-11-01). A feature value is a switch or the
+  number of an alternate, not a quantity to animate, and a `u32` is what the shaper takes (0 off, 1 on, more for an
+  alternate), so the argument type states the range and no value check exists. The draft schema said 2^53 − 1 and
+  was tightened with an agreement row. A tag is exactly the schema's `tag`; `MAX_SETTINGS` (64 axes and 64 features a
+  call) bounds the memory per character and the time per run that a hostile font with thousands of axes would cost.
+- **`font-checks` is the font's rule, run twice by one function** (2026-11-01). `Font::check_axis` and
+  `Font::check_feature` are called by the verb's own check (the call in code, constants only) and by the loader before the
+  drawing is built (`ParameterError` naming the input: the caller gave the wrong font for this document, not a malformed
+  document). *Reason:* one decision in one place, and the two entry points report different kinds on purpose.
+- **Glyphs are charged as they are placed** (2026-11-01). With a location per character a text can ask for 100,000
+  distinct outlines of one glyph; charging `MAX_SHAPES` and `MAX_OUTLINE_SEGMENTS` after all were drawn would draw them
+  first. The charge happens per glyph as it is laid out, so memory stays within one glyph of the limit.
 
 ## Engineering
 

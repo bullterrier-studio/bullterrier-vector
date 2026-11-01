@@ -91,12 +91,12 @@ defaults and units. The types below:
 
 Every argument not marked otherwise is a number. A literal value outside the range api.md states for it (an `alpha`
 above 1, a `pitch` of 0, a coordinate beyond 1e100) fails the schema; an expression's value is checked when drawn. Literal only, never an
-expression: `stack`'s `size`, `Field.map`'s `width` and `height`, `text`'s `features`, a shape's `attributes` and the
+expression: `stack`'s `size`, `Field.map`'s `width` and `height`, `text`'s `features` (whole numbers from 0 to 4294967295), a shape's `attributes` and the
 values of `only`, `without` and `with_values`.
 
 Read once: an argument read once for the whole call, not once per shape, takes no per-item number (`by_index`,
 `by_order`, `random`, `stagger`), anywhere in its expression; the schema refuses one. These are `text`'s `size`,
-`tracking`, `leading`, `anchor` and `width` (its `axes` take one per glyph), every number of `trace`, and every
+`tracking`, `leading`, `anchor` and `width` (its `axes` take one per character), every number of `trace`, and every
 number of a field or a flow.
 
 ### Sources
@@ -457,6 +457,7 @@ counter, its limit and the step:
 | `MAX_FIELD_SAMPLES` | 16,777,216 | samples of a field or flow (tracing an analytic field, a distance field, hatching) |
 | `MAX_COPIES` | 1,000,000 | copies made by `repeat` |
 | `MAX_GLYPHS` | 100,000 | glyphs shaped by `text` |
+| `MAX_SETTINGS` | 64 | axes, and features, one `text` call gives |
 
 The values are placeholders that V2 sets from the reference pieces. A value given as an expression (a `posterize`
 `levels` from a Param) meets the same bound when drawn.
@@ -495,10 +496,13 @@ range of a literal, the rules of an expression) is found while reading, before `
 then run in their order. `with-values` and `call-checks` need the calls made, so the first failure of the first kind
 anywhere in the document is reported before the first of the second. A value a call refuses is a `FormatError` at the
 value's pointer with the call's own message. As built (V5a), fonts are the one input kind that a call reads (`text`'s
-`font`): `input-declared` and `input-used` run with the other checks on the document, a `map` input is refused by
-`input-used` until a call reads maps, and `font-checks` has nothing to check until `text` takes axes and features (V5b).
-`inputs-supplied` needs the fonts to make the calls, so it runs before the drawing is built: a document that has both a
-`with-values` failure and a missing input reports the input. Its refusals are `ParameterError`s naming `inputs.` and the
+`font`): `input-declared` and `input-used` run with the other checks on the document, and a `map` input is refused by
+`input-used` until a call reads maps. `inputs-supplied` needs the fonts to make the calls, so it runs before the drawing
+is built: a document that has both a `with-values` failure and a missing input reports the input. As built (V5b),
+`font-checks` runs right after it, before the drawing is built: an axis or feature that a call names and its font lacks,
+or an axis value written as a number outside the font's range, is a `ParameterError` naming `inputs.` and the input,
+with the pointer of the value in the message; the message lists the font's axes or features. An axis value that reads
+a Param is checked when drawn. Its refusals are `ParameterError`s naming `inputs.` and the
 input; of the two bytes problems, a font the library cannot read is reported before a `sha256` that does not match.
 
 ## Extension

@@ -433,8 +433,11 @@ tolerance, skipping with a stated reason without ffmpeg).
 
 State: V5a is done (Rust, through JSON): `Font`, `text(content, Text::new(&font).size(..).tracking(..).leading(..)
 .align(..).anchor(..))` with the attributes, `Inputs` and `Drawing::from_json(text, &inputs)`, `to_json` writing `inputs`
-with `sha256`. V5b (axes, per-glyph axes, features), V5c (Python and WebAssembly bindings, examples, the native-against-
-WebAssembly differential, re-measuring) and V5d (WOFF and WOFF2, bundled fonts) follow.
+with `sha256`. V5b is done (Rust, through JSON): `Font::axes()` (a `Param` per axis) and `Font::features()`,
+`Text::axes(..)` (a number, `Param` or expression per tag, a value per character, shaped per run of equal location) and
+`Text::features(..)`, the loader's `font-checks`. V5c (Python and WebAssembly bindings, examples, the native-against-
+WebAssembly differential, re-measuring, a second-axis fixture if the bindings' tests need one) and V5d (WOFF and WOFF2,
+bundled fonts) follow.
 
 ## V6 Layout
 

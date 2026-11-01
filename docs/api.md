@@ -281,9 +281,9 @@ V8 removes the overlaps).
 | `content` | the text; `"\n"` breaks a line |
 | `font` | a `Font` |
 | `size` | pixels to the em |
-| `axes` | variable axis values by tag (`{"wght": weight}`); a per-item number gives each glyph its own, and advances follow |
-| `features` | OpenType features by tag (`{"ss01": 1, "liga": 0}`): literal whole numbers from 0, not expressions |
-| `tracking` | extra space between glyphs, in thousandths of an em; none between a base and its marks |
+| `axes` | variable axis values by tag (`{"wght": weight}`): a number, a `Param` or an expression in the font's own units, each in the font's range; a per-item number gives each character its own, and advances follow (below) |
+| `features` | OpenType features by tag (`{"ss01": 1, "liga": 0}`): literal whole numbers from 0 to 4,294,967,295, not expressions; at most 64 axes and 64 features (`MAX_SETTINGS`) |
+| `tracking` | extra space between glyphs, in thousandths of an em; none between a base and its marks. It breaks the joins of cursive scripts (Arabic) until a script-aware rule exists: a known limit |
 | `leading` | pixels between baselines; default 1.2 × `size` |
 | `align` | `"left"`, `"center"` or `"right"` |
 | `anchor` | where the first baseline meets the alignment: its left end, middle or right end |
@@ -291,11 +291,21 @@ V8 removes the overlaps).
 | `fit` | an axis tag or `"size"`: solved per line so the line is `width` wide, once, at the reference pose (every Param at its default, whatever `with_values` fixed), so the fit never changes from frame to frame and live values may overflow |
 | `inside` | a `Path`: lines wrap to its width at each baseline (V6) |
 
-Built so far: `content`, `font`, `size`, `tracking`, `leading`, `align` and `anchor`, as a Rust `text(content, Text::new(&font)
-.size(..))` (V5a); `axes` and `features` come in V5b, `width`, `fit` and `inside` in V6. Each line is shaped as one run in
-the script and direction of its first strong character (no reordering inside a line); `glyph` counts the shapes made,
-`word` the runs of non-whitespace characters over the whole text, `line` the lines, and `origin` is the middle of the
-advance at half the cap height above the baseline.
+Built so far: `content`, `font`, `size`, `axes`, `features`, `tracking`, `leading`, `align` and `anchor`, as a Rust
+`text(content, Text::new(&font).size(..).axes([("wght", &weight)]).features([("liga", 0)]))` (V5a, V5b); `width`, `fit` and
+`inside` come in V6. Each line is shaped as one run in the script and direction of its first strong character (no
+reordering inside a line), or as several where the axis values change between characters; `glyph` counts the shapes
+made, `word` the runs of non-whitespace characters over the whole text, `line` the lines, and `origin` is the middle of
+the advance at half the cap height above the baseline.
+
+**A value per character.** The items of `axes` are the characters of `content`, every one counted (a space and a
+line break too, so `"H\nH"` has three): a `Param` given a list when drawn gives character `i` entry `i`, and the list must
+have one entry per character. A change of value between neighbouring characters cuts the line into runs, each shaped
+alone at its own location: kerning, ligatures, mark positioning and cursive joins do not cross the change (a ligature
+whose letters differ in weight is drawn as separate letters), and a mark whose value differs from its base's leaves it.
+`char` is the first character of a glyph's cluster; a ligature of equal-valued characters takes that value. The
+`Param`s of `font.axes` are the font's own ranges; an expression may leave them, and the draw is then refused naming
+`axes`, the value and the font's range.
 
 Errors (`ParameterError`): an axis or feature the font lacks (the message lists the font's), an axis value outside the
 font's range, `fit` without `width`, `fit` on an axis also given in `axes`, and a line `fit` cannot make `width` wide
@@ -322,8 +332,8 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 | Input | Signature | Promise | Errors |
 |---|---|---|---|
 | `Font` | `Font(data, *, name=None)` | a TrueType or OpenType font, variable or not, from bytes; `name` is what a saved drawing calls it | `data` not a font the library reads |
-| `font.axes` | property | its variable axes by tag, each a `Param` with the font's range, default and name | |
-| `font.features` | property | the OpenType feature tags it has | |
+| `font.axes` | property | its variable axes by tag, each a `Param` named by the tag, with the font's range, default and name (Rust: `Font::axes()`, a list in the font's order); an axis a `Param` cannot hold (minimum not below maximum, a tag that is not a name) is left out and can still be set by tag | |
+| `font.features` | property | the OpenType feature tags its `GSUB` and `GPOS` tables list, sorted (Rust: `Font::features()`) | |
 | `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value | `len(data)` not `width × height` |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
 | `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Drawing` or a `Path`: signed distance to the nearest outline in pixels, negative inside; normalised: inside each shape 0 on its outer edge to 1 on its holes' edges (its centre line when it has none), 0 outside | `GeometryError`: `drawing` empty when drawn |
@@ -363,7 +373,7 @@ Every number a step takes may be an `Expr`:
 Except: these take literal numbers only: `Drawing`'s `size`, `Field.map`'s `width` and `height`, `text`'s `features`,
 the values of `only`, `without` and `with_values`. A per-item number is refused (`ParameterError`) where an argument is
 read once rather than per shape: `text`'s `size`, `tracking`, `leading`, `anchor` and `width` (its `axes` take one per
-glyph), every number of `trace`, and every number of a `Field` or a `Flow`.
+character), every number of `trace`, and every number of a `Field` or a `Flow`.
 
 An expression with no Param and no per-item number is a plain number: it is computed and checked when the call is made,
 like a literal. Every number is finite: NaN or an infinity raises `ParameterError`, when the call is made or when
@@ -374,10 +384,11 @@ the argument and the value; a division by zero raises `ParameterError` naming th
 
 A Param's value at draw time is a number, or a list with one number per shape (`pulse=[...]`): the way to give each
 item a value from the caller's own signal. Entry `i` goes to the shape whose `index` is `i` at the step that reads the
-Param. Every value, and every entry of a list, is checked against its Param's range before anything is drawn (a cyclic
-Param wraps it; NaN and infinities are refused), whether or not a step reads it with shapes; a value for a Param the
+Param; `text`'s `axes` is read for the characters of `content` instead, as there are no shapes yet: entry `i` goes to
+the `i`-th character. Every value, and every entry of a list, is checked against its Param's range before anything is
+drawn (a cyclic Param wraps it; NaN and infinities are refused), whether or not a step reads it with shapes; a value for a Param the
 drawing does not read is refused as unknown. A list's length is checked where a step reads it: one that differs from
-the number of shapes there raises `ParameterError` naming the Param, the step and both counts; the length of a list
+the number of items there (shapes, or the characters of a `text`'s `axes`) raises `ParameterError` naming the Param, the step and both counts; the length of a list
 that no step reads with shapes is not checked.
 
 Per-item numbers take a value per shape, from its attributes:
