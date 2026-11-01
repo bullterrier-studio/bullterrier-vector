@@ -281,7 +281,7 @@ impl PyDrawing {
 
     /// The drawing a JSON document describes.
     #[staticmethod]
-    fn from_json(text: &Bound<'_, PyString>) -> PyResult<Self> {
+    fn from_json(py: Python<'_>, text: &Bound<'_, PyString>) -> PyResult<Self> {
         // a `str` holding a lone surrogate has no UTF-8 form: that is a problem in the text, so a `FormatError`
         let text = text.to_str().map_err(|_| {
             exception(&vector::Error::Format {
@@ -289,7 +289,7 @@ impl PyDrawing {
                 message: "the text is not valid UTF-8 (it holds a lone surrogate)".to_owned(),
             })
         })?;
-        checked(raised(vector::Drawing::from_json(text))?)
+        checked(raised(py.detach(|| vector::Drawing::from_json(text)))?)
     }
 
     /// Every Param the drawing reads, in the order first used.
@@ -303,15 +303,17 @@ impl PyDrawing {
     /// The shapes the drawing evaluates to, bottom first, in design pixels, with each Param at the value given by
     /// name (a number, or a list with a number per shape) and at its default where none is.
     #[pyo3(signature = (**given))]
-    fn shapes(&self, given: Option<&Bound<'_, PyDict>>) -> PyResult<Vec<PyShape>> {
-        let shapes = raised(self.0.shapes(&values(given)?))?;
+    fn shapes(&self, py: Python<'_>, given: Option<&Bound<'_, PyDict>>) -> PyResult<Vec<PyShape>> {
+        let values = values(given)?;
+        let shapes = raised(py.detach(|| self.0.shapes(&values)))?;
         Ok(shapes.into_iter().map(PyShape).collect())
     }
 
     /// The drawing as an SVG document of `width` by `height` pixels, with each Param at the value given by name.
     #[pyo3(signature = (width, height, /, **given))]
-    fn to_svg(&self, width: f64, height: f64, given: Option<&Bound<'_, PyDict>>) -> PyResult<String> {
-        raised(self.0.to_svg(vector::Size::px(width, height), &values(given)?))
+    fn to_svg(&self, py: Python<'_>, width: f64, height: f64, given: Option<&Bound<'_, PyDict>>) -> PyResult<String> {
+        let values = values(given)?;
+        raised(py.detach(|| self.0.to_svg(vector::Size::px(width, height), &values)))
     }
 
     /// The drawing as straight-alpha RGBA bytes of `width` by `height` pixels, rows from the top, with each Param at the
@@ -324,7 +326,8 @@ impl PyDrawing {
         height: f64,
         given: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        let bytes = raised(self.0.to_rgba(vector::Size::px(width, height), &values(given)?))?;
+        let values = values(given)?;
+        let bytes = raised(py.detach(|| self.0.to_rgba(vector::Size::px(width, height), &values)))?;
         Ok(PyBytes::new(py, &bytes))
     }
 
@@ -338,7 +341,8 @@ impl PyDrawing {
         height: f64,
         given: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        let bytes = raised(self.0.to_png(vector::Size::px(width, height), &values(given)?))?;
+        let values = values(given)?;
+        let bytes = raised(py.detach(|| self.0.to_png(vector::Size::px(width, height), &values)))?;
         Ok(PyBytes::new(py, &bytes))
     }
 
@@ -356,11 +360,14 @@ impl PyDrawing {
         let size = vector::Size::px(width, height);
         let given = values(given)?;
         if let Some(mesh) = into {
-            raised(self.0.to_mesh(size, &given, &mut mesh.bind(py).try_borrow_mut()?.0))?;
+            let mut filled = mesh.bind(py).try_borrow_mut()?;
+            let into = &mut filled.0;
+            raised(py.detach(|| self.0.to_mesh(size, &given, into)))?;
+            drop(filled);
             return Ok(mesh);
         }
         let mut mesh = vector::Mesh::new();
-        raised(self.0.to_mesh(size, &given, &mut mesh))?;
+        raised(py.detach(|| self.0.to_mesh(size, &given, &mut mesh)))?;
         Py::new(py, PyMesh(mesh))
     }
 
