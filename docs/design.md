@@ -31,8 +31,12 @@ lay over footage or run live in a web page. Stars and polygons are presets, not 
 
 ### Fonts
 
-- Any TrueType or OpenType font, variable or not, from bytes. WOFF and WOFF2: to verify in V5 (whether the font crates
-  read them or they need unpacking first).
+- Any TrueType or OpenType font, variable or not, from bytes. WOFF2 too: the font crates do not read it, so `Font::new`
+  unpacks it first (`wuff`, pure Rust, no `std`, so the bytes are the same in WebAssembly). WOFF (the older zlib format) is
+  refused with the way out (convert it to WOFF2 or TrueType): it would add zlib crates for a format every tool converts.
+- Two variable fonts come with the library, each under the SIL Open Font License 1.1: Bricolage Grotesque
+  (`bricolage_grotesque`: `opsz`, `wght`, `wdth`) and Fraunces (`fraunces`: `opsz`, `wght`, `SOFT`, `WONK`), by
+  `Font.bundled(name)`. A saved drawing in one loads with no bytes supplied.
 - Variable axes (weight, width, slant, custom) become described parameters; shaping with ligatures, kerning, complex
   scripts and OpenType features; every glyph an editable path that knows its place in the text, word and line.
 - Not in v1: colour and bitmap fonts.

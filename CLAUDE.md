@@ -47,8 +47,10 @@ and ligatures, with `glyph`, `char`, `word`, `line`, `order`, `origin`; a `Param
 value, shaped per run of equal location), `Inputs` and `Drawing.from_json(text, *, inputs=None)` (in JavaScript
 `Drawing.fromJson(text, inputs?)`, names to `Uint8Array`s; with `font-checks`); `to_json` writes `inputs` with `sha256`.
 Text is in the WebAssembly differential (the SVG text and mesh buffers equal the native ones); `examples/kinetic_type.py`
-draws a headline of it, `uv run poe bench --text` times it (`docs/benchmarks.md`). The rest is planned
-(`docs/roadmap.md`); V5d (WOFF and WOFF2, bundled fonts) is next.
+draws a headline of it, `uv run poe bench --text` times it (`docs/benchmarks.md`). Web and bundled fonts (V5d):
+`Font::new` unpacks WOFF2 and refuses WOFF; `Font::bundled(name)` and `Font::bundled_names()` (Python `btvec.Font.bundled`) give
+Bricolage Grotesque and Fraunces (SIL OFL 1.1; `examples/bundled_type.py`), and a document names them by digest and loads without
+bytes. V5 is done. The rest is planned (`docs/roadmap.md`); V6 (layout) is next.
 Maintainers may keep machine-specific notes in a git-ignored `.local/` folder and batch plans in the git-ignored
 `.superpowers/plans/`: read them when present; never commit or cite them.
 
@@ -83,7 +85,8 @@ V18), `BullterrierVectorError` (base exception), `ParameterError` (a value outsi
 (a document `from_json` cannot read; also a `ValueError`), `btvec` (the alias the docs import the library as). Full name
 for identity, `bt-` for what a person types. Names inside the package carry no prefix.
 
-Licence: MIT, in `LICENSE` (named by `license-files` in `pyproject.toml`; `build-check` fails a distribution without it).
+Licence: MIT for the code, in `LICENSE`; SIL OFL 1.1 for the bundled fonts, in `crates/core/fonts/*/OFL.txt` (`MIT AND OFL-1.1`); both named by
+`license-files` in `pyproject.toml`, and `build-check` fails a distribution without either.
 
 ## Architecture
 
@@ -91,7 +94,7 @@ Three crates in one Cargo workspace; the package version is the workspace's.
 
 | Path | What |
 |---|---|
-| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, `text`, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation, the result cache); `limits.rs` (`MAX_SHAPES`, `MAX_SEGMENTS`, `MAX_TESSELLATION_WORK`, `MAX_DEPTH`, `MAX_PARAMS`, `MAX_SETTINGS`, the counter); `type.rs` and `type/` (`Font`, `Text`, `text`: `font.rs` the checked bytes, their SHA-256, axes, features and locations, `shaping.rs` the only user of `harfrust`, `outline.rs` glyph outlines, `layout.rs` lines, runs per location, pens and attributes; `read-fonts` and `harfrust` are used nowhere else); `output.rs` and `output/` (`Size`, the `View` that places the design frame in an output, the SVG writer, `outline.rs`: the stroke outline both pixels and mesh use, `raster.rs`: the pixel writer and the only user of `vello_cpu`, `png.rs`: the PNG writer and the only user of `png`, `mesh.rs`: `Mesh` and `to_mesh`, the only user of `lyon_tessellation`; `kurbo` is used by `outline.rs`, `raster.rs` and `mesh.rs`); `json.rs` and `json/` (`to_json`, `from_json`: a strict parser, the reader, the loader's checks, `inputs.rs` the bytes of a document's inputs, the writer; `drawing_schema()` generated in `schema.rs` from `verbs()` and the fixed `schema_fixed.json`; no list of calls); `examples/star.rs` (the star of `examples/star.py`; it may use std, the core may not); `tests/` |
+| `crates/core` | crate `bullterrier-vector`: pure Rust, the source of truth. `src/lib.rs` (the public API), `error.rs`, `geometry.rs` (`Point`, `Rect`, `Scale`), `math.rs`, `path.rs` and `path/`; `param.rs`, `values.rs`, `expr.rs` (Params, their values, arithmetic on them); `shape.rs` and `shape/` (`Shape`, `Style`, `Color`, `Attributes`); `node.rs` (the node contract, written in its module docs) and `node/` (the nodes: sources, `text`, transforms, style, select, `with_values`); `registry.rs` (`verbs()`); `drawing.rs` and `drawing/` (`Drawing`, its typed steps, evaluation, the result cache); `limits.rs` (`MAX_SHAPES`, `MAX_SEGMENTS`, `MAX_TESSELLATION_WORK`, `MAX_DEPTH`, `MAX_PARAMS`, `MAX_SETTINGS`, the counter); `type.rs` and `type/` (`Font`, `Text`, `text`: `font.rs` the checked bytes, their SHA-256, axes, features and locations, `shaping.rs` the only user of `harfrust`, `outline.rs` glyph outlines, `layout.rs` lines, runs per location, pens and attributes, `unpack.rs` WOFF2 to sfnt, the only user of `wuff`, `bundled.rs` the two bundled fonts; `read-fonts` and `harfrust` are used nowhere else); `fonts/` (the bundled fonts as WOFF2, each folder with its `OFL.txt`, compiled in by `include_bytes!`); `output.rs` and `output/` (`Size`, the `View` that places the design frame in an output, the SVG writer, `outline.rs`: the stroke outline both pixels and mesh use, `raster.rs`: the pixel writer and the only user of `vello_cpu`, `png.rs`: the PNG writer and the only user of `png`, `mesh.rs`: `Mesh` and `to_mesh`, the only user of `lyon_tessellation`; `kurbo` is used by `outline.rs`, `raster.rs` and `mesh.rs`); `json.rs` and `json/` (`to_json`, `from_json`: a strict parser, the reader, the loader's checks, `inputs.rs` the bytes of a document's inputs, the writer; `drawing_schema()` generated in `schema.rs` from `verbs()` and the fixed `schema_fixed.json`; no list of calls); `examples/star.rs` (the star of `examples/star.py`; it may use std, the core may not); `tests/` |
 | `crates/python` | PyO3 bindings building the extension `bullterrier_vector._native._core`; generic, passes values to the core unchecked; no Rust tests. `src/lib.rs` (`Path`, `Point`, `Rect`, the error mapping), `expr.rs` (`Expr`, `Param`), `drawing.rs` (`Drawing`), `shape.rs` (`Shape`, `Style`), `text.rs` (`Font`, `text`) |
 | `crates/wasm` | wasm-bindgen bindings building the WebAssembly package (`cdylib`); generic, passes values to the core unchecked; no Rust tests (Node tests the built package: `tests/wasm/`). `src/lib.rs` (`Drawing` with `fromJson(text, inputs?)`, `Mesh`, `wasmMemory`, the error mapping: a JavaScript `Error` whose `name` is the kind); `examples/star.mjs` |
 | `src/bullterrier_vector/` | the Python package: `errors.py` (the bottom layer, imports nothing from the package), `_native/` (the extension and its stub `_core.pyi`), `frame_export.py` (`frames`: the one part that knows time; PNG files and an ffmpeg process, so outside the core), `__init__.py` (the public API) |
@@ -187,7 +190,7 @@ measured tolerance, `tests/wasm/compare.mjs`; the star from Python, Rust and Nod
 `lint-workflows` runs actionlint and zizmor (offline) on `.github` (`tools/lint_workflows.py`; no `.github` folder, nothing to
 lint; an empty one fails). `dead-code` is vulture on
 `src`. `build-check` builds the sdist and wheel into `dist/check` (`dist/` is git-ignored, as is `audit`'s `dist/audit`)
-and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist's Rust sources, the licence files, one
+and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist's Rust sources and bundled fonts, the licence files with each bundled font's `OFL.txt`, one
 extension, check-wheel-contents); `tools/check_installed.py` smoke-checks an installed artifact (its file, version, import
 location, the documented exceptions). `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix`
 applies every automatic fix (`ruff check --fix`, `ruff format`, `cargo fmt`).

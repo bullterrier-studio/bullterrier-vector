@@ -439,7 +439,13 @@ with `sha256`. V5b is done (Rust, through JSON): `Font::axes()` (a `Param` per a
 `Text::features(..)`, the loader's `font-checks`. V5c is done: `btvec.Font`, `btvec.text` and `Drawing.from_json(...,
 inputs=)` in Python, `Drawing.fromJson(text, inputs)` in WebAssembly, fontTools as the oracle of the Python tests, ten text
 drawings in the native-against-WebAssembly differential (exact SVG text and mesh buffers), `examples/kinetic_type.py`,
-and the per-frame cost of type in `docs/benchmarks.md`. V5d (WOFF and WOFF2, bundled fonts) follows.
+and the per-frame cost of type in `docs/benchmarks.md`. V5d is done: `Font::new` reads WOFF2 (unpacked with `wuff`, a
+decompression bomb refused at `MAX_FONT_BYTES`) and refuses WOFF, answering the question above; `Font::bundled(name)` and
+`Font::bundled_names()` (`btvec.Font.bundled`) give Bricolage Grotesque and Fraunces (OFL 1.1, compiled in as WOFF2), a
+document names them by `sha256` and loads without bytes, the licences ship in the crate, the sdist and the wheel
+(`build-check` fails without them), `examples/bundled_type.py`. V5 is done. The npm package does not exist yet: V22
+publishes it with the `OFL.txt` of each font in `files` and `license` `MIT AND OFL-1.1` (the `wasm-bindgen` output takes the
+licence from the crate).
 
 ## V6 Layout
 

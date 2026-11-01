@@ -356,6 +356,11 @@ nothing the library would have to fetch.
 | `kind` | `"font"` (a TrueType or OpenType font, as `Font(data)`) or `"map"` (8-bit grayscale bytes, as `Field.map`'s `data`) |
 | `sha256` | optional: the SHA-256 of the bytes, 64 lowercase hex digits; when present, the bytes supplied must match it |
 
+The one exception is a font that comes with the library (`Font.bundled`): a `font` input whose `sha256` is that of a bundled
+font and which `inputs` does not give is read from the library, so a saved drawing in a bundled font loads with no bytes.
+Bytes given for it are used and checked against `sha256` as for any input; a hand-written document that leaves `sha256`
+out supplies the bytes.
+
 A font is referred to by `text`'s `font`, a map by `Field.map`'s `data`; the map's width, height and box are the field's
 arguments. An input is its bytes: inputs of one kind with equal bytes are one input, whatever objects the code made. Its
 name is the `name=` its `Font` or `Field.map` was given; one without a name is named by its kind and the order the walk

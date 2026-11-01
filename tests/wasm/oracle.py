@@ -355,8 +355,14 @@ def compared(drawing: btvec.Drawing, name: str, index: int, draw: Draw, pixels: 
 
 def inputs_of(text: str) -> dict[str, str]:
     """The inputs a document declares that a loader supplies, each as the key of `FONTS` its font is stored under (the
-    same as its name); a bundled font is declared too, and loads with no bytes."""
-    return {name: name for name in json.loads(text).get("inputs", {}) if name in FONTS}
+    same as its name). A bundled font is declared too but loads with no bytes, so a declared input is supplied only when
+    its digest is that of the stored font (the bundled `fraunces` shares its name with the stored subset)."""
+    declared = json.loads(text).get("inputs", {})
+    return {
+        name: name
+        for name, spec in declared.items()
+        if name in FONTS and spec["sha256"] == hashlib.sha256(FONTS[name]).hexdigest()
+    }
 
 
 def compared_corpus(pixels: Path) -> list[dict[str, Any]]:

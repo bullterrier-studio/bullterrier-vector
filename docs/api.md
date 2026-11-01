@@ -333,7 +333,9 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 
 | Input | Signature | Promise | Errors |
 |---|---|---|---|
-| `Font` | `Font(data, *, name=None)` | a TrueType or OpenType font, variable or not, from bytes; `name` is what a saved drawing calls it | `data` not a font the library reads |
+| `Font` | `Font(data, *, name=None)` | a TrueType, OpenType or WOFF2 font, variable or not, from bytes (WOFF2 is unpacked; a saved drawing names the bytes given); `name` is what a saved drawing calls it | `data` not a font the library reads, a WOFF font, a damaged WOFF2 file, a font or an unpacked WOFF2 over 32 MiB |
+| `Font.bundled` | `Font.bundled(name)` (Rust: `Font::bundled(name)?`) | a font that comes with the library, called `name` in a saved drawing: `"bricolage_grotesque"` or `"fraunces"`, SIL OFL 1.1. Its axes are the font file's, at its defaults (`fraunces` opens at `wght` 900, `opsz` 9, `WONK` 1; `bricolage_grotesque` at `wght` 800, `opsz` 96). A document that names it by `sha256` loads with no bytes supplied | `name` not bundled (the message lists them) |
+| `Font.bundled_names` | `Font.bundled_names()` (Rust: `Font::bundled_names()`) | the names `Font.bundled` takes, in order | |
 | `font.axes` | property | its variable axes by tag, each a `Param` named by the tag, with the font's range, default and name, in the font's order (Python: a new dict each time; Rust: `Font::axes()`, a list). Only an axis that can vary and is named by a `Param` name is listed: one pinned (minimum equal to maximum), with a tag that is not a name or a repeat of an earlier tag is left out, and is still set by its tag, and a refusal names it | |
 | `font.features` | property | the OpenType feature tags its `GSUB` and `GPOS` tables list, sorted (Rust: `Font::features()`) | |
 | `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value | `len(data)` not `width × height` |

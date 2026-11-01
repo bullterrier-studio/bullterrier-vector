@@ -153,3 +153,13 @@ def test_kinetic_type_at_a_time_rises_the_plane_and_swaps_the_hairlines_for_the_
     assert [shape.style.opacity for shape in after[2:]] == [1.0] * 7 + [0.0] * 7
     # the kick starts on the beat at 4 s with the first letter, the next ones a little behind it
     assert after[2].path.bounds.width > rest[0].path.bounds.width
+
+
+def test_bundled_type_sets_a_line_in_each_bundled_font_with_no_file_read(run):
+    found = run("bundled_type")
+    shapes = found["drawing"].shapes()
+    # the paper, then one shape for each letter of the two lines (the spaces make none)
+    chars = [shape.attributes["char"] for shape in shapes[1:]]
+    assert "".join(chars) == "Soft&wonky" + "BricolageGrotesque"
+    # both lines stand inside the 900 pixel frame, with a margin
+    assert max(shape.path.bounds.x + shape.path.bounds.width for shape in shapes[1:]) < 850

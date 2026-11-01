@@ -513,6 +513,41 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   baseline, where api.md says a glyph turns and scales. A font that states no cap height (none, or `sCapHeight` 0) gets 0.7 em
   (`CAP_HEIGHT`, which only places `origin`).
 
+## Web fonts and bundled fonts (V5d)
+
+- **WOFF2 through `wuff`, unpacked in `Font::new`; WOFF refused** (2026-11-01). Neither `read-fonts` nor `harfrust` reads a
+  web font. `wuff` 0.2.9 (MIT, pure Rust, `no_std`; hand-ported from Google's `woff2` and checked against every font of
+  `google/fonts`) does, with `default-features = false, features = ["brotli"]`: `bytes` and `brotli-decompressor`
+  (MIT or BSD-3-Clause) with `alloc-no-stdlib` (BSD-3-Clause, so `deny.toml` allows `BSD-3-Clause`). It builds for
+  `wasm32` and has no `std`, so the unpacked bytes are the same everywhere. It is pinned exactly and used only in
+  `type/unpack.rs`. The font is still its supplied bytes: the digest and a saved document name the WOFF2 file, and the
+  unpacked sfnt is what is read. WOFF (zlib) would need its `z` feature, which brings `flate2`, for a format that every
+  tool converts to WOFF2 or TrueType in one line, and its decoder sizes its output buffer from nothing (a `TODO` in
+  1.x); it is refused with the way out. *Bomb:* the decoder stops at 128 MiB and a ratio of 100 to 1; `Font::new` then
+  refuses an unpacked font over `MAX_FONT_BYTES` (32 MiB), the limit of a file, so one number bounds both. The unpacking
+  allocates its output up front, so a hostile file costs up to 128 MiB for a moment, then an error naming `data`.
+- **Two fonts bundled as WOFF2, compiled in** (2026-11-01). Bricolage Grotesque (axes `opsz`, `wght`, `wdth`) and Fraunces
+  (`opsz`, `wght`, `SOFT`, `WONK`) are the upstream `google/fonts` files, both SIL OFL 1.1 with no Reserved Font Name,
+  made into WOFF2 by fontTools and nothing else removed or changed (`recalcTimestamp=False`): the name table with the
+  copyright and licence text is intact, so the files are not Modified Versions. The core does no IO, so `include_bytes!`
+  puts them in `crates/core/fonts/`, which the crate, the sdist and the wheel carry with each `OFL.txt`. As WOFF2 they are
+  400 KB for both (the TrueType files are 770 KB), and unpacking costs milliseconds once per `Font::bundled` call. Roboto
+  Flex (1.8 MB) is not bundled. *Size:* the wheel grows from 1.71 to 2.25 MB, the release WebAssembly module from 2.85 to
+  3.51 MB (898 to 1,406 KB gzipped: the fonts and the Brotli decoder); a feature that leaves the fonts out is the way to
+  shrink a page that needs none, to add when someone asks. A font keeps its file's defaults (Fraunces opens at the black 9 point cut): changing
+  them would make a Modified Version and make the bytes differ from upstream's.
+- **A bundled font is an input the loader finds by digest** (2026-11-01). `to_json` writes every font with its `sha256`;
+  when a document declares a font input with the digest of a bundled font and `inputs` does not give it, the loader reads
+  the bundled one (`Font::bundled_bytes`, one place; a name is no key, since any font may be given any name). Supplied
+  bytes win and are checked as before. *Reason:* a saved drawing in a bundled font should load anywhere, in Python,
+  Rust and WebAssembly, with no extra call in each binding. *Consequence:* a hand-written document without `sha256` still
+  supplies its bytes.
+- **Licences travel with the fonts** (2026-11-01). The package licence is `MIT AND OFL-1.1` (workspace `Cargo.toml` and
+  `pyproject.toml`), `license-files` lists each font's `OFL.txt`, and `cargo-deny` allows `OFL-1.1` for the three
+  workspace crates only (`[[licenses.exceptions]]`). `poe build-check` requires the `OFL.txt` of every
+  `crates/core/fonts/*/` it finds in the checkout, and the font files, in the sdist and the wheel, so removing one from
+  `license-files` fails the gate rather than shipping an unlicensed font.
+
 ## Axes and features (V5b)
 
 - **An item of `axes` is a source character, and a change of value cuts the shaping** (2026-11-01). A per-glyph value
