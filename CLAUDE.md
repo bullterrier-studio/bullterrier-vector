@@ -127,7 +127,7 @@ formatter, 6 and 7, and "Fixing defects".
 9. **Bounded depth.** Anything a caller can build or load has a depth limit enforced where it is built, never in a walk
    over it, so no recursion runs over unbounded depth and nothing needs a bigger stack than the 256 KB minimum
    (`docs/design-decisions.md`, "Bounded depth"). A new node, step or reader adds its deepest structure to the stack
-   tests (`tests/test_stack_depth.py`, `tests/wasm/depth.test.mjs`, `crates/core/tests/expr.rs`).
+   tests (`tests/test_stack_depth.py`, `crates/core/tests/expr.rs`).
 
 ## Rust code
 
