@@ -82,14 +82,23 @@ pub(crate) fn typeset(font: &Font, content: &str, settings: &Settings, cx: &Cont
             .iter()
             .map(|one| f64::from(one.advance) * scale)
             .collect();
-        let width = advances.iter().sum::<f64>() + gap * glyphs_of_line.len().saturating_sub(1) as f64;
+        // the tracking goes between clusters, not inside one, so that a mark stays over its base
+        let gaps: Vec<f64> = glyphs_of_line
+            .iter()
+            .enumerate()
+            .map(|(at, one)| match glyphs_of_line.get(at + 1) {
+                Some(next) if next.cluster != one.cluster => gap,
+                _ => 0.0,
+            })
+            .collect();
+        let width = advances.iter().chain(&gaps).sum::<f64>();
         let mut pen = settings.anchor.x
             - match settings.align {
                 Align::Left => 0.0,
                 Align::Center => width / 2.0,
                 Align::Right => width,
             };
-        for (one, advance) in glyphs_of_line.iter().zip(&advances) {
+        for ((one, advance), gap) in glyphs_of_line.iter().zip(&advances).zip(&gaps) {
             if one.character.is_whitespace() {
                 word = None;
             } else if word.is_none() {

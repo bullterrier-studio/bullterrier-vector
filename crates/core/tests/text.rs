@@ -24,7 +24,7 @@
 mod common;
 
 use bullterrier_vector::{Align, Drawing, Error, Font, Param, Path, Shape, Size, Text, Values, text};
-use common::fonts::{fraunces, synthetic};
+use common::fonts::{fraunces, marks, synthetic};
 use common::{Outcome, parameter_refusal};
 use proptest::prelude::*;
 
@@ -220,6 +220,34 @@ fn tracking_adds_thousandths_of_an_em_between_glyphs_and_not_after_the_last() ->
     // right-aligned, the width is 3312 + 200: one gap, between the two
     let right = shapes_of("HH", at_em(&font).tracking(100.0).align(Align::Right))?;
     assert_eq!(right[1].path(), &alone("H")?.translate(-1656.0, 0.0)?);
+    Ok(())
+}
+
+#[test]
+fn tracking_is_added_between_clusters_so_a_mark_stays_over_its_base() -> Outcome {
+    // marks.ttf, 1000 to the em: `B` (400 square, advance 500) and U+0301 (100 by 50, no advance) put over it at
+    // (150, 450) by the font (HarfBuzz: both in cluster 0); tracking 300 is 300 pixels. y points down.
+    let font = marks()?;
+    let options = Text::new(&font).size(1000.0).tracking(300.0);
+    let svg = |content: &str, options: Text| -> Result<Vec<String>, Error> {
+        Ok(shapes_of(content, options)?
+            .iter()
+            .map(|shape| shape.path().to_svg_path())
+            .collect())
+    };
+    let mark = |x: f64| format!("M{x} -450 L{x} -500 L{} -500 L{} -450 Z", x + 100.0, x + 100.0);
+    let square = |x: f64| format!("M{x} 0 L{x} -400 L{} -400 L{} 0 Z", x + 400.0, x + 400.0);
+    // B and its mark, then B: one gap, between the clusters
+    assert_eq!(
+        svg("B\u{301}B", options.clone())?,
+        [square(0.0), mark(150.0), square(800.0)],
+        "the mark stays at 150 over its base"
+    );
+    // the gap inside a cluster is not part of the width: the line is 500 + 300 + 500 wide
+    assert_eq!(
+        svg("B\u{301}B", options.align(Align::Right))?,
+        [square(-1300.0), mark(-1150.0), square(-500.0)]
+    );
     Ok(())
 }
 

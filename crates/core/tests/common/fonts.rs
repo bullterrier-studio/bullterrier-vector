@@ -61,12 +61,41 @@
 //! addOpenTypeFeaturesFromString(fb.font, "feature kern { pos C <50 20 0 0>; } kern;")
 //! fb.save("synthetic.ttf")
 //! ```
+//!
+//! `marks.ttf` (`uvx --from fonttools python script.py`, 1000 to the em): `B` is a 400 square with an advance of 500, `acute`
+//! (U+0301) a 100 by 50 rectangle with no advance that a GPOS `mark` feature puts over `B` (`HarfBuzz`: `'B\u0301'` is
+//! `[('B', 0, 500, 0, 0), ('acute', 0, 0, -350, 450)]`, both in cluster 0).
+//!
+//! ```python
+//! from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
+//! from fontTools.fontBuilder import FontBuilder
+//! from fontTools.pens.ttGlyphPen import TTGlyphPen
+//! fb = FontBuilder(1000, isTTF=True)
+//! fb.setupGlyphOrder([".notdef", "B", "acute"])
+//! fb.setupCharacterMap({0x42: "B", 0x301: "acute"})
+//! def square(width, height):
+//!     pen = TTGlyphPen(None)
+//!     pen.moveTo((0, 0)); pen.lineTo((0, height)); pen.lineTo((width, height)); pen.lineTo((width, 0)); pen.closePath()
+//!     return pen.glyph()
+//! fb.setupGlyf({".notdef": TTGlyphPen(None).glyph(), "B": square(400, 400), "acute": square(100, 50)})
+//! fb.setupHorizontalMetrics({".notdef": (500, 0), "B": (500, 0), "acute": (0, 0)})
+//! fb.setupHorizontalHeader(ascent=800, descent=-200)
+//! fb.setupNameTable({"familyName": "Marks", "styleName": "Regular"})
+//! fb.setupOS2()
+//! fb.setupPost()
+//! addOpenTypeFeaturesFromString(fb.font, "languagesystem DFLT dflt;\n"
+//!     "markClass [acute] <anchor 50 0> @TOP;\n"
+//!     "feature mark { pos base B <anchor 200 450> mark @TOP; } mark;\n"
+//!     "table GDEF { GlyphClassDef [B], , [acute], ; } GDEF;\n")
+//! fb.save("marks.ttf")
+//! ```
 #![allow(dead_code, reason = "each test file uses a different part")]
 
 use bullterrier_vector::{Error, Font};
 
 pub(crate) const FRAUNCES: &[u8] = include_bytes!("../fonts/fraunces-subset.ttf");
 pub(crate) const SYNTHETIC: &[u8] = include_bytes!("../fonts/synthetic.ttf");
+pub(crate) const MARKS: &[u8] = include_bytes!("../fonts/marks.ttf");
 
 pub(crate) fn fraunces() -> Result<Font, Error> {
     Font::new(FRAUNCES)
@@ -74,4 +103,8 @@ pub(crate) fn fraunces() -> Result<Font, Error> {
 
 pub(crate) fn synthetic() -> Result<Font, Error> {
     Font::new(SYNTHETIC)
+}
+
+pub(crate) fn marks() -> Result<Font, Error> {
+    Font::new(MARKS)
 }

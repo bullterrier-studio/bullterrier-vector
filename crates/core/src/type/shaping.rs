@@ -12,6 +12,8 @@ pub(super) struct Placed {
     pub(super) glyph: u32,
     /// The first character the glyph stands for: a ligature stands for several.
     pub(super) character: char,
+    /// The glyphs of one cluster (a base and its marks) share a number; a glyph of another cluster has another.
+    pub(super) cluster: u32,
     /// How far the pen moves after the glyph.
     pub(super) advance: i32,
     /// How far the glyph is drawn to the right of the pen, and above the baseline.
@@ -56,6 +58,7 @@ impl<'a> Shaper<'a> {
                 Ok(Placed {
                     glyph: info.glyph_id,
                     character,
+                    cluster: info.cluster,
                     advance: position.x_advance,
                     offset: (position.x_offset, position.y_offset),
                 })

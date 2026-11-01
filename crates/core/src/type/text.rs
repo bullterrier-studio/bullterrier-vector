@@ -70,7 +70,8 @@ impl Text {
         self
     }
 
-    /// This text with `tracking` thousandths of an em added between glyphs (a negative number tightens it).
+    /// This text with `tracking` thousandths of an em added between glyphs (a negative number tightens it), but not
+    /// between a base and its marks.
     #[must_use]
     pub fn tracking(mut self, tracking: impl Into<Expr>) -> Self {
         self.tracking = Some(tracking.into());

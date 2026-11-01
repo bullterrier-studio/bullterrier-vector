@@ -283,7 +283,7 @@ V8 removes the overlaps).
 | `size` | pixels to the em |
 | `axes` | variable axis values by tag (`{"wght": weight}`); a per-item number gives each glyph its own, and advances follow |
 | `features` | OpenType features by tag (`{"ss01": 1, "liga": 0}`): literal whole numbers from 0, not expressions |
-| `tracking` | extra space between glyphs, in thousandths of an em |
+| `tracking` | extra space between glyphs, in thousandths of an em; none between a base and its marks |
 | `leading` | pixels between baselines; default 1.2 × `size` |
 | `align` | `"left"`, `"center"` or `"right"` |
 | `anchor` | where the first baseline meets the alignment: its left end, middle or right end |
