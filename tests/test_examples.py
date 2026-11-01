@@ -89,6 +89,11 @@ def test_series_bars_draws_twelve_bars_with_the_tallest_in_the_second_ink_on_top
         assert bar.attributes["order"] == pytest.approx(i / 11)
 
 
+def test_badge_frames_writes_one_second_at_24_frames_a_second_numbered_from_zero(run):
+    written = run("badge_frames")["written"]
+    assert written == [f"badge-{i:04d}.png" for i in range(24)]
+
+
 def test_poster_overlaps_two_multiply_inks_on_paper_and_keeps_its_stack_of_shapes(run):
     found = run("poster")
     shapes, rgba = found["shapes"], found["rgba"]
