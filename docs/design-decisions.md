@@ -26,6 +26,14 @@ Each decision once, with its reason. The design: [design.md](design.md).
   ffmpeg, so it lives outside the core. The caller's function returns a drawing with its values set
   (`btvec.frames(scene, ...)`, 2026-10-29), so a frame can also change what values cannot, such as the map a figure is
   traced from.
+- **Frame export details** (2026-11-01). `round(seconds × fps)` frames at `t = i / fps` from 0, so `t = seconds` is
+  never drawn; a count below one frame is a `ParameterError`; the `#` run is a minimum width; the folder is created,
+  files overwritten, frames of a longer earlier run left alone; a clip is encoded to a hidden sibling and renamed.
+  *Reason:* a clip of `seconds` that loops should not repeat its first frame; a rename keeps an old clip whole when the
+  scene fails midway; a function that deletes files in a folder it was only asked to write into is a hazard. ffmpeg is
+  driven as an argv list (no shell) with raw RGBA on stdin, so no temporary frames are written for a clip. VP9 uses
+  constant quality 15, the "visually lossless" end, as a clip is for editing over footage. *Consequence:* a clip's alpha
+  is checked by decoding it, not byte for byte; ffprobe shows a `.webm` as `yuv420p` with an `alpha_mode` tag.
 - **Effects earn their place with a gallery piece** (2026-10-28). An effect is added together with a gallery piece that
   uses it. *Reason:* the bar is "worth posting", and a plausible effect can still look bad: the prototypes dropped
   halftone inside letters, outline echoes and a large wobble once they were seen in a piece. A test proves an effect

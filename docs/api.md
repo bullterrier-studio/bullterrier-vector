@@ -499,16 +499,30 @@ a solid block of hatching. Keep the inks in a drawing of their own and stack the
 
 ### Frame export
 
-`btvec.frames(scene, *, width, height, fps=30, seconds, out)`: calls `scene(t)` (a function of seconds returning a
-`Drawing`, usually `drawing.with_values(...)`) for `round(seconds × fps)` frames at `t = i / fps`, and writes each frame
-exactly as `to_png` draws it. `out` names the result: a `.png` path with a run of `#` (`"frames/badge-####.png"`) for a
-numbered, transparent PNG sequence; `.mov` for ProRes 4444 with alpha; `.webm` for VP9 with alpha. A clip needs ffmpeg
-on the `PATH`. It is the only part of the library that knows time. A `scene` that builds a new drawing per frame (a
-new map to trace, say) makes a clip of many drawings, not one drawing and its values, so the clip cannot be saved as
+`btvec.frames(scene, *, width, height, fps=30, seconds, out)` (Python only; Rust and JavaScript callers loop over `to_png`,
+`toRgba` or `toMesh` themselves). It calls `scene(t)`, a function of seconds returning a `Drawing` (usually
+`drawing.with_values(...)`), for `round(seconds × fps)` frames (Python's `round`: a half goes to the even number) at
+`t = i / fps`, `i` from 0, so the first frame is at 0 and `t = seconds` is never drawn (a loop of `seconds` repeats
+without a doubled frame), and writes each frame exactly as `to_png` draws it, at `width` × `height`. `fps` and
+`seconds` are finite numbers above 0, and `seconds` covers at least half a frame. `out` (a `str` or path; the suffix in any case) says what is written:
+
+- `.png` with one run of `#` in the file name (`"frames/badge-####.png"`): a transparent PNG sequence. The run is the
+  minimum number of digits of the zero-based index, zero padded; an index that needs more widens it (`##` gives `00` to
+  `99`, then `100`). A `#` in a folder name is literal.
+- `.mov`: ProRes 4444 with alpha. `.webm`: VP9 with alpha. A clip needs ffmpeg on the `PATH` (with `prores_ks` or
+  `libvpx-vp9`); the frames go to it as raw RGBA. A clip is lossy: it decodes to pixels close to the PNG ones, not equal.
+
+The folder is created, with its parents, once the first frame is drawn. Existing files of the same names are overwritten;
+frames of a longer earlier run stay. If `scene` or a write fails, the frames already written stay; a clip is written under
+a hidden name beside `out` and moved into place when ffmpeg is done, so a failure leaves no half-written clip and an
+older `out` untouched. It is the only part of the library that knows time. A `scene` that builds a new drawing per frame
+(a new map to trace, say) makes a clip of many drawings, not one drawing and its values, so the clip cannot be saved as
 one JSON.
 
-Errors: `ParameterError` for `fps` or `seconds` not above 0, an `out` of no known kind, a `.png` without `#`; what
-`scene` raises; `OSError` when a file cannot be written or ffmpeg is missing or fails (with its message).
+Errors: `ParameterError` for `fps` or `seconds` not finite and above 0, `seconds` shorter than half a frame, an `out` of
+no known kind or a `.png` without exactly one run of `#` in its file name (nothing is drawn or written), and a size the
+outputs refuse (as `to_png`, on the first draw); what `scene` raises; `OSError` when a file or folder cannot be written
+or ffmpeg is missing or fails (its message is in the error).
 
 ## Errors
 

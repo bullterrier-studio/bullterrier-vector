@@ -162,7 +162,7 @@ without knowing the steps.
 Every parameter is a state (`progress` 0..1, `phase` in cycles, `seed`), never a time. Whoever animates sets values
 and draws again:
 
-- **Frame export** (planned, V4). A small helper loops a caller's function (time in, a drawing with its values out) over
+- **Frame export** (V4, Python). A small helper loops a caller's function (time in, a drawing with its values out) over
   frames and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. It is the only part
   that knows frames; it has no timeline, keyframes or mixing, and it lives outside the core.
 - **Live in a page** (planned: the package in V3, an example in V20). The WebAssembly package redraws on a canvas from

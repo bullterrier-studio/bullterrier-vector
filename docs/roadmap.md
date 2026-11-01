@@ -303,6 +303,10 @@ ffmpeg. No timeline, keyframes or mixing.
 Done when: a worked example writes a PNG sequence and a clip with alpha, and each frame equals the drawing drawn
 directly with that frame's values.
 
+State: done in Python (`btvec.frames`, `src/bullterrier_vector/frame_export.py`; `examples/badge_frames.py` writes a PNG
+sequence; the tests write and read back PNG sequences exactly, and ProRes 4444 and VP9 clips with alpha within a measured
+tolerance, skipping with a stated reason without ffmpeg).
+
 ## V5 Fonts and shaping
 
 - Fonts from bytes: OpenType, TrueType, variable fonts; two or three open-licence fonts bundled. Whether WOFF and WOFF2
