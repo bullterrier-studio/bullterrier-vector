@@ -2,7 +2,7 @@
 //
 // What we compute ourselves is exact: the SVG text, the mesh buffers (hashed here with node:crypto, there with hashlib).
 // The pixels are drawn by a rasteriser crate that is required only to look the same on every target, so they are
-// compared within a tolerance fixed by measurement (see docs/design-decisions.md, "Output"). A PNG is decoded here with
+// compared within a tolerance fixed by measurement (compare.mjs). A PNG is decoded here with
 // node:zlib, a decoder that shares nothing with the encoder, and must hold the pixels of toRgba.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -10,60 +10,14 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 import { inflateSync } from "node:zlib";
+import { assertLookTheSame } from "./compare.mjs";
 
 const require = createRequire(import.meta.url);
 const { Drawing, Mesh, wasmMemory: memory } = require("../../pkg/bullterrier_vector_wasm.js");
 const native = JSON.parse(readFileSync(new URL("../../pkg/oracle.json", import.meta.url), "utf-8"));
 const nativePixels = (file) => new Uint8Array(readFileSync(new URL(`../../pkg/oracle-pixels/${file}`, import.meta.url)));
 
-// The pixel tolerance, measured on this corpus (docs/design-decisions.md, "Output", has the numbers). A pixel is compared
-// as its premultiplied colour and its alpha, the values drawn: the straight-alpha colour of a nearly transparent pixel
-// is the premultiplied one divided by a small alpha, which magnifies a one-level difference.
-//
-// Measured on this corpus (48 draws, 3,450,660 channel values) with Apple silicon NEON natively against WebAssembly
-// simd128: 4 values differ, none by more than 1 level (2 as straight alpha), at most 0.005% of the values of one draw.
-// The tolerance is twice the worst level and four times the worst fraction.
-const MAX_LEVEL = 2; // a channel value (0..255) of a pixel may differ by at most this much...
-const MAX_FRACTION = 0.0002; // ...and only this fraction of the channel values of a draw may differ at all
-
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
-
-/** The channel values of two RGBA images that differ, as premultiplied colour and alpha (the values drawn): how many,
- *  the largest difference in levels, and the first pixel. */
-function differences(expected, actual, width) {
-  const premultiplied = (image, at) => [
-    ...[0, 1, 2].map((c) => Math.round((image[at + c] * image[at + 3]) / 255)),
-    image[at + 3],
-  ];
-  let count = 0;
-  let largest = 0;
-  let first = null;
-  for (let at = 0; at < expected.length; at += 4) {
-    const wanted = premultiplied(expected, at);
-    const got = premultiplied(actual, at);
-    wanted.forEach((value, channel) => {
-      const difference = Math.abs(value - got[channel]);
-      if (difference > 0) {
-        count += 1;
-        largest = Math.max(largest, difference);
-        first ??= { x: (at / 4) % width, y: Math.floor(at / 4 / width), channel, expected: value, actual: got[channel] };
-      }
-    });
-  }
-  return { count, largest, first };
-}
-
-/** Assert that two RGBA images look the same, naming the count and the first differing pixel if they do not. */
-function assertLookTheSame(expected, actual, width, label) {
-  assert.equal(actual.length, expected.length, `${label}: the length of the pixels`);
-  const { count, largest, first } = differences(expected, actual, width);
-  const allowed = Math.floor(expected.length * MAX_FRACTION);
-  assert.ok(
-    count <= allowed && largest <= MAX_LEVEL,
-    `${label}: ${count} of ${expected.length} channel values differ (${allowed} allowed), by up to ${largest}; ` +
-      `first at ${JSON.stringify(first)}`,
-  );
-}
 
 /** A PNG file read back: its chunk types, its header and its pixels as RGBA bytes (unfiltered by the rules of the PNG
  *  specification, which this does not share with the encoder). */
