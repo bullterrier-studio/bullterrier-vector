@@ -54,13 +54,19 @@ LICENCE = "MIT License\n"
 GOOD_DESCRIPTION = ("text/markdown", "# Demo\n\nRenders.\n")
 
 
-def wheel(folder: Path, platform: str, files: Mapping[str, bytes | str], *, licensed: bool = True) -> Path:
-    """A wheel of `demo` for `platform` holding `files`, with its dist-info (and the licence, unless not `licensed`) and
-    a RECORD of their hashes."""
+FONT = "crates/core/fonts/demo"  # a bundled font of the project, when it has one: its file and its licence text
+
+
+def wheel(
+    folder: Path, platform: str, files: Mapping[str, bytes | str], *, licensed: bool = True, font_licence: bool = False
+) -> Path:
+    """A wheel of `demo` for `platform` holding `files`, with its dist-info (and the licence, unless not `licensed`, and
+    the licence of the bundled font if `font_licence`) and a RECORD of their hashes."""
     info = "demo-1.0.dist-info"
     entries = {
         **files,
         **({f"{info}/licenses/LICENSE": LICENCE} if licensed else {}),
+        **({f"{info}/licenses/{FONT}/OFL.txt": "OFL\n"} if font_licence else {}),
         f"{info}/METADATA": METADATA.format(kind=GOOD_DESCRIPTION[0], text=GOOD_DESCRIPTION[1]),
         f"{info}/WHEEL": f"Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: false\nTag: cp312-abi3-{platform}\n",
     }
@@ -83,11 +89,19 @@ def sdist(
     rust: Mapping[str, str] = RUST,
     *,
     licensed: bool = True,
+    font: tuple[str, ...] = (),
 ) -> Path:
-    """An sdist of `demo` with its metadata, pyproject.toml, the `rust` files and (if `licensed`) the licence."""
+    """An sdist of `demo` with its metadata, pyproject.toml, the `rust` files, (if `licensed`) the licence and the
+    files of the bundled font named in `font` (`OFL.txt`, `demo.woff2`)."""
     path = folder / "demo-1.0.tar.gz"
     data = METADATA.format(kind=description[0], text=description[1])
-    files = {"PKG-INFO": data, "pyproject.toml": PYPROJECT, **rust, **({"LICENSE": LICENCE} if licensed else {})}
+    files = {
+        "PKG-INFO": data,
+        "pyproject.toml": PYPROJECT,
+        **rust,
+        **({"LICENSE": LICENCE} if licensed else {}),
+        **{f"{FONT}/{name}": "font\n" for name in font},
+    }
     with tarfile.open(path, "w:gz") as archive:
         for name, text in files.items():
             member = tarfile.TarInfo(f"demo-1.0/{name}")
@@ -108,6 +122,16 @@ def project(tmp_path) -> Path:
     (tmp_path / "src" / "demo" / "_native" / "_core.abi3.so").write_bytes(b"built here")
     (tmp_path / "dist").mkdir()
     return tmp_path
+
+
+@pytest.fixture
+def font_project(project) -> Path:
+    """The demo project with a bundled font in its checkout. Its pyproject.toml lists only `LICENSE`, so that the
+    font's licence is required by the folder it is found in, not by what the build was told."""
+    (project / FONT).mkdir(parents=True)
+    (project / FONT / "OFL.txt").write_text("OFL\n", encoding="utf-8")
+    (project / FONT / "demo.woff2").write_bytes(b"wOF2")
+    return project
 
 
 LINUX = ("manylinux_2_28_x86_64", "demo/_native/_core.abi3.so")
@@ -225,3 +249,44 @@ def test_an_empty_folder_fails(project):
     done = check_dists(project)
     assert done.returncode == 1
     assert "no sdist or wheel" in done.stderr
+
+
+def good_font_wheels(dist: Path) -> None:
+    for platform, extension in (LINUX, WINDOWS):
+        wheel(dist, platform, {**TREE, extension: f"built for {platform}".encode()}, font_licence=True)
+
+
+def test_distributions_that_hold_a_bundled_font_and_its_licence_pass(font_project):
+    sdist(font_project / "dist", font=("OFL.txt", "demo.woff2"))
+    good_font_wheels(font_project / "dist")
+    done = check_dists(font_project)
+    assert done.returncode == 0, done.stderr
+
+
+FONT_BAD = {  # fault -> what the report must name
+    "an sdist without the font's licence": (("demo.woff2",), True, ["demo-1.0.tar.gz", f"{FONT}/OFL.txt"]),
+    "an sdist without the font file": (("OFL.txt",), True, ["demo-1.0.tar.gz", f"{FONT}/demo.woff2"]),
+    "a wheel without the font's licence": (
+        ("OFL.txt", "demo.woff2"),
+        False,
+        ["manylinux_2_28_x86_64.whl", f"{FONT}/OFL.txt"],
+    ),
+}
+
+
+@pytest.mark.parametrize(("font", "wheel_licensed", "named"), FONT_BAD.values(), ids=FONT_BAD.keys())
+def test_a_distribution_lacking_a_bundled_font_or_its_licence_fails_naming_it(
+    font_project, font, wheel_licensed, named
+):
+    sdist(font_project / "dist", font=font)
+    for platform, extension in (LINUX, WINDOWS):
+        wheel(
+            font_project / "dist",
+            platform,
+            {**TREE, extension: b"built"},
+            font_licence=wheel_licensed or platform != LINUX[0],
+        )
+    done = check_dists(font_project)
+    assert done.returncode == 1
+    for name in named:
+        assert name in done.stderr, done.stderr

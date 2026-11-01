@@ -3,8 +3,8 @@ name = "bullterrier-vector"
 dynamic = ["version"]  # maturin reads it from Cargo.toml's [workspace.package]
 description = "A typography-first vector graphics scripting library: pictures written as code, drawn as SVG or pixels, the same from Rust, Python and the browser."
 readme = "README.md"
-license = "MIT"
-license-files = ["LICENSE"]
+license = "MIT AND OFL-1.1"  # the code is MIT; the bundled fonts are SIL Open Font License 1.1
+license-files = ["LICENSE", "crates/core/fonts/*/OFL.txt"]  # each bundled font's licence text
 authors = [
     { name = "jcakstins", email = "janis.cakstins@gmail.com" }
 ]

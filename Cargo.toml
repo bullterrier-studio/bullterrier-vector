@@ -10,7 +10,7 @@ members = ["crates/core", "crates/python", "crates/wasm"]
 version = "0.0.0"  # the one version: the Python package reads it; crates.io gets it at the first release
 edition = "2024"
 rust-version = "1.99.1"  # the toolchain rust-toolchain.toml pins
-license = "MIT"
+license = "MIT AND OFL-1.1"  # the code is MIT; crates/core/fonts/ holds the bundled fonts, each with its OFL.txt
 repository = "https://github.com/bullterrier-studio/bullterrier-vector"
 publish = false  # until the first release (V22)
 

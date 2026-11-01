@@ -78,6 +78,8 @@ def test_the_project_as_it_is_builds_clean_distributions(project, build_check):
     extensions = [entry for entry in shipped if entry.startswith("bullterrier_vector/_native/_core.")]
     assert len([entry for entry in extensions if entry.endswith((".so", ".pyd"))]) == 1, extensions
     assert f"bullterrier_vector-{version}.dist-info/licenses/LICENSE" in shipped  # the licence the metadata declares
+    for font in ("bricolage_grotesque", "fraunces"):  # and the licence of each font the extension holds
+        assert f"bullterrier_vector-{version}.dist-info/licenses/crates/core/fonts/{font}/OFL.txt" in shipped
     # built from the sdist with rustup, the extension is compiled by the toolchain CI tests, as the wheels are
     with tarfile.open(sdist) as archive:
         names = archive.getnames()
@@ -87,6 +89,8 @@ def test_the_project_as_it_is_builds_clean_distributions(project, build_check):
         "crates/core/Cargo.toml",
         "crates/python/Cargo.toml",
         "LICENSE",
+        "crates/core/fonts/fraunces/OFL.txt",
+        "crates/core/fonts/fraunces/fraunces.woff2",
     ):
         assert f"bullterrier_vector-{version}/{needed}" in names
 
@@ -143,3 +147,17 @@ def test_an_sdist_without_the_toolchain_file_fails_the_gate(project, build_check
     assert verdict.returncode != 0
     # the sdist's own report, naming the one file it lacks (a list would name more)
     assert ".tar.gz: lacks rust-toolchain.toml, which a build of the extension needs" in verdict.report
+
+
+def test_a_distribution_without_the_licences_of_the_bundled_fonts_fails_the_gate_naming_them(project, build_check):
+    pyproject = project / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8")
+    listing = 'license-files = ["LICENSE", "crates/core/fonts/*/OFL.txt"]'
+    assert listing in text
+    pyproject.write_text(text.replace(listing, 'license-files = ["LICENSE"]'), encoding="utf-8")
+    verdict = build_check()
+    assert verdict.returncode != 0
+    # the font licences are found in the checkout, not in the list the build was told: both distributions lack them
+    assert ".tar.gz: lacks the licence file" in verdict.report
+    assert "crates/core/fonts/fraunces/OFL.txt" in verdict.report
+    assert ".whl: lacks the licence file" in verdict.report

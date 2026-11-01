@@ -8,8 +8,9 @@ Run in the project (its pyproject.toml says where the package and its Rust exten
 - twine (`check --strict`) on every file: the metadata, and the description as PyPI renders it.
 - Each sdist holds what builds the extension from a clean unpack: the Rust workspace's `Cargo.toml`, `Cargo.lock` and
   `rust-toolchain.toml`, and the manifest of every workspace member.
-- Each sdist and each wheel holds the licence files `[project] license-files` names (a wheel: under
-  `*.dist-info/licenses/`), so what is published carries the licence it declares.
+- Each sdist and each wheel holds the licence files `[project] license-files` names (patterns allowed; a wheel: under
+  `*.dist-info/licenses/`) and the `OFL.txt` of every bundled font (`crates/core/fonts/*/OFL.txt`, found in the
+  checkout, so dropping one from `license-files` fails too), so what is published carries the licences it declares.
 - Each wheel holds exactly one build of the extension (`[tool.maturin] module-name`), for its platform.
 - check-wheel-contents on each wheel against the package tree as an install from that wheel has it: the package
   (`[tool.check-wheel-contents] package`, its omissions applied) with that wheel's extension in place of any local
@@ -31,6 +32,21 @@ import zipfile
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
+# the bundled fonts: the file each is compiled from and the licence text it carries (docs/design-decisions.md, "Fonts")
+FONT_FILES = "crates/core/fonts/*/*.woff2"
+FONT_LICENCES = "crates/core/fonts/*/OFL.txt"
+
+
+def _licence_files(pyproject: dict) -> list[str]:
+    """The licence files a distribution must hold: those `license-files` names (patterns expanded in the checkout) and
+    the licence of every bundled font."""
+    wanted = {
+        found.as_posix()
+        for pattern in pyproject["project"]["license-files"]
+        for found in (Path().glob(pattern) if "*" in pattern else [Path(pattern)])  # a plain name is wanted as written
+    }
+    return sorted(wanted | {path.as_posix() for path in Path().glob(FONT_LICENCES)})
+
 
 def _run(*command: str) -> subprocess.CompletedProcess:
     # a dev tool of this environment, given file names this script found itself
@@ -41,7 +57,7 @@ def check(folder: Path) -> list[str]:
     """The reports of every check that fails for the distributions in `folder` (empty when all pass)."""
     pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     settings = pyproject["tool"]
-    licences = pyproject["project"]["license-files"]
+    licences = _licence_files(pyproject)
     package = Path(settings["check-wheel-contents"]["package"])
     extension = PurePosixPath(*settings["maturin"]["module-name"].split("."))  # bullterrier_vector/_native/_core
     files = sorted([*folder.glob("*.tar.gz"), *folder.glob("*.whl")])
@@ -89,10 +105,12 @@ def _missing_from_sdist(sdist: Path, licences: list[str]) -> list[str]:
     """One report if the sdist lacks what a build of the Rust extension needs (the checkout's workspace says what) or a
     licence file."""
     workspace = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))["workspace"]
+    fonts = [path.as_posix() for path in Path().glob(FONT_FILES)]  # compiled into the extension
     needed = [
         "Cargo.toml",
         "Cargo.lock",
         "rust-toolchain.toml",
+        *fonts,
         *(f"{member}/Cargo.toml" for member in workspace["members"]),
     ]
     with tarfile.open(sdist) as archive:

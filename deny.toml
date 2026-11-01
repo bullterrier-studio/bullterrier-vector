@@ -20,6 +20,20 @@ allow = [
 ]
 confidence-threshold = 0.93
 
+# The bundled fonts (crates/core/fonts/, SIL Open Font License 1.1, each with its OFL.txt) are in the crate that holds them
+# and in the two that build it into a package; no other crate may carry the licence
+[[licenses.exceptions]]
+crate = "bullterrier-vector"
+allow = ["OFL-1.1"]
+
+[[licenses.exceptions]]
+crate = "bullterrier-vector-python"
+allow = ["OFL-1.1"]
+
+[[licenses.exceptions]]
+crate = "bullterrier-vector-wasm"
+allow = ["OFL-1.1"]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
