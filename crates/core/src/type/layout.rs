@@ -4,6 +4,7 @@ use super::font::Font;
 use super::outline::{self, Outlines};
 use super::shaping::Shaper;
 use super::text::Align;
+use crate::geometry::{MAX_COORDINATE, is_coordinate};
 use crate::node::Context;
 use crate::{Error, Point, Shape};
 use read_fonts::model::glyph::outline::PathElement;
@@ -30,6 +31,18 @@ pub(crate) struct Settings {
     pub(crate) align: Align,
     /// The left end, middle or right end (by `align`) of the first baseline.
     pub(crate) anchor: Point,
+}
+
+/// `position`, or the error naming `argument`, whose value is `value`, unless it is within the coordinates a path holds.
+fn within(argument: &str, value: f64, position: f64) -> Result<f64, Error> {
+    if is_coordinate(position) {
+        Ok(position)
+    } else {
+        Err(Error::parameter(
+            argument,
+            format!("{value:e} puts the text beyond ±{MAX_COORDINATE:e}"),
+        ))
+    }
 }
 
 /// A glyph to draw, with what the shape that draws it carries.
@@ -61,7 +74,12 @@ pub(crate) fn typeset(font: &Font, content: &str, settings: &Settings, cx: &Cont
     let metrics = font.model().metrics();
     let units_per_em = f64::from(metrics.units_per_em);
     let scale = settings.size / units_per_em;
-    let gap = settings.tracking * settings.size / 1000.0;
+    let gap = within(
+        "tracking",
+        settings.tracking,
+        settings.tracking * settings.size / 1000.0,
+    )
+    .map_err(placed)?;
     let leading = settings.leading.unwrap_or(LEADING * settings.size);
     let cap_height = metrics
         .cap_height
@@ -78,7 +96,9 @@ pub(crate) fn typeset(font: &Font, content: &str, settings: &Settings, cx: &Cont
     for (number, text) in content.split('\n').enumerate() {
         let mut word = None;
         let line = number as u32;
-        let baseline = settings.anchor.y + number as f64 * leading;
+        let baseline = within("leading", leading, number as f64 * leading)
+            .and_then(|lines| within("anchor", settings.anchor.y, settings.anchor.y + lines))
+            .map_err(placed)?;
         let glyphs_of_line = shaper.line(text).map_err(placed)?;
         let advances: Vec<f64> = glyphs_of_line
             .iter()

@@ -1,6 +1,7 @@
 //! Glyph outlines: a glyph's contours in font units, and the `Path` they make at a place and size.
 
 use super::font::Font;
+use crate::geometry::{MAX_COORDINATE, is_coordinate};
 use crate::path::Builder;
 use crate::{Error, Path, Point};
 use read_fonts::model::glyph::outline::{DrawMemory, DrawOptions, OutlineGlyphs, PathElement};
@@ -48,15 +49,29 @@ impl<'a> Outlines<'a> {
 /// The path of `elements`, put at `origin` with `scale` design pixels to a font unit and the y axis turned down.
 ///
 /// # Errors
-/// [`Error::Parameter`] naming `point` if a coordinate comes out beyond ±1e100.
+/// [`Error::Parameter`] naming `size` if a coordinate comes out beyond ±1e100: the origin is within it, so it is the
+/// size of the glyph that carries the outline out.
 pub(super) fn path(elements: &[PathElement], origin: Point, scale: f64) -> Result<Path, Error> {
-    let at = |x: f32, y: f32| Point::new(origin.x + f64::from(x) * scale, origin.y - f64::from(y) * scale);
+    let at = |x: f32, y: f32| -> Result<Point, Error> {
+        let point = Point::new(origin.x + f64::from(x) * scale, origin.y - f64::from(y) * scale);
+        if is_coordinate(point.x) && is_coordinate(point.y) {
+            Ok(point)
+        } else {
+            Err(Error::parameter(
+                "size",
+                format!(
+                    "puts a glyph at ({:e}, {:e}), beyond ±{MAX_COORDINATE:e}",
+                    point.x, point.y
+                ),
+            ))
+        }
+    };
     let mut builder = Builder::new();
     for element in elements {
         match *element {
-            PathElement::MoveTo { x, y } => builder.move_to(at(x, y))?,
-            PathElement::LineTo { x, y } => builder.line_to(at(x, y))?,
-            PathElement::QuadTo { cx0, cy0, x, y } => builder.quad_to(at(cx0, cy0), at(x, y))?,
+            PathElement::MoveTo { x, y } => builder.move_to(at(x, y)?)?,
+            PathElement::LineTo { x, y } => builder.line_to(at(x, y)?)?,
+            PathElement::QuadTo { cx0, cy0, x, y } => builder.quad_to(at(cx0, cy0)?, at(x, y)?)?,
             PathElement::CurveTo {
                 cx0,
                 cy0,
@@ -64,7 +79,7 @@ pub(super) fn path(elements: &[PathElement], origin: Point, scale: f64) -> Resul
                 cy1,
                 x,
                 y,
-            } => builder.curve_to(at(cx0, cy0), at(cx1, cy1), at(x, y))?,
+            } => builder.curve_to(at(cx0, cy0)?, at(cx1, cy1)?, at(x, y)?)?,
             PathElement::Close => builder.close(),
         }
     }

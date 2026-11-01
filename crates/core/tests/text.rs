@@ -433,6 +433,27 @@ fn a_size_not_above_zero_is_refused_naming_the_step_and_the_value() -> Outcome {
 }
 
 #[test]
+fn a_size_tracking_or_leading_that_pushes_the_text_past_the_coordinates_names_that_argument() -> Outcome {
+    let font = fraunces()?;
+    // each row is the argument that did it, the text and options that put its glyphs beyond ±1e100, and what the message
+    // shows: the value of the argument, or for a size the place its glyph came to
+    let rows = [
+        ("size", "H", Text::new(&font).size(1e300), "e299"),
+        ("tracking", "HH", Text::new(&font).size(100.0).tracking(1e300), "1e300"),
+        ("leading", "H\nH", Text::new(&font).size(100.0).leading(1e300), "1e300"),
+    ];
+    for (argument, content, options, value) in rows {
+        let (parameter, message) = parameter_refusal(shapes_of(content, options))?;
+        assert_eq!(parameter, format!("source (text).{argument}"), "{message}");
+        assert!(
+            message.contains(value) && message.contains("1e100"),
+            "{argument}: {message}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn a_number_read_once_takes_a_param_but_never_a_list() -> Outcome {
     let size = Param::new("size", 100.0, 1.0, 1000.0)?;
     let drawing = text("Hi", Text::new(&fraunces()?).size(&size));
