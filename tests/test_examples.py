@@ -117,3 +117,39 @@ def test_poster_overlaps_two_multiply_inks_on_paper_and_keeps_its_stack_of_shape
     # the file the picture would be is well formed XML with one path per shape that has geometry
     root = ET.fromstring(found["svg"])  # noqa: S314  our own output
     assert len(root.findall("{http://www.w3.org/2000/svg}path")) == len(shapes)
+
+
+def test_kinetic_type_draws_a_shape_a_letter_inside_the_frame_and_a_kick_thickens_only_the_letter_it_hits(run):
+    found = run("kinetic_type")
+    letters = found["letters"]
+    calm = letters.shapes()
+    assert [shape.attributes["char"] for shape in calm] == list("NOSLEEP")
+    assert [shape.attributes["line"] for shape in calm] == [0, 0, 1, 1, 1, 1, 1]
+    for shape in calm:
+        bounds = shape.path.bounds
+        assert bounds.x >= 0
+        assert bounds.x + bounds.width <= 1080
+        assert bounds.y >= 0
+        assert bounds.y + bounds.height <= 1350
+
+    # `pulse` has an entry per character of "NO\nSLEEP": 8, the line break included. A kick on the N (entry 0) makes
+    # the N wider, and the letters after it follow its advance; the second line is untouched.
+    kicked = letters.shapes(pulse=[1, 0, 0, 0, 0, 0, 0, 0])
+    assert kicked[0].path.bounds.width > calm[0].path.bounds.width
+    assert kicked[1].path.bounds.width == pytest.approx(calm[1].path.bounds.width)
+    assert [shape.path for shape in kicked[2:]] == [shape.path for shape in calm[2:]]
+
+
+def test_kinetic_type_at_a_time_rises_the_plane_and_swaps_the_hairlines_for_the_print(run):
+    at_time = run("kinetic_type")["at_time"]
+    before, after = at_time(2.0).shapes(), at_time(4.0).shapes()
+    paper, plane, *rest = before
+    assert len(before) == len(after) == 1 + 1 + 7 + 7  # paper, plane, the letters printed, the letters as hairlines
+    assert paper.path.bounds == btvec.Rect(0, 0, 1080, 1350)
+    # half risen at 2 s (1 s in a rise of 2 s), all the way at 4 s
+    assert plane.path.bounds.y == 1350 / 2
+    assert after[1].path.bounds.y == 0
+    assert [shape.style.opacity for shape in rest] == [0.0] * 7 + [1.0] * 7
+    assert [shape.style.opacity for shape in after[2:]] == [1.0] * 7 + [0.0] * 7
+    # the kick starts on the beat at 4 s with the first letter, the next ones a little behind it
+    assert after[2].path.bounds.width > rest[0].path.bounds.width
