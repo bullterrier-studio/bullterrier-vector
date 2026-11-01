@@ -1,7 +1,9 @@
 """The WebAssembly gate can fail: `poe wasm-test` builds the package, runs it in Node against what the native extension
 answers, passes the workspace as it is, and fails, naming the test, for a defect in the glue (the sides of the output
-swapped, the values of the Params dropped, a wrong name on an error), for a build without the SIMD feature set and for
-an expected text that differs from the package's by one character.
+swapped, the values of the Params dropped, a wrong name on an error, a wrong pointer or length of the mesh, a PNG that
+is not the pixels), for a build without the SIMD feature set, for an expected text, pixel, hash or generation that
+differs from the package's (naming the drawing and the field), and for a star that differs between Python, Rust and
+Node.
 
 An architecture test of the tooling: its subject is the `wasm-test` task in pyproject.toml, so it runs that task, the
 way `uv run poe check` does, in a copy of the workspace into which one offence at a time is written. The copies share
@@ -30,6 +32,8 @@ WORKSPACE_FILES = [
     "deny.toml",
 ]
 GLUE = "crates/wasm/src/lib.rs"
+RUST_STAR = "crates/core/examples/star.rs"
+NODE_STAR = "crates/wasm/examples/star.mjs"
 ORACLE = "tests/wasm/oracle.py"
 
 
@@ -154,6 +158,18 @@ OFFENCES = {
         '"generation": mesh.generation,',
         '"generation": mesh.generation + 1,',
         ["✖ star: the mesh buffers are the native ones", "star 400x400: mesh"],
+    ),
+    "a Rust example that draws a bigger star": (
+        RUST_STAR,
+        "Path::star((200.0, 200.0), 150.0, 60.0, 5)",
+        "Path::star((200.0, 200.0), 151.0, 60.0, 5)",
+        ["✖ the SVG of the star is the same text from Python, Rust and Node", "Rust against Python"],
+    ),
+    "a Node example that draws at another size": (
+        NODE_STAR,
+        "process.stdout.write(star.toSvg(SIDE, SIDE))",
+        "process.stdout.write(star.toSvg(SIDE + 1, SIDE))",
+        ["✖ the SVG of the star is the same text from Python, Rust and Node", "Node against Python"],
     ),
 }
 

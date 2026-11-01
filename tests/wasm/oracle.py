@@ -7,6 +7,7 @@ difference is a defect in the glue, the target or the build. Usage: `python test
 
 import hashlib
 import json
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -295,6 +296,25 @@ def compared_corpus(pixels: Path) -> list[dict[str, Any]]:
     ]
 
 
+def rust_star(output: str) -> bytes:
+    """What the Rust example (crates/core/examples/star.rs) writes to standard output for `output`: svg, png or rgba."""
+    command = ["cargo", "run", "--quiet", "--locked", "-p", "bullterrier-vector", "--example", "star", "--", output]
+    return subprocess.run(command, cwd=ROOT, capture_output=True, check=True).stdout
+
+
+def star_everywhere(pixels: Path) -> dict[str, Any]:
+    """Milestone M1: the star from Python and from the Rust example, as SVG text and as pixels in files."""
+    star = star_drawing()
+    (pixels / "star-python.rgba").write_bytes(star.to_rgba(400, 400))
+    (pixels / "star-rust.rgba").write_bytes(rust_star("rgba"))
+    return {
+        "python_svg": star.to_svg(400, 400),
+        "rust_svg": rust_star("svg").decode("utf-8"),
+        "python_rgba_file": "star-python.rgba",
+        "rust_rgba_file": "star-rust.rgba",
+    }
+
+
 def main(output: Path) -> None:
     """Write the answers to `output`, and the native pixels of the corpus to a folder beside it."""
     star_json = star_drawing().to_json()
@@ -313,6 +333,7 @@ def main(output: Path) -> None:
             ),
         },
         "corpus": compared_corpus(output.parent / "oracle-pixels"),
+        "star": star_everywhere(output.parent / "oracle-pixels"),
         "refusals": [
             refused("fromJson", "not a document"),
             refused("fromJson", '{"version": 1, "drawings": {"a": [{"nope": 1}]}}'),
