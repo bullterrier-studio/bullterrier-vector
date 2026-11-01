@@ -119,6 +119,42 @@ OFFENCES = {
         '"svg": svg + " "}',
         ["✖ star: toSvg writes the text the native extension writes"],
     ),
+    "an expected SVG of a corpus drawing that differs by one character": (
+        ORACLE,
+        'drawing.to_svg(width, height, **values).encode("utf-8")',
+        '(drawing.to_svg(width, height, **values) + " ").encode("utf-8")',
+        ["✖ star: the svg text is the native one", "star 400x400: svg"],
+    ),
+    "the PNG replaced by the pixels": (
+        GLUE,
+        "self.0.to_png(vector::Size::px(width, height)",
+        "self.0.to_rgba(vector::Size::px(width, height)",
+        ["✖ star: the png holds the pixels of toRgba", "star 400x400: png"],
+    ),
+    "the pixels of the native side reversed": (
+        ORACLE,
+        "write_bytes(drawing.to_rgba(width, height, **values))",
+        "write_bytes(drawing.to_rgba(width, height, **values)[::-1])",
+        ["✖ star: the pixels look the native ones", "star 400x400: pixels", "channel values differ"],
+    ),
+    "the indices pointer of the mesh pointing at the vertices": (
+        GLUE,
+        "self.0.indices().as_ptr().addr()",
+        "self.0.vertices().as_ptr().addr()",
+        ["✖ star: the mesh buffers are the native ones", "star 400x400: mesh"],
+    ),
+    "a mesh length counted in bytes": (
+        GLUE,
+        "self.0.vertices().len()\n",
+        "self.0.vertices().len() * 4\n",
+        ["✖ star: the mesh buffers are the native ones", "star 400x400: mesh"],
+    ),
+    "an expected mesh generation that differs by one": (
+        ORACLE,
+        '"generation": mesh.generation,',
+        '"generation": mesh.generation + 1,',
+        ["✖ star: the mesh buffers are the native ones", "star 400x400: mesh"],
+    ),
 }
 
 

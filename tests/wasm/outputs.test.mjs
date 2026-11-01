@@ -67,8 +67,8 @@ function assertLookTheSame(expected, actual, width, label) {
 
 /** A PNG file read back: its chunk types, its header and its pixels as RGBA bytes (unfiltered by the rules of the PNG
  *  specification, which this does not share with the encoder). */
-function decodePng(bytes) {
-  assert.deepEqual([...bytes.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], "the PNG signature");
+function decodePng(bytes, label) {
+  assert.deepEqual([...bytes.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], `${label}: png signature`);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const types = [];
   const data = [];
@@ -94,7 +94,7 @@ function decodePng(bytes) {
   const { width, height } = header;
   const raw = inflateSync(Buffer.concat(data));
   const stride = width * 4;
-  assert.equal(raw.length, height * (stride + 1), "the decompressed size");
+  assert.equal(raw.length, height * (stride + 1), `${label}: png decompressed size`);
   const pixels = new Uint8Array(height * stride);
   for (let y = 0; y < height; y += 1) {
     const filter = raw[y * (stride + 1)];
@@ -107,7 +107,7 @@ function decodePng(bytes) {
       const paeth = [Math.abs(estimate - left), Math.abs(estimate - up), Math.abs(estimate - upLeft)];
       const nearest = paeth[0] <= paeth[1] && paeth[0] <= paeth[2] ? left : paeth[1] <= paeth[2] ? up : upLeft;
       const prediction = [0, left, up, (left + up) >> 1, nearest][filter];
-      assert.notEqual(prediction, undefined, `a PNG filter type 0 to 4, got ${filter}`);
+      assert.notEqual(prediction, undefined, `${label}: png filter type 0 to 4, got ${filter}`);
       pixels[y * stride + x] = (value + prediction) & 255;
     }
   }
@@ -162,7 +162,7 @@ for (const { name, json, draws } of native.corpus) {
   test(`${name}: the png holds the pixels of toRgba`, () => {
     each((draw, label) => {
       const png = drawing.toPng(draw.width, draw.height, draw.values);
-      const decoded = decodePng(png);
+      const decoded = decodePng(png, label);
       assert.deepEqual(decoded.types, ["IHDR", "IDAT", "IEND"], `${label}: png chunks`);
       assert.deepEqual(
         decoded.header,
