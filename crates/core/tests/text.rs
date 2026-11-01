@@ -186,6 +186,23 @@ fn a_line_stands_at_its_left_end_middle_or_right_end_against_the_anchor() -> Out
 }
 
 #[test]
+fn an_alignment_is_read_from_its_word_and_a_wrong_word_names_align() -> Outcome {
+    for (word, align) in [
+        ("left", Align::Left),
+        ("center", Align::Center),
+        ("right", Align::Right),
+    ] {
+        assert_eq!(Align::parse(word)?, align, "{word}");
+    }
+    for word in ["", "middle", "Left", "left "] {
+        let (parameter, message) = parameter_refusal(Align::parse(word))?;
+        assert_eq!(parameter, "align", "{word:?}");
+        assert!(message.contains(&format!("got {word:?}")), "{message}");
+    }
+    Ok(())
+}
+
+#[test]
 fn each_line_is_aligned_by_its_own_width() -> Outcome {
     // "H" is 1656 wide and "HH" 3312: right-aligned, the second line starts 1656 to the left of the first
     let shapes = shapes_of("H\nHH", at_em(&fraunces()?).align(Align::Right))?;

@@ -17,7 +17,7 @@ pub(crate) const DEFAULT_MITER_LIMIT: f64 = 4.0;
 const BLACK: Color = Color::hex(0x00_00_00);
 
 /// The refusal of `text` for the argument `argument`, which takes one of `words`.
-fn refused(argument: &str, words: &[&str], text: &str) -> Error {
+pub(crate) fn refused(argument: &str, words: &[&str], text: &str) -> Error {
     let listed = words
         .iter()
         .map(|word| format!("{word:?}"))

@@ -2,7 +2,8 @@
 
 use super::font::Font;
 use crate::node::{Given, text::TextNode};
-use crate::{Drawing, Expr, Point};
+use crate::shape::refused;
+use crate::{Drawing, Error, Expr, Point};
 use std::collections::BTreeMap;
 
 /// Where a line stands against the anchor of [`Text`].
@@ -39,6 +40,14 @@ impl Align {
             Self::Center => "center",
             Self::Right => "right",
         }
+    }
+
+    /// The alignment written as `text`, one of `"left"`, `"center"` or `"right"`.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `align` if `text` is none of them.
+    pub fn parse(text: &str) -> Result<Self, Error> {
+        Self::named(text).ok_or_else(|| refused("align", &Self::NAMES, text))
     }
 
     /// The alignment written as `name`.
