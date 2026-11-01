@@ -7,7 +7,7 @@ use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedBytes;
-use pyo3::types::{PyDict, PyString};
+use pyo3::types::{PyDict, PyMapping, PyMappingMethods, PyString};
 
 /// A TrueType or OpenType font, read from its bytes once. A font is its bytes: two fonts are the same when their bytes
 /// are, whatever name they carry.
@@ -67,6 +67,11 @@ pub(crate) fn bytes_of(what: &str, value: &Bound<'_, PyAny>) -> PyResult<PyBacke
     }
 }
 
+/// The entries of a mapping of any kind (a `dict` or not), as the stub promises.
+pub(crate) fn entries<'py>(mapping: &Bound<'py, PyMapping>) -> PyResult<Vec<(Bound<'py, PyAny>, Bound<'py, PyAny>)>> {
+    mapping.items()?.iter().map(|entry| entry.extract()).collect()
+}
+
 /// The whole number of a feature: any Python int in range.
 fn feature(tag: &str, value: &Bound<'_, PyAny>) -> PyResult<u32> {
     let Ok(number) = value.extract::<i128>() else {
@@ -93,8 +98,8 @@ pub(crate) fn text(
     content: &Bound<'_, PyString>,
     font: &Bound<'_, PyFont>,
     size: Option<Num>,
-    axes: Option<&Bound<'_, PyDict>>,
-    features: Option<&Bound<'_, PyDict>>,
+    axes: Option<&Bound<'_, PyMapping>>,
+    features: Option<&Bound<'_, PyMapping>>,
     tracking: Option<Num>,
     leading: Option<Num>,
     align: Option<&str>,
@@ -128,15 +133,15 @@ pub(crate) fn text(
         options = options.anchor(anchor);
     }
     if let Some(axes) = axes {
-        let axes = axes
-            .iter()
+        let axes = entries(axes)?
+            .into_iter()
             .map(|(tag, value)| Ok((tag.extract::<String>()?, value.extract::<Num>()?.0)))
             .collect::<PyResult<Vec<_>>>()?;
         options = options.axes(axes);
     }
     if let Some(features) = features {
-        let features = features
-            .iter()
+        let features = entries(features)?
+            .into_iter()
             .map(|(tag, value)| {
                 let tag = tag.extract::<String>()?;
                 let value = feature(&tag, &value)?;

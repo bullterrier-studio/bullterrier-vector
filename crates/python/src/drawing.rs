@@ -3,12 +3,12 @@
 use crate::expr::{Num, PyExpr, PyParam};
 use crate::mesh::PyMesh;
 use crate::shape::PyShape;
-use crate::text::bytes_of;
+use crate::text::{bytes_of, entries};
 use crate::{PyPath, PyPoint, exception, raised};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyList, PyMapping, PyString, PyTuple};
 
 /// An immutable tree of steps that draws shapes. Every step returns a new drawing and leaves this one alone; a drawing
 /// holds no callbacks, so it draws again with new values.
@@ -283,7 +283,7 @@ impl PyDrawing {
     /// The drawing a JSON document describes, given the bytes of the inputs it names (its fonts) by name.
     #[staticmethod]
     #[pyo3(signature = (text, *, inputs=None))]
-    fn from_json(py: Python<'_>, text: &Bound<'_, PyString>, inputs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+    fn from_json(py: Python<'_>, text: &Bound<'_, PyString>, inputs: Option<&Bound<'_, PyMapping>>) -> PyResult<Self> {
         // a `str` holding a lone surrogate has no UTF-8 form: that is a problem in the text, so a `FormatError`
         let text = text.to_str().map_err(|_| {
             exception(&vector::Error::Format {
@@ -293,7 +293,7 @@ impl PyDrawing {
         })?;
         let mut supplied = vector::Inputs::new();
         if let Some(inputs) = inputs {
-            for (name, bytes) in inputs {
+            for (name, bytes) in entries(inputs)? {
                 let bytes = bytes_of(&format!("inputs[{name}]"), &bytes)?;
                 supplied = supplied.set(name.extract::<String>()?, bytes.to_vec());
             }

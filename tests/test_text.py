@@ -9,6 +9,7 @@ import re
 from collections.abc import Mapping
 from io import BytesIO
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import pytest
@@ -522,6 +523,14 @@ def test_a_bad_argument_is_refused_naming_the_argument_and_the_value(
     arguments: dict[str, Any] = {"font": FRAUNCES, **options}
     with pytest.raises(kind, match=named):
         btvec.text("fi", **arguments)
+
+
+def test_axes_features_and_inputs_may_be_any_mapping_as_the_stub_says() -> None:
+    text = btvec.text("H", font=FRAUNCES, axes={"wght": 700}, features={"liga": 0})
+    given = btvec.text("H", font=FRAUNCES, axes=MappingProxyType({"wght": 700}), features=MappingProxyType({"liga": 0}))
+    assert given.to_json() == text.to_json()
+    loaded = btvec.Drawing.from_json(text.to_json(), inputs=MappingProxyType({"fraunces": FRAUNCES_BYTES}))
+    assert loaded.to_json() == text.to_json()
 
 
 def test_a_content_that_is_not_text_or_holds_a_lone_surrogate_is_refused_naming_content() -> None:
