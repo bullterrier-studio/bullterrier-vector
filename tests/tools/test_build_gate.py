@@ -157,7 +157,9 @@ def test_a_distribution_without_the_licences_of_the_bundled_fonts_fails_the_gate
     pyproject.write_text(text.replace(listing, 'license-files = ["LICENSE"]'), encoding="utf-8")
     verdict = build_check()
     assert verdict.returncode != 0
-    # the font licences are found in the checkout, not in the list the build was told: both distributions lack them
-    assert ".tar.gz: lacks the licence file" in verdict.report
-    assert "crates/core/fonts/fraunces/OFL.txt" in verdict.report
-    assert ".whl: lacks the licence file" in verdict.report
+    # the font licences are found in the checkout, not in the list the build was told: the wheel lacks them (the sdist
+    # carries every file of the crates, so it has them whatever the list says)
+    assert (
+        ".whl: lacks the licence file crates/core/fonts/bricolage_grotesque/OFL.txt, crates/core/fonts/fraunces/OFL.txt"
+        in (verdict.report)
+    )
