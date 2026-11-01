@@ -361,7 +361,7 @@ proptest! {
             let baseline = line * 1.2 * size;
             let (top, bottom) = (bounds.y, bounds.y + bounds.height);
             prop_assert!(top >= baseline - 0.74 * size && bottom <= baseline + 0.02 * size, "{:?} on baseline {}", bounds, baseline);
-            let characters = content.chars().count() as f64;
+            let characters: f64 = content.chars().map(|_| 1.0).sum();
             let reach = characters * (1.04 + tracking.abs() / 1000.0) * size;
             prop_assert!(bounds.x >= -reach && bounds.x + bounds.width <= reach, "{:?} within ±{}", bounds, reach);
         }
