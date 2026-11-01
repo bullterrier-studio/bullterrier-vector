@@ -212,7 +212,7 @@ def test_a_bad_argument_is_a_parameter_error_naming_it_and_nothing_is_drawn_or_w
     clock = Clock()
     arguments = {"width": 4, "height": 4, "fps": 30, "seconds": 1, "out": "frames/badge-####.png"} | kwargs
 
-    with pytest.raises(btvec.ParameterError, match=named):
+    with pytest.raises(btvec.ParameterError, match=f"{named} must"):
         btvec.frames(clock, **arguments)
 
     assert clock.times == []
