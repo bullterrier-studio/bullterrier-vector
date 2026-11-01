@@ -12,7 +12,7 @@ use common::{Outcome, parameter_refusal};
 use proptest::prelude::*;
 
 const FRAUNCES_SHA: &str = "2c195cc254a3208dedaf708afac6634f8bda80c9346c06fa07f86a44462c805f";
-const SYNTHETIC_SHA: &str = "9eb80450cca3e7fbaf83143e892d78e04884dc2df43e9f08fd8d4c426e0afcfb";
+const SYNTHETIC_SHA: &str = "036d2037d950dac9a8ce1455b79f941f5833a001d73cc0210ae6b6286d3cc659";
 
 fn one_font() -> Inputs {
     Inputs::new().set("anybody", FRAUNCES)

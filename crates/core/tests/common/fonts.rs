@@ -16,19 +16,21 @@
 //!
 //! `synthetic.ttf` is made by this script (`uvx --from fonttools python script.py`): `A` is a chain of 64 composites
 //! (the deepest the reader draws), each placing the one before with a scaled offset; `B` is a glyph of 3999 straight
-//! segments.
+//! segments; `C` is a square that the `kern` feature moves by (50, 20) without moving the pen (HarfBuzz: x_advance 500,
+//! x_offset 50, y_offset 20).
 //!
 //! ```python
 //! import math
+//! from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 //! from fontTools.fontBuilder import FontBuilder
 //! from fontTools.pens.ttGlyphPen import TTGlyphPen
 //! from fontTools.ttLib.tables._g_l_y_f import GlyphComponent, Glyph, SCALED_COMPONENT_OFFSET
 //! DEPTH = 64   # the deepest nesting of components read-fonts draws
 //! POINTS = 4000  # the corners of the heavy glyph
 //! fb = FontBuilder(1000, isTTF=True)
-//! names = [".notdef"] + [f"g{i}" for i in range(DEPTH + 1)] + ["heavy"]
+//! names = [".notdef"] + [f"g{i}" for i in range(DEPTH + 1)] + ["heavy", "C"]
 //! fb.setupGlyphOrder(names)
-//! fb.setupCharacterMap({0x41: f"g{DEPTH}", 0x42: "heavy"})
+//! fb.setupCharacterMap({0x41: f"g{DEPTH}", 0x42: "heavy", 0x43: "C"})
 //! pen = TTGlyphPen(None)
 //! pen.moveTo((0, 0)); pen.lineTo((0, 100)); pen.lineTo((100, 100)); pen.lineTo((100, 0)); pen.closePath()
 //! glyphs = {".notdef": TTGlyphPen(None).glyph(), "g0": pen.glyph()}
@@ -49,12 +51,14 @@
 //!     pen.lineTo(corner)
 //! pen.closePath()
 //! glyphs["heavy"] = pen.glyph()
+//! glyphs["C"] = glyphs["g0"]  # a square, moved by the kern feature
 //! fb.setupGlyf(glyphs)
 //! fb.setupHorizontalMetrics({n: (500, 0) for n in names})
 //! fb.setupHorizontalHeader(ascent=800, descent=-200)
 //! fb.setupNameTable({"familyName": "Synthetic", "styleName": "Regular"})
 //! fb.setupOS2()
 //! fb.setupPost()
+//! addOpenTypeFeaturesFromString(fb.font, "feature kern { pos C <50 20 0 0>; } kern;")
 //! fb.save("synthetic.ttf")
 //! ```
 #![allow(dead_code, reason = "each test file uses a different part")]

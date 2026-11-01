@@ -72,6 +72,18 @@ fn a_glyph_follows_the_one_before_by_the_advance_the_shaper_gives() -> Outcome {
 }
 
 #[test]
+fn a_glyph_the_font_moves_without_moving_the_pen_is_drawn_moved() -> Outcome {
+    // synthetic.ttf, 1000 to the em: the square C (0 0 to 100 100) is moved by (50, 20) with an advance of 500
+    // (HarfBuzz: `'AC' [('g64', 0, 500, 0, 0), ('C', 1, 500, 50, 20)]`); y points down
+    let font = synthetic()?;
+    let one = shapes_of("C", Text::new(&font).size(1000.0))?;
+    assert_eq!(one[0].path().to_svg_path(), "M50 -20 L50 -120 L150 -120 L150 -20 Z");
+    let after = shapes_of("CC", Text::new(&font).size(1000.0))?;
+    assert_eq!(after[1].path().to_svg_path(), "M550 -20 L550 -120 L650 -120 L650 -20 Z");
+    Ok(())
+}
+
+#[test]
 fn the_fi_ligature_is_one_shape_and_a_space_keeps_it_apart() -> Outcome {
     let font = fraunces()?;
     let ligature = shapes_of("fi", at_em(&font))?;
