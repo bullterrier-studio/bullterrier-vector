@@ -48,7 +48,7 @@ for (const { call, json, width, height, values, name, message } of native.refusa
     if (call === "fromJson") {
       assert.throws(() => Drawing.fromJson(json), refusal);
     } else {
-      assert.throws(() => Drawing.fromJson(json).toSvg(width, height, values), refusal);
+      assert.throws(() => Drawing.fromJson(json)[call](width, height, values), refusal);
     }
   });
 }
