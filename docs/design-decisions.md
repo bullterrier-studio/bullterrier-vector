@@ -510,7 +510,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   call: a Param can feed them a number, never a list (a list has an entry per shape, and a text has none until it is
   drawn). The check is `Expr::value`, which already refuses a list, so no second rule exists.
 - **The origin of a glyph** (2026-11-01): the middle of its advance, half the font's cap height (`OS/2`) above its
-  baseline, where api.md says a glyph turns and scales. A font that states no cap height gets 0.7 em
+  baseline, where api.md says a glyph turns and scales. A font that states no cap height (none, or `sCapHeight` 0) gets 0.7 em
   (`CAP_HEIGHT`, which only places `origin`).
 
 ## Engineering

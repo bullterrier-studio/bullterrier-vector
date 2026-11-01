@@ -13,7 +13,7 @@ use std::rc::Rc;
 // constant: api.md, `text`: "leading: pixels between baselines; default 1.2 x size"
 const LEADING: f64 = 1.2;
 
-/// The height of a capital, in ems, for a font that states none (a font without `OS/2` version 2).
+/// The height of a capital, in ems, for a font that states none (no `OS/2` version 2, or a `sCapHeight` of 0).
 // constant: the cap height of the common text faces is 0.68 to 0.72 em; it only places the `origin` attribute
 const CAP_HEIGHT: f64 = 0.7;
 
@@ -65,7 +65,9 @@ pub(crate) fn typeset(font: &Font, content: &str, settings: &Settings, cx: &Cont
     let leading = settings.leading.unwrap_or(LEADING * settings.size);
     let cap_height = metrics
         .cap_height
-        .map_or(CAP_HEIGHT * units_per_em, read_fonts::types::F48Dot16::to_f64)
+        .map(read_fonts::types::F48Dot16::to_f64)
+        .filter(|height| *height > 0.0)
+        .unwrap_or(CAP_HEIGHT * units_per_em)
         * scale;
     let shaper = Shaper::new(font);
     let mut outlines = Outlines::new(font);

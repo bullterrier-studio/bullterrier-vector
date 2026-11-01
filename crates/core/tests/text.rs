@@ -300,6 +300,16 @@ fn each_shape_carries_glyph_char_word_line_order_and_origin() -> Outcome {
 }
 
 #[test]
+fn a_font_that_states_a_cap_height_of_zero_gets_the_default_for_the_origin() -> Outcome {
+    // synthetic.ttf has OS/2 version 4 with sCapHeight 0, which states no height: the origin is 0.7 x 1000 / 2 above
+    // the baseline, and the middle of the advance of 500
+    let shapes = shapes_of("C", Text::new(&synthetic()?).size(1000.0))?;
+    let at = shapes[0].attributes().origin().ok_or("no origin")?;
+    assert_eq!((at.x, at.y), (250.0, -350.0));
+    Ok(())
+}
+
+#[test]
 fn a_single_glyph_has_order_zero() -> Outcome {
     let shapes = shapes_of("H", at_em(&fraunces()?))?;
     assert_eq!(shapes[0].attributes().order(), Some(0.0));
