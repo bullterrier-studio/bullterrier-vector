@@ -241,12 +241,12 @@ def text(
     content: str,
     *,
     font: Font,
-    size: _Num = 100,
+    size: _Num | None = None,
     axes: Mapping[str, _Num] | None = None,
     features: Mapping[str, int] | None = None,
-    tracking: _Num = 0,
+    tracking: _Num | None = None,
     leading: _Num | None = None,
-    align: str = "left",
-    anchor: _PointLike = (0, 0),
+    align: str | None = None,
+    anchor: _PointLike | None = None,
 ) -> Drawing: ...
 def drawing_schema() -> str: ...

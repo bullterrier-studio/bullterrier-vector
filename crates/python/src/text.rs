@@ -85,7 +85,7 @@ fn feature(tag: &str, value: &Bound<'_, PyAny>) -> PyResult<u32> {
 
 /// A drawing of `content` in `font`: one shape for every glyph that has an outline (a space or a line break has none),
 /// shaped with kerning, ligatures and the rules of the script. `"\n"` breaks a line. What is left out takes the
-/// defaults of the core.
+/// defaults of the core: `size` 100, `tracking` 0, `leading` 1.2 times the size, `align` `"left"`, `anchor` `(0, 0)`.
 #[pyfunction]
 #[pyo3(signature = (content, *, font, size=None, axes=None, features=None, tracking=None, leading=None, align=None, anchor=None))]
 #[expect(clippy::too_many_arguments, reason = "the arguments of the Python call, one for one")]
