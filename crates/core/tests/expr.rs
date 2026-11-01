@@ -343,6 +343,43 @@ fn an_expression_a_million_levels_deep_is_refused_and_dropped_without_a_crash() 
     Ok(())
 }
 
+/// The smallest thread stack the library supports (docs/design-decisions.md, "Bounded depth"), in bytes.
+const SMALLEST_STACK: usize = 128 * 1024;
+
+#[test]
+fn a_million_level_expression_is_printed_compared_and_dropped_on_the_smallest_stack() -> Outcome {
+    // a loop builds it, since operators never fail; nothing a caller can do to it may overflow a small stack
+    let handle = std::thread::Builder::new().stack_size(SMALLEST_STACK).spawn(|| {
+        let run = || -> Outcome {
+            let x = param("x", 1.0)?;
+            let (mut sum, mut same, mut negated) = (Expr::from(&x), Expr::from(&x), Expr::from(1.0));
+            for _ in 0..1_000_000 {
+                sum = sum + &x;
+                same = same + &x;
+                negated = -negated;
+            }
+            let clone = sum.clone();
+            assert_eq!(sum, clone);
+            assert_eq!(sum, same, "built the same way");
+            assert_ne!(sum, negated);
+            assert!(
+                sum.to_string().len() < 200,
+                "it prints in a few words, not a million levels"
+            );
+            assert!(format!("{sum:?}").len() < 1000);
+            parameter_refusal(value(&sum))?;
+            drop(sum);
+            drop(same);
+            drop(negated);
+            parameter_refusal(value(&clone))?;
+            Ok(())
+        };
+        run().map_err(|error| error.to_string())
+    })?;
+    handle.join().map_err(|_| "the thread panicked")??;
+    Ok(())
+}
+
 // Against plain arithmetic ------------------------------------------------------------------------------------------
 
 /// An expression tree, written as data so the same tree can be built as an `Expr` and worked out on plain numbers.

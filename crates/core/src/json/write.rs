@@ -216,6 +216,7 @@ impl<'a> Writer<'a> {
         Ok(match expr.view() {
             View::Const(number) => Json::Number(number),
             View::Param(param) => Json::object([("param", Json::text(param.name()))]),
+            View::TooDeep => return Err(expr.too_deep()),
             View::Neg(inner) => Json::object([("neg", self.expression(inner)?)]),
             View::Binary(op, left, right) => {
                 let (left, right) = (self.expression(left)?, self.expression(right)?);

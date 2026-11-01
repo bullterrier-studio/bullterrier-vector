@@ -27,6 +27,8 @@ pub(crate) enum View<'a> {
     Neg(&'a Expr),
     /// `left op right`, the operands in the order the canonical form writes them.
     Binary(Op, &'a Expr, &'a Expr),
+    /// An expression deeper than [`MAX_DEPTH`], which has no operands to show.
+    TooDeep,
 }
 
 impl Op {
@@ -56,6 +58,12 @@ enum Node {
     Param(Param),
     Neg(Expr),
     Binary(Op, Expr, Expr),
+    /// An expression more than [`MAX_DEPTH`] levels deep, built from an operand that already was or that went one past.
+    /// It keeps no operands, only the depth, size and Param flag of its [`Tree`], which is all the error that refuses it
+    /// needs; so no tree, whatever a loop builds, is more than `MAX_DEPTH` levels of operands deep, and every walk of one
+    /// (printing, comparing, dropping, evaluating) has a bounded stack by construction. Two of them are equal when their
+    /// depth, size and Param flag are; both are refused when used.
+    TooDeep,
 }
 
 /// A node with what is known of the tree below it, worked out when it is built so that asking costs nothing.
@@ -77,7 +85,7 @@ impl Node {
         match std::mem::replace(self, Self::Const(0.0)) {
             Self::Neg(operand) => into.push(operand),
             Self::Binary(_, left, right) => into.extend([left, right]),
-            Self::Const(_) | Self::Param(_) => {}
+            Self::Const(_) | Self::Param(_) | Self::TooDeep => {}
         }
     }
 }
@@ -125,13 +133,23 @@ impl Expr {
         let depth = 1 + left.0.depth.max(right.0.depth);
         let reads_param = left.0.reads_param || right.0.reads_param;
         let nodes = left.0.nodes.saturating_add(right.0.nodes).saturating_add(1);
-        Self::new(Node::Binary(op, left, right), depth, reads_param, nodes)
+        let node = if depth > MAX_DEPTH {
+            Node::TooDeep
+        } else {
+            Node::Binary(op, left, right)
+        };
+        Self::new(node, depth, reads_param, nodes)
     }
 
     fn negate(inner: Self) -> Self {
         let (depth, reads_param) = (1 + inner.0.depth, inner.0.reads_param);
         let nodes = inner.0.nodes.saturating_add(1);
-        Self::new(Node::Neg(inner), depth, reads_param, nodes)
+        let node = if depth > MAX_DEPTH {
+            Node::TooDeep
+        } else {
+            Node::Neg(inner)
+        };
+        Self::new(node, depth, reads_param, nodes)
     }
 
     /// How tightly the expression binds when it is an operand: `+` and `-` loosest, then `*` and `/`, then
@@ -140,7 +158,7 @@ impl Expr {
         match &self.0.node {
             Node::Binary(Op::Add | Op::Sub, ..) => 1,
             Node::Binary(Op::Mul | Op::Div, ..) => 2,
-            Node::Const(_) | Node::Param(_) | Node::Neg(_) => 3,
+            Node::Const(_) | Node::Param(_) | Node::Neg(_) | Node::TooDeep => 3,
         }
     }
 
@@ -185,6 +203,7 @@ impl Expr {
                 let (first, second) = Self::in_canonical_order(*op, left, right);
                 View::Binary(*op, first, second)
             }
+            Node::TooDeep => View::TooDeep,
         }
     }
 
@@ -219,10 +238,7 @@ impl Expr {
     /// evaluate anything.
     pub(crate) fn check_limits(&self) -> Result<(), Error> {
         if self.0.depth > MAX_DEPTH {
-            return Err(Error::parameter(
-                "expression",
-                format!("is {} levels deep, but at most {MAX_DEPTH} are accepted", self.0.depth),
-            ));
+            return Err(self.too_deep());
         }
         if self.0.nodes > MAX_EXPR_NODES {
             return Err(Error::parameter(
@@ -236,11 +252,19 @@ impl Expr {
         Ok(())
     }
 
+    /// The error that refuses an expression deeper than [`MAX_DEPTH`].
+    pub(crate) fn too_deep(&self) -> Error {
+        Error::parameter(
+            "expression",
+            format!("is {} levels deep, but at most {MAX_DEPTH} are accepted", self.0.depth),
+        )
+    }
+
     /// Adds the Params this expression reads to `into`, left to right, each time it reads one. The depth must have
     /// been checked.
     pub(crate) fn collect_params(&self, into: &mut Vec<Param>) {
         match &self.0.node {
-            Node::Const(_) => {}
+            Node::Const(_) | Node::TooDeep => {}
             Node::Param(param) => into.push(param.clone()),
             Node::Neg(inner) => inner.collect_params(into),
             Node::Binary(_, left, right) => {
@@ -282,6 +306,7 @@ impl Expr {
                     }
                 }
             },
+            Node::TooDeep => return Err(self.too_deep()),
             Node::Neg(inner) => -inner.evaluate(values, item)?,
             Node::Binary(op, left, right) => {
                 let (left, right) = (left.evaluate(values, item)?, right.evaluate(values, item)?);
@@ -332,6 +357,7 @@ impl Keyed for Expr {
                 key.word(2);
                 key.of(inner);
             }
+            Node::TooDeep => key.word(4),
             Node::Binary(op, left, right) => {
                 key.word(3);
                 key.word(match op {
@@ -379,6 +405,7 @@ impl fmt::Display for Expr {
             Node::Const(number) => write!(formatter, "{number}"),
             Node::Param(param) => formatter.write_str(param.name()),
             Node::Neg(inner) => write!(formatter, "-({inner})"),
+            Node::TooDeep => write!(formatter, "(an expression {} levels deep)", self.0.depth),
             Node::Binary(op, left, right) => {
                 let rank = self.rank();
                 // operators of one rank read left to right, so only a right operand of the same rank needs them
