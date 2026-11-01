@@ -494,9 +494,12 @@ checked before the first byte is read. What the schema states value by value (ve
 range of a literal, the rules of an expression) is found while reading, before `drawing-declared`; the listed checks
 then run in their order. `with-values` and `call-checks` need the calls made, so the first failure of the first kind
 anywhere in the document is reported before the first of the second. A value a call refuses is a `FormatError` at the
-value's pointer with the call's own message. `input-declared`, `font-checks` and `inputs-supplied` wait for the first call
-that reads an input: until then a document that declares an input is refused by `input-used`, and `from_json` takes no
-`inputs`.
+value's pointer with the call's own message. As built (V5a), fonts are the one input kind that a call reads (`text`'s
+`font`): `input-declared` and `input-used` run with the other checks on the document, a `map` input is refused by
+`input-used` until a call reads maps, and `font-checks` has nothing to check until `text` takes axes and features (V5b).
+`inputs-supplied` needs the fonts to make the calls, so it runs before the drawing is built: a document that has both a
+`with-values` failure and a missing input reports the input. Its refusals are `ParameterError`s naming `inputs.` and the
+input; of the two bytes problems, a font the library cannot read is reported before a `sha256` that does not match.
 
 ## Extension
 

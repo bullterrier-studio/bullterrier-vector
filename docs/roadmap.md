@@ -426,9 +426,15 @@ tolerance, skipping with a stated reason without ffmpeg).
 - Fonts from bytes: OpenType, TrueType, variable fonts; two or three open-licence fonts bundled. Whether WOFF and WOFF2
   load, or need unpacking first, is checked here.
 - Shaping with ligatures, kerning, complex scripts and OpenType features; glyph outlines as shapes with attributes
-  (index in text, word, line; order 0..1); overlapping contours removed, so every glyph is a valid region.
+  (index in text, word, line; order 0..1). Overlapping contours are removed in V8 with the booleans (mesh and pixels
+  fill nonzero, so unresolved overlaps draw right meanwhile).
 - Variable axes (weight, width, slant, custom) as parameters of the text node; per-glyph axis values, with advances that
   follow them.
+
+State: V5a is done (Rust, through JSON): `Font`, `text(content, Text::new(&font).size(..).tracking(..).leading(..)
+.align(..).anchor(..))` with the attributes, `Inputs` and `Drawing::from_json(text, &inputs)`, `to_json` writing `inputs`
+with `sha256`. V5b (axes, per-glyph axes, features), V5c (Python and WebAssembly bindings, examples, the native-against-
+WebAssembly differential, re-measuring) and V5d (WOFF and WOFF2, bundled fonts) follow.
 
 ## V6 Layout
 
@@ -446,7 +452,9 @@ Done when: a word draws on letter by letter and scatters by index with no text-s
 ## V8 Booleans
 
 Union, subtract, intersect, exclude, on any shapes. The riskiest batch: build on an existing crate, fuzz with random and
-degenerate paths (overlaps, touching edges, tiny segments), document what fails.
+degenerate paths (overlaps, touching edges, tiny segments), document what fails. Also here: removing the overlaps
+between the contours of a glyph (`text` keeps the font's contours until then), so that every glyph outline is a valid
+region in the canonical form of api.md.
 
 ## V9 Offsets
 

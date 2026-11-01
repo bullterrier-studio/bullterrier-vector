@@ -74,7 +74,8 @@ closed constructors below start at the top and run clockwise.
 Every outline the library makes (`text`, `trace`, booleans, `offset`, `outline`) is in one canonical form, whatever the
 source (TrueType outlines run clockwise, CFF ones counter-clockwise): outer contours run clockwise and holes
 counter-clockwise; outer contours come in order of their topmost point (top to bottom, then left to right), each
-followed by its holes in the same order. A draw-on therefore runs the same way on every glyph of every font. Where two
+followed by its holes in the same order. A draw-on therefore runs the same way on every glyph of every font (until V8
+resolves overlaps, a `text` outline is the font's own contours, in its order and direction). Where two
 points of an outline are nearly as high (a raised hand beside the head), the topmost can change from one map to the next
 and the start jumps between them, moving everything measured from it: `point_at`, `tangent_at`, `locate`, `slice`,
 `dash` and `along(start=)`. Each of these takes `near=point`, which measures every closed sub-path from its point
@@ -171,7 +172,8 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | `morph` | `morph(target, fraction)` | the outline `fraction` 0..1 of the way to `target`, points matched when their counts differ; on a `Drawing`, shapes pair by index | on a `Drawing`, different shape counts |
 | `hatch` | `hatch(*, spacing=8, tone=None, flow=None, avoid=None)` | each region filled with evenly spaced open lines (below) | below |
 
-Booleans and offsets hold on overlapping, rotated glyphs (`text` makes every glyph outline a valid region). Where an
+Booleans and offsets hold on overlapping, rotated glyphs (V8 resolves the overlaps of glyph outlines; `text` keeps the
+font's contours until then). Where an
 outline cannot be resolved into a region, the verb raises `GeometryError` naming the verb and the shape's index; V8
 documents the cases. On a `Drawing`, `other` is a `Drawing` or a `Path`; each shape is combined with the union of
 `other`'s shapes. A deformer's result is smooth at any size, however few points the outline had; V12 adds `twist` and
@@ -271,7 +273,8 @@ Functions of the module that return a `Drawing`.
 
 `text(content, *, font, size=100, axes={}, features={}, tracking=0, leading=None, align="left", anchor=(0, 0),
 width=None, fit=None, inside=None)`: one shape per drawn glyph (a space or a line break gives none), shaped with
-kerning, ligatures and complex scripts, each outline a valid region (overlapping contours removed).
+kerning, ligatures and complex scripts, each outline the font's own contours (they may overlap and fill nonzero until
+V8 removes the overlaps).
 
 | Argument | Meaning |
 |---|---|
@@ -287,6 +290,12 @@ kerning, ligatures and complex scripts, each outline a valid region (overlapping
 | `width` | lines wrap to this width; with `fit`, each line is made exactly this wide |
 | `fit` | an axis tag or `"size"`: solved per line so the line is `width` wide, once, at the reference pose (every Param at its default, whatever `with_values` fixed), so the fit never changes from frame to frame and live values may overflow |
 | `inside` | a `Path`: lines wrap to its width at each baseline (V6) |
+
+Built so far: `content`, `font`, `size`, `tracking`, `leading`, `align` and `anchor`, as a Rust `text(content, Text::new(&font)
+.size(..))` (V5a); `axes` and `features` come in V5b, `width`, `fit` and `inside` in V6. Each line is shaped as one run in
+the script and direction of its first strong character (no reordering inside a line); `glyph` counts the shapes made,
+`word` the runs of non-whitespace characters over the whole text, `line` the lines, and `origin` is the middle of the
+advance at half the cap height above the baseline.
 
 Errors (`ParameterError`): an axis or feature the font lacks (the message lists the font's), an axis value outside the
 font's range, `fit` without `width`, `fit` on an axis also given in `axes`, and a line `fit` cannot make `width` wide
@@ -431,7 +440,7 @@ opens nothing.
 | `to_plotter_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
 | `to_mesh` | `to_mesh(width, height, /, *, into=None, **values)` | triangles for the picture (below) |
 | `to_json` | `to_json()` | the drawing as JSON: the same tree written down |
-| `Drawing.from_json` | `Drawing.from_json(text, *, inputs={})` | the drawing back, given the bytes of its inputs by name; it draws to identical bytes. A static method; `inputs` arrives with the first call that reads one, until then a document that declares an input is refused |
+| `Drawing.from_json` | `Drawing.from_json(text, *, inputs={})` | the drawing back, given the bytes of its inputs by name; it draws to identical bytes. A static method. In Rust `Drawing::from_json(text, &Inputs::new().set("anybody", bytes))`; Python and JavaScript get `inputs` in V5c |
 | `drawing_schema` | `btvec.drawing_schema()` | the JSON Schema of the format, as text, generated from the registered calls |
 
 In JavaScript (the package built from `crates/wasm`) a document loads with `Drawing.fromJson(text)`; a drawing has
@@ -689,7 +698,7 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 | 1 | Per-glyph variable-font layout that re-flows; tracking, stacked lines, fitting at a reference pose, outlines cached by axis location | `text(axes=..., tracking=, leading=, width=, fit=)`, per-item numbers in `axes`; caching is internal |
 | 2 | Evenly spaced streamlines with spacing from a tone, region masks, obstacles, closed loops; line fields and distance fields | `hatch(spacing=(a, b), tone=, flow=, avoid=)` inside each shape; `Flow.noise`, `Flow.contour`, `flow.mix`; `Field.distance` |
 | 3 | Steady tracing over a sequence of maps: smoothing and hole persistence | `trace(before=, after=, sigma=)` |
-| 4 | Booleans that hold on overlapping, rotated glyphs; ink layers from them | `union`, `subtract`, `intersect`, `exclude`; glyphs made valid regions by `text`; inks as drawings with `blend("multiply")` ([kinetic_type.py](examples/kinetic_type.py)) |
+| 4 | Booleans that hold on overlapping, rotated glyphs; ink layers from them | `union`, `subtract`, `intersect`, `exclude`; glyph overlaps resolved by V8; inks as drawings with `blend("multiply")` ([kinetic_type.py](examples/kinetic_type.py)) |
 | 5 | Shrink and grow per layer; dropping small parts and filling small holes | `offset(r).offset(-r)`, `offset(-r).offset(r)`; `drop_parts`, `fill_holes` |
 | 6 | Per-item transforms about a typographic origin; seeded randomness and stagger by index as one mechanism | `translate`, `rotate`, `scale` about each shape's origin; `by_index`, `by_order`, `random`, `stagger`; lists at draw time |
 | 7 | Curve fitting through dense polylines | `simplify`; `trace(tolerance=)` |

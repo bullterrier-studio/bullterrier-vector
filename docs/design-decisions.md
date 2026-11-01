@@ -475,6 +475,44 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   (declared by the new `Domain::Painting`, so the schema states what the call check refuses, and the check is the
   domain's, so the schema and the check cannot drift). The draft was changed to match.
 
+## Fonts (V5a)
+
+- **`read-fonts` and `harfrust`, pinned exactly, no `std`** (2026-11-01). A font is read, outlined and shaped by
+  `read-fonts` (its font model draws unhinted outlines in font units and reads the variation location) and `harfrust` (the
+  Rust port of HarfBuzz, which reads that same font). `skrifa` is not used: `read-fonts` 0.46 draws outlines itself.
+  `rustybuzz` is archived, `ttf-parser` is in maintenance, `swash` pins an older `skrifa`, `parley` is a whole layout
+  engine. Both crates are built with `default-features = false, features = ["libm"]`: with `std` the composite-glyph
+  offsets (`hypot`) and rounding go to the platform's maths, which differs between targets. Cargo unifies features
+  across the workspace, so `poe rust-fonts` reads `cargo tree` and fails when either has `std`. Outlines are drawn
+  unhinted in font units and scaled by `size / units_per_em` in `f64` here, so the scale is ours. *Reason:* rule 2
+  (the same bytes on every target) and rule 3 (no platform maths). *Consequence:* a new release may move a glyph or a
+  shaping result, so the pins are exact and a bump is deliberate. Not yet proven: that native and WebAssembly give the
+  same outline bytes for a composite glyph (V5c's differential test).
+- **A font is its bytes** (2026-11-01). `Font::new` reads the bytes once and refuses what the library cannot shape (a
+  collection, Type 1, bare CFF, over `MAX_FONT_BYTES` of 32 MiB, no outlines, units per em outside 16 to 16384), so
+  a `Font` that exists is usable and nothing downstream checks it again. It is keyed in the cache by the SHA-256 of
+  its bytes, not by the bytes (a key is compared, and a font is megabytes) and not by its name: the same bytes under
+  two names are one step, and a document names the bytes it was drawn with. *Consequence:* `to_json` writes one `inputs`
+  entry per byte string with `sha256`; two names for equal bytes, or one name for two byte strings, raise
+  `ParameterError`.
+- **Overlaps stay until V8** (2026-11-01). `text` keeps each glyph's own contours, in the font's order and direction:
+  glyphs of variable fonts overlap by design (a stem and a serif are separate contours) and mesh and pixels fill
+  nonzero, so they draw right. Resolving them into regions, and the canonical form of api.md ("Path"), need the
+  booleans of V8. *Consequence:* until then a boolean on a glyph is not promised to hold; the V5 line "overlapping
+  contours removed" moved to V8.
+- **A line is shaped as one run** (2026-11-01). Each line of a text (split at `"\n"`) is shaped once, in the script
+  and direction `harfrust` guesses from its first strong character: kerning, ligatures and the rules of one script
+  hold, a line that mixes directions is not reordered, and a line break is a hard break. Attributes number the glyphs
+  as they are drawn, left to right: `glyph` counts the shapes made (a space has none), `word` the runs of
+  non-whitespace characters from 0 over the whole text, `line` the lines. *Consequence:* V5b shapes once per run of
+  equal axis location, so kerning and ligatures do not cross a change of location.
+- **`Reads::Once`** (2026-11-01). `text`'s `size`, `tracking`, `leading` and `anchor` are read once for the whole
+  call: a Param can feed them a number, never a list (a list has an entry per shape, and a text has none until it is
+  drawn). The check is `Expr::value`, which already refuses a list, so no second rule exists.
+- **The origin of a glyph** (2026-11-01): the middle of its advance, half the font's cap height (`OS/2`) above its
+  baseline, where api.md says a glyph turns and scales. A font that states no cap height gets 0.7 em
+  (`CAP_HEIGHT`, which only places `origin`).
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin
