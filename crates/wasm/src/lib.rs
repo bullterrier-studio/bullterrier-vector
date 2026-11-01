@@ -131,7 +131,7 @@ impl Drawing {
         let Some(text) = text.as_string() else {
             return Err(refuse("text", "a string", text));
         };
-        raised(vector::Drawing::from_json(&text)).map(Self)
+        raised(vector::Drawing::from_json(&text, &vector::Inputs::new())).map(Self)
     }
 
     /// The drawing as JSON in the canonical form.

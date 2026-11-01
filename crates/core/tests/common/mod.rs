@@ -2,6 +2,7 @@
 //! that spread proptest sizes over orders of magnitude. Each test file uses some of them.
 #![allow(dead_code, reason = "each test file uses a different part")]
 
+pub(crate) mod fonts;
 pub(crate) mod mesh;
 pub(crate) mod ops;
 pub(crate) mod pixels;

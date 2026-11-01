@@ -1,6 +1,6 @@
 //! The style steps: `fill`, `stroke`, `opacity`, `blend`. Each changes the paint of every shape and nothing else.
 
-use super::{Args, Context, Inputs, Node, each_shape};
+use super::{Args, Context, Inputs, Node, choice, each_shape};
 use crate::shape::{Blend as BlendMode, Cap, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, Join, StrokeStyle};
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
 
@@ -41,12 +41,6 @@ const fn number(name: &'static str, default: Option<f64>, domain: Domain) -> Arg
         reads: Reads::PerItem,
         domain,
     }
-}
-
-/// The word of `name` read as one of `options`, found by `named`.
-fn choice<T>(args: &Args, name: &str, named: impl Fn(&str) -> Option<T>) -> Result<T, Error> {
-    let text = args.text(name)?;
-    named(text).ok_or_else(|| Error::parameter(name, format!("is not one of the words it takes, got {text:?}")))
 }
 
 /// Fills every shape.

@@ -155,6 +155,7 @@ fn argument(arg: &Arg) -> Json {
         Kind::Shape => shape(),
         Kind::Drawings => Json::object([("type", Json::text("array")), ("items", reference("drawing"))]),
         Kind::Attributes => selection(),
+        Kind::Font => reference("name"),
         Kind::Values => Json::object([
             ("type", Json::text("object")),
             ("propertyNames", reference("param_name")),
@@ -190,7 +191,7 @@ fn value(arg: &Arg) -> Json {
         .fold(typed("number"), |schema, (key, bound)| with(schema, key, bound));
     match arg.reads {
         Reads::Literal => literal,
-        Reads::PerItem => any_of(vec![literal, reference("expression")]),
+        Reads::PerItem | Reads::Once => any_of(vec![literal, reference("expression")]),
     }
 }
 

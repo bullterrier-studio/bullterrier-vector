@@ -6,11 +6,14 @@ mod build;
 mod checks;
 mod depth;
 mod doc;
+mod inputs;
 mod parse;
 mod read;
 mod schema;
 mod value;
 mod write;
+
+pub use inputs::Inputs;
 
 use crate::limits::MAX_DOCUMENT_BYTES;
 use crate::{Drawing, Error, Kind, Verb};
@@ -41,13 +44,17 @@ pub fn drawing_schema() -> String {
 
 impl Drawing {
     /// The drawing a JSON document describes (formats.md): any spelling the format allows, every check of the loader
-    /// run in the order the format lists them. [`Drawing::to_json`] writes the canonical form.
+    /// run in the order the format lists them, with the bytes of its inputs (the fonts it names) from `inputs`.
+    /// [`Drawing::to_json`] writes the canonical form.
     ///
     /// # Errors
     /// [`Error::Format`] with the JSON Pointer of the offending value if `text` is not a document this library reads:
     /// not UTF-8 I-JSON, past a limit (`MAX_DOCUMENT_BYTES`, `MAX_CALLS`, `MAX_DEPTH`), against the format's schema,
     /// or a check that relates values across the document fails. A value a call refuses keeps the call's message.
-    pub fn from_json(text: &str) -> Result<Self, Error> {
+    /// [`Error::Parameter`] naming `inputs.` and the name of an input if `inputs` is not what the document declares:
+    /// an input missing or not declared, two names with equal bytes, bytes that do not match the `sha256` of their
+    /// input, or a font the library cannot read.
+    pub fn from_json(text: &str, inputs: &Inputs) -> Result<Self, Error> {
         if text.len() > MAX_DOCUMENT_BYTES {
             return Err(Error::Format {
                 pointer: String::new(),
@@ -60,6 +67,7 @@ impl Drawing {
         let top = parse::parse(text)?;
         let doc = read::document(&top)?;
         let checked = checks::run(&doc, &top)?;
-        build::build(&doc, &checked)
+        let fonts = inputs::fonts(&doc, inputs)?;
+        build::build(&doc, &checked, &fonts)
     }
 }

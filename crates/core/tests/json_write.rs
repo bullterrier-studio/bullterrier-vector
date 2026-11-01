@@ -5,8 +5,8 @@
 mod common;
 
 use bullterrier_vector::{
-    Blend, Cap, Color, Deg, Drawing, Error, Expr, Join, Param, Path, Rotate, ScaleBy, Select, Shape, Stroke, Unit,
-    Values,
+    Blend, Cap, Color, Deg, Drawing, Error, Expr, Inputs, Join, Param, Path, Rotate, ScaleBy, Select, Shape, Stroke,
+    Unit, Values,
 };
 use common::{Outcome, parameter_refusal};
 
@@ -283,7 +283,7 @@ fn drawings_whose_expressions_are_written_alike_are_one_shared_drawing() -> Outc
             ),
             "{case}"
         );
-        assert_eq!(Drawing::from_json(&text)?.to_json()?, text, "{case}");
+        assert_eq!(Drawing::from_json(&text, &Inputs::new())?.to_json()?, text, "{case}");
     }
     Ok(())
 }
@@ -300,7 +300,7 @@ fn expressions_written_differently_stay_two_calls() -> Outcome {
     );
     assert_eq!(text.matches(r#""drawing":"d1""#).count(), 2, "{text}");
     assert!(!text.contains("d2"), "{text}");
-    assert_eq!(Drawing::from_json(&text)?.to_json()?, text);
+    assert_eq!(Drawing::from_json(&text, &Inputs::new())?.to_json()?, text);
     Ok(())
 }
 
@@ -413,7 +413,7 @@ fn scale_writes_one_number_when_both_directions_are_written_alike() -> Outcome {
     ] {
         let text = square()?.scale(by).to_json()?;
         assert!(text.contains(&format!(r#"{{"scale":{wanted}}}"#)), "{case}: {text}");
-        assert_eq!(Drawing::from_json(&text)?.to_json()?, text, "{case}");
+        assert_eq!(Drawing::from_json(&text, &Inputs::new())?.to_json()?, text, "{case}");
     }
     Ok(())
 }
@@ -597,7 +597,7 @@ fn shapes_put_back_that_differ_only_in_style_share_the_shape_call() -> Outcome {
             p = SQUARE
         )
     );
-    assert_eq!(Drawing::from_json(&text)?.to_json()?, text);
+    assert_eq!(Drawing::from_json(&text, &Inputs::new())?.to_json()?, text);
     Ok(())
 }
 
@@ -611,7 +611,7 @@ fn shapes_put_back_from_different_places_in_a_list_are_one_call() -> Outcome {
     let piece = Drawing::new([from_stack.rotate(Deg(5.0)), alone.rotate(Deg(5.0))]);
     let text = piece.to_json()?;
     assert_eq!(text.matches(r#""shape":"#).count(), 1, "{text}");
-    assert_eq!(Drawing::from_json(&text)?.to_json()?, text);
+    assert_eq!(Drawing::from_json(&text, &Inputs::new())?.to_json()?, text);
     Ok(())
 }
 

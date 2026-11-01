@@ -36,7 +36,8 @@ lyon_tessellation = { version = "=1.0.23", default-features = false }
 # run. `harfrust` shapes and reads fonts through `read-fonts`, which draws the outlines (the font model of 0.46 does
 # it; `skrifa` is not needed). Neither has `std`, so that its maths is libm and not the platform's (the `rust-fonts`
 # gate fails otherwise). Both are used only in crates/core/src/type/ (`read-fonts` in font.rs and outline.rs,
-# `harfrust` in shaping.rs). `vello_cpu` brings an older `read-fonts`; two copies are built
+# `harfrust` in shaping.rs). Cargo.lock also lists the older `read-fonts` that `vello_common` names for a feature
+# this workspace does not use; it is not built
 read-fonts = { version = "=0.46.0", default-features = false, features = ["libm"] }
 harfrust = { version = "=0.15.0", default-features = false, features = ["libm"] }
 # SHA-256 of a font's bytes: the digest that names a font in a document and in the cache key; used only in

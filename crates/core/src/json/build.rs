@@ -10,7 +10,7 @@ use super::read::reason;
 use super::value::pointer_token;
 use crate::expr::Op;
 use crate::node::{Args, Given};
-use crate::{Drawing, Error, Expr, Param, Path, Shape, Values, Verb};
+use crate::{Drawing, Error, Expr, Font, Param, Path, Shape, Values, Verb};
 use std::collections::BTreeMap;
 
 fn refuse(pointer: &str, message: impl Into<String>) -> Error {
@@ -28,9 +28,10 @@ struct Pending {
 }
 
 /// The drawing the document describes.
-pub(super) fn build(doc: &Doc, checked: &Checked) -> Result<Drawing, Error> {
+pub(super) fn build(doc: &Doc, checked: &Checked, fonts: &BTreeMap<String, Font>) -> Result<Drawing, Error> {
     let mut builder = Builder {
         params: &checked.params,
+        fonts,
         built: BTreeMap::new(),
         pending: Vec::new(),
     };
@@ -46,6 +47,7 @@ pub(super) fn build(doc: &Doc, checked: &Checked) -> Result<Drawing, Error> {
 
 struct Builder<'a> {
     params: &'a BTreeMap<String, Param>,
+    fonts: &'a BTreeMap<String, Font>,
     built: BTreeMap<&'a str, Drawing>,
     pending: Vec<Pending>,
 }
@@ -138,6 +140,12 @@ impl<'a> Builder<'a> {
                 Given::Drawings(items.iter().map(|item| self.chain(item)).collect::<Result<_, _>>()?)
             }
             Value::Select(select) => Given::Select(select.clone()),
+            Value::Font { name, pointer } => Given::Font(
+                self.fonts
+                    .get(name)
+                    .ok_or_else(|| refuse(pointer, format!("{name:?} is not an entry of `inputs`")))?
+                    .clone(),
+            ),
             Value::Values(fixed) => Given::Values(fixed.iter().fold(Values::new(), |values, one| {
                 values.set(one.name.clone(), one.value.clone())
             })),

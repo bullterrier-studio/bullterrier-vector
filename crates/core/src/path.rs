@@ -6,6 +6,7 @@ use crate::key::{Key, Keyed};
 
 mod arc;
 mod bounds;
+mod build;
 mod curve;
 mod measure;
 mod polyline;
@@ -17,6 +18,7 @@ mod transform;
 mod walk;
 mod write;
 
+pub(crate) use build::Builder;
 pub(crate) use curve::FLATNESS;
 pub(crate) use polyline::Polyline;
 pub(crate) use write::number;

@@ -12,9 +12,10 @@
 mod common;
 
 use bullterrier_vector::{
-    Blend, Color, Deg, Drawing, Error, Expr, Kind, Param, Path, Point, Rotate, Scale, ScaleBy, Select, Shape, Stroke,
-    Values, verbs,
+    Blend, Color, Deg, Drawing, Error, Expr, Kind, Param, Path, Point, Role, Rotate, Scale, ScaleBy, Select, Shape,
+    Stroke, Text, Values, text, verbs,
 };
+use common::fonts::fraunces;
 use common::{Outcome, build, log_uniform, parameter_refusal, step};
 use proptest::prelude::*;
 use std::collections::BTreeSet;
@@ -90,6 +91,38 @@ fn rows() -> Vec<Row> {
             sample: || Ok(Drawing::new([square()?, square()?.translate(20.0, 0.0)])),
             with: None,
             ranges: &[],
+            geometry: None,
+        },
+        Row {
+            verb: "text",
+            sample: || Ok(text("Hi", &fraunces()?)),
+            with: Some(|argument, value| {
+                let options = Text::new(&fraunces()?);
+                match argument {
+                    "size" => Ok(text("Hi", options.size(value))),
+                    "tracking" => Ok(text("Hi", options.tracking(value))),
+                    "leading" => Ok(text("Hi", options.leading(value))),
+                    _ => Err(unknown("text", argument)),
+                }
+            }),
+            ranges: &[
+                ("size", 1.0, true),
+                ("size", 100_000.0, true),
+                ("size", 0.0, false),
+                ("size", -1.0, false),
+                ("size", f64::NAN, false),
+                ("size", f64::INFINITY, false),
+                ("tracking", 0.0, true),
+                ("tracking", -250.0, true),
+                ("tracking", 1000.0, true),
+                ("tracking", f64::NAN, false),
+                ("tracking", f64::NEG_INFINITY, false),
+                ("leading", 0.0, true),
+                ("leading", -600.0, true),
+                ("leading", 5000.0, true),
+                ("leading", f64::NAN, false),
+                ("leading", f64::INFINITY, false),
+            ],
             geometry: None,
         },
         Row {
@@ -410,7 +443,13 @@ fn a_verb_accepts_the_edges_of_its_ranges_and_refuses_past_them_at_the_call_and_
                     .shapes(&given)
                     .map_err(|error| format!("{case}: when drawn: {error}"))?;
             } else {
-                let expected = format!("step 1 ({}).{argument}", row.verb);
+                // a source is the place `source (text)`, the one step of a chain after a square `step 1 (rotate)`
+                let place = if verbs().any(|verb| verb.name == row.verb && verb.role == Role::Source) {
+                    format!("source ({})", row.verb)
+                } else {
+                    format!("step 1 ({})", row.verb)
+                };
+                let expected = format!("{place}.{argument}");
                 let text = format!("{value}");
                 let held = at_call
                     .error()

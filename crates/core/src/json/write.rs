@@ -63,6 +63,8 @@ struct Document {
 struct Writer<'a> {
     drawing: &'a Drawing,
     graph: Graph,
+    /// The name each font is written under, by the SHA-256 of its bytes, and the fonts in the order the walk met them.
+    fonts: Vec<(String, String)>,
     /// The name of each node that is written under `drawings`: `d1`, `d2`... in the order the walk reaches them.
     names: Vec<Option<String>>,
     calls: Cell<usize>,
@@ -82,9 +84,11 @@ impl<'a> Writer<'a> {
                 })
             })
             .collect();
+        let fonts = font_names(&graph)?;
         Ok(Self {
             drawing,
             graph,
+            fonts,
             names,
             calls: Cell::new(0),
         })
@@ -109,6 +113,17 @@ impl<'a> Writer<'a> {
             .collect();
         if !params.is_empty() {
             top.push(("params", Json::Array(params)));
+        }
+        if !self.fonts.is_empty() {
+            top.push((
+                "inputs",
+                Json::object(self.fonts.iter().map(|(name, sha256)| {
+                    (
+                        name.as_str(),
+                        Json::object([("kind", Json::text("font")), ("sha256", Json::text(sha256))]),
+                    )
+                })),
+            ));
         }
         let mut shared = Vec::new();
         for at in 0..self.graph.nodes.len() {
@@ -202,6 +217,15 @@ impl<'a> Writer<'a> {
             }
             Given::Select(select) => select_json(select),
             Given::Values(values) => values_json(values),
+            Given::Font(font) => {
+                let digest = font.sha256();
+                let (name, _) = self
+                    .fonts
+                    .iter()
+                    .find(|(_, sha256)| *sha256 == digest)
+                    .ok_or_else(|| Error::parameter("to_json", "a font of the drawing is not among its inputs"))?;
+                Json::text(name)
+            }
             Given::Unset => Json::Null,
         })
     }
@@ -230,6 +254,57 @@ impl<'a> Writer<'a> {
             }
         })
     }
+}
+
+/// The inputs of a drawing: each font once, with the name it is written under and the SHA-256 of its bytes, in the order
+/// the walk of formats.md meets them. A font keeps the name it was given, else it is called `font1`, `font2`... in that
+/// order, skipping names the drawing gives; fonts with equal bytes are one input.
+///
+/// # Errors
+/// [`Error::Parameter`] naming `to_json` if one font is given two names, or two fonts one name.
+fn font_names(graph: &Graph) -> Result<Vec<(String, String)>, Error> {
+    // the fonts by digest in walk order, each with the name it was given
+    let mut found: Vec<(String, Option<String>)> = Vec::new();
+    for node in &graph.nodes {
+        for (_, given) in node.args().declared() {
+            let Given::Font(font) = given else { continue };
+            let digest = font.sha256();
+            match found.iter_mut().find(|(known, _)| *known == digest) {
+                None => found.push((digest, font.name().map(str::to_owned))),
+                Some((_, name)) => match (name.as_deref(), font.name()) {
+                    (Some(first), Some(second)) if first != second => {
+                        return Err(Error::parameter(
+                            "to_json",
+                            format!("the font {first:?} is also given as {second:?}: one input is given one name"),
+                        ));
+                    }
+                    (None, Some(second)) => *name = Some(second.to_owned()),
+                    _ => {}
+                },
+            }
+        }
+    }
+    let given: Vec<String> = found.iter().filter_map(|(_, name)| name.clone()).collect();
+    for (at, name) in given.iter().enumerate() {
+        if given[..at].contains(name) {
+            return Err(Error::parameter(
+                "to_json",
+                format!("two different fonts are both called {name:?}: one name is given one input"),
+            ));
+        }
+    }
+    let mut number = 0;
+    let mut automatic = || loop {
+        number += 1;
+        let name = format!("font{number}");
+        if !given.contains(&name) {
+            return name;
+        }
+    };
+    Ok(found
+        .into_iter()
+        .map(|(digest, name)| (name.unwrap_or_else(&mut automatic), digest))
+        .collect())
 }
 
 /// Whether `given` is what the call would take if the argument were left out.

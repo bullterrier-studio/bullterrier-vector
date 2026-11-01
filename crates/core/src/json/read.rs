@@ -1,7 +1,7 @@
 //! Reading a parsed document into [`Doc`]: what the schema checks, value by value. The shape of each call comes from
 //! its verb's declaration in the registry (`Kind`, `Reads`, `Domain`, defaults); nothing here lists a call.
 
-use super::doc::{Call, Doc, Ex, Fixed, InputDecl, ParamDecl, Value, VerbCall, What};
+use super::doc::{Call, Doc, Ex, Fixed, InputDecl, InputKind, ParamDecl, Value, VerbCall, What};
 use super::value::{Json, pointer_token};
 use super::{bare, expression_word};
 use crate::expr::Op;
@@ -146,11 +146,13 @@ impl Reader {
             if let Some(unknown) = fields.keys().find(|key| *key != "kind" && *key != "sha256") {
                 return Err(refuse(&at(&here, unknown), "is not a field of an input (kind, sha256)"));
             }
-            match fields.get("kind") {
-                Some(Json::String(kind)) if kind == "font" || kind == "map" => {}
+            let kind = match fields.get("kind") {
+                Some(Json::String(kind)) if kind == "font" => InputKind::Font,
+                Some(Json::String(kind)) if kind == "map" => InputKind::Map,
                 Some(_) => return Err(refuse(&at(&here, "kind"), "must be \"font\" or \"map\"")),
                 None => return Err(refuse(&here, "is missing `kind`")),
-            }
+            };
+            let mut digest = None;
             if let Some(sha) = fields.get("sha256") {
                 let lowercase_hex = |text: &String| {
                     text.len() == 64
@@ -161,8 +163,16 @@ impl Reader {
                 if !matches!(sha, Json::String(text) if lowercase_hex(text)) {
                     return Err(refuse(&at(&here, "sha256"), "must be 64 lowercase hexadecimal digits"));
                 }
+                if let Json::String(text) = sha {
+                    digest = Some(text.clone());
+                }
             }
-            inputs.push(InputDecl { pointer: here });
+            inputs.push(InputDecl {
+                pointer: here,
+                name: name.clone(),
+                kind,
+                sha256: digest,
+            });
         }
         Ok(inputs)
     }
@@ -373,6 +383,16 @@ impl Reader {
             }
             Kind::Attributes => select(pointer, json).map(Value::Select),
             Kind::Values => values(pointer, json).map(Value::Values),
+            Kind::Font => match json {
+                Json::String(name) if is_name(name) => Ok(Value::Font {
+                    name: name.clone(),
+                    pointer: pointer.to_owned(),
+                }),
+                _ => Err(refuse(
+                    pointer,
+                    "must be the name of an input: letters, digits and _, starting with a letter",
+                )),
+            },
         }
     }
 

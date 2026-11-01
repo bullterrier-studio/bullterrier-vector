@@ -28,6 +28,17 @@ pub(super) struct ParamDecl {
 /// An entry of `inputs`, as written.
 pub(super) struct InputDecl {
     pub(super) pointer: String,
+    pub(super) name: String,
+    pub(super) kind: InputKind,
+    /// The SHA-256 the bytes must have, if the document says.
+    pub(super) sha256: Option<String>,
+}
+
+/// What an input is read as.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum InputKind {
+    Font,
+    Map,
 }
 
 /// One call of a drawing.
@@ -68,6 +79,11 @@ pub(super) enum Value {
     Drawings(Vec<Vec<Call>>),
     Select(Select),
     Values(Vec<Fixed>),
+    /// The name of an input, with the pointer of the name.
+    Font {
+        name: String,
+        pointer: String,
+    },
 }
 
 /// A Param a `with_values` fixes, and the value it is fixed to.

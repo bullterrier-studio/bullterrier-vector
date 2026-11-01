@@ -5,8 +5,8 @@
 mod common;
 
 use bullterrier_vector::{
-    Blend, Cap, Color, Deg, Drawing, Error, Expr, Join, Param, Path, Rotate, ScaleBy, Select, Shape, Stroke, Unit,
-    Values,
+    Blend, Cap, Color, Deg, Drawing, Error, Expr, Inputs, Join, Param, Path, Rotate, ScaleBy, Select, Shape, Stroke,
+    Unit, Values,
 };
 use common::Outcome;
 use proptest::prelude::*;
@@ -15,10 +15,10 @@ const SERIES_BARS: &str = include_str!("../../../docs/examples/json/series_bars.
 
 #[test]
 fn the_series_bars_example_loads_and_writes_its_canonical_text() -> Outcome {
-    let drawing = Drawing::from_json(SERIES_BARS)?;
+    let drawing = Drawing::from_json(SERIES_BARS, &Inputs::new())?;
     // the independent check of the bytes is tests/test_json.py, which builds the expected text with Python's `json`
     let canonical = drawing.to_json()?;
-    assert_eq!(Drawing::from_json(&canonical)?.to_json()?, canonical);
+    assert_eq!(Drawing::from_json(&canonical, &Inputs::new())?.to_json()?, canonical);
     assert!(
         canonical.contains(r#""d1""#) && !canonical.contains("bars"),
         "the shared drawing is named d1"
@@ -28,8 +28,8 @@ fn the_series_bars_example_loads_and_writes_its_canonical_text() -> Outcome {
 
 #[test]
 fn the_series_bars_example_draws_the_same_shapes_after_a_round_trip() -> Outcome {
-    let loaded = Drawing::from_json(SERIES_BARS)?;
-    let again = Drawing::from_json(&loaded.to_json()?)?;
+    let loaded = Drawing::from_json(SERIES_BARS, &Inputs::new())?;
+    let again = Drawing::from_json(&loaded.to_json()?, &Inputs::new())?;
     let shapes = loaded.shapes(&Values::new())?;
     assert_eq!(shapes, again.shapes(&Values::new())?);
     // twelve bars: the sixth in red, the others in ink
@@ -72,16 +72,18 @@ const EXAMPLES: [(&str, &str); 9] = [
 fn every_example_whose_calls_are_registered_round_trips() -> Outcome {
     let mut loaded = Vec::new();
     for (name, text) in EXAMPLES {
-        match Drawing::from_json(text) {
+        match Drawing::from_json(text, &Inputs::new()) {
             Ok(drawing) => {
                 let written = drawing.to_json()?;
-                let again = Drawing::from_json(&written)?;
+                let again = Drawing::from_json(&written, &Inputs::new())?;
                 assert_eq!(again.to_json()?, written, "{name}");
                 assert_eq!(drawing.shapes(&Values::new())?, again.shapes(&Values::new())?, "{name}");
                 loaded.push(name);
             }
-            // a call of a later batch: the example waits for it
-            Err(Error::Format { message, .. }) if message.contains("is not a call this library knows") => {}
+            // a call, or an argument of `text` (axes, width, fit), of a later batch: the example waits for it
+            Err(Error::Format { message, .. })
+                if message.contains("is not a call this library knows")
+                    || message.contains("is not an argument of `text`") => {}
             Err(error) => return Err(format!("{name}: {error}").into()),
         }
     }
@@ -373,7 +375,7 @@ proptest! {
             Err(Error::Parameter { parameter, .. }) if parameter == "expression" => return Err(TestCaseError::reject("a zero divisor")),
             Err(other) => return Err(TestCaseError::fail(format!("to_json: {other}"))),
         };
-        let loaded = Drawing::from_json(&text).map_err(|error| TestCaseError::fail(format!("{error}\n{text}")))?;
+        let loaded = Drawing::from_json(&text, &Inputs::new()).map_err(|error| TestCaseError::fail(format!("{error}\n{text}")))?;
         prop_assert_eq!(loaded.to_json().map_err(|error| TestCaseError::fail(error.to_string()))?, text);
         prop_assert_eq!(loaded.parameters(), root.parameters());
         prop_assert!(same_draw(&root.shapes(&Values::new()), &loaded.shapes(&Values::new())));
@@ -386,7 +388,7 @@ proptest! {
 fn a_negative_zero_in_a_document_is_written_as_zero() -> Outcome {
     let text = r#"{"version":1,"root":[{"shape":{"path":"M0 0","attributes":{"level":-0,"origin":[-0,-0.5]}}},{"translate":{"dx":-0,"dy":-0}}]}"#;
     assert_eq!(
-        Drawing::from_json(text)?.to_json()?,
+        Drawing::from_json(text, &Inputs::new())?.to_json()?,
         r#"{"root":[{"shape":{"attributes":{"level":0,"origin":[0,-0.5]},"path":"M0 0"}},{"translate":{"dx":0,"dy":0}}],"version":1}"#
     );
     Ok(())

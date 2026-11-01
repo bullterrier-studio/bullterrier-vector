@@ -3,7 +3,7 @@
 
 mod common;
 
-use bullterrier_vector::Drawing;
+use bullterrier_vector::{Drawing, Inputs};
 use common::{Outcome, format_refusal};
 
 /// A document whose one Param carries `meaning` (JSON text, quotes included), read by a translate.
@@ -15,7 +15,9 @@ fn with_meaning(meaning: &str) -> String {
 
 /// The meaning the document's Param reads back as.
 fn meaning_of(text: &str) -> Result<String, Box<dyn std::error::Error>> {
-    Ok(Drawing::from_json(text)?.parameters()?[0].meaning_of().to_owned())
+    Ok(Drawing::from_json(text, &Inputs::new())?.parameters()?[0]
+        .meaning_of()
+        .to_owned())
 }
 
 #[test]
@@ -35,7 +37,7 @@ fn an_escaped_surrogate_pair_is_the_one_character_it_stands_for() -> Outcome {
 fn a_unicode_escape_takes_four_hex_digits_and_nothing_else() -> Outcome {
     assert_eq!(meaning_of(&with_meaning(r#""\u0041\u00e9\u00E9""#))?, "A\u{e9}\u{e9}");
     for bad in [r#""\u+041""#, r#""\u-041""#, r#""\u 041""#, r#""\u004""#, r#""\u004g""#] {
-        let (pointer, _) = format_refusal(Drawing::from_json(&with_meaning(bad)))?;
+        let (pointer, _) = format_refusal(Drawing::from_json(&with_meaning(bad), &Inputs::new()))?;
         assert_eq!(pointer, "/params/0/meaning", "{bad}");
     }
     Ok(())
@@ -45,7 +47,7 @@ fn a_unicode_escape_takes_four_hex_digits_and_nothing_else() -> Outcome {
 fn a_raw_control_character_in_a_string_is_refused_and_an_escaped_one_is_read() -> Outcome {
     for code in [0x00_u32, 0x09, 0x0a, 0x1f] {
         let raw = format!("\"{}\"", char::from_u32(code).ok_or("a character")?);
-        let (pointer, _) = format_refusal(Drawing::from_json(&with_meaning(&raw)))?;
+        let (pointer, _) = format_refusal(Drawing::from_json(&with_meaning(&raw), &Inputs::new()))?;
         assert_eq!(pointer, "/params/0/meaning", "raw 0x{code:02x}");
         let escaped = format!("\"\\u{code:04x}\"");
         assert_eq!(
@@ -60,21 +62,21 @@ fn a_raw_control_character_in_a_string_is_refused_and_an_escaped_one_is_read() -
 
 #[test]
 fn the_writer_escapes_a_control_character_in_lower_case_and_reads_it_back() -> Outcome {
-    let drawing = Drawing::from_json(&with_meaning(r#""a\u001fb\u0000c\n\t""#))?;
+    let drawing = Drawing::from_json(&with_meaning(r#""a\u001fb\u0000c\n\t""#), &Inputs::new())?;
     let text = drawing.to_json()?;
     assert!(text.contains(r#""meaning":"a\u001fb\u0000c\n\t""#), "{text}");
-    assert_eq!(Drawing::from_json(&text)?.to_json()?, text);
+    assert_eq!(Drawing::from_json(&text, &Inputs::new())?.to_json()?, text);
     Ok(())
 }
 
 #[test]
 fn only_a_space_tab_line_feed_and_carriage_return_are_whitespace() -> Outcome {
     let body = r#"{"version":1,"root":[{"path":"M0 0"}]}"#;
-    assert!(Drawing::from_json(&format!(" \t\r\n{body} \t\r\n")).is_ok());
+    assert!(Drawing::from_json(&format!(" \t\r\n{body} \t\r\n"), &Inputs::new()).is_ok());
     for stray in ['\u{0b}', '\u{0c}', '\u{a0}', '\u{feff}'] {
-        let (pointer, _) = format_refusal(Drawing::from_json(&format!("{stray}{body}")))?;
+        let (pointer, _) = format_refusal(Drawing::from_json(&format!("{stray}{body}"), &Inputs::new()))?;
         assert_eq!(pointer, "", "U+{:04x} before the document", stray as u32);
-        let (pointer, _) = format_refusal(Drawing::from_json(&format!("{body}{stray}")))?;
+        let (pointer, _) = format_refusal(Drawing::from_json(&format!("{body}{stray}"), &Inputs::new()))?;
         assert_eq!(pointer, "", "U+{:04x} after the document", stray as u32);
     }
     Ok(())
@@ -86,7 +88,7 @@ fn a_divisor_that_is_a_zero_literal_is_refused_whichever_way_the_zero_is_written
         let text = format!(
             r#"{{"version":1,"root":[{{"path":"M0 0"}},{{"translate":{{"dx":{{"div":[1,{zero}]}},"dy":0}}}}]}}"#
         );
-        let (pointer, _) = format_refusal(Drawing::from_json(&text))?;
+        let (pointer, _) = format_refusal(Drawing::from_json(&text, &Inputs::new()))?;
         assert!(pointer.starts_with("/root/1/translate/dx"), "{zero}: {pointer}");
     }
     Ok(())
@@ -98,8 +100,8 @@ fn an_attribute_to_select_by_goes_up_to_the_largest_u32() -> Outcome {
         format!(r#"{{"version":1,"root":[{{"path":"M0 0 L1 0 L1 1 Z"}},{{"only":{{"glyph":{value}}}}}]}}"#)
     };
     // nothing carries `glyph` here, so a value in range loads and fails only when drawn; one past u32 is refused now
-    assert!(Drawing::from_json(&select("4294967295")).is_ok());
-    let (pointer, _) = format_refusal(Drawing::from_json(&select("4294967296")))?;
+    assert!(Drawing::from_json(&select("4294967295"), &Inputs::new()).is_ok());
+    let (pointer, _) = format_refusal(Drawing::from_json(&select("4294967296"), &Inputs::new()))?;
     assert!(pointer.starts_with("/root/1/only"), "{pointer}");
     Ok(())
 }

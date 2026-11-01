@@ -3,7 +3,7 @@
 //! `with-values` and `call-checks` while the drawing is built: see `build.rs`.)
 
 use super::depth;
-use super::doc::{Call, Doc, Value, What};
+use super::doc::{Call, Doc, InputKind, Value, What};
 use super::read::reason;
 use super::value::{Json, pointer_token};
 use crate::limits::MAX_DEPTH;
@@ -282,10 +282,27 @@ fn first_reads<'a>(
     }
 }
 
-/// `input-declared` and `input-used`. No kind of argument reads an input yet, so no call names one and every input the
-/// document declares is read by nothing.
+/// `input-declared` and `input-used`.
 fn inputs(doc: &Doc) -> Result<(), Error> {
-    match doc.inputs.first() {
+    let mut read = BTreeSet::new();
+    each_call_of(doc, |call| {
+        let What::Verb(verb) = &call.what else { return Ok(()) };
+        for (_, value) in &verb.args {
+            if let Value::Font { name, pointer } = value {
+                match doc.inputs.iter().find(|input| &input.name == name) {
+                    None => return Err(refuse(pointer, format!("{name:?} is not an entry of `inputs`"))),
+                    Some(input) if input.kind != InputKind::Font => {
+                        return Err(refuse(pointer, format!("{name:?} is declared as a map, not a font")));
+                    }
+                    Some(_) => {
+                        read.insert(name.as_str());
+                    }
+                }
+            }
+        }
+        Ok(())
+    })?;
+    match doc.inputs.iter().find(|input| !read.contains(input.name.as_str())) {
         Some(input) => Err(refuse(&input.pointer, "is read by no call")),
         None => Ok(()),
     }

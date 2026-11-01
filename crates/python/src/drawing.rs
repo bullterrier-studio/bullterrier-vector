@@ -289,7 +289,9 @@ impl PyDrawing {
                 message: "the text is not valid UTF-8 (it holds a lone surrogate)".to_owned(),
             })
         })?;
-        checked(raised(py.detach(|| vector::Drawing::from_json(text)))?)
+        checked(raised(
+            py.detach(|| vector::Drawing::from_json(text, &vector::Inputs::new())),
+        )?)
     }
 
     /// Every Param the drawing reads, in the order first used.

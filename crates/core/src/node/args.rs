@@ -5,7 +5,7 @@ use super::{Arg, Context, Domain, Kind, Reads, Verb};
 use crate::geometry::{coordinate, finite, fraction};
 use crate::key::Key;
 use crate::limits::MAX_DEPTH;
-use crate::{Color, Drawing, Error, Expr, Literal, Param, Path, Point, Select, Shape, Values};
+use crate::{Color, Drawing, Error, Expr, Font, Literal, Param, Path, Point, Select, Shape, Values};
 
 /// The place of a shape in the list a step works on, and how long the list is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,6 +37,8 @@ pub(crate) enum Given {
     Select(Select),
     /// Values for Params.
     Values(Values),
+    /// A font.
+    Font(Font),
     /// Left out.
     Unset,
 }
@@ -175,6 +177,10 @@ impl Args {
                     key.word(8);
                     key.of(values);
                 }
+                Given::Font(font) => {
+                    key.word(10);
+                    key.of(font);
+                }
                 Given::Unset => key.word(9),
             }
         }
@@ -311,6 +317,40 @@ impl Args {
         }
     }
 
+    /// The number of `name`, read once for the whole call, within the argument's domain.
+    pub(crate) fn once_number(&self, cx: &Context<'_>, name: &str) -> Result<f64, Error> {
+        match self.find(name)? {
+            (arg, Given::Number(expr)) => {
+                let value = expr.value(cx.env).map_err(|error| relabel(error, name))?;
+                arg.domain.number(name, value)
+            }
+            _ => Err(self.misread(name, "a number")),
+        }
+    }
+
+    /// As [`Args::once_number`], or `None` if the call left the argument out.
+    pub(crate) fn once_number_opt(&self, cx: &Context<'_>, name: &str) -> Result<Option<f64>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            _ => self.once_number(cx, name).map(Some),
+        }
+    }
+
+    /// The point of `name`, read once for the whole call, or `None` if the call left it out.
+    pub(crate) fn once_point(&self, cx: &Context<'_>, name: &str) -> Result<Option<Point>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            (arg, Given::Pair(first, second)) if arg.kind == Kind::Point => {
+                let read = |expr: &Expr| {
+                    let value = expr.value(cx.env).map_err(|error| relabel(error, name))?;
+                    arg.domain.number(name, value)
+                };
+                Ok(Some(Point::new(read(first)?, read(second)?)))
+            }
+            _ => Err(self.misread(name, "a point")),
+        }
+    }
+
     /// The pair of `name` for the shape `item`, each number within the argument's domain.
     pub(crate) fn pair(&self, cx: &Context<'_>, name: &str, item: Item) -> Result<(f64, f64), Error> {
         match self.find(name)? {
@@ -354,7 +394,12 @@ impl Args {
 
     /// The `size` argument for a verb that declares one: the design frame it gives, if any.
     pub(crate) fn frame(&self) -> Result<Option<(f64, f64)>, Error> {
-        if self.verb.args.iter().any(|arg| arg.name == "size") {
+        if self
+            .verb
+            .args
+            .iter()
+            .any(|arg| arg.name == "size" && arg.kind == Kind::Pair)
+        {
             self.literal_pair("size")
         } else {
             Ok(None)
@@ -382,6 +427,14 @@ impl Args {
         match self.find(name)? {
             (_, Given::Path(path)) => Ok(path),
             _ => Err(self.misread(name, "a path")),
+        }
+    }
+
+    /// The font of `name`.
+    pub(crate) fn font(&self, name: &str) -> Result<&Font, Error> {
+        match self.find(name)? {
+            (_, Given::Font(font)) => Ok(font),
+            _ => Err(self.misread(name, "a font")),
         }
     }
 

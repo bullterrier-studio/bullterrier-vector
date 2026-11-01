@@ -1,0 +1,73 @@
+//! The fonts the tests draw with (`tests/fonts/`).
+//!
+//! `fraunces-subset.ttf` is Fraunces (SIL OFL 1.1, `tests/fonts/OFL.txt`), a variable font cut down to the glyphs the
+//! tests need and to one axis. Made from the font file `Fraunces[SOFT,WONK,opsz,wght].ttf` of the Google Fonts
+//! repository with fontTools 4.x:
+//!
+//! ```text
+//! fonttools varLib.instancer Fraunces[SOFT,WONK,opsz,wght].ttf opsz=14 SOFT=0 WONK=0 wght=300:400:700 -o instance.ttf
+//! pyftsubset instance.ttf --unicodes="U+0020,U+002D,U+002E,U+0041,U+0043,U+0046,U+0048,U+0049,U+0054,U+0056,\
+//!   U+0065,U+0066,U+0069,U+006C,U+006F,U+00E9" --layout-features='kern,liga,rvrn' --name-IDs='*' --notdef-outline \
+//!   --output-file=fraunces-subset.ttf
+//! ```
+//!
+//! It has 2000 units to the em, `H` 1656 wide, a kerning pair (`A` `V`: 1334 of 1424), the `fi` ligature as one glyph
+//! of 1333, and `é` as a composite of `e` and an accent.
+//!
+//! `synthetic.ttf` is made by this script (`uvx --from fonttools python script.py`): `A` is a chain of 64 composites
+//! (the deepest the reader draws), each placing the one before with a scaled offset; `B` is a glyph of 3999 straight
+//! segments.
+//!
+//! ```python
+//! import math
+//! from fontTools.fontBuilder import FontBuilder
+//! from fontTools.pens.ttGlyphPen import TTGlyphPen
+//! from fontTools.ttLib.tables._g_l_y_f import GlyphComponent, Glyph, SCALED_COMPONENT_OFFSET
+//! DEPTH = 64   # the deepest nesting of components read-fonts draws
+//! POINTS = 4000  # the corners of the heavy glyph
+//! fb = FontBuilder(1000, isTTF=True)
+//! names = [".notdef"] + [f"g{i}" for i in range(DEPTH + 1)] + ["heavy"]
+//! fb.setupGlyphOrder(names)
+//! fb.setupCharacterMap({0x41: f"g{DEPTH}", 0x42: "heavy"})
+//! pen = TTGlyphPen(None)
+//! pen.moveTo((0, 0)); pen.lineTo((0, 100)); pen.lineTo((100, 100)); pen.lineTo((100, 0)); pen.closePath()
+//! glyphs = {".notdef": TTGlyphPen(None).glyph(), "g0": pen.glyph()}
+//! for i in range(1, DEPTH + 1):
+//!     comp = GlyphComponent()
+//!     comp.glyphName = f"g{i-1}"
+//!     comp.x, comp.y = 10, 0
+//!     comp.flags = SCALED_COMPONENT_OFFSET
+//!     comp.transform = [[0.98, 0.0], [0.0, 1.0]]
+//!     g = Glyph()
+//!     g.numberOfContours = -1
+//!     g.components = [comp]
+//!     glyphs[f"g{i}"] = g
+//! pen = TTGlyphPen(None)
+//! corners = [(round(500 + 400 * math.cos(2 * math.pi * k / POINTS)), round(400 + 400 * math.sin(2 * math.pi * k / POINTS))) for k in range(POINTS)]
+//! pen.moveTo(corners[0])
+//! for corner in corners[1:]:
+//!     pen.lineTo(corner)
+//! pen.closePath()
+//! glyphs["heavy"] = pen.glyph()
+//! fb.setupGlyf(glyphs)
+//! fb.setupHorizontalMetrics({n: (500, 0) for n in names})
+//! fb.setupHorizontalHeader(ascent=800, descent=-200)
+//! fb.setupNameTable({"familyName": "Synthetic", "styleName": "Regular"})
+//! fb.setupOS2()
+//! fb.setupPost()
+//! fb.save("synthetic.ttf")
+//! ```
+#![allow(dead_code, reason = "each test file uses a different part")]
+
+use bullterrier_vector::{Error, Font};
+
+pub(crate) const FRAUNCES: &[u8] = include_bytes!("../fonts/fraunces-subset.ttf");
+pub(crate) const SYNTHETIC: &[u8] = include_bytes!("../fonts/synthetic.ttf");
+
+pub(crate) fn fraunces() -> Result<Font, Error> {
+    Font::new(FRAUNCES)
+}
+
+pub(crate) fn synthetic() -> Result<Font, Error> {
+    Font::new(SYNTHETIC)
+}

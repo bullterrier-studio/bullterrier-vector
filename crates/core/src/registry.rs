@@ -1,6 +1,6 @@
 //! The list of every verb a drawing can be built from.
 
-use crate::node::{Node, Verb, select, source, stack, style, transform, values};
+use crate::node::{Node, Verb, select, source, stack, style, text, transform, values};
 
 /// Every verb the library can build a drawing from. This is the declaration only (name, arguments, ranges); a tool
 /// reads it to describe the verbs, and what a verb does stays inside the crate.
@@ -18,6 +18,7 @@ const NODES: &[&dyn Node] = &[
     &source::PathSource,
     &source::ShapeSource,
     &stack::Stack,
+    &text::TextNode,
     &transform::Translate,
     &transform::Rotate,
     &transform::Scale,

@@ -492,6 +492,7 @@ REGISTERED = {
     "only",
     "without",
     "with_values",
+    "text",
     "param",
     "add",
     "sub",
@@ -524,6 +525,23 @@ def keys_of(value: Any) -> set[str]:
 
 
 UNREGISTERED = call_names(SCHEMA) - REGISTERED
+# The arguments of `text` that a later batch registers (V5b: axes, features; V6: width, fit, inside): a document that
+# gives one waits for it, as one that uses an unregistered call does.
+LATER_TEXT_ARGUMENTS = {"axes", "features", "width", "fit", "inside"}
+
+
+def waits_for_a_later_batch(document: Any) -> bool:
+    """Whether the document uses a call, or an argument of `text`, that the library does not register yet."""
+    if keys_of(document) & UNREGISTERED:
+        return True
+    if isinstance(document, dict):
+        text = document.get("text")
+        if isinstance(text, dict) and set(text) & LATER_TEXT_ARGUMENTS:
+            return True
+        return any(waits_for_a_later_batch(inner) for inner in document.values())
+    if isinstance(document, list):
+        return any(waits_for_a_later_batch(inner) for inner in document)
+    return False
 
 
 def comparable() -> list[tuple[str, Any]]:
@@ -531,7 +549,7 @@ def comparable() -> list[tuple[str, Any]]:
     documents = [(path.name, json.loads(path.read_text(encoding="utf-8"))) for path in EXAMPLES]
     documents += [(str(row.id), row.values[0]) for row in GOOD + AGREED]
     documents += [(str(row.id), row.values[0]) for row in BAD]
-    return [(name, document) for name, document in documents if not keys_of(document) & UNREGISTERED]
+    return [(name, document) for name, document in documents if not waits_for_a_later_batch(document)]
 
 
 COMPARABLE = comparable()
@@ -573,7 +591,7 @@ def test_both_schemas_give_the_verdict_the_registered_declaration_states(documen
 
 
 @pytest.mark.parametrize(
-    ("document", "keyword", "pointer"), [row for row in BAD if not keys_of(row.values[0]) & UNREGISTERED]
+    ("document", "keyword", "pointer"), [row for row in BAD if not waits_for_a_later_batch(row.values[0])]
 )
 def test_a_bad_registered_document_fails_in_the_generated_schema_where_the_draft_fails(
     document: Any, keyword: str, pointer: str

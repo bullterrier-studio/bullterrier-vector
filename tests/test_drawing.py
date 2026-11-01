@@ -701,9 +701,15 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
 }
 
 
+# Verbs the core registers that the Python package does not reach yet, each with the batch that brings it (the bindings
+# of `text` and `Font`, V5c). The entry goes when its row is added to VERB_ROWS.
+NOT_YET_IN_PYTHON = {"text": "V5c"}
+
+
 def test_the_table_has_a_row_for_every_registered_verb_and_no_other():
-    # a verb added to the core without a row here fails by its name
-    assert set(VERB_ROWS) == registered_verbs()
+    # a verb added to the core without a row here, or listed as pending, fails by its name
+    assert set(VERB_ROWS) | set(NOT_YET_IN_PYTHON) == registered_verbs()
+    assert not set(VERB_ROWS) & set(NOT_YET_IN_PYTHON), "a verb with a row is no longer pending"
 
 
 @pytest.mark.parametrize("verb", sorted(VERB_ROWS))

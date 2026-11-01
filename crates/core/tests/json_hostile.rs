@@ -3,25 +3,32 @@
 
 mod common;
 
-use bullterrier_vector::{Drawing, Error, Values};
+use bullterrier_vector::{Drawing, Error, Inputs, Values};
 use proptest::prelude::*;
 
 /// What `from_json` must do with any text: refuse it with a format error at a JSON Pointer, or give a drawing that
 /// writes a document which reads back to a drawing that writes the same text and draws the same.
 fn checked(text: &str) -> Result<(), TestCaseError> {
-    match Drawing::from_json(text) {
+    checked_with(text, &Inputs::new())
+}
+
+/// As `checked`, with `inputs` supplied; an input the caller gave wrongly is a parameter error naming `inputs.` and the
+/// input.
+fn checked_with(text: &str, inputs: &Inputs) -> Result<(), TestCaseError> {
+    match Drawing::from_json(text, inputs) {
         Err(Error::Format { pointer, .. }) => {
             prop_assert!(
                 pointer.is_empty() || pointer.starts_with('/'),
                 "not a JSON Pointer: {pointer:?}"
             );
         }
+        Err(Error::Parameter { parameter, .. }) if parameter.starts_with("inputs.") => {}
         Err(other) => return Err(TestCaseError::fail(format!("not a format error: {other}"))),
         Ok(drawing) => {
             let written = drawing
                 .to_json()
                 .map_err(|error| TestCaseError::fail(format!("to_json: {error}\n{text}")))?;
-            let again = Drawing::from_json(&written)
+            let again = Drawing::from_json(&written, inputs)
                 .map_err(|error| TestCaseError::fail(format!("the canonical text is refused: {error}\n{written}")))?;
             prop_assert_eq!(
                 again
@@ -337,6 +344,64 @@ fn plausible() -> impl Strategy<Value = Val> {
         })
 }
 
+/// A document of one `text` call whose arguments, and the declaration of its inputs, are right more often than not.
+fn text_documents() -> impl Strategy<Value = (Val, bool)> {
+    let word = |choices: &'static [&'static str]| prop::sample::select(choices).prop_map(Val::Text);
+    let point = || (number(), number()).prop_map(|(x, y)| Val::Array(vec![x, y]));
+    let argument = prop_oneof![
+        word(&["Hi", "", "fi\\nAV", "\\u00e9", "\\ud800"]).prop_map(|content| ("content", content)),
+        word(&["f", "g", "", "x y"]).prop_map(|font| ("font", font)),
+        number().prop_map(|size| ("size", size)),
+        number().prop_map(|tracking| ("tracking", tracking)),
+        number().prop_map(|leading| ("leading", leading)),
+        word(&["left", "center", "right", "middle"]).prop_map(|align| ("align", align)),
+        point().prop_map(|anchor| ("anchor", anchor)),
+    ];
+    let input = || {
+        (
+            prop::sample::select(&["font", "map", "other"][..]),
+            prop::option::of(prop::sample::select(
+                &[
+                    "0000000000000000000000000000000000000000000000000000000000000000",
+                    "short",
+                ][..],
+            )),
+        )
+            .prop_map(|(kind, sha256)| {
+                let mut members = vec![("kind", Val::Text(kind))];
+                members.extend(sha256.map(|sha256| ("sha256", Val::Text(sha256))));
+                Val::Object(members)
+            })
+    };
+    (
+        prop::collection::vec(argument, 0..7),
+        prop::option::of(input()),
+        prop::option::of(input()),
+        any::<bool>(),
+    )
+        .prop_map(|(arguments, f, g, supplies_both)| {
+            let mut members = vec![("version", Val::Number("1"))];
+            let declared: Vec<_> = [("f", f), ("g", g)]
+                .into_iter()
+                .filter_map(|(name, input)| input.map(|input| (name, input)))
+                .collect();
+            if !declared.is_empty() {
+                members.push(("inputs", Val::Object(declared)));
+            }
+            // each argument once, the last one written winning: a repeated key is refused before anything else is read
+            let mut body = std::collections::BTreeMap::from([("font", Val::Text("f"))]);
+            body.extend(arguments);
+            members.push((
+                "root",
+                Val::Array(vec![Val::Object(vec![(
+                    "text",
+                    Val::Object(body.into_iter().collect()),
+                )])]),
+            ));
+            (Val::Object(members), supplies_both)
+        })
+}
+
 fn rendered(value: &Val) -> String {
     let mut text = String::new();
     value.render(&mut text);
@@ -387,6 +452,16 @@ proptest! {
         checked(&rendered(&value))?;
     }
 
+    /// A `text` call and its inputs, supplied rightly or not.
+    #[test]
+    fn text_documents_give_a_drawing_a_format_error_or_a_refused_input((value, both) in text_documents()) {
+        let mut inputs = Inputs::new().set("f", common::fonts::FRAUNCES);
+        if both {
+            inputs = inputs.set("g", common::fonts::FRAUNCES);
+        }
+        checked_with(&rendered(&value), &inputs)?;
+    }
+
     /// Plausible documents, which reach the checks that relate values across the document.
     #[test]
     fn plausible_documents_give_a_drawing_or_a_format_error(value in plausible()) {
@@ -400,7 +475,7 @@ fn text_nested_far_past_the_limit_is_refused_not_recursed_into() {
         for (open, close) in [("[", "]"), ("{\"a\":", "}")] {
             let text = format!("{}1{}", open.repeat(levels), close.repeat(levels));
             assert!(
-                matches!(Drawing::from_json(&text), Err(Error::Format { .. })),
+                matches!(Drawing::from_json(&text, &Inputs::new()), Err(Error::Format { .. })),
                 "{levels} levels of {open}"
             );
         }

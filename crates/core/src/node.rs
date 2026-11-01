@@ -32,16 +32,21 @@
 //! | expression ([`Reads::PerItem`]) | an `Expr`; a Param may carry one value per shape: `dx`, `angle`, `about`, `alpha`... |
 //! | literal ([`Reads::Literal`]) | constants only, no expression: a colour, `join`, `cap`, a blend mode, a stack's `size` |
 //!
-//! Three kinds of argument are declared by the first node that needs them, not before, so that no variant exists
+//! | Argument | Meaning |
+//! |---|---|
+//! | read once ([`Reads::Once`]) | an `Expr` read once for the whole call: a Param that is given a list is refused. `text`'s `size`, `tracking`, `leading` and `anchor` |
+//! | font ([`Kind::Font`]) | a [`Font`](crate::Font), by its bytes: a document names it and the caller supplies the bytes |
+//!
+//! Two more kinds of argument are declared by the first node that needs them, not before, so that no variant exists
 //! without a consumer and a test: a whole number (an expression whose value must be whole within ±(2^53 - 1)),
-//! first used by `repeat`; the per-item numbers (`by_index`, `by_order`, `random`, `stagger`); and an argument read
-//! once (it refuses a per-item number or a list), first used by `text`.
+//! first used by `repeat`; and the per-item numbers (`by_index`, `by_order`, `random`, `stagger`).
 
 mod args;
 pub(crate) mod select;
 pub(crate) mod source;
 pub(crate) mod stack;
 pub(crate) mod style;
+pub(crate) mod text;
 pub(crate) mod transform;
 pub(crate) mod values;
 
@@ -102,6 +107,12 @@ pub(crate) struct Context<'a> {
     pub(crate) env: &'a Values,
     /// What the draw has made so far, to charge what this step creates.
     pub(crate) work: &'a Work,
+}
+
+/// The word of `name` read as one of the call's options, found by `named`.
+pub(crate) fn choice<T>(args: &Args, name: &str, named: impl Fn(&str) -> Option<T>) -> Result<T, Error> {
+    let text = args.text(name)?;
+    named(text).ok_or_else(|| Error::parameter(name, format!("is not one of the words it takes, got {text:?}")))
 }
 
 /// `map` applied to every shape of `previous` in order, with its [`Item`]. An error from `map` is placed at the step
@@ -185,6 +196,8 @@ pub enum Kind {
     Attributes,
     /// Param names with a number, or a list of one number per shape, for each (`with_values`).
     Values,
+    /// A [`Font`](crate::Font): a document names an input, and the caller supplies its bytes.
+    Font,
 }
 
 /// How an argument's value is read.
@@ -192,6 +205,8 @@ pub enum Kind {
 pub enum Reads {
     /// An expression, which a Param can feed with one value per shape.
     PerItem,
+    /// An expression read once for the whole call: a Param can feed it one number, never a list.
+    Once,
     /// A constant, given when the call is made.
     Literal,
 }

@@ -4,14 +4,14 @@
 
 mod common;
 
-use bullterrier_vector::Drawing;
+use bullterrier_vector::{Drawing, Inputs};
 use common::{Outcome, format_refusal};
 
 const TRIANGLE: &str = "M0 0 L10 0 L10 10 Z";
 const LIBRARY: &str = env!("CARGO_PKG_VERSION");
 
 fn refused(text: &str) -> Result<(String, String), Box<dyn std::error::Error>> {
-    format_refusal(Drawing::from_json(text))
+    format_refusal(Drawing::from_json(text, &Inputs::new()))
 }
 
 /// A document whose root is the triangle followed by `steps` (JSON text).
@@ -20,7 +20,7 @@ fn after_triangle(steps: &str) -> String {
 }
 
 fn canonical(text: &str) -> Result<String, Box<dyn std::error::Error>> {
-    Ok(Drawing::from_json(text)?.to_json()?)
+    Ok(Drawing::from_json(text, &Inputs::new())?.to_json()?)
 }
 
 // The envelope ------------------------------------------------------------------------------------------------------
@@ -83,7 +83,7 @@ fn a_param_description_has_all_six_fields_with_the_right_types() -> Outcome {
     let good = r#"{"name":"x","default":0,"min":0,"max":1,"unit":"","meaning":""}"#;
     let use_it = r#"{"translate":{"dx":{"param":"x"},"dy":0}}"#;
     let doc = |param: &str| format!(r#"{{"version":1,"params":[{param}],"root":[{{"path":"M0 0"}},{use_it}]}}"#);
-    Drawing::from_json(&doc(good))?;
+    Drawing::from_json(&doc(good), &Inputs::new())?;
     for (case, param, pointer) in [
         (
             "a missing field",
@@ -396,7 +396,7 @@ fn an_expression_is_a_param_or_arithmetic_with_a_param_somewhere_in_it() -> Outc
         r#"{"div":[1,{"param":"x"}]}"#,
         r#"{"add":[{"mul":[2,{"param":"x"}]},{"neg":{"param":"x"}}]}"#,
     ] {
-        Drawing::from_json(&with_x(angle))?;
+        Drawing::from_json(&with_x(angle), &Inputs::new())?;
     }
     Ok(())
 }
@@ -476,7 +476,7 @@ fn a_shape_has_a_path_and_the_attributes_a_generator_writes() -> Outcome {
     let good = format!(
         r#"{{"version":1,"root":[{{"shape":{{"path":"{TRIANGLE}","attributes":{{"glyph":2,"char":"O","word":1,"line":0,"part":3,"copy":4,"level":0.5,"order":1,"origin":[1,2]}}}}}}]}}"#
     );
-    let drawing = Drawing::from_json(&good)?;
+    let drawing = Drawing::from_json(&good, &Inputs::new())?;
     let shape = drawing.shapes(&bullterrier_vector::Values::new())?.remove(0);
     let attributes = shape.attributes();
     assert_eq!(
@@ -546,9 +546,10 @@ fn a_selection_names_attributes_and_the_values_they_must_have() -> Outcome {
         r#"{"index":[]}"#,
         r#"{"origin":[]}"#,
     ] {
-        Drawing::from_json(&format!(
-            r#"{{"version":1,"root":[{{"path":"{TRIANGLE}"}},{{"only":{ok}}}]}}"#
-        ))
+        Drawing::from_json(
+            &format!(r#"{{"version":1,"root":[{{"path":"{TRIANGLE}"}},{{"only":{ok}}}]}}"#),
+            &Inputs::new(),
+        )
         .map_err(|error| format!("{ok}: {error}"))?;
     }
     for (case, select, pointer) in [
@@ -579,8 +580,8 @@ fn with_values_names_params_and_gives_a_number_or_a_list() -> Outcome {
             r#"{{"version":1,"params":[{{"name":"x","default":0,"min":0,"max":9,"unit":"","meaning":""}}],"root":[{{"path":"{TRIANGLE}"}},{{"translate":{{"dx":{{"param":"x"}},"dy":0}}}},{{"with_values":{values}}}]}}"#
         )
     };
-    Drawing::from_json(&doc(r#"{"x":3}"#))?;
-    Drawing::from_json(&doc(r#"{"x":[3]}"#))?;
+    Drawing::from_json(&doc(r#"{"x":3}"#), &Inputs::new())?;
+    Drawing::from_json(&doc(r#"{"x":[3]}"#), &Inputs::new())?;
     assert_eq!(refused(&doc(r#"{"x":"3"}"#))?.0, "/root/2/with_values/x");
     assert_eq!(refused(&doc(r#"{"x":[1,"2"]}"#))?.0, "/root/2/with_values/x/1");
     assert_eq!(refused(&doc("[]"))?.0, "/root/2/with_values");

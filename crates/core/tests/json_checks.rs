@@ -4,14 +4,14 @@
 
 mod common;
 
-use bullterrier_vector::Drawing;
+use bullterrier_vector::{Drawing, Inputs};
 use common::{Outcome, format_refusal};
 
 const TRIANGLE: &str = "M0 0 L10 0 L10 10 Z";
 
 /// The pointer and message `from_json` refuses `text` with.
 fn refused(text: &str) -> Result<(String, String), Box<dyn std::error::Error>> {
-    format_refusal(Drawing::from_json(text))
+    format_refusal(Drawing::from_json(text, &Inputs::new()))
 }
 
 /// A Param description.
@@ -187,7 +187,7 @@ fn json_text_refuses_text_that_is_not_i_json() -> Outcome {
 #[test]
 fn json_text_reads_a_surrogate_pair_and_escapes_as_the_characters_they_stand_for() -> Outcome {
     let text = r#"{"version":1,"params":[{"name":"x","default":0,"min":0,"max":1,"unit":"","meaning":"😀 é \n \/ \"q\""}],"root":[{"path":"M0 0"},{"translate":{"dx":{"param":"x"},"dy":0}}]}"#;
-    let drawing = Drawing::from_json(text)?;
+    let drawing = Drawing::from_json(text, &Inputs::new())?;
     assert_eq!(drawing.parameters()?[0].meaning_of(), "\u{1f600} \u{e9} \n / \"q\"");
     Ok(())
 }
@@ -198,7 +198,7 @@ fn json_text_reads_a_surrogate_pair_and_escapes_as_the_characters_they_stand_for
 fn limits_refuses_a_document_past_the_byte_limit_and_reads_one_at_it() -> Outcome {
     let head = r#"{"version":1,"root":[{"path":"M0 0"}]}"#;
     let at_limit = format!("{head}{}", " ".repeat(16 * 1024 * 1024 - head.len()));
-    assert!(Drawing::from_json(&at_limit).is_ok());
+    assert!(Drawing::from_json(&at_limit, &Inputs::new()).is_ok());
     let (pointer, message) = refused(&format!("{at_limit} "))?;
     assert_eq!(pointer, "");
     assert!(message.contains("MAX_DOCUMENT_BYTES 16777216"), "{message}");
@@ -209,7 +209,7 @@ fn limits_refuses_a_document_past_the_byte_limit_and_reads_one_at_it() -> Outcom
 fn limits_refuses_a_document_past_the_call_limit_and_reads_one_at_it() -> Outcome {
     let steps = |count: usize| document(&[], "", &vec![r#"{"translate":{"dx":1,"dy":1}}"#.to_owned(); count]);
     // the source is a call too
-    assert!(Drawing::from_json(&steps(99_999)).is_ok());
+    assert!(Drawing::from_json(&steps(99_999), &Inputs::new()).is_ok());
     let (pointer, message) = refused(&steps(100_000))?;
     assert_eq!(pointer, "");
     assert!(message.contains("MAX_CALLS 100000"), "{message}");
@@ -223,7 +223,10 @@ fn limits_refuses_the_first_param_past_the_param_limit_and_reads_a_thousand() ->
         let steps: Vec<String> = (0..count).map(|number| reading(&format!("p{number}"))).collect();
         document(&params, "", &steps)
     };
-    assert_eq!(Drawing::from_json(&reads(1_000))?.parameters()?.len(), 1_000);
+    assert_eq!(
+        Drawing::from_json(&reads(1_000), &Inputs::new())?.parameters()?.len(),
+        1_000
+    );
     let (pointer, message) = refused(&reads(1_001))?;
     assert_eq!(pointer, "/params/1000");
     assert!(message.contains("MAX_PARAMS 1000"), "{message}");
@@ -236,7 +239,7 @@ fn limits_counts_expressions_as_calls() -> Outcome {
     let step = r#"{"rotate":{"angle":{"neg":{"param":"x"}}}}"#.to_owned();
     let text = document(&[plain("x")], "", &vec![step; 33_333]);
     // 1 source + 33,333 steps + 2 expressions each (neg, param) = 100,000: at the limit
-    assert!(Drawing::from_json(&text).is_ok());
+    assert!(Drawing::from_json(&text, &Inputs::new()).is_ok());
     let step = r#"{"rotate":{"angle":{"neg":{"param":"x"}}}}"#.to_owned();
     let (_, message) = refused(&document(&[plain("x")], "", &vec![step; 33_334]))?;
     assert!(message.contains("MAX_CALLS"), "{message}");
@@ -313,7 +316,7 @@ fn depth_counts_the_nesting_through_references() -> Outcome {
     // path call); each stack over it adds the array, the stack call, its arguments, its items and the item: 5 levels.
     // So `e` of level i is 2 + 5i deep, the root array over `e(L-1)` is 5 more, and the document object one more
     // than the deeper of that and the `drawings` object: 3 + 5L, at most 128 for 25 levels.
-    assert!(Drawing::from_json(&tower(25)).is_ok());
+    assert!(Drawing::from_json(&tower(25), &Inputs::new()).is_ok());
     let (pointer, message) = refused(&tower(26))?;
     assert_eq!(pointer, "");
     assert!(
@@ -401,7 +404,7 @@ fn param_range_reads_a_range_that_is_one() -> Outcome {
         param("x", 0.0, -180.0, 180.0, "deg"),
         param("x", 10.0, 0.0, 10.0, "px"),
     ] {
-        Drawing::from_json(&document(&[description], "", &[reading("x")]))?;
+        Drawing::from_json(&document(&[description], "", &[reading("x")]), &Inputs::new())?;
     }
     Ok(())
 }
@@ -441,7 +444,7 @@ fn param_order_refuses_params_in_another_order_than_the_walk_reads_them() -> Out
     let (pointer, message) = refused(&document(&[plain("a"), plain("b")], "", &steps))?;
     assert_eq!(pointer, "/params");
     assert!(message.contains("that order is b, a"), "{message}");
-    Drawing::from_json(&document(&[plain("b"), plain("a")], "", &steps))?;
+    Drawing::from_json(&document(&[plain("b"), plain("a")], "", &steps), &Inputs::new())?;
     Ok(())
 }
 
@@ -449,7 +452,10 @@ fn param_order_refuses_params_in_another_order_than_the_walk_reads_them() -> Out
 fn param_order_follows_the_arguments_of_a_call_then_the_shared_drawings_when_first_reached() -> Outcome {
     // rotate reads `angle` before `about`, whatever order the text gives them in
     let step = r#"{"rotate":{"about":[{"param":"b"},0],"angle":{"param":"a"}}}"#.to_owned();
-    Drawing::from_json(&document(&[plain("a"), plain("b")], "", std::slice::from_ref(&step)))?;
+    Drawing::from_json(
+        &document(&[plain("a"), plain("b")], "", std::slice::from_ref(&step)),
+        &Inputs::new(),
+    )?;
     let (_, message) = refused(&document(&[plain("b"), plain("a")], "", &[step]))?;
     assert!(message.contains("that order is a, b"), "{message}");
     // a shared drawing is read where it is first reached, not where the text lists it
@@ -461,7 +467,7 @@ fn param_order_follows_the_arguments_of_a_call_then_the_shared_drawings_when_fir
         )
     };
     let ordered = root(&document(&[plain("early"), plain("late")], &entries, &[]));
-    Drawing::from_json(&ordered)?;
+    Drawing::from_json(&ordered, &Inputs::new())?;
     let (pointer, _) = refused(&root(&document(&[plain("late"), plain("early")], &entries, &[])))?;
     assert_eq!(pointer, "/params");
     Ok(())
@@ -511,7 +517,7 @@ fn drawing_used_reads_an_entry_used_once_and_one_used_only_by_another_entry() ->
         r#"{},"b":[{{"stack":{{"items":[[{{"drawing":"a"}}]]}}}}]"#,
         triangle_entry("a")
     );
-    Drawing::from_json(&drawing_using(&[], &entries, &["b"]))?;
+    Drawing::from_json(&drawing_using(&[], &entries, &["b"]), &Inputs::new())?;
     Ok(())
 }
 
@@ -565,7 +571,10 @@ fn with_values_refuses_a_value_outside_the_range_of_its_param_and_wraps_a_cyclic
     assert_eq!(pointer, "/root/2/with_values/x");
     assert!(message.contains("within 0 to 10"), "{message}");
     let wrapped = [reading("a"), r#"{"with_values":{"a":370}}"#.to_owned()];
-    let drawing = Drawing::from_json(&document(&[param("a", 0.0, 0.0, 360.0, "deg")], "", &wrapped))?;
+    let drawing = Drawing::from_json(
+        &document(&[param("a", 0.0, 0.0, 360.0, "deg")], "", &wrapped),
+        &Inputs::new(),
+    )?;
     assert_eq!(drawing.parameters()?, vec![]);
     Ok(())
 }
