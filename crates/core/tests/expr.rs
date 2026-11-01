@@ -362,10 +362,8 @@ fn a_million_level_expression_is_printed_compared_and_dropped_on_the_smallest_st
             assert_eq!(sum, clone);
             assert_eq!(sum, same, "built the same way");
             assert_ne!(sum, negated);
-            assert!(
-                sum.to_string().len() < 200,
-                "it prints in a few words, not a million levels"
-            );
+            // the Param is 1 level and each of the million additions one more
+            assert_eq!(sum.to_string(), "(an expression 1000001 levels deep)");
             assert!(format!("{sum:?}").len() < 1000);
             parameter_refusal(value(&sum))?;
             drop(sum);
