@@ -87,3 +87,28 @@ def test_series_bars_draws_twelve_bars_with_the_tallest_in_the_second_ink_on_top
         assert bounds.height == pytest.approx(700 * SERIES[i])
         assert bounds.y + bounds.height == pytest.approx(900)
         assert bar.attributes["order"] == pytest.approx(i / 11)
+
+
+def test_poster_overlaps_two_multiply_inks_on_paper_and_keeps_its_stack_of_shapes(run):
+    found = run("poster")
+    shapes, rgba = found["shapes"], found["rgba"]
+    # paper, twelve stars, two inks, the zigzag, eight hairlines
+    assert len(shapes) == 1 + 12 + 2 + 1 + 8
+    assert [shape.style.blend for shape in shapes[13:15]] == ["multiply", "multiply"]
+    assert len(rgba) == 800 * 600 * 4
+
+    def pixel(x: int, y: int) -> tuple[int, ...]:
+        start = (y * 800 + x) * 4
+        return tuple(rgba[start : start + 4])
+
+    # the corner is bare paper, opaque
+    assert pixel(2, 2) == (246, 241, 228, 255)
+    # where the inks overlap, each channel is the product of both inks and the paper under them, over 255 twice
+    pink, blue, paper = (255, 79, 154), (46, 100, 226), (246, 241, 228)
+    expected = tuple(a * b * c / 255**2 for a, b, c in zip(pink, blue, paper, strict=True))
+    assert pixel(400, 300) == pytest.approx((*expected, 255), abs=1.5)
+    # and the pink alone is only its own product with the paper
+    assert pixel(200, 300)[:3] == pytest.approx(tuple(a * c / 255 for a, c in zip(pink, paper, strict=True)), abs=1.5)
+    # the file the picture would be is well formed XML with one path per shape that has geometry
+    root = ET.fromstring(found["svg"])  # noqa: S314  our own output
+    assert len(root.findall("{http://www.w3.org/2000/svg}path")) == len(shapes)
