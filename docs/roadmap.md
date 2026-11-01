@@ -287,12 +287,127 @@ pieces: frame time, upload cost, and the difference from the CPU pixels (the ref
 written here with a proposal: what a GPU display would add to the roadmap, if anything, and a shader for the one step
 with no triangle form, a blurred shadow (multiply already draws through the draw ranges, knockouts through booleans).
 
+State: measured 2026-11-01.
+
+Set-up: Apple M4 laptop, macOS, Google Chrome 156 (`--headless=new`), WebGL 2 on the real GPU (`UNMASKED_RENDERER`: ANGLE, Apple M4, Metal), the release WebAssembly package (simd128). Scenes: the 200-shape seeded drawing of `tools/bench.py` at 1920x1080 (also 960x540 and 3840x2160), the poster and the star from `examples/`. Mesh drawn with a 20-line shader (position and premultiplied colour), `ONE, ONE_MINUS_SRC_ALPHA` for normal ranges, canvas premultiplied. Reference: `toRgba` of the same drawing, compared in premultiplied space after flipping the read-back rows. Another job ran on the machine, so times move by about 30% between runs; each number is a median of 12 to 100 frames.
+
+| Per frame, 1080p, 200-shape drawing (134k triangles, 60 ranges, 5.6 MB) | ms |
+|---|---|
+| `toMeshInto` (WebAssembly in the page) | 34 to 51 |
+| `toRgba` (WebAssembly in the page) | 33 to 51 |
+| `bufferData` call, vertices and indices | 0.2 |
+| `bufferData` landed on the GPU (call, a one-triangle draw, a 1-pixel read-back, minus the empty read-back) | about 1 |
+| GPU draw of the cached mesh, 20 frames per sync (4x MSAA / no MSAA) | 0.6 / 0.4 |
+| one draw with a 1-pixel read-back as the sync (4x MSAA / no MSAA) | 2.5 to 3.6 / 1.4 to 1.5 (an empty clear with the same sync: 1.3 / 0.5) |
+| mesh, upload and draw together, as a changed drawing needs | 37 to 56 |
+| `putImageData` of the CPU pixels (the CPU path's display cost) | 1.7 |
+
+At 960x540 the draw is 0.3 ms and `toRgba` 30 ms; at 3840x2160 the draw is 0.6 ms (no MSAA) to 1.7 ms (4x), `toRgba` 83 ms, `toMeshInto` 39 ms (the mesh does not depend on the size). Poster at 800x600: mesh 1.4 ms, draw 0.1 to 0.3 ms, `toRgba` 5.8 ms. Star: everything under 1 ms.
+
+**Frame time.** Drawing a mesh is cheap (under 1 ms of GPU time at 1080p, 4K included); making it is not. Re-meshing costs as much as rasterising on the CPU, so a drawing that changes every frame gains nothing from a GPU display (37 to 56 ms against 35 to 53 ms). It pays only when the mesh is kept (`generation` unchanged: pan, zoom, a per-item effect in the shader from `item` and `order`), or at large sizes where the pixel path grows with the area and the mesh does not. `gl.finish()` did not wait in Chrome (0 ms); the table syncs with `readPixels`. `performance.now` ticks at 0.1 ms in headless.
+
+**Difference from the CPU pixels** (1080p, 200 shapes on a white ground, 2.07 M pixels, 4x MSAA): 823k pixels differ (40%), 156k by more than 2/255, 92k by more than 8, 19k by more than 32 (0.9%), max 128, mean 0.7/255 per channel. Histogram of the largest channel difference: 0: 1.25 M, 1: 558k, 2 to 3: 126k, 4 to 7: 39k, 8 to 15: 43k, 16 to 31: 35k, 32 to 63: 18k, 64 to 127: 3.3k, 128 and up: 26. Where, each cause replicated on a scene that isolates it:
+
+- Edges (anti-aliasing), 18% of the pixels: mean 2.5/255, 11k pixels over 32. Plain opaque shapes (no alpha, opacity or multiply) are exact inside (0 differing interior pixels) and differ only on edges. 4x MSAA is the most this GPU gives (`MAX_SAMPLES` 4); without MSAA the edge mean doubles (5.4, 48k pixels over 32, max 167). Rendering at 2x2 gives the same as 4x MSAA; at 4x4 and averaging down, the edge mean drops to 1.6 (star: 1.0, max 48): the rest is the CPU rasteriser's own coverage, not a position offset.
+- Translucent colours (a colour with alpha, no group): interior differs by at most 2/255 (8-bit blending).
+- A shape with fill and stroke under opacity or multiply (the mesh draws two layers, the pixels one group, as `api.md` says): interior differs up to 56 (opacity) and 136 (multiply); the same shapes with one layer differ at most 2 (opacity) and 22 (multiply, one pixel). This is the only large interior difference.
+- Multiply: `gl.blendFunc(DST_COLOR, ONE_MINUS_SRC_ALPHA)` (the `mesh_upload.js` example) is right only over an opaque ground. With no background shape it gives 0 where the pixels give the source colour: 150k pixels over 32, max 255, against 22k and max 191 with an exact two-pass form (draw the range twice: `blendFuncSeparate(DST_COLOR, ONE_MINUS_SRC_ALPHA, ZERO, ONE)` then `blendFuncSeparate(ONE_MINUS_DST_ALPHA, ONE, ONE, ONE_MINUS_SRC_ALPHA)`). Over a white ground both forms are identical.
+- Poster 800x600: interior differs by at most 1; edges mean 3.5, 1.4k of 110k differing pixels over 32. Star: 2631 pixels differ (1.6% of 160k), all on edges.
+
+Not measured: a blurred shadow (no step for it yet, so no shader), other GPUs, other browsers, a windowed page with the compositor and vsync, a rendering of the mesh to a texture and back, and any 2D-canvas comparison other than `putImageData`. One machine, headless.
+
+**Proposal.**
+- Add no GPU display to the core. It is about 60 lines in the page (shaders, one buffer pair, a loop over the ranges); the mesh format needs no change. Put it in the V20 playground and give `mesh_upload.js` a complete shader and the multiply form above.
+- Say in `api.md` that a mesh drawn with `blendFunc` is a preview: the pixels stay the reference. Differences: edge anti-aliasing (a few levels of 255 on average, more at hairlines), and two-layer shapes under opacity or multiply (by design).
+- Fix the multiply line in `api.md` and `mesh_upload.js`: the single `blendFunc` is exact only over an opaque ground; use the two-pass form otherwise.
+- A GPU display helps the live preview only where the mesh is kept between frames; for a drawing that changes every frame the time is the re-meshing, which X2 measures.
+- Blurred shadow: keep the `ParameterError` in `to_mesh`. It needs an offscreen layer and two blur passes (a different kind of step from a draw range), which this spike did not build or time; decide it with V10, where the CPU blur is the reference.
+
 ## X2 Spike: live remeshing
 
 A measured experiment, not a promise. Re-evaluate and re-mesh a drawing from the kinetic type piece every frame in
 WebAssembly, with new values each frame, and measure the time per frame at 1080p against a 60 Hz budget, knockouts
 resolved by booleans on every frame; find what dominates (shaping, booleans, tessellation, the cache). Done when the
 numbers are written here with a proposal.
+
+Measured 2026-11-01 on an Apple M4 (10 cores) laptop, macOS, Node 26.11, release WebAssembly with `simd128`, one thread; native
+numbers are the same core compiled for the machine (release). The machine was shared and busy (load average 3 to 6 during
+the runs reported, up to 15 at other times), so read every figure as plus or minus 30%.
+
+**Scene (what exists today).** N shapes with the mix of `tools/bench.py` (circle, polygon, star, rounded rectangle, curve; fill,
+stroke or both; 40% translucent; 20% multiply; radius 20 to 160 px) at 1920x1080. On the stack, five steps read Params whose
+values are a list with one number per shape: `translate(dx, dy)`, `rotate(rot)`, `scale(sc)`, `opacity(alpha)`. Each frame the
+caller builds the five lists (sine signals) and calls `drawing.toMeshInto(mesh, 1920, 1080, values)` on one reused `Mesh`; then
+makes fresh typed-array views and copies vertices and indices into a preallocated buffer (a stand-in for a GPU upload; a real
+upload was not timed). 200 frames after 30 warm-up frames. About 650 vertices and 700 triangles a shape.
+
+| Shapes | What changes | Median ms | p95 | Max | Frames over 16.7 ms |
+|---|---|---|---|---|---|
+| 100 | all five lists | 14.4 | 18.2 | 25.0 | 17 of 200 |
+| 100 | `alpha` only (rest cache hits) | 13.3 | 15.5 | 28.6 | 5 |
+| 100 | nothing (all cache hits) | 14.4 | 14.9 | 18.0 | 3 |
+| 100, 10 of them live | five lists of 10 | 14.8 | 16.2 | 19.0 | 3 |
+| 300 | all five lists | 42.9 | 54.1 | 87.2 | 200 |
+| 1000 | all five lists | 134.8 | 157.4 | 182.6 | 200 |
+| 1000 | `alpha` only | 143.7 | 190.3 | 264.2 | 200 |
+| 1000 | nothing | 140.6 | 188.0 | 345.3 | 200 |
+| 1000, 10 of them live | five lists of 10 | 141.5 | 197.6 | 340.0 | 200 |
+
+Total per frame, including making the values (0.01 ms at 100 shapes, 0.09 ms at 1000) and the copy (0.07 and 0.7 ms). In
+headless Chrome 156 (coarse 0.1 ms clock, busy machine, one run each): 20 ms at 100 shapes and 152 to 202 ms at 1000, the
+same order as Node; not conclusive.
+
+**Where the time goes** (native, same code, per frame; shares are the same at 100 and 1000 shapes):
+
+| Stage | 1000 shapes, ms | Share |
+|---|---|---|
+| Tessellation (`lyon`, with the vertex sink) | 58.1 | 53% |
+| `crossing_at_most` (the work-limit pre-pass over each layer's edges) | 21.0 | 19% |
+| Flattening curves to 0.01 px | 12.2 | 11% |
+| Stroke outlines (`kurbo`) | 10.0 | 9% |
+| Evaluation (`shapes()`, cache) | 3.1 | 3% |
+| Building tessellator input, joins and caps | 4.4 | 4% |
+| Whole `to_mesh` | 104 to 110 | |
+
+- **Meshing is 97% of a frame; evaluation is 3%.** Evaluating 1000 shapes with every list changed takes 2.5 ms; with only
+  `alpha` changed 1.1 ms; with 10 of 1000 shapes live 1.0 ms; a draw served entirely from the cache 1.2 ms (that floor is probably the
+  clone of the shape list `shapes()` returns; not isolated). At 100 shapes: 0.25, 0.07, 0.09 and 0.09 ms. The cache works as designed and is
+  not the problem.
+- **`to_mesh` caches nothing below the shape list.** A frame where no value changed, or 10 of 1000 shapes moved, costs as much
+  as one where everything moved. Only `generation` stays put, so an upload can be skipped, not the work.
+- **Strokes cost about five times a fill.** 1000 fills alone: 26 ms; 1000 strokes alone: 127 ms (their outlines overlap
+  themselves, so the sweep has many edges alive).
+- **Flattening tolerance 0.01 px makes the meshes large** (650 vertices a shape). Natively, 1000 shapes at tolerance 0.1:
+  40 ms; at 0.25: 26 ms (100 shapes: 11.1, 4.1, 2.9 ms). Not run in WebAssembly.
+- **WebAssembly costs 1.3 times native** (11.3 against 14.4 ms at 100 shapes; 104 against 135 ms at 1000), as in
+  `benchmarks.md`. The boundary is not a cost: reading five lists of 1000 numbers takes 0.3 ms, a throw 0.01 ms, the copy of
+  21 MB of vertices 0.7 ms.
+- Cost is linear in shape count (about 0.11 ms a shape in Node), and in this scene independent of how many values change.
+
+**Not measured.** Shaping and variable-axis changes per frame (fonts, V5, do not exist), booleans and knockouts per frame
+(V8; `knockout` is not a step yet), offsets and stroke-outline verbs (V9), deformers (V12), a real GPU upload and draw, a
+mesh with a different flattening tolerance in WebAssembly, more than one machine or browser, several threads (the build is
+single-threaded). Per-item fill colours cannot be Params today (a Param is a number): the per-shape lists drive transforms and
+opacity only. The kinetic type piece itself was not measured: this is a stand-in with the same kind of work.
+
+**Proposal.**
+- Live remeshing at 1080p and 60 Hz is feasible for about 100 mixed filled and stroked shapes of this size today (median
+  14 ms, p95 18 ms: no headroom), not for 300 or more, and for fills alone up to about 500 (26 ms for 1000 natively, times
+  1.3). Typical type has fewer and simpler contours than this scene, but that is unmeasured.
+- Do not remesh to move things. Evaluation is already cheap. Two cuts remove nearly all of it, in order of value:
+  1. Cache the layers of a shape by content (flattened path, style) so a frame re-tessellates only the shapes that
+     changed. This takes the 10-of-1000 case from 140 ms to about 2 ms plus the changed shapes, and a still frame to the
+     evaluation floor.
+  2. For motion that is only a transform or opacity per item (the common live case), mesh once and apply the per-item
+     translate, rotate, scale and alpha in the vertex shader using the `item` attribute the mesh already carries; remeshing is
+     then needed only when geometry changes (shape, stroke width, an axis, a boolean).
+- Cheap tuning before either: loosen the mesh's flattening to a display tolerance (0.1 to 0.25 px is 3 to 4 times fewer
+  vertices and 2.8 to 4 times faster), and replace the pre-pass `crossing_at_most` (19%) with a cheaper bound. Drawing strokes in
+  the shader instead of tessellating their outlines is an idea only, not tried.
+- Re-measure after V5: shaping and glyph outlines per frame when a variable axis moves (cache by axis value; a glyph set
+  with the same text and a moving axis is the kinetic type case), and the mesh of real glyphs. Re-measure after V8: booleans
+  per frame for knockouts on overlapping glyphs, against the 16.7 ms left over once meshing is cached. Re-measure on
+  another machine, in a real browser with a real upload, and with the chosen caching in place, before promising 60 Hz.
 
 ## V4 Frame export
 
