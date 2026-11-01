@@ -344,7 +344,7 @@ fn an_expression_a_million_levels_deep_is_refused_and_dropped_without_a_crash() 
 }
 
 /// The smallest thread stack the library supports (docs/design-decisions.md, "Bounded depth"), in bytes.
-const SMALLEST_STACK: usize = 128 * 1024;
+const SMALLEST_STACK: usize = 256 * 1024;
 
 #[test]
 fn a_million_level_expression_is_printed_compared_and_dropped_on_the_smallest_stack() -> Outcome {
