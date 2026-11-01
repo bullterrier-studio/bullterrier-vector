@@ -383,7 +383,7 @@ same order as Node; not conclusive.
   21 MB of vertices 0.7 ms.
 - Cost is linear in shape count (about 0.11 ms a shape in Node), and in this scene independent of how many values change.
 
-**Not measured.** Shaping and variable-axis changes per frame (fonts, V5, do not exist), booleans and knockouts per frame
+**Not measured.** (Shaping and variable-axis changes per frame were measured in V5c: `benchmarks.md`, "Text".) Booleans and knockouts per frame
 (V8; `knockout` is not a step yet), offsets and stroke-outline verbs (V9), deformers (V12), a real GPU upload and draw, a
 mesh with a different flattening tolerance in WebAssembly, more than one machine or browser, several threads (the build is
 single-threaded). Per-item fill colours cannot be Params today (a Param is a number): the per-shape lists drive transforms and
@@ -403,7 +403,8 @@ opacity only. The kinetic type piece itself was not measured: this is a stand-in
 - Cheap tuning before either: loosen the mesh's flattening to a display tolerance (0.1 to 0.25 px is 3 to 4 times fewer
   vertices and 2.8 to 4 times faster), and replace the pre-pass `crossing_at_most` (19%) with a cheaper bound. Drawing strokes in
   the shader instead of tessellating their outlines is an idea only, not tried.
-- Re-measure after V5: shaping and glyph outlines per frame when a variable axis moves (cache by axis value; a glyph set
+- Re-measure after V5 (done in V5c, `benchmarks.md` "Text": 0.015 ms to shape and outline a headline at a new weight, 0.5 ms for a
+  page, 0.6 ms to mesh it at 1080x1350): shaping and glyph outlines per frame when a variable axis moves (cache by axis value; a glyph set
   with the same text and a moving axis is the kinetic type case), and the mesh of real glyphs. Re-measure after V8: booleans
   per frame for knockouts on overlapping glyphs, against the 16.7 ms left over once meshing is cached. Re-measure on
   another machine, in a real browser with a real upload, and with the chosen caching in place, before promising 60 Hz.
@@ -435,9 +436,10 @@ State: V5a is done (Rust, through JSON): `Font`, `text(content, Text::new(&font)
 .align(..).anchor(..))` with the attributes, `Inputs` and `Drawing::from_json(text, &inputs)`, `to_json` writing `inputs`
 with `sha256`. V5b is done (Rust, through JSON): `Font::axes()` (a `Param` per axis) and `Font::features()`,
 `Text::axes(..)` (a number, `Param` or expression per tag, a value per character, shaped per run of equal location) and
-`Text::features(..)`, the loader's `font-checks`. V5c (Python and WebAssembly bindings, examples, the native-against-
-WebAssembly differential, re-measuring, a second-axis fixture if the bindings' tests need one) and V5d (WOFF and WOFF2,
-bundled fonts) follow.
+`Text::features(..)`, the loader's `font-checks`. V5c is done: `btvec.Font`, `btvec.text` and `Drawing.from_json(...,
+inputs=)` in Python, `Drawing.fromJson(text, inputs)` in WebAssembly, fontTools as the oracle of the Python tests, ten text
+drawings in the native-against-WebAssembly differential (exact SVG text and mesh buffers), `examples/kinetic_type.py`,
+and the per-frame cost of type in `docs/benchmarks.md`. V5d (WOFF and WOFF2, bundled fonts) follows.
 
 ## V6 Layout
 

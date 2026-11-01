@@ -23,6 +23,7 @@ import bullterrier_vector as btvec
 | [kinetic_type.py](examples/kinetic_type.py), [.rs](examples/kinetic_type.rs), [.js](examples/kinetic_type.js) | reference piece 1: variable-font axes, per-letter stagger, a caller's signal per letter, riso inks, a clip |
 | [cut_paper.py](examples/cut_paper.py) | reference piece 2: a traced mask, offset layers, shadows, a draw-on outline, a sequence of maps |
 | [hatched_poster.py](examples/hatched_poster.py) | reference piece 3: flow-field hatching by tone, rings of a distance field, a plotter file |
+| [kinetic_type.py](../examples/kinetic_type.py) | the headline of piece 1 as far as it is built: a variable-font weight a letter, two multiply inks |
 | [star.py](../examples/star.py) | building and measuring a `Path` |
 | [ring.py](examples/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
 | [text_on_path.py](examples/text_on_path.py) | text bent along a path, moving round it |
@@ -291,9 +292,10 @@ V8 removes the overlaps).
 | `fit` | an axis tag or `"size"`: solved per line so the line is `width` wide, once, at the reference pose (every Param at its default, whatever `with_values` fixed), so the fit never changes from frame to frame and live values may overflow |
 | `inside` | a `Path`: lines wrap to its width at each baseline (V6) |
 
-Built so far: `content`, `font`, `size`, `axes`, `features`, `tracking`, `leading`, `align` and `anchor`, as a Rust
-`text(content, Text::new(&font).size(..).axes([("wght", &weight)]).features([("liga", 0)]))` (V5a, V5b); `width`, `fit` and
-`inside` come in V6. Each line is shaped as one run in the script and direction of its first strong character (no
+Built so far: `content`, `font`, `size`, `axes`, `features`, `tracking`, `leading`, `align` and `anchor`, in Python as
+above (`anchor` takes plain numbers, a `Point` or a tuple, and a `features` value is a Python `int`) and in Rust as
+`text(content, Text::new(&font).size(..).axes([("wght", &weight)]).features([("liga", 0)]))` (V5a to V5c); JavaScript has
+no builders, a text arrives in a document (`Drawing.fromJson`, below). `width`, `fit` and `inside` come in V6. Each line is shaped as one run in the script and direction of its first strong character (no
 reordering inside a line), or as several where the axis values change between characters; `glyph` counts the shapes
 made, `word` the runs of non-whitespace characters over the whole text, `line` the lines, and `origin` is the middle of
 the advance at half the cap height above the baseline.
@@ -332,7 +334,7 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 | Input | Signature | Promise | Errors |
 |---|---|---|---|
 | `Font` | `Font(data, *, name=None)` | a TrueType or OpenType font, variable or not, from bytes; `name` is what a saved drawing calls it | `data` not a font the library reads |
-| `font.axes` | property | its variable axes by tag, each a `Param` named by the tag, with the font's range, default and name (Rust: `Font::axes()`, a list in the font's order); an axis a `Param` cannot hold (minimum not below maximum, a tag that is not a name) is left out and can still be set by tag | |
+| `font.axes` | property | its variable axes by tag, each a `Param` named by the tag, with the font's range, default and name, in the font's order (Python: a new dict each time; Rust: `Font::axes()`, a list). Only an axis that can vary and is named by a `Param` name is listed: one pinned (minimum equal to maximum), with a tag that is not a name or a repeat of an earlier tag is left out, and is still set by its tag, and a refusal names it | |
 | `font.features` | property | the OpenType feature tags its `GSUB` and `GPOS` tables list, sorted (Rust: `Font::features()`) | |
 | `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value | `len(data)` not `width × height` |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
@@ -451,10 +453,10 @@ opens nothing.
 | `to_plotter_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
 | `to_mesh` | `to_mesh(width, height, /, *, into=None, **values)` | triangles for the picture (below) |
 | `to_json` | `to_json()` | the drawing as JSON: the same tree written down |
-| `Drawing.from_json` | `Drawing.from_json(text, *, inputs={})` | the drawing back, given the bytes of its inputs by name; it draws to identical bytes. A static method. In Rust `Drawing::from_json(text, &Inputs::new().set("anybody", bytes))`; Python and JavaScript get `inputs` in V5c |
+| `Drawing.from_json` | `Drawing.from_json(text, *, inputs=None)` | the drawing back, given the bytes (`bytes` or `bytearray`) of its inputs by name, a dict; it draws to identical bytes. A static method. In Rust `Drawing::from_json(text, &Inputs::new().set("anybody", bytes))`, in JavaScript `Drawing.fromJson(text, { anybody: bytes })` with a `Uint8Array` each |
 | `drawing_schema` | `btvec.drawing_schema()` | the JSON Schema of the format, as text, generated from the registered calls |
 
-In JavaScript (the package built from `crates/wasm`) a document loads with `Drawing.fromJson(text)`; a drawing has
+In JavaScript (the package built from `crates/wasm`) a document loads with `Drawing.fromJson(text, inputs?)` (`inputs` an object of names to `Uint8Array`s, none for a document without fonts); a drawing has
 `toJson()`, `parameters()` (plain objects `{ name, default, min, max, unit, meaning }`; `unit` is `""` for none), `size`
 (`[w, h]` or `undefined`) and the outputs, each `(width, height, values?)` with `values` an object of Param names to a
 number or an array of numbers: `toSvg` (a string), `toRgba` and `toPng` (a `Uint8Array`, a copy), `toMesh` (a new

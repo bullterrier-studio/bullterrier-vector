@@ -546,6 +546,30 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   distinct outlines of one glyph; charging `MAX_SHAPES` and `MAX_OUTLINE_SEGMENTS` after all were drawn would draw them
   first. The charge happens per glyph as it is laid out, so memory stays within one glyph of the limit.
 
+## Bindings of type (V5c)
+
+- **An axis a `Param` cannot hold stays out of `font.axes`, and that is not a lie** (2026-11-01). The list is what a
+  caller can put a slider on: a pinned axis (minimum equal to maximum) has nothing to vary, and a tag that is no `Param`
+  name cannot be one. Both are still settable by tag, in range, and every refusal lists the font's axes with these among
+  them (`tests/test_text.py` builds such fonts with fontTools and proves each). The alternatives cost more than the
+  omission: a `Param` with an empty range changes what every Param is, and refusing the font at `Font::new` would refuse
+  fonts that draw correctly.
+- **Fonts in a document cross the bindings as bytes by name** (2026-11-01). Python takes a `dict` of `bytes` or `bytearray`
+  and JavaScript an object of `Uint8Array`s (a view into a larger buffer included: its own bytes are copied), each checked
+  by type naming `inputs[name]` or `inputs.name`, and the core gives every other refusal. There is no getter for the
+  names a document declares: the document is plain JSON, and a missing input is a `ParameterError` that names it.
+- **`anchor` in Python is plain numbers** (2026-11-01), as in Rust: it is read once, and `Text::anchor` takes a `Point`.
+  A `Param` there is a `TypeError` naming `anchor`, not a silent default.
+- **Text is exact between native and WebAssembly, with no rounding step** (2026-11-01). The ten text drawings of the
+  differential (kerning, a ligature, a composite glyph, light, between and heavy weights, a `Param` axis and a weight a
+  character, tracked lines, a stroke, 64 nested composites, a glyph of 3,999 segments) give the same SVG text and mesh
+  buffers natively and in WebAssembly, so the fallback of rounding outline coordinates to a grid where they become a
+  `Path` was not needed, and is not part of the design. A difference found later is a defect to diagnose, not to round away.
+- **fontTools is the oracle of the font tests, a development dependency** (2026-11-01). It reads the same files with code
+  that shares nothing with the library: outlines and advances (also along an axis), axes, feature tags. Test fonts that
+  need a shape (two axes, a pinned axis) are built by it in the test, so no binary fixture hides what a font holds. A
+  library outline may differ from fontTools' by up to a font unit along an axis (it rounds a delta where fontTools does not).
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin
