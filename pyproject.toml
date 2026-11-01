@@ -116,6 +116,11 @@ build-check = { sequence = ["uv build --quiet --clear --no-create-gitignore --ou
 # look at: `uv run poe look examples/star.py [--size 800x600] [name=value ...]`; poe hands everything after the task name
 # to the tool. tests/tools/test_look.py shows it working and failing.
 look = { cmd = "uv run python tools/look.py", help = "Draw a .json or .py drawing to dist/look/<name>.png and .svg: look FILE [--size WxH] [name=value ...]" }
+# Not a gate and not in `check` or `fast`: time `to_rgba` and `to_mesh` on one reference drawing, natively and (after
+# `poe wasm-test` built pkg/) in Node, and print a table: `uv run poe bench [--shapes N] [--size WxH] [--repeats N]
+# [--warmups N] [--require-node]`. Nothing asserts on time; the numbers are recorded by hand in docs/benchmarks.md.
+# tests/tools/test_bench.py shows it working and failing.
+bench = { cmd = "uv run python tools/bench.py", help = "Time to_rgba and to_mesh on the reference drawing, native and in Node: bench [--shapes N] [--size WxH] [--repeats N] [--require-node]" }
 rust-test = { cmd = "cargo test --workspace --locked --quiet", help = "Run the Rust tests" }
 # `default_install_hook_types` in .pre-commit-config.yaml names the three hook types, so a bare `install` covers them
 setup = { sequence = ["pre-commit install --install-hooks", "git config --local commit.template .gitmessage", "uv run python tools/rust_tools.py install"], default_item_type = "cmd", help = "Install the git hooks, the commit-message template and the cargo tools the gate runs (once per clone)" }
