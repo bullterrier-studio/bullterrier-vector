@@ -482,10 +482,15 @@ can move and the memory can grow, which detaches the arrays made before; `mesh.f
 WebAssembly at once instead of when the mesh is collected
 ([mesh_upload.js](examples/mesh_upload.js)).
 
-The mesh is a display format; pixels and SVG stay the reference. What each step becomes: opacity goes into the
-vertex alpha, multiply into the draw ranges, a knockout cuts the triangles below it (a boolean while meshing), halftone
-dots are triangles. A shadow with a blur above 0 has no triangle form: `to_mesh` raises `ParameterError` naming the
-step, until spike X1 measures a shader for it.
+The mesh is a display format; pixels and SVG stay the reference. Drawn with WebGL it matches `to_rgba` inside plain
+shapes and differs on edges (anti-aliasing: a few levels of 255 on average at 4x MSAA, more at hairlines) and where a
+shape's fill and stroke overlap under opacity or multiply (two layers, not one group). A multiply range is exact over any
+ground only drawn in two passes, as [mesh_upload.js](examples/mesh_upload.js) does; the single
+`blendFunc(DST_COLOR, ONE_MINUS_SRC_ALPHA)` is right only over an opaque ground (spike X1, `roadmap.md`). What each
+step becomes: opacity goes into the vertex alpha, multiply into the draw ranges, a knockout cuts the triangles below it
+(a boolean while meshing), halftone dots are triangles. A shadow with a blur above 0 has no triangle form: `to_mesh`
+raises `ParameterError` naming the step, until V10 decides how a display draws it (it needs an offscreen layer and blur
+passes, which spike X1 did not build).
 
 ### Plotter
 
@@ -716,7 +721,7 @@ path).
   only what is set is painted.
 - **The design size is optional and inherited**; items whose sizes disagree raise `ParameterError`.
 - **The reference pose** is every Param at its default, whatever `with_values` fixed.
-- **The mesh** carries multiply as draw ranges and knockouts as booleans; only a blurred shadow raises, until spike X1.
+- **The mesh** carries multiply as draw ranges and knockouts as booleans; only a blurred shadow raises, until V10.
 - **Whole-number arguments** take expressions whose value is whole when drawn.
 - **JavaScript expressions** lift a leading number with `btvec.expr(n)`.
 - **Frame export may rebuild the drawing per frame**; such a clip is many drawings, not one JSON.

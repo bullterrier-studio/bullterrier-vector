@@ -167,7 +167,7 @@ and draws again:
   that knows frames; it has no timeline, keyframes or mixing, and it lives outside the core.
 - **Live in a page** (planned: the package in V3, an example in V20). The WebAssembly package redraws on a canvas from
   values the page supplies: the clock, scroll, the pointer, a Web Audio level; or hands the page a mesh to draw with the
-  GPU (V3; a GPU display and live remeshing are spikes to measure first). A piece too heavy to redraw live is exported
+  GPU (V3; spikes X1 and X2 measured both, `roadmap.md`: about 100 shapes remesh at 60 Hz today). A piece too heavy to redraw live is exported
   with frame export instead.
 - **Any other driver** (a script, a slider, another program) sets values per frame and draws again.
 

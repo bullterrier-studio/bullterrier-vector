@@ -46,8 +46,15 @@ function draw(now) {
   gl.clear(gl.COLOR_BUFFER_BIT);
   for (let r = 0; r < ranges.length; r += 3) {
     const [first, count, blend] = ranges.subarray(r, r + 3);
-    if (blend === 1) gl.blendFunc(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA); // multiply, premultiplied
-    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // normal, premultiplied
+    if (blend === 1) {
+      // multiply, premultiplied, in two passes so it is right over any ground, transparent ones too: the first adds
+      // src * dst, the second adds src where nothing is below and keeps dst where src is clear
+      gl.blendFuncSeparate(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+      gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_INT, first * 4);
+      gl.blendFuncSeparate(gl.ONE_MINUS_DST_ALPHA, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    } else {
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // normal, premultiplied
+    }
     gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_INT, first * 4);
   }
   requestAnimationFrame(draw);
