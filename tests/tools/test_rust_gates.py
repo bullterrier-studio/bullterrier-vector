@@ -30,7 +30,7 @@ WORKSPACE_FILES = [
 ]
 CORE = "crates/core/src/lib.rs"
 CORE_MANIFEST = "crates/core/Cargo.toml"
-CARGO_TASKS = ["rust-fmt", "rust-lint", "rust-doc", "rust-wasm", "rust-shear", "rust-deny", "rust-test"]
+CARGO_TASKS = ["rust-fmt", "rust-lint", "rust-doc", "rust-wasm", "rust-shear", "rust-deny", "rust-fonts", "rust-test"]
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,7 @@ def workspace(tmp_path_factory) -> Path:
     for name in WORKSPACE_FILES:
         shutil.copy(ROOT / name, root)
     shutil.copytree(ROOT / "crates", root / "crates")
+    shutil.copytree(ROOT / "tools", root / "tools", ignore=shutil.ignore_patterns("__pycache__"))
     # the JSON tests read the example documents of the format
     shutil.copytree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
     return root
@@ -259,6 +260,24 @@ OFFENCES = {
         CORE_MANIFEST,
         replaced("[dependencies]\n", "[dependencies]\nwasm-bindgen.workspace = true\n"),
         ["banned", "wasm-bindgen", "parent 'bullterrier-vector = "],
+    ),
+    "std switched on for a font crate": (
+        "rust-fonts",
+        "Cargo.toml",
+        replaced(
+            'harfrust = { version = "=0.15.0", default-features = false, features = ["libm"] }',
+            'harfrust = { version = "=0.15.0", default-features = false, features = ["libm", "std"] }',
+        ),
+        ["harfrust 0.15.0", "std"],
+    ),
+    "default features switched on for a font crate": (
+        "rust-fonts",
+        "Cargo.toml",
+        replaced(
+            'read-fonts = { version = "=0.46.0", default-features = false, features = ["libm"] }',
+            'read-fonts = { version = "=0.46.0", features = ["libm"] }',
+        ),
+        ["read-fonts 0.46.0", "std"],
     ),
     "a licence outside the allow-list": (
         "rust-deny",

@@ -21,6 +21,7 @@ PROVEN_TASKS = [
     "rust-doc",
     "rust-shear",
     "rust-deny",
+    "rust-fonts",
     "rust-wasm",
     "rust-test",
     "wasm-test",

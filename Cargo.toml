@@ -32,6 +32,16 @@ png = "=0.18.1"
 # the mesh's fill tessellator (docs/design-decisions.md, "Mesh"): pinned exactly, because the triangles it makes are the
 # mesh and a new release may make others; used only in crates/core/src/output/mesh.rs (`std` off: libm, no IO)
 lyon_tessellation = { version = "=1.0.23", default-features = false }
+# the font stack (docs/design-decisions.md, "Fonts"): pinned exactly, because a release may move an outline or a glyph
+# run. `harfrust` shapes and reads fonts through `read-fonts`, which draws the outlines (the font model of 0.46 does
+# it; `skrifa` is not needed). Neither has `std`, so that its maths is libm and not the platform's (the `rust-fonts`
+# gate fails otherwise). Both are used only in crates/core/src/type/ (`read-fonts` in font.rs and outline.rs,
+# `harfrust` in shaping.rs). `vello_cpu` brings an older `read-fonts`; two copies are built
+read-fonts = { version = "=0.46.0", default-features = false, features = ["libm"] }
+harfrust = { version = "=0.15.0", default-features = false, features = ["libm"] }
+# SHA-256 of a font's bytes: the digest that names a font in a document and in the cache key; used only in
+# crates/core/src/type/font.rs
+sha2 = { version = "=0.11.1", default-features = false }
 
 # The tessellator is optimised in debug builds too: the tests of the work limit make it do about a second of release-build
 # work, which would take most of a minute unoptimised

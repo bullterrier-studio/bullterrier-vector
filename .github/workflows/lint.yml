@@ -60,6 +60,8 @@ jobs:
         run: uv run --locked poe rust-shear
       - name: Rust dependencies (cargo-deny bans, licenses, sources)
         run: uv run --locked poe rust-deny
+      - name: The font crates are built without std (their maths is libm's)
+        run: uv run --locked poe rust-fonts
       - name: The core builds for WebAssembly (wasm32-unknown-unknown)
         run: uv run --locked poe rust-wasm
       - name: Types (mypy)

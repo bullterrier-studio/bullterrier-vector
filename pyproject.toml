@@ -67,7 +67,7 @@ cache-keys = [
 # can fail (tests/tools/, marked `gate`) build copies of the workspace and are slow: `fast` leaves them out, `check`
 # runs them.
 fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { ref = "file-size" }, { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" } }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
-check = { sequence = ["python tools/pre_push.py start", "ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "file-size" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "wasm-test" }, { ref = "test" }, "python tools/pre_push.py pass"], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first, stops at the first failure; a pass on a clean tree is remembered, so pushing exactly that tree does not repeat it" }
+check = { sequence = ["python tools/pre_push.py start", "ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "file-size" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-fonts" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "wasm-test" }, { ref = "test" }, "python tools/pre_push.py pass"], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first, stops at the first failure; a pass on a clean tree is remembered, so pushing exactly that tree does not repeat it" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
 test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the whole test suite, gate proofs included, on every CPU core (pytest-xdist; the order stays random)" }
@@ -107,6 +107,10 @@ wasm-test = { sequence = [
 rust-tools = { cmd = "uv run python tools/rust_tools.py check", help = "Check that the cargo tools the gate runs are installed at the versions Cargo.toml pins" }
 rust-shear = { cmd = "cargo shear", help = "Find Rust dependencies no code uses (cargo-shear)" }
 rust-deny = { cmd = "cargo deny --offline --locked check bans licenses sources", help = "Check the Rust dependencies offline: banned crates, licences, sources (deny.toml)" }
+# The font crates are built without `std`, so that their maths is libm's and not the platform's (same outline bytes
+# natively and in WebAssembly): cargo unifies features across the workspace, so one dependency asking for `std` would
+# switch it on. tools/check_font_features.py reads `cargo tree`; tests/tools/test_rust_gates.py shows it failing.
+rust-fonts = { cmd = "python tools/check_font_features.py", help = "Check that the font crates (read-fonts, harfrust) are not built with their std feature" }
 stubtest = { cmd = "uv run python -m mypy.stubtest --mypy-config-file pyproject.toml bullterrier_vector._native._core", help = "Check the stub _core.pyi against the built extension" }
 # Not in `fast`: it builds the sdist and the wheel (the Rust extension included, tens of seconds). The files go to
 # dist/check, emptied first; tools/check_dists.py then checks them as PyPI and an install would see them.
