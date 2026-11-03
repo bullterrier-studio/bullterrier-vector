@@ -11,7 +11,7 @@
 //! the em, the font's own, so a pen position is a coordinate of the font file; the default leading is 2400, y pointing
 //! down.
 
-use crate::common::fonts::{fraunces, marks};
+use crate::common::fonts::{fraunces, marks, narrowing};
 use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{Align, Error, Font, Param, Path, Shape, Text, Values, text};
 use proptest::prelude::*;
@@ -502,4 +502,236 @@ fn a_line_with_no_width_cannot_be_fitted() -> Outcome {
     assert_eq!(parameter, "source (text).fit");
     assert!(message.contains("line 0") && message.contains("100"), "{message}");
     Ok(())
+}
+
+// fit = an axis -------------------------------------------------------------------------------------------------------
+
+/// The x of the middle of the advance of each glyph of the first line: an advance is the step from one to the next.
+fn centres(shapes: &[Shape]) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+    shapes
+        .iter()
+        .map(|shape| Ok(shape.attributes().origin().ok_or("no origin")?.x))
+        .collect()
+}
+
+/// The advance of the first glyph of `HHH`-like text drawn as `shapes`.
+fn step(shapes: &[Shape]) -> Result<f64, Box<dyn std::error::Error>> {
+    let centres = centres(shapes)?;
+    Ok(centres[1] - centres[0])
+}
+
+/// A row of the axis table: its rule, font, axis, the font's units to the em, text, width and the advance expected.
+type AxisRow<'a> = (&'a str, &'a Font, &'a str, f64, &'a str, f64, f64);
+
+#[test]
+fn fit_on_an_axis_makes_the_line_exactly_the_width_wide() -> Outcome {
+    // fraunces-subset.ttf, HarfBuzz: the advance of H at wght 300, 400, 500, 600, 700 is 1608, 1656, 1680, 1704, 1752
+    // (it rises with the weight, in steps of a unit, so a width of three H that one weight makes is made at that weight);
+    // narrowing.ttf, nrrw 0, 500, 1000: the advance of A is 1000, 800, 600 (it falls with the axis)
+    let (weight, narrow) = (fraunces()?, narrowing()?);
+    let rows: [AxisRow<'_>; 8] = [
+        (
+            "the minimum is reached",
+            &weight,
+            "wght",
+            2000.0,
+            "HHH",
+            3.0 * 1608.0,
+            1608.0,
+        ),
+        ("the default", &weight, "wght", 2000.0, "HHH", 3.0 * 1656.0, 1656.0),
+        (
+            "a weight in between",
+            &weight,
+            "wght",
+            2000.0,
+            "HHH",
+            3.0 * 1680.0,
+            1680.0,
+        ),
+        ("another", &weight, "wght", 2000.0, "HHH", 3.0 * 1704.0, 1704.0),
+        (
+            "the maximum is reached",
+            &weight,
+            "wght",
+            2000.0,
+            "HHH",
+            3.0 * 1752.0,
+            1752.0,
+        ),
+        (
+            "a falling axis, at its start",
+            &narrow,
+            "nrrw",
+            1000.0,
+            "AA",
+            2000.0,
+            1000.0,
+        ),
+        ("a falling axis, between", &narrow, "nrrw", 1000.0, "AA", 1600.0, 800.0),
+        (
+            "a falling axis, at its end",
+            &narrow,
+            "nrrw",
+            1000.0,
+            "AA",
+            1200.0,
+            600.0,
+        ),
+    ];
+    for (rule, font, axis, size, content, width, advance) in rows {
+        let shapes = shapes_of(content, Text::new(font).size(size).width(width).fit(axis))?;
+        assert_eq!(shapes.len(), content.len(), "{rule}");
+        let step = step(&shapes)?;
+        assert!(
+            (step - advance).abs() < 1e-9,
+            "{rule}: the advance is {step}, not {advance}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn a_width_the_axis_cannot_reach_is_refused_naming_the_line_and_the_nearest_it_reaches() -> Outcome {
+    // (rule, text, width, font, axis and its size, the line named, the nearest width the axis reaches, the axis value there)
+    let (weight, narrow) = (fraunces()?, narrowing()?);
+    let rows = [
+        (
+            "below the minimum",
+            "HHH",
+            4823.0,
+            &weight,
+            "wght",
+            2000.0,
+            "line 0",
+            "4824",
+            "300",
+        ),
+        (
+            "above the maximum",
+            "HHH",
+            5257.0,
+            &weight,
+            "wght",
+            2000.0,
+            "line 0",
+            "5256",
+            "700",
+        ),
+        (
+            "the second line",
+            "HHH\nH",
+            4824.0,
+            &weight,
+            "wght",
+            2000.0,
+            "line 1",
+            "1752",
+            "700",
+        ),
+        (
+            "a falling axis, above its start",
+            "AA",
+            2001.0,
+            &narrow,
+            "nrrw",
+            1000.0,
+            "line 0",
+            "2000",
+            "0",
+        ),
+        (
+            "a falling axis, below its end",
+            "AA",
+            1199.0,
+            &narrow,
+            "nrrw",
+            1000.0,
+            "line 0",
+            "1200",
+            "1000",
+        ),
+    ];
+    for (rule, content, width, font, axis, size, line, nearest, at) in rows {
+        let drawing = text(content, Text::new(font).size(size).width(width).fit(axis));
+        let (parameter, message) = parameter_refusal(drawing.shapes(&Values::new()))?;
+        assert_eq!(parameter, "source (text).fit", "{rule}");
+        for shown in [line, nearest, at, &format!("{axis:?}")] {
+            assert!(message.contains(shown), "{rule}: {shown} is not in {message}");
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn an_axis_the_font_lacks_or_the_text_sets_already_is_no_fit() -> Outcome {
+    let font = fraunces()?;
+    let weight = font.axes().remove(0);
+    let rows = [
+        (
+            "an axis the font lacks",
+            Text::new(&font).width(100.0).fit("opsz"),
+            "opsz",
+        ),
+        (
+            "an axis the text gives a value",
+            Text::new(&font).width(100.0).fit("wght").axes([("wght", &weight)]),
+            "axes",
+        ),
+    ];
+    for (rule, options, shown) in rows {
+        let drawing = text("H", options);
+        let (parameter, message) = parameter_refusal(Err::<(), _>(drawing.error().cloned().ok_or("no error")?))?;
+        assert_eq!(parameter, "source (text).fit", "{rule}");
+        assert!(message.contains(shown), "{rule}: {message}");
+    }
+    assert_eq!(text("H", Text::new(&font).width(100.0).fit("wght")).error(), None);
+    Ok(())
+}
+
+#[test]
+fn an_empty_line_is_not_fitted_to_an_axis() -> Outcome {
+    let shapes = shapes_of("HHH\n\nHHH", Text::new(&fraunces()?).size(EM).width(5040.0).fit("wght"))?;
+    assert_eq!(shapes.len(), 6);
+    assert_eq!(lines_of(&shapes[3..]), [Some(2); 3]);
+    assert!((step(&shapes[3..])? - 1680.0).abs() < 1e-9);
+    Ok(())
+}
+
+#[test]
+fn the_weight_is_planned_at_the_reference_pose() -> Outcome {
+    // three H of 1680 each fill 5040 at wght 500. With the size Param at 1000 instead of its default 2000 the same weight
+    // is kept, so the advance halves; fitting at the live size would find no weight to make 5040 of 2520 to 2628
+    let font = fraunces()?;
+    let size = Param::new("size", EM, 500.0, 4000.0)?;
+    let drawing = text("HHH", Text::new(&font).size(&size).width(5040.0).fit("wght"));
+    for (live, advance) in [(2000.0, 1680.0), (1000.0, 840.0)] {
+        let shapes = drawing.shapes(&Values::new().set("size", live))?;
+        assert!((step(&shapes)? - advance).abs() < 1e-9, "size {live}");
+    }
+    let fixed = drawing
+        .with_values(&Values::new().set("size", 1000.0))
+        .shapes(&Values::new())?;
+    assert!((step(&fixed)? - 840.0).abs() < 1e-9, "with_values");
+    Ok(())
+}
+
+proptest! {
+    /// A wider width never gets a narrower line, and the line is within a unit a glyph of the width: the shaper rounds
+    /// each advance to a unit. The line is twice the distance from the middle of the first glyph to the middle of the
+    /// second (the first's advance, and the second's). "Hi" is 1608 + 568 wide at wght 300 and 1752 + 667 at 700.
+    #[test]
+    fn a_fitted_line_is_as_wide_as_asked_and_grows_with_the_width(a in 2176.0_f64..=2419.0, b in 2176.0_f64..=2419.0) {
+        let font = fraunces()?;
+        let total = |width: f64| -> Result<f64, TestCaseError> {
+            let shapes = shapes_of("Hi", at_em(&font).width(width).fit("wght"))?;
+            let centres = centres(&shapes).map_err(|error| TestCaseError::fail(error.to_string()))?;
+            Ok(2.0 * (centres[1] - centres[0]))
+        };
+        let (narrow, wide) = (a.min(b), a.max(b));
+        let (at_narrow, at_wide) = (total(narrow)?, total(wide)?);
+        prop_assert!((at_narrow - narrow).abs() <= 2.0, "{} for {}", at_narrow, narrow);
+        prop_assert!((at_wide - wide).abs() <= 2.0, "{} for {}", at_wide, wide);
+        prop_assert!(at_narrow <= at_wide, "{} for {} against {} for {}", at_narrow, narrow, at_wide, wide);
+    }
 }

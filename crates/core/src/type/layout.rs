@@ -1,7 +1,7 @@
 //! Laying out a string: lines, the pen along each, and one shape for every glyph that has an outline.
 
 use super::font::{Font, tag_of};
-use super::lines::{self, Wrap};
+use super::lines::{self, Fit, Wrap};
 use super::outline::{self, Outlines};
 use super::shaping::{Placed, Segment, Shaper};
 use super::text::Align;
@@ -155,6 +155,26 @@ impl Em {
     }
 }
 
+/// The value of the axis `tag` for every character of a text of `characters`: the value fitted for each line on its
+/// characters. The characters between lines (a break's whitespace) take the first line's, so that they ask for no
+/// location of their own.
+///
+/// # Errors
+/// [`Error::Parameter`] naming `fit` if the font has no such axis.
+fn fitted_values(font: &Font, tag: &str, lines: &[lines::Line], characters: usize) -> Result<Vec<f64>, Error> {
+    let first = match lines.iter().find_map(|line| line.axis) {
+        Some(value) => value,
+        None => f64::from(font.axis_range(tag, "fit")?.1),
+    };
+    let mut values = vec![first; characters];
+    for line in lines {
+        if let Some(value) = line.axis {
+            values[line.characters.clone()].fill(value);
+        }
+    }
+    Ok(values)
+}
+
 /// The features of `settings` as the shaper takes them.
 ///
 /// # Errors
@@ -254,14 +274,30 @@ pub(crate) fn typeset(
     let placed = |error: Error| error.at_argument(&cx.place, None);
     let text_em = Em::new(font, settings.size, settings.tracking).map_err(placed)?;
     let features = feature_tags(settings).map_err(placed)?;
-    let locations = Places::new(font, &settings.axes, content.chars().count()).map_err(placed)?;
+    let planned = lines::plan(font, content, wrap).map_err(placed)?;
+    let characters = content.chars().count();
+    let fitted;
+    let axes = match wrap.and_then(|wrap| wrap.fit.as_ref()) {
+        Some(Fit::Axis(tag)) => {
+            fitted = [
+                &settings.axes[..],
+                &[(
+                    tag.clone(),
+                    fitted_values(font, tag, &planned, characters).map_err(placed)?,
+                )],
+            ]
+            .concat();
+            &fitted
+        }
+        _ => &settings.axes,
+    };
+    let locations = Places::new(font, axes, characters).map_err(placed)?;
     let shapers = shapers(&locations, &features);
     let mut outlines: Vec<Outlines<'_>> = locations.models.iter().map(Outlines::new).collect();
 
     let mut glyphs = Vec::new();
     // the words met so far, and the one the glyph being placed is in (none after a space)
     let mut words = 0_u32;
-    let planned = lines::plan(font, content, wrap).map_err(placed)?;
     // lines of one size are one leading apart, counted from the first so that the sum is exact; lines of their own
     // sizes (a fit) stand 1.2 of their own size below the one before, unless the text gives a leading
     let evenly = settings.leading.is_some() || planned.iter().all(|line| line.size.is_none());

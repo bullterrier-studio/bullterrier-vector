@@ -201,13 +201,13 @@ impl Font {
             .collect()
     }
 
-    /// Whether the font has the axis `tag`, and `value`, if given, lies in its range (both ends included).
+    /// The minimum, default and maximum of the axis `tag`.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `axes` if `tag` is not four printable ASCII characters, the font has no such axis
-    /// (the message lists the axes it has), or `value` is outside its range.
-    pub(crate) fn check_axis(&self, tag: &str, value: Option<f64>) -> Result<(), Error> {
-        let wanted = tag_of(tag, "axes")?;
+    /// [`Error::Parameter`] naming `argument` if `tag` is not four printable ASCII characters or the font has no such axis
+    /// (the message lists the axes it has).
+    pub(crate) fn axis_range(&self, tag: &str, argument: &str) -> Result<(f32, f32, f32), Error> {
+        let wanted = tag_of(tag, argument)?;
         let own = self.variation_axes();
         let Some(axis) = own.iter().find(|axis| axis.tag == wanted) else {
             let listed = if own.is_empty() {
@@ -216,17 +216,22 @@ impl Font {
                 let listed: Vec<String> = own.iter().map(Axis::describe).collect();
                 format!("the font's axes are {}", listed.join(", "))
             };
-            return Err(Error::parameter("axes", format!("has no axis {tag:?}: {listed}")));
+            return Err(Error::parameter(argument, format!("has no axis {tag:?}: {listed}")));
         };
+        Ok((axis.min, axis.default, axis.max))
+    }
+
+    /// Whether the font has the axis `tag`, and `value`, if given, lies in its range (both ends included).
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `axes` if `tag` is not four printable ASCII characters, the font has no such axis
+    /// (the message lists the axes it has), or `value` is outside its range.
+    pub(crate) fn check_axis(&self, tag: &str, value: Option<f64>) -> Result<(), Error> {
+        let (min, _, max) = self.axis_range(tag, "axes")?;
         match value {
-            Some(value) if !(f64::from(axis.min)..=f64::from(axis.max)).contains(&value) => Err(Error::parameter(
+            Some(value) if !(f64::from(min)..=f64::from(max)).contains(&value) => Err(Error::parameter(
                 "axes",
-                format!(
-                    "{tag:?} must be {} to {} in this font, got {}",
-                    axis.min,
-                    axis.max,
-                    shown(value)
-                ),
+                format!("{tag:?} must be {min} to {max} in this font, got {}", shown(value)),
             )),
             _ => Ok(()),
         }

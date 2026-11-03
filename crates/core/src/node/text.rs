@@ -124,10 +124,13 @@ fn text_fits(args: &Args) -> Result<(), Error> {
             ));
         }
         if fit != "size" {
-            return Err(Error::parameter(
-                "fit",
-                format!("is {fit:?}, but \"size\" is the only fit"),
-            ));
+            font.axis_range(fit, "fit")?;
+            if axes.iter().any(|(tag, _)| tag == fit) {
+                return Err(Error::parameter(
+                    "fit",
+                    format!("is the axis {fit:?}, which axes gives a value too: give one of them"),
+                ));
+            }
         }
     }
     for (tag, expr) in axes {
@@ -164,7 +167,13 @@ fn wrap(args: &Args, cx: &Context<'_>) -> Result<Option<Wrap>, Error> {
     Ok(Some(Wrap {
         pose: settings(args, &pose)?,
         width,
-        fit: args.text_opt("fit")?.map(|_| Fit::Size),
+        fit: args.text_opt("fit")?.map(|fit| {
+            if fit == "size" {
+                Fit::Size
+            } else {
+                Fit::Axis(fit.to_owned())
+            }
+        }),
     }))
 }
 

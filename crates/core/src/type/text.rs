@@ -136,11 +136,19 @@ impl Text {
         self
     }
 
-    /// This text with each line made exactly [`width`](Text::width) wide by setting its size: `"size"`. Each line gets
-    /// the size at which it is as wide as `width`, worked out once at the reference pose, so lines of different lengths
-    /// have different sizes; their default leading is 1.2 times their own size. The `size` of the text still sets where
-    /// the lines break, and the size of an empty line. A line with no width (marks without a base) is refused, and a
-    /// text without a `width` leaves the drawing with an [`error`](Drawing::error) naming `fit`.
+    /// This text with each line made exactly [`width`](Text::width) wide, once at the reference pose: by setting its
+    /// size (`"size"`), or the value of a variable-font axis (its tag, `"wght"`, which `axes` must not give too).
+    ///
+    /// With `"size"` each line gets the size at which it is that wide, so lines of different lengths have different
+    /// sizes, and their default leading is 1.2 times their own size. With an axis each line gets the value at which the
+    /// shaper's line is that wide (within a unit of an advance a glyph, as the shaper rounds each advance), found between
+    /// the font's minimum and maximum for the axis, where the line's width at the ends brackets `width`. The `size` of the
+    /// text still sets where the lines break, and the size of an empty line; an empty line is not fitted.
+    ///
+    /// A text without a `width`, a `fit` that is neither `"size"` nor an axis of the font, or an axis that `axes` gives
+    /// too leave the drawing with an [`error`](Drawing::error) naming `fit`. A line that cannot be made `width` wide (marks
+    /// without a base; a `width` the axis does not reach: the message names the line and the nearest width the axis
+    /// reaches) is refused when the drawing is drawn.
     #[must_use]
     pub fn fit(mut self, fit: impl Into<String>) -> Self {
         self.fit = Some(fit.into());

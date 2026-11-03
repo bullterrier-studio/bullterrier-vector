@@ -93,6 +93,33 @@
 //!     "table GDEF { GlyphClassDef [B], , [acute], ; } GDEF;\n")
 //! fb.save("marks.ttf")
 //! ```
+//!
+//! `narrowing.ttf` (`uvx --from fonttools python script.py`, 1000 to the em) has one axis, `nrrw` from 0 to 1000, along
+//! which the advance of `A` (a 400 square) falls, from 1000 to 600 (`HarfBuzz`: `nrrw` 0, 500, 1000 give 1000, 800, 600);
+//! the space is 300 wide.
+//!
+//! ```python
+//! from fontTools.fontBuilder import FontBuilder
+//! from fontTools.pens.ttGlyphPen import TTGlyphPen
+//! from fontTools.ttLib.tables.TupleVariation import TupleVariation
+//! fb = FontBuilder(1000, isTTF=True)
+//! fb.setupGlyphOrder([".notdef", "A", "space"])
+//! fb.setupCharacterMap({0x41: "A", 0x20: "space"})
+//! pen = TTGlyphPen(None)
+//! pen.moveTo((0, 0)); pen.lineTo((0, 400)); pen.lineTo((400, 400)); pen.lineTo((400, 0)); pen.closePath()
+//! fb.setupGlyf({".notdef": TTGlyphPen(None).glyph(), "A": pen.glyph(), "space": TTGlyphPen(None).glyph()})
+//! fb.setupHorizontalMetrics({".notdef": (500, 0), "A": (1000, 0), "space": (300, 0)})
+//! fb.setupHorizontalHeader(ascent=800, descent=-200)
+//! fb.setupNameTable({"familyName": "Narrowing", "styleName": "Regular"})
+//! fb.setupOS2()
+//! fb.setupPost()
+//! fb.setupFvar([("nrrw", 0, 0, 1000, "Narrowing")], [])
+//! points = len(fb.font["glyf"]["A"].coordinates)
+//! # the advance (the second phantom point) falls by 400 at the maximum
+//! deltas = [None] * points + [(0, 0), (-400, 0), (0, 0), (0, 0)]
+//! fb.setupGvar({"A": [TupleVariation({"nrrw": (0.0, 1.0, 1.0)}, deltas)]})
+//! fb.save("narrowing.ttf")
+//! ```
 #![allow(dead_code, reason = "each test file uses a different part")]
 
 use bullterrier_vector::{Error, Font};
@@ -102,6 +129,7 @@ pub(crate) const FRAUNCES_WOFF2: &[u8] = include_bytes!("../fonts/fraunces-subse
 pub(crate) const FRAUNCES_WOFF: &[u8] = include_bytes!("../fonts/fraunces-subset.woff");
 pub(crate) const SYNTHETIC: &[u8] = include_bytes!("../fonts/synthetic.ttf");
 pub(crate) const MARKS: &[u8] = include_bytes!("../fonts/marks.ttf");
+pub(crate) const NARROWING: &[u8] = include_bytes!("../fonts/narrowing.ttf");
 
 pub(crate) fn fraunces() -> Result<Font, Error> {
     Font::new(FRAUNCES)
@@ -113,4 +141,8 @@ pub(crate) fn synthetic() -> Result<Font, Error> {
 
 pub(crate) fn marks() -> Result<Font, Error> {
     Font::new(MARKS)
+}
+
+pub(crate) fn narrowing() -> Result<Font, Error> {
+    Font::new(NARROWING)
 }
