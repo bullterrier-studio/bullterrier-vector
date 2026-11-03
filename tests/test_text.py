@@ -688,3 +688,105 @@ def test_a_document_loaded_without_its_font_or_with_the_wrong_inputs_is_refused_
 def test_a_document_without_inputs_loads_with_or_without_the_argument() -> None:
     text = btvec.Drawing(btvec.Path.circle((5, 5), 2)).to_json()
     assert btvec.Drawing.from_json(text, inputs={}).to_json() == text
+
+
+# --- inside -------------------------------------------------------------------------------------------------------
+
+
+def pen_outlines(shapes: list[btvec.Shape], pens: list[tuple[float, float]]) -> None:
+    """Every shape is the glyph `H` with its pen at the matching (x, baseline)."""
+    assert len(shapes) == len(pens)
+    for shape, (x, y) in zip(shapes, pens, strict=True):
+        assert_same_outline(outline_of(shape), expected_outline("H", size=UPEM, x=x, y=y), 1e-9)
+
+
+HOLED = btvec.Path.from_svg_path("M0 0H10000V20000H0Z M3000 3000V17000H6000V3000Z")  # the hole runs the other way
+CAPITAL = 1400  # the cap height of fraunces-subset.ttf, a capital below the top of a shape is the first baseline
+
+
+@pytest.mark.parametrize(
+    ("shape", "content", "options", "pens"),
+    [
+        pytest.param(
+            btvec.Path.rect(500, 300, 2 * H + SPACE, 20000),
+            "H H H",
+            {},
+            [(500, 300 + CAPITAL), (500 + H + SPACE, 300 + CAPITAL), (500, 300 + CAPITAL + 1.2 * UPEM)],
+            id="a rectangle is a width, a capital below its top",
+        ),
+        pytest.param(
+            HOLED,
+            "H H H H H H",
+            {},
+            [
+                *[(k * (H + SPACE), CAPITAL) for k in range(4)],
+                (6000, CAPITAL + 1.2 * UPEM),
+                (6000 + H + SPACE, CAPITAL + 1.2 * UPEM),
+            ],
+            id="round a hole the widest stretch takes the line",
+        ),
+        pytest.param(
+            btvec.Path.rect(1000, 0, 9000, 9000),
+            "H",
+            {"align": "center"},
+            [(5500 - H / 2, CAPITAL)],
+            id="centre against the middle of the stretch",
+        ),
+        pytest.param(
+            btvec.Path.rect(1000, 0, 9000, 9000),
+            "H",
+            {"align": "right"},
+            [(10000 - H, CAPITAL)],
+            id="right against its end",
+        ),
+        pytest.param(
+            btvec.Path.rect(0, 0, 10000, 20000),
+            "H\n\nH",
+            {"leading": 3000},
+            [(0, CAPITAL), (0, CAPITAL + 6000)],
+            id="an empty line takes a baseline, a leading below",
+        ),
+    ],
+)
+def test_inside_sets_each_line_in_the_stretches_of_the_shape(
+    shape: btvec.Path, content: str, options: dict[str, Any], pens: list[tuple[float, float]]
+) -> None:
+    pen_outlines(btvec.text(content, font=FRAUNCES, size=UPEM, inside=shape, **options).shapes(), pens)
+
+
+def test_a_text_the_shape_cannot_hold_is_refused_naming_the_word_and_the_line() -> None:
+    drawing = btvec.text("H H H", font=FRAUNCES, size=UPEM, inside=btvec.Path.rect(0, 0, 2 * H + SPACE, 3000))
+    with pytest.raises(btvec.ParameterError, match=r'inside.*does not fit.*"H".*line 1'):
+        drawing.shapes()
+
+
+@pytest.mark.parametrize(
+    ("options", "named"),
+    [
+        pytest.param({"width": 100}, r"inside.*width", id="a width"),
+        pytest.param({"fit": "size"}, r"inside.*fit", id="a fit"),
+        pytest.param({"anchor": (1, 2)}, r"inside.*anchor", id="an anchor"),
+        pytest.param({"leading": 0}, r"leading.*0.*above 0", id="a leading of zero"),
+        pytest.param({"leading": -2.5}, r"leading.*-2.5", id="a negative leading"),
+    ],
+)
+def test_inside_excludes_what_places_the_text_and_wants_a_leading_above_zero(
+    options: dict[str, Any], named: str
+) -> None:
+    with pytest.raises(btvec.ParameterError, match=named):
+        btvec.text("H", font=FRAUNCES, inside=btvec.Path.rect(0, 0, 9, 9), **options)
+
+
+def test_inside_wants_a_path() -> None:
+    with pytest.raises(TypeError, match="inside"):
+        btvec.text("H", font=FRAUNCES, inside="M0 0H9V9H0Z")  # type: ignore[arg-type]  # the wrong type is the point
+
+
+def test_the_shape_is_saved_as_path_data_and_loads_back_to_the_same_shapes() -> None:
+    drawing = btvec.text("H H H", font=FRAUNCES, size=UPEM, inside=btvec.Path.rect(500, 300, 2 * H + SPACE, 20000))
+    text = drawing.to_json()
+    assert '"inside":"M500 300' in text
+    loaded = btvec.Drawing.from_json(text, inputs={"fraunces": FRAUNCES_BYTES})
+    assert loaded.to_json() == text
+    assert loaded.shapes() == drawing.shapes()
+    assert '"inside"' not in btvec.text("H", font=FRAUNCES).to_json()

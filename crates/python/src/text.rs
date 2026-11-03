@@ -2,7 +2,7 @@
 
 use crate::drawing::{PyDrawing, checked};
 use crate::expr::{Num, PyParam};
-use crate::{ParameterError, Pt, raised};
+use crate::{ParameterError, Pt, PyPath, raised};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -105,9 +105,9 @@ fn feature(tag: &str, value: &Bound<'_, PyAny>) -> PyResult<u32> {
 /// shaped with kerning, ligatures and the rules of the script. `"\n"` breaks a line. What is left out takes the
 /// defaults of the core: `size` 100, `tracking` 0, `leading` 1.2 times the size, `align` `"left"`, `anchor` `(0, 0)`, lines
 /// as long as the text breaks them. `width` wraps the lines to it, and `fit` (`"size"` or an axis tag) makes each exactly
-/// that wide.
+/// that wide. `inside` sets the text in the region a `Path` fills instead (no `width`, `fit` or `anchor` then).
 #[pyfunction]
-#[pyo3(signature = (content, *, font, size=None, axes=None, features=None, tracking=None, leading=None, align=None, anchor=None, width=None, fit=None))]
+#[pyo3(signature = (content, *, font, size=None, axes=None, features=None, tracking=None, leading=None, align=None, anchor=None, width=None, fit=None, inside=None))]
 #[expect(clippy::too_many_arguments, reason = "the arguments of the Python call, one for one")]
 pub(crate) fn text(
     content: &Bound<'_, PyString>,
@@ -121,6 +121,7 @@ pub(crate) fn text(
     anchor: Option<&Bound<'_, PyAny>>,
     width: Option<Num>,
     fit: Option<&str>,
+    inside: Option<&Bound<'_, PyPath>>,
 ) -> PyResult<PyDrawing> {
     // a `str` holding a lone surrogate has no UTF-8 form: that is a problem in the argument, so a `ParameterError`
     let content = content
@@ -154,6 +155,9 @@ pub(crate) fn text(
     }
     if let Some(fit) = fit {
         options = options.fit(fit);
+    }
+    if let Some(inside) = inside {
+        options = options.inside(&inside.get().0);
     }
     if let Some(axes) = axes {
         let axes = entries(axes)?

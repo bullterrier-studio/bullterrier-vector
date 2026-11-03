@@ -254,5 +254,6 @@ def text(
     anchor: _PointLike | None = None,
     width: _Num | None = None,
     fit: str | None = None,
+    inside: Path | None = None,
 ) -> Drawing: ...
 def drawing_schema() -> str: ...

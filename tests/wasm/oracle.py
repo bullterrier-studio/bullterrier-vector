@@ -212,6 +212,9 @@ def text_drawings() -> list[Entry]:
     def at_90(content: str, font: btvec.Font = FRAUNCES, **options: Any) -> btvec.Drawing:
         return btvec.text(content, font=font, size=90, anchor=(12, 110), **options)
 
+    # a frame with a hole in it: the hole runs the other way
+    holed = btvec.Path.from_svg_path("M10 10H390V150H10Z M150 40V120H250V40Z")
+
     drawings = {
         "text_kerned_ligature_composite": sized(at_90("AV fi\u00e9").fill(INK)),
         "text_lightest": sized(at_90("Hif", axes={"wght": 300}).fill(INK)),
@@ -230,6 +233,14 @@ def text_drawings() -> list[Entry]:
         ),
         "text_fit_size": sized(at_90("Hif", width=130, fit="size").fill(RED)),
         "text_fit_axis": sized(at_90("Hif", width=140, fit="wght").fill(BLUE)),
+        "text_inside_circle": sized(
+            btvec.text(
+                "Hif To Hif Hi AV", font=FRAUNCES, size=22, align="center", inside=btvec.Path.circle((200, 80), 76)
+            ).fill(INK)
+        ),
+        "text_inside_hole": sized(
+            btvec.text("Hif To Hif Hi AV To", font=FRAUNCES, size=20, leading=26, inside=holed).fill(BLUE)
+        ),
         "text_composites_64_deep": sized(btvec.text("AAA", font=SYNTHETIC, size=100, anchor=(10, 110)).fill(RED)),
         "text_heavy_glyph_and_moved_square": sized(
             btvec.text("BCB", font=SYNTHETIC, size=100, anchor=(10, 110)).fill(BLUE)

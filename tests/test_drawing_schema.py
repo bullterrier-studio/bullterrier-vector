@@ -556,19 +556,13 @@ def keys_of(value: Any) -> set[str]:
 
 
 UNREGISTERED = call_names(SCHEMA) - REGISTERED
-# The arguments of `text` that a later batch registers (V6: inside): a document that gives one waits for it, as one that
-# uses an unregistered call does.
-LATER_TEXT_ARGUMENTS = {"inside"}
 
 
 def waits_for_a_later_batch(document: Any) -> bool:
-    """Whether the document uses a call, or an argument of `text`, that the library does not register yet."""
+    """Whether the document uses a call that the library does not register yet."""
     if keys_of(document) & UNREGISTERED:
         return True
     if isinstance(document, dict):
-        text = document.get("text")
-        if isinstance(text, dict) and set(text) & LATER_TEXT_ARGUMENTS:
-            return True
         return any(waits_for_a_later_batch(inner) for inner in document.values())
     if isinstance(document, list):
         return any(waits_for_a_later_batch(inner) for inner in document)
