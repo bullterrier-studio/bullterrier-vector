@@ -24,6 +24,7 @@ PROVEN_TASKS = [
     "rust-fonts",
     "rust-wasm",
     "rust-test",
+    "rust-test-layout",
     "wasm-test",
     "stubtest",
     "dead-code",

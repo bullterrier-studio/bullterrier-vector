@@ -67,7 +67,7 @@ cache-keys = [
 # can fail (tests/tools/, marked `gate`) build copies of the workspace and are slow: `fast` leaves them out, `check`
 # runs them.
 fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { ref = "file-size" }, { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" } }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
-check = { sequence = ["python tools/pre_push.py start", "ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-lint" }, { ref = "file-size" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-fonts" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "wasm-test" }, { ref = "test" }, "python tools/pre_push.py pass"], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first, stops at the first failure; a pass on a clean tree is remembered, so pushing exactly that tree does not repeat it" }
+check = { sequence = ["python tools/pre_push.py start", "ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-test-layout" }, { ref = "rust-lint" }, { ref = "file-size" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-fonts" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "wasm-test" }, { ref = "test" }, "python tools/pre_push.py pass"], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first, stops at the first failure; a pass on a clean tree is remembered, so pushing exactly that tree does not repeat it" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
 test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the whole test suite, gate proofs included, on every CPU core (pytest-xdist; the order stays random)" }
@@ -125,7 +125,9 @@ look = { cmd = "uv run python tools/look.py", help = "Draw a .json or .py drawin
 # [--warmups N] [--require-node]`. Nothing asserts on time; the numbers are recorded by hand in docs/benchmarks.md.
 # tests/tools/test_bench.py shows it working and failing.
 bench = { cmd = "uv run python tools/bench.py", help = "Time to_rgba and to_mesh on the reference drawing, native and in Node: bench [--shapes N] [--size WxH] [--repeats N] [--require-node]" }
-rust-test = { cmd = "cargo test --workspace --locked --quiet", help = "Run the Rust tests" }
+rust-test = { cmd = "uv run python tools/run_capped.py -- cargo test --workspace --locked --quiet --no-fail-fast", help = "Run the Rust tests under the memory cap, every binary even after one fails" }
+# A crate's Rust integration tests are one binary (tests/it/main.rs); tools/check_rust_test_layout.py, the table [tool.rust-tests.own-binaries]
+rust-test-layout = { cmd = "uv run python tools/check_rust_test_layout.py", help = "Check that the Rust integration tests are one binary per crate (tests/it/)" }
 # `default_install_hook_types` in .pre-commit-config.yaml names the three hook types, so a bare `install` covers them
 setup = { sequence = ["pre-commit install --install-hooks", "git config --local commit.template .gitmessage", "uv run python tools/rust_tools.py install"], default_item_type = "cmd", help = "Install the git hooks, the commit-message template and the cargo tools the gate runs (once per clone)" }
 
@@ -135,6 +137,15 @@ types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "c
 header-max-length = 72
 body-max-line-length = 100
 scope-pattern = "^[a-z0-9][a-z0-9/_-]*$"
+
+# Read by tools/run_capped.py: the memory cap (MB, summed over a command's whole process group) the poe tasks that run
+# tests go through, so a runaway test fails the gate instead of freezing the machine
+[tool.run-capped]
+cap-mb = 4000
+
+# Read by tools/check_rust_test_layout.py: the Rust test files that are binaries of their own (path -> why they need a
+# process to themselves). Empty: every integration test is a module of tests/it/.
+[tool.rust-tests.own-binaries]
 
 # Read by tools/check_file_size.py (the `file-size` gate). Files already over budget (1000 lines of source, 1500 of
 # tests), as "repository-relative path" = current line count. A listed file may shrink but never grow; an entry whose

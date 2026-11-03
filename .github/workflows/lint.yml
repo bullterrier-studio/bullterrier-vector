@@ -46,6 +46,8 @@ jobs:
         run: uv run --locked poe rust-fmt
       - name: Lint (ruff check)
         run: uv run --locked ruff check .
+      - name: Rust integration tests are one binary per crate
+        run: uv run --locked poe rust-test-layout
       - name: Lint (clippy)
         run: uv run --locked poe rust-lint
       - name: Dead code (vulture)
