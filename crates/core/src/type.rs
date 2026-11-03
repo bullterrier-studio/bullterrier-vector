@@ -5,6 +5,7 @@
 mod bundled;
 mod font;
 mod layout;
+mod lines;
 mod outline;
 mod shaping;
 mod text;

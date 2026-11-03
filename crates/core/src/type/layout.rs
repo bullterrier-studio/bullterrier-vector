@@ -1,6 +1,7 @@
 //! Laying out a string: lines, the pen along each, and one shape for every glyph that has an outline.
 
 use super::font::{Font, tag_of};
+use super::lines;
 use super::outline::{self, Outlines};
 use super::shaping::{Placed, Segment, Shaper};
 use super::text::Align;
@@ -134,6 +135,44 @@ struct Drawn {
     line: u32,
     /// The point the glyph turns and scales about.
     centre: Point,
+    /// Pixels per font unit: the size of its line over the font's units to the em.
+    scale: f64,
+}
+
+/// A line shaped at one size: its glyphs, each with its location, how far the pen moves after each and the line's width.
+struct Measured {
+    glyphs: Vec<(Placed, usize)>,
+    advances: Vec<f64>,
+    /// After each glyph: the tracking between clusters, not inside one, so that a mark stays over its base.
+    gaps: Vec<f64>,
+    width: f64,
+}
+
+impl Measured {
+    /// `line` shaped, its glyphs scaled by `scale` and set `gap` pixels apart. `of_character` has the location of every
+    /// character of the line.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `content` if a run cannot be shaped.
+    fn of(line: &str, of_character: &[usize], shapers: &[Shaper<'_>], scale: f64, gap: f64) -> Result<Self, Error> {
+        let glyphs = shape_line(line, of_character, shapers)?;
+        let advances: Vec<f64> = glyphs.iter().map(|(one, _)| f64::from(one.advance) * scale).collect();
+        let gaps: Vec<f64> = glyphs
+            .iter()
+            .enumerate()
+            .map(|(at, (one, _))| match glyphs.get(at + 1) {
+                Some((next, _)) if next.cluster != one.cluster => gap,
+                _ => 0.0,
+            })
+            .collect();
+        let width = advances.iter().chain(&gaps).sum::<f64>();
+        Ok(Self {
+            glyphs,
+            advances,
+            gaps,
+            width,
+        })
+    }
 }
 
 /// The shapes of `content` in `font`: one for every glyph that has an outline, left to right, line by line.
@@ -185,39 +224,26 @@ pub(crate) fn typeset(font: &Font, content: &str, settings: &Settings, cx: &Cont
     let mut glyphs = Vec::new();
     // the words met so far, and the one the glyph being placed is in (none after a space)
     let mut words = 0_u32;
-    // the characters before the line, which a line break counts among
-    let mut before = 0;
-    for (number, text) in content.split('\n').enumerate() {
+    for (number, line) in lines::plan(content).iter().enumerate() {
         let mut word = None;
-        let line = number as u32;
         let baseline = within("leading", leading, number as f64 * leading)
             .and_then(|lines| within("anchor", settings.anchor.y, settings.anchor.y + lines))
             .map_err(placed)?;
-        let characters = text.chars().count();
-        let glyphs_of_line =
-            shape_line(text, &locations.of_character[before..before + characters], &shapers).map_err(placed)?;
-        before += characters + 1;
-        let advances: Vec<f64> = glyphs_of_line
-            .iter()
-            .map(|(one, _)| f64::from(one.advance) * scale)
-            .collect();
-        // the tracking goes between clusters, not inside one, so that a mark stays over its base
-        let gaps: Vec<f64> = glyphs_of_line
-            .iter()
-            .enumerate()
-            .map(|(at, (one, _))| match glyphs_of_line.get(at + 1) {
-                Some((next, _)) if next.cluster != one.cluster => gap,
-                _ => 0.0,
-            })
-            .collect();
-        let width = advances.iter().chain(&gaps).sum::<f64>();
+        let measured = Measured::of(
+            &content[line.bytes.clone()],
+            &locations.of_character[line.characters.clone()],
+            &shapers,
+            scale,
+            gap,
+        )
+        .map_err(placed)?;
         let mut pen = settings.anchor.x
             - match settings.align {
                 Align::Left => 0.0,
-                Align::Center => width / 2.0,
-                Align::Right => width,
+                Align::Center => measured.width / 2.0,
+                Align::Right => measured.width,
             };
-        for (((one, location), advance), gap) in glyphs_of_line.iter().zip(&advances).zip(&gaps) {
+        for (((one, location), advance), gap) in measured.glyphs.iter().zip(&measured.advances).zip(&measured.gaps) {
             if one.character.is_whitespace() {
                 word = None;
             } else if word.is_none() {
@@ -239,14 +265,15 @@ pub(crate) fn typeset(font: &Font, content: &str, settings: &Settings, cx: &Cont
                     glyph: glyphs.len() as u32,
                     character: one.character,
                     word,
-                    line,
+                    line: number as u32,
                     centre: Point::new(pen + advance / 2.0, baseline - cap_height / 2.0),
+                    scale,
                 });
             }
             pen += advance + gap;
         }
     }
-    shapes(&glyphs, scale).map_err(placed)
+    shapes(&glyphs).map_err(placed)
 }
 
 /// The glyphs of `line`, run by run, each with the index of its location. `of_character` has the location of every
@@ -281,12 +308,12 @@ fn shape_line(line: &str, of_character: &[usize], shapers: &[Shaper<'_>]) -> Res
     clippy::cast_precision_loss,
     reason = "the text has at most MAX_GLYPHS characters, far fewer than 2^53 shapes"
 )]
-fn shapes(glyphs: &[Drawn], scale: f64) -> Result<Vec<Shape>, Error> {
+fn shapes(glyphs: &[Drawn]) -> Result<Vec<Shape>, Error> {
     let last = glyphs.len().saturating_sub(1);
     glyphs
         .iter()
         .map(|drawn| {
-            let path = outline::path(&drawn.outline, drawn.origin, scale)?;
+            let path = outline::path(&drawn.outline, drawn.origin, drawn.scale)?;
             let mut shape = Shape::from_path(path, 0);
             let attributes = shape.attributes_mut();
             attributes.glyph = Some(drawn.glyph);
