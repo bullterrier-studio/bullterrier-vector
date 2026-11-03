@@ -12,8 +12,8 @@ for a person to read: nothing asserts on time. Results are recorded by hand in d
 
 `--text` adds the cost of type, natively: a headline of two lines in a variable font (examples/fonts) whose weight is a
 Param, timed as `shapes` (shaping and outlines), as `to_rgba` and as `to_mesh` at a new weight on every call, so none is
-answered from the cache; as `shapes` with a weight for each letter, and for a page of capitals; and once, a text of
-100,000 letters each at its own weight.
+answered from the cache; as `shapes` with a weight for each letter, for a page of capitals, for the headline fitted to a
+width by the width axis and for the page wrapped to a width; and once, a text of 100,000 letters each at its own weight.
 
 Interface:
     reference_drawing(shapes=200, seed=1, size=(1920, 1080)) -> Drawing  the drawing that is timed
@@ -45,6 +45,7 @@ HEADLINE = "NO\nSLEEP"
 HEADLINE_SIZE = (1080, 1350)
 PAGE = "\n".join(["THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG 0123456789 " * 2] * 9)  # about a page of capitals
 PAGE_LETTERS = len(PAGE)
+PAGE_WIDTH = 1000  # pixels: the width the page is wrapped to
 DISTINCT_LETTERS = 100_000  # the most letters a text holds (MAX_GLYPHS), each at its own weight
 # constant: the reference scene's own numbers, fixed so that results recorded at different times compare
 SEED = 1
@@ -205,6 +206,10 @@ def text_times(warmups: int, repeats: int) -> dict[str, float]:
         return [weight.min + (next(steps) * 0.37) % span for _ in range(letters)]
 
     page = btvec.text(PAGE, font=font, size=40, axes={"wght": weight})
+    fitted = btvec.text(
+        HEADLINE, font=font, size=800, axes={"wght": weight}, leading=640, width=HEADLINE_SIZE[0] - 100, fit="wdth"
+    )
+    wrapped = btvec.text(PAGE, font=font, size=40, axes={"wght": weight}, width=PAGE_WIDTH)
     width, height = HEADLINE_SIZE
     times = {
         "shapes, the weight moves": median_ms(lambda: headline.shapes(wght=moved()), warmups, repeats),
@@ -219,6 +224,12 @@ def text_times(warmups: int, repeats: int) -> dict[str, float]:
         ),
         f"shapes, {PAGE_LETTERS} letters, the weight moves": median_ms(
             lambda: page.shapes(wght=moved()), warmups, repeats
+        ),
+        "shapes, the headline fitted to a width by wdth, the weight moves": median_ms(
+            lambda: fitted.shapes(wght=moved()), warmups, repeats
+        ),
+        f"shapes, {PAGE_LETTERS} letters wrapped to a width, the weight moves": median_ms(
+            lambda: wrapped.shapes(wght=moved()), warmups, repeats
         ),
     }
     long = btvec.text("H" * DISTINCT_LETTERS, font=font, size=12, axes={"wght": weight})

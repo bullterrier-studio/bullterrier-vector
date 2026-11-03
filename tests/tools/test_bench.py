@@ -110,6 +110,8 @@ def test_text_adds_the_rows_of_a_headline_whose_weight_moves_and_of_a_text_of_a_
         "to_mesh 1080x1350, the weight moves",
         "shapes, a weight for each letter",
         "shapes, 998 letters, the weight moves",
+        "shapes, the headline fitted to a width by wdth, the weight moves",
+        "shapes, 998 letters wrapped to a width, the weight moves",
         "shapes, 100000 letters each at its own weight (once)",
     ]
     assert all(float(line.rsplit(None, 1)[1]) >= 0 for line in timed)  # a number; nothing asserts on time
