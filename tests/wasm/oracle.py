@@ -225,6 +225,11 @@ def text_drawings() -> list[Entry]:
             ).fill(GOLD)
         ),
         "text_stroked": sized(at_90("Ho").fill(GOLD).stroke(INK, width=3)),
+        "text_wrapped": sized(
+            btvec.text("Hi To Hif", font=FRAUNCES, size=44, width=110, leading=48, anchor=(12, 44)).fill(INK)
+        ),
+        "text_fit_size": sized(at_90("Hif", width=130, fit="size").fill(RED)),
+        "text_fit_axis": sized(at_90("Hif", width=140, fit="wght").fill(BLUE)),
         "text_composites_64_deep": sized(btvec.text("AAA", font=SYNTHETIC, size=100, anchor=(10, 110)).fill(RED)),
         "text_heavy_glyph_and_moved_square": sized(
             btvec.text("BCB", font=SYNTHETIC, size=100, anchor=(10, 110)).fill(BLUE)
