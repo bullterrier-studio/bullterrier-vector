@@ -449,6 +449,19 @@ impl Args {
         }
     }
 
+    /// The word of `name`, or `None` if the call left it out.
+    pub(crate) fn text_opt(&self, name: &str) -> Result<Option<&str>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            _ => self.text(name).map(Some),
+        }
+    }
+
+    /// Whether the call gave `name` a value (a default does not count for an argument that has none).
+    pub(crate) fn given(&self, name: &str) -> Result<bool, Error> {
+        Ok(!matches!(self.find(name)?.1, Given::Unset))
+    }
+
     /// The path of `name`.
     pub(crate) fn path(&self, name: &str) -> Result<&Path, Error> {
         match self.find(name)? {

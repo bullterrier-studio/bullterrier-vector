@@ -2,7 +2,7 @@
 
 use super::{Args, Context, Inputs, Node, choice};
 use crate::limits::{MAX_GLYPHS, MAX_SETTINGS};
-use crate::r#type::{Align, Settings, Wrap, typeset};
+use crate::r#type::{Align, Fit, Settings, Wrap, typeset};
 use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Values, Verb};
 
 /// The shapes of a string.
@@ -84,6 +84,13 @@ pub(crate) static TEXT: Verb = Verb {
             reads: Reads::Once,
             domain: Domain::Positive,
         },
+        Arg {
+            name: "fit",
+            kind: Kind::Text,
+            default: Some(Literal::Unset),
+            reads: Reads::Literal,
+            domain: Domain::Any,
+        },
     ],
     check: Some(text_fits),
 };
@@ -106,6 +113,20 @@ fn text_fits(args: &Args) -> Result<(), Error> {
             return Err(Error::parameter(
                 name,
                 format!("has {given} entries, but MAX_SETTINGS {MAX_SETTINGS} is the most accepted"),
+            ));
+        }
+    }
+    if let Some(fit) = args.text_opt("fit")? {
+        if !args.given("width")? {
+            return Err(Error::parameter(
+                "fit",
+                format!("is {fit:?}, but a fit needs a width to fit the lines to"),
+            ));
+        }
+        if fit != "size" {
+            return Err(Error::parameter(
+                "fit",
+                format!("is {fit:?}, but \"size\" is the only fit"),
             ));
         }
     }
@@ -143,6 +164,7 @@ fn wrap(args: &Args, cx: &Context<'_>) -> Result<Option<Wrap>, Error> {
     Ok(Some(Wrap {
         pose: settings(args, &pose)?,
         width,
+        fit: args.text_opt("fit")?.map(|_| Fit::Size),
     }))
 }
 

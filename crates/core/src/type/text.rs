@@ -66,6 +66,7 @@ pub struct Text {
     align: Option<Align>,
     anchor: Option<Point>,
     width: Option<Expr>,
+    fit: Option<String>,
     axes: BTreeMap<String, Expr>,
     features: BTreeMap<String, u32>,
 }
@@ -83,6 +84,7 @@ impl Text {
             align: None,
             anchor: None,
             width: None,
+            fit: None,
             axes: BTreeMap::new(),
             features: BTreeMap::new(),
         }
@@ -131,6 +133,17 @@ impl Text {
     #[must_use]
     pub fn width(mut self, width: impl Into<Expr>) -> Self {
         self.width = Some(width.into());
+        self
+    }
+
+    /// This text with each line made exactly [`width`](Text::width) wide by setting its size: `"size"`. Each line gets
+    /// the size at which it is as wide as `width`, worked out once at the reference pose, so lines of different lengths
+    /// have different sizes; their default leading is 1.2 times their own size. The `size` of the text still sets where
+    /// the lines break, and the size of an empty line. A line with no width (marks without a base) is refused, and a
+    /// text without a `width` leaves the drawing with an [`error`](Drawing::error) naming `fit`.
+    #[must_use]
+    pub fn fit(mut self, fit: impl Into<String>) -> Self {
+        self.fit = Some(fit.into());
         self
     }
 
@@ -209,6 +222,9 @@ pub fn text(content: impl Into<String>, options: impl Into<Text>) -> Drawing {
     }
     if let Some(anchor) = options.anchor {
         given.push(("anchor", Given::Pair(Expr::from(anchor.x), Expr::from(anchor.y))));
+    }
+    if let Some(fit) = options.fit {
+        given.push(("fit", Given::Text(fit)));
     }
     if !options.axes.is_empty() {
         given.push(("axes", Given::Axes(options.axes.into_iter().collect())));

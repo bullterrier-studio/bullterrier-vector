@@ -252,20 +252,38 @@ pub(crate) fn typeset(
     cx: &Context<'_>,
 ) -> Result<Vec<Shape>, Error> {
     let placed = |error: Error| error.at_argument(&cx.place, None);
-    let em = Em::new(font, settings.size, settings.tracking).map_err(placed)?;
-    let leading = settings.leading.unwrap_or(LEADING * settings.size);
+    let text_em = Em::new(font, settings.size, settings.tracking).map_err(placed)?;
     let features = feature_tags(settings).map_err(placed)?;
     let locations = Places::new(font, &settings.axes, content.chars().count()).map_err(placed)?;
     let shapers = shapers(&locations, &features);
     let mut outlines: Vec<Outlines<'_>> = locations.models.iter().map(Outlines::new).collect();
-    let (scale, gap, cap_height) = (em.scale, em.gap, em.cap_height);
 
     let mut glyphs = Vec::new();
     // the words met so far, and the one the glyph being placed is in (none after a space)
     let mut words = 0_u32;
-    for (number, line) in lines::plan(font, content, wrap).map_err(placed)?.iter().enumerate() {
+    let planned = lines::plan(font, content, wrap).map_err(placed)?;
+    // lines of one size are one leading apart, counted from the first so that the sum is exact; lines of their own
+    // sizes (a fit) stand 1.2 of their own size below the one before, unless the text gives a leading
+    let evenly = settings.leading.is_some() || planned.iter().all(|line| line.size.is_none());
+    let mut below = 0.0;
+    for (number, line) in planned.iter().enumerate() {
         let mut word = None;
-        let baseline = within("leading", leading, number as f64 * leading)
+        let size = line.size.unwrap_or(settings.size);
+        let own;
+        let em = match line.size {
+            Some(size) => {
+                own = Em::new(font, size, settings.tracking).map_err(placed)?;
+                &own
+            }
+            None => &text_em,
+        };
+        let (scale, gap, cap_height) = (em.scale, em.gap, em.cap_height);
+        let leading = settings.leading.unwrap_or(LEADING * size);
+        if number > 0 {
+            below += leading;
+        }
+        let down = if evenly { number as f64 * leading } else { below };
+        let baseline = within("leading", leading, down)
             .and_then(|lines| within("anchor", settings.anchor.y, settings.anchor.y + lines))
             .map_err(placed)?;
         let measured = Measured::of(

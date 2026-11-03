@@ -5,11 +5,20 @@ use super::layout::{Em, Measured, Places, Settings, feature_tags, shapers};
 use crate::Error;
 use std::ops::Range;
 
-/// What the lines of a text are made to fit: the width they wrap to, and the settings at the reference pose (every
-/// Param at its default), which the plan is made at, so that lines never change from frame to frame.
+/// What each line is made to do to reach the width.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Fit {
+    /// Scale the line: its size is set so that the line is exactly the width.
+    Size,
+}
+
+/// What the lines of a text are made to fit: the width they wrap to, how each is made exactly that wide if at all, and
+/// the settings at the reference pose (every Param at its default), which the plan is made at, so that lines never
+/// change from frame to frame.
 pub(crate) struct Wrap {
     pub(crate) pose: Settings,
     pub(crate) width: f64,
+    pub(crate) fit: Option<Fit>,
 }
 
 /// A line of the content: the bytes it shows, and which characters of the content they are.
@@ -18,6 +27,8 @@ pub(super) struct Line {
     pub(super) bytes: Range<usize>,
     /// The characters of the content the line shows, counted from 0 (a line break is one).
     pub(super) characters: Range<usize>,
+    /// Pixels to the em the plan fixed for the line, or `None` for the size of the text.
+    pub(super) size: Option<f64>,
 }
 
 /// The lines `content` is set in: its `"\n"`-separated parts, wrapped to `wrap`'s width if there is one.
@@ -46,9 +57,37 @@ pub(super) fn plan(font: &Font, content: &str, wrap: Option<&Wrap>) -> Result<Ve
             em.scale,
             em.gap,
         )?;
-        lines.extend(wrapped(text, &part, &measured, wrap.width));
+        for mut line in wrapped(text, &part, &measured, wrap.width) {
+            if wrap.fit == Some(Fit::Size) && !line.bytes.is_empty() {
+                let alone = Measured::of(
+                    &content[line.bytes.clone()],
+                    &places.of_character[line.characters.clone()],
+                    &shapers,
+                    em.scale,
+                    em.gap,
+                )?;
+                line.size = Some(sized(&alone, pose.size, wrap.width, lines.len())?);
+            }
+            lines.push(line);
+        }
     }
     Ok(lines)
+}
+
+/// The size at which `line`, measured at `size`, is `width` wide: a line's width grows in proportion to its size, the
+/// tracking between glyphs being part of the size too. `number` is the line's place, for the error.
+///
+/// # Errors
+/// [`Error::Parameter`] naming `fit` if the line has no width.
+fn sized(line: &Measured, size: f64, width: f64, number: usize) -> Result<f64, Error> {
+    if line.width > 0.0 {
+        Ok(width * size / line.width)
+    } else {
+        Err(Error::parameter(
+            "fit",
+            format!("cannot make line {number} {width} wide: it has no width"),
+        ))
+    }
 }
 
 /// A run of characters that are not whitespace.
@@ -106,6 +145,7 @@ fn wrapped(text: &str, part: &Line, measured: &Measured, width: f64) -> Vec<Line
     let shown = |start: (usize, usize), last: &Word| Line {
         bytes: part.bytes.start + start.0..part.bytes.start + last.bytes.end,
         characters: part.characters.start + start.1..part.characters.start + last.characters.end,
+        size: None,
     };
     let mut lines = Vec::new();
     // where the line being filled begins, in bytes and characters: the first keeps the whitespace the text starts with
@@ -125,6 +165,7 @@ fn wrapped(text: &str, part: &Line, measured: &Measured, width: f64) -> Vec<Line
         || Line {
             bytes: part.bytes.start..part.bytes.start,
             characters: part.characters.start..part.characters.start,
+            size: None,
         },
         |end| shown(start, end),
     ));
@@ -142,6 +183,7 @@ fn parts(content: &str) -> Vec<Line> {
             let line = Line {
                 bytes: start..start + text.len(),
                 characters: before..before + count,
+                size: None,
             };
             start += text.len() + 1;
             before += count + 1;

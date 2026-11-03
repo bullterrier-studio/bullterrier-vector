@@ -11,7 +11,7 @@
 //! the em, the font's own, so a pen position is a coordinate of the font file; the default leading is 2400, y pointing
 //! down.
 
-use crate::common::fonts::fraunces;
+use crate::common::fonts::{fraunces, marks};
 use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{Align, Error, Font, Param, Path, Shape, Text, Values, text};
 use proptest::prelude::*;
@@ -38,6 +38,13 @@ fn alone(content: &str) -> Result<Path, Error> {
 
 /// Glyphs as their character, line and the x of the pen (or of the middle of the glyph's advance).
 type Glyphs = &'static [(char, u32, f64)];
+
+/// The outline of the one glyph `content` is, drawn `size` pixels to the em with its pen at (`x`, `y`).
+fn glyph_at(content: &str, size: f64, x: f64, y: f64) -> Result<Path, Error> {
+    let shapes = shapes_of(content, Text::new(&fraunces()?).size(size))?;
+    assert_eq!(shapes.len(), 1, "{content:?}");
+    shapes[0].path().translate(x, y)
+}
 
 /// The line of each shape.
 fn lines_of(shapes: &[Shape]) -> Vec<Option<u32>> {
@@ -321,4 +328,178 @@ proptest! {
             .collect();
         prop_assert_eq!(drawn, expected(&words, &separators, width), "{:?} to {}", content, width);
     }
+}
+
+// fit = "size" --------------------------------------------------------------------------------------------------------
+
+/// Glyphs as their character, the size of their line, and where the pen stands.
+type Sized = &'static [(char, f64, f64, f64)];
+
+/// A row of the fit table: its rule, text, tracking, width, leading and the glyphs expected.
+type FitRow = (&'static str, &'static str, f64, f64, Option<f64>, Sized);
+
+#[test]
+fn fit_size_sets_each_line_to_the_size_that_makes_it_exactly_the_width_wide() -> Outcome {
+    // Each glyph as its character, size and pen x and y. A line of w units at 2000 to the em is
+    // W wide at 2000 * W / w; a line's default leading, from the line above to it, is 1.2 times its own size.
+    let rows: [FitRow; 7] = [
+        ("one glyph", "H", 0.0, 3312.0, None, &[('H', 4000.0, 0.0, 0.0)]),
+        (
+            "a word",
+            "HH",
+            0.0,
+            3312.0,
+            None,
+            &[('H', 2000.0, 0.0, 0.0), ('H', 2000.0, 1656.0, 0.0)],
+        ),
+        (
+            "a short line then a long one: the second stands 1.2 of its own size below",
+            "H\nHH",
+            0.0,
+            3312.0,
+            None,
+            &[
+                ('H', 4000.0, 0.0, 0.0),
+                ('H', 2000.0, 0.0, 2400.0),
+                ('H', 2000.0, 1656.0, 2400.0),
+            ],
+        ),
+        (
+            "a long line then a short one: the second stands 1.2 of its own size below",
+            "HH\nH",
+            0.0,
+            3312.0,
+            None,
+            &[
+                ('H', 2000.0, 0.0, 0.0),
+                ('H', 2000.0, 1656.0, 0.0),
+                ('H', 4000.0, 0.0, 4800.0),
+            ],
+        ),
+        (
+            "a leading of the text is the same between every two lines",
+            "H\nHH\nH",
+            0.0,
+            3312.0,
+            Some(3000.0),
+            &[
+                ('H', 4000.0, 0.0, 0.0),
+                ('H', 2000.0, 0.0, 3000.0),
+                ('H', 2000.0, 1656.0, 3000.0),
+                ('H', 4000.0, 0.0, 6000.0),
+            ],
+        ),
+        (
+            "wrapped lines are each fitted: the breaks are made at the size of the text",
+            "H H",
+            0.0,
+            828.0,
+            None,
+            &[('H', 1000.0, 0.0, 0.0), ('H', 1000.0, 0.0, 1200.0)],
+        ),
+        (
+            "an empty line keeps the size of the text for its spacing",
+            "H\n\nH",
+            0.0,
+            3312.0,
+            None,
+            &[('H', 4000.0, 0.0, 0.0), ('H', 4000.0, 0.0, 7200.0)],
+        ),
+    ];
+    let font = fraunces()?;
+    for (rule, content, tracking, width, leading, expected) in rows {
+        let mut options = at_em(&font).tracking(tracking).width(width).fit("size");
+        if let Some(leading) = leading {
+            options = options.leading(leading);
+        }
+        let shapes = shapes_of(content, options)?;
+        assert_eq!(shapes.len(), expected.len(), "{rule}");
+        for (shape, &(character, size, x, y)) in shapes.iter().zip(expected) {
+            assert_eq!(
+                shape.path(),
+                &glyph_at(&character.to_string(), size, x, y)?,
+                "{rule}: {character} at size {size}, pen ({x}, {y})"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn fit_size_scales_the_tracking_with_the_line() -> Outcome {
+    // 1000 to the em, tracking 100: "H H" is 1880.5 + 2 * 100 = 2080.5 wide, so 4161 wide takes size 2000 and, with the
+    // tracking at 200, the second H stands at 1656 + 200 + 449 + 200
+    let shapes = shapes_of(
+        "H H",
+        Text::new(&fraunces()?)
+            .size(1000.0)
+            .tracking(100.0)
+            .width(4161.0)
+            .fit("size"),
+    )?;
+    assert_eq!(shapes.len(), 2);
+    assert_eq!(shapes[0].path(), &glyph_at("H", 2000.0, 0.0, 0.0)?);
+    assert_eq!(shapes[1].path(), &glyph_at("H", 2000.0, 2505.0, 0.0)?);
+    Ok(())
+}
+
+#[test]
+fn the_size_of_a_fitted_text_is_planned_at_the_reference_pose() -> Outcome {
+    // the size Param is read at its default, 2000, whatever it is drawn at: it neither moves the fitted size nor the breaks
+    let font = fraunces()?;
+    let size = Param::new("size", EM, 500.0, 4000.0)?;
+    let drawing = text("H\nHH", Text::new(&font).size(&size).width(3312.0).fit("size"));
+    let plain = drawing.shapes(&Values::new())?;
+    for values in [Values::new().set("size", 700.0), Values::new().set("size", 4000.0)] {
+        let moved = drawing.shapes(&values)?;
+        assert_eq!(moved.len(), plain.len());
+        assert!(
+            moved.iter().zip(&plain).all(|(a, b)| a.path() == b.path()),
+            "the fitted text moved"
+        );
+    }
+    let fixed = drawing
+        .with_values(&Values::new().set("size", 700.0))
+        .shapes(&Values::new())?;
+    assert!(
+        fixed.iter().zip(&plain).all(|(a, b)| a.path() == b.path()),
+        "with_values moved the fitted text"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_fit_without_a_width_or_that_is_not_a_fit_is_refused_naming_it() -> Outcome {
+    let font = fraunces()?;
+    let rows = [
+        ("fit needs a width", Text::new(&font).fit("size"), "width"),
+        (
+            "a word that is no fit",
+            Text::new(&font).width(100.0).fit("bold"),
+            "\"bold\"",
+        ),
+        (
+            "a fit in other case",
+            Text::new(&font).width(100.0).fit("Size"),
+            "\"Size\"",
+        ),
+    ];
+    for (rule, options, shown) in rows {
+        let drawing = text("H", options);
+        let (parameter, message) = parameter_refusal(Err::<(), _>(drawing.error().cloned().ok_or("no error")?))?;
+        assert_eq!(parameter, "source (text).fit", "{rule}");
+        assert!(message.contains(shown), "{rule}: {message}");
+    }
+    assert_eq!(text("H", Text::new(&font).width(100.0).fit("size")).error(), None);
+    Ok(())
+}
+
+#[test]
+fn a_line_with_no_width_cannot_be_fitted() -> Outcome {
+    // marks.ttf: the acute (U+0301) has no advance
+    let drawing = text("\u{301}", Text::new(&marks()?).width(100.0).fit("size"));
+    let (parameter, message) = parameter_refusal(drawing.shapes(&Values::new()))?;
+    assert_eq!(parameter, "source (text).fit");
+    assert!(message.contains("line 0") && message.contains("100"), "{message}");
+    Ok(())
 }
