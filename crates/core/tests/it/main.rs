@@ -4,6 +4,7 @@
 
 mod common;
 
+mod drawing_along;
 mod drawing_cache;
 mod drawing_select;
 mod drawing_stack;

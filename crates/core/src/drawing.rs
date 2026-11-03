@@ -12,7 +12,7 @@ pub use cache::Stats;
 pub(crate) use graph::Graph;
 pub use select::{Select, Wanted};
 pub use style::Stroke;
-pub use transform::{Deg, Pivot, Rotate, ScaleBy};
+pub use transform::{Along, Deg, Pivot, Rotate, ScaleBy};
 
 use self::cache::Shared;
 use crate::limits::MAX_PARAMS;

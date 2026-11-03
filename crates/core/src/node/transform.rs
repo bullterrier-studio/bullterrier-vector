@@ -1,4 +1,5 @@
-//! The geometry steps: `translate`, `rotate`, `scale`. Each applies the `Path` verb of the same name to every shape.
+//! The geometry steps: `translate`, `rotate`, `scale`, `along`. Each applies the `Path` verb of the same name to every
+//! shape.
 
 use super::{Args, Context, Inputs, Node, each_shape};
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
@@ -96,6 +97,47 @@ impl Node for Scale {
             let by = args.pair(cx, "by", item)?;
             let about = args.point(cx, "about", item)?;
             Ok(shape.clone().with_path(shape.path().scale(by, about)?))
+        })
+    }
+}
+
+/// Carries every shape along a guide.
+#[derive(Debug)]
+pub(crate) struct Along;
+
+pub(crate) static ALONG: Verb = Verb {
+    name: "along",
+    role: Role::Step,
+    summary: "carries every shape along a guide path: x runs along it from start (a fraction of its length, a closed guide wraps, an open one goes on straight), y to its right; a closed guide is walked from the point nearest near (default: its top)",
+    args: &[
+        Arg {
+            name: "path",
+            kind: Kind::Path,
+            default: None,
+            reads: Reads::Literal,
+            domain: Domain::Any,
+        },
+        per_shape("start", Kind::Number, Some(Literal::Number(0.0)), Domain::Finite),
+        per_shape("near", Kind::Point, Some(Literal::Unset), Domain::Coordinate),
+    ],
+    check: None,
+};
+
+impl Node for Along {
+    fn verb(&self) -> &'static Verb {
+        &ALONG
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let guide = args.path("path")?;
+        let place = cx.place.to_string();
+        each_shape(inputs.previous, cx, |shape, item| {
+            let start = args.number(cx, "start", item)?;
+            let near = args.point(cx, "near", item)?;
+            let bent = shape
+                .path()
+                .bent(guide, start, near, &mut |count| cx.work.made_segments(count, &place))?;
+            Ok(shape.clone().with_path(bent))
         })
     }
 }

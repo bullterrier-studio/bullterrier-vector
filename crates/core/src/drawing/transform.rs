@@ -1,15 +1,15 @@
-//! The geometry steps of a drawing: `translate`, `rotate`, `scale`.
+//! The geometry steps of a drawing: `translate`, `rotate`, `scale`, `along`.
 
 use super::Drawing;
 use crate::node::{Given, transform};
-use crate::{Expr, Point};
+use crate::{Expr, Path, Point};
 
 /// A number of degrees, clockwise on the screen: anything that converts into an [`Expr`] (a number, a `Param`, an
 /// expression) can be an angle.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Deg<T>(pub T);
 
-/// A point a step turns or scales about: a [`Point`] or an `(x, y)` pair of anything that converts into an [`Expr`].
+/// A point a step turns or scales about, or starts from: a [`Point`] or an `(x, y)` pair of anything that converts into an [`Expr`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pivot {
     x: Expr,
@@ -116,6 +116,37 @@ impl<X: Into<Expr>, Y: Into<Expr>> From<(X, Y)> for ScaleBy {
     }
 }
 
+/// How shapes are carried along a guide: where on it they start, and from which point of a closed guide it is walked.
+/// `Along::new()` alone starts at the beginning of the guide.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Along {
+    start: Option<Expr>,
+    near: Option<Pivot>,
+}
+
+impl Along {
+    /// Shapes carried from the beginning of the guide.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// This bend starting `start` guide lengths along: a number, a `Param` or an expression, read for each shape
+    /// (a `Param` given a list moves each shape to its own place). 1 is the whole guide; a closed guide wraps.
+    #[must_use]
+    pub fn start(mut self, start: impl Into<Expr>) -> Self {
+        self.start = Some(start.into());
+        self
+    }
+
+    /// This bend walking a closed guide from the point of it nearest `point`, not from its top.
+    #[must_use]
+    pub fn near(mut self, point: impl Into<Pivot>) -> Self {
+        self.near = Some(point.into());
+        self
+    }
+}
+
 impl Drawing {
     /// This drawing with every shape moved `dx` to the right and `dy` down, in design pixels.
     ///
@@ -154,5 +185,23 @@ impl Drawing {
             &transform::Scale,
             vec![("by", Given::Pair(x, y)), ("about", Pivot::given(about))],
         )
+    }
+
+    /// This drawing with every shape carried along `guide` as [`Path::along`] does, text included: a text becomes
+    /// text on a path, each glyph bent with the rest. The shapes keep their style and attributes (`origin` stays the
+    /// glyph's centre before the bend, as after `translate` it stays where it was).
+    ///
+    /// A `start` that is not a finite number leaves the drawing with an [`error`](Drawing::error), or, when it
+    /// reads a Param, is refused when the drawing is drawn; so is a guide that is empty or has no length.
+    #[must_use]
+    pub fn along(&self, guide: &Path, options: Along) -> Self {
+        let mut given = vec![
+            ("path", Given::Path(guide.clone())),
+            ("near", Pivot::given(options.near)),
+        ];
+        if let Some(start) = options.start {
+            given.push(("start", Given::Number(start)));
+        }
+        self.then(&transform::Along, given)
     }
 }

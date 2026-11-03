@@ -453,6 +453,24 @@ AGREED = [
     pytest.param(square_with({"translate": {"dx": 1.1e100, "dy": 0}}), False, id="a coordinate past 1e100"),
     pytest.param(square_with({"rotate": {"angle": 1e300}}), True, id="any finite angle"),
     pytest.param(square_with({"rotate": {"angle": 45, "about": [1e101, 0]}}), False, id="a pivot past 1e100"),
+    pytest.param(
+        square_with({"along": {"path": "M0 0 L100 0", "start": 0.5, "near": [1, 2]}}),
+        True,
+        id="an along step with every argument",
+    ),
+    pytest.param(square_with({"along": {"path": "M0 0 L100 0"}}), True, id="an along step with its path only"),
+    pytest.param(square_with({"along": {"path": "M0 0 L100 0", "start": 1e300}}), True, id="any finite along start"),
+    pytest.param(square_with({"along": {"start": 0.5}}), False, id="an along step without a path"),
+    pytest.param(
+        square_with({"along": {"path": "M0 0 L100 0", "start": "x"}}), False, id="an along start that is text"
+    ),
+    pytest.param(
+        square_with({"along": {"path": "M0 0 L100 0", "near": [1e101, 0]}}), False, id="an along near past 1e100"
+    ),
+    pytest.param(
+        square_with({"along": {"path": "M0 0 L100 0", "near": [1, 2, 3]}}), False, id="an along near of three"
+    ),
+    pytest.param(square_with({"along": {"path": "M0 0 L100 0", "speed": 1}}), False, id="an along argument it lacks"),
     pytest.param(square_with({"scale": {"by": [2, -3], "about": [5, 5]}}), True, id="a scale pair about a point"),
     pytest.param(square_with({"scale": {"by": [2, 0]}}), False, id="a scale pair with a zero"),
     pytest.param(square_with({"fill": {"color": "none"}}), True, id="a fill of none"),
@@ -516,6 +534,7 @@ REGISTERED = {
     "translate",
     "rotate",
     "scale",
+    "along",
     "fill",
     "stroke",
     "opacity",

@@ -12,8 +12,8 @@
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, build, log_uniform, parameter_refusal, step};
 use bullterrier_vector::{
-    Blend, Color, Deg, Drawing, Error, Expr, Kind, Param, Path, Point, Role, Rotate, Scale, ScaleBy, Select, Shape,
-    Stroke, Text, Values, text, verbs,
+    Along, Blend, Color, Deg, Drawing, Error, Expr, Kind, Param, Path, Point, Role, Rotate, Scale, ScaleBy, Select,
+    Shape, Stroke, Text, Values, text, verbs,
 };
 use proptest::prelude::*;
 use std::collections::BTreeSet;
@@ -23,7 +23,7 @@ type With = fn(&str, Expr) -> Result<Drawing, Error>;
 
 /// The cases of a geometry verb on a path: the drawing that applies the verb to the path with the numbers given, and
 /// what the `Path` method of the same name returns for them.
-type Cases = fn(&Path, f64, f64) -> Vec<(&'static str, Drawing, Result<Path, Error>)>;
+type Cases = fn(&Path, f64, f64) -> Result<Vec<(&'static str, Drawing, Result<Path, Error>)>, Error>;
 
 struct Row {
     /// The verb, as `verbs()` names it.
@@ -40,7 +40,7 @@ struct Row {
 }
 
 /// A path, the verb applied to a drawing of it, and the path data that must result.
-type ByHand = (&'static str, fn(Drawing) -> Drawing, &'static str);
+type ByHand = (&'static str, fn(Drawing) -> Result<Drawing, Error>, &'static str);
 
 struct Geometry {
     cases: Cases,
@@ -58,6 +58,11 @@ fn unknown(verb: &str, argument: &str) -> Error {
         parameter: argument.to_owned(),
         message: format!("the row of {verb} has no such argument"),
     }
+}
+
+/// The guide the `along` rows bend along: a closed circle, so that every start has a place.
+fn ring() -> Result<Path, Error> {
+    Path::circle((0.0, 0.0), 50.0)
 }
 
 fn blue() -> Color {
@@ -156,13 +161,17 @@ fn rows() -> Vec<Row> {
             ],
             geometry: Some(Geometry {
                 cases: |path, a, b| {
-                    vec![(
+                    Ok(vec![(
                         "by two numbers",
                         Drawing::from(path.clone()).translate(a, b),
                         path.translate(a, b),
-                    )]
+                    )])
                 },
-                by_hand: &[("M1 2 L10 4.25 Z", |d| d.translate(3.5, -7.25), "M4.5 -5.25 L13.5 -3 Z")],
+                by_hand: &[(
+                    "M1 2 L10 4.25 Z",
+                    |d| Ok(d.translate(3.5, -7.25)),
+                    "M4.5 -5.25 L13.5 -3 Z",
+                )],
             }),
         },
         Row {
@@ -182,7 +191,7 @@ fn rows() -> Vec<Row> {
             geometry: Some(Geometry {
                 cases: |path, a, b| {
                     let about = Point::new(b, -a);
-                    vec![
+                    Ok(vec![
                         (
                             "about the middle",
                             Drawing::from(path.clone()).rotate(Deg(a)),
@@ -193,12 +202,12 @@ fn rows() -> Vec<Row> {
                             Drawing::from(path.clone()).rotate(Rotate::new(Deg(a)).about(about)),
                             path.rotate(a, Some(about)),
                         ),
-                    ]
+                    ])
                 },
                 // a quarter turn clockwise on the screen about the origin: (10, 0) goes to (0, 10)
                 by_hand: &[(
                     SQUARE,
-                    |d| d.rotate(Rotate::new(Deg(90.0)).about((0.0, 0.0))),
+                    |d| Ok(d.rotate(Rotate::new(Deg(90.0)).about((0.0, 0.0)))),
                     "M0 0 L0 10 L-10 10 L-10 0 Z",
                 )],
             }),
@@ -221,7 +230,7 @@ fn rows() -> Vec<Row> {
             geometry: Some(Geometry {
                 cases: |path, a, b| {
                     let about = Point::new(b, -a);
-                    vec![
+                    Ok(vec![
                         (
                             "by a number",
                             Drawing::from(path.clone()).scale(a),
@@ -232,12 +241,52 @@ fn rows() -> Vec<Row> {
                             Drawing::from(path.clone()).scale(ScaleBy::new((a, -b.abs() - 1.0)).about(about)),
                             path.scale((a, -b.abs() - 1.0), Some(about)),
                         ),
-                    ]
+                    ])
                 },
                 by_hand: &[(
                     "M1 2 L10 4 Z",
-                    |d| d.scale(ScaleBy::new((2.0, -0.5)).about((0.0, 0.0))),
+                    |d| Ok(d.scale(ScaleBy::new((2.0, -0.5)).about((0.0, 0.0)))),
                     "M2 -1 L20 -2 Z",
+                )],
+            }),
+        },
+        Row {
+            verb: "along",
+            sample: || Ok(square()?.along(&ring()?, Along::new().start(0.1))),
+            with: Some(|argument, value| match argument {
+                "start" => Ok(square()?.along(&ring()?, Along::new().start(value))),
+                _ => Err(unknown("along", argument)),
+            }),
+            ranges: &[
+                ("start", 0.0, true),
+                ("start", -2.5, true),
+                ("start", 1e6, true),
+                ("start", f64::NAN, false),
+                ("start", f64::INFINITY, false),
+                ("start", f64::NEG_INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let near = Point::new(b, -a);
+                    let guide = ring()?;
+                    Ok(vec![
+                        (
+                            "from the top",
+                            Drawing::from(path.clone()).along(&guide, Along::new().start(a)),
+                            path.along(&guide, a, None),
+                        ),
+                        (
+                            "from the point nearest another",
+                            Drawing::from(path.clone()).along(&guide, Along::new().start(a).near(near)),
+                            path.along(&guide, a, Some(near)),
+                        ),
+                    ])
+                },
+                // the square 12.5 along a guide that runs east along y = 20 from x = 10: moved by (22.5, 20)
+                by_hand: &[(
+                    SQUARE,
+                    |d| Ok(d.along(&Path::line((10.0, 20.0), (110.0, 20.0))?, Along::new().start(0.125))),
+                    "M22.5 20 L32.5 20 L32.5 30 L22.5 30 Z",
                 )],
             }),
         },
@@ -505,7 +554,7 @@ fn a_geometry_verb_gives_the_result_written_by_hand() -> Outcome {
     for row in rows() {
         let Some(geometry) = row.geometry else { continue };
         for (start, apply, expected) in geometry.by_hand {
-            let drawing = apply(Drawing::from(Path::from_svg_path(start)?));
+            let drawing = apply(Drawing::from(Path::from_svg_path(start)?))?;
             assert_eq!(drawing.error(), None, "{}", row.verb);
             assert_eq!(drawn(&drawing)?[0].path().to_svg_path(), *expected, "{}", row.verb);
         }
@@ -527,7 +576,7 @@ proptest! {
         let b = if numbers.3 { numbers.2 } else { -numbers.2 };
         for row in rows() {
             let Some(geometry) = row.geometry else { continue };
-            for (case, drawing, expected) in (geometry.cases)(&path, a, b) {
+            for (case, drawing, expected) in (geometry.cases)(&path, a, b).map_err(fail)? {
                 let drawn = drawing.shapes(&Values::new());
                 match (drawn, expected) {
                     (Ok(shapes), Ok(expected)) => prop_assert_eq!(shapes[0].path(), &expected, "{}: {}", row.verb, case),

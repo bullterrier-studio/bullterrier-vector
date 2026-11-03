@@ -4,8 +4,8 @@
 
 use crate::common::Outcome;
 use bullterrier_vector::{
-    Blend, Cap, Color, Deg, Drawing, Error, Expr, Inputs, Join, Param, Path, Rotate, ScaleBy, Select, Shape, Stroke,
-    Unit, Values,
+    Along, Blend, Cap, Color, Deg, Drawing, Error, Expr, Inputs, Join, Param, Path, Rotate, ScaleBy, Select, Shape,
+    Stroke, Unit, Values,
 };
 use proptest::prelude::*;
 
@@ -32,6 +32,28 @@ fn the_series_bars_example_draws_the_same_shapes_after_a_round_trip() -> Outcome
     assert_eq!(shapes, again.shapes(&Values::new())?);
     // twelve bars: the sixth in red, the others in ink
     assert_eq!(shapes.len(), 12);
+    Ok(())
+}
+
+#[test]
+fn an_along_step_writes_the_arguments_that_are_not_defaults_and_reads_back_to_the_same_shapes() -> Outcome {
+    let cycle = Param::new("cycle", 0.0, 0.0, 1.0)?;
+    let guide = Path::from_svg_path("M0 0 L100 0 L100 100")?;
+    let drawing = Drawing::from(Path::from_svg_path("M0 0 L10 0 L10 5 Z")?)
+        .along(&guide, Along::new().start(&cycle).near((1.0, 2.0)))
+        .along(&guide, Along::new().start(0.0));
+    let text = drawing.to_json()?;
+    // keys in alphabetical order; the second step's start is its default and is left out
+    for expected in [
+        r#"{"along":{"near":[1,2],"path":"M0 0 L100 0 L100 100","start":{"param":"cycle"}}}"#,
+        r#"{"along":{"path":"M0 0 L100 0 L100 100"}}"#,
+    ] {
+        assert!(text.contains(expected), "{expected} not in {text}");
+    }
+    let again = Drawing::from_json(&text, &Inputs::new())?;
+    assert_eq!(again.to_json()?, text);
+    let values = Values::new().set("cycle", 0.375);
+    assert_eq!(drawing.shapes(&values)?, again.shapes(&values)?);
     Ok(())
 }
 

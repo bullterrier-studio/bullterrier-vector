@@ -531,7 +531,7 @@
           "properties": {
             "path": { "$ref": "#/$defs/path_data" },
             "start": { "$ref": "#/$defs/number" },
-            "near": { "$ref": "#/$defs/point" }
+            "near": { "$ref": "#/$defs/coordinate_point" }
           },
           "required": ["path"]
         },

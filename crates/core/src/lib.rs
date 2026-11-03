@@ -23,7 +23,7 @@ mod shape;
 mod r#type;
 mod values;
 
-pub use drawing::{Deg, Drawing, Pivot, Rotate, ScaleBy, Select, Stats, Stroke, Wanted};
+pub use drawing::{Along, Deg, Drawing, Pivot, Rotate, ScaleBy, Select, Stats, Stroke, Wanted};
 pub use error::Error;
 pub use expr::Expr;
 pub use geometry::{Point, Rect, Scale};
