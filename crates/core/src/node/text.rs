@@ -2,8 +2,8 @@
 
 use super::{Args, Context, Inputs, Node, choice};
 use crate::limits::{MAX_GLYPHS, MAX_SETTINGS};
-use crate::r#type::{Align, Settings, typeset};
-use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
+use crate::r#type::{Align, Settings, Wrap, typeset};
+use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Values, Verb};
 
 /// The shapes of a string.
 #[derive(Debug)]
@@ -77,6 +77,13 @@ pub(crate) static TEXT: Verb = Verb {
             reads: Reads::Once,
             domain: Domain::Coordinate,
         },
+        Arg {
+            name: "width",
+            kind: Kind::Number,
+            default: Some(Literal::Unset),
+            reads: Reads::Once,
+            domain: Domain::Positive,
+        },
     ],
     check: Some(text_fits),
 };
@@ -125,13 +132,29 @@ fn settings(args: &Args, cx: &Context<'_>) -> Result<Settings, Error> {
     })
 }
 
+/// The wrapping the call asks for, planned at the reference pose, or `None` if it gives no `width`. The error is
+/// unplaced.
+fn wrap(args: &Args, cx: &Context<'_>) -> Result<Option<Wrap>, Error> {
+    let reference = Values::new();
+    let pose = Context { env: &reference, ..*cx };
+    let Some(width) = args.once_number_opt(&pose, "width")? else {
+        return Ok(None);
+    };
+    Ok(Some(Wrap {
+        pose: settings(args, &pose)?,
+        width,
+    }))
+}
+
 impl Node for TextNode {
     fn verb(&self) -> &'static Verb {
         &TEXT
     }
 
     fn evaluate(&self, args: &Args, _: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
-        let settings = settings(args, cx).map_err(|error| error.at_argument(&cx.place, None))?;
-        typeset(args.font("font")?, args.text("content")?, &settings, cx)
+        let placed = |error: Error| error.at_argument(&cx.place, None);
+        let settings = settings(args, cx).map_err(placed)?;
+        let wrap = wrap(args, cx).map_err(placed)?;
+        typeset(args.font("font")?, args.text("content")?, &settings, wrap.as_ref(), cx)
     }
 }

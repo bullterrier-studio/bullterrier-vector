@@ -50,3 +50,4 @@ mod svg_shapes;
 mod svg_view;
 mod text;
 mod text_axes;
+mod text_layout;

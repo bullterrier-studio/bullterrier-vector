@@ -65,6 +65,7 @@ pub struct Text {
     leading: Option<Expr>,
     align: Option<Align>,
     anchor: Option<Point>,
+    width: Option<Expr>,
     axes: BTreeMap<String, Expr>,
     features: BTreeMap<String, u32>,
 }
@@ -81,6 +82,7 @@ impl Text {
             leading: None,
             align: None,
             anchor: None,
+            width: None,
             axes: BTreeMap::new(),
             features: BTreeMap::new(),
         }
@@ -119,6 +121,16 @@ impl Text {
     #[must_use]
     pub fn anchor(mut self, anchor: impl Into<Point>) -> Self {
         self.anchor = Some(anchor.into());
+        self
+    }
+
+    /// This text with its lines wrapped to `width` pixels: a line breaks at whitespace, greedily, as late as it still
+    /// fits, and the whitespace at the break is dropped. A word wider than `width` stands alone on its line and
+    /// overflows. Above 0; a number, a `Param` or an expression, read once at the reference pose (every `Param` at its
+    /// default, whatever [`Drawing::with_values`] fixed), so the lines never change from frame to frame.
+    #[must_use]
+    pub fn width(mut self, width: impl Into<Expr>) -> Self {
+        self.width = Some(width.into());
         self
     }
 
@@ -186,6 +198,7 @@ pub fn text(content: impl Into<String>, options: impl Into<Text>) -> Drawing {
         ("size", options.size),
         ("tracking", options.tracking),
         ("leading", options.leading),
+        ("width", options.width),
     ] {
         if let Some(number) = number {
             given.push((name, Given::Number(number)));

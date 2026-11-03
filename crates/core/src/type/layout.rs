@@ -1,7 +1,7 @@
 //! Laying out a string: lines, the pen along each, and one shape for every glyph that has an outline.
 
 use super::font::{Font, tag_of};
-use super::lines;
+use super::lines::{self, Wrap};
 use super::outline::{self, Outlines};
 use super::shaping::{Placed, Segment, Shaper};
 use super::text::Align;
@@ -56,11 +56,11 @@ fn within(argument: &str, value: f64, position: f64) -> Result<f64, Error> {
 }
 
 /// The distinct locations of the font's axes a text asks for, and which one each character is at.
-struct Places {
+pub(super) struct Places {
     /// The font at each location.
-    models: Vec<Model>,
+    pub(super) models: Vec<Model>,
     /// For every character of the text, the index in `models` of its location.
-    of_character: Vec<usize>,
+    pub(super) of_character: Vec<usize>,
 }
 
 impl Places {
@@ -73,7 +73,7 @@ impl Places {
         clippy::cast_possible_truncation,
         reason = "an axis value is inside the range of the font's axis, which the font stores as 16.16 fixed point"
     )]
-    fn new(font: &Font, axes: &[(String, Vec<f64>)], characters: usize) -> Result<Self, Error> {
+    pub(super) fn new(font: &Font, axes: &[(String, Vec<f64>)], characters: usize) -> Result<Self, Error> {
         let mut tags = Vec::new();
         for (tag, values) in axes {
             font.check_axis(tag, None)?;
@@ -123,6 +123,55 @@ fn runs(line: &str, of_character: &[usize]) -> Vec<(Range<usize>, usize)> {
     runs
 }
 
+/// The sizes that follow from a line's size in pixels to the em.
+pub(super) struct Em {
+    /// Pixels per font unit.
+    pub(super) scale: f64,
+    /// Pixels the tracking adds between clusters.
+    pub(super) gap: f64,
+    /// The height of a capital, in pixels.
+    cap_height: f64,
+}
+
+impl Em {
+    /// The sizes of a line `size` pixels to the em with `tracking` thousandths of an em between clusters.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `tracking` if the gap comes out beyond the coordinates a path holds.
+    pub(super) fn new(font: &Font, size: f64, tracking: f64) -> Result<Self, Error> {
+        let metrics = font.model().metrics();
+        let units_per_em = f64::from(metrics.units_per_em);
+        let scale = size / units_per_em;
+        Ok(Self {
+            scale,
+            gap: within("tracking", tracking, tracking * size / 1000.0)?,
+            cap_height: metrics
+                .cap_height
+                .map(read_fonts::types::F48Dot16::to_f64)
+                .filter(|height| *height > 0.0)
+                .unwrap_or(CAP_HEIGHT * units_per_em)
+                * scale,
+        })
+    }
+}
+
+/// The features of `settings` as the shaper takes them.
+///
+/// # Errors
+/// [`Error::Parameter`] naming `features` if a tag is not four printable ASCII characters.
+pub(super) fn feature_tags(settings: &Settings) -> Result<Vec<(Tag, u32)>, Error> {
+    settings
+        .features
+        .iter()
+        .map(|(tag, value)| Ok((tag_of(tag, "features")?, *value)))
+        .collect()
+}
+
+/// A shaper for the font at each of `places`.
+pub(super) fn shapers<'a>(places: &'a Places, features: &[(Tag, u32)]) -> Vec<Shaper<'a>> {
+    places.models.iter().map(|model| Shaper::new(model, features)).collect()
+}
+
 /// A glyph to draw, with what the shape that draws it carries.
 struct Drawn {
     outline: Rc<Vec<PathElement>>,
@@ -140,12 +189,12 @@ struct Drawn {
 }
 
 /// A line shaped at one size: its glyphs, each with its location, how far the pen moves after each and the line's width.
-struct Measured {
-    glyphs: Vec<(Placed, usize)>,
-    advances: Vec<f64>,
+pub(super) struct Measured {
+    pub(super) glyphs: Vec<(Placed, usize)>,
+    pub(super) advances: Vec<f64>,
     /// After each glyph: the tracking between clusters, not inside one, so that a mark stays over its base.
-    gaps: Vec<f64>,
-    width: f64,
+    pub(super) gaps: Vec<f64>,
+    pub(super) width: f64,
 }
 
 impl Measured {
@@ -154,7 +203,13 @@ impl Measured {
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `content` if a run cannot be shaped.
-    fn of(line: &str, of_character: &[usize], shapers: &[Shaper<'_>], scale: f64, gap: f64) -> Result<Self, Error> {
+    pub(super) fn of(
+        line: &str,
+        of_character: &[usize],
+        shapers: &[Shaper<'_>],
+        scale: f64,
+        gap: f64,
+    ) -> Result<Self, Error> {
         let glyphs = shape_line(line, of_character, shapers)?;
         let advances: Vec<f64> = glyphs.iter().map(|(one, _)| f64::from(one.advance) * scale).collect();
         let gaps: Vec<f64> = glyphs
@@ -189,42 +244,26 @@ impl Measured {
     clippy::cast_possible_truncation,
     reason = "the text has at most MAX_GLYPHS characters, far fewer than 2^32 glyphs and lines, or 2^53 shapes"
 )]
-pub(crate) fn typeset(font: &Font, content: &str, settings: &Settings, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+pub(crate) fn typeset(
+    font: &Font,
+    content: &str,
+    settings: &Settings,
+    wrap: Option<&Wrap>,
+    cx: &Context<'_>,
+) -> Result<Vec<Shape>, Error> {
     let placed = |error: Error| error.at_argument(&cx.place, None);
-    let metrics = font.model().metrics();
-    let units_per_em = f64::from(metrics.units_per_em);
-    let scale = settings.size / units_per_em;
-    let gap = within(
-        "tracking",
-        settings.tracking,
-        settings.tracking * settings.size / 1000.0,
-    )
-    .map_err(placed)?;
+    let em = Em::new(font, settings.size, settings.tracking).map_err(placed)?;
     let leading = settings.leading.unwrap_or(LEADING * settings.size);
-    let cap_height = metrics
-        .cap_height
-        .map(read_fonts::types::F48Dot16::to_f64)
-        .filter(|height| *height > 0.0)
-        .unwrap_or(CAP_HEIGHT * units_per_em)
-        * scale;
-    let features = settings
-        .features
-        .iter()
-        .map(|(tag, value)| Ok((tag_of(tag, "features")?, *value)))
-        .collect::<Result<Vec<_>, Error>>()
-        .map_err(placed)?;
+    let features = feature_tags(settings).map_err(placed)?;
     let locations = Places::new(font, &settings.axes, content.chars().count()).map_err(placed)?;
-    let shapers: Vec<Shaper<'_>> = locations
-        .models
-        .iter()
-        .map(|model| Shaper::new(model, &features))
-        .collect();
+    let shapers = shapers(&locations, &features);
     let mut outlines: Vec<Outlines<'_>> = locations.models.iter().map(Outlines::new).collect();
+    let (scale, gap, cap_height) = (em.scale, em.gap, em.cap_height);
 
     let mut glyphs = Vec::new();
     // the words met so far, and the one the glyph being placed is in (none after a space)
     let mut words = 0_u32;
-    for (number, line) in lines::plan(content).iter().enumerate() {
+    for (number, line) in lines::plan(font, content, wrap).map_err(placed)?.iter().enumerate() {
         let mut word = None;
         let baseline = within("leading", leading, number as f64 * leading)
             .and_then(|lines| within("anchor", settings.anchor.y, settings.anchor.y + lines))
