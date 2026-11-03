@@ -131,6 +131,13 @@ def test_kinetic_type_draws_a_shape_a_letter_inside_the_frame_and_a_kick_thicken
         assert bounds.x + bounds.width <= 1080
         assert bounds.y >= 0
         assert bounds.y + bounds.height <= 1350
+    # each line is fitted to the 980 pixel measure by the width axis: its letters fill it, centred on the frame
+    for line in (0, 1):
+        edges = [shape.path.bounds for shape in calm if shape.attributes["line"] == line]
+        left, right = min(edge.x for edge in edges), max(edge.x + edge.width for edge in edges)
+        assert 50 <= left < 100, (line, left)
+        assert 980 < right <= 1030, (line, right)
+        assert (left + right) / 2 == pytest.approx(540, abs=30)
 
     # `pulse` has an entry per character of "NO\nSLEEP": 8, the line break included. A kick on the N (entry 0) makes
     # the N wider, and the letters after it follow its advance; the second line is untouched.
