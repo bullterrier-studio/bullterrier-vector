@@ -556,9 +556,9 @@ def keys_of(value: Any) -> set[str]:
 
 
 UNREGISTERED = call_names(SCHEMA) - REGISTERED
-# The arguments of `text` that a later batch registers (V6: width, fit, inside): a document that gives one waits for
-# it, as one that uses an unregistered call does.
-LATER_TEXT_ARGUMENTS = {"width", "fit", "inside"}
+# The arguments of `text` that a later batch registers (V6: inside): a document that gives one waits for it, as one that
+# uses an unregistered call does.
+LATER_TEXT_ARGUMENTS = {"inside"}
 
 
 def waits_for_a_later_batch(document: Any) -> bool:

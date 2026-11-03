@@ -468,6 +468,82 @@ def test_a_right_to_left_line_cut_into_runs_stands_as_it_does_uncut() -> None:
     assert [shape.path.bounds.width for shape in uncut] == [100, 100, 400]  # the independent oracle: hand reading
 
 
+# --- layout: width wraps the lines, fit makes each exactly that wide ----------------------------------------------
+
+
+def lines_of(drawing: btvec.Drawing, **values: Any) -> list[object]:
+    """The `line` attribute of every shape."""
+    return [shape.attributes["line"] for shape in drawing.shapes(**values)]
+
+
+H, SPACE = advance("H"), advance(" ")
+
+
+@pytest.mark.parametrize(
+    ("content", "width", "lines"),
+    [
+        pytest.param("H H", 2 * H + SPACE, [0, 0], id="exactly the width fits"),
+        pytest.param("H H", 2 * H + SPACE - 1, [0, 1], id="one unit less wraps"),
+        pytest.param("H H H", 2 * H + SPACE, [0, 0, 1], id="greedy"),
+        pytest.param("H   H", H, [0, 1], id="the spaces at a break are dropped"),
+        pytest.param("HH H", 1, [0, 0, 1], id="a word wider than the width stands alone"),
+        pytest.param("H\n\nH", 10 * H, [0, 2], id="an empty paragraph keeps its line"),
+    ],
+)
+def test_width_wraps_a_line_at_whitespace_as_late_as_it_fits(content: str, width: float, lines: list[int]) -> None:
+    assert lines_of(btvec.text(content, font=FRAUNCES, size=UPEM, width=width)) == lines
+
+
+def test_a_wrapped_line_starts_at_the_anchor_and_stands_one_leading_below() -> None:
+    shapes = btvec.text("H H", font=FRAUNCES, size=UPEM, width=H, anchor=(10, 20)).shapes()
+    assert_same_outline(outline_of(shapes[0]), expected_outline("H", size=UPEM, x=10, y=20), 1e-9)
+    assert_same_outline(outline_of(shapes[1]), expected_outline("H", size=UPEM, x=10, y=20 + 1.2 * UPEM), 1e-9)
+
+
+def test_the_breaks_follow_the_width_param_and_not_the_size_param() -> None:
+    size = btvec.Param("size", default=UPEM, min=500, max=4000)
+    width = btvec.Param("width", default=2 * H + SPACE - 1, min=1, max=100000)
+    drawing = btvec.text("H H", font=FRAUNCES, size=size, width=width)
+    assert lines_of(drawing) == [0, 1]
+    assert lines_of(drawing, size=1000) == [0, 1]  # narrower glyphs would fit; the lines are made at the default size
+    assert lines_of(drawing, width=2 * H + SPACE) == [0, 0]
+
+
+def test_fit_size_makes_each_line_the_size_at_which_it_is_the_width_wide() -> None:
+    # "H" is H units wide at 2000 to the em: 2 H wide at 4000. "HH" is 2 H wide at 2000. Each line stands 1.2 of its own
+    # size below the one before.
+    shapes = btvec.text("H\nHH", font=FRAUNCES, size=UPEM, width=2 * H, fit="size").shapes()
+    assert_same_outline(outline_of(shapes[0]), expected_outline("H", size=2 * UPEM), 1e-9)
+    assert_same_outline(outline_of(shapes[1]), expected_outline("H", size=UPEM, y=1.2 * UPEM), 1e-9)
+    assert_same_outline(outline_of(shapes[2]), expected_outline("H", size=UPEM, x=H, y=1.2 * UPEM), 1e-9)
+
+
+@pytest.mark.parametrize("weight", [300, 400, 500, 600, 700])
+def test_fit_on_an_axis_sets_the_axis_at_which_the_line_is_the_width_wide(weight: int) -> None:
+    step = round(advance("H", {"wght": weight}))  # the shaper rounds an advance to a unit; fontTools does not
+    shapes = btvec.text("HHH", font=FRAUNCES, size=UPEM, width=3 * step, fit="wght").shapes()
+    assert origin_x(shapes[1]) - origin_x(shapes[0]) == pytest.approx(step)
+    assert origin_x(shapes[2]) - origin_x(shapes[1]) == pytest.approx(step)
+
+
+def test_a_width_the_axis_cannot_reach_is_refused_when_drawn_naming_the_line_and_the_nearest_width() -> None:
+    narrowest = 3 * round(advance("H", {"wght": 300}))
+    drawing = btvec.text("HHH", font=FRAUNCES, size=UPEM, width=narrowest - 1, fit="wght")
+    with pytest.raises(btvec.ParameterError, match=rf"fit.*line 0.*{narrowest:g}.*300"):
+        drawing.shapes()
+
+
+def test_width_and_fit_are_saved_in_the_document_and_load_back_to_the_same_shapes() -> None:
+    drawing = btvec.text("HHH", font=FRAUNCES, size=UPEM, width=3 * H, fit="wght")
+    text = drawing.to_json()
+    assert '"width":' in text
+    assert '"fit":"wght"' in text
+    loaded = btvec.Drawing.from_json(text, inputs={"fraunces": FRAUNCES_BYTES})
+    assert loaded.to_json() == text
+    assert loaded.shapes() == drawing.shapes()
+    assert '"width"' not in btvec.text("H", font=FRAUNCES).to_json()
+
+
 # --- bad arguments name the argument and the value ----------------------------------------------------------------
 
 
@@ -514,6 +590,18 @@ def test_a_right_to_left_line_cut_into_runs_stands_as_it_does_uncut() -> None:
         pytest.param(
             {"features": {"liga": "on"}}, TypeError, r"features.*liga.*'on'", id="a feature value that is a string"
         ),
+        pytest.param({"width": 0}, btvec.ParameterError, r"width.*above 0.*got 0", id="a width of zero"),
+        pytest.param({"width": float("nan")}, btvec.ParameterError, r"width.*NaN", id="a width that is not a number"),
+        pytest.param({"width": "wide"}, TypeError, r"'wide'", id="a width that is a string"),
+        pytest.param({"fit": "size"}, btvec.ParameterError, r"fit.*width", id="a fit without a width"),
+        pytest.param({"width": 100, "fit": "bold"}, btvec.ParameterError, r'fit.*"bold"', id="a fit that is no axis"),
+        pytest.param(
+            {"width": 100, "fit": "wght", "axes": {"wght": 400}},
+            btvec.ParameterError,
+            r"fit.*axes",
+            id="a fit and axes",
+        ),
+        pytest.param({"width": 100, "fit": 5}, TypeError, r"fit", id="a fit that is a number"),
         pytest.param({"font": "Fraunces"}, TypeError, r"'Fraunces'|font", id="a font that is a name"),
     ],
 )

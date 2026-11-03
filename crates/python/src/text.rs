@@ -103,9 +103,11 @@ fn feature(tag: &str, value: &Bound<'_, PyAny>) -> PyResult<u32> {
 
 /// A drawing of `content` in `font`: one shape for every glyph that has an outline (a space or a line break has none),
 /// shaped with kerning, ligatures and the rules of the script. `"\n"` breaks a line. What is left out takes the
-/// defaults of the core: `size` 100, `tracking` 0, `leading` 1.2 times the size, `align` `"left"`, `anchor` `(0, 0)`.
+/// defaults of the core: `size` 100, `tracking` 0, `leading` 1.2 times the size, `align` `"left"`, `anchor` `(0, 0)`, lines
+/// as long as the text breaks them. `width` wraps the lines to it, and `fit` (`"size"` or an axis tag) makes each exactly
+/// that wide.
 #[pyfunction]
-#[pyo3(signature = (content, *, font, size=None, axes=None, features=None, tracking=None, leading=None, align=None, anchor=None))]
+#[pyo3(signature = (content, *, font, size=None, axes=None, features=None, tracking=None, leading=None, align=None, anchor=None, width=None, fit=None))]
 #[expect(clippy::too_many_arguments, reason = "the arguments of the Python call, one for one")]
 pub(crate) fn text(
     content: &Bound<'_, PyString>,
@@ -117,6 +119,8 @@ pub(crate) fn text(
     leading: Option<Num>,
     align: Option<&str>,
     anchor: Option<&Bound<'_, PyAny>>,
+    width: Option<Num>,
+    fit: Option<&str>,
 ) -> PyResult<PyDrawing> {
     // a `str` holding a lone surrogate has no UTF-8 form: that is a problem in the argument, so a `ParameterError`
     let content = content
@@ -144,6 +148,12 @@ pub(crate) fn text(
             )));
         };
         options = options.anchor(anchor);
+    }
+    if let Some(width) = width {
+        options = options.width(width.0);
+    }
+    if let Some(fit) = fit {
+        options = options.fit(fit);
     }
     if let Some(axes) = axes {
         let axes = entries(axes)?

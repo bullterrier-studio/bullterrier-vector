@@ -252,5 +252,7 @@ def text(
     leading: _Num | None = None,
     align: str | None = None,
     anchor: _PointLike | None = None,
+    width: _Num | None = None,
+    fit: str | None = None,
 ) -> Drawing: ...
 def drawing_schema() -> str: ...
