@@ -14,7 +14,7 @@ public: no absolute paths, no references to folders outside the repository.
 
 ```bash
 uv sync && uv run poe setup                      # once per clone: environment (builds the Rust extension: needs rustup), git hooks, commit template, cargo tools
-cargo test -p bullterrier-vector --test path     # the Rust tests near your change, while you work
+cargo test -p bullterrier-vector --test it path::   # the Rust tests near your change (one module), while you work
 uv run pytest tests/test_path.py -n 0            # the Python tests near your change
 uv run poe look examples/star.py                 # draw a drawing file to dist/look/ (PNG and SVG) to see it
 uv run poe fast                                  # the inner loop: seconds when warm
@@ -137,7 +137,7 @@ formatter, 6 and 7, and "Fixing defects".
 9. **Bounded depth.** Anything a caller can build or load has a depth limit enforced where it is built, never in a walk
    over it, so no recursion runs over unbounded depth and nothing needs a bigger stack than the 256 KB minimum
    (`docs/design-decisions.md`, "Bounded depth"). A new node, step or reader adds its deepest structure to the stack
-   tests (`tests/test_stack_depth.py`, `crates/core/tests/expr.rs`).
+   tests (`tests/test_stack_depth.py`, `crates/core/tests/it/expr.rs`).
 
 ## Rust code
 
@@ -176,7 +176,7 @@ Two speeds, both through `uv run poe`:
 | Task | Runs, cheapest first |
 |---|---|
 | `fast` | `rust-fmt`, `ruff format --check`, `rust-lint`, `ruff check`, `rust-test`, `rust-wasm`, `mypy`, `file-size`, `pytest -m 'not gate'` |
-| `check` | `ruff format --check`, `rust-fmt`, `ruff check`, `rust-lint`, `file-size`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `rust-fonts`, `build-check`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `wasm-test`, `test` (gate proofs included); stops at the first failure |
+| `check` | `ruff format --check`, `rust-fmt`, `ruff check`, `rust-test-layout`, `rust-lint`, `file-size`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `rust-fonts`, `build-check`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `wasm-test`, `test` (gate proofs included); stops at the first failure |
 
 `rust-lint` is clippy with `-D warnings` over the workspace and all targets (pedantic, the determinism rules of `clippy.toml`, dead
 code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `rust-tools` checks that cargo-shear, cargo-deny and the `wasm-bindgen` command are
@@ -232,8 +232,14 @@ actions are pinned by commit SHA; `lint-workflows` rejects the rest.
 Follow the `testing-best-practices` skill. A test coupled to implementation or otherwise poor (weak sole assertion, tautology,
 golden file, sleep, mock of our own code) is worse than none: delete it. Reviewers treat such tests as blocking.
 
-- **Rust first.** Rust tests live in `crates/core/tests/` and use the public API (`use bullterrier_vector::...`); no unit
-  tests in `src/`. The Python suite tests the bindings through the
+- **Rust first.** Rust tests live in `crates/core/tests/it/` and use the public API (`use bullterrier_vector::...`); no unit
+  tests in `src/` unless no public route reaches the behaviour (never widen an item to `pub` to move a test out).
+  **One integration binary:** `tests/it/main.rs` declares a `mod` per area, helpers are in `tests/it/common/`; a new test
+  file is a module there, not a `tests/<name>.rs` (each is an executable that macOS scans on first launch, about 12 s). A
+  file is a binary of its own only for a process-wide need (a `#[global_allocator]`; `tests/drawing_limits.rs`, whose
+  million-shape tests peak at several GB and a process keeps what it allocated): first line `//! Own binary: <why>`,
+  listed in `[tool.rust-tests.own-binaries]`; `poe rust-test-layout` fails otherwise. `poe rust-test` runs under a memory cap.
+  The Python suite tests the bindings through the
   package's public API only (`import bullterrier_vector as btvec`).
 - **Behaviour through the public contract; properties, not golden files.** `proptest` for broad input spaces. Expected values come
   from an independent oracle (hand computation, a standard, a brute-force reference parsed back from the output, e.g. `roxmltree`
@@ -270,7 +276,7 @@ Writing tests:
 - **No change-detectors:** test a rule with a known-bad input; never restate configuration.
 - **Slow tests in groups:** a module whose module-scoped fixture spawns tools (ruff, mypy, poe, cargo, git) carries
   `pytestmark = pytest.mark.xdist_group("<module>")`.
-- **Running:** one Rust test file: `cargo test -p bullterrier-vector --test path`; one Python file:
+- **Running:** one Rust test module: `cargo test -p bullterrier-vector --test it path::`; one Python file:
   `uv run pytest tests/test_path.py -n 0` (`-p no:randomly` for fixed order); all Python tests: `uv run poe test`.
 - **Fast feedback (agents):** while iterating or doing red-green TDD run only the tests covering your change (a filter, one file),
   and `uv run poe fast` between steps. Run `uv run poe check` once when the work is finished, before you report. If it fails, fix

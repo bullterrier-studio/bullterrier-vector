@@ -639,7 +639,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   catchable `RangeError` below about 0.25 MB. *Reason:* an overflow is a segfault in the caller's process. A growing
   stack (`stacker`) was rejected: it cannot grow the WebAssembly engine's stack, loses CPython's overflow guard on 3.14
   and later, adds `unsafe` and a C compiler to the sdist build, and trades a bounded stack for unbounded memory.
-  *Consequence:* `tests/test_stack_depth.py` and `crates/core/tests/expr.rs` run the deepest structures on the minimum
+  *Consequence:* `tests/test_stack_depth.py` and `crates/core/tests/it/expr.rs` run the deepest structures on the minimum
   stack; a new node or reader adds its structure to them.
 - **Platforms** (2026-10-28). One abi3 wheel (every Python from 3.12) for Linux x86_64 and aarch64 (manylinux_2_28), macOS
   arm64 and x86_64, and Windows x86_64; the sdist, which builds the extension with rustup, covers every other platform.
