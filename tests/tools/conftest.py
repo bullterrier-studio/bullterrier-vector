@@ -117,9 +117,12 @@ def copy_env(uv_run_env) -> dict[str, str]:
 
 @pytest.fixture(scope="module")
 def cargo_env(explicit_env, tmp_path_factory) -> dict[str, str]:
-    """`uv run`'s environment (PyO3 finds this Python), offline, uncoloured, with one build folder for every copy."""
+    """`uv run`'s environment (PyO3 finds this Python), offline, uncoloured, with one build folder for every copy.
+    A task that runs `uv run` in a copy (`rust-test`, via `tools/run_capped.py`) uses it as it is, like `copy_env`."""
     return explicit_env(
         PATH=os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")]),
+        UV_PROJECT_ENVIRONMENT=str(Path(sys.executable).parents[1]),
+        UV_NO_SYNC="1",
         CARGO_TARGET_DIR=str(tmp_path_factory.mktemp("target")),
         CARGO_NET_OFFLINE="true",
         CARGO_TERM_COLOR="never",
