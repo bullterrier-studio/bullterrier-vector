@@ -139,9 +139,11 @@ body-max-line-length = 100
 scope-pattern = "^[a-z0-9][a-z0-9/_-]*$"
 
 # Read by tools/run_capped.py: the memory cap (MB, summed over a command's whole process group) the poe tasks that run
-# tests go through, so a runaway test fails the gate instead of freezing the machine
+# tests go through, so a runaway test fails the gate instead of freezing the machine. 8000: the million-shape tests of
+# crates/core/tests/drawing_limits.rs peak at 2.8 to 4.0 GB (a gate run was killed at 4003 MB under a 4000 cap); a
+# runaway still stops well below the 24 GB of the machine
 [tool.run-capped]
-cap-mb = 4000
+cap-mb = 8000
 
 # Read by tools/check_rust_test_layout.py: the Rust test files that are binaries of their own (path -> why they need a
 # process to themselves). Every other integration test is a module of tests/it/.
