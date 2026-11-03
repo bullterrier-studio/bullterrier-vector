@@ -170,3 +170,33 @@ def test_bundled_type_sets_a_line_in_each_bundled_font_with_no_file_read(run):
     assert "".join(chars) == "Soft&wonky" + "BricolageGrotesque"
     # both lines stand inside the 900 pixel frame, with a margin
     assert max(shape.path.bounds.x + shape.path.bounds.width for shape in shapes[1:]) < 850
+
+
+def test_text_on_path_stands_its_letters_on_the_circle_and_cycle_turns_them_half_way_round(run):
+    drawing = run("text_on_path")["drawing"]
+    paper, orbit, *letters = drawing.shapes(cycle=0.0)
+    assert [shape.attributes["char"] for shape in letters] == list("ROUNDANDROUNDANDROUNDAND")
+    assert paper.path.bounds == btvec.Rect(0, 0, 1080, 1080)
+    assert orbit.path.bounds == btvec.Rect(180, 180, 720, 720)
+
+    def middle(shape: btvec.Shape) -> tuple[float, float]:
+        bounds = shape.path.bounds
+        return (bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+
+    for shape in letters:
+        x, y = middle(shape)
+        # the circle is 360 round (540, 540); the letters stand outside it, up to 90 pixels tall, and inside the frame
+        assert 360 < ((x - 540) ** 2 + (y - 540) ** 2) ** 0.5 < 450
+        bounds = shape.path.bounds
+        assert bounds.x >= 0
+        assert bounds.y >= 0
+        assert bounds.x + bounds.width <= 1080
+        assert bounds.y + bounds.height <= 1080
+    # the text begins at the top of the circle; half a cycle on, it begins at the bottom
+    first_x, first_y = middle(letters[0])
+    assert abs(first_x - 540) < 100
+    assert first_y < 540 - 360
+    (_, _, *turned) = drawing.shapes(cycle=0.5)
+    turned_x, turned_y = middle(turned[0])
+    assert abs(turned_x - 540) < 100
+    assert turned_y > 540 + 360

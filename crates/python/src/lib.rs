@@ -415,6 +415,12 @@ impl PyPath {
         Self::of(self.0.scale(by.0, about.map(|about| about.0)))
     }
 
+    /// Carried along `path`: a point `(x, y)` goes `start * length + x` along it and `y` to its right.
+    #[pyo3(signature = (path, *, start=Plain(0.0), near=None), text_signature = "($self, path, *, start=0.0, near=None)")]
+    fn along(&self, path: &Bound<'_, Self>, start: Plain, near: Option<Pt>) -> PyResult<Self> {
+        Self::of(self.0.along(&path.get().0, start.0, near.map(|near| near.0)))
+    }
+
     /// The path with every point, on and off the curve, replaced by what `fn(point)` returns.
     fn map_points(&self, r#fn: &Bound<'_, PyAny>) -> PyResult<Self> {
         // the core's callback can only fail with a core error, so the function's own exception is kept here and the

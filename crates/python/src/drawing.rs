@@ -229,6 +229,20 @@ impl PyDrawing {
         checked(self.0.scale(scaling))
     }
 
+    /// Every shape carried along `path`: a point `(x, y)` goes `start` lengths of the path plus `x` along it and `y` to
+    /// its right. `start` may be a number, a Param or an expression; a closed path is walked from the point nearest `near`.
+    #[pyo3(signature = (path, *, start=None, near=None))]
+    fn along(&self, path: &Bound<'_, PyPath>, start: Option<Num>, near: Option<Pair>) -> PyResult<Self> {
+        let mut bend = vector::Along::new();
+        if let Some(Num(start)) = start {
+            bend = bend.start(start);
+        }
+        if let Some(Pair(x, y)) = near {
+            bend = bend.near((x, y));
+        }
+        checked(self.0.along(&path.get().0, bend))
+    }
+
     /// Every shape filled with `color` (`"#rrggbb"`, `"#rrggbbaa"` or `"none"`).
     pub(crate) fn fill(&self, color: &str) -> PyResult<Self> {
         checked(self.0.fill(raised(vector::Color::parse(color))?))

@@ -18,6 +18,7 @@ ParameterError = btvec.ParameterError
 
 SQUARE = btvec.Path.rect(0, 0, 10, 10)
 LINE = btvec.Path.line((0, 0), (10, 0))
+EAST = btvec.Path.line((10, 20), (110, 20))  # 100 long, running east along y = 20
 BLACK = "#000000ff"
 # the same classes, untyped: the wrong types below are what is tested
 LOOSE: Any = btvec.Drawing
@@ -455,6 +456,45 @@ def test_a_size_at_the_ends_of_its_range_is_accepted(size):
     assert Drawing(SQUARE, size=size).size == size
 
 
+# --- along -------------------------------------------------------------------------------------------------------
+
+
+def test_along_reads_start_as_a_number_a_param_or_an_expression():
+    start = param("start", 0.0, -1.0, 1.0)
+    assert drawn(Drawing(LINE).along(EAST, start=0.25)) == ["M35 20 L45 20"]
+    assert drawn(Drawing(LINE).along(EAST, start=start), start=0.25) == ["M35 20 L45 20"]
+    assert drawn(Drawing(LINE).along(EAST, start=2 * start), start=0.125) == ["M35 20 L45 20"]
+    assert drawn(Drawing(LINE).along(EAST, start=start)) == ["M10 20 L20 20"]  # the Param's default
+
+
+def test_along_gives_each_shape_its_own_start_from_a_list():
+    start = param("start", 0.0, -1.0, 1.0)
+    bent = Drawing(*squares(2)).along(EAST, start=start)
+    assert drawn(bent, start=[0, 0.25]) == ["M10 20 L15 20 L15 25 L10 25 Z", "M45 20 L50 20 L50 25 L45 25 Z"]
+
+
+def test_along_keeps_what_a_shape_is_but_its_outline():
+    red = SQUARE.fill("#ff0000").shapes()[0]
+    (bent,) = Drawing(red).along(EAST, start=0.5).shapes()
+    assert bent.style == red.style
+    assert bent.attributes == red.attributes
+    assert bent.path != red.path
+
+
+def test_along_takes_near_as_a_tuple_or_a_point():
+    ring = btvec.Path.circle((0, 0), 100)
+    by_tuple = drawn(Drawing(LINE).along(ring, near=(0, 1000)))
+    assert by_tuple == drawn(Drawing(LINE).along(ring, near=btvec.Point(0, 1000)))
+    assert by_tuple != drawn(Drawing(LINE).along(ring))
+
+
+def test_along_a_guide_that_is_empty_or_has_no_length_is_a_geometry_error_when_drawn():
+    for guide in (btvec.Path(), btvec.Path().move_to((1, 1))):
+        bent = Drawing(LINE).along(guide)
+        with pytest.raises(btvec.GeometryError, match="along"):
+            bent.shapes()
+
+
 # --- errors: kind, what they name, and the call that raises them -------------------------------------------------
 
 
@@ -486,6 +526,8 @@ def a_param() -> btvec.Param:
         pytest.param(lambda: Drawing(SQUARE).rotate(float("nan")), "angle", id="rotate: NaN"),
         pytest.param(lambda: Drawing(SQUARE).scale(0), "by", id="scale: zero"),
         pytest.param(lambda: Drawing(SQUARE).scale((2, 0)), "by", id="scale: a zero component"),
+        pytest.param(lambda: Drawing(SQUARE).along(EAST, start=float("nan")), "start", id="along: NaN"),
+        pytest.param(lambda: Drawing(SQUARE).along(EAST, near=(1e101, 0)), "near", id="along: near beyond 1e100"),
         pytest.param(lambda: Drawing(SQUARE).only(), "attributes", id="only: nothing asked"),
         pytest.param(lambda: Drawing(SQUARE).without(), "attributes", id="without: nothing asked"),
         pytest.param(lambda: Drawing(SQUARE).only(colour=1), "colour", id="only: not an attribute"),
@@ -552,6 +594,7 @@ def test_a_style_step_called_on_a_path_raises_at_the_call_too(call):
         pytest.param(lambda p: SQUARE.scale(p), id="scale"),
         pytest.param(lambda p: SQUARE.scale((p, 1)), id="scale by a pair"),
         pytest.param(lambda p: SQUARE.scale(2, about=(0, p)), id="scale about"),
+        pytest.param(lambda p: SQUARE.along(EAST, start=p), id="along start"),
     ],
 )
 def test_a_path_verb_given_a_param_says_to_wrap_the_path_in_a_drawing(call):
@@ -578,6 +621,10 @@ def test_a_path_verb_still_takes_plain_numbers():
         pytest.param(lambda: FRAMELESS.translate(None, 0), id="a number that is None"),
         pytest.param(lambda: FRAMELESS.rotate(30, about=5), id="a pivot that is a number"),
         pytest.param(lambda: FRAMELESS.scale("2"), id="a scale that is text"),
+        pytest.param(lambda: FRAMELESS.along("M0 0 L1 1"), id="a guide that is text"),
+        pytest.param(lambda: FRAMELESS.along(EAST, start="a"), id="an along start that is text"),
+        pytest.param(lambda: FRAMELESS.along(EAST, near=5), id="an along near that is a number"),
+        pytest.param(lambda: FRAMELESS.along(EAST, 0.5), id="an along start that is positional"),
         pytest.param(lambda: FRAMELESS.only(index=None), id="a wanted value that is None"),
         pytest.param(lambda: FRAMELESS.with_values(dx="a"), id="a value that is text"),
         pytest.param(lambda: FRAMELESS.shapes(dx="a"), id="a drawn value that is text"),
@@ -688,6 +735,11 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
     "translate": (lambda: Drawing(SQUARE).translate(1, 2), {}, [row("M1 2 L11 2 L11 12 L1 12 Z")]),
     "rotate": (lambda: Drawing(SQUARE).rotate(90), {}, [row("M10 0 L10 10 L0 10 L0 0 Z")]),
     "scale": (lambda: Drawing(SQUARE).scale(2), {}, [row("M-5 -5 L15 -5 L15 15 L-5 15 Z")]),
+    "along": (
+        lambda: Drawing(SQUARE).along(EAST, start=0.125),
+        {},
+        [row("M22.5 20 L32.5 20 L32.5 30 L22.5 30 Z")],
+    ),
     "fill": (lambda: Drawing(SQUARE).fill("#0000ff"), {}, [row(RECT, "#0000ffff")]),
     "stroke": (lambda: Drawing(SQUARE).stroke("#00ff00"), {}, [row(RECT, None, "#00ff00ff")]),
     "opacity": (lambda: Drawing(SQUARE).opacity(0.5), {}, [row(RECT, opacity=0.5)]),

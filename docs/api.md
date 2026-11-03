@@ -26,7 +26,7 @@ import bullterrier_vector as btvec
 | [kinetic_type.py](../examples/kinetic_type.py) | the headline of piece 1 as far as it is built: a variable-font weight a letter, two multiply inks |
 | [star.py](../examples/star.py) | building and measuring a `Path` |
 | [ring.py](examples/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
-| [text_on_path.py](examples/text_on_path.py) | text bent along a path, moving round it |
+| [text_on_path.py](../examples/text_on_path.py) | text bent along a path, moving round it |
 | [draw_on.py](examples/draw_on.py) | draw-on by `progress`, staggered letter by letter |
 | [marching_dashes.py](examples/marching_dashes.py) | a dash pattern with a moving phase |
 | [wobble_outline.py](examples/wobble_outline.py) | a small noise wobble; a font axis as a described parameter |

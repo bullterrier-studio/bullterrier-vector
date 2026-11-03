@@ -354,6 +354,57 @@ def test_scale_by_a_pair_scales_each_direction_on_its_own():
 # --- map_points --------------------------------------------------------------------------------------------------
 
 
+EAST = Path.line((10, 20), (110, 20))  # 100 long, running east along y = 20
+RING = Path.circle((0, 0), 100)  # clockwise from the top
+
+
+@pytest.mark.parametrize(
+    ("guide", "start", "shape", "written"),
+    [
+        pytest.param(EAST, 0, "M0 0 L10 0", "M10 20 L20 20", id="a guide's own start"),
+        pytest.param(EAST, 0.25, "M0 0 L10 0", "M35 20 L45 20", id="start is a fraction of the length"),
+        pytest.param(EAST, 0, "M0 0 L0 5", "M10 20 L10 25", id="y goes to the right of the way, down for east"),
+        pytest.param(EAST, 0, "M0 0 L0 -5", "M10 20 L10 15", id="a negative y goes left"),
+        pytest.param(Path.line((7, 1), (7, 129)), 0.5, "M0 0 L16 -2", "M7 65 L9 81", id="south, whose right is west"),
+        pytest.param(EAST, -0.5, "M0 0 L10 0", "M-40 20 L-30 20", id="before the start of an open guide, straight on"),
+        pytest.param(EAST, 1.5, "M0 0 L10 0", "M160 20 L170 20", id="past the end of an open guide, straight on"),
+        pytest.param(EAST, 0, "M0 0 L10 0 Z", "M10 20 L20 20 Z", id="a closed shape stays closed"),
+    ],
+)
+def test_along_carries_x_along_the_guide_and_y_to_its_right(guide, start, shape, written):
+    assert Path.from_svg_path(shape).along(guide, start=start).to_svg_path() == written
+
+
+def test_along_a_circle_puts_a_point_at_the_angle_the_distance_makes_and_y_moves_the_radius():
+    # a clockwise circle of 100 from the top: 157.08 along is a quarter turn, at (100, 0); a y of 10 is 10 nearer
+    # the centre
+    bent = Path.line((0, 10), (100, 10)).along(RING, start=0.25)
+    for at, angle in [(0, math.pi / 2), (1, math.pi / 2 + 1.0)]:
+        point = bent.point_at(at)
+        assert (point.x, point.y) == pytest.approx((90 * math.sin(angle), -90 * math.cos(angle)), abs=0.1)
+
+
+def test_along_a_closed_guide_wraps_and_near_moves_where_it_starts():
+    shape = Path.line((0, 0), (30, 0))
+    start = shape.along(RING, start=0.25).point_at(0)
+    for wrapped in (1.25, -0.75):
+        assert shape.along(RING, start=wrapped).point_at(0) == pytest.approx((start.x, start.y), abs=1e-6)
+    # nearest the bottom, it starts at the bottom
+    bottom = shape.along(RING, near=(0, 1000)).point_at(0)
+    assert (bottom.x, bottom.y) == pytest.approx((0, 100), abs=0.1)
+    assert shape.along(RING, near=Point(0, 1000)).point_at(0) == bottom
+
+
+def test_along_keeps_a_curve_as_a_smooth_bend_not_a_few_corners():
+    # a half circle of radius 20 laid along a straight guide 100 down is the same half circle, moved
+    arch = Path.circle((50, 0), 20)
+    flat = arch.translate(0, 100)
+    bent = arch.along(Path.line((0, 100), (500, 100)))
+    assert bent.bounds.y == pytest.approx(flat.bounds.y, abs=0.03)
+    assert bent.bounds.height == pytest.approx(flat.bounds.height, abs=0.03)
+    assert bent.length == pytest.approx(flat.length, rel=1e-3)
+
+
 def test_map_points_passes_every_point_on_and_off_the_curve_as_a_point():
     seen: list[btvec.Point] = []
 
@@ -471,6 +522,15 @@ def test_map_points_rejects_a_function_that_returns_a_non_finite_point_naming_fn
         pytest.param(lambda: line().slice(0, 2), btvec.ParameterError, ["end", "2"], id="slice end above 1"),
         pytest.param(lambda: line().translate(math.nan, 0), btvec.ParameterError, ["dx", "nan"], id="translate NaN"),
         pytest.param(lambda: line().rotate(math.inf), btvec.ParameterError, ["angle", "inf"], id="rotate infinite"),
+        pytest.param(
+            lambda: line().along(EAST, start=math.nan), btvec.ParameterError, ["start", "nan"], id="along NaN"
+        ),
+        pytest.param(
+            lambda: line().along(EAST, start=1e300), btvec.ParameterError, ["start", "too large"], id="along too far"
+        ),
+        pytest.param(
+            lambda: line().along(RING, near=(math.nan, 0)), btvec.ParameterError, ["near", "nan"], id="along near NaN"
+        ),
         pytest.param(lambda: line().scale(0), btvec.ParameterError, ["by", "0"], id="scale by 0"),
         pytest.param(lambda: line().scale((2, 0)), btvec.ParameterError, ["by", "0"], id="scale by a pair with a 0"),
         pytest.param(lambda: Path().bounds, btvec.GeometryError, ["bounds", "empty"], id="bounds of an empty path"),
@@ -484,6 +544,13 @@ def test_map_points_rejects_a_function_that_returns_a_non_finite_point_naming_fn
             lambda: Path().locate((0, 0)), btvec.GeometryError, ["locate", "empty"], id="locate on an empty path"
         ),
         pytest.param(lambda: Path().slice(0, 1), btvec.GeometryError, ["slice", "empty"], id="slice of an empty path"),
+        pytest.param(lambda: line().along(Path()), btvec.GeometryError, ["along", "empty"], id="along an empty guide"),
+        pytest.param(
+            lambda: line().along(Path().move_to((1, 1))),
+            btvec.GeometryError,
+            ["along", "no length"],
+            id="along a guide with no length",
+        ),
         pytest.param(
             lambda: Path().move_to((1, 1)).tangent_at(0),
             btvec.GeometryError,
@@ -532,6 +599,7 @@ _FAR_TEXT = "1000000000000000"
         pytest.param(lambda: line().contains((0, _FAR)), "point", id="contains"),
         pytest.param(lambda: line().point_at(0.5, near=(_FAR, 0)), "near", id="point_at near"),
         pytest.param(lambda: line().tangent_at(0.5, near=(_FAR, 0)), "near", id="tangent_at near"),
+        pytest.param(lambda: line().along(RING, near=(_FAR, 0)), "near", id="along near"),
         pytest.param(lambda: line().slice(0, 0.5, near=(_FAR, 0)), "near", id="slice near"),
         pytest.param(lambda: Path.line((0, 0), (9e99, 0)).translate(9e99, 0), "dx", id="translate past the limit"),
     ],
@@ -564,6 +632,7 @@ def test_an_empty_path_has_no_length_and_transforms_return_it_unchanged():
     assert empty.translate(3, 4) == empty
     assert empty.rotate(30) == empty
     assert empty.scale(2) == empty
+    assert empty.along(EAST, start=0.5) == empty
     assert empty.reverse() == empty
 
 
@@ -577,6 +646,8 @@ def test_an_empty_path_has_no_length_and_transforms_return_it_unchanged():
         pytest.param(lambda: Path.polygon((0, 0), 10, 5.5), id="a float for sides"),  # type: ignore[arg-type]  # the misuse under test
         pytest.param(lambda: line().scale("big"), id="scale by a string"),  # type: ignore[arg-type]  # the misuse under test
         pytest.param(lambda: line().map_points(None), id="map_points without a function"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: line().along("circle"), id="along a string"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: line().along(EAST, 0.5), id="along with a positional start"),  # type: ignore[call-arg]  # the misuse under test
     ],
 )
 def test_an_argument_of_the_wrong_kind_is_a_type_error_not_a_parameter_error(call):

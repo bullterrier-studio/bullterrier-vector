@@ -5,6 +5,7 @@ odd-tag fonts are built here with fontTools, so no binary fixture hides what a f
 2000 units to the em: at `size=2000` a coordinate in the drawing is a coordinate in the font file, y pointing down."""
 
 import hashlib
+import math
 import re
 from collections.abc import Mapping
 from io import BytesIO
@@ -790,3 +791,24 @@ def test_the_shape_is_saved_as_path_data_and_loads_back_to_the_same_shapes() -> 
     assert loaded.to_json() == text
     assert loaded.shapes() == drawing.shapes()
     assert '"inside"' not in btvec.text("H", font=FRAUNCES).to_json()
+
+
+# --- along --------------------------------------------------------------------------------------------------------
+
+
+def test_text_carried_along_a_circle_has_its_glyphs_at_the_distances_their_pens_stood():
+    radius, start = 300.0, 0.2
+    ring = btvec.Path.circle((0, 0), radius)
+    flat = btvec.text("HIHIHI", font=FRAUNCES, size=60)
+    bent = flat.along(ring, start=start)
+    for before, after in zip(flat.shapes(), bent.shapes(), strict=True):
+        assert after.attributes == before.attributes
+        # the middle of a glyph (an H or an I turns about its middle without the middle of its box moving) goes to
+        # the angle the distance over the radius makes, and to a radius of 300 plus its height above the baseline
+        x = before.path.bounds.x + before.path.bounds.width / 2
+        y = before.path.bounds.y + before.path.bounds.height / 2
+        angle = (start * 2 * math.pi * radius + x) / radius
+        reach = radius - y
+        middle = after.path.bounds
+        centre = (middle.x + middle.width / 2, middle.y + middle.height / 2)
+        assert centre == pytest.approx((reach * math.sin(angle), -reach * math.cos(angle)), abs=1.5)

@@ -258,12 +258,41 @@ def text_drawings() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(400, 160, {}), (200, 80, {})])) for name, drawing in drawings.items()]
 
 
+def bends() -> list[Entry]:
+    """`along`: a text bent round a closed circle (a Param turns it, a list moves each of its ten glyphs) and an outline
+    bent along an open path, past both of its ends. A bend computes with `sqrt` only, so the SVG text and the mesh are
+    exact."""
+    frame = (400, 400)
+    turn = btvec.Param("turn", default=0, min=-1, max=1, meaning="how far round the circle")
+    circle = btvec.Path.circle((200, 200), 120)
+    type_ = btvec.text("Hif To Hif AV", font=FRAUNCES, size=44, anchor=(0, 0)).fill(INK)
+    open_path = btvec.Path.from_svg_path("M20 300 C 120 40, 280 40, 380 300")
+    bar = btvec.Path.rect(-60, -8, 180, 16).fill(RED)
+    return [
+        (
+            "along_text_circle",
+            btvec.Drawing(type_.along(circle, start=turn), size=frame),
+            [
+                (400, 400, {}),
+                (200, 200, {"turn": 0.3}),
+                (400, 400, {"turn": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]}),
+            ],
+        ),
+        (
+            "along_open_path",
+            btvec.Drawing(bar.along(open_path, start=0.9, near=(0, 0)), size=frame),
+            [(400, 400, {}), (200, 200, {})],
+        ),
+    ]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
     painting,
     transforms_and_params,
     text_drawings,
+    bends,
 ]
 
 
