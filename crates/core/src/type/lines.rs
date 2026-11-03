@@ -16,13 +16,17 @@ pub(crate) enum Fit {
     Axis(String),
 }
 
-/// What the lines of a text are made to fit: the width they wrap to, how each is made exactly that wide if at all, and
-/// the settings at the reference pose (every Param at its default), which the plan is made at, so that the lines change
-/// from frame to frame with the width alone.
+/// What bounds the lines of a text.
+pub(crate) enum Boundary {
+    /// Lines wrap to this width, and each is made exactly that wide by `fit`, if there is one.
+    Width { width: f64, fit: Option<Fit> },
+}
+
+/// What the lines of a text are made to fit, and the settings at the reference pose (every Param at its default), which
+/// the plan is made at, so that the lines change from frame to frame with the boundary alone.
 pub(crate) struct Wrap {
     pub(crate) pose: Settings,
-    pub(crate) width: f64,
-    pub(crate) fit: Option<Fit>,
+    pub(crate) boundary: Boundary,
 }
 
 /// A line of the content: the bytes it shows, and which characters of the content they are.
@@ -61,6 +65,7 @@ pub(super) fn plan(font: &Font, content: &str, wrap: Option<&Wrap>) -> Result<Ve
     let parts = parts(content);
     let Some(wrap) = wrap else { return Ok(parts) };
     let pose = &wrap.pose;
+    let Boundary::Width { width, ref fit } = wrap.boundary;
     let em = Em::new(font, pose.size, pose.tracking)?;
     let features = feature_tags(pose)?;
     let places = Places::new(font, &pose.axes, content.chars().count())?;
@@ -68,7 +73,9 @@ pub(super) fn plan(font: &Font, content: &str, wrap: Option<&Wrap>) -> Result<Ve
     let fitting = Fitting {
         font,
         content,
-        wrap,
+        pose,
+        width,
+        fit: fit.as_ref(),
         em: &em,
         features: &features,
         places: &places,
@@ -84,7 +91,7 @@ pub(super) fn plan(font: &Font, content: &str, wrap: Option<&Wrap>) -> Result<Ve
             em.scale,
             em.gap,
         )?;
-        for mut line in wrapped(text, &part, &measured, wrap.width) {
+        for mut line in wrapped(text, &part, &measured, width) {
             if !line.bytes.is_empty() {
                 fitting.fit(&mut line, lines.len())?;
             }
@@ -98,7 +105,9 @@ pub(super) fn plan(font: &Font, content: &str, wrap: Option<&Wrap>) -> Result<Ve
 struct Fitting<'a, 'b> {
     font: &'a Font,
     content: &'a str,
-    wrap: &'a Wrap,
+    pose: &'a Settings,
+    width: f64,
+    fit: Option<&'a Fit>,
     em: &'a Em,
     features: &'a [(Tag, u32)],
     places: &'a Places,
@@ -112,8 +121,8 @@ impl Fitting<'_, '_> {
     /// [`Error::Parameter`] naming `fit` if the line cannot be made that wide.
     fn fit(&self, line: &mut Line, number: usize) -> Result<(), Error> {
         let text = &self.content[line.bytes.clone()];
-        let pose = &self.wrap.pose;
-        match &self.wrap.fit {
+        let pose = self.pose;
+        match self.fit {
             None => {}
             Some(Fit::Size) => {
                 let alone = Measured::of(
@@ -123,7 +132,7 @@ impl Fitting<'_, '_> {
                     self.em.scale,
                     self.em.gap,
                 )?;
-                line.size = Some(sized(&alone, pose.size, self.wrap.width, number)?);
+                line.size = Some(sized(&alone, pose.size, self.width, number)?);
             }
             Some(Fit::Axis(tag)) => {
                 let (min, _, max) = self.font.axis_range(tag, "fit")?;
@@ -144,7 +153,7 @@ impl Fitting<'_, '_> {
                 line.axis = Some(solved(
                     width_at,
                     (f64::from(min), f64::from(max)),
-                    self.wrap.width,
+                    self.width,
                     tag,
                     number,
                 )?);

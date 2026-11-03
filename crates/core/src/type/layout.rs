@@ -1,7 +1,7 @@
 //! Laying out a string: lines, the pen along each, and one shape for every glyph that has an outline.
 
 use super::font::{Font, tag_of};
-use super::lines::{self, Fit, Wrap};
+use super::lines::{self, Boundary, Fit, Wrap};
 use super::outline::{self, Outlines};
 use super::shaping::{Placed, Segment, Shaper};
 use super::text::Align;
@@ -277,8 +277,11 @@ pub(crate) fn typeset(
     let planned = lines::plan(font, content, wrap).map_err(placed)?;
     let characters = content.chars().count();
     let fitted;
-    let axes = match wrap.and_then(|wrap| wrap.fit.as_ref()) {
-        Some(Fit::Axis(tag)) => {
+    let axes = match wrap.map(|wrap| &wrap.boundary) {
+        Some(Boundary::Width {
+            fit: Some(Fit::Axis(tag)),
+            ..
+        }) => {
             fitted = [
                 &settings.axes[..],
                 &[(

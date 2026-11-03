@@ -14,5 +14,5 @@ mod unpack;
 pub use font::Font;
 pub(crate) use font::is_tag;
 pub(crate) use layout::{Settings, typeset};
-pub(crate) use lines::{Fit, Wrap};
+pub(crate) use lines::{Boundary, Fit, Wrap};
 pub use text::{Align, Text, text};

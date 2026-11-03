@@ -2,7 +2,7 @@
 
 use super::{Args, Context, Inputs, Node, choice};
 use crate::limits::{MAX_GLYPHS, MAX_SETTINGS};
-use crate::r#type::{Align, Fit, Settings, Wrap, typeset};
+use crate::r#type::{Align, Boundary, Fit, Settings, Wrap, typeset};
 use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Values, Verb};
 
 /// The shapes of a string.
@@ -166,14 +166,16 @@ fn wrap(args: &Args, cx: &Context<'_>) -> Result<Option<Wrap>, Error> {
     };
     Ok(Some(Wrap {
         pose: settings(args, &pose)?,
-        width,
-        fit: args.text_opt("fit")?.map(|fit| {
-            if fit == "size" {
-                Fit::Size
-            } else {
-                Fit::Axis(fit.to_owned())
-            }
-        }),
+        boundary: Boundary::Width {
+            width,
+            fit: args.text_opt("fit")?.map(|fit| {
+                if fit == "size" {
+                    Fit::Size
+                } else {
+                    Fit::Axis(fit.to_owned())
+                }
+            }),
+        },
     }))
 }
 
