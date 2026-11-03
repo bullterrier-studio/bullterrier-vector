@@ -17,7 +17,7 @@ use std::rc::Rc;
 
 /// Line spacing when `leading` is not given, in ems.
 // constant: api.md, `text`: "leading: pixels between baselines; default 1.2 x size"
-const LEADING: f64 = 1.2;
+pub(super) const LEADING: f64 = 1.2;
 
 /// The height of a capital, in ems, for a font that states none (no `OS/2` version 2, or a `sCapHeight` of 0).
 // constant: the cap height of the common text faces is 0.68 to 0.72 em; it only places the `origin` attribute
@@ -130,7 +130,7 @@ pub(super) struct Em {
     /// Pixels the tracking adds between clusters.
     pub(super) gap: f64,
     /// The height of a capital, in pixels.
-    cap_height: f64,
+    pub(super) cap_height: f64,
 }
 
 impl Em {
@@ -274,7 +274,7 @@ pub(crate) fn typeset(
     let placed = |error: Error| error.at_argument(&cx.place, None);
     let text_em = Em::new(font, settings.size, settings.tracking).map_err(placed)?;
     let features = feature_tags(settings).map_err(placed)?;
-    let planned = lines::plan(font, content, wrap).map_err(placed)?;
+    let planned = lines::plan(font, content, wrap, cx).map_err(placed)?;
     let characters = content.chars().count();
     let fitted;
     let axes = match wrap.map(|wrap| &wrap.boundary) {
@@ -321,10 +321,16 @@ pub(crate) fn typeset(
         if number > 0 {
             below += leading;
         }
-        let down = if evenly { number as f64 * leading } else { below };
-        let baseline = within("leading", leading, down)
-            .and_then(|lines| within("anchor", settings.anchor.y, settings.anchor.y + lines))
-            .map_err(placed)?;
+        // the plan puts a line in a shape; else it stands below the anchor by the leadings
+        let (anchor_x, baseline) = if let Some(at) = line.at {
+            (at.x, at.y)
+        } else {
+            let down = if evenly { number as f64 * leading } else { below };
+            let baseline = within("leading", leading, down)
+                .and_then(|lines| within("anchor", settings.anchor.y, settings.anchor.y + lines))
+                .map_err(placed)?;
+            (settings.anchor.x, baseline)
+        };
         let measured = Measured::of(
             &content[line.bytes.clone()],
             &locations.of_character[line.characters.clone()],
@@ -333,7 +339,7 @@ pub(crate) fn typeset(
             gap,
         )
         .map_err(placed)?;
-        let mut pen = settings.anchor.x
+        let mut pen = anchor_x
             - match settings.align {
                 Align::Left => 0.0,
                 Align::Center => measured.width / 2.0,

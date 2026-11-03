@@ -3,7 +3,7 @@
 use super::font::Font;
 use crate::node::{Given, text::TextNode};
 use crate::shape::refused;
-use crate::{Drawing, Error, Expr, Point};
+use crate::{Drawing, Error, Expr, Path, Point};
 use std::collections::BTreeMap;
 
 /// Where a line stands against the anchor of [`Text`].
@@ -67,6 +67,7 @@ pub struct Text {
     anchor: Option<Point>,
     width: Option<Expr>,
     fit: Option<String>,
+    inside: Option<Path>,
     axes: BTreeMap<String, Expr>,
     features: BTreeMap<String, u32>,
 }
@@ -85,6 +86,7 @@ impl Text {
             anchor: None,
             width: None,
             fit: None,
+            inside: None,
             axes: BTreeMap::new(),
             features: BTreeMap::new(),
         }
@@ -152,6 +154,26 @@ impl Text {
     #[must_use]
     pub fn fit(mut self, fit: impl Into<String>) -> Self {
         self.fit = Some(fit.into());
+        self
+    }
+
+    /// This text set inside the region `shape` fills (by the nonzero rule of [`Path::contains`]): each line is as wide as
+    /// the widest stretch of the shape that holds its glyphs from the top of a capital to the baseline, and [`Text::align`]
+    /// places it against that stretch.
+    ///
+    /// The first baseline is a capital's height below the top of the shape, and each baseline is the `leading` (default
+    /// 1.2 times the size) below the one before. A line takes words while they fit the stretch; a word that does not fit
+    /// at a baseline moves to the next one, which leaves that baseline empty, and an empty line (`"\n\n"`) takes a
+    /// baseline of its own. The lines are laid out once, at the reference pose, as [`Text::width`] is, so a `Param`
+    /// moves the glyphs and not the lines.
+    ///
+    /// A text the shape cannot hold, because it has more lines than baselines or a word wider than every stretch, is
+    /// refused when the drawing is drawn, naming the word and the line: nothing is cut off. A text with a `width`, a
+    /// `fit` or an `anchor` (the shape places the text), or a `leading` not above 0, leaves the drawing with an
+    /// [`error`](Drawing::error) naming `inside`.
+    #[must_use]
+    pub fn inside(mut self, shape: &Path) -> Self {
+        self.inside = Some(shape.clone());
         self
     }
 
@@ -233,6 +255,9 @@ pub fn text(content: impl Into<String>, options: impl Into<Text>) -> Drawing {
     }
     if let Some(fit) = options.fit {
         given.push(("fit", Given::Text(fit)));
+    }
+    if let Some(shape) = options.inside {
+        given.push(("inside", Given::Path(shape)));
     }
     if !options.axes.is_empty() {
         given.push(("axes", Given::Axes(options.axes.into_iter().collect())));

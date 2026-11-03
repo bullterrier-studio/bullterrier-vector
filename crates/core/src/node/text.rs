@@ -2,6 +2,7 @@
 
 use super::{Args, Context, Inputs, Node, choice};
 use crate::limits::{MAX_GLYPHS, MAX_SETTINGS};
+use crate::path::Region;
 use crate::r#type::{Align, Boundary, Fit, Settings, Wrap, typeset};
 use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Values, Verb};
 
@@ -91,6 +92,13 @@ pub(crate) static TEXT: Verb = Verb {
             reads: Reads::Literal,
             domain: Domain::Any,
         },
+        Arg {
+            name: "inside",
+            kind: Kind::Path,
+            default: Some(Literal::Unset),
+            reads: Reads::Literal,
+            domain: Domain::Any,
+        },
     ],
     check: Some(text_fits),
 };
@@ -113,6 +121,28 @@ fn text_fits(args: &Args) -> Result<(), Error> {
             return Err(Error::parameter(
                 name,
                 format!("has {given} entries, but MAX_SETTINGS {MAX_SETTINGS} is the most accepted"),
+            ));
+        }
+    }
+    if args.given("inside")? {
+        // the shape sets the lines and where they stand
+        for excluded in ["width", "fit", "anchor"] {
+            if args.given(excluded)? {
+                return Err(Error::parameter(
+                    "inside",
+                    format!(
+                        "is given with {excluded}, but a text inside a shape takes its lines and place from the shape: give one of them"
+                    ),
+                ));
+            }
+        }
+        let leading = args.expressions().find(|(arg, _)| arg.name == "leading");
+        if let Some(leading) = leading.and_then(|(_, expr)| expr.constant())
+            && leading <= 0.0
+        {
+            return Err(Error::parameter(
+                "leading",
+                format!("is {leading}, but a text inside a shape needs a leading above 0"),
             ));
         }
     }
@@ -161,12 +191,12 @@ fn settings(args: &Args, cx: &Context<'_>) -> Result<Settings, Error> {
 fn wrap(args: &Args, cx: &Context<'_>) -> Result<Option<Wrap>, Error> {
     let reference = Values::new();
     let pose = Context { env: &reference, ..*cx };
-    let Some(width) = args.once_number_opt(cx, "width")? else {
-        return Ok(None);
-    };
-    Ok(Some(Wrap {
-        pose: settings(args, &pose)?,
-        boundary: Boundary::Width {
+    let boundary = if args.given("inside")? {
+        let region = Region::of(args.path("inside")?);
+        cx.work.made_segments(region.len(), &cx.place.to_string())?;
+        Boundary::Inside(region)
+    } else if let Some(width) = args.once_number_opt(cx, "width")? {
+        Boundary::Width {
             width,
             fit: args.text_opt("fit")?.map(|fit| {
                 if fit == "size" {
@@ -175,7 +205,13 @@ fn wrap(args: &Args, cx: &Context<'_>) -> Result<Option<Wrap>, Error> {
                     Fit::Axis(fit.to_owned())
                 }
             }),
-        },
+        }
+    } else {
+        return Ok(None);
+    };
+    Ok(Some(Wrap {
+        pose: settings(args, &pose)?,
+        boundary,
     }))
 }
 

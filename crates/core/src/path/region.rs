@@ -211,6 +211,9 @@ mod tests {
                 .all(|(a, b)| (a.0 - b.0).abs() <= tolerance && (a.1 - b.1).abs() <= tolerance)
     }
 
+    /// A rule, an outline, a height, and the spans there.
+    type Row<'a> = (&'a str, &'a str, f64, &'a [(f64, f64)]);
+
     const RECT: &str = "M0 0H100V50H0Z";
     const HOLE: &str = "M0 0H100V100H0Z M25 25V75H75V25Z";
     const NESTED_SAME_WAY: &str = "M0 0H100V100H0Z M25 25H75V75H25Z";
@@ -223,7 +226,7 @@ mod tests {
     #[test]
     fn spans_are_what_the_outline_fills_at_a_height() -> Outcome {
         // (rule, outline, y, spans), each by hand; an edge covers its upper end and not its lower
-        let rows: [(&str, &str, f64, &[(f64, f64)]); 17] = [
+        let rows: [Row<'_>; 17] = [
             ("rect: the whole width", RECT, 25.0, &[(0.0, 100.0)]),
             ("rect: its top y is inside", RECT, 0.0, &[(0.0, 100.0)]),
             ("rect: its bottom y is outside", RECT, 50.0, &[]),
@@ -340,7 +343,7 @@ mod tests {
                 let inside = |x: f64| path.contains((x, y)).map_err(|e| TestCaseError::fail(e.to_string()));
                 // away from an edge a point is decided without doubt: spans and gaps of a hundredth or more
                 if end - start > 0.01 {
-                    prop_assert!(inside((start + end) / 2.0)?);
+                    prop_assert!(inside(f64::midpoint(start, end))?);
                 }
                 let gap_before = index.checked_sub(1).map_or(f64::INFINITY, |at| start - found[at].1);
                 if gap_before > 0.01 {
