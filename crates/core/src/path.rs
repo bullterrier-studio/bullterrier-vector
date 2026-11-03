@@ -5,6 +5,7 @@ use crate::geometry::{Point, coordinate_point};
 use crate::key::{Key, Keyed};
 
 mod arc;
+mod bend;
 mod bounds;
 mod build;
 mod curve;

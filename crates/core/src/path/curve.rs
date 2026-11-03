@@ -36,6 +36,27 @@ impl Curve {
         self.split(t).0.end()
     }
 
+    /// The direction of travel at parameter `t`: the curve's derivative, not scaled to a length. It is `(0, 0)` where
+    /// the curve stops for a moment, such as the start of a cubic whose first control point is its start.
+    pub(super) fn velocity(self, t: f64) -> Point {
+        let (u, w) = (1.0 - t, t);
+        match self {
+            Self::Line(start, end) => Point::new(end.x - start.x, end.y - start.y),
+            Self::Quad(start, control, end) => Point::new(
+                2.0 * (u * (control.x - start.x) + w * (end.x - control.x)),
+                2.0 * (u * (control.y - start.y) + w * (end.y - control.y)),
+            ),
+            Self::Cubic(start, control1, control2, end) => Point::new(
+                3.0 * (u * u * (control1.x - start.x)
+                    + 2.0 * u * w * (control2.x - control1.x)
+                    + w * w * (end.x - control2.x)),
+                3.0 * (u * u * (control1.y - start.y)
+                    + 2.0 * u * w * (control2.y - control1.y)
+                    + w * w * (end.y - control2.y)),
+            ),
+        }
+    }
+
     pub(super) fn end(self) -> Point {
         match self {
             Self::Line(_, end) | Self::Quad(_, _, end) | Self::Cubic(_, _, _, end) => end,
