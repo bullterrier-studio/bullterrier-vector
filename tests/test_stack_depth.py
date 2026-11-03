@@ -11,8 +11,10 @@ from pathlib import Path
 
 import pytest
 
-# the font whose glyph `A` is a chain of 64 composites, the deepest nesting the reader draws (crates/core/tests/fonts)
-DEEPEST_COMPOSITES = Path(__file__).resolve().parents[1] / "crates" / "core" / "tests" / "fonts" / "synthetic.ttf"
+# the font whose glyph `A` is a chain of 64 composites, the deepest nesting the reader draws (tests/it/fonts)
+DEEPEST_COMPOSITES = (
+    Path(__file__).resolve().parents[1] / "crates" / "core" / "tests" / "it" / "fonts" / "synthetic.ttf"
+)
 
 SMALLEST_STACK_KB = 256  # the smallest thread stack supported; design-decisions.md says why this number
 

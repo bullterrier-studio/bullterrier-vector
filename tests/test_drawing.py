@@ -653,7 +653,7 @@ def test_a_parameter_error_from_a_step_is_a_value_error_and_a_package_error():
 # --- every registered verb has a row --------------------------------------------------------------------------------
 
 ROOT = FilePath(__file__).resolve().parents[1]
-SYNTHETIC = btvec.Font((ROOT / "crates" / "core" / "tests" / "fonts" / "synthetic.ttf").read_bytes())
+SYNTHETIC = btvec.Font((ROOT / "crates" / "core" / "tests" / "it" / "fonts" / "synthetic.ttf").read_bytes())
 
 
 def registered_verbs() -> set[str]:

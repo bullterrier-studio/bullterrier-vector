@@ -1,0 +1,52 @@
+//! The integration tests of the core: one binary, a module per area, so a change to the library links and launches one
+//! test executable, not forty-seven. A test here uses the public API only; a test that needs a private item stays next
+//! to it. A test moves to its own `tests/<name>.rs` only when it needs a process of its own (`pyproject.toml`).
+
+mod common;
+
+mod drawing_cache;
+mod drawing_select;
+mod drawing_stack;
+mod drawing_style;
+mod drawing_transform;
+mod drawing_values;
+mod error;
+mod expr;
+mod font_bundled;
+mod font_woff2;
+mod json_axes;
+mod json_checks;
+mod json_hostile;
+mod json_inputs;
+mod json_read;
+mod json_roundtrip;
+mod json_schema;
+mod json_text;
+mod json_write;
+mod mesh;
+mod mesh_fill;
+mod mesh_layers;
+mod mesh_properties;
+mod mesh_stroke;
+mod node_contract;
+mod param;
+mod path;
+mod path_measure;
+mod path_range;
+mod path_region;
+mod path_slice;
+mod path_transform;
+mod png;
+mod raster;
+mod raster_boundary;
+mod raster_composite;
+mod raster_fill;
+mod raster_stroke;
+mod registry;
+mod shape;
+mod svg;
+mod svg_properties;
+mod svg_shapes;
+mod svg_view;
+mod text;
+mod text_axes;

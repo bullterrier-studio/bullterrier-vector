@@ -19,7 +19,7 @@ import bullterrier_vector as btvec
 
 ROOT = Path(__file__).resolve().parents[2]
 BARS = (ROOT / "docs" / "examples" / "json" / "series_bars.json").read_text(encoding="utf-8")
-FONT_FILES = ROOT / "crates" / "core" / "tests" / "fonts"
+FONT_FILES = ROOT / "crates" / "core" / "tests" / "it" / "fonts"
 # The fonts of the text drawings by the name a document calls them (`Font(..., name=)`): the bytes are what a loader
 # gives `inputs`, in the oracle file and to the native extension alike.
 FONTS = {

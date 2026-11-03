@@ -144,8 +144,9 @@ scope-pattern = "^[a-z0-9][a-z0-9/_-]*$"
 cap-mb = 4000
 
 # Read by tools/check_rust_test_layout.py: the Rust test files that are binaries of their own (path -> why they need a
-# process to themselves). Empty: every integration test is a module of tests/it/.
+# process to themselves). Every other integration test is a module of tests/it/.
 [tool.rust-tests.own-binaries]
+"crates/core/tests/drawing_limits.rs" = "peak memory of 3 to 5 GB (a million shapes, twice): a process keeps what it allocated, so the other tests would share it"
 
 # Read by tools/check_file_size.py (the `file-size` gate). Files already over budget (1000 lines of source, 1500 of
 # tests), as "repository-relative path" = current line count. A listed file may shrink but never grow; an entry whose

@@ -21,7 +21,7 @@ from fontTools.ttLib.tables.TupleVariation import TupleVariation
 
 import bullterrier_vector as btvec
 
-FONTS = Path(__file__).resolve().parents[1] / "crates" / "core" / "tests" / "fonts"
+FONTS = Path(__file__).resolve().parents[1] / "crates" / "core" / "tests" / "it" / "fonts"
 FRAUNCES_BYTES = (FONTS / "fraunces-subset.ttf").read_bytes()
 SYNTHETIC_BYTES = (FONTS / "synthetic.ttf").read_bytes()
 FRAUNCES = btvec.Font(FRAUNCES_BYTES, name="fraunces")

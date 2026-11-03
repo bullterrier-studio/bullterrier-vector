@@ -1,12 +1,23 @@
+//! Own binary: its two million-shape tests peak at 2 to 3 GB, and a process keeps what it allocated.
+//!
 //! The limits that keep a small drawing from asking for unbounded work, through the public API: the shapes a draw
 //! makes, how deep drawings nest, and a long chain of steps. Expected values are written by hand from the rule in
 //! formats.md "Limits and security": a step is charged for the shapes it makes when it is computed, a source one and a
 //! stack its whole list, so a drawing used twice in a stack is charged for its stack each time, and for itself once:
 //! equal sources are one step, computed once, so the sources of these tests differ.
 
+#[path = "it/common/mod.rs"]
 mod common;
 
 use bullterrier_vector::{Color, Drawing, Error, Param, Path, Values};
+use std::sync::{Mutex, MutexGuard, PoisonError};
+
+/// Held by the tests that draw a million shapes (2 GB each), so that two never hold theirs at once.
+static MILLION_SHAPES: Mutex<()> = Mutex::new(());
+
+fn one_million_at_a_time() -> MutexGuard<'static, ()> {
+    MILLION_SHAPES.lock().unwrap_or_else(PoisonError::into_inner)
+}
 use common::{Outcome, parameter_refusal};
 
 /// A drawing of one shape that is an empty path, which keeps a million of them cheap.
@@ -36,6 +47,7 @@ fn drawn(drawing: &Drawing) -> Result<usize, Error> {
 
 #[test]
 fn a_draw_is_charged_for_the_shapes_it_makes_and_refused_past_a_million() -> Outcome {
+    let _alone = one_million_at_a_time();
     // (case, the drawing, the shapes made, whether the draw is accepted)
     let nested = |inner: usize, extra: usize| -> Result<Drawing, Error> {
         let mut items = vec![flat(0, inner)?];
@@ -67,6 +79,7 @@ fn a_draw_is_charged_for_the_shapes_it_makes_and_refused_past_a_million() -> Out
 
 #[test]
 fn a_shape_put_back_into_a_drawing_is_charged_like_a_path() -> Outcome {
+    let _alone = one_million_at_a_time();
     // 500,001 different shapes: one source, a fill each, and the stack of them (500,002 shapes made)
     let painted = Drawing::new((0..=500_000_u32).map(|number| nothing().fill(Color::hex(number))));
     let shapes = painted.shapes(&Values::new())?;
@@ -104,6 +117,7 @@ fn a_stack_of_a_drawing_with_itself_is_charged_each_time_and_stops() -> Outcome 
 
 #[test]
 fn the_refusal_names_the_stack_inside_the_item_it_is_in() -> Outcome {
+    let _alone = one_million_at_a_time();
     let inner = flat(1, 500_001)?;
     let outer = Drawing::new([alone(0)?, inner]).translate(1.0, 0.0);
     let (name, _) = parameter_refusal(outer.shapes(&Values::new()))?;
