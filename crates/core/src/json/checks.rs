@@ -310,8 +310,8 @@ fn inputs(doc: &Doc) -> Result<(), Error> {
     }
 }
 
-/// `font-checks`: with the fonts supplied, the axes and features a call names are the font's, and an axis value written
-/// as a number lies in its range.
+/// `font-checks`: with the fonts supplied, the axes and features a call names (and the axis a `fit` names) are the font's,
+/// and an axis value written as a number lies in its range.
 ///
 /// # Errors
 /// [`Error::Parameter`] naming `inputs.` and the input: the caller supplied a font the document was not written for.
@@ -331,8 +331,12 @@ pub(super) fn fonts(doc: &Doc, fonts: &BTreeMap<String, Font>) -> Result<(), Err
             ),
             other => other,
         };
-        for (_, value) in &verb.args {
+        for (argument, value) in &verb.args {
             match value {
+                Value::Text(fit) if *argument == "fit" && fit != "size" => {
+                    font.axis_range(fit, "fit")
+                        .map_err(|error| wrong(error, &format!("{}/{}/fit", call.pointer, verb.verb.name)))?;
+                }
                 Value::Axes(axes) => {
                     for axis in axes {
                         let number = match axis.value {

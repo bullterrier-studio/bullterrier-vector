@@ -128,8 +128,8 @@ impl Text {
 
     /// This text with its lines wrapped to `width` pixels: a line breaks at whitespace, greedily, as late as it still
     /// fits, and the whitespace at the break is dropped. A word wider than `width` stands alone on its line and
-    /// overflows. Above 0; a number, a `Param` or an expression, read once at the reference pose (every `Param` at its
-    /// default, whatever [`Drawing::with_values`] fixed), so the lines never change from frame to frame.
+    /// overflows. Above 0; a number, a `Param` or an expression, read once as drawn. The lines are measured with every
+    /// other `Param` at its default (whatever [`Drawing::with_values`] fixed), so the breaks change only with `width`.
     #[must_use]
     pub fn width(mut self, width: impl Into<Expr>) -> Self {
         self.width = Some(width.into());

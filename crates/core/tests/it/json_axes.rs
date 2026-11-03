@@ -168,6 +168,13 @@ fn font_checks_refuse_a_font_that_lacks_what_the_document_names_and_accept_one_t
         (r#""axes":{"wght":700}"#, None),
         (r#""axes":{"wght":400.5}"#, None),
         (r#""features":{"liga":0,"kern":1}"#, None),
+        // "fi" is 62.1 wide at wght 300 and 75.75 at 700, at 100 pixels to the em
+        (r#""width":70,"fit":"size""#, None),
+        (r#""width":70,"fit":"wght""#, None),
+        (
+            r#""width":70,"fit":"wdth""#,
+            Some(vec!["\"wdth\"", "wght (300 to 700, default 400)", "/root/0/text/fit"]),
+        ),
         (
             r#""axes":{"wdth":100}"#,
             Some(vec![

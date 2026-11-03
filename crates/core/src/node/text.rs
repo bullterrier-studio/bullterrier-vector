@@ -156,12 +156,12 @@ fn settings(args: &Args, cx: &Context<'_>) -> Result<Settings, Error> {
     })
 }
 
-/// The wrapping the call asks for, planned at the reference pose, or `None` if it gives no `width`. The error is
-/// unplaced.
+/// The wrapping the call asks for, or `None` if it gives no `width`: the width as drawn, and everything else the lines
+/// depend on at the reference pose. The error is unplaced.
 fn wrap(args: &Args, cx: &Context<'_>) -> Result<Option<Wrap>, Error> {
     let reference = Values::new();
     let pose = Context { env: &reference, ..*cx };
-    let Some(width) = args.once_number_opt(&pose, "width")? else {
+    let Some(width) = args.once_number_opt(cx, "width")? else {
         return Ok(None);
     };
     Ok(Some(Wrap {

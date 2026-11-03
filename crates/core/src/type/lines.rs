@@ -17,8 +17,8 @@ pub(crate) enum Fit {
 }
 
 /// What the lines of a text are made to fit: the width they wrap to, how each is made exactly that wide if at all, and
-/// the settings at the reference pose (every Param at its default), which the plan is made at, so that lines never
-/// change from frame to frame.
+/// the settings at the reference pose (every Param at its default), which the plan is made at, so that the lines change
+/// from frame to frame with the width alone.
 pub(crate) struct Wrap {
     pub(crate) pose: Settings,
     pub(crate) width: f64,

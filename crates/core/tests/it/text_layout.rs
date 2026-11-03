@@ -13,7 +13,7 @@
 
 use crate::common::fonts::{fraunces, marks, narrowing};
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Align, Error, Font, Param, Path, Shape, Text, Values, text};
+use bullterrier_vector::{Align, Drawing, Error, Font, Inputs, Param, Path, Shape, Text, Values, text};
 use proptest::prelude::*;
 
 /// 2000 pixels to the em: the font's own.
@@ -156,6 +156,27 @@ fn lines_break_at_whitespace_as_late_as_they_fit() -> Outcome {
 }
 
 #[test]
+fn a_width_param_moves_the_breaks_as_drawn() -> Outcome {
+    // the width is what the lines are made to, so it is read as drawn, and fixed by `with_values` too: "H H" is 3761 wide
+    let width = Param::new("width", 3760.0, 100.0, 90000.0)?;
+    let drawing = text("H H", at_em(&fraunces()?).width(&width));
+    for (value, lines) in [
+        (3760.0, [Some(0), Some(1)]),
+        (3761.0, [Some(0), Some(0)]),
+        (90000.0, [Some(0), Some(0)]),
+    ] {
+        let values = Values::new().set("width", value);
+        assert_eq!(lines_of(&drawing.shapes(&values)?), lines, "width {value}");
+        assert_eq!(
+            lines_of(&drawing.with_values(&values).shapes(&Values::new())?),
+            lines,
+            "width {value} fixed"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn tracking_counts_between_the_glyphs_of_a_line_and_not_before_the_first() -> Outcome {
     // tracking 100 is 200 pixels at 2000 to the em, between every two glyphs: "H H" is 1656 + 200 + 449 + 200 + 1656 = 4161
     // wide, and a line that starts at the third word is as wide as the first
@@ -232,8 +253,8 @@ fn each_wrapped_line_is_aligned_by_its_own_width() -> Outcome {
 
 #[test]
 fn the_lines_are_planned_at_the_reference_pose_and_never_change_with_the_values() -> Outcome {
-    // at the defaults "H H" is 3761 wide: 3760 wraps it, and 3761 does not. A Param moved afterwards moves the glyphs but not
-    // the breaks, whether it is set when drawn or fixed by `with_values`.
+    // at the defaults "H H" is 3761 wide: 3760 wraps it, and 3761 does not. A size Param moved afterwards moves the glyphs but
+    // not the breaks, whether it is set when drawn or fixed by `with_values`.
     let font = fraunces()?;
     let size = Param::new("size", EM, 500.0, 4000.0)?;
     let wrapped = text("H H", Text::new(&font).size(&size).width(3760.0));
@@ -254,13 +275,6 @@ fn the_lines_are_planned_at_the_reference_pose_and_never_change_with_the_values(
         lines_of(&whole.shapes(&large)?),
         [Some(0), Some(0)],
         "wider glyphs overflow, the lines stay"
-    );
-    let width = Param::new("width", 3760.0, 100.0, 90000.0)?;
-    let by_param = text("H H", at_em(&font).width(&width));
-    assert_eq!(
-        lines_of(&by_param.shapes(&Values::new().set("width", 90000.0))?),
-        [Some(0), Some(1)],
-        "a width Param is read at its default"
     );
     Ok(())
 }
@@ -734,4 +748,73 @@ proptest! {
         prop_assert!((at_wide - wide).abs() <= 2.0, "{} for {}", at_wide, wide);
         prop_assert!(at_narrow <= at_wide, "{} for {} against {} for {}", at_narrow, narrow, at_wide, wide);
     }
+}
+
+// In a document -------------------------------------------------------------------------------------------------------
+
+/// A document with the font `anybody` and one text of `fi` whose extra arguments are `arguments`.
+fn document(arguments: &str) -> String {
+    format!(
+        r#"{{"version":1,"inputs":{{"anybody":{{"kind":"font"}}}},"root":[{{"text":{{"content":"H H","font":"anybody",{arguments}}}}}]}}"#
+    )
+}
+
+#[test]
+fn width_and_fit_are_written_and_read_back_and_a_text_without_them_writes_neither() -> Outcome {
+    let font = fraunces()?.named("anybody")?;
+    let inputs = Inputs::new().set("anybody", crate::common::fonts::FRAUNCES);
+    for (options, written) in [
+        (at_em(&font).width(3760.0), vec![r#""width":3760"#]),
+        (
+            at_em(&font).width(2000.0).fit("size"),
+            vec![r#""width":2000"#, r#""fit":"size""#],
+        ),
+        (
+            at_em(&font).width(1700.0).fit("wght"),
+            vec![r#""width":1700"#, r#""fit":"wght""#],
+        ),
+        (at_em(&font), vec![]),
+    ] {
+        let drawing = text("H H", options);
+        let json = drawing.to_json()?;
+        for part in &written {
+            assert!(json.contains(part), "{part} is not in {json}");
+        }
+        if written.is_empty() {
+            assert!(!json.contains("width") && !json.contains("fit"), "{json}");
+        }
+        let loaded = Drawing::from_json(&json, &inputs)?;
+        assert_eq!(loaded.to_json()?, json);
+        let (a, b) = (loaded.shapes(&Values::new())?, drawing.shapes(&Values::new())?);
+        assert_eq!(a.len(), b.len(), "{json}");
+        assert!(a.iter().zip(&b).all(|(a, b)| a.path() == b.path()), "{json}");
+    }
+    Ok(())
+}
+
+#[test]
+fn a_document_with_a_fit_that_cannot_be_made_is_refused_when_loaded() -> Outcome {
+    let inputs = Inputs::new().set("anybody", crate::common::fonts::FRAUNCES);
+    // (rule, arguments, what the refusal names)
+    let rows = [
+        ("fit without a width", r#""fit":"size""#, "fit"),
+        (
+            "an axis given too",
+            r#""width":100,"fit":"wght","axes":{"wght":400}"#,
+            "fit",
+        ),
+        ("a width of zero", r#""width":0"#, "width"),
+        ("a width that is a word", r#""width":"wide""#, "width"),
+    ];
+    for (rule, arguments, named) in rows {
+        let refused = Drawing::from_json(&document(arguments), &inputs);
+        let message = match refused {
+            Err(Error::Parameter { parameter, message }) => format!("{parameter}: {message}"),
+            Err(Error::Format { pointer, message }) => format!("{pointer}: {message}"),
+            Err(other) => return Err(format!("{rule}: {other}").into()),
+            Ok(_) => return Err(format!("{rule}: loaded").into()),
+        };
+        assert!(message.contains(named), "{rule}: {message}");
+    }
+    Ok(())
 }

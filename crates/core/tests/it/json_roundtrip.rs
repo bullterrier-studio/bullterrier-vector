@@ -78,9 +78,10 @@ fn every_example_whose_calls_are_registered_round_trips() -> Outcome {
                 assert_eq!(drawing.shapes(&Values::new())?, again.shapes(&Values::new())?, "{name}");
                 loaded.push(name);
             }
-            // a call, or an argument of `text` (axes, width, fit), of a later batch: the example waits for it
+            // a call, an expression or an argument of `text` (inside) of a later batch: the example waits for it
             Err(Error::Format { message, .. })
                 if message.contains("is not a call this library knows")
+                    || message.contains("is not an expression this library knows")
                     || message.contains("is not an argument of `text`") => {}
             Err(error) => return Err(format!("{name}: {error}").into()),
         }
