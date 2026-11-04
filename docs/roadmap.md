@@ -477,6 +477,12 @@ coarsely.
 
 Done when: a word draws on letter by letter and scatters by index with no text-specific modifier.
 
+Carried from V6:
+- `word` counts runs of non-whitespace characters, a no-break space (U+00A0, U+2007, U+202F) being whitespace there,
+  while a wrap does not break at one: decide one rule before `merge(by=word)`.
+- `api.md` says `translate`, `rotate` and `scale` move the `origin` attribute and that `about` defaults to the shape's
+  origin; the code moves neither and defaults `about` to the middle of the bounds. Make the code match, or the text.
+
 ## V8 Booleans
 
 Union, subtract, intersect, exclude, on any shapes. The riskiest batch: build on an existing crate, fuzz with random and
@@ -575,3 +581,11 @@ Also:
 - Custom nodes in Python or JavaScript (D6): when a user wants one.
 - Colour and bitmap fonts: after v1, when a piece needs them.
 - Stateful simulation (D5).
+- Memory per shape: measure the bytes of a shape and what the result cache keeps (the million-shape limit test in
+  `drawing_limits.rs` peaks at 2 to 3 GB), and lower `MAX_SHAPES` or shrink a shape if a server or the browser needs
+  less: before V22.
+- Gate lints for hidden tunables and swallowed errors: ruff `PLR2004` and clippy's `let_underscore_must_use`,
+  `map_err_ignore`, `allow_attributes`, tried on a short branch with the hits counted, keeping those that are quiet or
+  find real problems; `// constant:` stays a reviewed rule (no tool tells a tunable from a harmless literal).
+- Wrapping tests for right-to-left text, ligatures across a break and combining marks, and right-to-left text inside a
+  shape: when a test font for them exists or a piece needs them.
