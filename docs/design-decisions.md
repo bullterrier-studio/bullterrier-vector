@@ -605,6 +605,57 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   need a shape (two axes, a pinned axis) are built by it in the test, so no binary fixture hides what a font holds. A
   library outline may differ from fontTools' by up to a font unit along an axis (it rounds a delta where fontTools does not).
 
+## Layout (V6)
+
+- **The lines are planned at the reference pose; `width` alone is read as drawn** (2026-11-04). Where lines break, the size
+  or axis value a fit finds and the lines of a text inside a shape are computed once with every Param at its default,
+  whatever `with_values` fixed; the glyphs are then drawn at the live values. *Reason:* fitting at live values shrinks the
+  word on every pulse (`prototype-findings.md`). `width` is the exception because the node contract draws every number at its Param's value and refuses one out of
+  range: a width Param that did not move the breaks would mean nothing. *Consequence:* a live `size`, `leading` or axis value
+  moves glyphs and can overflow a measure; it never re-wraps.
+- **Lines break at whitespace only, and the whitespace at a break goes** (2026-11-04). Greedy, at `char::is_whitespace`
+  (a no-break space breaks like any other); a line drops the whitespace it ends in, and a part keeps the whitespace it
+  begins with. *Reason:* one rule, exact and the same on every target. The Unicode line-break rules need data tables and,
+  for Thai, a dictionary, which the shaper (`harfrust`) does not provide (inferred; not measured against a crate).
+  *Consequence:* text without spaces (Chinese, Japanese, Thai) does not wrap. The wrap measures a part shaped whole at its
+  nominal size, so a line shaped alone can differ from its measure by a kern at the break.
+- **A word wider than `width` overflows; a word wider than every chord of a shape is refused** (2026-11-04). A measure has
+  nowhere better to put a long word than a line of its own. A shape is a boundary: a glyph outside it is a wrong picture, so the text is refused naming the word and the line, and
+  nothing is cut off. The same goes for text that outlasts the shape.
+- **A fit by size is closed form; the leading follows each line's size** (2026-11-04). A line's width is linear in its size
+  (tracking is in thousandths of an em), so the size is `width × size / measured width`, exact. Lines then differ in
+  size, and a fixed leading would crowd the large ones: with no `leading`, each line stands 1.2 times its own size below
+  the baseline before it. An explicit `leading`, and a text no line of which was resized, keep `n × leading`.
+- **A fit by an axis brackets the ends, then halves 32 times** (2026-11-04). The line is shaped at the axis's minimum
+  and maximum; a `width` outside the two widths is a `ParameterError` naming the line, the nearest width and the axis
+  value there, never a clamp. Inside, the range is halved 32 times: that leaves 2⁻³² of the widest axis range
+  (65535), under 2⁻¹⁶ of a unit, far below the unit to which the shaper rounds an advance. *Consequence:* the width is taken to change one way along
+  the axis, so a width reachable only in the middle of the range is reported as not reachable, and the line comes out
+  within about a unit of an advance per glyph of `width`. Empty and whitespace-only lines have nothing to fit and are skipped.
+- **A text inside a shape: two heights, the widest chord, the top of the bounds** (2026-11-04). A line must hold its glyphs
+  from the capital line to the baseline, so a line's chord is the widest span the shape has at both heights (the
+  leftmost of equals); `align` places the line against it. The first capital line is the top of the shape's bounds and
+  each baseline is `leading` (default 1.2 × `size`) below the one before; a baseline whose chord holds no next word is
+  skipped, and an empty part takes a baseline. *Consequence, from the code and not tested:* only those two heights are
+  looked at, so a shape that narrows between them, or a descender, can poke out. `leading` must be above 0 (baselines
+  must advance), baselines tried are bounded by `MAX_GLYPHS`, `width`, `fit` and `anchor` are refused with `inside`
+  (the shape sets the lines and where they stand: one decision, one place), and the region is the one `contains` fills,
+  flattened once. Right-to-left text inside a shape is untested.
+- **`along` is generic; text on a path is `text(...).along(path)`** (2026-11-04). The roadmap listed `along` under V11
+  (path modifiers) and text on a path under V6. One bend serves both, as a step like `translate` that carries any
+  shapes, so text on a path needs no text-specific node and a `start` Param or a list turns or spreads it. *Consequence:*
+  `along` left V11; placing unbent copies of a shape along a path stays there.
+- **`along` is `x` along, `y` to the right, by the curve's tangent** (2026-11-04). A point goes `start` lengths of the
+  guide plus `x` along it, `y` to its right (`y` down: below stays below on a guide running right, so letters laid out
+  straight read the same way round it). The direction is the tangent of the curve at that place, not that of the
+  flattened straight edge: the edge's direction jumps at each corner of the flattening, and letters would step. A closed
+  guide (every sub-path with a length closed) wraps; any other goes on straight past its ends along the end tangent, so
+  a live `start` never errors and the image is continuous across an end. A bent edge is halved up to 8 times until the
+  bent middle is within 0.01 px (the flattening tolerance of the crate) of the middle of the bent ends; the result is
+  lines (the bend of a Bezier is no Bezier), counted against `MAX_SEGMENTS` before they are made. *Consequence, a known
+  limit:* an edge longer than half a closed guide can be bent coarsely, as its ends and middle can agree by chance. The
+  `origin` attribute is left where it was, as `translate` leaves it.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin
