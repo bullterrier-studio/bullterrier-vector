@@ -192,9 +192,10 @@ fn wrap(args: &Args, cx: &Context<'_>) -> Result<Option<Wrap>, Error> {
     let reference = Values::new();
     let pose = Context { env: &reference, ..*cx };
     let boundary = if args.given("inside")? {
-        let region = Region::of(args.path("inside")?);
-        cx.work.made_segments(region.len(), &cx.place.to_string())?;
-        Boundary::Inside(region)
+        let place = cx.place.to_string();
+        Boundary::Inside(Region::of(args.path("inside")?, &mut |count| {
+            cx.work.made_segments(count, &place)
+        })?)
     } else if let Some(width) = args.once_number_opt(cx, "width")? {
         Boundary::Width {
             width,

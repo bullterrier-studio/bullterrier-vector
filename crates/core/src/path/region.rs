@@ -120,21 +120,21 @@ pub(crate) struct Region {
 }
 
 impl Region {
-    /// The region `path` fills by the nonzero rule, as [`Path::contains`] decides it.
-    pub(crate) fn of(path: &Path) -> Self {
+    /// The region `path` fills by the nonzero rule, as [`Path::contains`] decides it. `charge` is told how many edges
+    /// each curve is flattened into, before they are kept, as for [`Path::flattened`].
+    ///
+    /// # Errors
+    /// What `charge` returns.
+    pub(crate) fn of(path: &Path, charge: &mut dyn FnMut(usize) -> Result<(), Error>) -> Result<Self, Error> {
         let mut edges = Vec::new();
-        for subpath in &path.subpaths {
-            let corners = subpath.outline();
-            for (index, from) in corners.iter().enumerate() {
-                edges.push((*from, corners[(index + 1) % corners.len()]));
+        for polyline in path.flattened(charge)? {
+            let corners = polyline.points;
+            // a sub-path without an edge fills nothing
+            if corners.len() > 1 {
+                edges.extend((0..corners.len()).map(|index| (corners[index], corners[(index + 1) % corners.len()])));
             }
         }
-        Self { edges }
-    }
-
-    /// How many straight edges the region has.
-    pub(crate) fn len(&self) -> usize {
-        self.edges.len()
+        Ok(Self { edges })
     }
 
     /// The lowest and the highest `y` of the outline, or `None` if the region has no edge.
@@ -198,8 +198,12 @@ mod tests {
 
     type Outcome = Result<(), Box<dyn std::error::Error>>;
 
+    fn region(path: &Path) -> Result<Region, Error> {
+        Region::of(path, &mut |_| Ok(()))
+    }
+
     fn spans(svg: &str, y: f64) -> Result<Vec<(f64, f64)>, Error> {
-        Region::of(&Path::from_svg_path(svg)?).spans_at(y, |_| Ok(()))
+        region(&Path::from_svg_path(svg)?)?.spans_at(y, |_| Ok(()))
     }
 
     /// `spans` equal `want` within `tolerance`, which allows for a curve flattened to straight edges.
@@ -279,7 +283,7 @@ mod tests {
     #[test]
     fn a_circle_is_as_wide_as_its_chord() -> Outcome {
         let circle = Path::circle((10.0, 20.0), 50.0)?;
-        let region = Region::of(&circle);
+        let region = region(&circle)?;
         // chord at distance d from the centre: 2 sqrt(r^2 - d^2); the flattening is within 0.01 of the curve
         for d in [0.0, 10.0, -30.0, 49.0] {
             let half = (50.0_f64 * 50.0 - d * d).sqrt();
@@ -292,25 +296,38 @@ mod tests {
     #[test]
     fn the_scan_is_charged_one_visit_to_every_edge_and_a_refusal_is_returned() -> Outcome {
         for (svg, edges) in [(RECT, 4), (OPEN_TRIANGLE, 3), (APART, 8)] {
-            let region = Region::of(&Path::from_svg_path(svg)?);
+            let region = region(&Path::from_svg_path(svg)?)?;
             let mut charged = None;
             region.spans_at(5.0, |count| {
                 charged = Some(count);
                 Ok(())
             })?;
             assert_eq!(charged, Some(edges), "{svg}");
-            assert_eq!(region.len(), edges, "{svg}");
         }
-        let region = Region::of(&Path::from_svg_path(RECT)?);
+        let region = region(&Path::from_svg_path(RECT)?)?;
         let refused = region.spans_at(5.0, |_| Err(Error::parameter("inside", "too much")));
         assert!(refused.is_err());
         Ok(())
     }
 
     #[test]
+    fn the_flattening_is_charged_before_the_edges_are_kept_and_a_refusal_is_returned() -> Outcome {
+        let circle = Path::circle((0.0, 0.0), 50.0)?;
+        let mut charged = 0;
+        let refused = Region::of(&circle, &mut |count| {
+            charged += count;
+            Err(Error::parameter("inside", "too much"))
+        });
+        assert!(refused.is_err());
+        // the first curve's edges, and nothing more was made once the charge refused
+        assert!(charged > 0 && charged < 100, "{charged}");
+        Ok(())
+    }
+
+    #[test]
     fn the_extent_is_the_lowest_and_highest_y() -> Outcome {
-        assert_eq!(Region::of(&Path::from_svg_path(HOLE)?).extent(), Some((0.0, 100.0)));
-        assert_eq!(Region::of(&Path::new()).extent(), None);
+        assert_eq!(region(&Path::from_svg_path(HOLE)?)?.extent(), Some((0.0, 100.0)));
+        assert_eq!(region(&Path::new())?.extent(), None);
         Ok(())
     }
 
@@ -324,7 +341,7 @@ mod tests {
             y in prop_oneof![(0_u8..=60).prop_map(f64::from), 0.0..60.0_f64],
         ) {
             let path = Path::polyline(corners.iter().map(|&(x, y)| (f64::from(x), f64::from(y))), closed).unwrap_or_default();
-            let found = Region::of(&path).spans_at(y, |_| Ok(())).map_err(|e| TestCaseError::fail(e.to_string()))?;
+            let found = region(&path).and_then(|region| region.spans_at(y, |_| Ok(()))).map_err(|e| TestCaseError::fail(e.to_string()))?;
             let side = 0.001;
             // and every point of the path is in a span, but those a hundredth from an end of one
             for step in 0..=160_u32 {
