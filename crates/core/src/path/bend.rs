@@ -28,9 +28,9 @@ impl Path {
     /// of the guide is walked from the point of it nearest `near`, as for [`Path::point_at`].
     ///
     /// The path is flattened to straight edges, as for drawing, and each edge is halved, up to eight times, until
-    /// the bent middle is within a hundredth of a pixel of the middle of the bent ends. The result is made of
+    /// the bent middle and quarter points are within a hundredth of a pixel of those of the bent ends. The result is made of
     /// straight lines; each sub-path keeps its closedness. An edge longer than half a closed guide can be bent
-    /// too coarsely (its ends and middle can agree by chance).
+    /// too coarsely (its ends, middle and quarter points can agree by chance).
     ///
     /// # Errors
     /// [`Error::Parameter`] if `start` is NaN or infinite, `near` is NaN, infinite or beyond ±1e100, or a bent point
@@ -215,18 +215,32 @@ impl Guide {
 }
 
 /// Appends the bent points between the ends of an edge, in order: each end is a point and where it goes. The edge is
-/// halved while the bent middle is more than [`BEND_FLATNESS`] from the middle of the bent ends, `depth` times at most.
+/// halved while the bend of its middle, or of the point a quarter or three quarters along it, is more than
+/// [`BEND_FLATNESS`] from the same place on the chord of the bent ends, `depth` times at most. The middle alone would
+/// take for straight a bend that is point-symmetric about it (an S).
 fn halve(map: &impl Fn(Point) -> Point, from: (Point, Point), to: (Point, Point), depth: u32, out: &mut Vec<Point>) {
     if depth == 0 {
         return;
     }
     let middle = Point::new(f64::midpoint(from.0.x, to.0.x), f64::midpoint(from.0.y, to.0.y));
     let bent = map(middle);
-    let (dx, dy) = (
-        bent.x - f64::midpoint(from.1.x, to.1.x),
-        bent.y - f64::midpoint(from.1.y, to.1.y),
-    );
-    if (dx * dx + dy * dy).sqrt() <= BEND_FLATNESS {
+    // how far the bend of the point `share` of the way along the edge is from `share` of the way along the bent chord
+    let off = |bent: Point, share: f64| {
+        let (dx, dy) = (
+            bent.x - lerp_number(from.1.x, to.1.x, share),
+            bent.y - lerp_number(from.1.y, to.1.y, share),
+        );
+        (dx * dx + dy * dy).sqrt()
+    };
+    let straight = off(bent, 0.5) <= BEND_FLATNESS
+        && [0.25, 0.75].into_iter().all(|share| {
+            let at = Point::new(
+                lerp_number(from.0.x, to.0.x, share),
+                lerp_number(from.0.y, to.0.y, share),
+            );
+            off(map(at), share) <= BEND_FLATNESS
+        });
+    if straight {
         return;
     }
     halve(map, from, (middle, bent), depth - 1, out);

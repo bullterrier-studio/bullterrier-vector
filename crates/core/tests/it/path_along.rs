@@ -507,3 +507,43 @@ proptest! {
         }
     }
 }
+
+proptest! {
+    // On the guide itself (y = 0) the bend of every point of an edge is a place `point_at` of the guide gives, so the
+    // polyline must stay within the flatness, a hundredth, of the guide's own places, with no allowance for the guide.
+    #[test]
+    fn a_polyline_on_the_guide_stays_within_a_hundredth_of_the_places_the_guide_gives(
+        radius in 100.0f64..300.0,
+        start in 0.0f64..1.0,
+        from in 0.0f64..400.0,
+        to in 0.0f64..400.0,
+    ) {
+        let fail = |e: Error| TestCaseError::fail(e.to_string());
+        let guide = Path::circle((10.0, -40.0), radius).map_err(fail)?;
+        let bent = Path::line((from, 0.0), (to, 0.0)).map_err(fail)?.along(&guide, start, None).map_err(fail)?;
+        let line = points(&bent).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let length = guide.length();
+        for step in 0..=100 {
+            let x = from + f64::from(step) / 100.0 * (to - from);
+            let place = guide.point_at((start + x / length).rem_euclid(1.0), None).map_err(fail)?;
+            let off = off_polyline(&line, (place.x, place.y));
+            prop_assert!(off <= 0.0101, "{off} from the guide at x {x}");
+        }
+    }
+}
+
+#[test]
+fn a_long_edge_that_meets_the_guide_in_a_symmetric_s_follows_the_s() -> Outcome {
+    // the S is point-symmetric about its middle, so the bend of the middle of the edge is the middle of the bent ends
+    let guide = svg("M0 0C80 0 20 100 100 100")?;
+    let length = guide.length();
+    let bent = Path::line((0.0, 0.0), (length, 0.0))?.along(&guide, 0.0, None)?;
+    let line = points(&bent)?;
+    for step in 0..=100 {
+        let at = f64::from(step) / 100.0;
+        let place = guide.point_at(at, None)?;
+        let off = off_polyline(&line, (place.x, place.y));
+        assert!(off <= 0.0101, "{off} from the guide at {at} of it");
+    }
+    Ok(())
+}
