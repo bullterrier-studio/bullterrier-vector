@@ -128,8 +128,8 @@ impl Text {
         self
     }
 
-    /// This text with its lines wrapped to `width` pixels: a line breaks at whitespace, greedily, as late as it still
-    /// fits, and the whitespace at the break is dropped. A word wider than `width` stands alone on its line and
+    /// This text with its lines wrapped to `width` pixels: a line breaks at whitespace (not at a no-break space), greedily, as late as it
+    /// still fits, and the whitespace at the break is dropped. A word wider than `width` stands alone on its line and
     /// overflows. Above 0; a number, a `Param` or an expression, read once as drawn. The lines are measured with every
     /// other `Param` at its default (whatever [`Drawing::with_values`] fixed), so the breaks change only with `width`.
     #[must_use]

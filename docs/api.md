@@ -302,8 +302,8 @@ reordering inside a line), or as several where the axis values change between ch
 made, `word` the runs of non-whitespace characters over the whole text, `line` the lines, and `origin` is the middle of
 the advance at half the cap height above the baseline.
 
-**Wrap.** With `width`, a part breaks greedily at whitespace (`char::is_whitespace`, a no-break space included): a line
-takes words while it stays within `width`. The whitespace run at a break is dropped, and so is the whitespace a line ends
+**Wrap.** With `width`, a part breaks greedily at whitespace (`char::is_whitespace`, except U+00A0, U+2007 and U+202F, which are part of a word):
+a line takes words while it stays within `width`. The whitespace run at a break is dropped, and so is the whitespace a line ends
 in; whitespace that begins a part is kept. A word wider than `width` stands alone and overflows. There is no Unicode
 line-break rule: text without spaces (Chinese, Japanese, Thai) does not wrap. The wrap measures a part shaped whole at its
 nominal size, so a kern across a break is counted though each line is then shaped alone (a line can differ from its

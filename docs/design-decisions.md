@@ -614,7 +614,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   range: a width Param that did not move the breaks would mean nothing. *Consequence:* a live `size`, `leading` or axis value
   moves glyphs and can overflow a measure; it never re-wraps.
 - **Lines break at whitespace only, and the whitespace at a break goes** (2026-11-04). Greedy, at `char::is_whitespace`
-  (a no-break space breaks like any other); a line drops the whitespace it ends in, and a part keeps the whitespace it
+  except U+00A0, U+2007 and U+202F (no-break spaces, part of a word); a line drops the whitespace it ends in, and a part keeps the whitespace it
   begins with. *Reason:* one rule, exact and the same on every target. The Unicode line-break rules need data tables and,
   for Thai, a dictionary, which the shaper (`harfrust`) does not provide (inferred; not measured against a crate).
   *Consequence:* text without spaces (Chinese, Japanese, Thai) does not wrap. The wrap measures a part shaped whole at its
