@@ -5,7 +5,8 @@ in Rust and Python: `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V
 `Drawing` with `translate`, `rotate`, `scale`, `fill`, `stroke`, `opacity`, `blend`, `only`, `without`, `with_values`,
 `parameters()`, `shapes()` and `size`, and the style verbs on a `Path` (V2b). A `Shape`'s `style` has `fill`, `stroke`,
 `stroke_width`, `join`, `cap`, `miter_limit`, `opacity` and `blend`; the rest of the members below arrive with their
-steps. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
+steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6), and `along` (V6) on `Path` and `Drawing`, all in Rust
+and Python, and `text` and `along` in a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
 defaults written here. The rest is not built ([roadmap.md](roadmap.md)). Reasons:
 [design-decisions.md](design-decisions.md), "The code API". The JSON form of a drawing: [formats.md](formats.md).
 
@@ -167,7 +168,7 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | `dash` | `dash(pattern, *, phase=0, near=None)` | the pieces a dash pattern (`[on, off, ...]` in pixels) leaves; `phase` in cycles of the pattern, wrapping | an empty pattern; a length not above 0 |
 | `resample` | `resample(spacing)` | straight segments with corners `spacing` pixels apart along it | `spacing` not above 0 |
 | `simplify` | `simplify(*, tolerance=0.5)` | the fewest smooth curves (sharp corners kept) within `tolerance` pixels, so a dense polyline becomes a few smooth curves | `tolerance` not above 0 |
-| `along` | `along(path, *, start=0, near=None)` | bent along `path`: a point `x` pixels along the baseline `y = 0` lands `x` pixels past `start` (a fraction of `path`'s length, measured from its start or from its point nearest `near`) on `path` and `y` pixels to the right of its direction of travel (below the baseline stays below); `start` wraps on a closed path, so a `cycle` Param turns it round | `GeometryError`: `path` empty |
+| `along` | `along(path, *, start=0, near=None)` | bent along `path`: a point `(x, y)` lands `start` lengths of `path`, plus `x` pixels, along it, and `y` pixels to the right of the way it runs there (`y` down: on a path running right, below it). `path` is walked as one length, its sub-paths in order, in the direction of the curve at that place (not of the straight edge it is flattened to). A closed `path` (every sub-path with a length closed) wraps, so a `cycle` Param turns shapes round it; any other goes on straight past its ends along the direction it ends or begins in, so no `start` or `x` is out of range. `near` as for `point_at`. The result is straight lines within 0.01 pixel of the true bend (each flattened edge is halved up to 8 times), counted against `MAX_SEGMENTS`; a sub-path keeps its closedness; the `origin` attribute is left where it was (`translate`, `rotate` and `scale` leave it too in the code today). An edge longer than half a closed `path` can be bent too coarsely: a known limit. Text on a path is `text(...).along(path)` | `GeometryError`: `path` empty or of no length; `ParameterError`: `start` NaN, infinite or sending a point beyond ±1e100, `near` not finite |
 | `wobble` | `wobble(*, amplitude=4, wavelength=80, phase=0, seed=0)` | points displaced by smooth seeded noise of that amplitude and wavelength (pixels); `phase` in cycles moves it | `wavelength` not above 0 |
 | `wave` | `wave(*, amplitude=8, wavelength=120, angle=0, phase=0)` | points displaced sideways by a sine travelling towards `angle` | `wavelength` not above 0 |
 | `morph` | `morph(target, fraction)` | the outline `fraction` 0..1 of the way to `target`, points matched when their counts differ; on a `Drawing`, shapes pair by index | on a `Drawing`, different shape counts |
@@ -288,17 +289,45 @@ V8 removes the overlaps).
 | `leading` | pixels between baselines; default 1.2 × `size` |
 | `align` | `"left"`, `"center"` or `"right"` |
 | `anchor` | where the first baseline meets the alignment: its left end, middle or right end |
-| `width` | lines wrap to this width; with `fit`, each line is made exactly this wide |
-| `fit` | an axis tag or `"size"`: solved per line so the line is `width` wide, once, at the reference pose (every Param at its default, whatever `with_values` fixed), so the fit never changes from frame to frame and live values may overflow |
-| `inside` | a `Path`: lines wrap to its width at each baseline (V6) |
+| `width` | pixels, above 0: each `"\n"`-separated part wraps to this width, breaking at whitespace. Read as drawn (a `Param` moves the breaks); without `fit` the lines keep the widths the wrap gives them |
+| `fit` | an axis tag or `"size"`, needs `width`: each line is made `width` wide, once, at the reference pose (every Param at its default, whatever `with_values` fixed), so the fit never changes from frame to frame and live values may overflow |
+| `inside` | a `Path` (a literal): the text is set in the region it fills instead (nonzero rule, as `contains`); takes its lines and place from the shape, so no `width`, `fit` or `anchor` |
 
-Built so far: `content`, `font`, `size`, `axes`, `features`, `tracking`, `leading`, `align` and `anchor`, in Python as
-above (`anchor` takes plain numbers, a `Point` or a tuple, and a `features` value is a Python `int`) and in Rust as
-`text(content, Text::new(&font).size(..).axes([("wght", &weight)]).features([("liga", 0)]))` (V5a to V5c); JavaScript has
-no builders, a text arrives in a document (`Drawing.fromJson`, below). `width`, `fit` and `inside` come in V6. Each line is shaped as one run in the script and direction of its first strong character (no
+Built so far: every argument above, in Python as above (`anchor` takes plain numbers, a `Point` or a tuple, a `features`
+value is a Python `int`, `inside` is a `Path`) and in Rust as
+`text(content, Text::new(&font).size(..).axes([("wght", &weight)]).features([("liga", 0)]).width(980.0).fit("wdth"))` and
+`Text::inside(&shape)` (V5a to V6); JavaScript has no builders, a text arrives in a document (`Drawing.fromJson`, below).
+Each line is shaped as one run in the script and direction of its first strong character (no
 reordering inside a line), or as several where the axis values change between characters; `glyph` counts the shapes
 made, `word` the runs of non-whitespace characters over the whole text, `line` the lines, and `origin` is the middle of
 the advance at half the cap height above the baseline.
+
+**Wrap.** With `width`, a part breaks greedily at whitespace (`char::is_whitespace`, a no-break space included): a line
+takes words while it stays within `width`. The whitespace run at a break is dropped, and so is the whitespace a line ends
+in; whitespace that begins a part is kept. A word wider than `width` stands alone and overflows. There is no Unicode
+line-break rule: text without spaces (Chinese, Japanese, Thai) does not wrap. The wrap measures a part shaped whole at its
+nominal size, so a kern across a break is counted though each line is then shaped alone (a line can differ from its
+measure by that kern). `align` places each line against `anchor`, not against `width`; `line` numbers the lines made.
+`width` is read as drawn; `size`, `tracking`, `axes`, `features` and `leading`, as far as they decide the lines, are read at
+the reference pose, so the breaks move with `width` alone (the glyphs are drawn at the live values).
+
+**Fit.** `fit="size"` sets each line to the size at which it is `width` wide (a line's width is in proportion to its size,
+tracking included); `size` still decides where lines break and the spacing of empty lines. Lines then differ in size, so
+unless `leading` is given each stands 1.2 times its own size below the baseline before it; uniform text and an explicit
+`leading` stand `n × leading` below the first. `fit` on an axis (`"wdth"`) sets that axis for each line: the line is shaped
+at the axis's minimum and maximum, `width` must lie between the two widths, and the value is then found by 32 halvings
+of the range (the line comes out within about a unit of an advance per glyph of `width`). The width is taken to
+change one way along the axis; a width reachable only in the middle of the range is reported as not reachable. An empty
+or whitespace-only line is not fitted.
+
+**Inside.** The chord of a baseline is the widest span that lies in the shape both at the baseline and at a capital's
+height above it (the leftmost of equals); `align` places a line against its chord. The first capital line is at the top of
+the shape's bounds, so the first baseline is a cap height below it; each baseline is then `leading` (default 1.2 ×
+`size`) below the one before. A line takes words while they fit its chord; a word that does not fit a baseline's chord
+moves to the next baseline, leaving that one empty, and an empty part (`"\n\n"`) takes a baseline of its own. A word wider
+than every chord, or text that outlasts the shape, is refused (unlike `width`, which overflows), naming the word and the
+line; nothing is cut off. The layout is made once, at the reference pose: a `Param` of `size` or `leading` moves the
+glyphs, not the lines. At most `MAX_GLYPHS` baselines are tried. Not tested: right-to-left text inside a shape.
 
 **A value per character.** The items of `axes` are the characters of `content`, every one counted (a space and a
 line break too, so `"H\nH"` has three): a `Param` given a list when drawn gives character `i` entry `i`, and the list must
@@ -310,8 +339,11 @@ whose letters differ in weight is drawn as separate letters), and a mark whose v
 `axes`, the value and the font's range.
 
 Errors (`ParameterError`): an axis or feature the font lacks (the message lists the font's), an axis value outside the
-font's range, `fit` without `width`, `fit` on an axis also given in `axes`, and a line `fit` cannot make `width` wide
-(the message names the line and the nearest width the axis reaches).
+font's range, a `width` not above 0, `fit` without `width`, `fit` that is neither `"size"` nor an axis of the font, `fit`
+on an axis also given in `axes`, a line `fit` cannot make `width` wide (the message names the line and the nearest width
+the axis reaches, and the axis value there; for `"size"`, a line of no width), `inside` with `width`, `fit` or `anchor`,
+`leading` not above 0 with `inside`, an `inside` shape with no outline, text that does not fit the shape, and more than
+`MAX_GLYPHS` baselines tried.
 
 ### trace
 

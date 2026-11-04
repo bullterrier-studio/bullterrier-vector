@@ -107,7 +107,7 @@ number of a field or a flow.
 | `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order`, `origin` a point); its style follows as steps, a `fill` step always |
 | `drawing` | a shared drawing | the value is its name: `{"drawing": "letters"}` |
 | `stack` | `Drawing(*items, size=None)` | `items` (drawings, bottom first; none is a blank frame of `size`), `size` (`[width, height]`, literal numbers above 0) |
-| `text` | `text(content, *, font, ...)` | `content` (a string), `font` (input), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width`, `fit` (a tag or `"size"`), `inside` (path data) |
+| `text` | `text(content, *, font, ...)` | `content` (a string), `font` (input), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width` (above 0), `fit` (a tag or `"size"`; needs `width`), `inside` (path data; not with `width`, `fit` or `anchor`) |
 | `trace` | `trace(field, *, ...)` | `field` (field), `levels` (numbers), `tolerance`, `before`, `after` (fields), `sigma` |
 
 A tag is four printable ASCII characters (`"wght"`). A shape's style is written as the style steps that set it, in the
@@ -131,7 +131,7 @@ when `Style.fill` is `None`): the shape then never takes the default paint, and 
 | `dash` | `pattern` (numbers), `phase`, `near` (point) |
 | `resample` | `spacing` |
 | `simplify` | `tolerance` |
-| `along` | `path` (path data), `start`, `near` (point) |
+| `along` | `path` (path data), `start` (a fraction of the path's length; any finite number, a closed path wraps), `near` (point; each coordinate within ±1e100) |
 | `wobble` | `amplitude`, `wavelength`, `phase`, `seed` (whole number) |
 | `wave` | `amplitude`, `wavelength`, `angle`, `phase` |
 | `morph` | `target` (drawing), `fraction` |
@@ -490,8 +490,8 @@ registered, with a test named after it; every later call brings its own checks a
 | `drawing-used` | an entry of `drawings` is used nowhere |
 | `path-data` | path data does not parse; the error names the first bad command |
 | `with-values` | a key names a Param the drawing before it does not read, or one an earlier `with_values` fixed; a value outside its Param's range (a cyclic one wraps) |
-| `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `trace` levels not increasing, `trace` neighbours (`before`, `after`) whose literal `width`, `height` or `box` differ from the field's, `random` with `low` above `high`, `text` `fit` without `width` or on an axis also in `axes`, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
-| `font-checks` | with the font supplied: an axis or feature the font lacks, an axis value outside its range (`ParameterError`: the caller supplied the wrong font) |
+| `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `trace` levels not increasing, `trace` neighbours (`before`, `after`) whose literal `width`, `height` or `box` differ from the field's, `random` with `low` above `high`, `text` `fit` without `width` or on an axis also in `axes`, `text` `inside` with `width`, `fit` or `anchor` or with a constant `leading` not above 0, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
+| `font-checks` | with the font supplied: an axis or feature the font lacks, the axis a `fit` names if the font lacks it (`fit` `"size"` is not an axis), an axis value outside its range (`ParameterError`: the caller supplied the wrong font) |
 | `inputs-supplied` | an input the document declares that `inputs` does not give, a name in `inputs` the document does not declare, two names with equal bytes, bytes that do not match `sha256`, a font the library cannot read, a map whose bytes are not `width × height` (a checked multiply: an overflow is a mismatch; `ParameterError`) |
 
 As built (V2c). `json-text` and `limits` run while the text is read: the parser stops at `MAX_DEPTH` levels of text, so a
@@ -507,7 +507,8 @@ is built: a document that has both a `with-values` failure and a missing input r
 `font-checks` runs right after it, before the drawing is built: an axis or feature that a call names and its font lacks,
 or an axis value written as a number outside the font's range, is a `ParameterError` naming `inputs.` and the input,
 with the pointer of the value in the message; the message lists the font's axes or features. An axis value that reads
-a Param is checked when drawn. Its refusals are `ParameterError`s naming `inputs.` and the
+a Param is checked when drawn. As built (V6), it also reads the axis a `fit` names (pointer `.../text/fit`); a `fit` that
+the widths of the font cannot make is found when drawn. Its refusals are `ParameterError`s naming `inputs.` and the
 input; of the two bytes problems, a font the library cannot read is reported before a `sha256` that does not match.
 
 ## Extension
