@@ -7,7 +7,9 @@
 //! 'Hi To' [('H', 0, 1656), ('i', 1, 601), ('space', 2, 449), ('T', 3, 1249), ('o', 4, 1166)]
 //! ```
 //!
-//! `H`, `i` and the space have advances of 1656, 601 and 449, and no kerning among them. Drawings are made at 2000 pixels to
+//! `H`, `i` and the space have advances of 1656, 601 and 449, and no kerning among them. The font has no glyph for U+00A0,
+//! U+2007, U+202F, U+2003 or the tab: `HarfBuzz` draws the first two with the space glyph (449), U+202F with half of it (224),
+//! U+2003 with the space glyph at 2000, and the tab with `.notdef` (1000); none of them draws an outline. Drawings are made at 2000 pixels to
 //! the em, the font's own, so a pen position is a coordinate of the font file; the default leading is 2400, y pointing
 //! down.
 
@@ -138,8 +140,64 @@ fn lines_break_at_whitespace_as_late_as_they_fit() -> Outcome {
             &[('H', 0, 0.0), ('i', 0, 1656.0), ('T', 1, 0.0), ('o', 1, 1249.0)],
         ),
     ];
+    assert_wrapped(&rows)
+}
+
+#[test]
+fn no_break_spaces_are_part_of_a_word_and_other_whitespace_still_breaks() -> Outcome {
+    // (rule, text, width, glyphs); the advances of the characters the font lacks are in the header
+    let rows: [(&str, &str, f64, Glyphs); 8] = [
+        (
+            "a no-break space keeps two words on one line when they fit",
+            "H\u{a0}H",
+            3761.0,
+            &[('H', 0, 0.0), ('H', 0, 2105.0)],
+        ),
+        (
+            "words joined by a no-break space move to the next line together",
+            "H H\u{a0}H",
+            3761.0,
+            &[('H', 0, 0.0), ('H', 1, 0.0), ('H', 1, 2105.0)],
+        ),
+        (
+            "a figure space (U+2007) is no break",
+            "H\u{2007}H",
+            3761.0,
+            &[('H', 0, 0.0), ('H', 0, 2105.0)],
+        ),
+        (
+            "a narrow no-break space (U+202F) is no break",
+            "H\u{202f}H",
+            3536.0,
+            &[('H', 0, 0.0), ('H', 0, 1880.0)],
+        ),
+        ("a tab still breaks", "H\tH", 3000.0, &[('H', 0, 0.0), ('H', 1, 0.0)]),
+        (
+            "an em space (U+2003) still breaks",
+            "H\u{2003}H",
+            3000.0,
+            &[('H', 0, 0.0), ('H', 1, 0.0)],
+        ),
+        (
+            "a word joined by a no-break space and wider than the width stands alone and overflows",
+            "H\u{a0}H H",
+            3000.0,
+            &[('H', 0, 0.0), ('H', 0, 2105.0), ('H', 1, 0.0)],
+        ),
+        (
+            "a no-break space the text starts with is part of its first word",
+            "\u{a0}H H",
+            2105.0,
+            &[('H', 0, 449.0), ('H', 1, 0.0)],
+        ),
+    ];
+    assert_wrapped(&rows)
+}
+
+/// Checks that each row's text, wrapped to its width, has every glyph as its character, line and pen x.
+fn assert_wrapped(rows: &[(&str, &str, f64, Glyphs)]) -> Outcome {
     let font = fraunces()?;
-    for (rule, content, width, expected) in rows {
+    for (rule, content, width, expected) in rows.iter().copied() {
         let shapes = shapes_of(content, at_em(&font).width(width))?;
         assert_eq!(shapes.len(), expected.len(), "{rule}");
         for (shape, &(character, line, x)) in shapes.iter().zip(expected) {
@@ -214,7 +272,7 @@ fn a_width_not_above_zero_is_refused_naming_the_step_and_the_value() -> Outcome 
 #[test]
 fn each_wrapped_line_is_aligned_by_its_own_width() -> Outcome {
     // "Hi" is 2257 wide, "To" 2415; a line's trailing spaces are no part of its width
-    let rows: [(&str, &str, Align, Glyphs); 3] = [
+    let rows: [(&str, &str, Align, Glyphs); 4] = [
         (
             "right",
             "Hi To",
@@ -233,6 +291,12 @@ fn each_wrapped_line_is_aligned_by_its_own_width() -> Outcome {
             &[('H', 0, -1128.5), ('i', 0, 527.5), ('T', 1, -1207.5), ('o', 1, 41.5)],
         ),
         ("trailing spaces", "H  ", Align::Right, &[('H', 0, -1656.0)]),
+        (
+            "a trailing no-break space is part of the width",
+            "H\u{a0}",
+            Align::Right,
+            &[('H', 0, -2105.0)],
+        ),
     ];
     let font = fraunces()?;
     for (rule, content, align, expected) in rows {

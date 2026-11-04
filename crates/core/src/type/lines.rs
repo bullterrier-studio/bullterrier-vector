@@ -65,7 +65,7 @@ impl Line {
 
 /// The lines `content` is set in: its `"\n"`-separated parts, wrapped to `wrap`'s width or set in its region if it has one.
 ///
-/// A part breaks at whitespace, greedily: a line takes words while it stays within the width, the whitespace at a break
+/// A part breaks at whitespace, except no-break spaces, greedily: a line takes words while it stays within the width, the whitespace at a break
 /// is dropped, and so is the whitespace a line ends in. A word wider than the width stands alone. A part is measured
 /// shaped whole, at the pose of `wrap`, so a kern across a break is counted though the line is shaped again alone.
 ///
@@ -239,7 +239,13 @@ fn sized(line: &Measured, size: f64, width: f64, number: usize) -> Result<f64, E
     }
 }
 
-/// A run of characters that are not whitespace.
+/// Whether `one` is a place to break a line: whitespace, except the three no-break spaces (U+00A0 no-break space, U+2007
+/// figure space, U+202F narrow no-break space), which are part of a word.
+fn breaks(one: char) -> bool {
+    one.is_whitespace() && !matches!(one, '\u{a0}' | '\u{2007}' | '\u{202f}')
+}
+
+/// A run of characters between breaks.
 struct Word {
     bytes: Range<usize>,
     characters: Range<usize>,
@@ -252,7 +258,7 @@ fn words(text: &str) -> Vec<Word> {
     let mut count = 0;
     for (character, (byte, one)) in text.char_indices().enumerate() {
         count = character + 1;
-        match (one.is_whitespace(), open) {
+        match (breaks(one), open) {
             (false, None) => open = Some((byte, character)),
             (true, Some((start, first))) => {
                 words.push(Word {
