@@ -49,12 +49,12 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | X2 | Spike: live remeshing every frame, measured | S | |
 | V4 | Frame export: a caller's function of time to a transparent PNG sequence or clip | S | |
 | V5 | Fonts and shaping: glyphs as shapes, variable axes as parameters, bundled fonts | L | |
-| V6 | Layout: wrap, align, tracking, leading, fit to a box; text on a path, text inside a shape | M | |
+| V6 | Layout: wrap to a width, fit a line to a width by size or axis, text inside a shape; `along` (text on a path) | M | |
 | V7 | Per-item variation: stagger, split, per-item transforms | M | **M2 type** |
 | V8 | Booleans, with fuzzing and documented limits | L | |
 | V9 | Offset, inset, stroke outline | M | |
 | V10 | SVG fidelity: drop shadows and knockouts as style attributes, the same in SVG and pixels; a fast halftone fill | M | |
-| V11 | Path modifiers: draw-on, dash march, along a path, simplify, resample | M | |
+| V11 | Path modifiers: draw-on, dash march, place shapes along a path, simplify, resample | M | |
 | V12 | Deformers: wobble, wave, twist, bulge | M | **M3 kinetic type piece** |
 | V13 | Morph, any shape to any shape | M | |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
@@ -68,7 +68,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01).
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day and V6 on 2026-11-04. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"). V7 is next.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -449,8 +449,25 @@ licence from the crate).
 
 ## V6 Layout
 
-Wrap to a width, alignment, tracking, leading; fit a line to a width by a variable axis, at a reference pose separate
-from the live values, saying when the axis runs out; text along a path; text filling a shape.
+- Wrap to a width; fit each line to a width by size or by a variable axis, at a reference pose separate from the live
+  values, saying when the axis runs out.
+- Text set inside a shape.
+- `along`: shapes carried along a guide path, so text on a path is `text(...).along(path)`. Alignment, tracking and leading
+  were V5's.
+
+Done when: a headline fills a measure by its width axis and a page wraps to a width, both from `text` arguments alone; a
+text fills a circle and a frame with a hole; a text turns round a circle by a `Param`; each in Rust, Python and the
+native-against-WebAssembly differential.
+
+State: V6 is done (Rust, Python, through JSON): `text(..., width=, fit=, inside=)` (Rust `Text::width`, `Text::fit`,
+`Text::inside`), `Path.along(path, *, start=0, near=None)` and `Drawing.along(path, *, start=0, near=None)` (Rust
+`Path::along`, `Drawing::along(&guide, Along::new().start(..).near(..))`), with `along` registered and in the schema.
+`examples/kinetic_type.py` fills its measure with `width` and `fit="wdth"`; `examples/text_on_path.py` turns a line round
+a circle by a `Param`. The WebAssembly differential has 63 drawings (44 paths, 17 texts, 2 bends); five of the texts are
+wrapped, fitted or set inside a shape. Costs are in `benchmarks.md`, "Text". Known limits (`api.md`, "text" and `along`):
+no Unicode line-break rule, so text without spaces does not wrap; a fit by an axis finds only widths between the widths at
+the axis's ends; right-to-left text inside a shape is not tested; an edge longer than half a closed guide can be bent
+coarsely.
 
 ## V7 Per-item variation
 
@@ -482,7 +499,8 @@ Offset and inset with round, miter and bevel joins; outline a stroke into a fill
 ## V11 Path modifiers
 
 Draw-on (partial path by length, from a canonical start point and direction), dash with a moving phase, place shapes
-along a path, simplify, resample to even spacing.
+along a path, simplify, resample to even spacing. `along` (V6) bends shapes along a path; placing shapes on it without
+bending them (copies at even spacing, each turned to the path's direction) is not built and stays here.
 
 ## V12 Deformers
 
