@@ -158,8 +158,9 @@ impl Text {
     }
 
     /// This text set inside the region `shape` fills (by the nonzero rule of [`Path::contains`]): each line is as wide as
-    /// the widest stretch of the shape that holds its glyphs from the top of a capital to the baseline, and [`Text::align`]
-    /// places it against that stretch.
+    /// the widest stretch of the shape that holds both the baseline and the top of a capital over it (the shape is
+    /// measured along those two lines only, so a hole or a notch that lies between them, shorter than a capital, is
+    /// not seen), and [`Text::align`] places it against that stretch.
     ///
     /// The first baseline is a capital's height below the top of the shape, and each baseline is the `leading` (default
     /// 1.2 times the size) below the one before. A line takes words while they fit the stretch; a word that does not fit
