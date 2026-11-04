@@ -44,3 +44,12 @@ case V5b left unmeasured, draws all its outlines in 0.3 s and holds the limit of
 (3 microseconds) is that of the others, so each location is not much dearer than a repeat. Not measured: WebAssembly
 for text, glyphs with many curves per outline (the subset's are simple), and a font of 1,000s of glyphs (the lookup is by
 glyph index).
+
+### Wrap and fit (V6)
+
+`uv run poe bench --text` also times, as `shapes` with the weight moving, the headline fitted to a width by `wdth` (800 px
+to the em, `width` 980, `leading` 640) and the page of capitals wrapped to a width of 1000 px. Figures reported by the V6
+implementers, not re-run for this table (run count and conditions not recorded here): the fitted headline about 0.16 ms,
+the wrapped page of 998 letters about 0.56 ms (the unwrapped page: 0.51 to 0.63 ms above), and the 100,000-letter text of
+the last row above, about 255 ms (V5c: 289 to 300 ms). Each call has a new weight, so the result cache answers none and the
+wrap and the fit are planned again every call. Not measured: `inside` and `along`, WebAssembly.
