@@ -299,7 +299,8 @@ value is a Python `int`, `inside` is a `Path`) and in Rust as
 `Text::inside(&shape)` (V5a to V6); JavaScript has no builders, a text arrives in a document (`Drawing.fromJson`, below).
 Each line is shaped as one run in the script and direction of its first strong character (no
 reordering inside a line), or as several where the axis values change between characters; `glyph` counts the shapes
-made, `word` the runs of non-whitespace characters over the whole text, `line` the lines, and `origin` is the middle of
+made, `word` the runs of non-whitespace characters over the whole text (a no-break space is whitespace here, though a
+wrap does not break at it), `line` the lines, and `origin` is the middle of
 the advance at half the cap height above the baseline.
 
 **Wrap.** With `width`, a part breaks greedily at whitespace (`char::is_whitespace`, except U+00A0, U+2007 and U+202F, which are part of a word):

@@ -247,7 +247,7 @@ round-trip. The other example documents round-trip as their calls arrive. These 
 | `input-declared` | the first call that reads an input (`text`, `Field.map`) |
 | `font-checks` | `text` |
 | `inputs-supplied` | `text`, `Field.map` (and `from_json`'s `inputs`) |
-| `call-checks`: `trace` levels and neighbours, `random`, `text` `fit`, `Field.ramp` | `trace`, `random`, `text`, `Field.ramp` |
+| `call-checks`: `trace` levels and neighbours, `random`, `text` `fit` and `inside`, `Field.ramp` | `trace`, `random`, `text`, `Field.ramp` |
 
 Carried from the S0 review:
 - Clippy checks only this workspace's code, so the boolean and raster crates chosen in V2 must use `libm` for their
