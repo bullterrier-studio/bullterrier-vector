@@ -37,20 +37,18 @@ impl Path {
     /// would be beyond ±1e100 (naming `start`); [`Error::Geometry`] if the guide is empty or has no length, and so
     /// no direction.
     pub fn along(&self, guide: &Self, start: f64, near: Option<Point>) -> Result<Self, Error> {
-        self.bent(guide, start, near, &mut |_| Ok(()))
+        self.bent(&Guide::new(guide, near, &mut |_| Ok(()))?, start, &mut |_| Ok(()))
     }
 
-    /// As [`Path::along`], calling `charge` with the number of edges before it makes them, as for
-    /// [`Path::flattened`]; its error stops the bending.
+    /// As [`Path::along`] on a guide already walked, calling `charge` with the number of edges before it makes them,
+    /// as for [`Path::flattened`]; its error stops the bending.
     pub(crate) fn bent(
         &self,
-        guide: &Self,
+        guide: &Guide,
         start: f64,
-        near: Option<Point>,
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<Self, Error> {
         let start = finite("start", start)?;
-        let guide = Guide::of(&guide.nonempty_walk("along", near)?)?;
         let offset = start * guide.length;
         let mut subpaths = Vec::with_capacity(self.subpaths.len());
         for polyline in self.flattened(charge)? {
@@ -72,8 +70,9 @@ struct GuideEdge {
     chord: Point,
 }
 
-/// The edges of a guide that have a length, end to end, and what to do past its ends.
-struct Guide {
+/// The edges of a guide that have a length, end to end, and what to do past its ends: a path walked once, to carry any
+/// number of shapes along.
+pub(crate) struct Guide {
     edges: Vec<GuideEdge>,
     length: f64,
     /// Whether every sub-path with a length is closed: then the guide wraps instead of going on straight.
@@ -81,6 +80,22 @@ struct Guide {
 }
 
 impl Guide {
+    /// The guide `path` makes when walked from the point nearest `near`, if there is one. `charge` is told how many
+    /// edges it has: each shape bent along a guide that is walked for it pays for the walk.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] if `near` is NaN, infinite or beyond ±1e100, and what `charge` returns; [`Error::Geometry`]
+    /// if the path is empty or has no length, and so no direction.
+    pub(crate) fn new(
+        path: &Path,
+        near: Option<Point>,
+        charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+    ) -> Result<Self, Error> {
+        let guide = Self::of(&path.nonempty_walk("along", near)?)?;
+        charge(guide.edges.len())?;
+        Ok(guide)
+    }
+
     fn of(walk: &Walk<'_>) -> Result<Self, Error> {
         let mut edges = Vec::new();
         let mut closed = true;

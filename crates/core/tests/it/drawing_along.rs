@@ -154,3 +154,20 @@ fn bending_more_than_ten_million_edges_in_a_draw_is_refused_naming_the_step_and_
     assert!(message.contains("MAX_SEGMENTS 10000000"), "{message}");
     Ok(())
 }
+
+#[test]
+fn walking_a_long_guide_for_every_shape_is_charged_to_the_draw() -> Outcome {
+    // 1,000 shapes, each walking a closed guide of 20,000 edges from the point nearest (0, 0): 20 million edges
+    let zigzag: Vec<(f64, f64)> = (0..20_000u32)
+        .map(|index| (f64::from(index), if index % 2 == 0 { 0.0 } else { 10.0 }))
+        .collect();
+    let guide = Path::polyline(zigzag, true)?;
+    let points = (0..1000u32)
+        .map(|index| Ok(Drawing::from(Path::start((f64::from(index), 0.0))?)))
+        .collect::<Result<Vec<_>, bullterrier_vector::Error>>()?;
+    let drawing = Drawing::new(points).along(&guide, Along::new().near((0.0, 0.0)));
+    let (parameter, message) = parameter_refusal(drawing.shapes(&Values::new()))?;
+    assert!(parameter.contains("along"), "{parameter}");
+    assert!(message.contains("MAX_SEGMENTS"), "{message}");
+    Ok(())
+}

@@ -2,6 +2,7 @@
 //! shape.
 
 use super::{Args, Context, Inputs, Node, each_shape};
+use crate::path::Guide;
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
 
 /// A number read for each shape, within `domain`.
@@ -129,15 +130,26 @@ impl Node for Along {
     }
 
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
-        let guide = args.path("path")?;
+        let path = args.path("path")?;
         let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        // a guide walked from its own start is the same for every shape: walk it once
+        let mut from_start: Option<Guide> = None;
         each_shape(inputs.previous, cx, |shape, item| {
             let start = args.number(cx, "start", item)?;
             let near = args.point(cx, "near", item)?;
-            let bent = shape
-                .path()
-                .bent(guide, start, near, &mut |count| cx.work.made_segments(count, &place))?;
-            Ok(shape.clone().with_path(bent))
+            if near.is_none() && from_start.is_none() {
+                from_start = Some(Guide::new(path, None, &mut charge)?);
+            }
+            let own;
+            let guide = match (near, &from_start) {
+                (None, Some(guide)) => guide,
+                (near, _) => {
+                    own = Guide::new(path, near, &mut charge)?;
+                    &own
+                }
+            };
+            Ok(shape.clone().with_path(shape.path().bent(guide, start, &mut charge)?))
         })
     }
 }
