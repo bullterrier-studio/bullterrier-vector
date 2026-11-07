@@ -91,7 +91,7 @@ defaults and units. The types below:
 
 Every argument not marked otherwise is a number. A literal value outside the range api.md states for it (an `alpha`
 above 1, a `pitch` of 0, a coordinate beyond 1e100) fails the schema; an expression's value is checked when drawn. Literal only, never an
-expression: `stack`'s `size`, `Field.map`'s `width` and `height`, `text`'s `features` (whole numbers from 0 to 4294967295), a shape's `attributes` and the
+expression: the `tolerance` of the booleans, `stack`'s `size`, `Field.map`'s `width` and `height`, `text`'s `features` (whole numbers from 0 to 4294967295), a shape's `attributes` and the
 values of `only`, `without` and `with_values`.
 
 Read once: an argument read once for the whole call, not once per shape, takes no per-item number (`by_index`,
@@ -122,7 +122,8 @@ when `Style.fill` is `None`): the shape then never takes the default paint, and 
 | `translate` | `dx`, `dy` |
 | `rotate` | `angle`, `about` (point) |
 | `scale` | `by` (pair, not 0), `about` (point) |
-| `union`, `subtract`, `intersect`, `exclude` | `other` (drawing) |
+| `union`, `subtract`, `intersect`, `exclude` | `other` (drawing), `tolerance` (literal, above 0 and at most 1e100; default 0.01) |
+| `resolve` | `tolerance` |
 | `offset` | `distance`, `join` (`"round"`, `"miter"`, `"bevel"`), `miter_limit` |
 | `outline` | `width`, `join`, `cap` (`"butt"`, `"round"`, `"square"`), `miter_limit` |
 | `drop_parts`, `fill_holes` | `smaller_than` |
@@ -148,6 +149,18 @@ when `Style.fill` is `None`): the shape then never takes the default paint, and 
 | `gradient_map` | `colors` (colours, at least 2) |
 | `posterize` | `levels` (whole number) |
 | `with_values` | Param names to a value: a JSON number, or an array of numbers, one per shape |
+
+A boolean's `other` is a drawing, and a `tolerance` equal to the default 0.01 is left out. The square with a diamond cut
+out, then resolved:
+
+```json
+[
+  { "path": "M10 10 L90 10 L90 90 L10 90 Z" },
+  { "fill": { "color": "#ff4f9a" } },
+  { "subtract": { "other": [{ "path": "M50 25 L75 50 L50 75 L25 50 Z" }], "tolerance": 0.05 } },
+  { "resolve": {} }
+]
+```
 
 `only`, `without` and `with_values` take keyword arguments in the code (`only(char="O")`), so their arguments are those
 keywords. An attribute is `index`, `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order` or `origin` (a
@@ -459,7 +472,7 @@ counter, its limit and the step:
 | Counter | Limit | Counts, per draw |
 |---|---|---|
 | `MAX_SHAPES` | 1,000,000 | shapes made by any step, the stack of a drawing shared twice counting its shapes twice |
-| `MAX_SEGMENTS` | 10,000,000 | path segments made (by `resample`, `dash`, `hatch`, `trace`, the flattening for pixels; one shape's stroke outline, too, may not make more than this many) |
+| `MAX_SEGMENTS` | 10,000,000 | path segments made (by `resample`, `dash`, `hatch`, `trace`, the flattening for pixels; one shape's stroke outline, too, may not make more than this many; by the booleans, the flattened edges, the pairs of edges whose boxes overlap and the vertices of the result) |
 | `MAX_TESSELLATION_WORK` | 250,000,000 | for the mesh, each vertex the tessellator makes counting the most edges of its layer a sweep line crosses at once (about a second of work; a circle, a glyph or a stroke around one costs under a tenth of it for a million vertices) |
 | `MAX_FIELD_SAMPLES` | 16,777,216 | samples of a field or flow (tracing an analytic field, a distance field, hatching) |
 | `MAX_COPIES` | 1,000,000 | copies made by `repeat` |
