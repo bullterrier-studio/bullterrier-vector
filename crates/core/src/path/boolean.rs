@@ -150,11 +150,18 @@ fn canonical(mut shapes: Vec<Vec<Contour>>) -> Result<Path, Error> {
             holes.sort_by(by_top);
         }
     }
+    // the engine works in a frame as wide as all of its input, so that is the size the numbers are rounded to
+    let scale = shapes
+        .iter()
+        .flatten()
+        .flatten()
+        .flatten()
+        .fold(0.0_f64, |most, c| most.max(c.abs()));
     shapes.retain_mut(|shape| {
-        if shape.first().is_none_or(is_flat) {
+        if shape.first().is_none_or(|outer| is_flat(outer, scale)) {
             return false;
         }
-        shape.retain(|contour| !is_flat(contour));
+        shape.retain(|contour| !is_flat(contour, scale));
         true
     });
     shapes.sort_by(|a, b| match (a.first(), b.first()) {
@@ -175,22 +182,19 @@ fn canonical(mut shapes: Vec<Vec<Contour>>) -> Result<Path, Error> {
     Ok(builder.finish())
 }
 
-/// Whether `contour` is no thicker than a few units in the last place of its coordinates (twice its area over its
-/// perimeter, about its thickness when it is thin). The engine's grid is finer than a number, so a hair-thin piece
-/// of an outline that hardly leaves a line comes back with its corners rounded to numbers: in line, or so far out of
+/// Whether `contour` is no thicker than a few units in the last place of `scale`, the largest coordinate of the result
+/// (twice its area over its perimeter, about its thickness when it is thin). The engine's grid is finer than a number,
+/// and it works in a frame as wide as all of its input, so a hair-thin piece of an outline that hardly leaves a line
+/// (or a spike beside a far larger shape) comes back with its corners rounded to numbers: in line, or so far out of
 /// it that the side it runs round has changed. Such a piece is no contour, and its area is below what a number holds.
-fn is_flat(contour: &Contour) -> bool {
+fn is_flat(contour: &Contour, scale: f64) -> bool {
     // constant: a corner is rounded to half a unit in the last place of its coordinate in each direction, so a piece
     // up to about 1.5 of them thick can end up flat or flipped; 4 leaves room for the corners of both sides
     const FLAT_ULPS: f64 = 4.0;
-    let [ox, oy] = contour.first().copied().unwrap_or_default();
-    let scale = contour
-        .iter()
-        .flatten()
-        .fold(0.0_f64, |most, coordinate| most.max(coordinate.abs()));
     if scale == 0.0 {
         return true;
     }
+    let [ox, oy] = contour.first().copied().unwrap_or_default();
     // in units of the largest coordinate, so that the products below are numbers whatever the size of the contour
     let unit = |&[x, y]: &[f64; 2]| [(x - ox) / scale, (y - oy) / scale];
     let (mut doubled, mut perimeter) = (0.0_f64, 0.0_f64);

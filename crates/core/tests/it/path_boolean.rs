@@ -430,6 +430,25 @@ fn shapes_so_small_that_their_area_is_not_a_number_still_combine() -> Outcome {
     Ok(())
 }
 
+#[test]
+#[expect(clippy::unreadable_literal, reason = "the numbers of a failing run, as they were")]
+fn a_spike_beside_a_much_larger_shape_does_not_come_back_as_a_contour_of_its_own() -> Outcome {
+    // the open outline runs out to (0.005, 0.002) along the line back to its start and on: a spike of no width, then
+    // a triangle of 4.5e-6. The rectangle makes the engine's grid 600 wide, and rounding to it (about 1e-13) turns
+    // the spike into a sliver a few 1e-15 thick, whose side the numbers then get wrong: a "hole" before any outer
+    let spike = Path::polyline([(0.004, 0.0), (0.005, 0.002), (0.007, 0.003), (0.008, 0.008)], false)?;
+    let (left, right) = (340.3295840238889, 602.5748464400456);
+    let bar = polygons_path(&[vec![(left, 0.0), (right, 0.0), (right, 0.001), (left, 0.001)]])?;
+    let found = rings(&spike.union(&bar, TOLERANCE)?)?;
+    assert_eq!(canonical_fault(&found), None, "{found:?}");
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert!(
+        (net_area(&found) - (4.5e-6 + (right - left) * 0.001)).abs() < 1e-9,
+        "{found:?}"
+    );
+    Ok(())
+}
+
 // Properties ---------------------------------------------------------------------------------------------------------
 
 /// Closed polygons on a coarse lattice, so that edges coincide, touch and cross at corners, and a polygon may wind

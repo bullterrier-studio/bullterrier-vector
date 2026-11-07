@@ -274,7 +274,7 @@ fn kind() -> BoxedStrategy<Subs> {
 }
 
 /// A scene: the two operands. Independent shapes, a shape and the same shape with every point moved by up to 1e-7
-/// (edges nearly coincident), or a huge shape with a tiny one inside.
+/// (edges nearly coincident), a huge shape with a tiny one inside, or both at some other size.
 fn scenes() -> BoxedStrategy<(Subs, Subs)> {
     let near = (kind(), prop::collection::vec((-1.0..1.0_f64, -1.0..1.0_f64), 1..9)).prop_map(|(a, jitter)| {
         let mut next = 0;
@@ -292,7 +292,16 @@ fn scenes() -> BoxedStrategy<(Subs, Subs)> {
             moved(&small, |(x, y)| (500.0 * up + x * down, 500.0 * up + y * down)),
         )
     });
-    prop_oneof![5 => (kind(), kind()), 3 => near, 2 => ratio].boxed()
+    // two straight-edged shapes, both 1e-100 to 1e60 times their size (curves would need a tolerance to match)
+    let straight = || prop_oneof![lattice(), blob(), star(), nested(), sliver(), many()];
+    let scaled = (straight(), straight(), -100.0..60.0_f64).prop_map(|(a, b, power)| {
+        let by = libm::pow(10.0, power);
+        (
+            moved(&a, |(x, y)| (x * by, y * by)),
+            moved(&b, |(x, y)| (x * by, y * by)),
+        )
+    });
+    prop_oneof![5 => (kind(), kind()), 3 => near, 2 => ratio, 2 => scaled].boxed()
 }
 
 fn probe_units() -> impl Strategy<Value = Vec<[f64; 4]>> {
