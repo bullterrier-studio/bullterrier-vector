@@ -4,7 +4,7 @@
 
 use super::{Args, Context, Inputs, Node, each_shape};
 use crate::geometry::MAX_COORDINATE;
-use crate::path::{Combine, Cost, FLATNESS};
+use crate::path::{Combine, FLATNESS};
 use crate::{Arg, Domain, Error, Kind, Literal, Path, Reads, Role, Shape, Verb};
 use std::borrow::Cow;
 
@@ -91,7 +91,7 @@ pub(crate) static RESOLVE: Verb = Verb {
 fn region<'a>(
     other: &'a [Shape],
     tolerance: f64,
-    charge: &mut dyn FnMut(Cost, usize) -> Result<(), Error>,
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Cow<'a, Path>, Error> {
     Ok(match other {
         [] => Cow::Owned(Path::new()),
@@ -109,7 +109,7 @@ fn region<'a>(
 /// Each shape of `inputs.previous` combined as `how` with the region of the drawing the call takes.
 fn combine(how: Combine, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
     let place = cx.place.to_string();
-    let mut charge = |_, count| cx.work.made_segments(count, &place);
+    let mut charge = |count| cx.work.made_segments(count, &place);
     let tolerance = args
         .once_number(cx, "tolerance")
         .map_err(|error| error.at_argument(&cx.place, None))?;
@@ -167,7 +167,7 @@ impl Node for Resolve {
 
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         let place = cx.place.to_string();
-        let mut charge = |_, count| cx.work.made_segments(count, &place);
+        let mut charge = |count| cx.work.made_segments(count, &place);
         let tolerance = args
             .once_number(cx, "tolerance")
             .map_err(|error| error.at_argument(&cx.place, None))?;

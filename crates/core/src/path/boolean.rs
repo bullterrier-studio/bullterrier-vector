@@ -18,15 +18,6 @@ use i_overlay::float::single::SingleFloatOverlay;
 
 type Contour = Vec<[f64; 2]>;
 
-/// What a charge of a verb counts: the edges each curve is flattened into, the pairs of edges whose boxes overlap
-/// (which the engine's time grows with), or the vertices of the result.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Cost {
-    Edges,
-    Pairs,
-    Vertices,
-}
-
 /// How two paths combine.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Combine {
@@ -51,7 +42,7 @@ impl Path {
     /// [`Error::Parameter`] if `tolerance` is not above 0 and within ±1e100, or the result has a coordinate beyond
     /// ±1e100.
     pub fn resolve(&self, tolerance: f64) -> Result<Self, Error> {
-        self.resolved(tolerance, &mut |_, _| Ok(()))
+        self.resolved(tolerance, &mut |_| Ok(()))
     }
 
     /// The region either path fills, as in [`Path::resolve`]: both paths together.
@@ -59,7 +50,7 @@ impl Path {
     /// # Errors
     /// As [`Path::resolve`].
     pub fn union(&self, other: &Self, tolerance: f64) -> Result<Self, Error> {
-        self.combined(other, Combine::Union, tolerance, &mut |_, _| Ok(()))
+        self.combined(other, Combine::Union, tolerance, &mut |_| Ok(()))
     }
 
     /// The region this path fills and `other` does not.
@@ -67,7 +58,7 @@ impl Path {
     /// # Errors
     /// As [`Path::resolve`].
     pub fn subtract(&self, other: &Self, tolerance: f64) -> Result<Self, Error> {
-        self.combined(other, Combine::Subtract, tolerance, &mut |_, _| Ok(()))
+        self.combined(other, Combine::Subtract, tolerance, &mut |_| Ok(()))
     }
 
     /// The region both paths fill. An empty result is an empty path.
@@ -75,7 +66,7 @@ impl Path {
     /// # Errors
     /// As [`Path::resolve`].
     pub fn intersect(&self, other: &Self, tolerance: f64) -> Result<Self, Error> {
-        self.combined(other, Combine::Intersect, tolerance, &mut |_, _| Ok(()))
+        self.combined(other, Combine::Intersect, tolerance, &mut |_| Ok(()))
     }
 
     /// The region one of the paths fills and the other does not (the symmetric difference).
@@ -83,7 +74,7 @@ impl Path {
     /// # Errors
     /// As [`Path::resolve`].
     pub fn exclude(&self, other: &Self, tolerance: f64) -> Result<Self, Error> {
-        self.combined(other, Combine::Exclude, tolerance, &mut |_, _| Ok(()))
+        self.combined(other, Combine::Exclude, tolerance, &mut |_| Ok(()))
     }
 
     /// As [`Path::resolve`], calling `charge` with the number of edges each curve is flattened into, then with the
@@ -92,7 +83,7 @@ impl Path {
     pub(crate) fn resolved(
         &self,
         tolerance: f64,
-        charge: &mut dyn FnMut(Cost, usize) -> Result<(), Error>,
+        charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<Self, Error> {
         run(self, &Self::new(), OverlayRule::Subject, tolerance, charge)
     }
@@ -103,7 +94,7 @@ impl Path {
         other: &Self,
         how: Combine,
         tolerance: f64,
-        charge: &mut dyn FnMut(Cost, usize) -> Result<(), Error>,
+        charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<Self, Error> {
         let rule = match how {
             Combine::Union => OverlayRule::Union,
@@ -120,7 +111,7 @@ fn run(
     clip: &Path,
     rule: OverlayRule,
     tolerance: f64,
-    charge: &mut dyn FnMut(Cost, usize) -> Result<(), Error>,
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Path, Error> {
     if tolerance <= 0.0 {
         return Err(Error::parameter(
@@ -133,9 +124,9 @@ fn run(
     let tolerance = coordinate("tolerance", tolerance)?;
     let subject = contours(subject, tolerance, charge)?;
     let clip = contours(clip, tolerance, charge)?;
-    charge(Cost::Pairs, box_pairs(&subject, &clip))?;
+    charge(box_pairs(&subject, &clip))?;
     let shapes = subject.overlay_as::<i64>(&clip, rule, FillRule::NonZero);
-    charge(Cost::Vertices, shapes.iter().flatten().map(Vec::len).sum())?;
+    charge(shapes.iter().flatten().map(Vec::len).sum())?;
     canonical(shapes)
 }
 
@@ -145,10 +136,10 @@ fn run(
 fn contours(
     path: &Path,
     tolerance: f64,
-    charge: &mut dyn FnMut(Cost, usize) -> Result<(), Error>,
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Vec<Contour>, Error> {
     Ok(path
-        .flattened_within(tolerance, &mut |count| charge(Cost::Edges, count))?
+        .flattened_within(tolerance, charge)?
         .into_iter()
         .filter(|polyline| polyline.points.len() >= 3)
         .map(|polyline| polyline.points.iter().map(|point| [point.x, point.y]).collect())
@@ -324,17 +315,14 @@ mod tests {
     fn the_edges_flattened_the_pairs_of_edges_and_the_vertices_made_are_charged() -> Result<(), Error> {
         let (a, b) = (square(0.0, 4.0)?, square(2.0, 4.0)?);
         let mut charged = Vec::new();
-        a.combined(&b, Combine::Union, 0.01, &mut |cost, count| {
-            charged.push((cost, count));
+        a.combined(&b, Combine::Union, 0.01, &mut |count| {
+            charged.push(count);
             Ok(())
         })?;
         // four edges for each square (one charge per curve), the 10 pairs of edges with boxes that overlap (the corners
         // of each square: 4 and 4; the right edge of the first meets the top of the second, the bottom of the first
         // the left of the second), then the eight corners of the union
-        assert_eq!(
-            charged,
-            [vec![(Cost::Edges, 1); 8], vec![(Cost::Pairs, 10), (Cost::Vertices, 8)]].concat()
-        );
+        assert_eq!(charged, [vec![1; 8], vec![10, 8]].concat());
         Ok(())
     }
 
@@ -343,7 +331,7 @@ mod tests {
         let (a, b) = (square(0.0, 4.0)?, square(2.0, 4.0)?);
         let refuse = |after: usize| {
             let mut calls = 0;
-            a.combined(&b, Combine::Union, 0.01, &mut |_, _| {
+            a.combined(&b, Combine::Union, 0.01, &mut |_| {
                 calls += 1;
                 if calls > after {
                     Err(Error::parameter("work", "over the limit"))
