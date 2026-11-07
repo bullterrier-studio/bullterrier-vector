@@ -740,6 +740,7 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
         {},
         [row("M22.5 20 L32.5 20 L32.5 30 L22.5 30 Z")],
     ),
+    "slice": (lambda: Drawing(LINE).slice(0.25, 0.75), {}, [row("M2.5 0 L7.5 0", None, BLACK)]),
     "fill": (lambda: Drawing(SQUARE).fill("#0000ff"), {}, [row(RECT, "#0000ffff")]),
     "stroke": (lambda: Drawing(SQUARE).stroke("#00ff00"), {}, [row(RECT, None, "#00ff00ff")]),
     "opacity": (lambda: Drawing(SQUARE).opacity(0.5), {}, [row(RECT, opacity=0.5)]),

@@ -243,6 +243,17 @@ impl PyDrawing {
         checked(self.0.along(&path.get().0, bend))
     }
 
+    /// Every shape cut to the piece of its outline between `start` and `end` (fractions 0 to 1 of its length, each a
+    /// number, a Param or an expression, read per shape): `slice(0, progress)` draws it on. A closed outline is measured
+    /// from its top, or from the point nearest `near`.
+    #[pyo3(signature = (start, end, *, near=None))]
+    fn slice(&self, start: Num, end: Num, near: Option<Pair>) -> PyResult<Self> {
+        checked(match near {
+            Some(Pair(x, y)) => self.0.slice_near(start.0, end.0, (x, y)),
+            None => self.0.slice(start.0, end.0),
+        })
+    }
+
     /// Every shape filled with `color` (`"#rrggbb"`, `"#rrggbbaa"` or `"none"`).
     pub(crate) fn fill(&self, color: &str) -> PyResult<Self> {
         checked(self.0.fill(raised(vector::Color::parse(color))?))

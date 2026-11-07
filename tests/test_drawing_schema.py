@@ -513,6 +513,16 @@ AGREED = [
         square_with({"along": {"path": "M0 0 L100 0", "near": [1, 2, 3]}}), False, id="an along near of three"
     ),
     pytest.param(square_with({"along": {"path": "M0 0 L100 0", "speed": 1}}), False, id="an along argument it lacks"),
+    pytest.param(
+        square_with({"slice": {"start": 0, "end": 1, "near": [1, 2]}}), True, id="a slice with every argument"
+    ),
+    pytest.param(square_with({"slice": {"start": 0.25, "end": 0.25}}), True, id="a slice to a point"),
+    pytest.param(square_with({"slice": {"start": 0}}), False, id="a slice without an end"),
+    pytest.param(square_with({"slice": {"start": 0, "end": 1.1}}), False, id="a slice end past 1"),
+    pytest.param(square_with({"slice": {"start": -0.1, "end": 1}}), False, id="a slice start below 0"),
+    pytest.param(
+        square_with({"slice": {"start": 0, "end": 1, "near": [1e101, 0]}}), False, id="a slice near past 1e100"
+    ),
     pytest.param(square_with({"scale": {"by": [2, -3], "about": [5, 5]}}), True, id="a scale pair about a point"),
     pytest.param(square_with({"scale": {"by": [2, 0]}}), False, id="a scale pair with a zero"),
     pytest.param(square_with({"fill": {"color": "none"}}), True, id="a fill of none"),
@@ -577,6 +587,7 @@ REGISTERED = {
     "rotate",
     "scale",
     "along",
+    "slice",
     "fill",
     "stroke",
     "opacity",

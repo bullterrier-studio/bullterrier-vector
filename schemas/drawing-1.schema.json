@@ -499,7 +499,7 @@
           "properties": {
             "start": { "$ref": "#/$defs/fraction" },
             "end": { "$ref": "#/$defs/fraction" },
-            "near": { "$ref": "#/$defs/point" }
+            "near": { "$ref": "#/$defs/coordinate_point" }
           },
           "required": ["start", "end"]
         },
