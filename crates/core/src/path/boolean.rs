@@ -320,8 +320,6 @@ mod tests {
         Path::rect(x, x, size, size, 0.0)
     }
 
-    const KINDS: [Cost; 3] = [Cost::Edges, Cost::Pairs, Cost::Vertices];
-
     #[test]
     fn the_edges_flattened_the_pairs_of_edges_and_the_vertices_made_are_charged() -> Result<(), Error> {
         let (a, b) = (square(0.0, 4.0)?, square(2.0, 4.0)?);
@@ -330,40 +328,39 @@ mod tests {
             charged.push((cost, count));
             Ok(())
         })?;
-        let total = |kind| {
-            charged
-                .iter()
-                .filter(|(cost, _)| *cost == kind)
-                .map(|(_, count)| count)
-                .sum::<usize>()
-        };
-        // the 8 edges of the two squares, the 10 pairs of edges with boxes that overlap (the corners of each square: 4
-        // and 4; the right edge of the first meets the top of the second, the bottom of the first the left of the
-        // second), the 8 corners of the union
-        assert_eq!(KINDS.map(total), [8, 10, 8]);
+        // four edges for each square (one charge per curve), the 10 pairs of edges with boxes that overlap (the corners
+        // of each square: 4 and 4; the right edge of the first meets the top of the second, the bottom of the first
+        // the left of the second), then the eight corners of the union
+        assert_eq!(
+            charged,
+            [vec![(Cost::Edges, 1); 8], vec![(Cost::Pairs, 10), (Cost::Vertices, 8)]].concat()
+        );
         Ok(())
     }
 
     #[test]
-    fn a_refusal_of_any_kind_of_cost_stops_the_verb() -> Result<(), Error> {
+    fn a_refused_charge_stops_the_verb_before_and_after_the_engine_runs() -> Result<(), Error> {
         let (a, b) = (square(0.0, 4.0)?, square(2.0, 4.0)?);
-        let refuse = |kind: Option<Cost>| {
-            a.combined(&b, Combine::Union, 0.01, &mut |cost, _| {
-                if Some(cost) == kind {
+        let refuse = |after: usize| {
+            let mut calls = 0;
+            a.combined(&b, Combine::Union, 0.01, &mut |_, _| {
+                calls += 1;
+                if calls > after {
                     Err(Error::parameter("work", "over the limit"))
                 } else {
                     Ok(())
                 }
             })
         };
-        for kind in KINDS {
+        // eight curves are charged, then the pairs, then the result: refusing the first, or any later one, stops the verb
+        for after in [0, 8, 9] {
             assert_eq!(
-                refuse(Some(kind)),
+                refuse(after),
                 Err(Error::parameter("work", "over the limit")),
-                "{kind:?}"
+                "after {after}"
             );
         }
-        assert!(refuse(None).is_ok());
+        assert!(refuse(10).is_ok());
         Ok(())
     }
 
