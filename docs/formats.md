@@ -274,6 +274,8 @@ A number is a JSON number (finite, as JSON allows no other) or an expression, an
 | `{"random": {"low": a, "high": b, "seed": s}}` | `random(low, high, *, seed=0)` | per item, seeded; `seed` a whole number |
 | `{"stagger": {"progress": p, "spread": s}}` | `stagger(progress, *, spread=0.5)` | per item, staggered progress |
 
+`seed` and `spread` may be left out when reading (0 and 0.5); `to_json` writes every field.
+
 That is the whole grammar: no other operator or function, no strings, no conditionals, no references to time or to
 other arguments. Every operand and every argument of a per-item number is itself a number, so they nest:
 `btvec.random(-10, 10, seed=7) * burst` is `{"mul": [{"random": {"low": -10, "high": 10, "seed": 7}}, {"param":
@@ -490,7 +492,7 @@ registered, with a test named after it; every later call brings its own checks a
 | `drawing-used` | an entry of `drawings` is used nowhere |
 | `path-data` | path data does not parse; the error names the first bad command |
 | `with-values` | a key names a Param the drawing before it does not read, or one an earlier `with_values` fixed; a value outside its Param's range (a cyclic one wraps) |
-| `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `trace` levels not increasing, `trace` neighbours (`before`, `after`) whose literal `width`, `height` or `box` differ from the field's, `random` with `low` above `high`, `text` `fit` without `width` or on an axis also in `axes`, `text` `inside` with `width`, `fit` or `anchor` or with a constant `leading` not above 0, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
+| `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `trace` levels not increasing, `trace` neighbours (`before`, `after`) whose literal `width`, `height` or `box` differ from the field's, `random` with `low` above `high` or a `seed` that is not a whole number, `stagger` with a `spread` outside 0..1 or equal to 1, `text` `fit` without `width` or on an axis also in `axes`, `text` `inside` with `width`, `fit` or `anchor` or with a constant `leading` not above 0, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
 | `font-checks` | with the font supplied: an axis or feature the font lacks, the axis a `fit` names if the font lacks it (`fit` `"size"` is not an axis), an axis value outside its range (`ParameterError`: the caller supplied the wrong font) |
 | `inputs-supplied` | an input the document declares that `inputs` does not give, a name in `inputs` the document does not declare, two names with equal bytes, bytes that do not match `sha256`, a font the library cannot read, a map whose bytes are not `width × height` (a checked multiply: an overflow is a mismatch; `ParameterError`) |
 

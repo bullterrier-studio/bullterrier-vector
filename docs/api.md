@@ -6,7 +6,8 @@ in Rust and Python: `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V
 `parameters()`, `shapes()` and `size`, and the style verbs on a `Path` (V2b). A `Shape`'s `style` has `fill`, `stroke`,
 `stroke_width`, `join`, `cap`, `miter_limit`, `opacity` and `blend`; the rest of the members below arrive with their
 steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6), and `along` (V6) on `Path` and `Drawing`, all in Rust
-and Python, and `text` and `along` in a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
+and Python, and `text` and `along` in a document; and the per-item numbers `by_index`, `by_order`, `random` and
+`stagger` (V7), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
 defaults written here. The rest is not built ([roadmap.md](roadmap.md)). Reasons:
 [design-decisions.md](design-decisions.md), "The code API". The JSON form of a drawing: [formats.md](formats.md).
 
@@ -437,7 +438,10 @@ Per-item numbers take a value per shape, from its attributes:
 | `random` | `random(low, high, *, seed=0)` | a number in `low..high` per shape, from `seed` and its index | `low` above `high`; `seed` not a whole number |
 | `stagger` | `stagger(progress, *, spread=0.5)` | each shape's own progress 0..1: the shape at order `p` runs while `progress` goes from `p × spread` to `p × spread + 1 - spread` (0: all together; towards 1: one after another) | `spread` outside 0..1 or equal to 1 |
 
-On a single shape `by_index` and `by_order` give `first`.
+On a single shape `by_index` and `by_order` give `first`; a shape that carries no `order` (a lone path or shape given
+as it is) reads 0. Operands that are plain numbers are checked when the call is made, the others when drawn. Rust: the
+functions `by_index` and `by_order`, and `Random::new(low, high).seed(s)` and `Stagger::new(progress).spread(s)`, which
+convert into an `Expr`.
 
 `btvec.ease` holds pure functions of a number, for the caller's own code (a function of time for `frames`, a list
 of values per item): `in_cubic`, `out_cubic`, `in_out_cubic` and `out_back` (overshooting to about 1.1). Each maps 0..1
