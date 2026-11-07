@@ -213,8 +213,8 @@ output pixels. A size is above 0 and at most 100,000 a side; others raise `Param
 
 | Step | Signature | Promise | Errors |
 |---|---|---|---|
-| `split` | `split()` | every shape split into its parts, each keeping its attributes, with `part` added and its own bounds centre as origin | |
-| `merge` | `merge(*, by=None)` | shapes with an equal attribute `by` (all shapes, if `None`) united into one, with the first's attributes | `by` that no shape carries |
+| `split` | `split()` | every shape split into its parts (as `Path.split`), each a shape of its own keeping the attributes and style, with `part` (from 0, within its shape) and its own bounds centre as `origin`, replacing one the shape carried | |
+| `merge` | `merge(*, by=None)` | shapes with an equal attribute `by` (all shapes, if `None`) joined into one: their sub-paths in list order, not united (overlaps stay; `union` is V8), with the first's attributes and style, at the first's place; groups in the order their first members appear; shapes that lack `by` are a group | `by` that is no attribute name; `by` that no shape of the list carries (when drawn) |
 | `only` | `only(**attributes)` | the shapes whose attributes equal these (a list means any of) | an attribute no shape carries |
 | `without` | `without(**attributes)` | the other shapes | as `only` |
 | `repeat` | `repeat(count, *, translate=(0, 0), rotate=0, scale=1, about=None)` | `count` copies, copy `i` transformed `i` times; writes `copy`, and `order` where a shape has none | `count` below 1 |
@@ -226,7 +226,8 @@ the copies); `trace` writes `level`; `Drawing(...)` writes `order` on the shapes
 spreads it over its shapes that carry none, so a text keeps its per-letter order beside a rectangle) and survives
 `split` and `only`; `index`
 counts the current list. A shape whose path becomes empty stays in the list and draws nothing, so `index`, `order` and
-per-item lists keep their meaning; only `only`, `without` and `merge` remove shapes.
+per-item lists keep their meaning; only `only`, `without` and `merge` remove shapes. A shape with nothing in it that
+`split` meets stays, with `part` 0. Rust: `drawing.split()`, `drawing.merge()` and `drawing.merge_by("word")`.
 
 ### Style
 
