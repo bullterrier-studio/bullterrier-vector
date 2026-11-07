@@ -267,6 +267,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   more triangles and a triangle at every smooth corner. Resolving the rings with `Path::resolve` before the fill covers
   every point once, but costs 3.4 times the time of `to_mesh` on stroked scenes. Open: resolve only strokes that fold
   back, by a geometric test, with the engine's cost charged to `MAX_TESSELLATION_WORK` first.
+  The limit stays: the known failing inputs are expected-failure tests in `mesh_stroke.rs` (they fail once the limit is gone),
+  and the random property excludes strokes with two or more turns over 100 degrees, the boundary of the limit.
   A smooth curve gains no triangles, and the scenes measured gained under 6%.
 
 - **Native against WebAssembly: exact for what we compute, a measured tolerance for pixels** (2026-11-01). The
