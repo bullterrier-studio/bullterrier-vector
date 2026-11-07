@@ -478,8 +478,6 @@ coarsely.
 Done when: a word draws on letter by letter and scatters by index with no text-specific modifier.
 
 Carried from V6:
-- `word` counts runs of non-whitespace characters, a no-break space (U+00A0, U+2007, U+202F) being whitespace there,
-  while a wrap does not break at one: decide one rule before `merge(by=word)`.
 - `api.md` says `translate`, `rotate` and `scale` move the `origin` attribute and that `about` defaults to the shape's
   origin; the code moves neither and defaults `about` to the middle of the bounds. Make the code match, or the text.
 

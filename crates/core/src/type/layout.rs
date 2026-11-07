@@ -346,7 +346,7 @@ pub(crate) fn typeset(
                 Align::Right => measured.width,
             };
         for (((one, location), advance), gap) in measured.glyphs.iter().zip(&measured.advances).zip(&measured.gaps) {
-            if one.character.is_whitespace() {
+            if lines::breaks(one.character) {
                 word = None;
             } else if word.is_none() {
                 word = Some(words);

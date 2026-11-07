@@ -194,6 +194,36 @@ fn no_break_spaces_are_part_of_a_word_and_other_whitespace_still_breaks() -> Out
     assert_wrapped(&rows)
 }
 
+#[test]
+fn the_word_attribute_counts_a_no_break_space_as_part_of_a_word_as_the_wrap_does() -> Outcome {
+    // (rule, text, the word of each glyph); none of the spaces draws an outline
+    let rows: [(&str, &str, &[u32]); 5] = [
+        ("a no-break space joins two runs", "H\u{a0}H H", &[0, 0, 1]),
+        ("a figure space (U+2007) joins them", "H\u{2007}H H", &[0, 0, 1]),
+        (
+            "a narrow no-break space (U+202F) joins them",
+            "H\u{202f}H H",
+            &[0, 0, 1],
+        ),
+        (
+            "a no-break space the text starts with is part of its first word",
+            "\u{a0}H H",
+            &[0, 1],
+        ),
+        ("an em space (U+2003) still ends a word", "H\u{2003}H", &[0, 1]),
+    ];
+    let font = fraunces()?;
+    for (rule, content, words) in rows {
+        let drawn: Vec<Option<u32>> = shapes_of(content, at_em(&font))?
+            .iter()
+            .map(|shape| shape.attributes().word())
+            .collect();
+        let expected: Vec<Option<u32>> = words.iter().map(|&word| Some(word)).collect();
+        assert_eq!(drawn, expected, "{rule}");
+    }
+    Ok(())
+}
+
 /// Checks that each row's text, wrapped to its width, has every glyph as its character, line and pen x.
 fn assert_wrapped(rows: &[(&str, &str, f64, Glyphs)]) -> Outcome {
     let font = fraunces()?;

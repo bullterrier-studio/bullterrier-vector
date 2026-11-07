@@ -239,9 +239,10 @@ fn sized(line: &Measured, size: f64, width: f64, number: usize) -> Result<f64, E
     }
 }
 
-/// Whether `one` is a place to break a line: whitespace, except the three no-break spaces (U+00A0 no-break space, U+2007
-/// figure space, U+202F narrow no-break space), which are part of a word.
-fn breaks(one: char) -> bool {
+/// Whether `one` ends a word, and so is a place to break a line: whitespace, except the three no-break spaces (U+00A0
+/// no-break space, U+2007 figure space, U+202F narrow no-break space), which are part of a word. The wrap and the `word`
+/// attribute both ask this.
+pub(super) fn breaks(one: char) -> bool {
     one.is_whitespace() && !matches!(one, '\u{a0}' | '\u{2007}' | '\u{202f}')
 }
 
