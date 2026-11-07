@@ -222,7 +222,8 @@ impl From<&Font> for Text {
 /// A drawing of `content` in the font of `options`: one shape for every glyph that has an outline (a space or a line
 /// break has none), shaped with the font's kerning, ligatures and the rules of the script of each line, and written
 /// with the attributes `glyph`, `char`, `word`, `line`, `order` and `origin`. A `"\n"` in `content` breaks a line. The
-/// outlines keep the font's own contours, which may overlap; they fill as the font draws them.
+/// outlines keep the font's own contours, which may overlap; they fill as the font draws them, and
+/// [`Drawing::resolve`] unites them.
 ///
 /// The text is drawn at the size, tracking, leading, alignment, anchor, axes and features of `options`. A line is
 /// shaped as one run in the script and direction of its first strong character (a line that mixes directions is not
