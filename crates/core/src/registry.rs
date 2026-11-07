@@ -23,6 +23,7 @@ const NODES: &[&dyn Node] = &[
     &transform::Rotate,
     &transform::Scale,
     &transform::Along,
+    &transform::Slice,
     &style::Fill,
     &style::Stroke,
     &style::Opacity,

@@ -1,4 +1,4 @@
-//! The geometry steps: `translate`, `rotate`, `scale`, `along`. Each applies the `Path` verb of the same name to every
+//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`. Each applies the `Path` verb of the same name to every
 //! shape.
 
 use super::{Args, Context, Inputs, Node, each_shape};
@@ -168,6 +168,43 @@ impl Node for Along {
                 }
             };
             Ok(shape.clone().with_path(shape.path().bent(guide, start, &mut charge)?))
+        })
+    }
+}
+
+/// Keeps the piece of every shape between two positions along it.
+#[derive(Debug)]
+pub(crate) struct Slice;
+
+pub(crate) static SLICE: Verb = Verb {
+    name: "slice",
+    role: Role::Step,
+    summary: "keeps the piece of every shape between the positions start and end (fractions 0 to 1 of its length, start not after end): slice(0, progress) draws it on; a closed outline is measured from its top, or from the point nearest near; a shape with nothing in it stays",
+    args: &[
+        per_shape("start", Kind::Number, None, Domain::Fraction),
+        per_shape("end", Kind::Number, None, Domain::Fraction),
+        per_shape("near", Kind::Point, Some(Literal::Unset), Domain::Coordinate),
+    ],
+    check: None,
+};
+
+impl Node for Slice {
+    fn verb(&self) -> &'static Verb {
+        &SLICE
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let place = cx.place.to_string();
+        each_shape(inputs.previous, cx, |shape, item| {
+            let (start, end) = (args.number(cx, "start", item)?, args.number(cx, "end", item)?);
+            let near = args.point(cx, "near", item)?;
+            // a shape with nothing in it has no piece to keep, and stays so the list keeps its numbering
+            let weight = shape.path().weight();
+            if weight == 0 {
+                return Ok(shape.clone());
+            }
+            cx.work.made_segments(weight, &place)?;
+            Ok(shape.clone().with_path(shape.path().slice(start, end, near)?))
         })
     }
 }

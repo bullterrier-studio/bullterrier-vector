@@ -9,6 +9,7 @@ mod drawing_cache;
 mod drawing_items;
 mod drawing_per_item;
 mod drawing_select;
+mod drawing_slice;
 mod drawing_stack;
 mod drawing_style;
 mod drawing_transform;

@@ -291,6 +291,52 @@ fn rows() -> Vec<Row> {
             }),
         },
         Row {
+            verb: "slice",
+            sample: || Ok(square()?.slice(0.25, 0.75)),
+            with: Some(|argument, value| match argument {
+                "start" => Ok(square()?.slice(value, 1.0)),
+                "end" => Ok(square()?.slice(0.0, value)),
+                _ => Err(unknown("slice", argument)),
+            }),
+            ranges: &[
+                ("start", 0.0, true),
+                ("start", 1.0, true),
+                ("start", 1.000_000_1, false),
+                ("start", -1e-9, false),
+                ("start", f64::NAN, false),
+                ("end", 0.0, true),
+                ("end", 1.0, true),
+                ("end", 1.000_000_1, false),
+                ("end", -1e-9, false),
+                ("end", f64::NAN, false),
+                ("end", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    // two positions in 0..1 from the two numbers, the smaller first
+                    let (start, end) = (
+                        a.abs().fract().min(b.abs().fract()),
+                        a.abs().fract().max(b.abs().fract()),
+                    );
+                    let near = Point::new(b, -a);
+                    Ok(vec![
+                        (
+                            "from the top",
+                            Drawing::from(path.clone()).slice(start, end),
+                            path.slice(start, end, None),
+                        ),
+                        (
+                            "from the point nearest another",
+                            Drawing::from(path.clone()).slice_near(start, end, near),
+                            path.slice(start, end, Some(near)),
+                        ),
+                    ])
+                },
+                // the middle half of a line 10 long
+                by_hand: &[("M0 0 L10 0", |d| Ok(d.slice(0.25, 0.75)), "M2.5 0 L7.5 0")],
+            }),
+        },
+        Row {
             verb: "fill",
             sample: || Ok(square()?.fill(blue())),
             with: None,

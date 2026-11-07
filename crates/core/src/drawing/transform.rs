@@ -1,4 +1,4 @@
-//! The geometry steps of a drawing: `translate`, `rotate`, `scale`, `along`.
+//! The geometry steps of a drawing: `translate`, `rotate`, `scale`, `along`, `slice`.
 
 use super::Drawing;
 use crate::node::{Given, transform};
@@ -204,5 +204,39 @@ impl Drawing {
             given.push(("start", Given::Number(start)));
         }
         self.then(&transform::Along, given)
+    }
+
+    /// This drawing with every shape cut to the piece of its outline between the positions `start` and `end`
+    /// (fractions 0 to 1 of its length, as [`Path::slice`] does): `slice(0, progress)` draws it on. A number, a
+    /// `Param` or an expression, read for each shape, so a per-item number draws the shapes on one after another:
+    /// `text.slice(0, Stagger::new(&progress).spread(0.6))`. A closed outline is measured from its top. A shape with
+    /// nothing in it stays as it is.
+    ///
+    /// A position outside 0 to 1 leaves the drawing with an [`error`](Drawing::error) naming the step
+    /// (`step 2 (slice).end`); so does a number that reads a Param, when the drawing is drawn, and a `start` after
+    /// the `end` of its shape.
+    #[must_use]
+    pub fn slice(&self, start: impl Into<Expr>, end: impl Into<Expr>) -> Self {
+        self.then(
+            &transform::Slice,
+            vec![
+                ("start", Given::Number(start.into())),
+                ("end", Given::Number(end.into())),
+            ],
+        )
+    }
+
+    /// This drawing sliced as [`Drawing::slice`] does, with a closed outline measured from its point nearest `near`
+    /// instead of its top.
+    #[must_use]
+    pub fn slice_near(&self, start: impl Into<Expr>, end: impl Into<Expr>, near: impl Into<Pivot>) -> Self {
+        self.then(
+            &transform::Slice,
+            vec![
+                ("start", Given::Number(start.into())),
+                ("end", Given::Number(end.into())),
+                ("near", Pivot::given(Some(near.into()))),
+            ],
+        )
     }
 }
