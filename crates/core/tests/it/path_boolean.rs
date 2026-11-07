@@ -415,6 +415,21 @@ fn a_curve_that_runs_out_and_back_along_one_line_leaves_no_contour_that_rounding
     Ok(())
 }
 
+#[test]
+fn shapes_so_small_that_their_area_is_not_a_number_still_combine() -> Outcome {
+    // the area of a square of 1e-200 is 1e-400, which a number cannot hold: the corners are what to look at
+    for size in [1.0e-160, 1.0e-200, 1.0e-250] {
+        let a = square(0.0, 0.0, 4.0 * size)?;
+        let b = square(2.0 * size, 2.0 * size, 4.0 * size)?;
+        let found = rings(&a.union(&b, size)?)?;
+        assert_eq!(found.len(), 1, "at size {size}");
+        assert_eq!(found[0].len(), 8, "at size {size}: {found:?}");
+        let right = found[0].iter().map(|corner| corner.0).fold(f64::NEG_INFINITY, f64::max);
+        assert!((right - 6.0 * size).abs() <= 1e-12 * size, "at size {size}: {found:?}");
+    }
+    Ok(())
+}
+
 // Properties ---------------------------------------------------------------------------------------------------------
 
 /// Closed polygons on a coarse lattice, so that edges coincide, touch and cross at corners, and a polygon may wind

@@ -184,13 +184,21 @@ fn is_flat(contour: &Contour) -> bool {
     // up to about 1.5 of them thick can end up flat or flipped; 4 leaves room for the corners of both sides
     const FLAT_ULPS: f64 = 4.0;
     let [ox, oy] = contour.first().copied().unwrap_or_default();
-    let (mut doubled, mut perimeter, mut scale) = (0.0_f64, 0.0_f64, 0.0_f64);
-    for (&[x, y], &[next_x, next_y]) in contour.iter().zip(contour.iter().cycle().skip(1)) {
-        doubled += (x - ox) * (next_y - oy) - (next_x - ox) * (y - oy);
-        perimeter += ((next_x - x) * (next_x - x) + (next_y - y) * (next_y - y)).sqrt();
-        scale = scale.max(x.abs()).max(y.abs());
+    let scale = contour
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |most, coordinate| most.max(coordinate.abs()));
+    if scale == 0.0 {
+        return true;
     }
-    doubled.abs() <= FLAT_ULPS * f64::EPSILON * scale * perimeter
+    // in units of the largest coordinate, so that the products below are numbers whatever the size of the contour
+    let unit = |&[x, y]: &[f64; 2]| [(x - ox) / scale, (y - oy) / scale];
+    let (mut doubled, mut perimeter) = (0.0_f64, 0.0_f64);
+    for (from, to) in contour.iter().map(unit).zip(contour.iter().cycle().skip(1).map(unit)) {
+        doubled += from[0] * to[1] - to[0] * from[1];
+        perimeter += ((to[0] - from[0]) * (to[0] - from[0]) + (to[1] - from[1]) * (to[1] - from[1])).sqrt();
+    }
+    doubled.abs() <= FLAT_ULPS * f64::EPSILON * perimeter
 }
 
 /// The order of two contours, each starting at its topmost corner: top to bottom, then left to right.
