@@ -6,6 +6,7 @@ use crate::key::{Key, Keyed};
 
 mod arc;
 mod bend;
+mod boolean;
 mod bounds;
 mod build;
 mod curve;

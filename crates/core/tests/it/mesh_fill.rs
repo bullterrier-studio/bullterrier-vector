@@ -3,26 +3,13 @@
 //! self-overlap), closed-form areas and distances, never the tessellator.
 
 use crate::common::mesh::{area, check_layout, covering, mesh_of, triangles};
-use crate::common::{Corners, Outcome, clearance, winding};
+use crate::common::{Corners, Outcome, clearance, polygons_path, winding};
 use bullterrier_vector::{Color, Drawing, Path};
 use proptest::prelude::*;
 use std::f64::consts::PI;
 
 fn fill(path: Path) -> Drawing {
     Drawing::from(path).fill(Color::hex(0x0033_6699))
-}
-
-/// The closed polygons `polygons` as the sub-paths of one path.
-fn polygons_path(polygons: &[Corners]) -> Result<Path, bullterrier_vector::Error> {
-    let mut path = Path::new();
-    for corners in polygons {
-        path = path.move_to(corners[0])?;
-        for corner in &corners[1..] {
-            path = path.line_to(*corner)?;
-        }
-        path = path.close()?;
-    }
-    Ok(path)
 }
 
 fn polygons() -> impl Strategy<Value = Vec<Corners>> {

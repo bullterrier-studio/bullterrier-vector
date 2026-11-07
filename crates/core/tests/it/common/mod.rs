@@ -106,6 +106,19 @@ pub(crate) fn build(start: (f64, f64), steps: &[Step]) -> Result<Path, Error> {
 /// The corners of a polyline.
 pub(crate) type Corners = Vec<(f64, f64)>;
 
+/// The closed polygons `polygons` as the sub-paths of one path.
+pub(crate) fn polygons_path(polygons: &[Corners]) -> Result<Path, Error> {
+    let mut path = Path::new();
+    for corners in polygons {
+        path = path.move_to(corners[0])?;
+        for corner in &corners[1..] {
+            path = path.line_to(*corner)?;
+        }
+        path = path.close()?;
+    }
+    Ok(path)
+}
+
 /// How many times the closed polyline through `corners` winds round `point`: the angles the corners subtend at the
 /// point, added with their signs, make 2 pi for each turn. Only meaningful off the polyline.
 pub(crate) fn winding(corners: &[(f64, f64)], point: (f64, f64)) -> i32 {

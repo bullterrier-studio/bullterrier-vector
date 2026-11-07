@@ -46,6 +46,10 @@ sha2 = { version = "=0.11.1", default-features = false }
 # pure Rust with no `std`, so it runs the same in WebAssembly; WOFF (which needs its `z` feature) is not read. Used only
 # in crates/core/src/type/unpack.rs
 wuff = { version = "=0.2.9", default-features = false, features = ["brotli"] }
+# the boolean engine (docs/design-decisions.md, "Booleans"): pinned exactly, because the contours it makes are the result
+# of a boolean and a new release may order or snap them differently; no default features (none would be on: `rayon`,
+# `glam` and `serde` stay off); used only in crates/core/src/path/boolean.rs
+i_overlay = { version = "=9.1.0", default-features = false }
 
 # The tessellator is optimised in debug builds too: the tests of the work limit make it do about a second of release-build
 # work, which would take most of a minute unoptimised
