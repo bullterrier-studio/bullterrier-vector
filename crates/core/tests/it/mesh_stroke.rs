@@ -34,6 +34,25 @@ fn centreline_distance(corners: &[Point], closed: bool, point: Point) -> f64 {
         .fold(f64::INFINITY, f64::min)
 }
 
+/// How many corners of the polyline turn by more than 100 degrees (the angle between the directions of the two
+/// segments meeting there); a closed polyline also has the corner where it wraps.
+fn sharp_turns(corners: &[Point], closed: bool) -> usize {
+    let direction = |from: Point, to: Point| (to.0 - from.0, to.1 - from.1);
+    let n = corners.len();
+    let turns = if closed { 0..n } else { 1..n - 1 };
+    // constant: the boundary of the documented limit (docs/design-decisions.md, "Round strokes"), not a library parameter
+    let limit = libm::cos(100.0_f64.to_radians());
+    turns
+        .filter(|&i| {
+            let (a, b) = (
+                direction(corners[(i + n - 1) % n], corners[i]),
+                direction(corners[i], corners[(i + 1) % n]),
+            );
+            (a.0 * b.0 + a.1 * b.1) < limit * hypot(a.0, a.1) * hypot(b.0, b.1)
+        })
+        .count()
+}
+
 fn corners() -> impl Strategy<Value = Corners> {
     // whole numbers make corners meet and edges run along one another; fractions put them in general position
     let whole = (0..100_i32, 0..100_i32).prop_map(|(x, y)| (f64::from(x), f64::from(y)));
@@ -49,8 +68,9 @@ proptest! {
 
     #[test]
     fn a_round_stroke_covers_each_point_within_half_its_width_of_the_centreline_once_and_no_other(
-        corners in corners(),
-        closed in any::<bool>(),
+        (corners, closed) in (corners(), any::<bool>())
+            // a stroke with two or more turns over 100 degrees is the documented limit (expected-failure tests below)
+            .prop_filter("fewer than two sharp turns", |(corners, closed)| sharp_turns(corners, *closed) < 2),
         width in 2.0..22.0_f64,
         points in prop::collection::vec((-10.0..110.0_f64, -10.0..110.0_f64), 120),
     ) {
@@ -156,29 +176,75 @@ fn round_strokes_that_double_back_at_sharp_turns_cover_each_point_once() -> Outc
         ),
     ];
     for (case, corners, closed, width) in rows {
-        let stroke = Stroke::new(black()).width(width).join(Join::Round).cap(Cap::Round);
-        let mesh = mesh_of(&stroked(Path::polyline(corners.clone(), closed)?, stroke), 100.0, 100.0)?;
-        check_layout(&mesh)?;
-        let triangles = triangles(&mesh);
-        let mut decided = 0;
-        for x in 0..160 {
-            for y in 0..160 {
-                // a grid that avoids whole numbers, where the corners lie
-                let point = (f64::from(x) * 0.7 - 6.0 + 0.113, f64::from(y) * 0.7 - 6.0 + 0.071);
-                let distance = centreline_distance(&corners, closed, point);
-                if (distance - width / 2.0).abs() < 0.05 {
-                    continue;
-                }
-                let Some(covered) = covering(&triangles, point) else {
-                    continue;
-                };
-                decided += 1;
-                assert_eq!(covered, usize::from(distance < width / 2.0), "{case}: at {point:?}");
-            }
-        }
-        assert!(decided > 10_000, "{case}: only {decided} points were decided");
+        covered_once_on_a_grid(case, &corners, closed, width)?;
     }
     Ok(())
+}
+
+/// Asserts that a round stroke of `width` along `corners` covers every point of a 0.7 pixel grid once inside half its
+/// width of the centreline and never outside.
+fn covered_once_on_a_grid(case: &str, corners: &[Point], closed: bool, width: f64) -> Outcome {
+    let stroke = Stroke::new(black()).width(width).join(Join::Round).cap(Cap::Round);
+    let mesh = mesh_of(
+        &stroked(Path::polyline(corners.to_vec(), closed)?, stroke),
+        100.0,
+        100.0,
+    )?;
+    check_layout(&mesh)?;
+    let triangles = triangles(&mesh);
+    let mut decided = 0;
+    for x in 0..160 {
+        for y in 0..160 {
+            // a grid that avoids whole numbers, where the corners lie
+            let point = (f64::from(x) * 0.7 - 6.0 + 0.113, f64::from(y) * 0.7 - 6.0 + 0.071);
+            let distance = centreline_distance(corners, closed, point);
+            if (distance - width / 2.0).abs() < 0.05 {
+                continue;
+            }
+            let Some(covered) = covering(&triangles, point) else {
+                continue;
+            };
+            decided += 1;
+            assert_eq!(covered, usize::from(distance < width / 2.0), "{case}: at {point:?}");
+        }
+    }
+    assert!(decided > 10_000, "{case}: only {decided} points were decided");
+    Ok(())
+}
+
+// The known limit, kept as expected-failure tests (Rust has no xfail: `should_panic` passes while the defect exists and
+// fails once it is gone, which says to delete the marker and move the row into the table above). A round stroke with
+// two or more turns over 100 degrees can be covered three times in a small area: docs/design-decisions.md, "Round
+// strokes". Found by the unrestricted random property.
+
+/// Panics with the first point the stroke covers wrongly, or because it could not be drawn.
+fn open_round_stroke_covers_once(case: &str, corners: &[Point], width: f64) {
+    let drawn = covered_once_on_a_grid(case, corners, false, width);
+    assert!(drawn.is_ok(), "{case}: the stroke could not be drawn");
+}
+
+#[test]
+#[should_panic(expected = "seed corners: at (78.81299999999999, 68.97099999999999)")]
+fn known_limit_a_stroke_with_two_sharp_turns_is_covered_three_times_in_places() {
+    let corners = [
+        (82.0, 68.0),
+        (49.157_006_523_411_766, 5.0),
+        (77.501_713_592_125_18, 69.026_048_892_878_9),
+        (64.0, 0.0),
+    ];
+    open_round_stroke_covers_once("seed corners", &corners, 19.377_304_158_942_497);
+}
+
+#[test]
+#[should_panic(expected = "sibling corners: at (62.01299999999999, 55.67099999999999)")]
+fn known_limit_a_second_stroke_with_two_sharp_turns_is_covered_three_times_in_places() {
+    let corners = [
+        (17.0, 97.0),
+        (61.288_862_342_219_91, 46.002_092_237_212_715),
+        (35.834_927_025_075_125, 52.736_718_012_834_54),
+        (64.0, 49.0),
+    ];
+    open_round_stroke_covers_once("sibling corners", &corners, 15.009_430_390_852_563);
 }
 
 #[test]
