@@ -1,5 +1,6 @@
 //! `Drawing`: a tree of steps that evaluates to a list of shapes.
 
+mod boolean;
 mod cache;
 mod eval;
 mod graph;

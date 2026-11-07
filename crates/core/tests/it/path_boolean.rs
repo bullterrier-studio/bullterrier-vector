@@ -3,7 +3,8 @@
 //! (`common`), never the library's own region code.
 
 use crate::common::{
-    Corners, Outcome, clearance, log_uniform, parameter_refusal, polygons_path, shoelace_area, winding,
+    Corners, Outcome, Ring, clearance, log_uniform, net_area, parameter_refusal, polygons_path, rings, shoelace_area,
+    winding,
 };
 use bullterrier_vector::{Error, Path};
 use proptest::prelude::*;
@@ -11,8 +12,6 @@ use std::f64::consts::PI;
 
 /// The design tolerance the hand cases use for straight-edged shapes: nothing in them is curved.
 const TOLERANCE: f64 = 0.01;
-
-type Ring = Vec<(f64, f64)>;
 
 /// The four verbs in the order the tables list them.
 const VERBS: [&str; 4] = ["union", "subtract", "intersect", "exclude"];
@@ -24,31 +23,6 @@ fn apply(verb: usize, a: &Path, b: &Path, tolerance: f64) -> Result<Path, Error>
         2 => a.intersect(b, tolerance),
         _ => a.exclude(b, tolerance),
     }
-}
-
-/// The closed polygons of a result, one per sub-path.
-fn rings(path: &Path) -> Result<Vec<Ring>, Box<dyn std::error::Error>> {
-    let mut found: Vec<Ring> = Vec::new();
-    let mut closed = true;
-    for (letter, numbers) in crate::common::commands(&path.to_svg_path())? {
-        match (letter, &numbers[..]) {
-            ('M', &[x, y]) => {
-                assert!(closed, "a sub-path was left open");
-                closed = false;
-                found.push(vec![(x, y)]);
-            }
-            ('L', &[x, y]) => found.last_mut().ok_or("a line before a move")?.push((x, y)),
-            ('Z', []) => closed = true,
-            _ => return Err(format!("not a polygon command: {letter} {numbers:?}").into()),
-        }
-    }
-    assert!(closed, "a sub-path was left open");
-    Ok(found)
-}
-
-/// The area the result fills: outers add, holes (running the other way) subtract.
-fn net_area(rings: &[Ring]) -> f64 {
-    rings.iter().map(|ring| shoelace_area(ring)).sum()
 }
 
 /// What is wrong with the order, direction and start of `rings`, if anything: docs/api.md "Path", the canonical form.

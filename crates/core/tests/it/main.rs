@@ -5,6 +5,7 @@
 mod common;
 
 mod drawing_along;
+mod drawing_boolean;
 mod drawing_cache;
 mod drawing_items;
 mod drawing_per_item;

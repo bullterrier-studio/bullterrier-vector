@@ -12,14 +12,17 @@
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, build, log_uniform, parameter_refusal, step};
 use bullterrier_vector::{
-    Along, Blend, Color, Deg, Drawing, Error, Expr, Kind, Param, Path, Point, Role, Rotate, Scale, ScaleBy, Select,
-    Shape, Stroke, Text, Values, text, verbs,
+    Along, Blend, Color, Deg, Drawing, Error, Expr, Kind, Param, Path, Point, Reads, Role, Rotate, Scale, ScaleBy,
+    Select, Shape, Stroke, Text, Values, text, verbs,
 };
 use proptest::prelude::*;
 use std::collections::BTreeSet;
 
 /// A drawing made of a verb with one argument set from an expression, or the reason the row has no such argument.
 type With = fn(&str, Expr) -> Result<Drawing, Error>;
+
+/// One case: its name, the drawing that applies the verb, and what the `Path` method returns.
+type Case = (&'static str, Drawing, Result<Path, Error>);
 
 /// The cases of a geometry verb on a path: the drawing that applies the verb to the path with the numbers given, and
 /// what the `Path` method of the same name returns for them.
@@ -67,6 +70,58 @@ fn ring() -> Result<Path, Error> {
 
 fn blue() -> Color {
     Color::hex(0x2a_5b_ff)
+}
+
+/// What the boolean rows combine the square with: a square of the same size, 5 to the right and down.
+fn offset_square() -> Result<Path, Error> {
+    Path::rect(5.0, 5.0, 10.0, 10.0, 0.0)
+}
+
+/// The number of a literal argument, which takes no Param: the row cannot set it from anything else. Read from the
+/// text, since a number that is not finite has no `constant()`.
+fn literal(argument: &str, value: &Expr) -> Result<f64, Error> {
+    value.to_string().parse().map_err(|_| Error::Parameter {
+        parameter: argument.to_owned(),
+        message: String::from("is a literal and takes no Param"),
+    })
+}
+
+/// The edges of a tolerance: the largest a path accepts, and the smallest that is still above 0.
+const TOLERANCE_RANGE: [(&str, f64, bool); 8] = [
+    ("tolerance", 0.01, true),
+    ("tolerance", 1e100, true),
+    ("tolerance", 1e-300, true),
+    ("tolerance", 0.0, false),
+    ("tolerance", -1.0, false),
+    ("tolerance", 1.000_000_1e100, false),
+    ("tolerance", f64::NAN, false),
+    ("tolerance", f64::INFINITY, false),
+];
+
+/// The cases of a boolean verb on a path: the other operand a path or a drawing, a circle moved by the numbers, and a
+/// tolerance from them.
+fn boolean_cases(
+    path: &Path,
+    a: f64,
+    b: f64,
+    step: fn(&Drawing, Drawing, f64) -> Drawing,
+    method: fn(&Path, &Path, f64) -> Result<Path, Error>,
+) -> Result<Vec<Case>, Error> {
+    let other = Path::circle((a.abs() % 1000.0 - 500.0, b.abs() % 1000.0 - 500.0), 300.0)?;
+    let tolerance = 0.05 + a.abs() % 1.0;
+    let subject = Drawing::from(path.clone());
+    Ok(vec![
+        (
+            "other a path",
+            step(&subject, Drawing::from(other.clone()), tolerance),
+            method(path, &other, tolerance),
+        ),
+        (
+            "other a longer drawing",
+            step(&subject, Drawing::from(other.clone()).translate(0.0, 0.0), tolerance),
+            method(path, &other, tolerance),
+        ),
+    ])
 }
 
 #[expect(clippy::too_many_lines, reason = "a table: one row per verb")]
@@ -405,6 +460,104 @@ fn rows() -> Vec<Row> {
             geometry: None,
         },
         Row {
+            verb: "union",
+            sample: || Ok(square()?.union(offset_square()?, 0.01)),
+            with: Some(|argument, value| match argument {
+                "tolerance" => Ok(square()?.union(offset_square()?, literal(argument, &value)?)),
+                _ => Err(unknown("union", argument)),
+            }),
+            ranges: &TOLERANCE_RANGE,
+            geometry: Some(Geometry {
+                cases: |path, a, b| boolean_cases(path, a, b, Drawing::union, Path::union),
+                by_hand: &[(
+                    SQUARE,
+                    |d| Ok(d.union(offset_square()?, 0.01)),
+                    "M0 0 L10 0 L10 5 L15 5 L15 15 L5 15 L5 10 L0 10 Z",
+                )],
+            }),
+        },
+        Row {
+            verb: "subtract",
+            sample: || Ok(square()?.subtract(offset_square()?, 0.01)),
+            with: Some(|argument, value| match argument {
+                "tolerance" => Ok(square()?.subtract(offset_square()?, literal(argument, &value)?)),
+                _ => Err(unknown("subtract", argument)),
+            }),
+            ranges: &TOLERANCE_RANGE,
+            geometry: Some(Geometry {
+                cases: |path, a, b| boolean_cases(path, a, b, Drawing::subtract, Path::subtract),
+                by_hand: &[(
+                    SQUARE,
+                    |d| Ok(d.subtract(offset_square()?, 0.01)),
+                    "M0 0 L10 0 L10 5 L5 5 L5 10 L0 10 Z",
+                )],
+            }),
+        },
+        Row {
+            verb: "intersect",
+            sample: || Ok(square()?.intersect(offset_square()?, 0.01)),
+            with: Some(|argument, value| match argument {
+                "tolerance" => Ok(square()?.intersect(offset_square()?, literal(argument, &value)?)),
+                _ => Err(unknown("intersect", argument)),
+            }),
+            ranges: &TOLERANCE_RANGE,
+            geometry: Some(Geometry {
+                cases: |path, a, b| boolean_cases(path, a, b, Drawing::intersect, Path::intersect),
+                by_hand: &[(
+                    SQUARE,
+                    |d| Ok(d.intersect(offset_square()?, 0.01)),
+                    "M5 5 L10 5 L10 10 L5 10 Z",
+                )],
+            }),
+        },
+        Row {
+            verb: "exclude",
+            sample: || Ok(square()?.exclude(offset_square()?, 0.01)),
+            with: Some(|argument, value| match argument {
+                "tolerance" => Ok(square()?.exclude(offset_square()?, literal(argument, &value)?)),
+                _ => Err(unknown("exclude", argument)),
+            }),
+            ranges: &TOLERANCE_RANGE,
+            geometry: Some(Geometry {
+                cases: |path, a, b| boolean_cases(path, a, b, Drawing::exclude, Path::exclude),
+                // the shape keeps one path with both pieces: the L of the square, then the L of the other
+                by_hand: &[(
+                    SQUARE,
+                    |d| Ok(d.exclude(offset_square()?, 0.01)),
+                    "M0 0 L10 0 L10 5 L5 5 L5 10 L0 10 Z M10 5 L15 5 L15 15 L5 15 L5 10 L10 10 Z",
+                )],
+            }),
+        },
+        Row {
+            verb: "resolve",
+            sample: || {
+                Ok(Drawing::from(Path::from_svg_path(
+                    "M0 0 L10 0 L10 10 L0 10 Z M5 5 L15 5 L15 15 L5 15 Z",
+                )?)
+                .resolve(0.01))
+            },
+            with: Some(|argument, value| match argument {
+                "tolerance" => Ok(square()?.resolve(literal(argument, &value)?)),
+                _ => Err(unknown("resolve", argument)),
+            }),
+            ranges: &TOLERANCE_RANGE,
+            geometry: Some(Geometry {
+                cases: |path, a, _| {
+                    let tolerance = 0.05 + a.abs() % 1.0;
+                    Ok(vec![(
+                        "a tolerance",
+                        Drawing::from(path.clone()).resolve(tolerance),
+                        path.resolve(tolerance),
+                    )])
+                },
+                by_hand: &[(
+                    "M0 0 L10 0 L10 10 L0 10 Z M5 5 L15 5 L15 15 L5 15 Z",
+                    |d| Ok(d.resolve(0.01)),
+                    "M0 0 L10 0 L10 5 L15 5 L15 15 L5 15 L5 10 L0 10 Z",
+                )],
+            }),
+        },
+        Row {
             verb: "only",
             sample: || {
                 Ok(Drawing::new([square()?, square()?.translate(20.0, 0.0)]).only(Select::new().attribute("index", 1)))
@@ -548,14 +701,34 @@ fn a_verb_accepts_the_edges_of_its_ranges_and_refuses_past_them_at_the_call_and_
         for (argument, value, accepted) in row.ranges {
             let case = format!("{}.{argument} = {value}", row.verb);
             let at_call = with(argument, Expr::from(*value))?;
-            let when_drawn = with(argument, Expr::from(&carrier))?;
+            // a literal argument takes no Param: there is no drawing that reads one, so nothing is checked when drawn
+            let literal = verbs().any(|verb| {
+                verb.name == row.verb
+                    && verb
+                        .args
+                        .iter()
+                        .any(|arg| arg.name == *argument && arg.reads == Reads::Literal)
+            });
+            if literal {
+                assert!(
+                    with(argument, Expr::from(&carrier)).is_err(),
+                    "{case}: a literal took a Param"
+                );
+            }
+            let when_drawn = if literal {
+                None
+            } else {
+                Some(with(argument, Expr::from(&carrier))?)
+            };
             let given = Values::new().set("carrier", *value);
             if *accepted {
                 assert_eq!(at_call.error(), None, "{case}: at the call");
                 drawn(&at_call)?;
-                when_drawn
-                    .shapes(&given)
-                    .map_err(|error| format!("{case}: when drawn: {error}"))?;
+                if let Some(when_drawn) = &when_drawn {
+                    when_drawn
+                        .shapes(&given)
+                        .map_err(|error| format!("{case}: when drawn: {error}"))?;
+                }
             } else {
                 // a source is the place `source (text)`, the one step of a chain after a square `step 1 (rotate)`
                 let place = if verbs().any(|verb| verb.name == row.verb && verb.role == Role::Source) {
@@ -574,12 +747,14 @@ fn a_verb_accepts_the_edges_of_its_ranges_and_refuses_past_them_at_the_call_and_
                     name == expected && message.contains(&text),
                     "{case}: at the call: {name}: {message}"
                 );
-                assert_eq!(when_drawn.error(), None, "{case}: a Param is not checked at the call");
-                let (name, message) = parameter_refusal(when_drawn.shapes(&given))?;
-                assert!(
-                    name == expected && message.contains(&text),
-                    "{case}: when drawn: {name}: {message}"
-                );
+                if let Some(when_drawn) = &when_drawn {
+                    assert_eq!(when_drawn.error(), None, "{case}: a Param is not checked at the call");
+                    let (name, message) = parameter_refusal(when_drawn.shapes(&given))?;
+                    assert!(
+                        name == expected && message.contains(&text),
+                        "{case}: when drawn: {name}: {message}"
+                    );
+                }
             }
         }
     }

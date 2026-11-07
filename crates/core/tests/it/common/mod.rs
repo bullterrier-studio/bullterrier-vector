@@ -161,6 +161,34 @@ pub(crate) fn shoelace_area(corners: &[(f64, f64)]) -> f64 {
     doubled / 2.0
 }
 
+/// One closed polygon of a path.
+pub(crate) type Ring = Vec<(f64, f64)>;
+
+/// The closed polygons of a result, one per sub-path.
+pub(crate) fn rings(path: &Path) -> Result<Vec<Ring>, Box<dyn std::error::Error>> {
+    let mut found: Vec<Ring> = Vec::new();
+    let mut closed = true;
+    for (letter, numbers) in commands(&path.to_svg_path())? {
+        match (letter, &numbers[..]) {
+            ('M', &[x, y]) => {
+                assert!(closed, "a sub-path was left open");
+                closed = false;
+                found.push(vec![(x, y)]);
+            }
+            ('L', &[x, y]) => found.last_mut().ok_or("a line before a move")?.push((x, y)),
+            ('Z', []) => closed = true,
+            _ => return Err(format!("not a polygon command: {letter} {numbers:?}").into()),
+        }
+    }
+    assert!(closed, "a sub-path was left open");
+    Ok(found)
+}
+
+/// The area the result fills: outers add, holes (running the other way) subtract.
+pub(crate) fn net_area(rings: &[Ring]) -> f64 {
+    rings.iter().map(|ring| shoelace_area(ring)).sum()
+}
+
 /// The pointer and message of the `Error::Format` an operation returned; an error if it succeeded or failed otherwise.
 pub(crate) fn format_refusal<T>(outcome: Result<T, Error>) -> Result<(String, String), Box<dyn std::error::Error>> {
     match outcome {

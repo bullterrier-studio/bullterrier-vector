@@ -189,6 +189,31 @@ fn drawings_nested_128_deep_are_accepted_and_129_are_not() -> Outcome {
     Ok(())
 }
 
+/// A drawing nested `depth` drawings deep through the `other` of a boolean: a path is 1, a union of a path with the one
+/// before it 2, and so on.
+fn nest_other(depth: usize) -> Drawing {
+    let mut drawing = nothing();
+    for _ in 1..depth {
+        drawing = nothing().union(drawing, 0.01);
+    }
+    drawing
+}
+
+#[test]
+fn drawings_nested_128_deep_through_other_are_accepted_and_129_are_not() -> Outcome {
+    let accepted = nest_other(128);
+    assert_eq!(accepted.error(), None);
+    assert_eq!(drawn(&accepted)?, 1);
+    let refused = nest_other(129);
+    let (name, message) = parameter_refusal(Err::<(), _>(refused.error().cloned().ok_or("no error held")?))?;
+    assert_eq!(name, "step 1 (union).other");
+    assert!(
+        message.contains("129") && message.contains("MAX_DEPTH") && message.contains("128"),
+        "{message}"
+    );
+    Ok(())
+}
+
 #[test]
 fn a_frame_adds_a_level_unless_the_drawing_is_a_stack_it_can_resize() {
     // a stack is given the size, with no nesting
