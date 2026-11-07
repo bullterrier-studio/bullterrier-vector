@@ -126,7 +126,7 @@ when `Style.fill` is `None`): the shape then never takes the default paint, and 
 | `offset` | `distance`, `join` (`"round"`, `"miter"`, `"bevel"`), `miter_limit` |
 | `outline` | `width`, `join`, `cap` (`"butt"`, `"round"`, `"square"`), `miter_limit` |
 | `drop_parts`, `fill_holes` | `smaller_than` |
-| `slice` | `start`, `end`, `near` (point) |
+| `slice` | `start`, `end` (fractions 0..1, per-item numbers allowed), `near` (point; each coordinate within ±1e100) |
 | `reverse`, `split`, `knockout` | none: `{"reverse": {}}` |
 | `dash` | `pattern` (numbers), `phase`, `near` (point) |
 | `resample` | `spacing` |
