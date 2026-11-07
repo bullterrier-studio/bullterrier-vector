@@ -156,3 +156,42 @@ def test_a_document_that_merges_by_a_name_that_is_no_attribute_is_refused() -> N
     text = btvec.Drawing(btvec.Path.from_svg_path(TWO_SQUARES)).split().merge(by="part").to_json()
     with pytest.raises(btvec.FormatError, match="nope"):
         btvec.Drawing.from_json(text.replace('"by":"part"', '"by":"nope"'))
+
+
+# --- resolve on text ----------------------------------------------------------------------------------------------
+
+
+def parts_after_resolve(content: str) -> list[btvec.Shape]:
+    """The parts of one glyph once its overlapping contours are made one outline."""
+    return btvec.text(content, font=btvec.Font(FONT.read_bytes())).resolve().split().shapes()
+
+
+@pytest.mark.parametrize(
+    ("content", "parts", "contours"),
+    [
+        # the crossbar and the two stems of the H overlap: one outline
+        pytest.param("H", 1, 1, id="H-overlapping-contours-are-one-part"),
+        pytest.param("i", 2, 1, id="i-stem-and-dot-stay-two-parts"),
+        pytest.param("o", 1, 2, id="o-keeps-its-hole"),
+    ],
+)
+def test_resolve_before_split_finds_the_true_parts_of_a_glyph(content: str, parts: int, contours: int) -> None:
+    found = parts_after_resolve(content)
+    assert len(found) == parts
+    assert subpaths(found[0]) == contours
+
+
+def test_split_alone_takes_the_overlapping_contours_of_an_h_for_several_parts_and_merge_does_not_unite() -> None:
+    font = btvec.Font(FONT.read_bytes())
+    assert len(btvec.text("H", font=font).split().shapes()) > 1
+    assert subpaths(btvec.text("H", font=font).split().merge().shapes()[0]) == 3
+
+
+def test_resolve_keeps_the_attributes_of_each_glyph_and_per_item_numbers_still_vary_them() -> None:
+    before = words().shapes()
+    after = words().resolve().shapes()
+    assert [s.attributes for s in after] == [s.attributes for s in before]
+    moved = words().resolve().translate(btvec.by_index(0, 40), 0).shapes()
+    assert [m.path.bounds.x - a.path.bounds.x for m, a in zip(moved, after, strict=True)] == pytest.approx(
+        [0, 10, 20, 30, 40]
+    )

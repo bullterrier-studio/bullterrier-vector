@@ -13,6 +13,7 @@ mod drawing_select;
 mod drawing_slice;
 mod drawing_stack;
 mod drawing_style;
+mod drawing_text_resolve;
 mod drawing_transform;
 mod drawing_values;
 mod error;
