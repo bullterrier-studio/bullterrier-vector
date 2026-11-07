@@ -2,8 +2,8 @@
 //! shape.
 
 use super::{Args, Context, Inputs, Node, each_shape};
-use crate::path::Guide;
-use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
+use crate::path::{Guide, rotate_point, scale_point};
+use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
 
 /// A number read for each shape, within `domain`.
 const fn per_shape(name: &'static str, kind: Kind, default: Option<Literal>, domain: Domain) -> Arg {
@@ -16,6 +16,12 @@ const fn per_shape(name: &'static str, kind: Kind, default: Option<Literal>, dom
     }
 }
 
+/// The point a shape turns or scales about: `about` if given, else its `origin` attribute, else (`None`) the middle of its
+/// bounds.
+fn pivot(shape: &Shape, about: Option<Point>) -> Option<Point> {
+    about.or(shape.attributes().origin())
+}
+
 /// Moves every shape.
 #[derive(Debug)]
 pub(crate) struct Translate;
@@ -23,7 +29,7 @@ pub(crate) struct Translate;
 pub(crate) static TRANSLATE: Verb = Verb {
     name: "translate",
     role: Role::Step,
-    summary: "moves every shape by dx to the right and dy down, in design pixels",
+    summary: "moves every shape, and its origin, by dx to the right and dy down, in design pixels",
     args: &[
         per_shape("dx", Kind::Number, None, Domain::Coordinate),
         per_shape("dy", Kind::Number, None, Domain::Coordinate),
@@ -39,7 +45,11 @@ impl Node for Translate {
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         each_shape(inputs.previous, cx, |shape, item| {
             let (dx, dy) = (args.number(cx, "dx", item)?, args.number(cx, "dy", item)?);
-            Ok(shape.clone().with_path(shape.path().translate(dx, dy)?))
+            let mut moved = shape.clone().with_path(shape.path().translate(dx, dy)?);
+            if let Some(origin) = shape.attributes().origin() {
+                moved.attributes_mut().origin = Some(Point::new(origin.x + dx, origin.y + dy));
+            }
+            Ok(moved)
         })
     }
 }
@@ -51,7 +61,7 @@ pub(crate) struct Rotate;
 pub(crate) static ROTATE: Verb = Verb {
     name: "rotate",
     role: Role::Step,
-    summary: "turns every shape clockwise on the screen by angle degrees, any size, about a point (default: the middle of its bounds)",
+    summary: "turns every shape clockwise on the screen by angle degrees, any size, about a point (default: its origin, else the middle of its bounds); the origin turns with it",
     args: &[
         per_shape("angle", Kind::Number, None, Domain::Finite),
         per_shape("about", Kind::Point, Some(Literal::Unset), Domain::Coordinate),
@@ -67,8 +77,12 @@ impl Node for Rotate {
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         each_shape(inputs.previous, cx, |shape, item| {
             let angle = args.number(cx, "angle", item)?;
-            let about = args.point(cx, "about", item)?;
-            Ok(shape.clone().with_path(shape.path().rotate(angle, about)?))
+            let about = pivot(shape, args.point(cx, "about", item)?);
+            let mut turned = shape.clone().with_path(shape.path().rotate(angle, about)?);
+            if let (Some(origin), Some(about)) = (shape.attributes().origin(), about) {
+                turned.attributes_mut().origin = Some(rotate_point(origin, angle, about)?);
+            }
+            Ok(turned)
         })
     }
 }
@@ -80,7 +94,7 @@ pub(crate) struct Scale;
 pub(crate) static SCALE: Verb = Verb {
     name: "scale",
     role: Role::Step,
-    summary: "scales every shape by a number, or by an (x, y) pair, about a point (default: the middle of its bounds); a negative factor mirrors",
+    summary: "scales every shape by a number, or by an (x, y) pair, about a point (default: its origin, else the middle of its bounds); the origin scales with it; a negative factor mirrors",
     args: &[
         per_shape("by", Kind::Factor, None, Domain::NonZero),
         per_shape("about", Kind::Point, Some(Literal::Unset), Domain::Coordinate),
@@ -96,8 +110,12 @@ impl Node for Scale {
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         each_shape(inputs.previous, cx, |shape, item| {
             let by = args.pair(cx, "by", item)?;
-            let about = args.point(cx, "about", item)?;
-            Ok(shape.clone().with_path(shape.path().scale(by, about)?))
+            let about = pivot(shape, args.point(cx, "about", item)?);
+            let mut scaled = shape.clone().with_path(shape.path().scale(by, about)?);
+            if let (Some(origin), Some(about)) = (shape.attributes().origin(), about) {
+                scaled.attributes_mut().origin = Some(scale_point(origin, by.into(), about)?);
+            }
+            Ok(scaled)
         })
     }
 }

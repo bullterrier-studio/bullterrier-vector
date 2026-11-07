@@ -24,6 +24,7 @@ pub(crate) use build::Builder;
 pub(crate) use curve::FLATNESS;
 pub(crate) use polyline::Polyline;
 pub(crate) use region::Region;
+pub(crate) use transform::{rotate_point, scale_point};
 pub(crate) use write::number;
 
 /// One piece of a sub-path, ending at the point it names last. The pieces are absolute: each starts where the one

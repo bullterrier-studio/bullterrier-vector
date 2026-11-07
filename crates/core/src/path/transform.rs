@@ -25,15 +25,7 @@ impl Path {
     /// [`Error::Parameter`] if `angle` is NaN or infinite, `about` is NaN, infinite or beyond ±1e100, or the turn
     /// would carry a point beyond ±1e100.
     pub fn rotate(&self, angle: f64, about: Option<Point>) -> Result<Self, Error> {
-        let angle = finite("angle", angle)?;
-        let (sin, cos) = sin_cos_deg(angle);
-        self.about(about, |from_pivot| {
-            Point::new(
-                from_pivot.x * cos - from_pivot.y * sin,
-                from_pivot.x * sin + from_pivot.y * cos,
-            )
-        })?
-        .within_limit("angle")
+        self.about(about, rotation(angle)?)?.within_limit("angle")
     }
 
     /// This path scaled by `by` about `about`, which defaults to the middle of its bounds: every point moves to
@@ -45,14 +37,7 @@ impl Path {
     /// [`Error::Parameter`] if `by` has a factor that is 0, NaN or infinite, `about` is NaN, infinite or beyond
     /// ±1e100, or the scaling would carry a point beyond ±1e100.
     pub fn scale(&self, by: impl Into<Scale>, about: Option<Point>) -> Result<Self, Error> {
-        let Scale { x, y } = by.into();
-        for factor in [x, y] {
-            if finite("by", factor)? == 0.0 {
-                return Err(Error::parameter("by", format!("must not be 0, got {factor}")));
-            }
-        }
-        self.about(about, |from_pivot| Point::new(from_pivot.x * x, from_pivot.y * y))?
-            .within_limit("by")
+        self.about(about, scaling(by.into())?)?.within_limit("by")
     }
 
     /// This path with every point, on and off the curve, replaced by what `map` returns for it: the start of each
@@ -79,10 +64,7 @@ impl Path {
             let bounds = self.bounds()?;
             Point::new(bounds.x + bounds.width / 2.0, bounds.y + bounds.height / 2.0)
         };
-        self.map_each(|point| {
-            let turned = turn(Point::new(point.x - pivot.x, point.y - pivot.y));
-            Ok(Point::new(pivot.x + turned.x, pivot.y + turned.y))
-        })
+        self.map_each(|point| Ok(around(point, pivot, &turn)))
     }
 
     /// This path with every point replaced by what `map` returns for it, in the order they are written. A closed
@@ -110,4 +92,48 @@ impl Path {
         }
         Ok(Self { subpaths })
     }
+}
+
+/// The turn of `angle` degrees as a function of a point's offset from the pivot.
+fn rotation(angle: f64) -> Result<impl Fn(Point) -> Point, Error> {
+    let (sin, cos) = sin_cos_deg(finite("angle", angle)?);
+    Ok(move |from_pivot: Point| {
+        Point::new(
+            from_pivot.x * cos - from_pivot.y * sin,
+            from_pivot.x * sin + from_pivot.y * cos,
+        )
+    })
+}
+
+/// The scaling by `by` as a function of a point's offset from the pivot.
+fn scaling(by: Scale) -> Result<impl Fn(Point) -> Point, Error> {
+    let Scale { x, y } = by;
+    for factor in [x, y] {
+        if finite("by", factor)? == 0.0 {
+            return Err(Error::parameter("by", format!("must not be 0, got {factor}")));
+        }
+    }
+    Ok(move |from_pivot: Point| Point::new(from_pivot.x * x, from_pivot.y * y))
+}
+
+/// `point` moved by `turn`, which is given its offset from `pivot` and returns the new offset.
+fn around(point: Point, pivot: Point, turn: impl Fn(Point) -> Point) -> Point {
+    let turned = turn(Point::new(point.x - pivot.x, point.y - pivot.y));
+    Point::new(pivot.x + turned.x, pivot.y + turned.y)
+}
+
+/// `point` turned `angle` degrees about `about` as [`Path::rotate`] turns a path's points.
+///
+/// # Errors
+/// [`Error::Parameter`] as `Path::rotate`, for a result beyond ±1e100.
+pub(crate) fn rotate_point(point: Point, angle: f64, about: Point) -> Result<Point, Error> {
+    coordinate_point("angle", around(point, about, rotation(angle)?))
+}
+
+/// `point` scaled by `by` about `about` as [`Path::scale`] scales a path's points.
+///
+/// # Errors
+/// [`Error::Parameter`] as `Path::scale`, for a result beyond ±1e100.
+pub(crate) fn scale_point(point: Point, by: Scale, about: Point) -> Result<Point, Error> {
+    coordinate_point("by", around(point, about, scaling(by)?))
 }

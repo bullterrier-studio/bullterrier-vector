@@ -3,8 +3,9 @@
 //! call (`error()`) or when drawn, naming the step. Expected values are written by hand; `node_contract.rs` compares
 //! each step with the `Path` verb.
 
+use crate::common::fonts::fraunces;
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Deg, Drawing, Error, Expr, Param, Path, Point, Rotate, ScaleBy, Values};
+use bullterrier_vector::{Deg, Drawing, Error, Expr, Param, Path, Point, Rotate, ScaleBy, Text, Values, text};
 
 const SHAPE: &str = "M1 2 L10 4.25 Q11 5 12 6.5 C1 2 3 4 5 6 Z";
 
@@ -417,5 +418,101 @@ fn a_pivot_that_reads_a_param_works_like_a_number() -> Outcome {
     let cx = Param::new("cx", 0.0, -100.0, 100.0)?;
     let drawing = Drawing::from(Path::line((0.0, 0.0), (2.0, 0.0))?).scale(ScaleBy::new(3.0).about((&cx, 0.0)));
     assert_eq!(data(&drawing, &Values::new().set("cx", 1.0))?, "M-2 0 L4 0");
+    Ok(())
+}
+
+// Origin ------------------------------------------------------------------------------------------------------------
+
+/// The `o` of `fraunces-subset.ttf` at 2000 pixels to the em, a shape whose origin, (583, -700) (half its advance of 1166;
+/// half the cap height of 1400, `text.rs`), is not the middle of its bounds (an `o` is x-height tall, not cap-height).
+fn letter() -> Result<Drawing, Box<dyn std::error::Error>> {
+    Ok(text("o", Text::new(&fraunces()?).size(2000.0)))
+}
+
+/// The only shape `drawing` draws.
+fn only(drawing: &Drawing) -> Result<bullterrier_vector::Shape, Box<dyn std::error::Error>> {
+    let mut shapes = drawing.shapes(&Values::new())?;
+    match (shapes.pop(), shapes.is_empty()) {
+        (Some(shape), true) => Ok(shape),
+        _ => Err("expected one shape".into()),
+    }
+}
+
+#[test]
+fn a_turn_without_a_pivot_is_about_the_origin_of_the_shape_not_the_middle_of_its_bounds() -> Outcome {
+    let (origin_x, origin_y) = (583.0, -700.0);
+    let before = only(&letter()?)?;
+    let b = before.path().bounds()?;
+    assert!(
+        (b.y + b.height / 2.0 - origin_y).abs() > 50.0,
+        "the premise: the middle of the bounds is not the origin"
+    );
+    let after = only(&letter()?.rotate(Deg(90.0)))?;
+    // (dx, dy) from the pivot goes to (-dy, dx) in a quarter turn clockwise on the screen
+    let (left, right) = (origin_x - (b.y + b.height - origin_y), origin_x - (b.y - origin_y));
+    let (top, bottom) = (origin_y + (b.x - origin_x), origin_y + (b.x + b.width - origin_x));
+    let a = after.path().bounds()?;
+    for (side, got, want) in [
+        ("left", a.x, left),
+        ("right", a.x + a.width, right),
+        ("top", a.y, top),
+        ("bottom", a.y + a.height, bottom),
+    ] {
+        assert!((got - want).abs() < 1e-9, "{side}: {got} against {want}");
+    }
+    Ok(())
+}
+
+#[test]
+fn transforms_move_the_origin_with_the_shape() -> Outcome {
+    // (rule, the drawing, where the origin of the `o` (583, -700) ends up)
+    let rows: [(&str, Drawing, (f64, f64)); 6] = [
+        ("translate adds", letter()?.translate(3.0, -4.0), (586.0, -704.0)),
+        (
+            "a turn about a point turns it: (dx, dy) goes to (-dy, dx)",
+            letter()?.rotate(Rotate::new(Deg(90.0)).about((0.0, 0.0))),
+            (700.0, 583.0),
+        ),
+        (
+            "a scaling about a point scales its distance from it",
+            letter()?.scale(ScaleBy::new((2.0, 3.0)).about((0.0, 0.0))),
+            (1166.0, -2100.0),
+        ),
+        (
+            "a turn about its own origin leaves it",
+            letter()?.rotate(Deg(30.0)),
+            (583.0, -700.0),
+        ),
+        (
+            "a scaling about its own origin leaves it",
+            letter()?.scale(2.0),
+            (583.0, -700.0),
+        ),
+        (
+            "a turn about a point of a translated shape",
+            letter()?
+                .translate(10.0, 0.0)
+                .rotate(Rotate::new(Deg(180.0)).about((10.0, 0.0))),
+            (-573.0, 700.0),
+        ),
+    ];
+    for (rule, drawing, (x, y)) in rows {
+        let at = only(&drawing)?.attributes().origin().ok_or("no origin")?;
+        assert!(
+            (at.x - x).abs() < 1e-9 && (at.y - y).abs() < 1e-9,
+            "{rule}: ({}, {})",
+            at.x,
+            at.y
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn a_shape_with_no_origin_turns_about_its_bounds_and_gets_none() -> Outcome {
+    let square = Drawing::from(Path::from_svg_path("M0 0 L10 0 L10 10 L0 10 Z")?);
+    let turned = only(&square.rotate(Deg(90.0)))?;
+    assert_eq!(turned.attributes().origin(), None);
+    assert_eq!(turned.path().to_svg_path(), "M10 0 L10 10 L0 10 L0 0 Z");
     Ok(())
 }

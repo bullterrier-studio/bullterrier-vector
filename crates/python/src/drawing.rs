@@ -206,7 +206,7 @@ impl PyDrawing {
         checked(self.0.translate(dx.0, dy.0))
     }
 
-    /// Every shape turned `angle` degrees clockwise about `about` (the middle of its bounds by default).
+    /// Every shape turned `angle` degrees clockwise about `about` (each shape's origin by default, else the middle of its bounds); the origin moves with the shape.
     #[pyo3(signature = (angle, *, about=None))]
     fn rotate(&self, angle: Num, about: Option<Pair>) -> PyResult<Self> {
         let mut turn = vector::Rotate::new(vector::Deg(angle.0));
@@ -216,7 +216,7 @@ impl PyDrawing {
         checked(self.0.rotate(turn))
     }
 
-    /// Every shape scaled by a number, or by an `(x, y)` pair, about `about` (the middle of its bounds by default).
+    /// Every shape scaled by a number, or by an `(x, y)` pair, about `about` (each shape's origin by default, else the middle of its bounds); the origin moves with the shape.
     #[pyo3(signature = (by, *, about=None))]
     fn scale(&self, by: By, about: Option<Pair>) -> PyResult<Self> {
         let mut scaling = match by {

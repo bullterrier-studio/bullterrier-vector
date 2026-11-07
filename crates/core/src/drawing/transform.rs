@@ -40,7 +40,7 @@ impl Pivot {
     }
 }
 
-/// A turn: the angle, and the point to turn about if not each shape's own centre. `Deg(30.0)` alone converts into one.
+/// A turn: the angle, and the point to turn about if not each shape's own origin. `Deg(30.0)` alone converts into one.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rotate {
     angle: Expr,
@@ -48,7 +48,7 @@ pub struct Rotate {
 }
 
 impl Rotate {
-    /// A turn by `angle` degrees about the middle of each shape's bounds.
+    /// A turn by `angle` degrees about each shape's origin (the middle of its bounds if it has none).
     #[must_use]
     pub fn new<T: Into<Expr>>(angle: Deg<T>) -> Self {
         Self {
@@ -72,7 +72,7 @@ impl<T: Into<Expr>> From<Deg<T>> for Rotate {
 }
 
 /// A scaling: the factor, a number for both directions or an `(x, y)` pair, and the point to scale about if not each
-/// shape's own centre. A number or a pair alone converts into one.
+/// shape's own origin. A number or a pair alone converts into one.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScaleBy {
     x: Expr,
@@ -81,7 +81,7 @@ pub struct ScaleBy {
 }
 
 impl ScaleBy {
-    /// Scaling by `by` about the middle of each shape's bounds.
+    /// Scaling by `by` about each shape's origin (the middle of its bounds if it has none).
     #[must_use]
     pub fn new(by: impl Into<Self>) -> Self {
         by.into()
@@ -148,7 +148,7 @@ impl Along {
 }
 
 impl Drawing {
-    /// This drawing with every shape moved `dx` to the right and `dy` down, in design pixels.
+    /// This drawing with every shape, and its `origin` attribute, moved `dx` to the right and `dy` down, in design pixels.
     ///
     /// A number that is not accepted (NaN, infinite, beyond ±1e100) leaves the drawing with an
     /// [`error`](Drawing::error) naming the step (`step 2 (translate).dx`); one that reads a Param is checked when
@@ -161,9 +161,9 @@ impl Drawing {
         )
     }
 
-    /// This drawing with every shape turned clockwise on the screen (`y` down): `Deg(30.0)` about the middle of each
-    /// shape's bounds, or a [`Rotate`] with the point to turn about. Any angle is accepted and wraps; multiples of 90
-    /// degrees are exact.
+    /// This drawing with every shape turned clockwise on the screen (`y` down): `Deg(30.0)` about each shape's `origin`
+    /// attribute (the middle of its bounds if it has none), or a [`Rotate`] with the point to turn about. The `origin`
+    /// turns with the shape. Any angle is accepted and wraps; multiples of 90 degrees are exact.
     #[must_use]
     pub fn rotate(&self, turn: impl Into<Rotate>) -> Self {
         let Rotate { angle, about } = turn.into();
@@ -174,7 +174,8 @@ impl Drawing {
     }
 
     /// This drawing with every shape scaled by a number, or an `(x, y)` pair, or a [`ScaleBy`] with the point to
-    /// scale about. A negative factor mirrors.
+    /// scale about (by default each shape's `origin`, else the middle of its bounds), which moves the `origin` with the
+    /// shape. A negative factor mirrors.
     ///
     /// A factor of 0 (or a component) leaves the drawing with an [`error`](Drawing::error), or, when it reads a Param,
     /// is refused when the drawing is drawn.
@@ -189,7 +190,7 @@ impl Drawing {
 
     /// This drawing with every shape carried along `guide` as [`Path::along`] does, text included: a text becomes
     /// text on a path, each glyph bent with the rest. The shapes keep their style and attributes (`origin` stays the
-    /// glyph's centre before the bend, as after `translate` it stays where it was).
+    /// glyph's centre before the bend).
     ///
     /// A `start` that is not a finite number leaves the drawing with an [`error`](Drawing::error), or, when it
     /// reads a Param, is refused when the drawing is drawn; so is a guide that is empty or has no length.
