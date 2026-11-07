@@ -477,10 +477,6 @@ coarsely.
 
 Done when: a word draws on letter by letter and scatters by index with no text-specific modifier.
 
-Carried from V6:
-- `api.md` says `translate`, `rotate` and `scale` move the `origin` attribute and that `about` defaults to the shape's
-  origin; the code moves neither and defaults `about` to the middle of the bounds. Make the code match, or the text.
-
 ## V8 Booleans
 
 Union, subtract, intersect, exclude, on any shapes. The riskiest batch: build on an existing crate, fuzz with random and

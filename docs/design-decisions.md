@@ -654,7 +654,12 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   bent middle is within 0.01 px (the flattening tolerance of the crate) of the middle of the bent ends; the result is
   lines (the bend of a Bezier is no Bezier), counted against `MAX_SEGMENTS` before they are made. *Consequence, a known
   limit:* an edge longer than half a closed guide can be bent coarsely, as its ends and middle can agree by chance. The
-  `origin` attribute is left where it was, as `translate` leaves it.
+  `origin` attribute is left where it was.
+- **A no-break space is part of a word; a transform moves `origin`, and `about` defaults to it** (2026-11-07, from the V6
+  carry-over). U+00A0, U+2007 and U+202F are part of a word for the wrap and for the `word` attribute alike, decided by one
+  predicate. `translate` adds to `origin`, `rotate` and `scale` transform it, and their default `about` is `origin`, else the
+  centre of the bounds. `along` leaves it. *Reason:* `merge(by=word)` must group what a wrap keeps together; and per-item
+  transforms of glyphs (V7) pivot on the typographic centre, not on a bounding box that moves with each letterform.
 
 ## Engineering
 
