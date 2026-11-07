@@ -151,11 +151,18 @@ impl Step {
                 ),
             ));
         }
-        // what the drawings the call takes left fixed is fixed here too, unless another of them reads it free
+        // what the drawings the call takes left fixed is fixed here too, unless another of them reads it free, or the
+        // steps before read it free: a `with_values` inside a drawing taken fixes the name for that drawing only
         let mut fixed = previous.map_or_else(BTreeSet::new, |step| step.fixed.clone());
+        let free_before = previous.map_or_else(Vec::new, |step| free_names(&step.reads, &step.fixed));
         for item in args.taken() {
             if let Ok(step) = &item.last {
-                fixed.extend(step.fixed.iter().cloned());
+                fixed.extend(
+                    step.fixed
+                        .iter()
+                        .filter(|name| !free_before.contains(&name.as_str()))
+                        .cloned(),
+                );
             }
         }
         for param in &read.free {

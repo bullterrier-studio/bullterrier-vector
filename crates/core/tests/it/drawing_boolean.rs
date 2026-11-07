@@ -432,3 +432,20 @@ fn a_step_is_refused_when_the_edges_cross_so_often_that_the_engine_would_exhaust
     assert_eq!(drawing.shapes(&no_values())?.len(), 1);
     Ok(())
 }
+
+#[test]
+fn a_param_the_subject_reads_stays_free_when_other_fixes_the_same_name() -> Outcome {
+    let shift = Param::new("shift", 0.0, -10.0, 10.0)?;
+    let subject = Drawing::from(rect(0.0, 0.0, 4.0, 4.0)?).translate(&shift, 0.0);
+    let cutter = Drawing::from(rect(0.0, 0.0, 4.0, 4.0)?)
+        .translate(&shift, 0.0)
+        .with_values(&Values::new().set("shift", 1.0));
+    let drawing = subject.intersect(cutter, TOLERANCE);
+    assert_eq!(drawing.parameters()?, vec![shift.clone()]);
+    // the subject sits at `shift`, the cutter at 1: the overlap is (4 - |shift - 1|) x 4
+    for (value, expected) in [(3.0, 8.0), (0.0, 12.0), (3.0, 8.0)] {
+        let values = Values::new().set("shift", value);
+        assert_eq!(area(&drawing.shapes(&values)?)?, expected, "shift {value}");
+    }
+    Ok(())
+}
