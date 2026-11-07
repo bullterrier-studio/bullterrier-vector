@@ -485,7 +485,9 @@ on a `Drawing`, and transforms whose `about` defaults to the shape's `origin` an
 a word on letter by letter by one `progress`; `examples/glyph_scatter.py` splits a word into parts and scatters them by
 seeded `random` and a `scatter` Param. The WebAssembly differential has 72 drawings (44 paths, 17 texts, 2 bends, 9 per-item).
 Known limits (`api.md`, "Per-item numbers" and "Items"): `merge` joins sub-paths and leaves overlaps until `union` (V8);
-`random` is keyed by the shape's current `index`, so an `only` or `split` before it changes the numbers.
+`random` is keyed by the shape's current `index`, so an `only` or `split` before it changes the numbers; `split` (and
+`Path::split`) tests every closed sub-path against every other, so its time grows with the square of their number (8000 tiny
+squares: 0.4 s; measured 4x per doubling).
 
 ## V8 Booleans
 
