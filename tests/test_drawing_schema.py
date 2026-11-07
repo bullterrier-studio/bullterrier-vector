@@ -583,6 +583,8 @@ REGISTERED = {
     "blend",
     "only",
     "without",
+    "split",
+    "merge",
     "with_values",
     "text",
     "param",

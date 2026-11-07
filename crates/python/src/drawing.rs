@@ -283,6 +283,21 @@ impl PyDrawing {
         checked(self.0.without(selection(attributes)?))
     }
 
+    /// Every shape split into its parts: each closed outline with its holes, and each open line. A part keeps the
+    /// attributes and style of its shape and has `part` (from 0, within the shape) and the middle of its own bounds as
+    /// `origin`. The list is renumbered.
+    fn split(&self) -> PyResult<Self> {
+        checked(self.0.split())
+    }
+
+    /// The shapes whose attribute `by` is equal (all shapes, if `None`) merged into one, holding their sub-paths in
+    /// list order, with the attributes and style of the first; it sits where the first was. Sub-paths are joined, not
+    /// united.
+    #[pyo3(signature = (*, by=None))]
+    fn merge(&self, by: Option<&str>) -> PyResult<Self> {
+        checked(by.map_or_else(|| self.0.merge(), |by| self.0.merge_by(by)))
+    }
+
     /// The same drawing with these Params fixed to the numbers (or lists with a number per shape) given.
     #[pyo3(signature = (**given))]
     fn with_values(&self, given: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {

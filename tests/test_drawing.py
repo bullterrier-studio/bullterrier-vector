@@ -746,6 +746,8 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
     "blend": (lambda: Drawing(SQUARE).blend("multiply"), {}, [row(RECT, blend="multiply")]),
     "only": (lambda: Drawing(*squares(2)).only(index=1), {}, [row(SMALL[1])]),
     "without": (lambda: Drawing(*squares(2)).without(index=1), {}, [row(SMALL[0])]),
+    "split": (lambda: Drawing(btvec.Path.from_svg_path(" ".join(SMALL))).split(), {}, [row(SMALL[0]), row(SMALL[1])]),
+    "merge": (lambda: Drawing(*squares(2)).merge(), {}, [row(" ".join(SMALL))]),
     "with_values": (
         lambda: Drawing(SQUARE).translate(param("dx"), 0).with_values(dx=3),
         {},
