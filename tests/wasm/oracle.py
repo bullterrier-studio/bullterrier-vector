@@ -329,6 +329,67 @@ def per_item() -> list[Entry]:
     return [(name, drawing, draws(**values.get(name, {}))) for name, drawing in drawings.items()]
 
 
+def booleans() -> list[Entry]:
+    """`union`, `subtract`, `intersect`, `exclude` and `resolve` on shapes: overlapping squares and circles, a ring, a
+    shape with a hole, an intersection that is empty, a Param moving `other`, two tolerances and glyph outlines resolved
+    and combined. The engine works on an integer grid and the flattening computes with `libm` only, so the SVG text and
+    the mesh are exact."""
+    square = btvec.Path.rect(20, 20, 40, 40)
+    shifted = btvec.Path.rect(40, 40, 40, 40)
+    disc = btvec.Path.circle((50, 50), 35)
+    hole = btvec.Path.circle((50, 50), 15)
+    bowtie = btvec.Path.from_svg_path("M15 15 L85 85 L85 15 L15 85 Z")
+    offset = btvec.Param("offset", default=0, min=-50, max=50, unit="px", meaning="how far the cutter is moved")
+    frame = (400, 160)
+
+    def sized(*items: btvec.Drawing) -> btvec.Drawing:
+        return btvec.Drawing(*items, size=frame)
+
+    def at_90(content: str, font: btvec.Font = FRAUNCES, **options: Any) -> btvec.Drawing:
+        return btvec.text(content, font=font, size=90, anchor=(12, 110), **options)
+
+    drawings = {
+        "bool_union": framed(square.fill(RED)).union(shifted),
+        "bool_subtract": framed(square.fill(BLUE)).subtract(shifted),
+        "bool_intersect": framed(square.fill(GOLD)).intersect(shifted),
+        "bool_exclude": framed(square.fill(RED).stroke(INK, width=2)).exclude(shifted),
+        "bool_ring": framed(disc.fill(INK)).subtract(hole),
+        "bool_circles_exclude_many": framed(disc.fill(BLUE), square.fill(RED)).exclude(
+            btvec.Drawing(hole, hole.translate(30, 0), shifted)
+        ),
+        "bool_intersect_empty": framed(square.fill(RED), disc.fill(BLUE).translate(200, 0)).intersect(
+            hole.translate(0, 50)
+        ),
+        "bool_param_other": framed(disc.fill(GOLD)).subtract(btvec.Drawing(hole).translate(offset, 0)),
+        "bool_tolerance_coarse": framed(disc.fill(RED)).union(hole.translate(20, 0), tolerance=2),
+        "bool_tolerance_fine": framed(disc.fill(RED)).union(hole.translate(20, 0), tolerance=0.001),
+        "bool_resolve_bowtie": framed(bowtie.fill(BLUE).stroke(INK, width=3)).resolve(),
+        "bool_resolve_hole_union": framed(
+            btvec.Path.from_svg_path("M5 5 L95 5 L95 95 L5 95 Z M30 30 L30 70 L70 70 L70 30 Z").fill(RED)
+        ).union(hole),
+        "bool_text_resolved": sized(at_90("Hif").fill(INK).resolve()),
+        "bool_text_cut_by_circle": sized(at_90("Hamburg", font=BRICOLAGE, axes={"wght": 700}).fill(RED)).subtract(
+            btvec.Path.circle((120, 60), 40)
+        ),
+        "bool_text_clipped": sized(at_90("Hif To").fill(BLUE)).intersect(btvec.Path.circle((200, 80), 70)),
+        "bool_text_cut_by_text": sized(at_90("HH").fill(INK)).subtract(at_90("i").translate(4, 0)),
+    }
+    draws: dict[str, list[Draw]] = {
+        "bool_param_other": [(100, 100, {}), (200, 200, {"offset": 25})],
+    }
+    return [
+        (
+            name,
+            drawing,
+            draws.get(
+                name,
+                [(400, 160, {}), (200, 80, {})] if name.startswith("bool_text") else [(100, 100, {}), (50, 50, {})],
+            ),
+        )
+        for name, drawing in drawings.items()
+    ]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -337,6 +398,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     text_drawings,
     bends,
     per_item,
+    booleans,
 ]
 
 
