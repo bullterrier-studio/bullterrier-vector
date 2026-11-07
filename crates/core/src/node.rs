@@ -44,6 +44,7 @@
 //! first used by `repeat`; and the per-item numbers (`by_index`, `by_order`, `random`, `stagger`).
 
 mod args;
+pub(crate) mod items;
 pub(crate) mod select;
 pub(crate) mod source;
 pub(crate) mod stack;

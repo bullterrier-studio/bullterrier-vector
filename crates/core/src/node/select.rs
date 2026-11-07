@@ -1,7 +1,7 @@
 //! The selection steps: `only` and `without` keep or drop shapes by their attributes.
 
 use super::{Args, Context, Inputs, Node};
-use crate::shape::{Holds, SELECTABLE, Single};
+use crate::shape::{Holds, Single, holds};
 use crate::{Arg, Domain, Error, Kind, Reads, Role, Select, Shape, Verb};
 
 /// The selection both steps take.
@@ -47,15 +47,9 @@ fn attributes_make_sense(args: &Args) -> Result<(), Error> {
         ));
     }
     for (name, wanted) in select.asked() {
-        let Some((_, holds)) = SELECTABLE.iter().find(|(known, _)| *known == name) else {
-            let known: Vec<&str> = SELECTABLE.iter().map(|(known, _)| *known).collect();
-            return Err(Error::parameter(
-                name,
-                format!("is not an attribute, the attributes are {}", known.join(", ")),
-            ));
-        };
+        let kind = holds(name).map_err(|reason| Error::parameter(name, reason))?;
         for single in wanted {
-            fits(name, *holds, single)?;
+            fits(name, kind, single)?;
         }
     }
     Ok(())

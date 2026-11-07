@@ -64,6 +64,18 @@ pub(crate) const SELECTABLE: [(&str, Holds); 10] = [
     ("origin", Holds::Point),
 ];
 
+/// What the attribute `name` holds, or why there is no such attribute.
+pub(crate) fn holds(name: &str) -> Result<Holds, String> {
+    SELECTABLE
+        .iter()
+        .find(|(known, _)| *known == name)
+        .map(|(_, holds)| *holds)
+        .ok_or_else(|| {
+            let known: Vec<&str> = SELECTABLE.iter().map(|(known, _)| *known).collect();
+            format!("is not an attribute, the attributes are {}", known.join(", "))
+        })
+}
+
 impl Attributes {
     /// The value of the attribute `name` that a generator wrote, if one did. `index` is the shape's own and is read
     /// from the shape, not here.

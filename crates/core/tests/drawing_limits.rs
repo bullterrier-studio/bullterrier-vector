@@ -78,6 +78,23 @@ fn a_draw_is_charged_for_the_shapes_it_makes_and_refused_past_a_million() -> Out
 }
 
 #[test]
+fn a_split_is_charged_for_the_parts_it_makes_and_refused_past_a_million() -> Outcome {
+    let _alone = one_million_at_a_time();
+    // one open line per sub-path: parts that cost nothing to find, 1,000,000 of them and the source shape
+    let lines = "M0 0 L1 0 ".repeat(1_000_000);
+    let (name, message) = parameter_refusal(
+        Drawing::from(Path::from_svg_path(&lines)?)
+            .split()
+            .shapes(&Values::new()),
+    )?;
+    assert!(
+        name == "step 1 (split)" && message.contains("MAX_SHAPES") && message.contains("1000000"),
+        "{name}: {message}"
+    );
+    Ok(())
+}
+
+#[test]
 fn a_shape_put_back_into_a_drawing_is_charged_like_a_path() -> Outcome {
     let _alone = one_million_at_a_time();
     // 500,001 different shapes: one source, a fill each, and the stack of them (500,002 shapes made)

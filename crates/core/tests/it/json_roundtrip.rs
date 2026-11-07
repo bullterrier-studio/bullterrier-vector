@@ -105,6 +105,9 @@ fn every_example_whose_calls_are_registered_round_trips() -> Outcome {
                 if message.contains("is not a call this library knows")
                     || message.contains("is not an expression this library knows")
                     || message.contains("is not an argument of `text`") => {}
+            // a font the document declares and this test has none to give (`glyph_scatter` draws in a font the
+            // repository does not hold)
+            Err(Error::Parameter { parameter, .. }) if parameter.starts_with("inputs.") => {}
             Err(error) => return Err(format!("{name}: {error}").into()),
         }
     }

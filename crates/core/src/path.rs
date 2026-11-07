@@ -195,6 +195,21 @@ impl Path {
         self.subpaths.iter().all(|subpath| subpath.closed)
     }
 
+    /// The sub-paths of `paths`, one after the other, as one path.
+    pub(crate) fn joined<'a>(paths: impl IntoIterator<Item = &'a Self>) -> Self {
+        Self {
+            subpaths: paths
+                .into_iter()
+                .flat_map(|path| path.subpaths.iter().cloned())
+                .collect(),
+        }
+    }
+
+    /// How much geometry the path holds, in segments (a sub-path's start counts as one): what copying it costs.
+    pub(crate) fn weight(&self) -> usize {
+        self.subpaths.iter().map(|subpath| 1 + subpath.segments.len()).sum()
+    }
+
     fn with_segment(&self, verb: &str, segment: Segment) -> Result<Self, Error> {
         let mut next = self.clone();
         let mut current = next.subpaths.pop().ok_or_else(|| no_start(verb))?;

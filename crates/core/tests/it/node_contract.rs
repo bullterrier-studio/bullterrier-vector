@@ -345,6 +345,20 @@ fn rows() -> Vec<Row> {
             geometry: None,
         },
         Row {
+            verb: "split",
+            sample: || Ok(Drawing::from(Path::from_svg_path("M0 0 L4 0 L4 4 Z M10 0 L14 0 L14 4 Z")?).split()),
+            with: None,
+            ranges: &[],
+            geometry: None,
+        },
+        Row {
+            verb: "merge",
+            sample: || Ok(Drawing::new([square()?, square()?.translate(20.0, 0.0)]).merge_by("order")),
+            with: None,
+            ranges: &[],
+            geometry: None,
+        },
+        Row {
             verb: "only",
             sample: || {
                 Ok(Drawing::new([square()?, square()?.translate(20.0, 0.0)]).only(Select::new().attribute("index", 1)))

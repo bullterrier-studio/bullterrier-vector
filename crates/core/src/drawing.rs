@@ -3,6 +3,7 @@
 mod cache;
 mod eval;
 mod graph;
+mod items;
 mod select;
 mod style;
 mod transform;

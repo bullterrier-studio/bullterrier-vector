@@ -5,7 +5,7 @@ mod color;
 mod style;
 
 pub use attributes::Attributes;
-pub(crate) use attributes::{Holds, SELECTABLE, Single};
+pub(crate) use attributes::{Holds, SELECTABLE, Single, holds};
 pub use color::Color;
 pub use style::{Blend, Cap, Join, StrokeStyle, Style};
 pub(crate) use style::{DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, refused};
