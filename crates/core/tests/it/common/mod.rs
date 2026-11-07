@@ -154,8 +154,11 @@ pub(crate) fn clearance(corners: &[(f64, f64)], point: (f64, f64)) -> f64 {
 /// The area the closed polygon through `corners` encloses, positive when it runs clockwise on screen (`y` down): the
 /// shoelace formula.
 pub(crate) fn shoelace_area(corners: &[(f64, f64)]) -> f64 {
-    // measured from the first corner, so that far from the origin the products do not swamp the area
-    let (ox, oy) = corners[0];
+    // measured from the mean of the corners, so that far from the origin the products do not swamp the area
+    #[expect(clippy::cast_precision_loss, reason = "a few thousand corners")]
+    let count = corners.len() as f64;
+    let ox = corners.iter().map(|c| c.0).sum::<f64>() / count;
+    let oy = corners.iter().map(|c| c.1).sum::<f64>() / count;
     let mut doubled = 0.0;
     for (index, (x, y)) in corners.iter().enumerate() {
         let (next_x, next_y) = corners[(index + 1) % corners.len()];
