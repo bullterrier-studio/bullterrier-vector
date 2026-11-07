@@ -390,6 +390,7 @@
           "subtract",
           "intersect",
           "exclude",
+          "resolve",
           "offset",
           "outline",
           "drop_parts",
@@ -443,26 +444,31 @@
         "union": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "other": { "$ref": "#/$defs/drawing" } },
+          "properties": { "other": { "$ref": "#/$defs/drawing" }, "tolerance": { "$ref": "#/$defs/positive" } },
           "required": ["other"]
         },
         "subtract": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "other": { "$ref": "#/$defs/drawing" } },
+          "properties": { "other": { "$ref": "#/$defs/drawing" }, "tolerance": { "$ref": "#/$defs/positive" } },
           "required": ["other"]
         },
         "intersect": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "other": { "$ref": "#/$defs/drawing" } },
+          "properties": { "other": { "$ref": "#/$defs/drawing" }, "tolerance": { "$ref": "#/$defs/positive" } },
           "required": ["other"]
         },
         "exclude": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "other": { "$ref": "#/$defs/drawing" } },
+          "properties": { "other": { "$ref": "#/$defs/drawing" }, "tolerance": { "$ref": "#/$defs/positive" } },
           "required": ["other"]
+        },
+        "resolve": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "tolerance": { "$ref": "#/$defs/positive" } }
         },
         "offset": {
           "type": "object",
