@@ -450,6 +450,7 @@ fn a_spike_beside_a_much_larger_shape_does_not_come_back_as_a_contour_of_its_own
 }
 
 #[test]
+#[expect(clippy::unreadable_literal, reason = "the numbers of a failing run, as they were")]
 fn a_sub_path_that_encloses_nothing_does_not_change_the_other_operand() -> Outcome {
     // the engine rounds to a frame as wide as everything it is given; a lone point or a line far off widened it, and
     // the corner (9, 9) came back as 8.999999999999998
