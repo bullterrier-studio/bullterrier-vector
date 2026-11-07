@@ -413,6 +413,48 @@ GENERATED = json.loads(drawing_schema())
 # The documents that the draft and the generated schema must give one verdict on, beyond GOOD, BAD and the examples:
 # each states a rule the registered calls declare and the draft was loosened or tightened to match.
 AGREED = [
+    pytest.param(
+        square_with({"translate": {"dx": {"by_index": {"first": 0, "last": 20}}, "dy": 0}}), True, id="by_index"
+    ),
+    pytest.param(
+        square_with({"translate": {"dx": {"random": {"low": 0, "high": 1}}, "dy": 0}}),
+        True,
+        id="random with its seed left out",
+    ),
+    pytest.param(
+        square_with({"translate": {"dx": {"random": {"low": 0, "high": 1, "seed": 1.5}}, "dy": 0}}),
+        False,
+        id="a seed with a fraction",
+    ),
+    pytest.param(
+        square_with({"translate": {"dx": {"stagger": {"progress": 0.5, "spread": 0.999}}, "dy": 0}}),
+        True,
+        id="a spread below 1",
+    ),
+    pytest.param(
+        square_with({"translate": {"dx": {"stagger": {"progress": 0.5, "spread": 1}}, "dy": 0}}),
+        False,
+        id="a spread of 1",
+    ),
+    pytest.param(
+        square_with({"translate": {"dx": {"stagger": {"spread": 0.5}}, "dy": 0}}), False, id="stagger without progress"
+    ),
+    pytest.param(
+        square_with({"translate": {"dx": {"by_order": {"first": 0, "last": 1, "step": 2}}, "dy": 0}}),
+        False,
+        id="a field by_order does not have",
+    ),
+    pytest.param(
+        square_with({"translate": {"dx": {"by_index": {"first": 0}}, "dy": 0}}), False, id="by_index without last"
+    ),
+    pytest.param(
+        text_with({"size": {"mul": [{"random": {"low": 1, "high": 2}}, 10]}}),
+        False,
+        id="a per-item text size inside a product",
+    ),
+    pytest.param(
+        text_with({"axes": {"wght": {"by_index": {"first": 300, "last": 700}}}}), True, id="a per-item axis value"
+    ),
     pytest.param(square_with({"only": {"index": []}}), True, id="an empty list of indexes selects nothing"),
     pytest.param(square_with({"without": {"glyph": []}}), True, id="an empty list of glyphs drops nothing"),
     pytest.param(square_with({"only": {"origin": [1, 2]}}), True, id="selecting by one origin"),
@@ -549,6 +591,10 @@ REGISTERED = {
     "mul",
     "div",
     "neg",
+    "by_index",
+    "by_order",
+    "random",
+    "stagger",
 }
 # Documents the two schemas are expected to give different verdicts on, by id, each with the reason. Empty: the registry
 # expresses every rule of the registered calls.

@@ -115,6 +115,35 @@ def run():
             raise SystemExit("an expression 100,000 levels deep was drawn")
         step("drop")
         del a, b
+    elif scenario == "nested_with_the_deepest_per_item_expression":
+        deepest = btvec.by_index(x, 1)
+        for level in range(126):
+            deepest = (btvec.by_order(0, deepest), btvec.random(0, deepest), btvec.stagger(deepest))[level % 3]
+        drawing = nested(deepest)
+        every_output(drawing)
+        step("drop")
+        del drawing
+    elif scenario == "per_item_expression_a_loop_builds":
+        a, b = btvec.by_index(x, 1), btvec.by_index(x, 1)
+        for level in range(100_000):
+            a, b = btvec.random(0, a, seed=level), btvec.random(0, b, seed=level)
+        step("repr")
+        repr(a)
+        step("str")
+        str(a)
+        step("hash")
+        hash(a)
+        step("==")
+        a == b
+        step("draw is refused")
+        try:
+            btvec.Drawing(btvec.Path.circle((5, 5), 2).fill("#112233").translate(a, 0), size=(10, 10)).to_rgba(10, 10)
+        except btvec.ParameterError:
+            pass
+        else:
+            raise SystemExit("a per-item expression 100,000 levels deep was drawn")
+        step("drop")
+        del a, b
     elif scenario == "deepest_document":
         step("build and save")
         text = deepest_json_drawing()
@@ -189,6 +218,11 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
         pytest.param("nested", id="128-drawings-nested"),
         pytest.param("nested_with_the_deepest_expression", id="128-drawings-nested-over-a-128-level-expression"),
         pytest.param("expression_a_loop_builds", id="expression-100000-levels-built-by-a-loop"),
+        pytest.param(
+            "nested_with_the_deepest_per_item_expression",
+            id="128-drawings-nested-over-a-128-level-per-item-expression",
+        ),
+        pytest.param("per_item_expression_a_loop_builds", id="per-item-expression-100000-levels-built-by-a-loop"),
         pytest.param("deepest_document", id="deepest-document-to_json-accepts"),
         pytest.param("hostile_documents", id="documents-nested-100000-levels"),
         pytest.param("text_in_the_deepest_composite_glyph", id="text-of-a-glyph-of-64-nested-composites"),

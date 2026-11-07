@@ -89,6 +89,43 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Num {
     }
 }
 
+/// A number from `first` on the first shape of the list a step works on to `last` on the last, linear between, by the
+/// shape's `index`; `first` on a single shape.
+#[pyfunction]
+pub(crate) fn by_index(first: Num, last: Num) -> PyExpr {
+    PyExpr(vector::by_index(first.0, last.0))
+}
+
+/// As `by_index`, by the shape's `order`: `first` at order 0, `last` at order 1.
+#[pyfunction]
+pub(crate) fn by_order(first: Num, last: Num) -> PyExpr {
+    PyExpr(vector::by_order(first.0, last.0))
+}
+
+/// A number from `low` up to `high` for each shape, from `seed` and the shape's index; the same seed gives the same
+/// numbers everywhere. `low` above `high`, or a `seed` that is not a whole number, is a `ParameterError`.
+#[pyfunction]
+#[pyo3(signature = (low, high, *, seed=None))]
+pub(crate) fn random(low: Num, high: Num, seed: Option<Num>) -> PyExpr {
+    let mut random = vector::Random::new(low.0, high.0);
+    if let Some(seed) = seed {
+        random = random.seed(seed.0);
+    }
+    PyExpr(random.into())
+}
+
+/// Each shape's own progress from 0 to 1 out of `progress`: the shape at order `p` runs while `progress` goes from
+/// `p * spread` to `p * spread + 1 - spread`. `spread` outside 0 up to but not including 1 is a `ParameterError`.
+#[pyfunction]
+#[pyo3(signature = (progress, *, spread=None))]
+pub(crate) fn stagger(progress: Num, spread: Option<Num>) -> PyExpr {
+    let mut stagger = vector::Stagger::new(progress.0);
+    if let Some(spread) = spread {
+        stagger = stagger.spread(spread.0);
+    }
+    PyExpr(stagger.into())
+}
+
 /// A named number with a unit, a range, a default and a meaning. It is an `Expr`: a step takes it wherever it takes a
 /// number, and its value is given when the drawing is drawn.
 #[pyclass(name = "Param", module = "bullterrier_vector", extends = PyExpr, frozen)]

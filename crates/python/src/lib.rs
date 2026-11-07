@@ -27,7 +27,7 @@ mod _core {
     #[pymodule_export]
     use super::drawing::PyDrawing;
     #[pymodule_export]
-    use super::expr::{PyExpr, PyParam};
+    use super::expr::{PyExpr, PyParam, by_index, by_order, random, stagger};
     #[pymodule_export]
     use super::mesh::PyMesh;
     #[pymodule_export]

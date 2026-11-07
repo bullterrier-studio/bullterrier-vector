@@ -17,7 +17,11 @@ __all__ = [
     "Rect",
     "Shape",
     "Style",
+    "by_index",
+    "by_order",
     "drawing_schema",
+    "random",
+    "stagger",
     "text",
 ]
 
@@ -258,4 +262,8 @@ def text(
     fit: str | None = None,
     inside: Path | None = None,
 ) -> Drawing: ...
+def by_index(first: _Num, last: _Num) -> Expr: ...
+def by_order(first: _Num, last: _Num) -> Expr: ...
+def random(low: _Num, high: _Num, *, seed: _Num = 0) -> Expr: ...
+def stagger(progress: _Num, *, spread: _Num = 0.5) -> Expr: ...
 def drawing_schema() -> str: ...
