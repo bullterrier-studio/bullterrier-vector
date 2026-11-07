@@ -401,3 +401,34 @@ fn a_step_is_charged_for_the_edges_it_flattens_before_the_engine_runs_and_refuse
     );
     Ok(())
 }
+
+/// A closed polygon through `count` points scattered over a 1000 square by a fixed xorshift: every edge is long and
+/// crosses about a fifth of the others.
+fn scribble(count: usize) -> Result<Path, Error> {
+    let mut state = 0x1234_5678_9abc_def1_u64;
+    let mut next = move || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        #[expect(clippy::cast_precision_loss, reason = "the top 53 bits")]
+        let share = (state >> 11) as f64 / (1_u64 << 53) as f64;
+        share * 1000.0
+    };
+    Path::polyline((0..count).map(|_| (next(), next())).collect::<Vec<_>>(), true)
+}
+
+#[test]
+fn a_step_is_refused_when_the_edges_cross_so_often_that_the_engine_would_exhaust_memory() -> Outcome {
+    // 16,000 edges are far below the ten million segments a draw may flatten, yet they cross about 30 million times:
+    // resolving them takes minutes and more than 4 GB, which a charge on the edges alone cannot see
+    let drawing = Drawing::from(scribble(16_000)?).resolve(TOLERANCE);
+    let (name, message) = parameter_refusal(drawing.shapes(&no_values()))?;
+    assert!(
+        name.contains("step 1 (resolve)") && message.contains("MAX_SEGMENTS"),
+        "{name}: {message}"
+    );
+    // known good: 400 edges cross about 18,000 times and resolve
+    let drawing = Drawing::from(scribble(400)?).resolve(TOLERANCE);
+    assert_eq!(drawing.shapes(&no_values())?.len(), 1);
+    Ok(())
+}

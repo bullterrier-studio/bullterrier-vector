@@ -6,7 +6,8 @@
 //! sub-path fills as if closed. The engine snaps coordinates to an integer grid it picks from the bounding box of both
 //! paths (about 2^-60 of its half-extent, below what a number holds), which is why details far smaller than the shapes
 //! beside them can vanish. Its work grows with the crossings of the outlines, which no input size bounds: the caller
-//! charges the edges before the run and the vertices after it.
+//! charges the edges before the run, the pairs of edges that may cross (`box_pairs`) just before it, and the vertices
+//! after it.
 
 use super::{Builder, Path};
 use crate::Error;
@@ -76,8 +77,9 @@ impl Path {
         self.combined(other, Combine::Exclude, tolerance, &mut |_| Ok(()))
     }
 
-    /// As [`Path::resolve`], calling `charge` with the number of edges each curve is flattened into (before the
-    /// engine runs) and with the number of vertices of the result (before it is built); its error stops the verb.
+    /// As [`Path::resolve`], calling `charge` with the number of edges each curve is flattened into, then with the
+    /// number of pairs of edges whose boxes overlap (both before the engine runs), and with the number of vertices of
+    /// the result (before it is built); its error stops the verb.
     pub(crate) fn resolved(
         &self,
         tolerance: f64,
@@ -122,6 +124,7 @@ fn run(
     let tolerance = coordinate("tolerance", tolerance)?;
     let subject = contours(subject, tolerance, charge)?;
     let clip = contours(clip, tolerance, charge)?;
+    charge(box_pairs(&subject, &clip))?;
     let shapes = subject.overlay_as::<i64>(&clip, rule, FillRule::NonZero);
     charge(shapes.iter().flatten().map(Vec::len).sum())?;
     canonical(shapes)
@@ -141,6 +144,80 @@ fn contours(
         .filter(|polyline| polyline.points.len() >= 3)
         .map(|polyline| polyline.points.iter().map(|point| [point.x, point.y]).collect())
         .collect())
+}
+
+/// How many pairs of edges of `subject` and `clip` have boxes that overlap: at least as many as the places the outlines
+/// cross, which the engine's time and memory grow with (about 140 bytes a pair for a scribble; the edges alone say
+/// nothing: 16,000 of them cross 30 million times). Counted in `O(n log n)` by a sweep from left to right over the
+/// boxes, with a count of the active boxes by top and by bottom.
+fn box_pairs(subject: &[Contour], clip: &[Contour]) -> usize {
+    // (left, right, top, bottom) of every edge
+    let boxes: Vec<[f64; 4]> = subject
+        .iter()
+        .chain(clip)
+        .flat_map(|contour| {
+            contour
+                .iter()
+                .zip(contour.iter().cycle().skip(1))
+                .map(|(a, b)| [a[0].min(b[0]), a[0].max(b[0]), a[1].min(b[1]), a[1].max(b[1])])
+        })
+        .collect();
+    let mut heights: Vec<f64> = boxes.iter().flat_map(|b| [b[2], b[3]]).collect();
+    heights.sort_by(f64::total_cmp);
+    heights.dedup();
+    let rank = |y: f64| heights.partition_point(|h| h.total_cmp(&y).is_lt());
+    // a box starts at its left and ends at its right; at a tie the starts come first, as boxes that touch overlap
+    let mut events: Vec<(f64, bool, usize)> = Vec::with_capacity(2 * boxes.len());
+    for (index, b) in boxes.iter().enumerate() {
+        events.push((b[0], false, index));
+        events.push((b[1], true, index));
+    }
+    events.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+    let (mut tops, mut bottoms) = (Counts::new(heights.len()), Counts::new(heights.len()));
+    let (mut active, mut pairs) = (0_isize, 0_usize);
+    for (_, ending, index) in events {
+        let (top, bottom) = (rank(boxes[index][2]), rank(boxes[index][3]));
+        if ending {
+            tops.add(top, -1);
+            bottoms.add(bottom, -1);
+            active -= 1;
+        } else {
+            // an active box misses this one if it ends above its top or starts below its bottom, never both
+            let apart = bottoms.below(top) + (active - tops.below(bottom + 1));
+            pairs = pairs.saturating_add((active - apart).unsigned_abs());
+            tops.add(top, 1);
+            bottoms.add(bottom, 1);
+            active += 1;
+        }
+    }
+    pairs
+}
+
+/// Counts at positions `0..n` that can change by one and be summed over a prefix, in `O(log n)` (a Fenwick tree).
+struct Counts(Vec<isize>);
+
+impl Counts {
+    fn new(positions: usize) -> Self {
+        Self(vec![0; positions + 1])
+    }
+
+    fn add(&mut self, position: usize, change: isize) {
+        let mut at = position + 1;
+        while at < self.0.len() {
+            self.0[at] += change;
+            at += at.isolate_lowest_one();
+        }
+    }
+
+    /// The sum of the counts at positions before `position`.
+    fn below(&self, position: usize) -> isize {
+        let (mut at, mut sum) = (position, 0);
+        while at > 0 {
+            sum += self.0[at];
+            at -= at.isolate_lowest_one();
+        }
+        sum
+    }
 }
 
 /// `shapes` (an outer contour and its holes each, as the engine returns them: the outer running clockwise on a `y`-down
@@ -235,16 +312,17 @@ mod tests {
     }
 
     #[test]
-    fn the_edges_flattened_and_the_vertices_made_are_charged() -> Result<(), Error> {
+    fn the_edges_flattened_the_pairs_of_edges_and_the_vertices_made_are_charged() -> Result<(), Error> {
         let (a, b) = (square(0.0, 4.0)?, square(2.0, 4.0)?);
         let mut charged = Vec::new();
         a.combined(&b, Combine::Union, 0.01, &mut |count| {
             charged.push(count);
             Ok(())
         })?;
-        // four edges for each square (one charge per curve), then the eight corners of the union
-        assert_eq!(charged.iter().sum::<usize>(), 4 + 4 + 8, "{charged:?}");
-        assert_eq!(charged.last(), Some(&8));
+        // four edges for each square (one charge per curve), the 10 pairs of edges with boxes that overlap (the corners
+        // of each square: 4 and 4; the right edge of the first meets the top of the second, the bottom of the first
+        // the left of the second), then the eight corners of the union
+        assert_eq!(charged, [vec![1; 8], vec![10, 8]].concat());
         Ok(())
     }
 
@@ -262,10 +340,50 @@ mod tests {
                 }
             })
         };
-        // eight curves are charged, then the result: refusing the first, or the last, stops the verb
-        assert_eq!(refuse(0), Err(Error::parameter("work", "over the limit")));
-        assert_eq!(refuse(8), Err(Error::parameter("work", "over the limit")));
-        assert!(refuse(9).is_ok());
+        // eight curves are charged, then the pairs, then the result: refusing the first, or any later one, stops the verb
+        for after in [0, 8, 9] {
+            assert_eq!(
+                refuse(after),
+                Err(Error::parameter("work", "over the limit")),
+                "after {after}"
+            );
+        }
+        assert!(refuse(10).is_ok());
         Ok(())
+    }
+
+    #[test]
+    fn the_pairs_of_overlapping_boxes_are_what_a_comparison_of_every_pair_counts() {
+        // 300 points of a 1000 square by an xorshift: edges of every length, some boxes that only touch (a grid)
+        let mut state = 0x9E37_79B9_7F4A_7C15_u64;
+        let mut next = |grid: f64| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            #[expect(clippy::cast_precision_loss, reason = "the top 50 bits")]
+            let share = (state >> 14) as f64 / (1_u64 << 50) as f64;
+            (share * grid).floor() * 1000.0 / grid
+        };
+        for grid in [1000.0, 8.0] {
+            let subject: Vec<Contour> = vec![(0..300).map(|_| [next(grid), next(grid)]).collect()];
+            let clip: Vec<Contour> = vec![(0..40).map(|_| [next(grid), next(grid)]).collect()];
+            let boxes: Vec<[f64; 4]> = subject
+                .iter()
+                .chain(&clip)
+                .flat_map(|c| {
+                    (0..c.len()).map(|i| {
+                        let (a, b) = (c[i], c[(i + 1) % c.len()]);
+                        [a[0].min(b[0]), a[0].max(b[0]), a[1].min(b[1]), a[1].max(b[1])]
+                    })
+                })
+                .collect();
+            let mut wanted = 0;
+            for (i, p) in boxes.iter().enumerate() {
+                for q in &boxes[i + 1..] {
+                    wanted += usize::from(p[0] <= q[1] && q[0] <= p[1] && p[2] <= q[3] && q[2] <= p[3]);
+                }
+            }
+            assert_eq!(box_pairs(&subject, &clip), wanted, "grid {grid}");
+        }
     }
 }
