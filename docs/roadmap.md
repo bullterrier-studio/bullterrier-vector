@@ -68,7 +68,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04 and V7 on 2026-11-07. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V8 is next.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V8 is done; V9 is next.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -251,7 +251,8 @@ round-trip. The other example documents round-trip as their calls arrive. These 
 Carried from the S0 review:
 - Clippy checks only this workspace's code, so the boolean and raster crates chosen in V2 must use `libm` for their
   maths; otherwise the V3 native-against-WebAssembly differential test is the only guard. (V2a wrote its own curve
-  code on `libm`; see design-decisions.md, "No curve crate".)
+  code on `libm`; see design-decisions.md, "No curve crate". The V8 boolean engine reaches the output through `libm` and integer
+  arithmetic only: "Booleans (V8)".)
 
 ## V3 Output, WebAssembly, the same bytes everywhere
 
@@ -382,8 +383,8 @@ same order as Node; not conclusive.
   21 MB of vertices 0.7 ms.
 - Cost is linear in shape count (about 0.11 ms a shape in Node), and in this scene independent of how many values change.
 
-**Not measured.** (Shaping and variable-axis changes per frame were measured in V5c: `benchmarks.md`, "Text".) Booleans and knockouts per frame
-(V8; `knockout` is not a step yet), offsets and stroke-outline verbs (V9), deformers (V12), a real GPU upload and draw, a
+**Not measured.** (Shaping and variable-axis changes per frame were measured in V5c: `benchmarks.md`, "Text".) Knockouts per frame
+(`knockout` is not a step yet; booleans per frame were measured in V8, natively only: `benchmarks.md`, "Booleans (V8)"), offsets and stroke-outline verbs (V9), deformers (V12), a real GPU upload and draw, a
 mesh with a different flattening tolerance in WebAssembly, more than one machine or browser, several threads (the build is
 single-threaded). Per-item fill colours cannot be Params today (a Param is a number): the per-shape lists drive transforms and
 opacity only. The kinetic type piece itself was not measured: this is a stand-in with the same kind of work.
@@ -404,8 +405,9 @@ opacity only. The kinetic type piece itself was not measured: this is a stand-in
   the shader instead of tessellating their outlines is an idea only, not tried.
 - Re-measure after V5 (done in V5c, `benchmarks.md` "Text": 0.015 ms to shape and outline a headline at a new weight, 0.5 ms for a
   page, 0.6 ms to mesh it at 1080x1350): shaping and glyph outlines per frame when a variable axis moves (cache by axis value; a glyph set
-  with the same text and a moving axis is the kinetic type case), and the mesh of real glyphs. Re-measure after V8: booleans
-  per frame for knockouts on overlapping glyphs, against the 16.7 ms left over once meshing is cached. Re-measure on
+  with the same text and a moving axis is the kinetic type case), and the mesh of real glyphs. Booleans per frame (done in V8,
+  `benchmarks.md` "Booleans (V8)": 1.8 ms to resolve a line of 35 capitals, 4.7 ms to cut it out of a plate, natively; not meshed,
+  not in WebAssembly), against the 16.7 ms left over once meshing is cached. Re-measure on
   another machine, in a real browser with a real upload, and with the chosen caching in place, before promising 60 Hz.
 
 ## V4 Frame export
@@ -426,8 +428,8 @@ tolerance, skipping with a stated reason without ffmpeg).
 - Fonts from bytes: OpenType, TrueType, variable fonts; two or three open-licence fonts bundled. Whether WOFF and WOFF2
   load, or need unpacking first, is checked here.
 - Shaping with ligatures, kerning, complex scripts and OpenType features; glyph outlines as shapes with attributes
-  (index in text, word, line; order 0..1). Overlapping contours are removed in V8 with the booleans (mesh and pixels
-  fill nonzero, so unresolved overlaps draw right meanwhile).
+  (index in text, word, line; order 0..1). `resolve` (V8) removes the overlapping contours on request (mesh and pixels
+  fill nonzero, so unresolved overlaps draw right).
 - Variable axes (weight, width, slant, custom) as parameters of the text node; per-glyph axis values, with advances that
   follow them.
 
@@ -484,7 +486,7 @@ State: V7 is done (Rust, Python, through JSON): the per-item numbers `by_index`,
 on a `Drawing`, and transforms whose `about` defaults to the shape's `origin` and that move it. `examples/draw_on.py` draws
 a word on letter by letter by one `progress`; `examples/glyph_scatter.py` splits a word into parts and scatters them by
 seeded `random` and a `scatter` Param. The WebAssembly differential has 72 drawings (44 paths, 17 texts, 2 bends, 9 per-item).
-Known limits (`api.md`, "Per-item numbers" and "Items"): `merge` joins sub-paths and leaves overlaps until `union` (V8);
+Known limits (`api.md`, "Per-item numbers" and "Items"): `merge` joins sub-paths and leaves overlaps (`union` or `resolve` unites them);
 `random` is keyed by the shape's current `index`, so an `only` or `split` before it changes the numbers; `split` (and
 `Path::split`) tests every closed sub-path against every other, so its time grows with the square of their number (8000 tiny
 squares: 0.4 s; measured 4x per doubling).
@@ -493,8 +495,16 @@ squares: 0.4 s; measured 4x per doubling).
 
 Union, subtract, intersect, exclude, on any shapes. The riskiest batch: build on an existing crate, fuzz with random and
 degenerate paths (overlaps, touching edges, tiny segments), document what fails. Also here: removing the overlaps
-between the contours of a glyph (`text` keeps the font's contours until then), so that every glyph outline is a valid
-region in the canonical form of api.md.
+between the contours of a glyph (`text` keeps the font's contours; `resolve` removes the overlaps), so that every glyph
+outline can be a valid region in the canonical form of api.md.
+
+State: V8 is done (Rust, Python, through JSON): `union`, `subtract`, `intersect` and `exclude` with `other` and
+`tolerance`, and the unary `resolve`, on a `Path` and as steps on a `Drawing` (`path/boolean.rs` over `i_overlay`,
+`node/boolean.rs`, `drawing/boolean.rs`; `other` is the new argument kind `Kind::Drawing`). Fuzzed with six properties at
+10,000 cases each, 407 glyphs of both bundled fonts and the degenerate extremes; the six defects found are fixed
+(design-decisions.md, "Booleans (V8)") and the limits are in api.md, "Booleans". `examples/cutout.py` cuts a headline out of a
+plate; the WebAssembly differential has 88 drawings (44 paths, 17 texts, 2 bends, 9 per-item, 16 booleans);
+`uv run poe bench --booleans` times the verbs (`benchmarks.md`, "Booleans (V8)").
 
 ## V9 Offsets
 
