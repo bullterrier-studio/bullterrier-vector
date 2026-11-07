@@ -1,6 +1,6 @@
 """Time the outputs on one reference drawing, natively and in WebAssembly, and print a table.
 
-    uv run poe bench [--shapes N] [--size WxH] [--repeats N] [--warmups N] [--require-node] [--text]
+    uv run poe bench [--shapes N] [--size WxH] [--repeats N] [--warmups N] [--require-node] [--text] [--booleans]
 
 The reference drawing is a star and `--shapes` (default 200) filled, stroked, translucent and multiply shapes from a
 seeded generator, at 1920x1080 by default. `to_rgba` and `to_mesh` are each called `--warmups` times (default 3) and
@@ -14,6 +14,10 @@ for a person to read: nothing asserts on time. Results are recorded by hand in d
 Param, timed as `shapes` (shaping and outlines), as `to_rgba` and as `to_mesh` at a new weight on every call, so none is
 answered from the cache; as `shapes` with a weight for each letter, for a page of capitals, for the headline fitted to a
 width by the width axis and for the page wrapped to a width; and once, a text of 100,000 letters each at its own weight.
+
+`--booleans` adds the cost of the boolean verbs, natively: the `shapes` of a line of capitals with and without `resolve`
+and cut out of a plate with `subtract` (a new weight on every call, so the cache answers none), and, on a `Path`, the
+`resolve` of a 100 by 100 grid of overlapping squares and the `union` of two such grids.
 
 Interface:
     reference_drawing(shapes=200, seed=1, size=(1920, 1080)) -> Drawing  the drawing that is timed
@@ -43,6 +47,11 @@ OUTPUTS = ("to_rgba", "to_mesh")
 FONT = ROOT / "examples" / "fonts" / "anybody-subset.ttf"
 HEADLINE = "NO\nSLEEP"
 HEADLINE_SIZE = (1080, 1350)
+LINE = "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG"
+LINE_SIZE = 100  # pixels to the em
+GRID = 100  # squares along each side of the grid of overlapping squares
+SQUARE, PITCH = 12, 10  # a square's side and the distance between squares: neighbours overlap by 2
+GRID_SHIFT = 5  # how far the second grid of the union is moved
 PAGE = "\n".join(["THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG 0123456789 " * 2] * 9)  # about a page of capitals
 PAGE_LETTERS = len(PAGE)
 PAGE_WIDTH = 1000  # pixels: the width the page is wrapped to
@@ -240,11 +249,57 @@ def text_times(warmups: int, repeats: int) -> dict[str, float]:
     return times
 
 
-def text_table(times: dict[str, float], repeats: int) -> str:
-    """The rows of `text_times`: what was timed and its milliseconds."""
-    header = f"text: {HEADLINE!r} in a variable font, median of {repeats} calls in milliseconds"
+def named_table(header: str, times: dict[str, float]) -> str:
+    """A line of `header` over a row per timing: what was timed and its milliseconds."""
     width = max(len(name) for name in times)
     return "\n".join([header, *(f"{name.ljust(width)}  {ms:.3f}" for name, ms in times.items())])
+
+
+def text_table(times: dict[str, float], repeats: int) -> str:
+    """The rows of `text_times`: what was timed and its milliseconds."""
+    return named_table(f"text: {HEADLINE!r} in a variable font, median of {repeats} calls in milliseconds", times)
+
+
+def grid_path(shift: float = 0) -> btvec.Path:
+    """`GRID` by `GRID` squares of side `SQUARE` every `PITCH`, moved by `shift` on both axes: one path of sub-paths."""
+    squares = (
+        f"M{x * PITCH + shift} {y * PITCH + shift} h{SQUARE} v{SQUARE} h-{SQUARE} Z"
+        for y in range(GRID)
+        for x in range(GRID)
+    )
+    return btvec.Path.from_svg_path(" ".join(squares))
+
+
+def boolean_times(warmups: int, repeats: int) -> dict[str, float]:
+    """The median milliseconds of the boolean verbs through the Python extension: a line of type with a new weight on
+    every call, and two grids of overlapping squares."""
+    font = btvec.Font(FONT.read_bytes())
+    weight = font.axes["wght"]
+    span = weight.max - weight.min
+    steps = count()
+
+    def moved() -> float:
+        """A weight the earlier calls did not use, within the axis."""
+        return weight.min + (next(steps) * 0.37) % span
+
+    line = btvec.text(LINE, font=font, size=LINE_SIZE, axes={"wght": weight})
+    width = line.shapes(wght=weight.min)[-1].path.bounds
+    plate = btvec.Path.rect(-20, -LINE_SIZE, width.x + width.width + 40, LINE_SIZE * 1.4)
+    grid, shifted = grid_path(), grid_path(GRID_SHIFT)
+    letters = len(line.shapes())
+    return {
+        f"shapes, a line of {letters} letters, the weight moves": median_ms(
+            lambda: line.shapes(wght=moved()), warmups, repeats
+        ),
+        "shapes, the same line resolved": median_ms(lambda: line.resolve().shapes(wght=moved()), warmups, repeats),
+        "shapes, the same line cut out of a plate with subtract": median_ms(
+            lambda: btvec.Drawing(plate).subtract(line).shapes(wght=moved()), warmups, repeats
+        ),
+        f"Path.resolve, {GRID}x{GRID} overlapping squares": median_ms(grid.resolve, warmups, repeats),
+        f"Path.union, two {GRID}x{GRID} grids of overlapping squares": median_ms(
+            lambda: grid.union(shifted), warmups, repeats
+        ),
+    }
 
 
 def parse_size(text: str) -> tuple[int, int]:
@@ -264,6 +319,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--warmups", type=int, default=WARMUPS, help=f"calls before timing (default {WARMUPS})")
     parser.add_argument("--require-node", action="store_true", help="exit 1 when the WebAssembly column is missing")
     parser.add_argument("--text", action="store_true", help="also time text when its weight moves (native)")
+    parser.add_argument("--booleans", action="store_true", help="also time resolve, subtract and union (native)")
     arguments = parser.parse_args(argv)
     try:
         if min(arguments.shapes, arguments.warmups) < 0 or arguments.repeats < 1:
@@ -272,6 +328,7 @@ def main(argv: list[str] | None = None) -> int:
         drawing = reference_drawing(arguments.shapes, size=size)
         native = native_times(drawing, size, arguments.warmups, arguments.repeats)
         typed = text_times(arguments.warmups, arguments.repeats) if arguments.text else None
+        cut = boolean_times(arguments.warmups, arguments.repeats) if arguments.booleans else None
     except (BenchError, btvec.errors.BullterrierVectorError) as error:
         print(f"bench: {error}", file=sys.stderr)
         return 1
@@ -284,6 +341,8 @@ def main(argv: list[str] | None = None) -> int:
     print(table(arguments.shapes, size, arguments.repeats, native, node))
     if typed:
         print(text_table(typed, arguments.repeats))
+    if cut:
+        print(named_table(f"booleans: median of {arguments.repeats} calls in milliseconds", cut))
     if problem:
         print(problem, file=sys.stderr)
     return 1 if problem and arguments.require_node else 0

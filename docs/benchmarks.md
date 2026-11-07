@@ -53,3 +53,24 @@ implementers, not re-run for this table (run count and conditions not recorded h
 the wrapped page of 998 letters about 0.56 ms (the unwrapped page: 0.51 to 0.63 ms above), and the 100,000-letter text of
 the last row above, about 255 ms (V5c: 289 to 300 ms). Each call has a new weight, so the result cache answers none and the
 wrap and the fit are planned again every call. Not measured: `inside` and `along`, WebAssembly.
+
+## Booleans (V8)
+
+`uv run poe bench --booleans` adds the cost of the boolean verbs, natively only (the Python extension). Apple M4, macOS,
+the V8 batch, 2026-11-07; the median of 20 calls in milliseconds, one run on a quiet machine. The line is 35 capitals at
+100 px to the em in the subset of Anybody, with its `wght` a `Param` at a new value on every call, so the result cache
+answers none. The grids are 100 by 100 squares of side 12 every 10 px (10,000 squares, 40,000 edges, neighbours
+overlapping), as one `Path`; the second grid of the union is moved by 5 px on both axes.
+
+| What | ms |
+|---|---|
+| `shapes` of the line, no boolean | 0.033 |
+| `shapes` of the line after `resolve` | 1.812 |
+| `shapes` of the line cut out of a plate with `subtract` | 4.725 |
+| `Path.resolve` of the 100x100 grid | 18.393 |
+| `Path.union` of two 100x100 grids | 65.760 |
+
+`resolve` of a line costs about 50 microseconds a glyph (the glyphs are flattened to 0.01 px and their overlaps
+dissolved, every call), `subtract` from a plate about 130: a line of text can be cut out again at every value of a
+`Param` within a frame of 16.7 ms; the grids, with tens of thousands of edges, take 20 to 70 ms. Not measured:
+WebAssembly, a second run, curves in a grid.

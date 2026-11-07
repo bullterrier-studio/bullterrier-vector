@@ -121,6 +121,22 @@ def test_without_text_no_text_row_is_printed(bench):
     assert "text:" not in bench(*TINY).out
 
 
+def test_booleans_adds_the_rows_of_a_line_of_type_and_two_grids_of_squares(bench):
+    result = bench(*TINY, "--booleans")
+    assert result.code == 0, result.err
+    header, *timed = result.out.splitlines()[4:]
+    assert header == "booleans: median of 2 calls in milliseconds"
+    assert [line.rsplit(None, 1)[0] for line in timed] == [
+        "shapes, a line of 35 letters, the weight moves",
+        "shapes, the same line resolved",
+        "shapes, the same line cut out of a plate with subtract",
+        "Path.resolve, 100x100 overlapping squares",
+        "Path.union, two 100x100 grids of overlapping squares",
+    ]
+    assert all(float(line.rsplit(None, 1)[1]) >= 0 for line in timed)  # a number; nothing asserts on time
+    assert "booleans:" not in bench(*TINY).out
+
+
 def test_a_missing_package_is_one_line_and_the_native_column_stays(bench):
     result = bench(*TINY)
     assert result.code == 0
