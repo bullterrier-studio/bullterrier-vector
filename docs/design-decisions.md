@@ -259,7 +259,10 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   The stroke is now the bevel and butt-end outline plus, beside it and running the same way round, a circular segment
   where a corner turns enough for the bevel to be over 0.01 short of the arc and a half disc at each open end: none of
   20,000 random strokes is covered twice or missed, with real corners, whole-number corners or miter and bevel joins; with
-  corners on a coarse grid, where edges coincide, 1 of 20,000 (56 before), also seen with plain bevel and miter joins.
+  corners on a coarse grid, where edges coincide, 1 of 20,000 (56 before), also seen with plain bevel and miter joins. A corner that turns back by about 170 degrees can still be covered three
+  times in general position (seen once in a random run, 2026-11-07; lyon's triangles overlap where the stroke overlaps itself).
+  Resolving the rings with `Path::resolve` before the fill covers each point once, but takes an 801-corner star from a
+  refusal in about 1 s to 90 s: a fix needs the crossing count charged to `MAX_TESSELLATION_WORK` first. Not built.
   A smooth curve gains no triangles, and the scenes measured gained under 6%.
 
 - **Native against WebAssembly: exact for what we compute, a measured tolerance for pixels** (2026-11-01). The
