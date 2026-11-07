@@ -38,6 +38,8 @@ mod param;
 mod path;
 mod path_along;
 mod path_boolean;
+mod path_boolean_fuzz;
+mod path_boolean_glyphs;
 mod path_measure;
 mod path_range;
 mod path_region;

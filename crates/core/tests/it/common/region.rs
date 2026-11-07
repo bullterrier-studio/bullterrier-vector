@@ -65,18 +65,22 @@ pub(crate) fn sampled(path: &Path, steps: usize) -> Result<Vec<Corners>, Box<dyn
     Ok(found)
 }
 
-/// The area of the points `keep` says to keep, given whether each is inside the nonzero fill of polygons `a` and of
-/// polygons `b`. Exact for straight edges: the plane is cut into slabs at every height where an edge ends or two
-/// edges cross, inside a slab the edges do not cross, and the width of what is kept at the middle of a slab times its
-/// height is its area.
-pub(crate) fn exact_area(a: &[Corners], b: &[Corners], keep: impl Fn(bool, bool) -> bool) -> f64 {
+/// Which set an edge belongs to, where it starts and where it ends.
+type P = (f64, f64);
+type Edge = (bool, P, P);
+
+/// For each rule in `keep`, the area of the points it keeps, given whether each is inside the nonzero fill of polygons
+/// `a` and of polygons `b`. Exact for straight edges: the plane is cut into slabs at every height where an edge ends
+/// or two edges cross, inside a slab the edges do not cross, and the width of what is kept at the middle of a slab
+/// times its height is its area.
+pub(crate) fn exact_areas(a: &[Corners], b: &[Corners], keep: &[fn(bool, bool) -> bool]) -> Vec<f64> {
     // (set, from, to) of every edge that is not level
-    let mut edges: Vec<(bool, (f64, f64), (f64, f64))> = Vec::new();
+    let mut edges: Vec<Edge> = Vec::new();
     for (set, polygons) in [(false, a), (true, b)] {
         for corners in polygons {
             for (index, &from) in corners.iter().enumerate() {
                 let to = corners[(index + 1) % corners.len()];
-                if from.1 != to.1 {
+                if (from.1 - to.1).abs() > 0.0 {
                     edges.push((set, from, to));
                 }
             }
@@ -85,14 +89,14 @@ pub(crate) fn exact_area(a: &[Corners], b: &[Corners], keep: impl Fn(bool, bool)
     let mut heights: Vec<f64> = edges.iter().flat_map(|e| [e.1.1, e.2.1]).collect();
     for (index, e) in edges.iter().enumerate() {
         for f in &edges[index + 1..] {
-            if let Some(y) = crossing_height(e.1, e.2, f.1, f.2) {
+            if let Some(y) = crossing_height((e.1, e.2), (f.1, f.2)) {
                 heights.push(y);
             }
         }
     }
     heights.sort_by(f64::total_cmp);
     heights.dedup();
-    let mut area = 0.0;
+    let mut areas = vec![0.0; keep.len()];
     for pair in heights.windows(2) {
         let middle = f64::midpoint(pair[0], pair[1]);
         let mut events: Vec<(f64, bool, i32)> = edges
@@ -104,26 +108,45 @@ pub(crate) fn exact_area(a: &[Corners], b: &[Corners], keep: impl Fn(bool, bool)
             })
             .collect();
         events.sort_by(|p, q| p.0.total_cmp(&q.0));
-        let (mut winding_a, mut winding_b, mut width) = (0, 0, 0.0);
+        let (mut winding_a, mut winding_b) = (0, 0);
+        let mut widths = vec![0.0; keep.len()];
         for (index, &(x, set, direction)) in events.iter().enumerate() {
             if set {
                 winding_b += direction;
             } else {
                 winding_a += direction;
             }
-            if let Some(next) = events.get(index + 1)
-                && keep(winding_a != 0, winding_b != 0)
-            {
-                width += next.0 - x;
+            if let Some(next) = events.get(index + 1) {
+                for (width, rule) in widths.iter_mut().zip(keep) {
+                    if rule(winding_a != 0, winding_b != 0) {
+                        *width += next.0 - x;
+                    }
+                }
             }
         }
-        area += (pair[1] - pair[0]) * width;
+        for (area, width) in areas.iter_mut().zip(widths) {
+            *area += (pair[1] - pair[0]) * width;
+        }
     }
-    area
+    areas
+}
+
+/// Whether `point` is inside the nonzero fill of `polys`, by winding numbers.
+pub(crate) fn inside(polys: &[Corners], point: (f64, f64)) -> bool {
+    polys.iter().map(|corners| super::winding(corners, point)).sum::<i32>() != 0
+}
+
+/// The distance from `point` to the nearest edge of any of `polys`.
+pub(crate) fn nearest_edge(polys: &[Corners], point: (f64, f64)) -> f64 {
+    polys
+        .iter()
+        .map(|corners| super::clearance(corners, point))
+        .fold(f64::INFINITY, f64::min)
 }
 
 /// The height at which the open segments `a`-`b` and `c`-`d` cross each other, if they do.
-fn crossing_height(a: (f64, f64), b: (f64, f64), c: (f64, f64), d: (f64, f64)) -> Option<f64> {
+fn crossing_height(first: (P, P), second: (P, P)) -> Option<f64> {
+    let ((a, b), (c, d)) = (first, second);
     if a.0.min(b.0) > c.0.max(d.0)
         || c.0.min(d.0) > a.0.max(b.0)
         || a.1.min(b.1) > c.1.max(d.1)
@@ -131,15 +154,15 @@ fn crossing_height(a: (f64, f64), b: (f64, f64), c: (f64, f64), d: (f64, f64)) -
     {
         return None;
     }
-    let (rx, ry, sx, sy) = (b.0 - a.0, b.1 - a.1, d.0 - c.0, d.1 - c.1);
-    let denominator = rx * sy - ry * sx;
+    let (along, across) = ((b.0 - a.0, b.1 - a.1), (d.0 - c.0, d.1 - c.1));
+    let denominator = along.0 * across.1 - along.1 * across.0;
     if denominator == 0.0 {
         return None;
     }
-    let (qx, qy) = (c.0 - a.0, c.1 - a.1);
-    let t = (qx * sy - qy * sx) / denominator;
-    let u = (qx * ry - qy * rx) / denominator;
-    (0.0 < t && t < 1.0 && 0.0 < u && u < 1.0).then(|| a.1 + t * ry)
+    let gap = (c.0 - a.0, c.1 - a.1);
+    let on_first = (gap.0 * across.1 - gap.1 * across.0) / denominator;
+    let on_second = (gap.0 * along.1 - gap.1 * along.0) / denominator;
+    (0.0 < on_first && on_first < 1.0 && 0.0 < on_second && on_second < 1.0).then_some(a.1 + on_first * along.1)
 }
 
 /// A place where two edges of `rings` cross each other (their interiors meet at a point and neither end of one lies

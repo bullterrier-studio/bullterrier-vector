@@ -375,6 +375,7 @@ fn shapes_of_any_size_combine_to_the_same_relative_area() -> Outcome {
 // Regressions: inputs the fuzz found, as they were minimised ---------------------------------------------------------
 
 #[test]
+#[expect(clippy::unreadable_literal, reason = "the numbers of a failing run, as they were")]
 fn an_outline_that_hardly_leaves_a_line_has_no_contour_that_rounds_to_a_line() -> Outcome {
     // five corners on the line y = 0.7 x + 3, each a few units in the last place off it, written in no order: the
     // outline crosses itself, and its pieces enclose some 1e-15. The engine keeps the pieces (its grid is finer than a
@@ -396,6 +397,7 @@ fn an_outline_that_hardly_leaves_a_line_has_no_contour_that_rounds_to_a_line() -
 }
 
 #[test]
+#[expect(clippy::unreadable_literal, reason = "the numbers of a failing run, as they were")]
 fn a_curve_that_runs_out_and_back_along_one_line_leaves_no_contour_that_rounding_has_turned_over() -> Outcome {
     // a cubic whose controls are its end and its start: flattened, its points lie on the line to within rounding, and
     // the pieces of it that cross enclose some 1e-15; a piece that rounding has turned over would be a hole of an
