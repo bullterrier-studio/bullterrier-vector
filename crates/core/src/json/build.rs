@@ -139,6 +139,7 @@ impl<'a> Builder<'a> {
             Value::Drawings(items) => {
                 Given::Drawings(items.iter().map(|item| self.chain(item)).collect::<Result<_, _>>()?)
             }
+            Value::Drawing(calls) => Given::Drawing(self.chain(calls)?),
             Value::Select(select) => Given::Select(select.clone()),
             Value::Font { name, pointer } => Given::Font(
                 self.fonts

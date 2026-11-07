@@ -38,6 +38,7 @@
 //! | font ([`Kind::Font`]) | a [`Font`](crate::Font), by its bytes: a document names it and the caller supplies the bytes |
 //! | axes ([`Kind::Axes`]) | tags to expressions, read per item where the items are the characters of the text: `text`'s `axes`. A Param given a list gives character `i` entry `i` |
 //! | features ([`Kind::Features`]) | tags to whole numbers, constants: `text`'s `features` |
+//! | drawing ([`Kind::Drawing`]) | one drawing, evaluated with the caller's Param values and handed over as the node's `taken`: the `other` of a boolean |
 //!
 //! Two more kinds of argument are declared by the first node that needs them, not before, so that no variant exists
 //! without a consumer and a test: a whole number (an expression whose value must be whole within ±(2^53 - 1)),
@@ -196,6 +197,8 @@ pub enum Kind {
     Shape,
     /// Drawings, bottom first.
     Drawings,
+    /// One drawing, written as an array of calls: the `other` of a boolean.
+    Drawing,
     /// Attribute names with the values a shape's must equal (`only`, `without`).
     Attributes,
     /// Param names with a number, or a list of one number per shape, for each (`with_values`).

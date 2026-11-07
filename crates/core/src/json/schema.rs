@@ -153,6 +153,7 @@ fn argument(arg: &Arg) -> Json {
         },
         Kind::Path => reference("path_data"),
         Kind::Shape => shape(),
+        Kind::Drawing => reference("drawing"),
         Kind::Drawings => Json::object([("type", Json::text("array")), ("items", reference("drawing"))]),
         Kind::Attributes => selection(),
         Kind::Font => reference("name"),

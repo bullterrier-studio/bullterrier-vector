@@ -77,6 +77,7 @@ pub(super) enum Value {
         attributes: Attributes,
     },
     Drawings(Vec<Vec<Call>>),
+    Drawing(Vec<Call>),
     Select(Select),
     Values(Vec<Fixed>),
     /// The name of an input, with the pointer of the name.
@@ -88,6 +89,17 @@ pub(super) enum Value {
     Axes(Vec<Setting<Ex>>),
     /// Feature values by tag, in tag order.
     Features(Vec<Setting<u32>>),
+}
+
+impl Value {
+    /// The drawings this value holds: the items of `Drawings`, the one of `Drawing`, else none.
+    pub(super) fn drawings(&self) -> &[Vec<Call>] {
+        match self {
+            Self::Drawings(items) => items,
+            Self::Drawing(one) => std::slice::from_ref(one),
+            _ => &[],
+        }
+    }
 }
 
 /// An entry of an object keyed by a font tag: the tag, the pointer of the entry, and its value.

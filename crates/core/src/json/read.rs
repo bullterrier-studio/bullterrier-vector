@@ -382,6 +382,7 @@ impl Reader {
                     .collect::<Result<_, _>>()
                     .map(Value::Drawings)
             }
+            Kind::Drawing => self.drawing(pointer, json).map(Value::Drawing),
             Kind::Attributes => select(pointer, json).map(Value::Select),
             Kind::Values => values(pointer, json).map(Value::Values),
             Kind::Axes => tagged(pointer, json)?

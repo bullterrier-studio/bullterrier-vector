@@ -47,6 +47,8 @@ pub(crate) enum Given {
     Shape(Shape),
     /// Drawings, bottom first.
     Drawings(Vec<Drawing>),
+    /// One drawing.
+    Drawing(Drawing),
     /// Attributes to select by.
     Select(Select),
     /// Values for Params.
@@ -59,6 +61,17 @@ pub(crate) enum Given {
     Features(Vec<(String, u32)>),
     /// Left out.
     Unset,
+}
+
+impl Given {
+    /// The drawings this value takes: the items of `Drawings`, the one of `Drawing`, else none.
+    fn drawings(&self) -> &[Drawing] {
+        match self {
+            Self::Drawings(items) => items,
+            Self::Drawing(one) => std::slice::from_ref(one),
+            _ => &[],
+        }
+    }
 }
 
 /// The Params a call reads.
@@ -215,6 +228,7 @@ impl Args {
                         key.word(u64::from(*value));
                     }
                 }
+                Given::Drawing(_) => key.word(13),
                 Given::Unset => key.word(9),
             }
         }
@@ -241,10 +255,7 @@ impl Args {
 
     /// The drawings the call takes, in order.
     pub(crate) fn taken(&self) -> impl Iterator<Item = &Drawing> {
-        self.values.iter().flat_map(|given| match given {
-            Given::Drawings(items) => items.as_slice(),
-            _ => &[],
-        })
+        self.values.iter().flat_map(Given::drawings)
     }
 
     /// This call with the Params it fixes checked against the `free` Params of the drawing it is called on, and
@@ -291,13 +302,11 @@ impl Args {
                         expr.collect_params(&mut reads.free);
                     }
                 }
-                Given::Drawings(items) => {
-                    for item in items {
-                        reads.all.extend(item.read()?.iter().cloned());
-                        reads.free.extend(item.parameters()?);
-                    }
-                }
                 _ => {}
+            }
+            for item in given.drawings() {
+                reads.all.extend(item.read()?.iter().cloned());
+                reads.free.extend(item.parameters()?);
             }
         }
         Ok(reads)
@@ -332,14 +341,16 @@ impl Args {
                     "must be \"#rrggbb\" or \"#rrggbbaa\": \"none\" paints nothing here",
                 ));
             }
-            if let Given::Drawings(items) = given {
-                let nested = items.iter().map(Drawing::depth).max().unwrap_or(0) + 1;
-                if nested > MAX_DEPTH {
-                    return Err(Error::parameter(
-                        arg.name,
-                        format!("are nested {nested} drawings deep, but MAX_DEPTH {MAX_DEPTH} is the most accepted"),
-                    ));
-                }
+            if let Some(deepest) = given.drawings().iter().map(Drawing::depth).max()
+                && deepest + 1 > MAX_DEPTH
+            {
+                return Err(Error::parameter(
+                    arg.name,
+                    format!(
+                        "nested {} drawings deep, but MAX_DEPTH {MAX_DEPTH} is the most accepted",
+                        deepest + 1
+                    ),
+                ));
             }
         }
         self.verb.check.map_or(Ok(()), |check| check(self))

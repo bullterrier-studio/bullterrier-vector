@@ -31,10 +31,8 @@ fn each_call<'a>(calls: &'a [Call], visit: &mut impl FnMut(&'a Call) -> Result<(
         visit(call)?;
         if let What::Verb(verb) = &call.what {
             for (_, value) in &verb.args {
-                if let Value::Drawings(items) = value {
-                    for item in items {
-                        each_call(item, visit)?;
-                    }
+                for item in value.drawings() {
+                    each_call(item, visit)?;
                 }
             }
         }
@@ -266,12 +264,10 @@ fn first_reads<'a>(
                             second.params(&mut found);
                         }
                         Value::Axes(axes) => axes.iter().for_each(|axis| axis.value.params(&mut found)),
-                        Value::Drawings(items) => {
-                            for item in items {
-                                first_reads(item, entries, walked, read);
-                            }
-                        }
                         _ => {}
+                    }
+                    for item in value.drawings() {
+                        first_reads(item, entries, walked, read);
                     }
                     for (name, _) in found {
                         if read.seen.insert(name) {

@@ -215,6 +215,12 @@ impl<'a> Writer<'a> {
                 }
                 Json::Array(arrays)
             }
+            Given::Drawing(_) => {
+                let node = taken
+                    .next()
+                    .ok_or_else(|| Error::parameter("to_json", "a drawing the call takes is not in the graph"))?;
+                Json::Array(self.chain(node, false)?)
+            }
             Given::Select(select) => select_json(select),
             Given::Values(values) => values_json(values),
             Given::Font(font) => {
