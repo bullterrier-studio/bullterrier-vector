@@ -185,6 +185,19 @@ pub(crate) fn canonical_fault(rings: &[Ring]) -> Option<String> {
             return Some(format!("ring {number} does not start at its topmost, leftmost corner"));
         }
         let area = shoelace_area(ring);
+        // a ring thinner than two units in the last place of its coordinates (area over half the perimeter) is
+        // rounding, not a contour: its side can have flipped
+        let perimeter: f64 = ring
+            .iter()
+            .enumerate()
+            .map(|(i, &p)| super::distance(p, ring[(i + 1) % ring.len()]))
+            .sum();
+        let scale = ring
+            .iter()
+            .fold(0.0_f64, |most, &(x, y)| most.max(x.abs()).max(y.abs()));
+        if 2.0 * area.abs() <= 2.0 * f64::EPSILON * scale * perimeter {
+            return Some(format!("ring {number} is thinner than its coordinates hold ({area})"));
+        }
         if area > 0.0 {
             if last_outer.is_some_and(|before| first < before) {
                 return Some(format!("outer ring {number} is out of order"));

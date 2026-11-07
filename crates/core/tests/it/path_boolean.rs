@@ -395,6 +395,24 @@ fn an_outline_that_hardly_leaves_a_line_has_no_contour_that_rounds_to_a_line() -
     Ok(())
 }
 
+#[test]
+fn a_curve_that_runs_out_and_back_along_one_line_leaves_no_contour_that_rounding_has_turned_over() -> Outcome {
+    // a cubic whose controls are its end and its start: flattened, its points lie on the line to within rounding, and
+    // the pieces of it that cross enclose some 1e-15; a piece that rounding has turned over would be a hole of an
+    // outer contour that is not there
+    let end = (94.0263645004414, 80.97995546626417);
+    let out_and_back = Path::start((0.0, 0.0))?.curve_to(end, (0.0, 0.0), end)?.close()?;
+    let (low, high) = (224.99441768192287, 824.9944176819229);
+    let square = square(low, low, high - low)?;
+    let found = rings(&out_and_back.union(&square, TOLERANCE)?)?;
+    assert_eq!(canonical_fault(&found), None, "{found:?}");
+    assert!(
+        (net_area(&found) - (high - low) * (high - low)).abs() < 1e-6,
+        "{found:?}"
+    );
+    Ok(())
+}
+
 // Properties ---------------------------------------------------------------------------------------------------------
 
 /// Closed polygons on a coarse lattice, so that edges coincide, touch and cross at corners, and a polygon may wind

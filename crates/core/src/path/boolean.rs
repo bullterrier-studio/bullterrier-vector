@@ -175,17 +175,22 @@ fn canonical(mut shapes: Vec<Vec<Contour>>) -> Result<Path, Error> {
     Ok(builder.finish())
 }
 
-/// Whether `contour` (started at its topmost corner), written as numbers, encloses no area: the engine's grid is finer than a number, so a piece of
-/// some cells can have its corners in line once they are rounded. It is no contour, and its area is below what a
-/// number holds.
+/// Whether `contour` is no thicker than a few units in the last place of its coordinates (twice its area over its
+/// perimeter, about its thickness when it is thin). The engine's grid is finer than a number, so a hair-thin piece
+/// of an outline that hardly leaves a line comes back with its corners rounded to numbers: in line, or so far out of
+/// it that the side it runs round has changed. Such a piece is no contour, and its area is below what a number holds.
 fn is_flat(contour: &Contour) -> bool {
+    // constant: a corner is rounded to half a unit in the last place of its coordinate in each direction, so a piece
+    // up to about 1.5 of them thick can end up flat or flipped; 4 leaves room for the corners of both sides
+    const FLAT_ULPS: f64 = 4.0;
     let [ox, oy] = contour.first().copied().unwrap_or_default();
-    let doubled: f64 = contour
-        .iter()
-        .zip(contour.iter().cycle().skip(1))
-        .map(|(&[x, y], &[next_x, next_y])| (x - ox) * (next_y - oy) - (next_x - ox) * (y - oy))
-        .sum();
-    doubled == 0.0
+    let (mut doubled, mut perimeter, mut scale) = (0.0_f64, 0.0_f64, 0.0_f64);
+    for (&[x, y], &[next_x, next_y]) in contour.iter().zip(contour.iter().cycle().skip(1)) {
+        doubled += (x - ox) * (next_y - oy) - (next_x - ox) * (y - oy);
+        perimeter += ((next_x - x) * (next_x - x) + (next_y - y) * (next_y - y)).sqrt();
+        scale = scale.max(x.abs()).max(y.abs());
+    }
+    doubled.abs() <= FLAT_ULPS * f64::EPSILON * scale * perimeter
 }
 
 /// The order of two contours, each starting at its topmost corner: top to bottom, then left to right.
