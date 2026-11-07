@@ -29,10 +29,10 @@ import bullterrier_vector as btvec
 | [star.py](../examples/star.py) | building and measuring a `Path` |
 | [ring.py](examples/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
 | [text_on_path.py](../examples/text_on_path.py) | text bent along a path, moving round it |
-| [draw_on.py](examples/draw_on.py) | draw-on by `progress`, staggered letter by letter |
+| [draw_on.py](../examples/draw_on.py) | draw-on by `progress`, staggered letter by letter |
 | [marching_dashes.py](examples/marching_dashes.py) | a dash pattern with a moving phase |
 | [wobble_outline.py](examples/wobble_outline.py) | a small noise wobble; a font axis as a described parameter |
-| [glyph_scatter.py](examples/glyph_scatter.py) | letters split into parts, scattered by seeded random numbers |
+| [glyph_scatter.py](../examples/glyph_scatter.py) | letters split into parts, scattered by seeded random numbers |
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
 | [halftone.py](examples/halftone.py) | halftone dots from a tone map |
 | [duotone.py](examples/duotone.py) | a gradient map and posterize on colours |

@@ -200,3 +200,57 @@ def test_text_on_path_stands_its_letters_on_the_circle_and_cycle_turns_them_half
     turned_x, turned_y = middle(turned[0])
     assert abs(turned_x - 540) < 100
     assert turned_y > 540 + 360
+
+
+def test_draw_on_draws_no_ink_at_progress_0_the_letters_one_after_another_and_the_whole_word_at_1(run):
+    found = run("draw_on")
+    drawing, font = found["drawing"], found["font"]
+
+    def inks(progress: float) -> list[float]:
+        return [shape.path.length for shape in drawing.shapes(progress=progress)]
+
+    def ink_in_pixels(progress: float) -> bool:
+        return any(drawing.to_rgba(1080, 600, progress=progress)[3::4])
+
+    assert inks(0) == [0.0] * 5
+    assert not ink_in_pixels(0)
+    # letters start in word order: while the second is drawing, the later ones have nothing yet
+    midway = inks(0.3)
+    assert midway[0] > midway[1] > 0
+    assert midway[2:] == [0.0] * 3
+    # a letter never loses ink as the progress grows
+    for earlier, later in zip(inks(0.3), inks(0.6), strict=True):
+        assert later >= earlier
+    # at 1 each letter is whole: the outline of the letter itself, as the unsliced text has it
+    whole = btvec.text("WRITE", font=font, size=240, axes={"wght": 300}, anchor=(540, 380), align="center")
+    assert inks(1) == pytest.approx([shape.path.length for shape in whole.shapes()])
+    assert ink_in_pixels(1)
+
+
+def test_glyph_scatter_stands_as_set_at_0_and_scatters_the_same_way_every_time_above_0(run):
+    found = run("glyph_scatter")
+    drawing, font = found["drawing"], found["font"]
+    set_word = btvec.text("MIX!", font=font, size=260, axes={"wght": 800}, anchor=(540, 420), align="center").shapes()
+
+    # the exclamation mark is two parts (its stem and dot); at 0 nothing has moved, so every part stays where the
+    # letter has it and the parts of a letter together fill its box
+    calm = drawing.shapes(scatter=0)
+    assert [(shape.attributes["char"], shape.attributes["part"]) for shape in calm] == [
+        ("M", 0),
+        ("I", 0),
+        ("X", 0),
+        ("!", 0),
+        ("!", 1),
+    ]
+    assert [shape.path.to_svg_path() for shape in calm[:3]] == [shape.path.to_svg_path() for shape in set_word[:3]]
+    mark = set_word[3].path.bounds
+    stem, dot = calm[3].path.bounds, calm[4].path.bounds
+    assert (min(stem.x, dot.x), min(stem.y, dot.y)) == pytest.approx((mark.x, mark.y))
+    assert max(stem.y + stem.height, dot.y + dot.height) == pytest.approx(mark.y + mark.height)
+
+    # above 0 every part has moved, and the same value draws the same bytes, in a program run again as well
+    moved = drawing.shapes(scatter=0.5)
+    assert all(a.path != b.path for a, b in zip(moved, calm, strict=True))
+    assert drawing.to_svg(1080, 640, scatter=0.5) == drawing.to_svg(1080, 640, scatter=0.5)
+    assert run("glyph_scatter")["drawing"].to_svg(1080, 640, scatter=0.5) == drawing.to_svg(1080, 640, scatter=0.5)
+    assert drawing.to_svg(1080, 640, scatter=1) != drawing.to_svg(1080, 640, scatter=0.5)
