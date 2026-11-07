@@ -7,7 +7,8 @@ in Rust and Python: `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V
 `stroke_width`, `join`, `cap`, `miter_limit`, `opacity` and `blend`; the rest of the members below arrive with their
 steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6), and `along` (V6) on `Path` and `Drawing`, all in Rust
 and Python, and `text` and `along` in a document; and the per-item numbers `by_index`, `by_order`, `random` and
-`stagger`, and the steps `split`, `merge` and `slice` (V7), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
+`stagger`, and the steps `split`, `merge` and `slice` (V7), and the booleans `union`, `subtract`, `intersect`, `exclude`
+and `resolve` (V8), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
 defaults written here. The rest is not built ([roadmap.md](roadmap.md)). Reasons:
 [design-decisions.md](design-decisions.md), "The code API". The JSON form of a drawing: [formats.md](formats.md).
 
@@ -28,6 +29,7 @@ import bullterrier_vector as btvec
 | [kinetic_type.py](../examples/kinetic_type.py) | the headline of piece 1 as far as it is built: a variable-font weight a letter, two multiply inks |
 | [star.py](../examples/star.py) | building and measuring a `Path` |
 | [ring.py](examples/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
+| [cutout.py](../examples/cutout.py) | `resolve`, `subtract`, `intersect` and `exclude`: a headline cut out of a plate, the lens of two circles |
 | [text_on_path.py](../examples/text_on_path.py) | text bent along a path, moving round it |
 | [draw_on.py](../examples/draw_on.py) | draw-on by `progress`, staggered letter by letter |
 | [marching_dashes.py](examples/marching_dashes.py) | a dash pattern with a moving phase |
@@ -77,8 +79,8 @@ closed constructors below start at the top and run clockwise.
 Every outline the library makes (`text`, `trace`, booleans, `offset`, `outline`) is in one canonical form, whatever the
 source (TrueType outlines run clockwise, CFF ones counter-clockwise): outer contours run clockwise and holes
 counter-clockwise; outer contours come in order of their topmost point (top to bottom, then left to right), each
-followed by its holes in the same order. A draw-on therefore runs the same way on every glyph of every font (until V8
-resolves overlaps, a `text` outline is the font's own contours, in its order and direction). Where two
+followed by its holes in the same order. A draw-on therefore runs the same way on every glyph of every font (a `text`
+outline is the font's own contours, in its order and direction, until `resolve`). Where two
 points of an outline are nearly as high (a raised hand beside the head), the topmost can change from one map to the next
 and the start jumps between them, moving everything measured from it: `point_at`, `tangent_at`, `locate`, `slice`,
 `dash` and `along(start=)`. Each of these takes `near=point`, which measures every closed sub-path from its point
@@ -157,10 +159,11 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | `translate` | `translate(dx, dy)` | moves by `dx`, `dy` | |
 | `rotate` | `rotate(angle, *, about=None)` | turns clockwise on the screen (`y` down) about `about`; `angle` in degrees, any size, wrapping; multiples of 90 are exact | |
 | `scale` | `scale(by, *, about=None)` | scales by a number `by`, or by an `(x, y)` pair separately, about `about`; a negative value mirrors | `by` (or a component) equal to 0 |
-| `union` | `union(other)` | the region inside either | `GeometryError` (below) |
-| `subtract` | `subtract(other)` | the region inside this and outside `other` | `GeometryError` |
-| `intersect` | `intersect(other)` | the region inside both | `GeometryError` |
-| `exclude` | `exclude(other)` | the region inside exactly one | `GeometryError` |
+| `union` | `union(other, *, tolerance=0.01)` | the region inside either | `ParameterError` (below) |
+| `subtract` | `subtract(other, *, tolerance=0.01)` | the region inside this and outside `other` | as `union` |
+| `intersect` | `intersect(other, *, tolerance=0.01)` | the region inside both | as `union` |
+| `exclude` | `exclude(other, *, tolerance=0.01)` | the region inside exactly one (the symmetric difference) | as `union` |
+| `resolve` | `resolve(*, tolerance=0.01)` | its own overlaps removed: the region it fills, as closed polygons | as `union` |
 | `offset` | `offset(distance, *, join="round", miter_limit=4)` | the outline moved outward by `distance` (inward when negative); joins `round`, `miter`, `bevel`; a `miter` sharper than `miter_limit` (SVG's ratio) is cut to a bevel | `miter_limit` below 1; `GeometryError` |
 | `outline` | `outline(width, *, join="round", cap="round", miter_limit=4)` | the region a stroke of `width` paints, as a closed outline; caps `butt`, `round`, `square` | `width` not above 0; `miter_limit` below 1 |
 | `drop_parts` | `drop_parts(*, smaller_than)` | without the parts whose area is below `smaller_than` square pixels | `smaller_than` below 0 |
@@ -176,15 +179,55 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | `morph` | `morph(target, fraction)` | the outline `fraction` 0..1 of the way to `target`, points matched when their counts differ; on a `Drawing`, shapes pair by index | on a `Drawing`, different shape counts |
 | `hatch` | `hatch(*, spacing=8, tone=None, flow=None, avoid=None)` | each region filled with evenly spaced open lines (below) | below |
 
-Booleans and offsets hold on overlapping, rotated glyphs (V8 resolves the overlaps of glyph outlines; `text` keeps the
-font's contours until then). Where an
-outline cannot be resolved into a region, the verb raises `GeometryError` naming the verb and the shape's index; V8
-documents the cases. On a `Drawing`, `other` is a `Drawing` or a `Path`; each shape is combined with the union of
-`other`'s shapes. A deformer's result is smooth at any size, however few points the outline had; V12 adds `twist` and
-`bulge` in the same form.
+A deformer's result is smooth at any size, however few points the outline had; V12 adds `twist` and `bulge` in the same
+form.
 
 Closing and opening are two offsets: `offset(r).offset(-r)` fills gaps and dents narrower than `2r` (a blobby mount);
 `offset(-r).offset(r)` removes spurs thinner than `2r`.
+
+### Booleans
+
+`union`, `subtract`, `intersect`, `exclude` and `resolve` work on regions by the nonzero rule; an open sub-path fills as
+if closed. `a.subtract(b)` is `a` minus `b`; `a.exclude(b)` is what only one of them fills. Curves are first cut to
+straight edges that stray from them by at most `tolerance` design pixels (a number, not a `Param`). The result is closed
+polygons only, in the canonical form of "Path" (each contour starts at its topmost corner, the leftmost of a tie), an empty
+path where nothing is left. Overlaps and self-crossings are merged: a bow-tie becomes its two triangles, and
+`text(...).resolve()` makes each glyph one outline (`text` itself keeps the font's contours).
+
+On a `Drawing`, `other` is a `Drawing`, a `Path` or a `Shape`. Its shapes count as one region (each resolved on its own,
+united once per step) and every shape of the drawing is combined with it, keeping its style and attributes. With an empty
+`other`, `intersect` leaves each shape an empty path and the others keep the shape's region. `other` may hold Params.
+Rust: `path.union(&other, 0.01)?`, `drawing.union(other, 0.01)`; JavaScript: in a document ([formats.md](formats.md)).
+
+Errors: `ParameterError` for a `tolerance` not above 0 or beyond ±1e100, a result coordinate beyond ±1e100 and, on a
+`Drawing`, a draw past `MAX_SEGMENTS` (the message names the step). No boolean raises `GeometryError`: the engine
+resolves any outline. It is for verbs that can fail geometrically (an empty path measured, a guide of no length).
+
+Known limits:
+- **Precision follows the extent.** Both operands are rounded together, onto a grid of about 2^-60 of the half-extent of
+  their joint bounding box (finer than a number holds at that size). A corner can move by an ulp of that extent when the
+  other operand changes; a feature much smaller than the extent is perturbed (a 0.004 triangle beside a 600-wide bar moved
+  by 1e-14) and one smaller than the grid vanishes (1e-300 beside 1e100). Near zero the engine's scale leaves the range
+  of a number: exact to 1e-12 relative down to coordinates of 1e-290, then off by 3e-14 relative at 1e-295 and 2.5e-9 at
+  1e-300.
+- **Thin contours are dropped.** One no thicker than 4 ulps of the result's largest coordinate encloses less than a number
+  holds (a spike of no width, a retraced curve's hair pieces, a sliver of 1e-13 beside a 600-wide shape). So are sub-paths
+  of fewer than 3 corners, and the spike of an open polyline that doubles back.
+- **Touching shapes merge.** Shapes that share an edge become one contour, the shared edge dissolved; shapes that meet at
+  a corner stay two. A boolean cannot tell two touching shapes from one. Collinear and duplicate vertices are not kept, so
+  the vertex count differs from the input's.
+- **Not stable to the last digit.** `resolve` of a result keeps its region, not its corners. `a.union(b)` and `a.resolve()`
+  can differ in a corner by the rounding above, and so in the start of a contour and in the order of two outers whose
+  tops are equal in exact arithmetic.
+- **Work grows with the crossings of the outlines,** which no input size bounds. On a `Drawing` a step charges
+  `MAX_SEGMENTS` (10,000,000, summed over the draw) for the flattened edges, for the pairs of edges whose boxes overlap
+  (at least the crossings) and for the result's vertices, and is refused past it; `Path` methods called directly charge
+  nothing and are unbounded, as `along` is. Random scribbles, release build: 2,000 edges (896,000 pairs) 0.68 s and 161 MB,
+  4,000 (3.6 million) 3.1 s and 504 MB, 8,000 (14.3 million) 15.4 s and 2.0 GB; about 140 bytes a pair (350 for a star
+  polygon), so the limit is a rough guard of 1.4 to 3.5 GB, not a budget. A smooth outline has a few pairs an edge.
+- **Flattening stops at 65,536 edges a curve,** whatever the `tolerance`, which is then not met.
+- **Per frame,** `resolve` on text costs about 50 microseconds a glyph and a `subtract` of a line from a plate about 130
+  ([benchmarks.md](benchmarks.md), "Booleans (V8)"), measured with a new weight on every call, so nothing is cached.
 
 ### hatch
 
@@ -214,7 +257,7 @@ output pixels. A size is above 0 and at most 100,000 a side; others raise `Param
 | Step | Signature | Promise | Errors |
 |---|---|---|---|
 | `split` | `split()` | every shape split into its parts (as `Path.split`), each a shape of its own keeping the attributes and style, with `part` (from 0, within its shape) and its own bounds centre as `origin`, replacing one the shape carried | |
-| `merge` | `merge(*, by=None)` | shapes with an equal attribute `by` (all shapes, if `None`) joined into one: their sub-paths in list order, not united (overlaps stay; `union` is V8), with the first's attributes and style, at the first's place; groups in the order their first members appear; shapes that lack `by` are a group | `by` that is no attribute name; `by` that no shape of the list carries (when drawn) |
+| `merge` | `merge(*, by=None)` | shapes with an equal attribute `by` (all shapes, if `None`) joined into one: their sub-paths in list order, not united (overlaps stay; `union` or `resolve` unites them), with the first's attributes and style, at the first's place; groups in the order their first members appear; shapes that lack `by` are a group | `by` that is no attribute name; `by` that no shape of the list carries (when drawn) |
 | `only` | `only(**attributes)` | the shapes whose attributes equal these (a list means any of) | an attribute no shape carries |
 | `without` | `without(**attributes)` | the other shapes | as `only` |
 | `repeat` | `repeat(count, *, translate=(0, 0), rotate=0, scale=1, about=None)` | `count` copies, copy `i` transformed `i` times; writes `copy`, and `order` where a shape has none | `count` below 1 |
@@ -278,8 +321,8 @@ Functions of the module that return a `Drawing`.
 
 `text(content, *, font, size=100, axes={}, features={}, tracking=0, leading=None, align="left", anchor=(0, 0),
 width=None, fit=None, inside=None)`: one shape per drawn glyph (a space or a line break gives none), shaped with
-kerning, ligatures and complex scripts, each outline the font's own contours (they may overlap and fill nonzero until
-V8 removes the overlaps).
+kerning, ligatures and complex scripts, each outline the font's own contours (they may overlap and fill nonzero;
+`resolve` removes the overlaps, at the cost of a step at every draw).
 
 | Argument | Meaning |
 |---|---|
@@ -597,7 +640,7 @@ or ffmpeg is missing or fails (its message is in the error).
 |---|---|---|
 | `BullterrierVectorError` | the base of every error the library raises for a caller's input | |
 | `ParameterError` | a value outside what is accepted; also a `ValueError` | the parameter's name and the value |
-| `GeometryError` | geometry that fails: a boolean or offset on an outline that cannot be resolved | the verb and the shape's index |
+| `GeometryError` | geometry that fails: an empty path measured, a guide of no length, an `offset` on an outline that cannot be resolved; no boolean raises it | the verb and the shape's index |
 | `FormatError` | a document `from_json` cannot read ([formats.md](formats.md), "Errors"); also a `ValueError` | the JSON Pointer of the value and what is wrong |
 
 A drawing that reads more than 1,000 Params of different names (`MAX_PARAMS`) raises `ParameterError` at the call that
@@ -751,7 +794,7 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 | 1 | Per-glyph variable-font layout that re-flows; tracking, stacked lines, fitting at a reference pose, outlines cached by axis location | `text(axes=..., tracking=, leading=, width=, fit=)`, per-item numbers in `axes`; caching is internal |
 | 2 | Evenly spaced streamlines with spacing from a tone, region masks, obstacles, closed loops; line fields and distance fields | `hatch(spacing=(a, b), tone=, flow=, avoid=)` inside each shape; `Flow.noise`, `Flow.contour`, `flow.mix`; `Field.distance` |
 | 3 | Steady tracing over a sequence of maps: smoothing and hole persistence | `trace(before=, after=, sigma=)` |
-| 4 | Booleans that hold on overlapping, rotated glyphs; ink layers from them | `union`, `subtract`, `intersect`, `exclude`; glyph overlaps resolved by V8; inks as drawings with `blend("multiply")` ([kinetic_type.py](examples/kinetic_type.py)) |
+| 4 | Booleans that hold on overlapping, rotated glyphs; ink layers from them | `union`, `subtract`, `intersect`, `exclude`; glyph overlaps removed by `resolve`; inks as drawings with `blend("multiply")` ([kinetic_type.py](examples/kinetic_type.py)) |
 | 5 | Shrink and grow per layer; dropping small parts and filling small holes | `offset(r).offset(-r)`, `offset(-r).offset(r)`; `drop_parts`, `fill_holes` |
 | 6 | Per-item transforms about a typographic origin; seeded randomness and stagger by index as one mechanism | `translate`, `rotate`, `scale` about each shape's origin; `by_index`, `by_order`, `random`, `stagger`; lists at draw time |
 | 7 | Curve fitting through dense polylines | `simplify`; `trace(tolerance=)` |
@@ -768,9 +811,8 @@ Also from the findings: draw-on (`slice`), the riso misregistration that grows o
 re-drawable series node (a series is plain code now, [series_bars.py](../examples/series_bars.py); the effects track adds a
 node if a piece needs one).
 
-Verbs no example uses yet, and what needs them: `merge` (words and lines as units), `exclude` (V8, the fourth
-boolean; glitch slices on the effects track), `reverse` (V11: a draw-on the other way round), `locate` (hit-testing for
-an editor), `outline` (V9; die-cut sticker outlines and tapered strokes on the effects track), `Flow.contour` and
+Verbs no example uses yet, and what needs them: `merge` (words and lines as units), `reverse` (V11: a draw-on the other way round), `locate`
+(hit-testing for an editor), `outline` (V9; die-cut sticker outlines and tapered strokes on the effects track), `Flow.contour` and
 `flow.mix` (V15: the findings' line fields, noise mixed with a glyph's contour), `wave` (V12; the effects track's
 deformers), `morph` (V13; glyph-to-shape morph on the effects track), `resample` (V11; dots spaced evenly along a path
 on the effects track), `map_points` (a caller's own deformation of a glyph, computed at once: every glyph an editable
