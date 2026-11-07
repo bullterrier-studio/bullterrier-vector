@@ -13,7 +13,7 @@ use super::view::View;
 use super::{Size, in_shape};
 use crate::limits::Work;
 use crate::math::{atan2, sin_cos};
-use crate::path::{FLATNESS, Polyline};
+use crate::path::{Builder, Cost, FLATNESS, Polyline};
 use crate::{Blend, Cap, Drawing, Error, Join, Point, Shape, Values};
 use kurbo::{BezPath, PathEl};
 use lyon_tessellation::math::point;
@@ -150,6 +150,12 @@ struct Paint {
     order: f32,
 }
 
+/// The units of tessellation work that one pair of edges whose boxes overlap costs the boolean engine.
+// constant: measured on this machine in release builds, the engine takes 1.4 to 4 microseconds a pair (stroked star
+// polygons of 100 to 800 corners: 25,000 to 1.4 million pairs), 350 to 1,000 units of 4 ns; 650 puts a second of the
+// engine at about 385,000 pairs
+const PAIR_WORK: usize = 650;
+
 /// A closed outline of a layer: its corners in design pixels.
 type Ring = Vec<[f32; 2]>;
 
@@ -222,9 +228,34 @@ impl Maker<'_> {
             for dot in dots(&polylines, stroke.cap(), stroke.width(), &mut charge)? {
                 rings.extend(dot.iter().map(|polyline| ring(&polyline.points)));
             }
+            let rings = self.resolved(&rings, &name)?;
             self.layer(&rings, &paint(rgba), view, &name)?;
         }
         Ok(())
+    }
+
+    /// `rings` with their overlaps removed, so that the tessellator, which covers a point where a stroke overlaps itself
+    /// at a sharp turn more than once, meets none. The engine's time grows with the pairs of edges that may cross,
+    /// which no count of edges bounds, so they are charged to the tessellation's work before it runs.
+    fn resolved(&self, rings: &[Ring], name: &str) -> Result<Vec<Ring>, Error> {
+        let corner = |[x, y]: &[f32; 2]| Point::new(f64::from(*x), f64::from(*y));
+        let mut builder = Builder::new();
+        for ring in rings.iter().filter(|ring| ring.len() >= 3) {
+            let mut corners = ring.iter().map(corner);
+            if let Some(first) = corners.next() {
+                builder.move_to(first)?;
+            }
+            for next in corners {
+                builder.line_to(next)?;
+            }
+            builder.close();
+        }
+        let region = builder.finish().resolved(FLATNESS, &mut |cost, count| match cost {
+            Cost::Pairs => self.work.made_tessellation(count.saturating_mul(PAIR_WORK), name),
+            Cost::Edges | Cost::Vertices => self.work.made_segments(count, name),
+        })?;
+        let polylines = region.flattened(&mut |_| Ok(()))?;
+        Ok(polylines.iter().map(|polyline| ring(&polyline.points)).collect())
     }
 
     /// Tessellates `rings` by the nonzero rule into triangles of `paint`, seen through `view`, and adds them to the

@@ -21,7 +21,7 @@ mod walk;
 mod write;
 
 pub(crate) use bend::Guide;
-pub(crate) use boolean::Combine;
+pub(crate) use boolean::{Combine, Cost};
 pub(crate) use build::Builder;
 pub(crate) use curve::FLATNESS;
 pub(crate) use polyline::Polyline;

@@ -108,7 +108,7 @@ fn line() -> Result<Path, bullterrier_vector::Error> {
 /// width), found by drawing 20,000 random round strokes.
 #[test]
 fn round_strokes_that_double_back_at_sharp_turns_cover_each_point_once() -> Outcome {
-    let rows: [(&str, Corners, bool, f64); 5] = [
+    let rows: [(&str, Corners, bool, f64); 6] = [
         (
             "an open turn of 40 degrees",
             vec![(10.0, 10.0), (80.0, 80.0), (40.0, 30.0)],
@@ -153,6 +153,17 @@ fn round_strokes_that_double_back_at_sharp_turns_cover_each_point_once() -> Outc
             ],
             true,
             16.0,
+        ),
+        (
+            "an open turn back by about 170 degrees",
+            vec![
+                (82.0, 68.0),
+                (49.157_006_523_411_766, 5.0),
+                (77.501_713_592_125_18, 69.026_048_892_878_89),
+                (64.0, 0.0),
+            ],
+            false,
+            19.377_304_158_942_497,
         ),
     ];
     for (case, corners, closed, width) in rows {
@@ -314,7 +325,7 @@ fn ends_and_corners_cover_what_svg_paints() -> Outcome {
                 ((50.0, 50.0), 0),
                 ((23.0, 50.0), 1),
                 ((27.0, 50.0), 0),
-                ((16.0, 16.0), 1),
+                ((16.0, 17.0), 1),
                 ((14.0, 50.0), 0),
             ],
         ),
