@@ -150,6 +150,13 @@ fn canonical(mut shapes: Vec<Vec<Contour>>) -> Result<Path, Error> {
             holes.sort_by(by_top);
         }
     }
+    shapes.retain_mut(|shape| {
+        if shape.first().is_none_or(is_flat) {
+            return false;
+        }
+        shape.retain(|contour| !is_flat(contour));
+        true
+    });
     shapes.sort_by(|a, b| match (a.first(), b.first()) {
         (Some(a), Some(b)) => by_top(a, b),
         _ => std::cmp::Ordering::Equal,
@@ -166,6 +173,19 @@ fn canonical(mut shapes: Vec<Vec<Contour>>) -> Result<Path, Error> {
         }
     }
     Ok(builder.finish())
+}
+
+/// Whether `contour` (started at its topmost corner), written as numbers, encloses no area: the engine's grid is finer than a number, so a piece of
+/// some cells can have its corners in line once they are rounded. It is no contour, and its area is below what a
+/// number holds.
+fn is_flat(contour: &Contour) -> bool {
+    let [ox, oy] = contour.first().copied().unwrap_or_default();
+    let doubled: f64 = contour
+        .iter()
+        .zip(contour.iter().cycle().skip(1))
+        .map(|(&[x, y], &[next_x, next_y])| (x - ox) * (next_y - oy) - (next_x - ox) * (y - oy))
+        .sum();
+    doubled == 0.0
 }
 
 /// The order of two contours, each starting at its topmost corner: top to bottom, then left to right.

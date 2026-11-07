@@ -6,6 +6,7 @@ pub(crate) mod fonts;
 pub(crate) mod mesh;
 pub(crate) mod ops;
 pub(crate) mod pixels;
+pub(crate) mod region;
 
 use bullterrier_vector::{Error, Path};
 use proptest::prelude::*;
@@ -153,10 +154,12 @@ pub(crate) fn clearance(corners: &[(f64, f64)], point: (f64, f64)) -> f64 {
 /// The area the closed polygon through `corners` encloses, positive when it runs clockwise on screen (`y` down): the
 /// shoelace formula.
 pub(crate) fn shoelace_area(corners: &[(f64, f64)]) -> f64 {
+    // measured from the first corner, so that far from the origin the products do not swamp the area
+    let (ox, oy) = corners[0];
     let mut doubled = 0.0;
     for (index, (x, y)) in corners.iter().enumerate() {
         let (next_x, next_y) = corners[(index + 1) % corners.len()];
-        doubled += x * next_y - next_x * y;
+        doubled += (x - ox) * (next_y - oy) - (next_x - ox) * (y - oy);
     }
     doubled / 2.0
 }

@@ -2,6 +2,7 @@
 //! values are hand-computed areas, and for random polygons a winding number and the shoelace area written in the tests
 //! (`common`), never the library's own region code.
 
+use crate::common::region::canonical_fault;
 use crate::common::{
     Corners, Outcome, Ring, clearance, log_uniform, net_area, parameter_refusal, polygons_path, rings, shoelace_area,
     winding,
@@ -23,55 +24,6 @@ fn apply(verb: usize, a: &Path, b: &Path, tolerance: f64) -> Result<Path, Error>
         2 => a.intersect(b, tolerance),
         _ => a.exclude(b, tolerance),
     }
-}
-
-/// What is wrong with the order, direction and start of `rings`, if anything: docs/api.md "Path", the canonical form.
-fn canonical_fault(rings: &[Ring]) -> Option<String> {
-    // the key a ring is ordered and started by: topmost, then leftmost
-    let key = |point: (f64, f64)| (point.1, point.0);
-    let mut last_outer: Option<(f64, f64)> = None;
-    let mut last_hole: Option<(f64, f64)> = None;
-    let mut outer_box: Option<(f64, f64, f64, f64)> = None;
-    for (number, ring) in rings.iter().enumerate() {
-        if ring.len() < 3 {
-            return Some(format!("ring {number} has {} corners", ring.len()));
-        }
-        let first = key(ring[0]);
-        if ring.iter().any(|&point| key(point) < first) {
-            return Some(format!("ring {number} does not start at its topmost, leftmost corner"));
-        }
-        let area = shoelace_area(ring);
-        if area > 0.0 {
-            if last_outer.is_some_and(|before| first < before) {
-                return Some(format!("outer ring {number} is out of order"));
-            }
-            last_outer = Some(first);
-            last_hole = None;
-            let xs = ring.iter().map(|p| p.0);
-            let ys = ring.iter().map(|p| p.1);
-            outer_box = Some((
-                xs.clone().fold(f64::INFINITY, f64::min),
-                ys.clone().fold(f64::INFINITY, f64::min),
-                xs.fold(f64::NEG_INFINITY, f64::max),
-                ys.fold(f64::NEG_INFINITY, f64::max),
-            ));
-        } else if area < 0.0 {
-            let Some((left, top, right, bottom)) = outer_box else {
-                return Some(format!("hole {number} comes before any outer ring"));
-            };
-            if last_hole.is_some_and(|before| first < before) {
-                return Some(format!("hole {number} is out of order"));
-            }
-            last_hole = Some(first);
-            let (x, y) = ring[0];
-            if x < left || x > right || y < top || y > bottom {
-                return Some(format!("hole {number} lies outside the outer ring before it"));
-            }
-        } else {
-            return Some(format!("ring {number} has no area"));
-        }
-    }
-    None
 }
 
 fn square(x: f64, y: f64, size: f64) -> Result<Path, Error> {
@@ -417,6 +369,29 @@ fn shapes_of_any_size_combine_to_the_same_relative_area() -> Outcome {
             );
         }
     }
+    Ok(())
+}
+
+// Regressions: inputs the fuzz found, as they were minimised ---------------------------------------------------------
+
+#[test]
+fn an_outline_that_hardly_leaves_a_line_has_no_contour_that_rounds_to_a_line() -> Outcome {
+    // five corners on the line y = 0.7 x + 3, each a few units in the last place off it, written in no order: the
+    // outline crosses itself, and its pieces enclose some 1e-15. The engine keeps the pieces (its grid is finer than a
+    // number); written as numbers, two of the three corners of a piece are in line with the third.
+    let outline = Path::polyline(
+        [
+            (3.1147088378134846, 5.180296186469447),
+            (7.931189843963503, 8.551832890774438),
+            (8.207948272450677, 8.745563790715485),
+            (5.227353250142145, 6.659147275099491),
+            (9.136855905853253, 9.395799134097295),
+        ],
+        true,
+    )?;
+    let found = rings(&outline.resolve(TOLERANCE)?)?;
+    assert_eq!(canonical_fault(&found), None, "{found:?}");
+    assert!(net_area(&found).abs() < 1e-12, "{found:?}");
     Ok(())
 }
 
