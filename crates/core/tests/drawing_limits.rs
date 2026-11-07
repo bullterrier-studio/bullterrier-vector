@@ -95,6 +95,24 @@ fn a_split_is_charged_for_the_parts_it_makes_and_refused_past_a_million() -> Out
 }
 
 #[test]
+fn slices_are_charged_for_the_geometry_they_cut_and_refused_past_ten_million_segments() -> Outcome {
+    // a line of 100,000 segments, cut 101 times at different ends: 101 steps of 100,001 each, more than 10,000,000
+    let line: String = std::iter::once("M0 0".to_owned())
+        .chain((1..=100_000).map(|number| format!(" L{number} 0")))
+        .collect();
+    let line = Path::from_svg_path(&line)?;
+    let cuts: Vec<Drawing> = (0..=100)
+        .map(|cut| Drawing::from(line.clone()).slice(0.0, f64::from(cut) / 100.0))
+        .collect();
+    let (name, message) = parameter_refusal(Drawing::new(cuts).shapes(&Values::new()))?;
+    assert!(
+        name.contains("(slice)") && message.contains("MAX_SEGMENTS"),
+        "{name}: {message}"
+    );
+    Ok(())
+}
+
+#[test]
 fn a_shape_put_back_into_a_drawing_is_charged_like_a_path() -> Outcome {
     let _alone = one_million_at_a_time();
     // 500,001 different shapes: one source, a fill each, and the stack of them (500,002 shapes made)
