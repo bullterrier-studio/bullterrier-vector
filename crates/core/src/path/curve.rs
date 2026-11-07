@@ -117,11 +117,11 @@ impl Curve {
         }
     }
 
-    /// Whether the curve is, to within [`FLATNESS`], the straight edge between its ends walked at an even pace: its
-    /// control points lie within [`FLATNESS`] of the evenly spaced points of the edge. Then the curve at every
-    /// parameter `t` is within [`FLATNESS`] of the edge at fraction `t`, so a position along the edge is a position
+    /// Whether the curve is, to within `flatness`, the straight edge between its ends walked at an even pace: its
+    /// control points lie within `flatness` of the evenly spaced points of the edge. Then the curve at every
+    /// parameter `t` is within `flatness` of the edge at fraction `t`, so a position along the edge is a position
     /// along the curve.
-    fn is_flat(self) -> bool {
+    fn is_flat(self, flatness: f64) -> bool {
         let (even, controls): (Vec<Point>, Vec<Point>) = match self {
             Self::Line(..) => return true,
             Self::Quad(start, control, end) => (vec![lerp(start, end, 0.5)], vec![control]),
@@ -132,14 +132,21 @@ impl Curve {
         };
         even.iter().zip(&controls).all(|(even, control)| {
             let (dx, dy) = (control.x - even.x, control.y - even.y);
-            dx * dx + dy * dy <= FLATNESS * FLATNESS
+            dx * dx + dy * dy <= flatness * flatness
         })
     }
 
     /// Appends the straight edges that stand for this curve, as segment number `segment` over the parameter range
-    /// `t0..t1`, halving it until each edge is flat. Edges of no length are left out.
-    pub(super) fn flatten(self, segment: usize, (t0, t1): (f64, f64), depth: u32, edges: &mut Vec<Flat>) {
-        if depth >= MAX_FLATTEN_DEPTH || self.is_flat() {
+    /// `t0..t1`, halving it until each edge is flat to within `flatness`. Edges of no length are left out.
+    pub(super) fn flatten(
+        self,
+        segment: usize,
+        (t0, t1): (f64, f64),
+        depth: u32,
+        flatness: f64,
+        edges: &mut Vec<Flat>,
+    ) {
+        if depth >= MAX_FLATTEN_DEPTH || self.is_flat(flatness) {
             let (from, to) = (self.start(), self.end());
             if from != to {
                 edges.push(Flat {
@@ -153,8 +160,8 @@ impl Curve {
         } else {
             let (first, second) = self.split(0.5);
             let middle = lerp_number(t0, t1, 0.5);
-            first.flatten(segment, (t0, middle), depth + 1, edges);
-            second.flatten(segment, (middle, t1), depth + 1, edges);
+            first.flatten(segment, (t0, middle), depth + 1, flatness, edges);
+            second.flatten(segment, (middle, t1), depth + 1, flatness, edges);
         }
     }
 
@@ -202,11 +209,11 @@ impl SubPath {
     }
 }
 
-/// The straight edges that stand for `curves`, in order, each tagged with its curve's index.
+/// The straight edges that stand for `curves`, within [`FLATNESS`], in order, each tagged with its curve's index.
 pub(super) fn flatten(curves: &[Curve]) -> Vec<Flat> {
     let mut edges = Vec::new();
     for (segment, curve) in curves.iter().enumerate() {
-        curve.flatten(segment, (0.0, 1.0), 0, &mut edges);
+        curve.flatten(segment, (0.0, 1.0), 0, FLATNESS, &mut edges);
     }
     edges
 }

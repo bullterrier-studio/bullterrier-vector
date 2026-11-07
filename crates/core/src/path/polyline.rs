@@ -1,7 +1,7 @@
 //! A path as straight lines: the flattening that pixels (and, later, the mesh) are drawn from, done once in design
 //! pixels with the same walk that measuring uses, so that every output sees the same polygon.
 
-use super::Path;
+use super::{FLATNESS, Path};
 use crate::Error;
 use crate::geometry::Point;
 
@@ -21,11 +21,22 @@ impl Path {
     /// curve `charge` is called with the number of edges it made, and its error stops the flattening: a curve makes at
     /// most 2^16 edges, so a caller that counts them keeps the memory bounded.
     ///
-    /// [`FLATNESS`]: super::FLATNESS
-    ///
     /// # Errors
     /// What `charge` returns.
     pub(crate) fn flattened(&self, charge: &mut dyn FnMut(usize) -> Result<(), Error>) -> Result<Vec<Polyline>, Error> {
+        self.flattened_within(FLATNESS, charge)
+    }
+
+    /// As [`Path::flattened`], with every curve within `flatness` design pixels of its edges. `flatness` is above 0
+    /// and a coordinate (the caller checks), so its square is a number.
+    ///
+    /// # Errors
+    /// What `charge` returns.
+    pub(crate) fn flattened_within(
+        &self,
+        flatness: f64,
+        charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+    ) -> Result<Vec<Polyline>, Error> {
         let mut polylines = Vec::with_capacity(self.subpaths.len());
         for subpath in &self.subpaths {
             let curves = subpath.curves();
@@ -33,7 +44,7 @@ impl Path {
             let mut edges = Vec::new();
             for (index, curve) in curves.iter().enumerate() {
                 edges.clear();
-                curve.flatten(index, (0.0, 1.0), 0, &mut edges);
+                curve.flatten(index, (0.0, 1.0), 0, flatness, &mut edges);
                 charge(edges.len())?;
                 points.extend(edges.iter().map(|edge| edge.to));
             }
