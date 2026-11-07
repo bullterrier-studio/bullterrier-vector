@@ -50,11 +50,11 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V4 | Frame export: a caller's function of time to a transparent PNG sequence or clip | S | |
 | V5 | Fonts and shaping: glyphs as shapes, variable axes as parameters, bundled fonts | L | |
 | V6 | Layout: wrap to a width, fit a line to a width by size or axis, text inside a shape; `along` (text on a path) | M | |
-| V7 | Per-item variation: stagger, split, per-item transforms | M | **M2 type** |
+| V7 | Per-item variation: stagger, split, merge, per-item transforms, draw-on | M | **M2 type** |
 | V8 | Booleans, with fuzzing and documented limits | L | |
 | V9 | Offset, inset, stroke outline | M | |
 | V10 | SVG fidelity: drop shadows and knockouts as style attributes, the same in SVG and pixels; a fast halftone fill | M | |
-| V11 | Path modifiers: draw-on, dash march, place shapes along a path, simplify, resample | M | |
+| V11 | Path modifiers: dash march, place shapes along a path, simplify, resample | M | |
 | V12 | Deformers: wobble, wave, twist, bulge | M | **M3 kinetic type piece** |
 | V13 | Morph, any shape to any shape | M | |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
@@ -68,7 +68,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day and V6 on 2026-11-04. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"). V7 is next.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04 and V7 on 2026-11-07. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V8 is next.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -199,7 +199,6 @@ State: done; independently reviewed 2026-10-31 and the proven findings fixed (de
   so that changing one value re-evaluates only what depends on it; the evaluation counters of formats.md ("Limits and
   security"), checked as the work is done.
 - Parameters and expression arithmetic, `with_values`, `parameters()`, `shapes()`; validate, wrap cyclic angles.
-  Per-item numbers (`by_index`, `random`, `stagger`) arrive with V7.
 - Built-ins: `translate`, `rotate`, `scale`, the style steps (`fill`, `stroke`, `opacity`, `blend`), `only` and
   `without` (the first readers of attributes), stacking (`Drawing(...)`), over the V2a `Path` constructors.
 - Contract tests over every registered node, enrolled exactly (a node registered without a row fails): determinism, values
@@ -475,7 +474,18 @@ coarsely.
 - Text as one shape per glyph; `split` into parts, `merge(by=...)` into words or lines; per-item transforms (translate,
   rotate, scale by index or by a seeded random) about a typographic origin (cap-height centre, not the bounding box).
 
+- Draw-on, from V11: `Drawing.slice(start, end)` read per shape, so `slice(0, stagger(progress))` draws a text on letter by
+  letter.
+
 Done when: a word draws on letter by letter and scatters by index with no text-specific modifier.
+
+State: V7 is done (Rust, Python, through JSON): the per-item numbers `by_index`, `by_order`, `random(low, high, seed=)` and
+`stagger(progress, spread=)` (one `Expr` node, `expr/item.rs`), the steps `split`, `merge(by=)` and `slice(start, end, near=)`
+on a `Drawing`, and transforms whose `about` defaults to the shape's `origin` and that move it. `examples/draw_on.py` draws
+a word on letter by letter by one `progress`; `examples/glyph_scatter.py` splits a word into parts and scatters them by
+seeded `random` and a `scatter` Param. The WebAssembly differential has 72 drawings (44 paths, 17 texts, 2 bends, 9 per-item).
+Known limits (`api.md`, "Per-item numbers" and "Items"): `merge` joins sub-paths and leaves overlaps until `union` (V8);
+`random` is keyed by the shape's current `index`, so an `only` or `split` before it changes the numbers.
 
 ## V8 Booleans
 
@@ -498,9 +508,10 @@ Offset and inset with round, miter and bevel joins; outline a stroke into a fill
 
 ## V11 Path modifiers
 
-Draw-on (partial path by length, from a canonical start point and direction), dash with a moving phase, place shapes
-along a path, simplify, resample to even spacing. `along` (V6) bends shapes along a path; placing shapes on it without
-bending them (copies at even spacing, each turned to the path's direction) is not built and stays here.
+Dash with a moving phase, place shapes along a path, simplify, resample to even spacing. `along` (V6) bends shapes along a
+path; placing shapes on it without bending them (copies at even spacing, each turned to the path's direction) is not built
+and stays here. Draw-on (partial path by length from a canonical start point and direction) was built in V7 as
+`Drawing.slice`; `reverse`, a draw-on the other way round, stays here.
 
 ## V12 Deformers
 

@@ -9,7 +9,7 @@ with a gallery piece"). The primitive comes from its batch; the effect adds the 
 
 | Effect | What it does | Builds on |
 |---|---|---|
-| Draw-on, write-on, marching dashes | an outline drawing itself, text appearing as if written, dashes moving along a path | V11 |
+| Draw-on, write-on, marching dashes | an outline drawing itself, text appearing as if written, dashes moving along a path | V7, V11 |
 | Wobble, wave, twist, bulge | deformations with tuned defaults; small amplitudes (a large wobble did not earn a place) | V12 |
 | Glyph-to-shape morph | a letter turning into a shape and back | V5, V13 |
 | Glitch slice-and-shift | shapes cut into bands, the bands shifted sideways | V8 |

@@ -661,6 +661,40 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   centre of the bounds. `along` leaves it. *Reason:* `merge(by=word)` must group what a wrap keeps together; and per-item
   transforms of glyphs (V7) pivot on the typographic centre, not on a bounding box that moves with each letterform.
 
+## Per-item variation (V7)
+
+- **Per-item numbers are one `Expr` node and never fold to a constant** (2026-11-07). `by_index`, `by_order`, `random` and
+  `stagger` are one variant in `expr/item.rs`, which alone knows what each reads and refuses. An expression is plain
+  (`is_plain`: no Param, no per-item number) and folds to its value, or per-item (`is_per_item`) and is worked out for
+  each shape when drawn. *Reason:* a number whose value is the shape's place folded to one constant would draw every shape
+  alike; and one node means the loader, writer, schema and bindings learn one thing. *Consequence:* an argument that is not read per
+  shape (`Reads::Once`, a literal) refuses one.
+- **`random` is SplitMix64 on `seed` and `index`** (2026-11-07). The number of a shape is the `index + 1`-th output of the
+  generator started at `seed`, its top 53 bits scaled by 2^-53. *Reason:* integer arithmetic and one exact conversion,
+  so the same bytes on every target with no `libm` call, no clock and no state; a hash of the index, not a stream, so a
+  shape's number does not depend on how many shapes were drawn before it. *Consequence:* the numbers move when an `only`
+  or `split` renumbers `index`.
+- **`stagger` runs the shape at order `p` from `p × spread` for a length of `1 - spread`, clamped to 0..1** (2026-11-07).
+  The first shape starts at progress 0 and the last ends at 1, so `progress` 0 draws nothing and 1 draws everything for any
+  `spread`. *Reason:* a window of fixed length after a staggered start is the one formula in which progress 0 and 1 are
+  the ends for every spread. `spread` 1 would be a window of length 0 (a division by zero), so it is refused with
+  a value outside 0..1.
+- **A shape that carries no `order` reads 0** (2026-11-07). A lone path or shape given as it is gets `first` from
+  `by_order` and starts first in `stagger`; a stack writes `order` on shapes that carry none. *Reason:* one rule instead
+  of an error for a drawing that has one shape.
+- **`merge` joins sub-paths; `union` waits for V8** (2026-11-07). The merged shape holds the sub-paths of its group in
+  list order, with the first's attributes and style, at the first's place. *Reason:* a word as a unit to move or slice
+  needs no region algebra, and the boolean batch is the riskiest (roadmap, V8). *Consequence:* overlapping contours stay
+  overlapping.
+- **`split` gives a part the centre of its own bounds as `origin`** (2026-11-07). The origin of the letter is replaced.
+  *Reason:* a part that turns about its letter's origin (the dot of an `i`) would swing round it; each part scatters as a
+  piece.
+- **Draw-on is `Drawing.slice`, built in V7** (2026-11-07). The roadmap listed it under V11. `slice` wraps `Path::slice`
+  as a step whose positions are read per shape, so `slice(0, stagger(progress))` draws a text on letter by letter.
+  *Reason:* the done-when of V7 is a word that draws on letter by letter with no text-specific modifier, and the one step
+  is smaller than a dedicated draw-on node. Dash with a moving phase, placing shapes unbent, simplify and resample
+  stay in V11.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

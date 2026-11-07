@@ -7,7 +7,7 @@ in Rust and Python: `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V
 `stroke_width`, `join`, `cap`, `miter_limit`, `opacity` and `blend`; the rest of the members below arrive with their
 steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6), and `along` (V6) on `Path` and `Drawing`, all in Rust
 and Python, and `text` and `along` in a document; and the per-item numbers `by_index`, `by_order`, `random` and
-`stagger` (V7), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
+`stagger`, and the steps `split`, `merge` and `slice` (V7), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
 defaults written here. The rest is not built ([roadmap.md](roadmap.md)). Reasons:
 [design-decisions.md](design-decisions.md), "The code API". The JSON form of a drawing: [formats.md](formats.md).
 
@@ -768,7 +768,7 @@ Also from the findings: draw-on (`slice`), the riso misregistration that grows o
 re-drawable series node (a series is plain code now, [series_bars.py](../examples/series_bars.py); the effects track adds a
 node if a piece needs one).
 
-Verbs no example uses yet, and what needs them: `merge` (V7: words and lines as units), `exclude` (V8, the fourth
+Verbs no example uses yet, and what needs them: `merge` (words and lines as units), `exclude` (V8, the fourth
 boolean; glitch slices on the effects track), `reverse` (V11: a draw-on the other way round), `locate` (hit-testing for
 an editor), `outline` (V9; die-cut sticker outlines and tapered strokes on the effects track), `Flow.contour` and
 `flow.mix` (V15: the findings' line fields, noise mixed with a glyph's contour), `wave` (V12; the effects track's
