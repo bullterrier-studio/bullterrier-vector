@@ -259,15 +259,17 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   The stroke is now the bevel and butt-end outline plus, beside it and running the same way round, a circular segment
   where a corner turns enough for the bevel to be over 0.01 short of the arc and a half disc at each open end: none of
   20,000 random strokes is covered twice or missed, with real corners, whole-number corners or miter and bevel joins; with
-  corners on a coarse grid, where edges coincide, 1 of 20,000 (56 before), also seen with plain bevel and miter joins. Strokes with several sharp turns (two or more over about 100 degrees) are still covered twice by a small area in
-  about 1 of 2,000 random round strokes (5 to 13 of 20,000, seed 2026-11-07), never missed: the rings are correct (their
-  summed winding matches the distance to the centreline on a 0.1 pixel grid), and lyon emits two triangles on one base
-  where the long offset edges of neighbouring segments run nearly alongside each other. No ring construction fixed it: a
-  horizontal sweep only moves the failures, and one convex piece per segment and corner cut them 3 to 4 times at 7%
-  more triangles and a triangle at every smooth corner. Resolving the rings with `Path::resolve` before the fill covers
-  every point once, but costs 3.4 times the time of `to_mesh` on stroked scenes. Open: resolve only strokes that fold
-  back, by a geometric test, with the engine's cost charged to `MAX_TESSELLATION_WORK` first.
-  A smooth curve gains no triangles, and the scenes measured gained under 6%.
+  corners on a coarse grid, where edges coincide, 1 of 20,000 (56 before), also seen with plain bevel and miter joins. A smooth curve gains no triangles, and the scenes measured gained under 6%.
+  Strokes with several sharp turns (two or more over about 100 degrees) were still covered twice by a small area in about 1 of 10,000 random round strokes (never missed): the rings are correct, and lyon emits two
+  triangles on one base where the long offset edges of neighbouring segments run nearly alongside each other. No ring
+  construction fixed it (a horizontal sweep only moves the failures; one convex piece per segment and corner cut them 3 to 4
+  times at 7% more triangles). So the rings of every stroke go through `Path::resolved`, the boolean engine, before the fill:
+  none of 20,000 random strokes (30 million points, all joins and ends) is then covered twice or missed. The engine's time
+  grows with the pairs of edges whose boxes overlap, which no edge count bounds, so they are charged to
+  `MAX_TESSELLATION_WORK` at 650 units a pair (measured 1.4 to 4 microseconds a pair in release) before it runs. *Cost,
+  release, one thread:* `to_mesh` of the reference scene went from 17.6 to 61 ms (3.4 times), 200 stroked circles from 40
+  to 157 ms (3.9 times), 200 stroked stars from 6.7 to 22.5 ms; a fill is unchanged. A cheaper route (resolving only
+  strokes that fold back, found by a geometric test) is left open.
 
 - **Native against WebAssembly: exact for what we compute, a measured tolerance for pixels** (2026-11-01). The
   differential test (`poe wasm-test`) draws 44 drawings natively through the Python extension and in WebAssembly through

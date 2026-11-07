@@ -74,3 +74,20 @@ overlapping), as one `Path`; the second grid of the union is moved by 5 px on bo
 dissolved, every call), `subtract` from a plate about 130: a line of text can be cut out again at every value of a
 `Param` within a frame of 16.7 ms; the grids, with tens of thousands of edges, take 20 to 70 ms. Not measured:
 WebAssembly, a second run, curves in a grid.
+
+### Stroke rings resolved (V8)
+
+`to_mesh` resolves the rings of every stroke with the boolean engine before the fill, so no point is covered twice
+(`docs/design-decisions.md`, "Round strokes"). Natively only (WebAssembly not re-measured), release build, Apple M4,
+macOS, 2026-11-07; the median of 20 calls in milliseconds at 1920x1080, three runs before and after, in agreement to
+within 3%. The two scenes are 200 circles and 200 stars (4 to 11 points, inner radius 8 to 100) with random centres,
+radii of 20 to 160 and stroke widths of 1 to 12, only stroked.
+
+| Scene | Before | After | Factor |
+|---|---|---|---|
+| reference drawing (`uv run poe bench`), `to_mesh` | 17.5 to 18.0 | 60.6 to 61.8 | 3.4 |
+| 200 stroked circles (smooth curves only) | 39.9 to 40.4 | 154.7 to 158.5 | 3.9 |
+| 200 stroked stars | 6.7 | 22.5 to 23.0 | 3.4 |
+
+The cost is the engine, which sees every flattened offset edge of the stroke, so a smooth circle, with the most edges,
+slows most. `to_rgba` and a fill are unchanged.
