@@ -103,7 +103,7 @@ pub(crate) fn by_order(first: Num, last: Num) -> PyExpr {
 }
 
 /// A number from `low` up to `high` for each shape, from `seed` and the shape's index; the same seed gives the same
-/// numbers everywhere. `low` above `high`, or a `seed` that is not a whole number, is a `ParameterError`.
+/// numbers everywhere (`None`: 0). `low` above `high`, or a `seed` that is not a whole number, is a `ParameterError`.
 #[pyfunction]
 #[pyo3(signature = (low, high, *, seed=None))]
 pub(crate) fn random(low: Num, high: Num, seed: Option<Num>) -> PyExpr {
@@ -115,7 +115,7 @@ pub(crate) fn random(low: Num, high: Num, seed: Option<Num>) -> PyExpr {
 }
 
 /// Each shape's own progress from 0 to 1 out of `progress`: the shape at order `p` runs while `progress` goes from
-/// `p * spread` to `p * spread + 1 - spread`. `spread` outside 0 up to but not including 1 is a `ParameterError`.
+/// `p * spread` to `p * spread + 1 - spread` (`spread` `None`: 0.5). `spread` outside 0 up to but not including 1 is a `ParameterError`.
 #[pyfunction]
 #[pyo3(signature = (progress, *, spread=None))]
 pub(crate) fn stagger(progress: Num, spread: Option<Num>) -> PyExpr {
