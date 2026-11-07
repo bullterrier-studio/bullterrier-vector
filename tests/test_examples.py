@@ -254,3 +254,27 @@ def test_glyph_scatter_stands_as_set_at_0_and_scatters_the_same_way_every_time_a
     assert drawing.to_svg(1080, 640, scatter=0.5) == drawing.to_svg(1080, 640, scatter=0.5)
     assert run("glyph_scatter")["drawing"].to_svg(1080, 640, scatter=0.5) == drawing.to_svg(1080, 640, scatter=0.5)
     assert drawing.to_svg(1080, 640, scatter=1) != drawing.to_svg(1080, 640, scatter=0.5)
+
+
+def test_cutout_cuts_the_letters_out_of_the_plate_and_keeps_the_lens_two_discs_share(run):
+    paper, sheet, plate, crescents, lens = run("cutout")["shapes"]
+    assert (paper.path.bounds, sheet.path.bounds) == (btvec.Rect(0, 0, 1000, 820), btvec.Rect(40, 40, 920, 460))
+    # the plate is the rounded rectangle with one hole for each of the letters C, U and T
+    assert plate.path.bounds == btvec.Rect(70, 70, 860, 400)
+    assert plate.path.to_svg_path().count("M") == 4
+    assert plate.path.contains((100, 100))
+    assert not plate.path.contains((707, 300))  # the stem of the T is cut out
+    assert plate.path.contains((500, 300))  # the counter of the U is not
+    # the discs have radius 110 and their centres are 2 * (120 - 40 * 0.6) = 192 apart: the lens is 2 * (110 - 96)
+    # wide and 2 * sqrt(110^2 - 96^2) high, about their middle
+    box = lens.path.bounds
+    assert (box.x, box.width) == pytest.approx((486, 28), abs=0.05)
+    assert (box.y + box.height / 2, box.height) == pytest.approx(
+        (640, 2 * (110**2 - 96**2) ** 0.5), abs=0.15
+    )  # the tips lie on flattened arcs
+    assert lens.path.contains((500, 640))
+    assert not lens.path.contains((420, 640))
+    # both crescents are one shape: they cover the discs outside the lens
+    assert crescents.path.bounds.width == pytest.approx(412)  # 2 * (96 + 110)
+    assert crescents.path.contains((420, 640))
+    assert not crescents.path.contains((500, 640))
