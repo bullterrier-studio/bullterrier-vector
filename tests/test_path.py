@@ -395,6 +395,115 @@ def test_along_a_closed_guide_wraps_and_near_moves_where_it_starts():
     assert shape.along(RING, near=Point(0, 1000)).point_at(0) == bottom
 
 
+# --- booleans ---------------------------------------------------------------------------------------------------
+
+BOX = Path.rect(0, 0, 10, 10)
+OVERLAPPING = Path.rect(5, 5, 10, 10)  # shares a 5 by 5 corner with BOX
+DISJOINT = Path.rect(50, 50, 1, 1)
+# written by hand in the canonical form: outers clockwise, holes counter-clockwise, from the topmost-leftmost point
+BOOLEANS = {
+    "union": "M0 0 L10 0 L10 5 L15 5 L15 15 L5 15 L5 10 L0 10 Z",
+    "subtract": "M0 0 L10 0 L10 5 L5 5 L5 10 L0 10 Z",
+    "intersect": "M5 5 L10 5 L10 10 L5 10 Z",
+    "exclude": "M0 0 L10 0 L10 5 L5 5 L5 10 L0 10 Z M10 5 L15 5 L15 15 L5 15 L5 10 L10 10 Z",
+}
+
+
+def area(path: btvec.Path) -> float:
+    """The filled area of a path of straight edges (shoelace over each closed contour: outers add, holes subtract)."""
+    total = 0.0
+    for contour in path.to_svg_path().split("M")[1:]:
+        pairs = [pair.lstrip("L").split() for pair in contour.replace("Z", "").split(" L")]
+        points = [(float(x), float(y)) for x, y in pairs]
+        total += sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(points, points[1:] + points[:1], strict=True)) / 2
+    return total
+
+
+@pytest.mark.parametrize("verb", sorted(BOOLEANS))
+def test_a_boolean_of_two_overlapping_squares_is_the_canonical_outline_worked_out_by_hand(verb):
+    assert getattr(BOX, verb)(OVERLAPPING).to_svg_path() == BOOLEANS[verb]
+
+
+@pytest.mark.parametrize(
+    ("verb", "filled"),
+    [("union", 175), ("subtract", 75), ("intersect", 25), ("exclude", 150)],
+)
+def test_the_area_of_a_boolean_follows_the_set_rule(verb, filled):
+    # 100 + 100 square units, 25 of them shared
+    assert area(getattr(BOX, verb)(OVERLAPPING)) == filled
+
+
+def test_subtracting_a_square_inside_leaves_a_hole_that_is_not_filled():
+    ring = Path.rect(0, 0, 100, 100).subtract(Path.rect(25, 25, 50, 50))
+    assert ring.to_svg_path() == "M0 0 L100 0 L100 100 L0 100 Z M25 25 L25 75 L75 75 L75 25 Z"
+    assert area(ring) == 7500
+    assert (ring.contains((10, 10)), ring.contains((50, 50))) == (True, False)
+
+
+def test_an_intersection_that_meets_nowhere_is_an_empty_path_and_a_union_keeps_both_pieces():
+    assert BOX.intersect(DISJOINT) == Path()
+    assert BOX.union(DISJOINT).to_svg_path() == f"{SQUARE} M50 50 L51 50 L51 51 L50 51 Z"
+
+
+def test_resolve_cuts_a_self_crossing_outline_into_the_pieces_it_encloses():
+    bow_tie = Path.from_svg_path("M0 0 L10 10 L10 0 L0 10 Z")
+    assert bow_tie.resolve().to_svg_path() == "M0 0 L5 5 L0 10 Z M10 0 L10 10 L5 5 Z"
+
+
+def test_resolve_of_a_resolved_path_is_the_same_path():
+    once = Path.circle((0, 0), 20).union(Path.circle((15, 0), 20)).resolve()
+    assert once.resolve() == once
+
+
+def test_the_tolerance_keyword_sets_how_many_straight_edges_a_curve_becomes_and_defaults_to_a_hundredth():
+    circle = Path.circle((0, 0), 50)
+    fine, coarse = circle.resolve(tolerance=0.01), circle.resolve(tolerance=1)
+    assert circle.resolve().to_svg_path() == fine.to_svg_path()
+    assert fine.to_svg_path().count("L") > 4 * coarse.to_svg_path().count("L")
+    # the edges stray from the circle by at most the tolerance: the polygon's area is within tolerance times the length
+    assert area(coarse) == pytest.approx(math.pi * 50**2, abs=1 * circle.length)
+    assert area(fine) == pytest.approx(math.pi * 50**2, abs=0.01 * circle.length)
+
+
+def test_a_ring_cut_from_two_circles_has_the_area_of_the_annulus_within_the_tolerance():
+    outer, inner = Path.circle((0, 0), 50), Path.circle((0, 0), 30)
+    ring = outer.subtract(inner)
+    assert area(ring) == pytest.approx(math.pi * (50**2 - 30**2), abs=0.01 * (outer.length + inner.length))
+    assert (ring.contains((40, 0)), ring.contains((0, 0)), ring.contains((60, 0))) == (True, False, False)
+
+
+@pytest.mark.parametrize(
+    ("tolerance", "shown"),
+    [
+        pytest.param(0, "above 0", id="zero"),
+        pytest.param(-1, "-1", id="negative"),
+        pytest.param(math.nan, "nan", id="NaN"),
+        pytest.param(math.inf, "inf", id="infinite"),
+    ],
+)
+@pytest.mark.parametrize("verb", ["resolve", "union", "subtract", "intersect", "exclude"])
+def test_a_tolerance_that_is_not_a_positive_number_is_a_parameter_error_naming_it(verb, tolerance, shown):
+    arguments = () if verb == "resolve" else (OVERLAPPING,)
+    with pytest.raises(btvec.ParameterError, match=r"tolerance") as raised:
+        getattr(BOX, verb)(*arguments, tolerance=tolerance)
+    assert shown in str(raised.value).lower()
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda: BOX.union("square"), id="other is a string"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: BOX.subtract(None), id="other is None"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: BOX.intersect(OVERLAPPING, 0.5), id="a positional tolerance"),  # type: ignore[call-arg]  # the misuse under test
+        pytest.param(lambda: BOX.resolve(0.5), id="resolve with a positional tolerance"),  # type: ignore[call-arg]  # the misuse under test
+        pytest.param(lambda: BOX.exclude(tolerance=0.5), id="exclude without other"),  # type: ignore[call-arg]  # the misuse under test
+    ],
+)
+def test_a_boolean_called_with_the_wrong_kind_of_argument_is_a_type_error(call):
+    with pytest.raises(TypeError):
+        call()
+
+
 def test_along_keeps_a_curve_as_a_smooth_bend_not_a_few_corners():
     # a half circle of radius 20 laid along a straight guide 100 down is the same half circle, moved
     arch = Path.circle((50, 0), 20)

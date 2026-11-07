@@ -243,6 +243,38 @@ impl PyDrawing {
         checked(self.0.along(&path.get().0, bend))
     }
 
+    /// Every shape with its overlaps removed: the closed polygons it fills by the nonzero rule, in canonical form.
+    /// Curves become straight edges within `tolerance` design pixels (a number, not a Param).
+    #[pyo3(signature = (*, tolerance=0.01))]
+    fn resolve(&self, tolerance: f64) -> PyResult<Self> {
+        checked(self.0.resolve(tolerance))
+    }
+
+    /// Every shape filling the region it and `other` (a Drawing, a Path or a Shape; all its shapes at once) fill
+    /// together, keeping its style; as `Path.union`. `other` may hold Params.
+    #[pyo3(signature = (other, *, tolerance=0.01))]
+    fn union(&self, other: Item, tolerance: f64) -> PyResult<Self> {
+        checked(self.0.union(other.0, tolerance))
+    }
+
+    /// Every shape filling the region it fills and `other` does not; as `Drawing.union`.
+    #[pyo3(signature = (other, *, tolerance=0.01))]
+    fn subtract(&self, other: Item, tolerance: f64) -> PyResult<Self> {
+        checked(self.0.subtract(other.0, tolerance))
+    }
+
+    /// Every shape filling the region it and `other` both fill (empty if none); as `Drawing.union`.
+    #[pyo3(signature = (other, *, tolerance=0.01))]
+    fn intersect(&self, other: Item, tolerance: f64) -> PyResult<Self> {
+        checked(self.0.intersect(other.0, tolerance))
+    }
+
+    /// Every shape filling the region only one of it and `other` fills; as `Drawing.union`.
+    #[pyo3(signature = (other, *, tolerance=0.01))]
+    fn exclude(&self, other: Item, tolerance: f64) -> PyResult<Self> {
+        checked(self.0.exclude(other.0, tolerance))
+    }
+
     /// Every shape cut to the piece of its outline between `start` and `end` (fractions 0 to 1 of its length, each a
     /// number, a Param or an expression, read per shape): `slice(0, progress)` draws it on. A closed outline is measured
     /// from its top, or from the point nearest `near`.

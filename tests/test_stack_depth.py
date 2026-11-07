@@ -44,6 +44,15 @@ def nested(leaf_expression):
     return drawing
 
 
+def nested_through_other(leaf_expression):
+    """128 drawings nested through the `other` of a boolean step (union, subtract, intersect, exclude in turn)."""
+    drawing = btvec.Path.circle((5, 5), 2).fill("#112233").translate(leaf_expression, 0)
+    for level in range(127):
+        step = ("union", "subtract", "intersect", "exclude")[level % 4]
+        drawing = getattr(btvec.Path.circle((5, 5), 4).fill("#445566"), step)(drawing)
+    return drawing
+
+
 def deepest_json_drawing():
     """The deepest nesting `to_json` accepts, as a document."""
     x = btvec.Param("x", default=1, min=0, max=10)
@@ -82,6 +91,11 @@ def run():
     x = btvec.Param("x", default=1, min=0, max=10)
     if scenario == "nested":
         drawing = nested(x)
+        every_output(drawing)
+        step("drop")
+        del drawing
+    elif scenario == "nested_through_other":
+        drawing = nested_through_other(x)
         every_output(drawing)
         step("drop")
         del drawing
@@ -216,6 +230,7 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
     "scenario",
     [
         pytest.param("nested", id="128-drawings-nested"),
+        pytest.param("nested_through_other", id="128-drawings-nested-through-the-other-of-booleans"),
         pytest.param("nested_with_the_deepest_expression", id="128-drawings-nested-over-a-128-level-expression"),
         pytest.param("expression_a_loop_builds", id="expression-100000-levels-built-by-a-loop"),
         pytest.param(

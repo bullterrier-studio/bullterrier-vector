@@ -597,6 +597,11 @@ REGISTERED = {
     "split",
     "merge",
     "with_values",
+    "union",
+    "subtract",
+    "intersect",
+    "exclude",
+    "resolve",
     "text",
     "param",
     "add",
@@ -674,9 +679,9 @@ def test_the_generated_schema_is_a_valid_draft_2020_12_schema() -> None:
 
 def test_the_comparison_covers_the_registered_documents() -> None:
     names = {name for name, _ in COMPARABLE}
-    assert "series_bars.json" in names
+    assert {"series_bars.json", "kinetic_type.json"} <= names
     assert len(COMPARABLE) >= 50
-    assert not any(name in names for name in ("kinetic_type.json", "halftone.json"))
+    assert "halftone.json" not in names
 
 
 def test_the_generated_schema_agrees_with_the_draft_on_every_registered_document() -> None:

@@ -20,6 +20,8 @@ SQUARE = btvec.Path.rect(0, 0, 10, 10)
 LINE = btvec.Path.line((0, 0), (10, 0))
 EAST = btvec.Path.line((10, 20), (110, 20))  # 100 long, running east along y = 20
 BLACK = "#000000ff"
+OVERLAP = btvec.Path.rect(5, 5, 10, 10)  # shares the corner (5, 5) to (10, 10) with SQUARE
+BOW_TIE = btvec.Path.from_svg_path("M0 0 L10 10 L10 0 L0 10 Z")
 # the same classes, untyped: the wrong types below are what is tested
 LOOSE: Any = btvec.Drawing
 FRAMELESS: Any = btvec.Drawing(SQUARE)
@@ -495,6 +497,116 @@ def test_along_a_guide_that_is_empty_or_has_no_length_is_a_geometry_error_when_d
             bent.shapes()
 
 
+# --- booleans ----------------------------------------------------------------------------------------------------
+
+BOOLEAN_STEPS = ["union", "subtract", "intersect", "exclude"]
+
+
+@pytest.mark.parametrize("verb", BOOLEAN_STEPS)
+def test_other_may_be_a_path_a_shape_or_a_drawing_and_means_the_same(verb):
+    step = getattr(Drawing(SQUARE), verb)
+    from_path = drawn(step(OVERLAP))
+    assert drawn(step(Drawing(OVERLAP))) == from_path
+    assert drawn(step(OVERLAP.fill("#00ff00").shapes()[0])) == from_path
+
+
+@pytest.mark.parametrize("verb", BOOLEAN_STEPS)
+def test_a_boolean_step_equals_the_path_method_on_each_shape_and_keeps_its_style_and_attributes(verb):
+    red = SQUARE.fill("#ff0000").shapes()[0]
+    shifted = SQUARE.translate(30, 0)
+    (before_first, before_second) = Drawing(red, shifted).shapes()
+    (first, second) = getattr(Drawing(red, shifted), verb)(OVERLAP).shapes()
+    assert first.path == getattr(SQUARE, verb)(OVERLAP)
+    assert second.path == getattr(shifted, verb)(OVERLAP)
+    assert (first.style, first.attributes) == (before_first.style, before_first.attributes)
+    assert (second.style, second.attributes) == (before_second.style, before_second.attributes)
+
+
+@pytest.mark.parametrize(("verb", "left"), [("intersect", SQUARE.to_svg_path()), ("subtract", "")])
+def test_the_shapes_of_other_act_as_one_region_however_they_overlap(verb, left):
+    # two overlapping halves of the 10 by 10 square together cover all of it
+    halves = Drawing(btvec.Path.rect(0, 0, 6, 10), btvec.Path.rect(4, 0, 6, 10))
+    assert drawn(getattr(Drawing(SQUARE), verb)(halves)) == [left]
+
+
+def test_a_boolean_step_on_a_drawing_with_nothing_in_other_keeps_the_region_and_intersect_empties_it():
+    nothing = Drawing(*squares(2)).only(index=9)
+    assert drawn(Drawing(SQUARE).union(nothing)) == [SQUARE.to_svg_path()]
+    assert drawn(Drawing(SQUARE).subtract(nothing)) == [SQUARE.to_svg_path()]
+    assert drawn(Drawing(SQUARE).intersect(nothing)) == [""]
+
+
+def test_other_may_read_a_param_and_the_result_follows_the_value():
+    x = param("x", 0.0, -50.0, 50.0)
+    cut = Drawing(SQUARE).subtract(Drawing(OVERLAP).translate(x, 0))
+    assert drawn(cut) == ["M0 0 L10 0 L10 5 L5 5 L5 10 L0 10 Z"]
+    assert drawn(cut, x=20) == [SQUARE.to_svg_path()]  # moved clear of the square: nothing is cut
+    assert drawn(cut, x=-5) == ["M0 0 L10 0 L10 5 L0 5 Z"]  # the overlap now spans x 0 to 5 of the square
+    assert [p.name for p in cut.parameters()] == ["x"]
+
+
+def test_a_boolean_step_written_to_json_loads_back_to_the_same_drawing_and_draws_the_same():
+    x = param("x", 0.0, -50.0, 50.0)
+    drawing = (
+        Drawing(SQUARE.fill("#ff0000"), SQUARE.translate(30, 0))
+        .intersect(Drawing(OVERLAP).translate(x, 0), tolerance=0.05)
+        .resolve(tolerance=0.5)
+    )
+    text = drawing.to_json()
+    loaded = Drawing.from_json(text)
+    assert loaded.to_json() == text
+    assert summary(loaded, x=3) == summary(drawing, x=3)
+
+
+@pytest.mark.parametrize("verb", [*BOOLEAN_STEPS, "resolve"])
+def test_the_tolerance_keyword_sets_the_edges_a_curve_becomes_and_defaults_to_a_hundredth(verb):
+    circle = btvec.Path.circle((0, 0), 50)
+    covering = btvec.Path.rect(-100, -100, 200, 200)  # keeps the whole circle for intersect
+    far = btvec.Path.rect(500, 500, 1, 1)
+    arguments = () if verb == "resolve" else (covering if verb == "intersect" else far,)
+
+    def edges(**keyword):
+        (shape,) = getattr(Drawing(circle), verb)(*arguments, **keyword).shapes()
+        return shape.path.to_svg_path().count("L")
+
+    assert edges() == edges(tolerance=0.01) > 4 * edges(tolerance=1)
+
+
+@pytest.mark.parametrize("verb", [*BOOLEAN_STEPS, "resolve"])
+@pytest.mark.parametrize(
+    ("tolerance", "shown"),
+    [(0, "above 0"), (-1, "-1"), (float("nan"), "nan"), (1e101, "1e+101|1000000")],
+)
+def test_a_tolerance_the_library_refuses_is_a_parameter_error_naming_the_step_at_the_call(verb, tolerance, shown):
+    arguments = () if verb == "resolve" else (OVERLAP,)
+    with pytest.raises(ParameterError, match=rf"(?i)\({verb}\)\.tolerance.*({shown})"):
+        getattr(Drawing(SQUARE), verb)(*arguments, tolerance=tolerance)
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda: FRAMELESS.union("square"), id="other is text"),
+        pytest.param(lambda: FRAMELESS.subtract(None), id="other is None"),
+        pytest.param(lambda: FRAMELESS.intersect(OVERLAP, 0.5), id="a positional tolerance"),
+        pytest.param(lambda: FRAMELESS.exclude(OVERLAP, tolerance=param("t")), id="a Param as the tolerance"),
+        pytest.param(lambda: FRAMELESS.resolve(0.5), id="resolve with a positional tolerance"),
+        pytest.param(lambda: FRAMELESS.union(), id="union without other"),
+    ],
+)
+def test_a_boolean_step_given_the_wrong_kind_of_argument_is_a_type_error(call):
+    with pytest.raises(TypeError):
+        call()
+
+
+def test_a_boolean_that_would_need_more_edges_than_the_limit_is_refused_when_drawn_naming_the_step():
+    # 45 circles of radius 1e6 at a tolerance of 1e-6 are 262,144 edges each: past MAX_SEGMENTS before the engine runs
+    circles = btvec.Path.from_svg_path(" ".join(btvec.Path.circle((i, 0), 1e6).to_svg_path() for i in range(45)))
+    heavy = Drawing(SQUARE).intersect(circles, tolerance=1e-6)
+    with pytest.raises(ParameterError, match=r"step 1 \(intersect\).*MAX_SEGMENTS"):
+        heavy.shapes()
+
+
 # --- errors: kind, what they name, and the call that raises them -------------------------------------------------
 
 
@@ -740,6 +852,19 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
         {},
         [row("M22.5 20 L32.5 20 L32.5 30 L22.5 30 Z")],
     ),
+    "union": (
+        lambda: Drawing(SQUARE).union(OVERLAP),
+        {},
+        [row("M0 0 L10 0 L10 5 L15 5 L15 15 L5 15 L5 10 L0 10 Z")],
+    ),
+    "subtract": (lambda: Drawing(SQUARE).subtract(OVERLAP), {}, [row("M0 0 L10 0 L10 5 L5 5 L5 10 L0 10 Z")]),
+    "intersect": (lambda: Drawing(SQUARE).intersect(OVERLAP), {}, [row("M5 5 L10 5 L10 10 L5 10 Z")]),
+    "exclude": (
+        lambda: Drawing(SQUARE).exclude(OVERLAP),
+        {},
+        [row("M0 0 L10 0 L10 5 L5 5 L5 10 L0 10 Z M10 5 L15 5 L15 15 L5 15 L5 10 L10 10 Z")],
+    ),
+    "resolve": (lambda: Drawing(BOW_TIE).resolve(), {}, [row("M0 0 L5 5 L0 10 Z M10 0 L10 10 L5 5 Z")]),
     "slice": (lambda: Drawing(LINE).slice(0.25, 0.75), {}, [row("M2.5 0 L7.5 0", None, BLACK)]),
     "fill": (lambda: Drawing(SQUARE).fill("#0000ff"), {}, [row(RECT, "#0000ffff")]),
     "stroke": (lambda: Drawing(SQUARE).stroke("#00ff00"), {}, [row(RECT, None, "#00ff00ff")]),

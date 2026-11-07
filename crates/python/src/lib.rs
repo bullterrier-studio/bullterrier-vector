@@ -421,6 +421,37 @@ impl PyPath {
         Self::of(self.0.along(&path.get().0, start.0, near.map(|near| near.0)))
     }
 
+    /// This path with its overlaps removed: the closed polygons the nonzero rule fills, in canonical form (outers
+    /// clockwise, holes counter-clockwise, y down). Curves become straight edges within `tolerance` design pixels.
+    #[pyo3(signature = (*, tolerance=Plain(0.01)), text_signature = "($self, *, tolerance=0.01)")]
+    fn resolve(&self, tolerance: Plain) -> PyResult<Self> {
+        Self::of(self.0.resolve(tolerance.0))
+    }
+
+    /// The region either path fills, as canonical straight-edged polygons within `tolerance` design pixels.
+    #[pyo3(signature = (other, *, tolerance=Plain(0.01)), text_signature = "($self, other, *, tolerance=0.01)")]
+    fn union(&self, other: &Bound<'_, Self>, tolerance: Plain) -> PyResult<Self> {
+        Self::of(self.0.union(&other.get().0, tolerance.0))
+    }
+
+    /// The region this path fills and `other` does not; as `union` otherwise.
+    #[pyo3(signature = (other, *, tolerance=Plain(0.01)), text_signature = "($self, other, *, tolerance=0.01)")]
+    fn subtract(&self, other: &Bound<'_, Self>, tolerance: Plain) -> PyResult<Self> {
+        Self::of(self.0.subtract(&other.get().0, tolerance.0))
+    }
+
+    /// The region both paths fill (an empty path if none); as `union` otherwise.
+    #[pyo3(signature = (other, *, tolerance=Plain(0.01)), text_signature = "($self, other, *, tolerance=0.01)")]
+    fn intersect(&self, other: &Bound<'_, Self>, tolerance: Plain) -> PyResult<Self> {
+        Self::of(self.0.intersect(&other.get().0, tolerance.0))
+    }
+
+    /// The region only one of the paths fills; as `union` otherwise.
+    #[pyo3(signature = (other, *, tolerance=Plain(0.01)), text_signature = "($self, other, *, tolerance=0.01)")]
+    fn exclude(&self, other: &Bound<'_, Self>, tolerance: Plain) -> PyResult<Self> {
+        Self::of(self.0.exclude(&other.get().0, tolerance.0))
+    }
+
     /// The path with every point, on and off the curve, replaced by what `fn(point)` returns.
     fn map_points(&self, r#fn: &Bound<'_, PyAny>) -> PyResult<Self> {
         // the core's callback can only fail with a core error, so the function's own exception is kept here and the
