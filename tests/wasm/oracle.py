@@ -286,6 +286,49 @@ def bends() -> list[Entry]:
     ]
 
 
+def per_item() -> list[Entry]:
+    """Per-item numbers and the list steps on text: `random`, `stagger`, `by_index` and `by_order` in transforms, a
+    transform about the default origin, `split`, `merge` (all, and by word) and `slice` (alone and staggered). The
+    seeded hash and the slicing compute with integers and `sqrt` only, so the SVG text and the mesh are exact."""
+    frame = (400, 160)
+    amount = btvec.Param("amount", default=1, min=0, max=1, unit="fraction", meaning="how far the letters have gone")
+    progress = btvec.Param("progress", default=0.5, min=0, max=1, unit="fraction", meaning="how much is drawn")
+
+    def at_90(content: str) -> btvec.Drawing:
+        return btvec.text(content, font=FRAUNCES, size=90, anchor=(12, 110))
+
+    def sized(*items: btvec.Drawing) -> btvec.Drawing:
+        return btvec.Drawing(*items, size=frame)
+
+    def draws(**values: float) -> list[Draw]:
+        return [(400, 160, {}), (200, 80, values)]
+
+    drawings = {
+        "item_random": sized(
+            at_90("Hif To")
+            .rotate(btvec.random(-20, 20, seed=4) * amount)
+            .translate(btvec.random(-15, 15, seed=5) * amount, btvec.random(-10, 10, seed=6) * amount)
+            .fill(INK)
+        ),
+        "item_stagger": sized(at_90("Hif To").translate(0, btvec.stagger(amount, spread=0.6) * -30).fill(RED)),
+        "item_by_index_by_order": sized(
+            at_90("Hif To").rotate(btvec.by_index(-15, 15)).translate(btvec.by_order(0, 30), 0).fill(BLUE)
+        ),
+        "item_default_origin": sized(at_90("Hif To").rotate(12).scale(0.8).fill(GOLD)),
+        "item_split": sized(at_90("Hi fi").split().translate(btvec.random(-12, 12, seed=7) * amount, 0).fill(INK)),
+        "item_merge_all": sized(at_90("Hif To").merge().fill(RED).stroke(INK, width=2)),
+        "item_merge_by_word": sized(at_90("Hif To AV").merge(by="word").rotate(btvec.by_index(-6, 6)).fill(BLUE)),
+        "item_slice": sized(at_90("Hif").slice(0.2, 0.7).stroke(INK, width=3)),
+        "item_slice_stagger": sized(at_90("Hif To").slice(0, btvec.stagger(progress, spread=0.6)).stroke(INK, width=3)),
+    }
+    # the second draw sets the Params the drawing reads (a call naming one it does not read is refused)
+    values = {
+        **{name: {"amount": 0.4} for name in ["item_random", "item_stagger", "item_split"]},
+        "item_slice_stagger": {"progress": 0.8},
+    }
+    return [(name, drawing, draws(**values.get(name, {}))) for name, drawing in drawings.items()]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -293,6 +336,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     transforms_and_params,
     text_drawings,
     bends,
+    per_item,
 ]
 
 
