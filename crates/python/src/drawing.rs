@@ -4,7 +4,7 @@ use crate::expr::{Num, PyExpr, PyParam};
 use crate::mesh::PyMesh;
 use crate::shape::PyShape;
 use crate::text::{bytes_of, entries};
-use crate::{PyPath, PyPoint, exception, raised};
+use crate::{DEFAULT_TOLERANCE, PyPath, PyPoint, exception, raised};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -245,32 +245,32 @@ impl PyDrawing {
 
     /// Every shape with its overlaps removed: the closed polygons it fills by the nonzero rule, in canonical form.
     /// Curves become straight edges within `tolerance` design pixels (a number, not a Param).
-    #[pyo3(signature = (*, tolerance=0.01))]
+    #[pyo3(signature = (*, tolerance=DEFAULT_TOLERANCE), text_signature = "($self, *, tolerance=0.01)")]
     fn resolve(&self, tolerance: f64) -> PyResult<Self> {
         checked(self.0.resolve(tolerance))
     }
 
     /// Every shape filling the region it and `other` (a Drawing, a Path or a Shape; all its shapes at once) fill
     /// together, keeping its style; as `Path.union`. `other` may hold Params.
-    #[pyo3(signature = (other, *, tolerance=0.01))]
+    #[pyo3(signature = (other, *, tolerance=DEFAULT_TOLERANCE), text_signature = "($self, other, *, tolerance=0.01)")]
     fn union(&self, other: Item, tolerance: f64) -> PyResult<Self> {
         checked(self.0.union(other.0, tolerance))
     }
 
     /// Every shape filling the region it fills and `other` does not; as `Drawing.union`.
-    #[pyo3(signature = (other, *, tolerance=0.01))]
+    #[pyo3(signature = (other, *, tolerance=DEFAULT_TOLERANCE), text_signature = "($self, other, *, tolerance=0.01)")]
     fn subtract(&self, other: Item, tolerance: f64) -> PyResult<Self> {
         checked(self.0.subtract(other.0, tolerance))
     }
 
     /// Every shape filling the region it and `other` both fill (empty if none); as `Drawing.union`.
-    #[pyo3(signature = (other, *, tolerance=0.01))]
+    #[pyo3(signature = (other, *, tolerance=DEFAULT_TOLERANCE), text_signature = "($self, other, *, tolerance=0.01)")]
     fn intersect(&self, other: Item, tolerance: f64) -> PyResult<Self> {
         checked(self.0.intersect(other.0, tolerance))
     }
 
     /// Every shape filling the region only one of it and `other` fills; as `Drawing.union`.
-    #[pyo3(signature = (other, *, tolerance=0.01))]
+    #[pyo3(signature = (other, *, tolerance=DEFAULT_TOLERANCE), text_signature = "($self, other, *, tolerance=0.01)")]
     fn exclude(&self, other: Item, tolerance: f64) -> PyResult<Self> {
         checked(self.0.exclude(other.0, tolerance))
     }

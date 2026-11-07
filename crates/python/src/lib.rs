@@ -230,6 +230,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for By {
     }
 }
 
+/// The `tolerance` default of the boolean verbs: the core's `FLATNESS`, the flatness in design pixels that the pixels use
+/// (the core keeps it private). The stub `_core.pyi` and the `text_signature`s write the literal.
+// constant: the core's FLATNESS, a tolerance below any visible effect
+pub(crate) const DEFAULT_TOLERANCE: f64 = 0.01;
+
 /// A number a `Path` verb takes: a plain number, never a Param or an expression.
 #[derive(Clone, Copy)]
 struct Plain(f64);
@@ -423,31 +428,31 @@ impl PyPath {
 
     /// This path with its overlaps removed: the closed polygons the nonzero rule fills, in canonical form (outers
     /// clockwise, holes counter-clockwise, y down). Curves become straight edges within `tolerance` design pixels.
-    #[pyo3(signature = (*, tolerance=Plain(0.01)), text_signature = "($self, *, tolerance=0.01)")]
+    #[pyo3(signature = (*, tolerance=Plain(DEFAULT_TOLERANCE)), text_signature = "($self, *, tolerance=0.01)")]
     fn resolve(&self, tolerance: Plain) -> PyResult<Self> {
         Self::of(self.0.resolve(tolerance.0))
     }
 
     /// The region either path fills, as canonical straight-edged polygons within `tolerance` design pixels.
-    #[pyo3(signature = (other, *, tolerance=Plain(0.01)), text_signature = "($self, other, *, tolerance=0.01)")]
+    #[pyo3(signature = (other, *, tolerance=Plain(DEFAULT_TOLERANCE)), text_signature = "($self, other, *, tolerance=0.01)")]
     fn union(&self, other: &Bound<'_, Self>, tolerance: Plain) -> PyResult<Self> {
         Self::of(self.0.union(&other.get().0, tolerance.0))
     }
 
     /// The region this path fills and `other` does not; as `union` otherwise.
-    #[pyo3(signature = (other, *, tolerance=Plain(0.01)), text_signature = "($self, other, *, tolerance=0.01)")]
+    #[pyo3(signature = (other, *, tolerance=Plain(DEFAULT_TOLERANCE)), text_signature = "($self, other, *, tolerance=0.01)")]
     fn subtract(&self, other: &Bound<'_, Self>, tolerance: Plain) -> PyResult<Self> {
         Self::of(self.0.subtract(&other.get().0, tolerance.0))
     }
 
     /// The region both paths fill (an empty path if none); as `union` otherwise.
-    #[pyo3(signature = (other, *, tolerance=Plain(0.01)), text_signature = "($self, other, *, tolerance=0.01)")]
+    #[pyo3(signature = (other, *, tolerance=Plain(DEFAULT_TOLERANCE)), text_signature = "($self, other, *, tolerance=0.01)")]
     fn intersect(&self, other: &Bound<'_, Self>, tolerance: Plain) -> PyResult<Self> {
         Self::of(self.0.intersect(&other.get().0, tolerance.0))
     }
 
     /// The region only one of the paths fills; as `union` otherwise.
-    #[pyo3(signature = (other, *, tolerance=Plain(0.01)), text_signature = "($self, other, *, tolerance=0.01)")]
+    #[pyo3(signature = (other, *, tolerance=Plain(DEFAULT_TOLERANCE)), text_signature = "($self, other, *, tolerance=0.01)")]
     fn exclude(&self, other: &Bound<'_, Self>, tolerance: Plain) -> PyResult<Self> {
         Self::of(self.0.exclude(&other.get().0, tolerance.0))
     }

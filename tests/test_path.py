@@ -455,12 +455,22 @@ def test_resolve_of_a_resolved_path_is_the_same_path():
     assert once.resolve() == once
 
 
-def test_the_tolerance_keyword_sets_how_many_straight_edges_a_curve_becomes_and_defaults_to_a_hundredth():
+@pytest.mark.parametrize("verb", ["resolve", "union", "subtract", "intersect", "exclude"])
+def test_the_tolerance_keyword_sets_how_many_straight_edges_a_curve_becomes_and_defaults_to_a_hundredth(verb):
+    circle = Path.circle((0, 0), 50)
+    other = Path.rect(-100, -100, 200, 200) if verb == "intersect" else Path.rect(500, 500, 1, 1)  # keeps the circle
+    arguments = () if verb == "resolve" else (other,)
+
+    def edges(**keyword):
+        return getattr(circle, verb)(*arguments, **keyword).to_svg_path().count("L")
+
+    assert edges() == edges(tolerance=0.01) > 4 * edges(tolerance=1)
+
+
+def test_the_edges_of_a_resolved_circle_stray_from_it_by_at_most_the_tolerance():
     circle = Path.circle((0, 0), 50)
     fine, coarse = circle.resolve(tolerance=0.01), circle.resolve(tolerance=1)
-    assert circle.resolve().to_svg_path() == fine.to_svg_path()
-    assert fine.to_svg_path().count("L") > 4 * coarse.to_svg_path().count("L")
-    # the edges stray from the circle by at most the tolerance: the polygon's area is within tolerance times the length
+    # the polygon's area is within tolerance times the length
     assert area(coarse) == pytest.approx(math.pi * 50**2, abs=1 * circle.length)
     assert area(fine) == pytest.approx(math.pi * 50**2, abs=0.01 * circle.length)
 
