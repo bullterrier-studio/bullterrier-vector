@@ -3,7 +3,7 @@
 //! same arithmetic on plain numbers; the strings an expression prints are written out by hand.
 
 use crate::common::{Outcome, log_uniform, parameter_refusal};
-use bullterrier_vector::{Error, Expr, Param, Unit, Values};
+use bullterrier_vector::{Error, Expr, Param, Random, Stagger, Unit, Values, by_index, by_order};
 use proptest::prelude::*;
 
 /// A bounded Param from -1000 to 1000 with the given default.
@@ -373,6 +373,58 @@ fn a_million_level_expression_is_printed_compared_and_dropped_on_the_smallest_st
         run().map_err(|error| error.to_string())
     })?;
     handle.join().map_err(|_| "the thread panicked")??;
+    Ok(())
+}
+
+#[test]
+fn a_million_level_per_item_expression_is_refused_printed_and_dropped_on_the_smallest_stack() -> Outcome {
+    // each per-item number nests the one before as an operand, so the deepest structure with the new node is built
+    // by a loop that never fails; nothing a caller can do to it may overflow a small stack
+    let handle = std::thread::Builder::new().stack_size(SMALLEST_STACK).spawn(|| {
+        let run = || -> Outcome {
+            let x = param("x", 1.0)?;
+            let mut nested: [Expr; 4] = [Expr::from(&x), Expr::from(&x), Expr::from(&x), Expr::from(&x)];
+            for _ in 0..250_000 {
+                let [index, order, random, stagger] = nested;
+                nested = [
+                    by_index(index, 1.0),
+                    by_order(0.0, order),
+                    Random::new(0.0, random).seed(3.0).into(),
+                    Stagger::new(stagger).spread(0.5).into(),
+                ];
+            }
+            let clones = nested.clone();
+            for deep in &nested {
+                assert!(deep.to_string().starts_with("(an expression "), "{deep}");
+                assert!(format!("{deep:?}").len() < 1000);
+                assert_eq!(deep.constant(), None);
+                parameter_refusal(value(deep))?;
+            }
+            drop(nested);
+            for deep in &clones {
+                parameter_refusal(value(deep))?;
+            }
+            Ok(())
+        };
+        run().map_err(|error| error.to_string())
+    })?;
+    handle.join().map_err(|_| "the thread panicked")??;
+    Ok(())
+}
+
+#[test]
+fn a_per_item_expression_is_deep_enough_at_128_levels_and_too_deep_at_129() -> Outcome {
+    // a Param is 1 level and each per-item number over it one more
+    let x = param("x", 1.0)?;
+    let nest = |levels: usize| {
+        let mut deepest = Expr::from(&x);
+        for _ in 1..levels {
+            deepest = by_order(deepest, 0.0);
+        }
+        deepest
+    };
+    assert!(!nest(128).to_string().starts_with("(an expression"));
+    assert!(nest(129).to_string().starts_with("(an expression 129"));
     Ok(())
 }
 

@@ -8,12 +8,26 @@ use crate::limits::MAX_DEPTH;
 use crate::{Color, Drawing, Error, Expr, Font, Literal, Param, Path, Point, Select, Shape, Values};
 
 /// The place of a shape in the list a step works on, and how long the list is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Item {
     /// The shape's index in the list, from 0.
     pub(crate) index: usize,
     /// How many shapes the list has.
     pub(crate) count: usize,
+    /// The shape's `order`, 0 for one that carries none (a lone shape has 0).
+    pub(crate) order: f64,
+}
+
+impl Item {
+    /// Item `index` of `count` that has no shape yet, such as a character of a `text`: its `order` is where it lies from
+    /// the first to the last.
+    pub(crate) fn evenly(index: usize, count: usize) -> Self {
+        Self {
+            index,
+            count,
+            order: crate::expr::share(index, count),
+        }
+    }
 }
 
 /// The value a call gives one argument.
@@ -289,12 +303,22 @@ impl Args {
         Ok(reads)
     }
 
-    /// The checks of a call: every expression is within the depth and size limits, every constant one is worked out and accepted
+    /// The checks of a call: every expression is within the depth and size limits, a per-item number is only where an
+    /// argument reads one per shape and has the operands it accepts, every constant one is worked out and accepted
     /// by its argument's domain, drawings are not nested too deep, then the verb's own rule across arguments. The error is unplaced.
     pub(crate) fn validate(&self) -> Result<(), Error> {
         for (arg, expr) in self.expressions() {
             expr.check_limits().map_err(|error| relabel(error, arg.name))?;
-            if !expr.reads_param() {
+            if arg.reads != Reads::PerItem && expr.is_per_item() {
+                return Err(Error::parameter(
+                    arg.name,
+                    format!(
+                        "is read once for the whole call, not per shape, so it takes no per-item number, got {expr}"
+                    ),
+                ));
+            }
+            expr.check_items().map_err(|error| relabel(error, arg.name))?;
+            if expr.is_plain() {
                 let value = expr.value(&Values::new()).map_err(|error| relabel(error, arg.name))?;
                 arg.domain.number(arg.name, value)?;
             }
@@ -491,7 +515,7 @@ impl Args {
                         arg.domain.number(name, value)
                     };
                     let values = (0..count)
-                        .map(|index| read(expr, Item { index, count }))
+                        .map(|index| read(expr, Item::evenly(index, count)))
                         .collect::<Result<_, _>>()?;
                     Ok((tag.clone(), values))
                 })

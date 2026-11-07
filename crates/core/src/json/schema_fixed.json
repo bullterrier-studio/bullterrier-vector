@@ -45,18 +45,72 @@
       "not": { "items": { "type": "number" } },
       "$comment": "at least one operand is not a literal: a constant expression is written as its value"
     },
-    "expression": {
+    "whole": {
+      "anyOf": [{ "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }, { "$ref": "#/$defs/expression" }],
+      "$comment": "a seed: a whole number within +-(2^53 - 1) when drawn"
+    },
+    "once": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/once_expression" }] },
+    "once_operands": {
+      "type": "array",
+      "prefixItems": [{ "$ref": "#/$defs/once" }, { "$ref": "#/$defs/once" }],
+      "minItems": 2,
+      "items": false,
+      "not": { "items": { "type": "number" } }
+    },
+    "once_expression": {
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
       "propertyNames": { "enum": ["param", "add", "sub", "mul", "div", "neg"] },
       "properties": {
         "param": { "$ref": "#/$defs/name" },
+        "add": { "$ref": "#/$defs/once_operands" },
+        "sub": { "$ref": "#/$defs/once_operands" },
+        "mul": { "$ref": "#/$defs/once_operands" },
+        "div": { "allOf": [{ "$ref": "#/$defs/once_operands" }, { "prefixItems": [true, { "not": { "const": 0 } }] }] },
+        "neg": { "allOf": [{ "$ref": "#/$defs/once" }, { "not": { "type": "number" } }] }
+      },
+      "$comment": "an expression without per-item numbers, for an argument read once rather than per shape"
+    },
+    "expression": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": { "enum": ["param", "add", "sub", "mul", "div", "neg", "by_index", "by_order", "random", "stagger"] },
+      "properties": {
+        "param": { "$ref": "#/$defs/name" },
         "add": { "$ref": "#/$defs/operands" },
         "sub": { "$ref": "#/$defs/operands" },
         "mul": { "$ref": "#/$defs/operands" },
         "div": { "allOf": [{ "$ref": "#/$defs/operands" }, { "prefixItems": [true, { "not": { "const": 0 } }] }] },
-        "neg": { "allOf": [{ "$ref": "#/$defs/number" }, { "not": { "type": "number" } }] }
+        "neg": { "allOf": [{ "$ref": "#/$defs/number" }, { "not": { "type": "number" } }] },
+        "by_index": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "first": { "$ref": "#/$defs/number" }, "last": { "$ref": "#/$defs/number" } },
+          "required": ["first", "last"]
+        },
+        "by_order": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "first": { "$ref": "#/$defs/number" }, "last": { "$ref": "#/$defs/number" } },
+          "required": ["first", "last"]
+        },
+        "random": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "low": { "$ref": "#/$defs/number" }, "high": { "$ref": "#/$defs/number" }, "seed": { "$ref": "#/$defs/whole" } },
+          "required": ["low", "high"]
+        },
+        "stagger": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "progress": { "$ref": "#/$defs/number" },
+            "spread": { "anyOf": [{ "type": "number", "minimum": 0, "exclusiveMaximum": 1 }, { "$ref": "#/$defs/expression" }] }
+          },
+          "required": ["progress"]
+        }
       }
     },
     "drawing": {

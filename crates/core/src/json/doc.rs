@@ -109,19 +109,24 @@ pub(super) struct Fixed {
 #[derive(Clone)]
 pub(super) enum Ex {
     Number(f64),
-    Param { name: String, pointer: String },
+    Param {
+        name: String,
+        pointer: String,
+    },
     Neg(Box<Ex>),
     Binary(Op, Box<Ex>, Box<Ex>),
+    /// A per-item number: its word and its operands in the order of its fields, those left out filled with their defaults.
+    Item(&'static str, Vec<Ex>),
 }
 
 impl Ex {
-    /// Whether any Param is read.
-    pub(super) fn reads_param(&self) -> bool {
+    /// Whether this is a plain number: no Param is read and no per-item number is held.
+    pub(super) fn is_plain(&self) -> bool {
         match self {
-            Self::Number(_) => false,
-            Self::Param { .. } => true,
-            Self::Neg(inner) => inner.reads_param(),
-            Self::Binary(_, left, right) => left.reads_param() || right.reads_param(),
+            Self::Number(_) => true,
+            Self::Param { .. } | Self::Item(..) => false,
+            Self::Neg(inner) => inner.is_plain(),
+            Self::Binary(_, left, right) => left.is_plain() && right.is_plain(),
         }
     }
 
@@ -135,6 +140,7 @@ impl Ex {
                 left.params(into);
                 right.params(into);
             }
+            Self::Item(_, operands) => operands.iter().for_each(|operand| operand.params(into)),
         }
     }
 }

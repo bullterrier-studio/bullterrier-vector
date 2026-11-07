@@ -461,9 +461,9 @@ fn a_malformed_expression_is_refused_where_it_is() -> Outcome {
 
 #[test]
 fn an_expression_the_library_does_not_have_is_refused_naming_it_and_the_library_version() -> Outcome {
-    let (pointer, message) = refused(&with_x(r#"{"by_index":{"first":0,"last":1}}"#))?;
-    assert_eq!(pointer, "/root/1/rotate/angle/by_index");
-    assert!(message.contains("`by_index`") && message.contains(LIBRARY), "{message}");
+    let (pointer, message) = refused(&with_x(r#"{"sin":{"first":0,"last":1}}"#))?;
+    assert_eq!(pointer, "/root/1/rotate/angle/sin");
+    assert!(message.contains("`sin`") && message.contains(LIBRARY), "{message}");
     Ok(())
 }
 

@@ -241,10 +241,10 @@ impl<'a> Writer<'a> {
         })
     }
 
-    /// An expression with every part that reads no Param folded to its value; [`Expr::view`] gives the operands of
+    /// An expression with every part that is a plain number folded to its value, a per-item number kept; [`Expr::view`] gives the operands of
     /// `add` and `mul` with a literal one first.
     fn expression(&self, expr: &Expr) -> Result<Json, Error> {
-        if !expr.reads_param() {
+        if expr.is_plain() {
             return Ok(Json::Number(expr.value(&Values::new())?));
         }
         self.calls.set(self.calls.get() + 1);
@@ -253,6 +253,15 @@ impl<'a> Writer<'a> {
             View::Param(param) => Json::object([("param", Json::text(param.name()))]),
             View::TooDeep => return Err(expr.too_deep()),
             View::Neg(inner) => Json::object([("neg", self.expression(inner)?)]),
+            View::Item(call) => {
+                let fields = call
+                    .fields()
+                    .iter()
+                    .zip(call.operands())
+                    .map(|(field, operand)| Ok((field.name, self.expression(operand)?)))
+                    .collect::<Result<Vec<_>, Error>>()?;
+                Json::object([(call.word(), Json::object(fields))])
+            }
             View::Binary(op, left, right) => {
                 let (left, right) = (self.expression(left)?, self.expression(right)?);
                 if op == Op::Div && matches!(right, Json::Number(divisor) if divisor == 0.0) {

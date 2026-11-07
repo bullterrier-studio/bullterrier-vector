@@ -1,12 +1,18 @@
-//! `Expr`: arithmetic on Params and numbers, worked out when a drawing is drawn.
+//! `Expr`: arithmetic on Params and numbers, and the per-item numbers, worked out when a drawing is drawn.
+
+mod item;
 
 use crate::key::{Key, Keyed};
 use crate::limits::{MAX_DEPTH, MAX_EXPR_NODES};
 use crate::node::Item;
 use crate::{Error, Param, Value, Values};
+use item::Call;
 use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
+
+pub(crate) use item::{FUNCTIONS, Field, share};
+pub use item::{Random, Stagger, by_index, by_order};
 
 /// The four binary operators.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,6 +33,8 @@ pub(crate) enum View<'a> {
     Neg(&'a Expr),
     /// `left op right`, the operands in the order the canonical form writes them.
     Binary(Op, &'a Expr, &'a Expr),
+    /// A per-item number, whose operands the call lists in the order of its fields.
+    Item(&'a Call),
     /// An expression deeper than [`MAX_DEPTH`], which has no operands to show.
     TooDeep,
 }
@@ -58,6 +66,7 @@ enum Node {
     Param(Param),
     Neg(Expr),
     Binary(Op, Expr, Expr),
+    Item(Call),
     /// An expression more than [`MAX_DEPTH`] levels deep, built from an operand that already was or that went one past.
     /// It keeps no operands, only the depth, size and Param flag of its [`Tree`], which is all the error that refuses it
     /// needs; so no tree, whatever a loop builds, is more than `MAX_DEPTH` levels of operands deep, and every walk of one
@@ -74,6 +83,8 @@ struct Tree {
     depth: usize,
     /// Whether any Param is read below.
     reads_param: bool,
+    /// Whether any per-item number is below: a value per shape, which no step may fold to a constant.
+    per_item: bool,
     /// The nodes evaluation visits: one for each number, Param and operator, a shared operand counted each time it is
     /// reached. It saturates, since a loop can double an expression past any count.
     nodes: usize,
@@ -85,6 +96,7 @@ impl Node {
         match std::mem::replace(self, Self::Const(0.0)) {
             Self::Neg(operand) => into.push(operand),
             Self::Binary(_, left, right) => into.extend([left, right]),
+            Self::Item(call) => into.extend(call.into_operands()),
             Self::Const(_) | Self::Param(_) | Self::TooDeep => {}
         }
     }
@@ -110,9 +122,13 @@ impl Drop for Tree {
 /// caller gives the Params.
 ///
 /// Anywhere a step takes a number, an `Expr` goes too; so does a [`Param`] and a plain number. The operators work on
-/// `Expr`, `&Expr`, `Param`, `&Param` and `f64` on either side (not between two plain numbers), so nothing needs to be
+/// `Expr`, `&Expr`, `Param`, `&Param`, [`Random`], [`Stagger`] and `f64` on either side (not between two plain numbers), so nothing needs to be
 /// cloned: `1.0 + 0.08 * &pulse`. An expression prints infix with the fewest parentheses that keep its shape:
 /// `(a + b) * c`.
+///
+/// An `Expr` that holds a per-item number ([`by_index`], [`by_order`], [`Random`], [`Stagger`]) has a value for each
+/// shape of a list, so it is no plain number: [`Expr::constant`] is `None` and it can be read only where there are
+/// shapes.
 ///
 /// Every number it works out is finite: a division by zero, an overflow or a NaN is a
 /// [`ParameterError`](Error::Parameter) naming the expression.
@@ -120,36 +136,62 @@ impl Drop for Tree {
 pub struct Expr(Arc<Tree>);
 
 impl Expr {
-    fn new(node: Node, depth: usize, reads_param: bool, nodes: usize) -> Self {
+    fn new(node: Node, depth: usize, reads_param: bool, per_item: bool, nodes: usize) -> Self {
         Self(Arc::new(Tree {
             node,
             depth,
             reads_param,
+            per_item,
             nodes,
         }))
     }
 
+    /// The per-item number `call` makes of its operands. It is not a plain number whatever its operands are.
+    fn item(call: Call) -> Self {
+        let operands = call.operands();
+        let depth = 1 + operands.iter().map(|operand| operand.0.depth).max().unwrap_or(0);
+        let reads_param = operands.iter().any(|operand| operand.0.reads_param);
+        let nodes = operands
+            .iter()
+            .fold(1_usize, |nodes, operand| nodes.saturating_add(operand.0.nodes));
+        let node = if depth > MAX_DEPTH {
+            Node::TooDeep
+        } else {
+            Node::Item(call)
+        };
+        Self::new(node, depth, reads_param, true, nodes)
+    }
+
+    /// The per-item number the JSON word `word` names, made of `operands` in the order of its fields; `None` if there
+    /// is no such word or the operands are not as many as it takes.
+    pub(crate) fn per_item_call(word: &str, operands: Vec<Self>) -> Option<Self> {
+        Call::new(word, operands).map(Self::item)
+    }
+
     fn binary(op: Op, left: Self, right: Self) -> Self {
         let depth = 1 + left.0.depth.max(right.0.depth);
-        let reads_param = left.0.reads_param || right.0.reads_param;
+        let (reads_param, per_item) = (
+            left.0.reads_param || right.0.reads_param,
+            left.0.per_item || right.0.per_item,
+        );
         let nodes = left.0.nodes.saturating_add(right.0.nodes).saturating_add(1);
         let node = if depth > MAX_DEPTH {
             Node::TooDeep
         } else {
             Node::Binary(op, left, right)
         };
-        Self::new(node, depth, reads_param, nodes)
+        Self::new(node, depth, reads_param, per_item, nodes)
     }
 
     fn negate(inner: Self) -> Self {
-        let (depth, reads_param) = (1 + inner.0.depth, inner.0.reads_param);
+        let (depth, reads_param, per_item) = (1 + inner.0.depth, inner.0.reads_param, inner.0.per_item);
         let nodes = inner.0.nodes.saturating_add(1);
         let node = if depth > MAX_DEPTH {
             Node::TooDeep
         } else {
             Node::Neg(inner)
         };
-        Self::new(node, depth, reads_param, nodes)
+        Self::new(node, depth, reads_param, per_item, nodes)
     }
 
     /// How tightly the expression binds when it is an operand: `+` and `-` loosest, then `*` and `/`, then
@@ -158,19 +200,19 @@ impl Expr {
         match &self.0.node {
             Node::Binary(Op::Add | Op::Sub, ..) => 1,
             Node::Binary(Op::Mul | Op::Div, ..) => 2,
-            Node::Const(_) | Node::Param(_) | Node::Neg(_) | Node::TooDeep => 3,
+            Node::Const(_) | Node::Param(_) | Node::Neg(_) | Node::Item(_) | Node::TooDeep => 3,
         }
     }
 
-    /// The number this expression is, when it reads no Param and has a finite value; `None` if it reads a Param (its
-    /// value is known only when the drawing is drawn) or if no finite number results (such as `1 / 0`; [`Expr::value`]
-    /// says why).
+    /// The number this expression is, when it is a plain number with a finite value; `None` if it reads a Param or
+    /// holds a per-item number (its value is known only when the drawing is drawn) or if no finite number results
+    /// (such as `1 / 0`; [`Expr::value`] says why).
     #[must_use]
     pub fn constant(&self) -> Option<f64> {
-        if self.0.reads_param {
-            None
-        } else {
+        if self.is_plain() {
             self.value(&Values::new()).ok()
+        } else {
+            None
         }
     }
 
@@ -187,7 +229,8 @@ impl Expr {
         self.evaluate(values, None)
     }
 
-    /// The value for the shape `item` of a list: a Param given a list reads the entry at the shape's index.
+    /// The value for the shape `item` of a list: a Param given a list reads the entry at the shape's index, and a
+    /// per-item number is worked out from the shape.
     pub(crate) fn value_at(&self, values: &Values, item: Item) -> Result<f64, Error> {
         self.check_limits()?;
         self.evaluate(values, Some(item))
@@ -203,6 +246,7 @@ impl Expr {
                 let (first, second) = Self::in_canonical_order(*op, left, right);
                 View::Binary(*op, first, second)
             }
+            Node::Item(call) => View::Item(call),
             Node::TooDeep => View::TooDeep,
         }
     }
@@ -228,9 +272,29 @@ impl Expr {
         }
     }
 
-    /// Whether the expression reads a Param, so that its value is known only when drawn.
-    pub(crate) fn reads_param(&self) -> bool {
-        self.0.reads_param
+    /// Whether the expression is a plain number: it reads no Param and holds no per-item number, so that it is worked
+    /// out and checked when the call is made, and folds to its value when saved.
+    pub(crate) fn is_plain(&self) -> bool {
+        !self.0.reads_param && !self.0.per_item
+    }
+
+    /// Whether the expression holds a per-item number anywhere, which only an argument read per shape accepts.
+    pub(crate) fn is_per_item(&self) -> bool {
+        self.0.per_item
+    }
+
+    /// An error if a per-item number below has operands that are numbers already and that it refuses. The depth must
+    /// have been checked, which bounds the recursion.
+    pub(crate) fn check_items(&self) -> Result<(), Error> {
+        match &self.0.node {
+            Node::Const(_) | Node::Param(_) | Node::TooDeep => Ok(()),
+            Node::Neg(inner) => inner.check_items(),
+            Node::Binary(_, left, right) => left.check_items().and_then(|()| right.check_items()),
+            Node::Item(call) => {
+                call.check_literals()?;
+                call.operands().iter().try_for_each(Self::check_items)
+            }
+        }
     }
 
     /// An error unless the expression is at most [`MAX_DEPTH`] levels deep, which bounds the recursion that evaluates
@@ -271,6 +335,7 @@ impl Expr {
                 left.collect_params(into);
                 right.collect_params(into);
             }
+            Node::Item(call) => call.operands().iter().for_each(|operand| operand.collect_params(into)),
         }
     }
 
@@ -307,6 +372,15 @@ impl Expr {
                 }
             },
             Node::TooDeep => return Err(self.too_deep()),
+            Node::Item(call) => {
+                let Some(item) = item else {
+                    return Err(Error::parameter(
+                        "expression",
+                        format!("({self}) has a value per shape and cannot be read without shapes"),
+                    ));
+                };
+                call.evaluate(|operand| operand.evaluate(values, Some(item)), item)?
+            }
             Node::Neg(inner) => -inner.evaluate(values, item)?,
             Node::Binary(op, left, right) => {
                 let (left, right) = (left.evaluate(values, item)?, right.evaluate(values, item)?);
@@ -358,6 +432,11 @@ impl Keyed for Expr {
                 key.of(inner);
             }
             Node::TooDeep => key.word(4),
+            Node::Item(call) => {
+                key.word(5);
+                key.text(call.word());
+                call.operands().iter().for_each(|operand| key.of(operand));
+            }
             Node::Binary(op, left, right) => {
                 key.word(3);
                 key.word(match op {
@@ -377,19 +456,19 @@ impl Keyed for Expr {
 impl From<f64> for Expr {
     /// A plain number. A negative zero is stored as zero.
     fn from(number: f64) -> Self {
-        Self::new(Node::Const(number + 0.0), 1, false, 1)
+        Self::new(Node::Const(number + 0.0), 1, false, false, 1)
     }
 }
 
 impl From<&Param> for Expr {
     fn from(param: &Param) -> Self {
-        Self::new(Node::Param(param.clone()), 1, true, 1)
+        Self::new(Node::Param(param.clone()), 1, true, false, 1)
     }
 }
 
 impl From<Param> for Expr {
     fn from(param: Param) -> Self {
-        Self::new(Node::Param(param), 1, true, 1)
+        Self::new(Node::Param(param), 1, true, false, 1)
     }
 }
 
@@ -406,6 +485,13 @@ impl fmt::Display for Expr {
             Node::Param(param) => formatter.write_str(param.name()),
             Node::Neg(inner) => write!(formatter, "-({inner})"),
             Node::TooDeep => write!(formatter, "(an expression {} levels deep)", self.0.depth),
+            Node::Item(call) => {
+                write!(formatter, "{}(", call.word())?;
+                for (at, (field, operand)) in call.fields().iter().zip(call.operands()).enumerate() {
+                    write!(formatter, "{}{}={operand}", if at == 0 { "" } else { ", " }, field.name)?;
+                }
+                formatter.write_str(")")
+            }
             Node::Binary(op, left, right) => {
                 let rank = self.rank();
                 // operators of one rank read left to right, so only a right operand of the same rank needs them
@@ -428,11 +514,13 @@ impl fmt::Display for Expr {
 /// `left op right` for one pair of operand kinds, and for each pair but two plain numbers.
 macro_rules! binary_operators {
     ($($trait:ident :: $method:ident => $op:ident),+ $(,)?) => {$(
-        binary_operators!(@row $trait, $method, $op; Expr; Expr, &Expr, Param, &Param, f64);
-        binary_operators!(@row $trait, $method, $op; &Expr; Expr, &Expr, Param, &Param, f64);
-        binary_operators!(@row $trait, $method, $op; Param; Expr, &Expr, Param, &Param, f64);
-        binary_operators!(@row $trait, $method, $op; &Param; Expr, &Expr, Param, &Param, f64);
-        binary_operators!(@row $trait, $method, $op; f64; Expr, &Expr, Param, &Param);
+        binary_operators!(@row $trait, $method, $op; Expr; Expr, &Expr, Param, &Param, f64, Random, Stagger);
+        binary_operators!(@row $trait, $method, $op; &Expr; Expr, &Expr, Param, &Param, f64, Random, Stagger);
+        binary_operators!(@row $trait, $method, $op; Param; Expr, &Expr, Param, &Param, f64, Random, Stagger);
+        binary_operators!(@row $trait, $method, $op; &Param; Expr, &Expr, Param, &Param, f64, Random, Stagger);
+        binary_operators!(@row $trait, $method, $op; Random; Expr, &Expr, Param, &Param, f64, Random, Stagger);
+        binary_operators!(@row $trait, $method, $op; Stagger; Expr, &Expr, Param, &Param, f64, Random, Stagger);
+        binary_operators!(@row $trait, $method, $op; f64; Expr, &Expr, Param, &Param, Random, Stagger);
     )+};
     (@row $trait:ident, $method:ident, $op:ident; $left:ty; $($right:ty),+) => {$(
         impl $trait<$right> for $left {
@@ -460,4 +548,4 @@ macro_rules! negations {
     )+};
 }
 
-negations!(Expr, &Expr, Param, &Param);
+negations!(Expr, &Expr, Param, &Param, Random, Stagger);

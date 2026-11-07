@@ -202,7 +202,8 @@ fn value(arg: &Arg) -> Json {
         .fold(typed("number"), |schema, (key, bound)| with(schema, key, bound));
     match arg.reads {
         Reads::Literal => literal,
-        Reads::PerItem | Reads::Once => any_of(vec![literal, reference("expression")]),
+        Reads::PerItem => any_of(vec![literal, reference("expression")]),
+        Reads::Once => any_of(vec![literal, reference("once_expression")]),
     }
 }
 

@@ -4,7 +4,7 @@
 use super::doc::{Call, Doc, Ex, Fixed, InputDecl, InputKind, ParamDecl, Setting, Value, VerbCall, What};
 use super::value::{Json, pointer_token};
 use super::{bare, expression_word};
-use crate::expr::Op;
+use crate::expr::{FUNCTIONS, Field, Op};
 use crate::limits::{MAX_CALLS, MAX_PARAMS};
 use crate::param::is_name;
 use crate::shape::{Holds, SELECTABLE, Single};
@@ -443,11 +443,10 @@ impl Reader {
         }
     }
 
-    /// A number or an expression for `arg`: an expression only where the argument reads one per shape, and a literal
-    /// within the argument's domain.
+    /// A number or an expression for `arg`: an expression only where the argument reads one, a per-item number only
+    /// where it reads one per shape, and a literal within the argument's domain.
     fn number(&mut self, arg: &'static Arg, pointer: &str, json: &Json) -> Result<Ex, Error> {
-        let literal = arg.reads == Reads::Literal;
-        let number = self.expression(pointer, json, literal)?;
+        let number = self.expression(pointer, json, arg.reads)?;
         if let Ex::Number(value) = number {
             arg.domain
                 .number(arg.name, value)
@@ -456,8 +455,9 @@ impl Reader {
         Ok(number)
     }
 
-    /// A JSON number, or an expression (an object of one key).
-    fn expression(&mut self, pointer: &str, json: &Json, literal: bool) -> Result<Ex, Error> {
+    /// A JSON number, or an expression (an object of one key) where `reads` allows one.
+    fn expression(&mut self, pointer: &str, json: &Json, reads: Reads) -> Result<Ex, Error> {
+        let literal = reads == Reads::Literal;
         let members = match json {
             Json::Number(number) => return Ok(Ex::Number(*number)),
             Json::Object(members) if !literal => members,
@@ -490,6 +490,17 @@ impl Reader {
             ));
         };
         let here = at(pointer, word);
+        if let Some(function) = FUNCTIONS.iter().find(|(known, _)| *known == word.as_str()) {
+            if reads == Reads::Once {
+                return Err(refuse(
+                    &here,
+                    format!(
+                        "`{word}` is a per-item number, which an argument read once for the whole call does not take"
+                    ),
+                ));
+            }
+            return self.per_item(&here, *function, body, reads);
+        }
         let expression = match word.as_str() {
             "param" => match body {
                 Json::String(name) if is_name(name) => Ex::Param {
@@ -503,7 +514,7 @@ impl Reader {
                     ));
                 }
             },
-            "neg" => Ex::Neg(Box::new(self.expression(&here, body, false)?)),
+            "neg" => Ex::Neg(Box::new(self.expression(&here, body, reads)?)),
             other => {
                 let Some(op) = expression_word(other) else {
                     return Err(refuse(
@@ -522,22 +533,55 @@ impl Reader {
                 let [left, right] = operands.as_slice() else {
                     return Err(refuse(&here, format!("must have two operands, not {}", operands.len())));
                 };
-                let left = self.expression(&format!("{here}/0"), left, false)?;
-                let right = self.expression(&format!("{here}/1"), right, false)?;
+                let left = self.expression(&format!("{here}/0"), left, reads)?;
+                let right = self.expression(&format!("{here}/1"), right, reads)?;
                 if op == Op::Div && matches!(right, Ex::Number(divisor) if divisor == 0.0) {
                     return Err(refuse(&format!("{here}/1"), "a literal divisor of 0"));
                 }
                 Ex::Binary(op, Box::new(left), Box::new(right))
             }
         };
-        if expression.reads_param() {
-            Ok(expression)
-        } else {
+        if expression.is_plain() {
             Err(refuse(
                 pointer,
-                "an expression that reads no Param is a plain number: write its value",
+                "an expression that reads no Param and holds no per-item number is a plain number: write its value",
             ))
+        } else {
+            Ok(expression)
         }
+    }
+
+    /// The per-item number `word` of an object of its fields at `pointer`: every field written is a known one, and one
+    /// left out takes its default.
+    fn per_item(
+        &mut self,
+        pointer: &str,
+        (word, fields): (&'static str, &'static [Field]),
+        body: &Json,
+        reads: Reads,
+    ) -> Result<Ex, Error> {
+        let Json::Object(members) = body else {
+            return Err(refuse(pointer, format!("must be an object, not {}", body.describe())));
+        };
+        if let Some(unknown) = members
+            .keys()
+            .find(|key| !fields.iter().any(|field| field.name == key.as_str()))
+        {
+            let names: Vec<&str> = fields.iter().map(|field| field.name).collect();
+            return Err(refuse(
+                &at(pointer, unknown),
+                format!("is not a field of `{word}` ({})", names.join(", ")),
+            ));
+        }
+        let operands = fields
+            .iter()
+            .map(|field| match (members.get(field.name), field.default) {
+                (Some(json), _) => self.expression(&at(pointer, field.name), json, reads),
+                (None, Some(default)) => Ok(Ex::Number(default)),
+                (None, None) => Err(refuse(pointer, format!("is missing `{}`", field.name))),
+            })
+            .collect::<Result<_, Error>>()?;
+        Ok(Ex::Item(word, operands))
     }
 
     /// The value of a `shape` source: its path and the attributes its generators wrote.

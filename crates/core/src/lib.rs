@@ -25,7 +25,7 @@ mod values;
 
 pub use drawing::{Along, Deg, Drawing, Pivot, Rotate, ScaleBy, Select, Stats, Stroke, Wanted};
 pub use error::Error;
-pub use expr::Expr;
+pub use expr::{Expr, Random, Stagger, by_index, by_order};
 pub use geometry::{Point, Rect, Scale};
 pub use json::{Inputs, drawing_schema};
 pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};

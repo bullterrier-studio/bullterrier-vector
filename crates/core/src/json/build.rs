@@ -176,6 +176,14 @@ impl<'a> Builder<'a> {
                 Expr::from(param)
             }
             Ex::Neg(inner) => -self.expr(inner)?,
+            Ex::Item(word, operands) => {
+                let operands = operands
+                    .iter()
+                    .map(|operand| self.expr(operand))
+                    .collect::<Result<_, _>>()?;
+                Expr::per_item_call(word, operands)
+                    .ok_or_else(|| refuse(word, "is not a per-item number this library knows"))?
+            }
             Ex::Binary(op, left, right) => {
                 let (left, right) = (self.expr(left)?, self.expr(right)?);
                 match op {

@@ -15,7 +15,7 @@
 //! - **Context.** `Context { place, env, work }`: where the step is (for errors), the Param values as this place sees
 //!   them (draw values under every `with_values` above it), and the counters. No clock, no caller state.
 //! - **Whole list or shape by shape.** `evaluate` takes the whole list. A shape-by-shape node calls the helper
-//!   `each_shape(previous, cx, |shape, item| ..)`, which loops, builds the `Item { index, count }` and prefixes
+//!   `each_shape(previous, cx, |shape, item| ..)`, which loops, builds the `Item` (`index`, `count` and the shape's `order`) and prefixes
 //!   `shape i` to errors, so the loop is written once and no node can leave a default method unimplemented.
 //! - **Arguments.** `Args` holds the call's values in declaration order, defaults applied at construction. A node reads
 //!   an argument only through an accessor (`args.number("dx", item)?`, `args.point("about", item)?`, ..): the accessor
@@ -129,7 +129,8 @@ pub(crate) fn each_shape(
         .iter()
         .enumerate()
         .map(|(index, shape)| {
-            map(shape, Item { index, count }).map_err(|error| error.at_argument(&cx.place, Some(index)))
+            let order = shape.attributes().order().unwrap_or(0.0);
+            map(shape, Item { index, count, order }).map_err(|error| error.at_argument(&cx.place, Some(index)))
         })
         .collect()
 }
