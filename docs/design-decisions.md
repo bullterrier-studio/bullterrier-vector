@@ -290,8 +290,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   bullterrier_vector as btvec`; `use bullterrier_vector as btvec;`; `import * as btvec from "bullterrier-vector"`).
   *Reason:* short to type, says what it is, and unlikely to clash with another library's usual alias.
 - **Errors by kind** (2026-10-29): `BullterrierVectorError` > `ParameterError` (a value outside what is accepted, naming
-  the parameter and value; also a `ValueError`) and `GeometryError` (geometry that fails, such as a boolean on an
-  outline that cannot be resolved). *Reason:* a caller handles bad input and failed geometry differently: the first is
+  the parameter and value; also a `ValueError`) and `GeometryError` (geometry that fails, such as measuring an
+  empty path). *Reason:* a caller handles bad input and failed geometry differently: the first is
   fixed in the call, the second in the shapes.
 - **Parameter descriptions: the library's own format** (2026-10-28), documented and versioned in `docs/formats.md`,
   with the same fields and conventions as other tools use (name, unit, range, default, meaning; cyclic or bounded).
@@ -305,7 +305,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   `clippy.toml` bans the platform's transcendental functions only in this workspace's code; a curve crate's maths
   would reach the output unchecked and leave the native-against-WebAssembly differential test (V3) as the only guard
   for bit-identical bytes. The surface needed is small (flattening, arc length, nearest point, nonzero winding).
-  *Consequence:* the same maths in every language; booleans and offsets (V8, V9) face the same question.
+  *Consequence:* the same maths in every language; booleans took a crate nonetheless ("Booleans (V8)"), offsets (V9)
+  face the same question.
 - **Arcs are cubics, one per quarter turn at most** (2026-10-31). An SVG arc is converted from endpoint to centre form
   (SVG 1.1, F.6.5), then cut into `ceil(sweep / 90°)` equal pieces, each a cubic with handles `4/3 tan(piece / 4)`.
   A circle is four cubics (kappa `0.5522847498307936`), straying from the circle by at most 2.7e-4 of the radius.
@@ -495,11 +496,11 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   two names are one step, and a document names the bytes it was drawn with. *Consequence:* `to_json` writes one `inputs`
   entry per byte string with `sha256`; two names for equal bytes, or one name for two byte strings, raise
   `ParameterError`.
-- **Overlaps stay until V8** (2026-11-01). `text` keeps each glyph's own contours, in the font's order and direction:
-  glyphs of variable fonts overlap by design (a stem and a serif are separate contours) and mesh and pixels fill
-  nonzero, so they draw right. Resolving them into regions, and the canonical form of api.md ("Path"), need the
-  booleans of V8. *Consequence:* until then a boolean on a glyph is not promised to hold; the V5 line "overlapping
-  contours removed" moved to V8.
+- **Overlaps stay until `resolve`** (2026-11-01, changed 2026-11-07). `text` keeps each glyph's own contours, in the
+  font's order and direction: glyphs of variable fonts overlap by design (a stem and a serif are separate contours) and
+  mesh and pixels fill nonzero, so they draw right. `resolve` (V8) unites them into regions when asked
+  ("Booleans (V8)"). *Consequence:* a boolean on raw text holds (it fills nonzero too), but `split` takes the contours
+  of an `H` for parts until `resolve` has united them.
 - **A line is shaped as one run** (2026-11-01). Each line of a text (split at `"\n"`) is shaped once, in the script
   and direction `harfrust` guesses from its first strong character: kerning, ligatures and the rules of one script
   hold, a line that mixes directions is not reordered, and a line break is a hard break. Attributes number the glyphs
@@ -682,10 +683,10 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **A shape that carries no `order` reads 0** (2026-11-07). A lone path or shape given as it is gets `first` from
   `by_order` and starts first in `stagger`; a stack writes `order` on shapes that carry none. *Reason:* one rule instead
   of an error for a drawing that has one shape.
-- **`merge` joins sub-paths; `union` waits for V8** (2026-11-07). The merged shape holds the sub-paths of its group in
+- **`merge` joins sub-paths; it does not unite them** (2026-11-07). The merged shape holds the sub-paths of its group in
   list order, with the first's attributes and style, at the first's place. *Reason:* a word as a unit to move or slice
   needs no region algebra, and the boolean batch is the riskiest (roadmap, V8). *Consequence:* overlapping contours stay
-  overlapping.
+  overlapping; `union` or `resolve` (V8) unites them.
 - **`split` gives a part the centre of its own bounds as `origin`** (2026-11-07). The origin of the letter is replaced.
   *Reason:* a part that turns about its letter's origin (the dot of an `i`) would swing round it; each part scatters as a
   piece.
@@ -694,6 +695,68 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   *Reason:* the done-when of V7 is a word that draws on letter by letter with no text-specific modifier, and the one step
   is smaller than a dedicated draw-on node. Dash with a moving phase, placing shapes unbent, simplify and resample
   stay in V11.
+
+## Booleans (V8)
+
+- **The engine is `i_overlay`, in `path/boolean.rs` alone** (2026-11-07). One engine run per verb: `resolve` is a run
+  with nothing to combine, the others combine two paths. *Reason:* a spike on 9.1.0, pinned exactly (a new release may snap
+  or order contours differently), found: MIT OR Apache-2.0, five new crates (`i_float`, `i_key_sort`, `i_shape`,
+  `i_tree`, all `no_std`, one author; `libm` was already a dependency) and `cargo deny` and `cargo shear` pass; it builds
+  for `wasm32-unknown-unknown` (also with `simd128`) and the module has no imports; the float maths that reaches
+  the output is `libm`, the sweep is integer arithmetic, no hash-ordered collection, clock or IO in the five crates;
+  200 seeded pairs by 4 operations hash alike natively (release and debug) and in Node. The differential (16 boolean
+  drawings, exact SVG text and mesh buffers) holds on macOS arm64. It panics on non-finite or over-range input, so the core
+  validates first and wraps nothing. *Consequence:* the spike did not check Linux or Windows native bytes (the Linux
+  `wasm-test` compares native with Node in CI). `linesweeper` was not evaluated. The crate does not appear in the API.
+- **`unsafe` in the dependencies is accepted** (2026-11-07). Counts of the word in `src`: `i_overlay` 52 (48 blocks),
+  `i_key_sort` 19 (17 blocks), `i_tree` 19 (13 blocks and 6 `unsafe fn`), `i_float` and `i_shape` 0, mostly
+  `get_unchecked`. *Reason:* `unsafe_code = "deny"` covers this workspace's code only; accepted in place of writing a
+  sweep ourselves. *Consequence:* the fuzz (below) is the guard: no panic or hang in 6 x 10,000 cases, a glyph corpus
+  and the extremes.
+- **The `i64` engine on an automatic grid** (2026-11-07). The crate rounds both operands onto an integer grid it picks
+  per call from their joint bounding box, 2^-60 of the half-extent with `i64` (2^-29 with `i32`). *Reason:* `i32` drops a
+  1e-6 hole beside shapes 4000 wide and a unit square beside a shape 1e12 away; `i64` is finer than `f64` at that
+  size, and costs 30 to 45 per cent more on large inputs and nothing at glyph size. A fixed absolute grid cannot give
+  0.01 pixel and ±1e100 at once, and choosing the bits by hand would add a constant to justify (rule 1). *Consequence:* precision follows the extent of the operands, and `a.union(b)` and `a.resolve()` can differ in
+  a corner (api.md, "Booleans").
+- **The fill rule is nonzero** (2026-11-07). *Reason:* it is the rule of `contains`, of every fill and of the fonts, so a
+  boolean agrees with what is drawn. *Consequence:* a contour inside another that runs the same way is absorbed, one that
+  runs the other way is a hole; the several shapes of an `other` are each resolved before they are joined, or a shape that
+  ran the other way would cut the overlap out of the rest.
+- **Flatten, then combine; `tolerance` is a keyword, default `FLATNESS`** (2026-11-07). Curves become straight edges
+  that stray by at most `tolerance` design pixels, and the result has straight edges only. *Reason:* the engine takes
+  polygons; the number that shapes the result is a parameter in its own terms (rule 1) and its default is the
+  `FLATNESS` of the flattening for output. On a `Drawing` step it is a literal number, not a `Param`. *Consequence:* a
+  curve is not restored by a later boolean.
+- **The canonical form is made by re-sorting the engine's result** (2026-11-07). The engine gives outers positive
+  shoelace (clockwise with `y` down), holes the other way, ordered and started by their leftmost point; the order does
+  not depend on the order or start of the input. The library orders by topmost point and starts each contour
+  there. *Reason:* a draw-on starts at the same place on every shape ("Path"). *Consequence:* one stable sort and
+  a rotation of each contour; where two tops tie in exact arithmetic, the start can differ between calls.
+- **`resolve` is a step of its own, not part of `text`** (2026-11-07). *Reason:* text draws right unresolved (mesh and
+  pixels fill nonzero), and resolving costs on every draw: a line of 35 capitals takes 0.033 ms to `shapes` and 1.8 ms
+  after `resolve` (`docs/benchmarks.md`, "Booleans (V8)"), about 50 microseconds a glyph, which a caller animating a
+  weight pays every frame. *Consequence:* a caller who needs the true parts of a glyph (`split`) writes `resolve`.
+- **`other` is one drawing, `Kind::Drawing`** (2026-11-07). A boolean's operand is evaluated with the caller's Params
+  (a cutter moved by a `Param` is a drawing), so it is an argument kind of its own, and in a document an array of
+  calls. Its shapes are united once per step, not once per shape of the subject; a lone shape is used as it is.
+  *Consequence:* style stays the subject's, and an empty `other` makes `intersect` empty and the others keep the region.
+- **A `Drawing` step charges the pairs of edges, a `Path` method nothing** (2026-11-07). Work and memory grow with the
+  crossings, which no count of edges bounds: `Drawing.resolve` of a 16,000-edge scribble was killed at 4189 MB under a
+  4000 MB cap with the existing limits. The step now charges `MAX_SEGMENTS` for the flattened edges, for the pairs of edges
+  whose boxes overlap (counted in `O(n log n)` before the engine runs; at least the crossings) and for the result's
+  vertices. *Reason:* the pair count is at least the crossings the work grows with, and is counted in `O(n log n)`; 10 million
+  pairs cost 1.4 to 3.5 GB. A direct `Path` call stays unbounded, as `along` is: a `Path` method has no draw to count
+  in. *Consequence:* a rough guard, not a budget (api.md, "Booleans").
+- **What the fuzz found** (2026-11-07), one fix and one regression test each: a result contour whose corners are in line
+  once rounded to numbers; a hair-thin contour that rounding turned over (a hole before any outer); a thinness test that
+  read a contour smaller than 1e-160 as flat; a thinness test judged on the contour instead of the whole result's width;
+  a lone point or line widening the engine's frame and so moving the other operand's corners; edges that cross heavily
+  exhausting memory. The fixes keep one rule: a contour no thicker than 4 ulps of the result's largest coordinate is rounding and
+  is dropped.
+- **No boolean raises `GeometryError`** (2026-11-07). The engine resolves any outline, so the errors are
+  `ParameterError`: a `tolerance` outside the range, a result beyond ±1e100, `MAX_SEGMENTS`. *Reason:* an error the
+  engine cannot produce would be dead code. `GeometryError` stays for verbs that can fail geometrically.
 
 ## Engineering
 
