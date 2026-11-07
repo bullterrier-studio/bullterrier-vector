@@ -51,10 +51,14 @@ impl Shape {
         self
     }
 
-    /// This shape with its path replaced; the style and attributes stay.
-    pub(crate) fn with_path(mut self, path: Path) -> Self {
-        self.path = path;
-        self
+    /// A shape of `path` with this shape's style, attributes and place. The old path is not copied.
+    pub(crate) fn with_path(&self, path: Path) -> Self {
+        Self {
+            path,
+            style: self.style.clone(),
+            attributes: self.attributes.clone(),
+            index: self.index,
+        }
     }
 
     /// The style, to change.

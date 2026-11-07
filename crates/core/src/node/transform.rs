@@ -45,7 +45,7 @@ impl Node for Translate {
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         each_shape(inputs.previous, cx, |shape, item| {
             let (dx, dy) = (args.number(cx, "dx", item)?, args.number(cx, "dy", item)?);
-            let mut moved = shape.clone().with_path(shape.path().translate(dx, dy)?);
+            let mut moved = shape.with_path(shape.path().translate(dx, dy)?);
             if let Some(origin) = shape.attributes().origin() {
                 moved.attributes_mut().origin = Some(Point::new(origin.x + dx, origin.y + dy));
             }
@@ -78,7 +78,7 @@ impl Node for Rotate {
         each_shape(inputs.previous, cx, |shape, item| {
             let angle = args.number(cx, "angle", item)?;
             let about = pivot(shape, args.point(cx, "about", item)?);
-            let mut turned = shape.clone().with_path(shape.path().rotate(angle, about)?);
+            let mut turned = shape.with_path(shape.path().rotate(angle, about)?);
             if let (Some(origin), Some(about)) = (shape.attributes().origin(), about) {
                 turned.attributes_mut().origin = Some(rotate_point(origin, angle, about)?);
             }
@@ -111,7 +111,7 @@ impl Node for Scale {
         each_shape(inputs.previous, cx, |shape, item| {
             let by = args.pair(cx, "by", item)?;
             let about = pivot(shape, args.point(cx, "about", item)?);
-            let mut scaled = shape.clone().with_path(shape.path().scale(by, about)?);
+            let mut scaled = shape.with_path(shape.path().scale(by, about)?);
             if let (Some(origin), Some(about)) = (shape.attributes().origin(), about) {
                 scaled.attributes_mut().origin = Some(scale_point(origin, by.into(), about)?);
             }
@@ -167,7 +167,7 @@ impl Node for Along {
                     &own
                 }
             };
-            Ok(shape.clone().with_path(shape.path().bent(guide, start, &mut charge)?))
+            Ok(shape.with_path(shape.path().bent(guide, start, &mut charge)?))
         })
     }
 }
@@ -204,7 +204,7 @@ impl Node for Slice {
                 return Ok(shape.clone());
             }
             cx.work.made_segments(weight, &place)?;
-            Ok(shape.clone().with_path(shape.path().slice(start, end, near)?))
+            Ok(shape.with_path(shape.path().slice(start, end, near)?))
         })
     }
 }

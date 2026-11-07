@@ -64,10 +64,10 @@ impl Node for Split {
         let mut shapes = Vec::new();
         for (index, shape) in inputs.previous.iter().enumerate() {
             let placed = |error: Error| error.at_argument(&cx.place, Some(index));
-            let parts = shape.path().split();
-            // charged before the shapes are made: the parts, and the geometry they copy
-            cx.work.made_shapes(parts.len().max(1), &cx.place)?;
+            // charged before the shapes are made: the geometry they copy, then the parts
             cx.work.made_segments(shape.path().weight(), &place)?;
+            let parts = shape.path().split();
+            cx.work.made_shapes(parts.len().max(1), &cx.place)?;
             if parts.is_empty() {
                 let mut empty = shape.clone();
                 empty.attributes_mut().part = Some(0);
@@ -75,7 +75,7 @@ impl Node for Split {
             }
             for (number, part) in parts.into_iter().enumerate() {
                 let origin = middle(&part).map_err(placed)?;
-                let mut made = shape.clone().with_path(part);
+                let mut made = shape.with_path(part);
                 made.attributes_mut().part = u32::try_from(number).ok();
                 made.attributes_mut().origin = Some(origin);
                 shapes.push(made);
@@ -120,11 +120,7 @@ impl Node for Merge {
         }
         Ok(groups
             .iter()
-            .map(|members| {
-                members[0]
-                    .clone()
-                    .with_path(Path::joined(members.iter().map(|shape| shape.path())))
-            })
+            .map(|members| members[0].with_path(Path::joined(members.iter().map(|shape| shape.path()))))
             .collect())
     }
 }
