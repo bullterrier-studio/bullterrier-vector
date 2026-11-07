@@ -587,9 +587,10 @@ proptest! {
         path = path.move_to(points[0])?.line_to(points[points.len() - 1])?;
         prop_assert_eq!(path.resolve(TOLERANCE)?.to_svg_path(), "");
         let square = polygons_path(&[vec![(0.0, 0.0), (9.0, 0.0), (9.0, 9.0), (0.0, 9.0)]])?;
-        // the corners may move by a unit in the last place: the grid is chosen from the extent of both operands
-        let joined = region(&square.union(&path, TOLERANCE)?)?;
-        prop_assert_eq!(joined.len(), 1);
-        prop_assert!((net_area(&joined) - 81.0).abs() < 1e-9, "area {}", net_area(&joined));
+        // lone points and lines enclose nothing and do not take part: not even the grid the square is rounded to
+        prop_assert_eq!(
+            square.union(&path, TOLERANCE)?.to_svg_path(),
+            square.resolve(TOLERANCE)?.to_svg_path()
+        );
     }
 }

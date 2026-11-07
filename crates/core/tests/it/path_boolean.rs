@@ -449,6 +449,31 @@ fn a_spike_beside_a_much_larger_shape_does_not_come_back_as_a_contour_of_its_own
     Ok(())
 }
 
+#[test]
+fn a_sub_path_that_encloses_nothing_does_not_change_the_other_operand() -> Outcome {
+    // the engine rounds to a frame as wide as everything it is given; a lone point or a line far off widened it, and
+    // the corner (9, 9) came back as 8.999999999999998
+    let big = square(0.0, 0.0, 9.0)?;
+    let alone = big.resolve(TOLERANCE)?;
+    assert_eq!(alone.to_svg_path(), "M0 0 L9 0 L9 9 L0 9 Z");
+    let nothings = [
+        Path::start((0.0, -25.78317514661399))?,
+        Path::line((0.0, -25.78317514661399), (3.0, 60.0))?,
+        Path::new().move_to((90.0, 90.0))?.move_to((-70.1, 3.3))?,
+    ];
+    for nothing in nothings {
+        for verb in [0, 1, 3] {
+            assert_eq!(
+                apply(verb, &big, &nothing, TOLERANCE)?.to_svg_path(),
+                alone.to_svg_path(),
+                "{}",
+                VERBS[verb]
+            );
+        }
+    }
+    Ok(())
+}
+
 // Properties ---------------------------------------------------------------------------------------------------------
 
 /// Closed polygons on a coarse lattice, so that edges coincide, touch and cross at corners, and a polygon may wind

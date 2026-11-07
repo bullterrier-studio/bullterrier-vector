@@ -127,8 +127,9 @@ fn run(
     canonical(shapes)
 }
 
-/// The closed polygons `path` fills with: each sub-path flattened (the engine ignores one of fewer than 3 corners, a
-/// lone move or a line, which encloses nothing).
+/// The closed polygons `path` fills with: each sub-path flattened. One of fewer than 3 corners (a lone move or a
+/// line) encloses nothing and is left out: the engine would ignore it, but it would still widen the frame it rounds
+/// to, and so move the corners of everything else.
 fn contours(
     path: &Path,
     tolerance: f64,
@@ -137,6 +138,7 @@ fn contours(
     Ok(path
         .flattened_within(tolerance, charge)?
         .into_iter()
+        .filter(|polyline| polyline.points.len() >= 3)
         .map(|polyline| polyline.points.iter().map(|point| [point.x, point.y]).collect())
         .collect())
 }
