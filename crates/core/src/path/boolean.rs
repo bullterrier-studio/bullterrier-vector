@@ -1,5 +1,5 @@
 //! Booleans on paths: `resolve` (a path's own overlaps removed) and `union`, `subtract`, `intersect` and `exclude`
-//! (two paths combined). The only user of `i_overlay`.
+//! (two paths combined). With `offset.rs`, the only user of `i_overlay`.
 //!
 //! Every verb is one run of the engine over the flattened outlines of both paths under the nonzero rule, so each
 //! result is a resolved region: the outlines of a path that overlap or cross themselves are merged, and an open
@@ -16,7 +16,7 @@ use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::single::SingleFloatOverlay;
 
-type Contour = Vec<[f64; 2]>;
+pub(super) type Contour = Vec<[f64; 2]>;
 
 /// How two paths combine.
 #[derive(Debug, Clone, Copy)]
@@ -113,18 +113,34 @@ fn run(
     tolerance: f64,
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Path, Error> {
+    let tolerance = checked_tolerance(tolerance)?;
+    let subject = contours(subject, tolerance, charge)?;
+    let clip = contours(clip, tolerance, charge)?;
+    overlay(&subject, &clip, rule, charge)
+}
+
+/// `tolerance`, or the error naming it unless it is a number above 0 and within the limit of a coordinate (so that its
+/// square is a number, which flattening needs; a path holds finite coordinates within the limit, and so does every point
+/// of a curve, which is what the engine needs).
+pub(super) fn checked_tolerance(tolerance: f64) -> Result<f64, Error> {
     if tolerance <= 0.0 {
         return Err(Error::parameter(
             "tolerance",
             format!("must be a number above 0, got {tolerance}"),
         ));
     }
-    // a path holds finite coordinates within the limit (and so does every point of a curve), which is what the
-    // engine needs; only the squared tolerance has to be a number
-    let tolerance = coordinate("tolerance", tolerance)?;
-    let subject = contours(subject, tolerance, charge)?;
-    let clip = contours(clip, tolerance, charge)?;
-    charge(box_pairs(&subject, &clip))?;
+    coordinate("tolerance", tolerance)
+}
+
+/// The region `subject` and `clip` make under `rule` (both by the nonzero rule), charging the pairs of edges that may
+/// cross before the engine runs and the vertices of the result after.
+pub(super) fn overlay(
+    subject: &[Contour],
+    clip: &[Contour],
+    rule: OverlayRule,
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+) -> Result<Path, Error> {
+    charge(box_pairs(subject, clip))?;
     let shapes = subject.overlay_as::<i64>(&clip, rule, FillRule::NonZero);
     charge(shapes.iter().flatten().map(Vec::len).sum())?;
     canonical(shapes)
@@ -133,7 +149,7 @@ fn run(
 /// The closed polygons `path` fills with: each sub-path flattened. One of fewer than 3 corners (a lone move or a
 /// line) encloses nothing and is left out: the engine would ignore it, but it would still widen the frame it rounds
 /// to, and so move the corners of everything else.
-fn contours(
+pub(super) fn contours(
     path: &Path,
     tolerance: f64,
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
@@ -222,7 +238,7 @@ impl Counts {
 
 /// `shapes` (an outer contour and its holes each, as the engine returns them: the outer running clockwise on a `y`-down
 /// screen, holes the other way) as a path in canonical form.
-fn canonical(mut shapes: Vec<Vec<Contour>>) -> Result<Path, Error> {
+pub(super) fn canonical(mut shapes: Vec<Vec<Contour>>) -> Result<Path, Error> {
     for shape in &mut shapes {
         shape.iter_mut().for_each(start_at_top);
         if let Some((_, holes)) = shape.split_first_mut() {
