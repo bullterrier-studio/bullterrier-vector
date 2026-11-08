@@ -23,7 +23,7 @@
 
 use crate::common::fonts::{fraunces, marks, synthetic};
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Align, Drawing, Error, Font, Param, Path, Shape, Size, Text, Values, text};
+use bullterrier_vector::{Align, Drawing, Error, Font, Param, Path, Shape, Text, Values, text};
 use proptest::prelude::*;
 
 /// 2000 pixels to the em: the font's own.
@@ -567,32 +567,5 @@ fn a_text_drawn_again_is_not_computed_again() -> Outcome {
     drawing.shapes(&Values::new())?;
     assert_eq!(drawing.stats().computed, 0);
     assert_eq!(drawing.stats().reused, 1);
-    Ok(())
-}
-
-// The smallest stack ------------------------------------------------------------------------------------------------
-
-/// The smallest thread stack the library supports (docs/design-decisions.md, "Bounded depth"), in bytes.
-const SMALLEST_STACK: usize = 256 * 1024;
-
-#[test]
-fn a_glyph_of_the_deepest_composites_the_reader_draws_is_shaped_and_drawn_on_the_smallest_stack() -> Outcome {
-    let handle = std::thread::Builder::new().stack_size(SMALLEST_STACK).spawn(|| {
-        let run = || -> Outcome {
-            let drawing =
-                text("AAA", Text::new(&synthetic()?).size(100.0)).fill(bullterrier_vector::Color::hex(0x00_00_00));
-            let shapes = drawing.shapes(&Values::new())?;
-            assert_eq!(shapes.len(), 3);
-            assert!(
-                drawing
-                    .to_svg(Size::px(400.0, 200.0), &Values::new())?
-                    .contains("<path")
-            );
-            drop(drawing);
-            Ok(())
-        };
-        run().map_err(|error| error.to_string())
-    })?;
-    handle.join().map_err(|_| "the thread panicked")??;
     Ok(())
 }

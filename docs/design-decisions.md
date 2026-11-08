@@ -926,6 +926,16 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   *Consequence:* a stale trigger would silently stop guarding, so a test fails for a listed path that is gone; a proof
   that starts reading a new file must add it. CI runs `poe test` everywhere and `poe proofs` on Linux, so a skipped proof
   is caught on `main` at the latest.
+- **Optimised Rust tests, the stack tests not** (2026-11-08). `cargo test` builds with `opt-level = 1` (`[profile.test]`),
+  workspace code included. Measured warm at load 7 to 12: `tests/it` 437 s of CPU unoptimised, 59 s optimised;
+  `drawing_limits` 70 s of CPU and 64 s wall, 13 s; `poe rust-test` about 120 s wall, 30 s. *Reason:* the time is in this
+  workspace's own code (the million-shape tests, the proptest oracles, the glyph corpus); optimising dependencies alone
+  (`[profile.dev.package."*"]` at 3) took `it` from 437 s to 367 s of CPU and `drawing_limits` not at all. Debug assertions
+  and overflow checks stay on. *Consequence:* optimised frames are smaller, so the stack tests (`crates/core/tests/stack.rs`:
+  the 256 KB bound of "Bounded depth") would prove less: the glyph test needs 146 KB unoptimised and 18 KB at `opt-level = 1`
+  of the 256 KB. They are a binary of their own that `poe rust-test` runs a second time with `--profile stack` (`inherits =
+  "dev"`: unoptimised, the worst case), and a 120 KB local added under the glyph reader fails there and passes optimised. The
+  recursion tests (a million-level expression, a hundred-thousand-step chain) fail on a recursive walk at either level.
 - **Bounded depth, not a bigger stack** (2026-11-01). Whatever a caller can build has its depth limited where it is
   built, so no walk recurses over unbounded depth: drawings nested past `MAX_DEPTH` (128) are refused when built, the
   parser refuses a document nested past it before the loader recurses, and an expression past 128 levels becomes a node
@@ -935,7 +945,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   catchable `RangeError` below about 0.25 MB. *Reason:* an overflow is a segfault in the caller's process. A growing
   stack (`stacker`) was rejected: it cannot grow the WebAssembly engine's stack, loses CPython's overflow guard on 3.14
   and later, adds `unsafe` and a C compiler to the sdist build, and trades a bounded stack for unbounded memory.
-  *Consequence:* `tests/test_stack_depth.py` and `crates/core/tests/it/expr.rs` run the deepest structures on the minimum
+  *Consequence:* `tests/test_stack_depth.py` and `crates/core/tests/stack.rs` run the deepest structures on the minimum
   stack; a new node or reader adds its structure to them.
 - **Platforms** (2026-10-28). One abi3 wheel (every Python from 3.12) for Linux x86_64 and aarch64 (manylinux_2_28), macOS
   arm64 and x86_64, and Windows x86_64; the sdist, which builds the extension with rustup, covers every other platform.

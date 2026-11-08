@@ -145,7 +145,7 @@ formatter, 6 and 7, and "Fixing defects".
 9. **Bounded depth.** Anything a caller can build or load has a depth limit enforced where it is built, never in a walk
    over it, so no recursion runs over unbounded depth and nothing needs a bigger stack than the 256 KB minimum
    (`docs/design-decisions.md`, "Bounded depth"). A new node, step or reader adds its deepest structure to the stack
-   tests (`tests/test_stack_depth.py`, `crates/core/tests/it/expr.rs`).
+   tests (`tests/test_stack_depth.py`, `crates/core/tests/stack.rs`: unoptimised, see `[profile.stack]`).
 
 ## Rust code
 
@@ -261,8 +261,9 @@ golden file, sleep, mock of our own code) is worse than none: delete it. Reviewe
   **One integration binary:** `tests/it/main.rs` declares a `mod` per area, helpers are in `tests/it/common/`; a new test
   file is a module there, not a `tests/<name>.rs` (each is an executable that macOS scans on first launch, about 12 s). A
   file is a binary of its own only for a process-wide need (a `#[global_allocator]`; `tests/drawing_limits.rs`, whose
-  million-shape tests peak at several GB and a process keeps what it allocated): first line `//! Own binary: <why>`,
-  listed in `[tool.rust-tests.own-binaries]`; `poe rust-test-layout` fails otherwise. `poe rust-test` runs under a memory cap.
+  million-shape tests peak at several GB and a process keeps what it allocated; `tests/stack.rs`, the 256 KB stack tests,
+  which `rust-test` also runs unoptimised): first line `//! Own binary: <why>`,
+  listed in `[tool.rust-tests.own-binaries]`; `poe rust-test-layout` fails otherwise. `poe rust-test` runs under a memory cap; Rust tests are built optimised (`[profile.test]`).
   The Python suite tests the bindings through the
   package's public API only (`import bullterrier_vector as btvec`).
 - **Behaviour through the public contract; properties, not golden files.** `proptest` for broad input spaces. Expected values come

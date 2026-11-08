@@ -61,6 +61,17 @@ i_overlay = { version = "=9.1.0", default-features = false }
 [profile.dev.package.lyon_tessellation]
 opt-level = 3
 
+# The Rust tests are optimised (opt-level 1): unoptimised, the million-shape and glyph tests took four to eight minutes
+# of CPU, optimised under a minute (docs/design-decisions.md, "Optimised Rust tests"). Dependencies alone are not enough:
+# the time is in this workspace's own code. Debug assertions and overflow checks stay on.
+[profile.test]
+opt-level = 1
+
+# For the stack tests alone (crates/core/tests/stack.rs, `poe rust-test`): the unoptimised build, whose frames are the
+# largest, so that the 256 KB stack bound of rule 9 is proved on the worst case and not on optimised frames.
+[profile.stack]
+inherits = "dev"
+
 # Warnings, not errors, so a newer compiler's new lint never breaks a user's install; the gate (`poe check`) runs clippy
 # and rustdoc with `-D warnings`, so every one fails it.
 [workspace.lints.rust]

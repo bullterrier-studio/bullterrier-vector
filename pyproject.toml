@@ -129,7 +129,10 @@ look = { cmd = "uv run python tools/look.py", help = "Draw a .json or .py drawin
 # [--warmups N] [--require-node]`. Nothing asserts on time; the numbers are recorded by hand in docs/benchmarks.md.
 # tests/tools/test_bench.py shows it working and failing.
 bench = { cmd = "uv run python tools/bench.py", help = "Time to_rgba and to_mesh on the reference drawing, native and in Node: bench [--shapes N] [--size WxH] [--repeats N] [--require-node]" }
-rust-test = { cmd = "uv run python tools/run_capped.py -- cargo test --workspace --locked --quiet --no-fail-fast", help = "Run the Rust tests under the memory cap, every binary even after one fails" }
+rust-test = { sequence = [
+    "uv run python tools/run_capped.py -- cargo test --workspace --locked --quiet --no-fail-fast",
+    "uv run python tools/run_capped.py -- cargo test -p bullterrier-vector --profile stack --test stack --locked --quiet",
+], default_item_type = "cmd", help = "Run the Rust tests under the memory cap (optimised), then the stack tests unoptimised" }
 # A crate's Rust integration tests are one binary (tests/it/main.rs); tools/check_rust_test_layout.py, the table [tool.rust-tests.own-binaries]
 rust-test-layout = { cmd = "uv run python tools/check_rust_test_layout.py", help = "Check that the Rust integration tests are one binary per crate (tests/it/)" }
 # `default_install_hook_types` in .pre-commit-config.yaml names the three hook types, so a bare `install` covers them
@@ -187,6 +190,7 @@ cap-mb = 8000
 # Read by tools/check_rust_test_layout.py: the Rust test files that are binaries of their own (path -> why they need a
 # process to themselves). Every other integration test is a module of tests/it/.
 [tool.rust-tests.own-binaries]
+"crates/core/tests/stack.rs" = "256 KB thread stacks, built with its own profile (`stack`: unoptimised), so that the stack bound is proved on the largest frames"
 "crates/core/tests/drawing_limits.rs" = "peak memory of 3 to 5 GB (a million shapes, twice): a process keeps what it allocated, so the other tests would share it"
 
 # Read by tools/check_file_size.py (the `file-size` gate). Files already over budget (1000 lines of source, 1500 of
