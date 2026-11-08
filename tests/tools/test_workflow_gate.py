@@ -20,7 +20,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 # one xdist worker runs this module, so the two tools' start-up costs are not paid by several workers at once
-pytestmark = [pytest.mark.gate, pytest.mark.xdist_group("workflow-gate")]
+pytestmark = pytest.mark.gate
 
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1"
 GOOD = f"""\

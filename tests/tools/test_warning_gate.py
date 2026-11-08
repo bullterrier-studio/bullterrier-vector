@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-pytestmark = [pytest.mark.gate, pytest.mark.xdist_group("warning-gate")]
+pytestmark = pytest.mark.gate
 
 CLEAN = 'def test_probe(tmp_path):\n    (tmp_path / "a.txt").write_text("é", encoding="utf-8")\n'
 LEAKS_A_FILE = 'def test_probe(tmp_path):\n    open(tmp_path / "a.txt", "w", encoding="utf-8")\n'

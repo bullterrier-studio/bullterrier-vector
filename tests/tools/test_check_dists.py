@@ -22,7 +22,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 # one xdist worker: every case runs twine and check-wheel-contents
-pytestmark = pytest.mark.xdist_group("check-dists")
 
 PYPROJECT = """[project]
 license-files = ["LICENSE"]

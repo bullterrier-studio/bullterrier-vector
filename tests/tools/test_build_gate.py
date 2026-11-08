@@ -20,7 +20,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 # one xdist worker runs this module, so the Rust build folder its builds share is reused across its tests
-pytestmark = [pytest.mark.gate, pytest.mark.xdist_group("build-gate")]
+pytestmark = pytest.mark.gate
 RUST_FILES = ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml")
 PACKAGE = "src/bullterrier_vector"
 

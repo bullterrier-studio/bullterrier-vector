@@ -18,7 +18,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 # one xdist worker runs this module, so its copy of the workspace and its build folder are made once
-pytestmark = [pytest.mark.gate, pytest.mark.xdist_group("rust-gates")]
+pytestmark = pytest.mark.gate
 WORKSPACE_FILES = [
     "pyproject.toml",
     "Cargo.toml",

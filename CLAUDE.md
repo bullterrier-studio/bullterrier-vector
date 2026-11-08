@@ -281,8 +281,9 @@ Writing tests:
   with the rule in each row's name) with good and bad rows together.
 - **DAMP, not DRY:** each case and its expectation are visible; helpers build input or name an assertion, never hide what is checked.
 - **No change-detectors:** test a rule with a known-bad input; never restate configuration.
-- **Slow tests in groups:** a module whose module-scoped fixture spawns tools (ruff, mypy, poe, cargo, git) carries
-  `pytestmark = pytest.mark.xdist_group("<module>")`.
+- **Slow tests in one file:** xdist runs all the tests of a file on one worker (`--dist=loadfile`), so a module-scoped fixture
+  that spawns tools (ruff, mypy, poe, cargo, git) is built once: keep such tests in one file. `xdist_group` marks do nothing
+  (pytest 9.2 broke them in xdist 3.8: every group was spread over the workers); do not add them.
 - **Running:** one Rust test module: `cargo test -p bullterrier-vector --test it path::`; one Python file:
   `uv run pytest tests/test_path.py -n 0` (`-p no:randomly` for fixed order); all Python tests: `uv run poe test`.
 - **Fast feedback (agents):** while iterating or doing red-green TDD run only the tests covering your change (a filter, one file),

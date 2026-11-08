@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = [pytest.mark.gate, pytest.mark.xdist_group("dependency-gate")]
+pytestmark = pytest.mark.gate
 PROBE = Path("src") / "bullterrier_vector" / "probe.py"
 
 

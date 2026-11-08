@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = [pytest.mark.gate, pytest.mark.xdist_group("dead-code-gate")]
+pytestmark = pytest.mark.gate
 PROBE = Path("src") / "bullterrier_vector" / "leftover.py"
 
 # One kind of dead code each: (source, the name vulture must report)
