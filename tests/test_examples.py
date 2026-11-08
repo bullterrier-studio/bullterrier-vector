@@ -313,3 +313,21 @@ def test_ring_is_a_band_round_the_circle_that_widens_with_the_half_width(run):
         assert band.path.contains((200, 200 - 120))
         assert not band.path.contains((200, 200))
         assert not band.path.contains((200, 200 - 120 - half_width - 1))
+
+
+def test_halftone_draws_a_row_of_discs_of_rising_tone_and_a_big_disc_with_its_stroke(run):
+    found = run("halftone")
+    assert found["tones"] == pytest.approx([0.1, 0.2333333333, 0.3666666667, 0.5, 0.6333333333, 0.7666666667, 0.9])
+    root = ET.fromstring(found["svg"])  # noqa: S314  our own output
+    svg = "{http://www.w3.org/2000/svg}"
+    # a clip path and a group of dots for each of the eight discs, the paper and the big disc's stroke are plain paths
+    assert len(root.findall(f"{svg}clipPath")) == 8
+    groups = [group for group in root.iter(f"{svg}g") if "clip-path" in group.attrib]
+    assert len(groups) == 8
+    # a disc of radius 38 on a lattice of 6 holds pi * 38^2 / 6^2 = about 126 dots, more with the ones on its edge
+    dots = [path for group in groups[:7] if (path := group.find(f"{svg}path")) is not None]
+    counts = [path.attrib["d"].count("M") for path in dots]
+    assert len(dots) == 7
+    assert all(110 < count < 200 for count in counts), counts
+    big = root.findall(f"{svg}path")[-1]
+    assert (big.attrib["fill"], big.attrib["stroke"], big.attrib["stroke-width"]) == ("none", "#c4372b", "3")
