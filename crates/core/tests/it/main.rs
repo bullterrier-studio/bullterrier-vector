@@ -64,6 +64,7 @@ mod style_knockout;
 mod style_shadow;
 mod svg;
 mod svg_knockout;
+mod svg_multiply;
 mod svg_properties;
 mod svg_shadow;
 mod svg_shapes;
