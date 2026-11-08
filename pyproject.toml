@@ -165,7 +165,7 @@ triggers = [
     "clippy.toml", # the determinism rules the lint proofs rely on
     "deny.toml", # the bans and licences the deny proofs rely on
     ".github/", # the workflows and dependabot.yml the workflow proof lints
-    ".pre-commit-config.yaml", # the hook wiring the hook-isolation tests read
+    ".pre-commit-config.yaml", # the hook wiring; no proof copies it today, listed by the owner's design (drop if it never matters)
     ".gitignore", # copied into the build proof
     "LICENSE", # copied into the build proof
 ]

@@ -57,16 +57,18 @@ checkout.
 cargo test -p bullterrier-vector --test it path::   # the Rust tests near your change (one module)
 uv run pytest tests/test_path.py -n 0            # the Python tests near your change, in one process
 uv run poe fast                                  # the inner loop: format, lint, types, the quick tests
-uv run poe check                                 # the whole gate: before you push or merge
+uv run poe check                                 # the gate: before you push or merge
+uv run poe full                                  # check with the slow gate proofs forced: before a tag
 ```
 
 `check` also builds the sdist and the wheel (`poe build-check`, into the git-ignored `dist/check`) and runs the tests
-that prove each gate fails on bad input. The build runs in an isolated environment, so it needs the network or a warm
+that prove each gate fails on bad input when a file they read changed since they last passed (`[tool.gate-proofs]` in
+`pyproject.toml`); `full` always runs them. The build runs in an isolated environment, so it needs the network or a warm
 uv cache. `uv run poe audit` (known vulnerabilities in the locked dependencies) needs the network and is not part of
 `check`; CI runs it. `uv run poe bench` times the outputs on a reference drawing, natively and (after `poe wasm-test`
 built `pkg/`) in Node; it is not part of `check` and asserts nothing about time (numbers in `docs/benchmarks.md`).
 
-The commit hooks check formatting and the commit message; the pre-push hook runs `check` for pushes that touch code
+The commit hooks check formatting and the commit message; the pre-push hook runs `check` for pushes that touch code, and `full` for a tag
 (`CLAUDE.md`, "Git conventions", says exactly when). Commits follow [Conventional Commits](https://www.conventionalcommits.org):
 `type(scope): subject`, header at most 72 characters; the hook says which rule a message breaks. Never skip a hook.
 
@@ -78,7 +80,7 @@ steps are the local gate's `uv run poe` tasks; the differences are noted:
 - `lint.yml`: format, clippy, dead code, rustdoc, dependencies, WebAssembly build, types, stub, workflows: the commands
   of `check`, with ruff, deptry and mypy called directly, as `check` calls them.
 - `test.yml`: the Rust tests and the Python suite on Linux, macOS and Windows. Linux also runs `poe wasm-test` (Node
-  from `actions/setup-node`) and `poe test`, gate proofs included; macOS and Windows run pytest without them.
+  from `actions/setup-node`) and `poe proofs`, the gate proofs; every platform runs `poe test`, which leaves them out.
 - `security.yml` (also weekly): `poe audit`, which `check` leaves out; CodeQL and dependency review, which have no
   local equivalent.
 - `pre-commit.yml`: the commit hooks over every file.

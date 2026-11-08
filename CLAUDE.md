@@ -18,7 +18,8 @@ cargo test -p bullterrier-vector --test it path::   # the Rust tests near your c
 uv run pytest tests/test_path.py -n 0            # the Python tests near your change
 uv run poe look examples/star.py                 # draw a drawing file to dist/look/ (PNG and SVG) to see it
 uv run poe fast                                  # the inner loop: seconds when warm
-uv run poe check                                 # the whole gate, before you report or merge
+uv run poe check                                 # the gate, before you report or merge (the slow proofs only when due)
+uv run poe full                                  # check with the proofs forced: before a tag (CI runs it)
 ```
 
 Needs [rustup](https://rustup.rs): the first `cargo` command in the checkout fetches the toolchain `rust-toolchain.toml` pins and
@@ -178,12 +179,20 @@ A fix removes the cause, not the symptom (reasoning in `docs/design-decisions.md
 
 ## Lint, types and gates
 
-Two speeds, both through `uv run poe`:
+Three tiers, through `uv run poe`:
 
-| Task | Runs, cheapest first |
-|---|---|
-| `fast` | `rust-fmt`, `ruff format --check`, `rust-lint`, `ruff check`, `rust-test`, `rust-wasm`, `mypy`, `file-size`, `pytest -m 'not gate'` |
-| `check` | `ruff format --check`, `rust-fmt`, `ruff check`, `rust-test-layout`, `rust-lint`, `file-size`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `rust-fonts`, `build-check`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `wasm-test`, `test` (gate proofs included); stops at the first failure |
+| Task | Runs, cheapest first | Use |
+|---|---|---|
+| `fast` | `rust-fmt`, `ruff format --check`, `rust-lint`, `ruff check`, `rust-test`, `rust-wasm`, `mypy`, `file-size`, `test` | while working |
+| `check` | the gates `ruff format --check`, `rust-fmt`, `ruff check`, `rust-test-layout`, `rust-lint`, `file-size`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `rust-fonts`, `build-check`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `wasm-test`, `test` (the `gates` task), then the gate proofs only when due; stops at the first failure | once per branch, before the merge or push to `main` |
+| `full` | the same gates, then the gate proofs (`proofs`) always | before a tag; CI |
+
+`test` is `pytest -m 'not gate'`, `proofs` is `pytest -m gate`: together every test. The proofs are due in `check` when a path of
+`[tool.gate-proofs]` in `pyproject.toml` (what they read, copy, edit or anchor on) changed since they last passed (a `full` pass, or a
+`check` that ran them, on a clean tree: the commit is in the git folder), counting uncommitted and untracked files; with no record,
+a shallow clone or git unreadable they are due. `check` says `proofs: skipped` or `proofs: running, <why>`. A new proof that reads
+or edits a file adds it to the list (a test fails for an entry whose path is gone). Never re-run a gate to re-verify: `start`
+prints `ALREADY PASSED` when the tree did. A change of documentation only needs none.
 
 `rust-lint` is clippy with `-D warnings` over the workspace and all targets (pedantic, the determinism rules of `clippy.toml`, dead
 code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `rust-tools` checks that cargo-shear, cargo-deny and the `wasm-bindgen` command are
@@ -207,19 +216,16 @@ raise the budget. An agent reads a file in chunks, and one under the budget stay
 `[tool.file-size.exempt]` (path = current lines): it may shrink but never grow, and a stale entry (file within budget or gone) fails.
 
 Each gate has a test proving it fails on a known-bad input (`tests/tools/`, marker `gate`: builds copies of the workspace, slow,
-left out of `fast`, run by `check`). A new gate gets its proof, and a line in `tests/tools/test_gate_wiring.py`, which fails
-when `check` does not run a proven gate.
+left out of `fast`, run by `full` and, when due, `check`). A new gate gets its proof, and a line in `tests/tools/test_gate_wiring.py`,
+which fails when `check` or `full` does not run a proven gate, `check` runs the proofs always or `full` records its pass as `check`.
 
-**Gate time.** The gate proofs dominate `check` (`pytest tests/tools -m gate`, 130 tests on up to 4 workers): the longest file is
-`test_rust_gates.py`, whose two `rust-test` cases each run the whole Rust suite (about 160 s) beside the `rust-test` step. Their
-Cargo build folders persist in `target/gate-proofs/` (git-ignored, one per module and per digest of `Cargo.lock`, `Cargo.toml`
+**Gate time** (warm caches, a shared 10-core Mac at load 5 to 12): `check` without the proofs about 3 minutes (`rust-test` about 2
+minutes, `build-check` 25 s, `wasm-test` 10 s, the other steps seconds); with them (`full`, or a `check` where they are due) 14
+minutes, the proofs 7 to 8 of those. The proofs' Cargo build folders persist in `target/gate-proofs/` (git-ignored, one per module and per digest of `Cargo.lock`, `Cargo.toml`
 and `rust-toolchain.toml`): the first run, or one after a lock or toolchain change, compiles every dependency again (about 13
-min of proofs), later runs only the workspace crates (about 8 min). Safe to delete (`rm -rf target/gate-proofs`); a folder is
-left behind per dependency change (1 to 3 GB), so delete it now and then. Use `fast` while working; run `check` once per
-branch, before the merge, never to re-verify: a pass on a clean tree is recorded, so a second run of the same tree is wasted,
-and a change of documentation only (`is_documentation` in `tools/pre_push.py`) needs none. To see where a run goes:
-`uv run pytest tests/tools -m gate -n 4 --durations=30` for the proofs, `uv run poe <task>` for a step; note the load average,
-as the machine is shared.
+min of proofs). Safe to delete (`rm -rf target/gate-proofs`); a folder is left behind per dependency change (1 to 3 GB), so delete
+it now and then. To see where a run goes: `uv run pytest tests/tools -m gate -n 4 --durations=30` for the proofs,
+`uv run poe <task>` for a step; note the load average, as the machine is shared.
 
 `ruff` wants type hints and a docstring on every public function, class, method and module, and no `print` outside `tools/`.
 `mypy` checks `src`, `tests`, `tools` and `examples`. Fix findings properly; for a false positive use a targeted `# noqa: CODE  <reason>` or
@@ -319,13 +325,14 @@ follow "Fixing defects"; design follows the skill.
 
 ## Git conventions
 
-Once per clone: `uv run poe setup` (hooks and commit template). Before every push or merge: `uv run poe check`. The commit hooks
-check formatting (rustfmt, ruff) and the message; compiling and testing wait for the gate. The pre-push hook runs the whole gate
-for a push to `main` or a tag, and for any push while local `main` has unpushed code or git cannot say. (Pre-commit does not
-call the hook at all for a tag that points at a commit the remote already has: "nothing to push".) It skips the gate for a
-branch other than `main` while `main` has no unpushed code, for a push whose changes (and `main`'s unpushed ones) are
-documentation only, and for a push of exactly the tree a passing `uv run poe check` ran on (it must have started and
-ended on a clean working tree; the record is in the git folder, so commit before you run `check`).
+Once per clone: `uv run poe setup` (hooks and commit template). Before a merge or a push to `main`: `uv run poe check`; before a
+tag: `uv run poe full`. The commit hooks check formatting (rustfmt, ruff) and the message; compiling and testing wait for the gate.
+The pre-push hook runs the gate for a push to `main` (`check`) or a tag (`full`; so does any ref that is not clearly a branch),
+and for any push while local `main` has unpushed code or git cannot say. (Pre-commit does not call the hook at all for a tag that
+points at a commit the remote already has: "nothing to push".) It skips the gate for a branch other than `main` while `main` has
+no unpushed code, for a push whose changes (and `main`'s unpushed ones) are documentation only, and for a push of exactly the tree
+a passing gate of the needed tier or a higher one ran on (a `full` pass covers `check`; a `check` pass never covers a tag; it must
+have started and ended on a clean working tree; the record is in the git folder, so commit before you run the gate).
 - **Trunk-based:** short-lived branch `<type>/<short-description>` (`feat/polygon-rotation`), merged into `main` and deleted when
   the work is complete; nothing unmerged is left behind. No worktrees unless the owner asks. Rebase on `main` before reporting.
   Never push.

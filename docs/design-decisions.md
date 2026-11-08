@@ -914,6 +914,18 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   was unchanged; the pre-push hook skips the gate for a tip with that tree. *Reason:* the hook repeated a 6-minute gate
   on contents just checked, and a slow loop gets worked around. *Consequence:* nothing is skipped that was not checked;
   an edit, a commit during the run or any uncommitted file means no record, and CI checks everything again.
+- **Gate tiers** (2026-11-08). `fast` (inner loop), `check` (before a merge) and `full` (before a tag, in CI). The gate proofs
+  (130 tests that copy the workspace and prove each gate rejects a known-bad input) are most of a gate's time and depend
+  on little: `check` runs them only when a path of `[tool.gate-proofs]` (everything they read, copy, edit or anchor on)
+  changed since the last recorded pass, `full` always does. *Reason:* a proof can only change its verdict when the gate, the
+  tool versions or the files it edits change; the library code it copies is checked by the gates themselves. Measured warm: the
+  gates about 3 minutes, the proofs 8 or more. *Fail safe:* the baseline is a commit in the git folder, written
+  when `full` (or a `check` that ran the proofs) passed on a clean tree, never `origin/main`; no record, a commit git lost,
+  a shallow clone or no repository run the proofs, and the changes are read from the diff against that commit plus the
+  untracked files, not from the working tree alone. Pass records are per tier, so a `check` pass never satisfies a tag push.
+  *Consequence:* a stale trigger would silently stop guarding, so a test fails for a listed path that is gone; a proof
+  that starts reading a new file must add it. CI runs `poe test` everywhere and `poe proofs` on Linux, so a skipped proof
+  is caught on `main` at the latest.
 - **Bounded depth, not a bigger stack** (2026-11-01). Whatever a caller can build has its depth limited where it is
   built, so no walk recurses over unbounded depth: drawings nested past `MAX_DEPTH` (128) are refused when built, the
   parser refuses a document nested past it before the loader recurses, and an expression past 128 levels becomes a node
