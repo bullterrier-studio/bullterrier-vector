@@ -8,11 +8,15 @@
 //! the vertices are moved through the view afterwards: a drawing at twice the size has positions exactly twice as
 //! large.
 //!
+//! The fill of a halftone is a layer of its dots: those wholly inside the shape are plain polygons, those wholly outside
+//! are left out, and the dots that cross the outline are cut to the shape by one boolean (`Path::intersect`).
+//!
 //! A shape that knocks out is not drawn: the region its fill and stroke cover is taken out of the layers of every shape
 //! before it (`Path::subtract`, so the cut edge of a stroke is flat), their hard shadows included.
 
 use super::cast;
 use super::outline::{bez_path, dots, stroke_outline, within_device};
+use super::screen::{Screen, screen};
 use super::view::View;
 use super::{Size, in_shape};
 use crate::limits::Work;
@@ -106,7 +110,8 @@ impl Drawing {
     /// adds nothing either: the region its fill and stroke cover is taken out of the layers of the shapes before it
     /// (their blur-free shadows too) by a boolean, so what is left of a cut stroke ends flat at the cut, where the pixels
     /// end it the same way; the edges and the crossings of the cut are charged to `MAX_SEGMENTS` as a boolean step of a
-    /// drawing is. Curves are flattened,
+    /// drawing is. The dots of a halftone are a fill layer: the dots wholly inside are polygons of their own, and the ones
+    /// that cross the outline are cut to the shape by one boolean, charged the same way (tone 0 is a solid fill). Curves are flattened,
     /// as for the pixels, to within 0.01 design pixels.
     ///
     /// The triangles are made in design pixels in f32, so a coordinate beyond 10 million is refused.
@@ -117,7 +122,7 @@ impl Drawing {
     /// at this size, or if the edges flattened for it, the edges of its stroke's outline or the vertices made for the
     /// draw pass 10 million, or if the tessellation of the draw would take more than about a second (the vertices it
     /// makes times the edges alive at a sweep line pass 250 million: an outline that crosses itself thousands of times,
-    /// or has thousands of edges side by side); otherwise as [`Drawing::to_svg`]. [`Error::Geometry`] if the tessellator fails, which a
+    /// or has thousands of edges side by side), or `pitch` (a halftone's) if its dots pass 10 million; otherwise as [`Drawing::to_svg`]. [`Error::Geometry`] if the tessellator fails, which a
     /// finite drawing within these limits does not make it do.
     pub fn to_mesh(&self, size: Size, values: &Values, into: &mut Mesh) -> Result<(), Error> {
         let (width, height) = size.checked()?;
@@ -185,7 +190,8 @@ impl Maker<'_> {
             if polylines.is_empty() {
                 continue;
             }
-            reachable(&polylines, view).map_err(|error| in_shape(shape, "", error))?;
+            reachable(polylines.iter().flat_map(|polyline| &polyline.points), view)
+                .map_err(|error| in_shape(shape, "", error))?;
             let layers = self.layers(shape, &polylines, view, &name, true)?;
             // each layer on its own is resolved (the fill and the stroke may run opposite ways), and then they are joined
             let mut parts = Vec::new();
@@ -221,11 +227,7 @@ impl Maker<'_> {
         let style = shape.style();
         let visible = |rgba: [u8; 4]| covering || style.opacity() * f64::from(rgba[3]) > 0.0;
         let mut layers: Vec<Layer> = Vec::new();
-        if let Some(rgba) = style.fill().rgba()
-            && visible(rgba)
-        {
-            layers.push((polylines.iter().map(|polyline| ring(&polyline.points)).collect(), rgba));
-        }
+        layers.extend(self.fill_layer(shape, polylines, view, name, visible)?);
         if let Some(stroke) = style.stroke()
             && let Some(rgba) = stroke.color().rgba()
         {
@@ -265,6 +267,58 @@ impl Maker<'_> {
         Ok(layers)
     }
 
+    /// The layer of the fill of `shape`, whose path flattened is `polylines`: its outline in the fill colour, or for a
+    /// halftone the dots. The dots wholly inside are plain polygons, those outside are left out, and only those that cross
+    /// the outline are cut to the shape, all together by one boolean (charged to `MAX_SEGMENTS` as a boolean step of a
+    /// drawing is). `None` if the fill paints nothing or `visible` says its colour does not.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming the shape's `pitch` if its dots pass `MAX_SEGMENTS`, or if a dot lies beyond the
+    /// tessellator's range.
+    fn fill_layer(
+        &self,
+        shape: &Shape,
+        polylines: &[Polyline],
+        view: &View,
+        name: &str,
+        visible: impl Fn([u8; 4]) -> bool,
+    ) -> Result<Option<Layer>, Error> {
+        let style = shape.style();
+        let whole = || polylines.iter().map(|polyline| ring(&polyline.points)).collect();
+        let Some(halftone) = style.halftone() else {
+            return Ok(style
+                .fill()
+                .rgba()
+                .filter(|rgba| visible(*rgba))
+                .map(|rgba| (whole(), rgba)));
+        };
+        let Some(rgba) = halftone.color().rgba().filter(|rgba| visible(*rgba)) else {
+            return Ok(None);
+        };
+        let found = match screen(halftone, polylines, &mut |count| {
+            self.work.made_segments(count, &format!("{name} pitch"))
+        })? {
+            Screen::Solid => return Ok(Some((whole(), rgba))),
+            Screen::Dots(found) if found.is_empty() => return Ok(None),
+            Screen::Dots(found) => found,
+        };
+        reachable(found.all().flatten(), view).map_err(|error| in_shape(shape, "", error))?;
+        let mut rings: Vec<Ring> = found.inside.iter().map(|dot| ring(dot)).collect();
+        if !found.crossing.is_empty() {
+            let crossing = path_of(&found.crossing.iter().map(|dot| ring(dot)).collect::<Vec<_>>())?;
+            let mut charge = |count| self.work.made_segments(count, name);
+            let cut = shape
+                .path()
+                .combined(&crossing, Combine::Intersect, FLATNESS, &mut charge)?;
+            rings.extend(
+                cut.flattened(&mut charge)?
+                    .iter()
+                    .map(|polyline| ring(&polyline.points)),
+            );
+        }
+        Ok(Some((rings, rgba)))
+    }
+
     /// `rings` with `region` taken out of them, charged to `MAX_SEGMENTS` as a boolean step of a drawing is.
     fn cut(&self, rings: Vec<Ring>, region: &Region, name: &str) -> Result<Vec<Ring>, Error> {
         if !Bounds::EMPTY.with(&rings).meets(&region.bounds) {
@@ -293,7 +347,8 @@ impl Maker<'_> {
         if polylines.is_empty() {
             return Ok(());
         }
-        reachable(&polylines, view).map_err(|error| in_shape(shape, "", error))?;
+        reachable(polylines.iter().flat_map(|polyline| &polyline.points), view)
+            .map_err(|error| in_shape(shape, "", error))?;
         // a shape no generator ranked has order 0
         let order = shape.attributes().order().unwrap_or(0.0);
         #[expect(
@@ -580,14 +635,14 @@ fn premultiplied(rgba: [u8; 4], alpha: f64) -> [f32; 4] {
     ]
 }
 
-/// Whether every coordinate of `polylines`, in design pixels and moved by `view`, is within the limit of the
+/// Whether every coordinate of `points`, in design pixels and moved by `view`, is within the limit of the
 /// tessellator's f32.
 ///
 /// # Errors
 /// [`Error::Parameter`] naming the coordinate.
-fn reachable(polylines: &[Polyline], view: &View) -> Result<(), Error> {
+fn reachable<'a>(points: impl Iterator<Item = &'a Point>, view: &View) -> Result<(), Error> {
     let farthest = |x: f64, y: f64| x.abs().max(y.abs());
-    for point in polylines.iter().flat_map(|polyline| &polyline.points) {
+    for point in points {
         let moved = view.point(*point);
         within_device("a coordinate", farthest(point.x, point.y))?;
         within_device("a coordinate", farthest(moved.x, moved.y))?;
