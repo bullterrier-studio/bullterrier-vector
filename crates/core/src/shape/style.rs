@@ -250,6 +250,7 @@ pub struct Style {
     pub(crate) opacity: f64,
     pub(crate) blend: Blend,
     pub(crate) shadow: Option<ShadowStyle>,
+    pub(crate) knockout: bool,
     /// Whether a fill or a stroke was set, `fill("none")` included. Until then the default paint applies.
     painted: bool,
 }
@@ -263,6 +264,7 @@ impl Style {
             opacity: 1.0,
             blend: Blend::Normal,
             shadow: None,
+            knockout: false,
             painted: false,
         }
     }
@@ -308,6 +310,11 @@ impl Style {
         self.shadow = Some(shadow);
     }
 
+    /// Makes the shape remove what is below it instead of painting.
+    pub(crate) fn set_knockout(&mut self) {
+        self.knockout = true;
+    }
+
     /// Whether a fill or a stroke was set, or the default paint resolved: false only for a shape no step has painted.
     pub(crate) fn is_painted(&self) -> bool {
         self.painted
@@ -342,6 +349,13 @@ impl Style {
     pub fn shadow(&self) -> Option<&ShadowStyle> {
         self.shadow.as_ref()
     }
+
+    /// Whether the shape removes what is below it in its drawing, by the area its fill and stroke cover, instead of
+    /// painting. Its colours, opacity, blend and shadow are then not drawn.
+    #[must_use]
+    pub fn knockout(&self) -> bool {
+        self.knockout
+    }
 }
 
 impl Keyed for ShadowStyle {
@@ -370,6 +384,7 @@ impl Keyed for Style {
         key.number(self.opacity);
         key.text(self.blend.name());
         key.of(&self.shadow);
+        key.word(u64::from(self.knockout));
         key.word(u64::from(self.painted));
     }
 }

@@ -469,6 +469,13 @@ fn rows() -> Vec<Row> {
             geometry: None,
         },
         Row {
+            verb: "knockout",
+            sample: || Ok(square()?.knockout()),
+            with: None,
+            ranges: &[],
+            geometry: None,
+        },
+        Row {
             verb: "split",
             sample: || Ok(Drawing::from(Path::from_svg_path("M0 0 L4 0 L4 4 Z M10 0 L14 0 L14 4 Z")?).split()),
             with: None,

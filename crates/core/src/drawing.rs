@@ -423,6 +423,9 @@ impl From<Shape> for Drawing {
                     .color(shadow.color()),
             );
         }
+        if style.knockout() {
+            drawing = drawing.knockout();
+        }
         drawing
     }
 }

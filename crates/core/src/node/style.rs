@@ -1,4 +1,4 @@
-//! The style steps: `fill`, `stroke`, `opacity`, `blend`, `shadow`. Each changes the paint of every shape and nothing else.
+//! The style steps: `fill`, `stroke`, `opacity`, `blend`, `shadow`, `knockout`. Each changes the paint of every shape and nothing else.
 
 use super::{Args, Context, Inputs, Node, choice, each_shape};
 use crate::shape::{
@@ -216,5 +216,36 @@ impl Node for Shadow {
             shape.style_mut().set_shadow(shadow);
             Ok(shape)
         })
+    }
+}
+
+/// Makes every shape remove what is below it instead of painting.
+#[derive(Debug)]
+pub(crate) struct Knockout;
+
+pub(crate) static KNOCKOUT: Verb = Verb {
+    name: "knockout",
+    role: Role::Step,
+    summary: "makes every shape remove what is below it in the drawing (shadows included), by the area its fill and stroke \
+              cover, instead of painting",
+    args: &[],
+    check: None,
+};
+
+impl Node for Knockout {
+    fn verb(&self) -> &'static Verb {
+        &KNOCKOUT
+    }
+
+    fn evaluate(&self, _: &Args, inputs: Inputs<'_>, _: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        Ok(inputs
+            .previous
+            .iter()
+            .cloned()
+            .map(|mut shape| {
+                shape.style_mut().set_knockout();
+                shape
+            })
+            .collect())
     }
 }

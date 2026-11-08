@@ -325,11 +325,18 @@ fn shadow_pairs() -> Vec<(&'static str, Make)> {
         ("the blur of a shadow", |base| {
             shadow_pair(base, Shadow::new().blur(1.0), Shadow::new().blur(2.0))
         }),
+        ("whether a shape knocks out", knockout_pair),
         ("the colour of a shadow", |base| {
             let color = |text| Color::parse(text).map(|color| Shadow::new().color(color));
             shadow_pair(base, color("#000000")?, color("#00000080")?)
         }),
     ]
+}
+
+/// The pair of `base` as it is and as a knockout.
+#[expect(clippy::unnecessary_wraps, reason = "a row of a table of `Make`")]
+fn knockout_pair(base: &Drawing) -> Result<Pair, Error> {
+    Ok((base.clone(), Values::new(), base.knockout(), Values::new()))
 }
 
 /// The pair of `base` with the shadow `left` and with the shadow `right`.

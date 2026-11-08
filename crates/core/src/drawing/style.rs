@@ -1,4 +1,4 @@
-//! The style steps of a drawing: `fill`, `stroke`, `opacity`, `blend`, `shadow`; and the same on a `Path`.
+//! The style steps of a drawing: `fill`, `stroke`, `opacity`, `blend`, `shadow`, `knockout`; and the same on a `Path`.
 
 use super::Drawing;
 use crate::node::{Given, style};
@@ -172,6 +172,14 @@ impl Drawing {
         }
         self.then(&style::Shadow, given)
     }
+
+    /// This drawing with every shape removing what is below it in the drawing instead of painting: the area its fill
+    /// and stroke cover is cut out of the shapes before it, their shadows included; the shapes after it paint over the
+    /// hole. A shape that paints nothing, or has an empty path, removes nothing.
+    #[must_use]
+    pub fn knockout(&self) -> Self {
+        self.then(&style::Knockout, Vec::new())
+    }
 }
 
 impl Path {
@@ -203,5 +211,11 @@ impl Path {
     #[must_use]
     pub fn shadow(&self, shadow: Shadow) -> Drawing {
         Drawing::from(self.clone()).shadow(shadow)
+    }
+
+    /// A [`Drawing`] of this path as a knockout.
+    #[must_use]
+    pub fn knockout(&self) -> Drawing {
+        Drawing::from(self.clone()).knockout()
     }
 }
