@@ -6,6 +6,68 @@
 use bullterrier_vector::{Drawing, Size, Values};
 use resvg::tiny_skia::{Pixmap, Transform};
 use resvg::usvg;
+use std::collections::BTreeMap;
+
+pub(crate) type Attributes = BTreeMap<String, String>;
+
+fn expected(pairs: &[(&str, &str)]) -> Attributes {
+    pairs
+        .iter()
+        .map(|&(name, value)| (name.to_owned(), value.to_owned()))
+        .collect()
+}
+
+/// One element of the SVG: its name, its attributes, and its children.
+#[derive(Debug, PartialEq)]
+pub(crate) struct Element {
+    pub(crate) name: String,
+    pub(crate) attributes: Attributes,
+    pub(crate) children: Vec<Element>,
+}
+
+fn read(node: roxmltree::Node<'_, '_>) -> Element {
+    Element {
+        name: node.tag_name().name().to_owned(),
+        attributes: node
+            .attributes()
+            .map(|attribute| (attribute.name().to_owned(), attribute.value().to_owned()))
+            .collect(),
+        children: node.children().filter(roxmltree::Node::is_element).map(read).collect(),
+    }
+}
+
+/// The elements under the root of the SVG of `drawing` at `side` by `side`.
+pub(crate) fn body(drawing: &Drawing, side: f64) -> Result<Vec<Element>, Box<dyn std::error::Error>> {
+    let text = drawing.to_svg(Size::px(side, side), &Values::new())?;
+    let document = roxmltree::Document::parse(&text)?;
+    Ok(read(document.root_element()).children)
+}
+
+pub(crate) fn element(name: &str, attributes: &[(&str, &str)], children: Vec<Element>) -> Element {
+    Element {
+        name: name.to_owned(),
+        attributes: expected(attributes),
+        children,
+    }
+}
+
+/// The numbers of an element tree, in order: each attribute value that is one.
+pub(crate) fn numbers(elements: &[Element]) -> Vec<f64> {
+    let mut found = Vec::new();
+    for element in elements {
+        for (name, value) in &element.attributes {
+            // the opacity of a colour is a share, not a length
+            if name.ends_with("opacity") {
+                continue;
+            }
+            if let Ok(number) = value.parse() {
+                found.push(number);
+            }
+        }
+        found.extend(numbers(&element.children));
+    }
+    found
+}
 
 /// How far the SVG of a drawing is from its pixels.
 #[derive(Debug)]

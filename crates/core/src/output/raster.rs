@@ -115,7 +115,8 @@ impl Body {
     }
 }
 
-/// Paints `shape` seen through `view`: its shadow, then its fill, then its stroke, as one group to which the opacity
+/// Paints `shape` seen through `view`, or if it knocks out, removes the area its fill and stroke cover from the pixels
+/// painted so far. Otherwise: its shadow, then its fill, then its stroke, as one group to which the opacity
 /// and the blend apply once (as SVG's `opacity` does), so that a stroke over a fill at half opacity is no darker where
 /// they overlap, and neither is a shadow under a shape.
 ///
@@ -145,11 +146,15 @@ fn paint(
         }
         None => None,
     };
+    // a shape that knocks out paints nothing of its own, its shadow included
+    let knockout = style.knockout();
     let shadow = match cast(style) {
-        Some((style, rgba)) => Some(Shadow::new(style, rgba, view).map_err(|error| in_shape(shape, "shadow ", error))?),
-        None => None,
+        Some((style, rgba)) if !knockout => {
+            Some(Shadow::new(style, rgba, view).map_err(|error| in_shape(shape, "shadow ", error))?)
+        }
+        _ => None,
     };
-    let grouped = style.opacity() < 1.0 || style.blend() == Blend::Multiply;
+    let grouped = !knockout && (style.opacity() < 1.0 || style.blend() == Blend::Multiply);
     // a group is composited over the pixels it can reach only, not the whole canvas: that is what keeps a drawing of
     // thousands of small translucent or multiplied shapes from costing a canvas each
     let reach = stroke.map_or(0.0, |(stroke, width)| stroke_reach(stroke, width));
@@ -170,9 +175,17 @@ fn paint(
         )]
         work.filtered(layer.ceil() as u64, &name)?;
     }
+    // what a knockout removes is the area covered, whatever the alpha of the colours that would paint it
+    let covering = |rgba: [u8; 4]| {
+        if knockout {
+            [rgba[0], rgba[1], rgba[2], 255]
+        } else {
+            rgba
+        }
+    };
     let body = Body {
         outline,
-        fill: style.fill().rgba(),
+        fill: style.fill().rgba().map(covering),
         stroke: match stroke {
             Some((stroke, width)) => match stroke.color().rgba() {
                 Some(rgba) => {
@@ -189,13 +202,30 @@ fn paint(
                         .iter()
                         .map(|dot| bez_path(dot))
                         .collect();
-                    Some(StrokeBody { lines, dots, rgba })
+                    Some(StrokeBody {
+                        lines,
+                        dots,
+                        rgba: covering(rgba),
+                    })
                 }
                 None => None,
             },
             None => None,
         },
     };
+    if knockout {
+        // the body painted into a layer that is taken out of what is below it, within the part of the canvas it reaches
+        context.push_layer(
+            Some(&path_of(&bounds)),
+            Some(BlendMode::new(Mix::Normal, Compose::DestOut)),
+            None,
+            None,
+            None,
+        );
+        body.draw(context, None);
+        context.pop_layer();
+        return Ok(());
+    }
     if grouped {
         let mix = match style.blend() {
             Blend::Normal => Mix::Normal,

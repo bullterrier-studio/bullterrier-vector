@@ -2,14 +2,11 @@
 //! XML parser against attributes written by hand, and the picture it makes against the pixels, drawn by a second
 //! renderer (`resvg`).
 
-use crate::common::svg_oracle::svg_agrees;
+use crate::common::svg_oracle::{Attributes, Element, body, element, numbers, svg_agrees};
 use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{Blend, Cap, Color, Drawing, Error, Path, Shadow, Size, Stroke, Values};
-use std::collections::BTreeMap;
 
 const RED: Color = Color::hex(0xff_00_00);
-
-type Attributes = BTreeMap<String, String>;
 
 fn color(text: &str) -> Result<Color, Error> {
     Color::parse(text)
@@ -17,47 +14,6 @@ fn color(text: &str) -> Result<Color, Error> {
 
 fn rect(left: f64, top: f64, width: f64, height: f64) -> Result<Path, Error> {
     Path::rect(left, top, width, height, 0.0)
-}
-
-fn expected(pairs: &[(&str, &str)]) -> Attributes {
-    pairs
-        .iter()
-        .map(|&(name, value)| (name.to_owned(), value.to_owned()))
-        .collect()
-}
-
-/// One element of the SVG: its name, its attributes, and its children.
-#[derive(Debug, PartialEq)]
-struct Element {
-    name: String,
-    attributes: Attributes,
-    children: Vec<Element>,
-}
-
-fn read(node: roxmltree::Node<'_, '_>) -> Element {
-    Element {
-        name: node.tag_name().name().to_owned(),
-        attributes: node
-            .attributes()
-            .map(|attribute| (attribute.name().to_owned(), attribute.value().to_owned()))
-            .collect(),
-        children: node.children().filter(roxmltree::Node::is_element).map(read).collect(),
-    }
-}
-
-/// The elements under the root of the SVG of `drawing` at `side` by `side`.
-fn body(drawing: &Drawing, side: f64) -> Result<Vec<Element>, Box<dyn std::error::Error>> {
-    let text = drawing.to_svg(Size::px(side, side), &Values::new())?;
-    let document = roxmltree::Document::parse(&text)?;
-    Ok(read(document.root_element()).children)
-}
-
-fn element(name: &str, attributes: &[(&str, &str)], children: Vec<Element>) -> Element {
-    Element {
-        name: name.to_owned(),
-        attributes: expected(attributes),
-        children,
-    }
 }
 
 // The markup --------------------------------------------------------------------------------------------------------
@@ -220,24 +176,6 @@ fn opacity_and_blend_move_to_the_group_that_holds_the_shadow_and_the_shape() -> 
         ["path", "path"]
     );
     Ok(())
-}
-
-/// The numbers of an element tree, in order: each attribute value that is one.
-fn numbers(elements: &[Element]) -> Vec<f64> {
-    let mut found = Vec::new();
-    for element in elements {
-        for (name, value) in &element.attributes {
-            // the opacity of a colour is a share, not a length
-            if name.ends_with("opacity") {
-                continue;
-            }
-            if let Ok(number) = value.parse() {
-                found.push(number);
-            }
-        }
-        found.extend(numbers(&element.children));
-    }
-    found
 }
 
 #[test]
