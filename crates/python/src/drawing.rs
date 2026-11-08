@@ -364,6 +364,12 @@ impl PyDrawing {
         checked(self.0.shadow(shadow))
     }
 
+    /// Every shape removing what is below it in the drawing instead of painting: the area its fill and stroke cover is
+    /// cut out of the shapes before it, their shadows included. Its colours, opacity, blend and shadow are not drawn.
+    pub(crate) fn knockout(&self) -> PyResult<Self> {
+        checked(self.0.knockout())
+    }
+
     /// Only the shapes whose attributes equal these (a list means any of). The list is renumbered.
     #[pyo3(signature = (**attributes))]
     fn only(&self, attributes: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {

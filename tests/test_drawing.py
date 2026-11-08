@@ -227,6 +227,26 @@ def test_a_shadow_called_on_a_path_returns_a_drawing_of_that_path_and_survives_o
     assert repr(styled.shadow) == "Shadow(dx=0.0, dy=4.0, blur=16.0, color='#00000059')"
 
 
+def test_a_shape_paints_until_the_step_makes_it_knock_out():
+    drawing = Drawing(*squares(2))
+    assert [shape.style.knockout for shape in drawing.shapes()] == [False, False]
+    assert [shape.style.knockout for shape in drawing.knockout().shapes()] == [True, True]
+
+
+def test_a_knockout_called_on_a_path_returns_a_drawing_and_survives_other_styles():
+    style = only_shape(SQUARE.knockout().fill("#ff0000").opacity(0.5)).style
+    assert style.knockout is True
+    assert only_shape(SQUARE.knockout()).style == only_shape(Drawing(SQUARE).knockout()).style
+    assert only_shape(SQUARE.knockout()).style != only_shape(Drawing(SQUARE)).style
+    assert hash(only_shape(SQUARE.knockout()).style) == hash(only_shape(Drawing(SQUARE).knockout()).style)
+
+
+def test_a_knockout_goes_back_into_a_drawing_and_through_json():
+    shapes = Drawing(*squares(2)).knockout().shapes()
+    assert [shape.style.knockout for shape in Drawing(*shapes).shapes()] == [True, True]
+    assert [shape.style.knockout for shape in Drawing.from_json(Drawing(*shapes).to_json()).shapes()] == [True, True]
+
+
 def test_shadows_with_equal_fields_are_equal_and_hash_alike():
     first, second = only_shape(SQUARE.shadow(blur=3)).style, only_shape(Drawing(SQUARE).shadow(blur=3)).style
     assert first == second
@@ -937,6 +957,7 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
     "opacity": (lambda: Drawing(SQUARE).opacity(0.5), {}, [row(RECT, opacity=0.5)]),
     "blend": (lambda: Drawing(SQUARE).blend("multiply"), {}, [row(RECT, blend="multiply")]),
     "shadow": (lambda: Drawing(SQUARE).shadow(dy=3), {}, [row(RECT)]),
+    "knockout": (lambda: Drawing(SQUARE).knockout(), {}, [row(RECT)]),
     "only": (lambda: Drawing(*squares(2)).only(index=1), {}, [row(SMALL[1])]),
     "without": (lambda: Drawing(*squares(2)).without(index=1), {}, [row(SMALL[0])]),
     "split": (lambda: Drawing(btvec.Path.from_svg_path(" ".join(SMALL))).split(), {}, [row(SMALL[0]), row(SMALL[1])]),
@@ -968,7 +989,8 @@ def test_drawing_shape_and_style_read_in_a_repr():
     assert repr(Drawing(SQUARE)) == "Drawing(size=None)"
     shape = drawing.fill("#ff0000").shapes()[0]
     assert repr(shape.style) == (
-        "Style(fill='#ff0000ff', stroke=None, stroke_width=None, opacity=1.0, blend='normal', shadow=None)"
+        "Style(fill='#ff0000ff', stroke=None, stroke_width=None, opacity=1.0, blend='normal', shadow=None, "
+        "knockout=False)"
     )
     assert repr(shape) == f"Shape(index=0, path={shape.path!r}, style={shape.style!r})"
 

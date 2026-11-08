@@ -382,3 +382,34 @@ def test_a_blur_past_a_thousand_output_pixels_of_deviation_raises_naming_the_blu
     far.shadow(blur=2000).to_rgba(100, 100)
     with pytest.raises(btvec.ParameterError, match="blur"):
         far.shadow(blur=2001).to_rgba(100, 100)
+
+
+# --- knockouts --------------------------------------------------------------------------------------------------------
+
+RED_SQUARE = btvec.Path.rect(0, 0, 60, 60).fill("#ff0000")
+HOLE = btvec.Path.rect(20, 20, 20, 20).fill("#0000ff").knockout()
+KNOCKED = btvec.Drawing(RED_SQUARE, HOLE)
+
+
+def test_a_knockout_cuts_a_hole_in_the_pixels_and_paints_nothing_itself():
+    image = KNOCKED.to_rgba(60, 60)
+    assert pixel(image, 60, 30, 30) == (0, 0, 0, 0)
+    assert pixel(image, 60, 10, 10) == (255, 0, 0, 255)
+    assert pixel(image, 60, 50, 30) == (255, 0, 0, 255)
+
+
+def test_a_knockout_is_a_mask_over_what_is_below_it_in_the_svg():
+    root = parse(KNOCKED.to_svg(60, 60))
+    (mask,) = root.findall(f"{SVG}mask")
+    (group,) = root.findall(f"{SVG}g")
+    assert group.attrib["mask"] == f"url(#{mask.attrib['id']})"
+    assert [element.attrib["d"] for element in group.findall(f"{SVG}path")] == ["M0 0 L60 0 L60 60 L0 60 Z"]
+    assert [element.attrib["fill"] for element in mask.findall(f"{SVG}path")] == ["#000000"]
+    assert mask.find(f"{SVG}rect") is not None
+
+
+def test_a_mesh_has_the_triangles_of_what_is_left_of_the_shape_below():
+    mesh = KNOCKED.to_mesh(60, 60)
+    # a square with a square hole in it, and the hole is not blue: no vertex of the mesh has a blue channel
+    assert len(mesh.indices) > 12
+    assert all(mesh.vertices[at + 4] == 0.0 for at in range(0, len(mesh.vertices), 8))

@@ -544,6 +544,8 @@ AGREED = [
     pytest.param(square_with({"shadow": {"blur": -1}}), False, id="a shadow of negative blur"),
     pytest.param(square_with({"shadow": {"color": "none"}}), False, id="a shadow of no colour"),
     pytest.param(square_with({"shadow": {"radius": 3}}), False, id="a shadow argument that is not one"),
+    pytest.param(square_with({"knockout": {}}), True, id="a knockout"),
+    pytest.param(square_with({"knockout": {"alpha": 1}}), False, id="a knockout with an argument"),
     pytest.param(
         {"version": 1, "root": [{"stack": {"items": [], "size": [100000, 1]}}]}, True, id="the largest design frame"
     ),
@@ -605,6 +607,7 @@ REGISTERED = {
     "opacity",
     "blend",
     "shadow",
+    "knockout",
     "only",
     "without",
     "split",

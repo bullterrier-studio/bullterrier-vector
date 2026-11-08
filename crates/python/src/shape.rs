@@ -125,11 +125,17 @@ impl PyStyle {
         self.0.shadow().copied().map(PyShadow)
     }
 
+    /// Whether the shape removes what is below it in its drawing instead of painting.
+    #[getter]
+    fn knockout(&self) -> bool {
+        self.0.knockout()
+    }
+
     fn __repr__(&self) -> String {
         let text = |value: Option<String>| value.map_or_else(|| "None".to_owned(), |value| format!("'{value}'"));
         let number = |value: Option<f64>| value.map_or_else(|| "None".to_owned(), |value| format!("{value:?}"));
         format!(
-            "Style(fill={}, stroke={}, stroke_width={}, opacity={:?}, blend='{}', shadow={})",
+            "Style(fill={}, stroke={}, stroke_width={}, opacity={:?}, blend='{}', shadow={}, knockout={})",
             text(self.fill()),
             text(self.stroke()),
             number(self.stroke_width()),
@@ -137,6 +143,7 @@ impl PyStyle {
             self.blend(),
             self.shadow()
                 .map_or_else(|| "None".to_owned(), |shadow| shadow.__repr__()),
+            if self.knockout() { "True" } else { "False" },
         )
     }
 
@@ -151,6 +158,7 @@ impl PyStyle {
             self.opacity(),
             self.blend(),
             self.shadow(),
+            self.knockout(),
         )
             .into_pyobject(py)?
             .hash()

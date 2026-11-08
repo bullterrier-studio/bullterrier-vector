@@ -536,6 +536,11 @@ impl PyPath {
         PyDrawing::of(self).blend(mode)
     }
 
+    /// A drawing of this path as a knockout: it removes what is below it in a drawing instead of painting.
+    fn knockout(&self) -> PyResult<PyDrawing> {
+        PyDrawing::of(self).knockout()
+    }
+
     /// A drawing of this path with a drop shadow behind it: `dx` and `dy` design pixels from it (0 and 8 where left
     /// out), blurred by `blur` design pixels (16; 0 is a hard copy) and tinted `color` (`"#00000059"`).
     #[pyo3(signature = (*, dx=None, dy=None, blur=None, color=None))]
