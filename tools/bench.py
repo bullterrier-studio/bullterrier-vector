@@ -1,6 +1,7 @@
 """Time the outputs on one reference drawing, natively and in WebAssembly, and print a table.
 
-    uv run poe bench [--shapes N] [--size WxH] [--repeats N] [--warmups N] [--require-node] [--text] [--booleans]
+    uv run poe bench [--shapes N] [--size WxH] [--repeats N] [--warmups N] [--require-node]
+                     [--text] [--booleans] [--halftone]
 
 The reference drawing is a star and `--shapes` (default 200) filled, stroked, translucent and multiply shapes from a
 seeded generator, at 1920x1080 by default. `to_rgba` and `to_mesh` are each called `--warmups` times (default 3) and
@@ -14,6 +15,10 @@ for a person to read: nothing asserts on time. Results are recorded by hand in d
 Param, timed as `shapes` (shaping and outlines), as `to_rgba` and as `to_mesh` at a new weight on every call, so none is
 answered from the cache; as `shapes` with a weight for each letter, for a page of capitals, for the headline fitted to a
 width by the width axis and for the page wrapped to a width; and once, a text of 100,000 letters each at its own weight.
+
+`--halftone` adds the cost of a halftone, natively and in WebAssembly: a disc of about 3,000 dots, timed as `to_svg`,
+`to_rgba` and `to_mesh` (the first two fill every dot once; the prototypes cut a disc per dot with a boolean, about
+500 ms).
 
 `--booleans` adds the cost of the boolean verbs, natively: the `shapes` of a line of capitals with and without `resolve`
 and cut out of a plate with `subtract` (a new weight on every call, so the cache answers none), and, on a `Path`, the
@@ -44,6 +49,10 @@ ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = ROOT / "pkg" / "bullterrier_vector_wasm.js"
 NODE_SCRIPT = Path(__file__).resolve().with_name("bench.mjs")
 OUTPUTS = ("to_rgba", "to_mesh")
+HALFTONE_OUTPUTS = ("to_svg", *OUTPUTS)
+HALFTONE_DISC = 310  # the radius of the disc of the halftone, in design pixels
+HALFTONE_PITCH = 10  # the distance between its dots: pi * 310^2 / 10^2 is about 3,000 dots
+HALFTONE_SIDE = 800  # the side of its design frame and of its output
 FONT = ROOT / "examples" / "fonts" / "anybody-subset.ttf"
 HEADLINE = "NO\nSLEEP"
 HEADLINE_SIZE = (1080, 1350)
@@ -145,16 +154,28 @@ def median_ms(
     return statistics.median(times)
 
 
-def native_times(drawing: btvec.Drawing, size: tuple[int, int], warmups: int, repeats: int) -> dict[str, float]:
-    """The median milliseconds of each output through the Python extension."""
+def native_times(
+    drawing: btvec.Drawing, size: tuple[int, int], warmups: int, repeats: int, outputs: tuple[str, ...] = OUTPUTS
+) -> dict[str, float]:
+    """The median milliseconds of each of `outputs` through the Python extension."""
     width, height = size
-    return {
-        "to_rgba": median_ms(lambda: drawing.to_rgba(width, height), warmups, repeats),
-        "to_mesh": median_ms(lambda: drawing.to_mesh(width, height), warmups, repeats),
-    }
+
+    def timed(call: Callable[[int, int], object]) -> float:
+        return median_ms(lambda: call(width, height), warmups, repeats)
+
+    return {name: timed(getattr(drawing, name)) for name in outputs}
 
 
-def node_times(document: str, size: tuple[int, int], warmups: int, repeats: int) -> dict[str, float]:
+def halftone_drawing() -> btvec.Drawing:
+    """A disc of about 3,000 dots on a design frame of `HALFTONE_SIDE` square."""
+    middle = HALFTONE_SIDE / 2
+    disc = btvec.Path.circle((middle, middle), HALFTONE_DISC)
+    return btvec.Drawing(disc.halftone("#1a1a1a", tone=0.5, pitch=HALFTONE_PITCH, angle=45), size=(HALFTONE_SIDE,) * 2)
+
+
+def node_times(
+    document: str, size: tuple[int, int], warmups: int, repeats: int, outputs: tuple[str, ...] = OUTPUTS
+) -> dict[str, float]:
     """The median milliseconds of each output in the WebAssembly package, run in Node on the drawing `document`.
 
     Raises `BenchError` saying why when Node or the package is missing or the run fails."""
@@ -163,7 +184,9 @@ def node_times(document: str, size: tuple[int, int], warmups: int, repeats: int)
         raise BenchError("node not found on PATH")
     if not PACKAGE.is_file():
         raise BenchError("the WebAssembly package is not built (run `uv run poe wasm-test`)")
-    request = json.dumps({"document": document, "size": size, "warmups": warmups, "repeats": repeats})
+    request = json.dumps(
+        {"document": document, "size": size, "warmups": warmups, "repeats": repeats, "outputs": list(outputs)}
+    )
     done = subprocess.run(  # noqa: S603  node from PATH, our own script, the request on stdin
         [node, str(NODE_SCRIPT), str(PACKAGE)],
         input=request,
@@ -178,16 +201,12 @@ def node_times(document: str, size: tuple[int, int], warmups: int, repeats: int)
 
 
 def table(
-    shapes: int, size: tuple[int, int], repeats: int, native: dict[str, float], node: dict[str, float] | None
+    header: str, native: dict[str, float], node: dict[str, float] | None, outputs: tuple[str, ...] = OUTPUTS
 ) -> str:
-    """The rows to print: one line of what was timed, a header, and a row per output."""
-    header = (
-        f"reference drawing: a star and {shapes} shapes at {size[0]}x{size[1]}, "
-        f"median of {repeats} calls in milliseconds"
-    )
+    """The rows to print: the line `header` of what was timed, a header, and a row per output."""
     columns = ["output", "native"] + (["WebAssembly", "ratio"] if node else [])
     rows = [columns]
-    for output in OUTPUTS:
+    for output in outputs:
         row = [output, f"{native[output]:.1f}"]
         if node:
             row += [f"{node[output]:.1f}", f"{node[output] / native[output]:.2f}x"]
@@ -320,6 +339,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--require-node", action="store_true", help="exit 1 when the WebAssembly column is missing")
     parser.add_argument("--text", action="store_true", help="also time text when its weight moves (native)")
     parser.add_argument("--booleans", action="store_true", help="also time resolve, subtract and union (native)")
+    parser.add_argument("--halftone", action="store_true", help="also time a disc of about 3,000 halftone dots")
     arguments = parser.parse_args(argv)
     try:
         if min(arguments.shapes, arguments.warmups) < 0 or arguments.repeats < 1:
@@ -329,6 +349,12 @@ def main(argv: list[str] | None = None) -> int:
         native = native_times(drawing, size, arguments.warmups, arguments.repeats)
         typed = text_times(arguments.warmups, arguments.repeats) if arguments.text else None
         cut = boolean_times(arguments.warmups, arguments.repeats) if arguments.booleans else None
+        dots = halftone_drawing() if arguments.halftone else None
+        dotted = (
+            native_times(dots, (HALFTONE_SIDE,) * 2, arguments.warmups, arguments.repeats, HALFTONE_OUTPUTS)
+            if dots
+            else None
+        )
     except (BenchError, btvec.errors.BullterrierVectorError) as error:
         print(f"bench: {error}", file=sys.stderr)
         return 1
@@ -338,11 +364,26 @@ def main(argv: list[str] | None = None) -> int:
         node = node_times(drawing.to_json(), size, arguments.warmups, arguments.repeats)
     except BenchError as error:
         problem = f"bench: no WebAssembly column: {error}"
-    print(table(arguments.shapes, size, arguments.repeats, native, node))
+    header = (
+        f"reference drawing: a star and {arguments.shapes} shapes at {size[0]}x{size[1]}, "
+        f"median of {arguments.repeats} calls in milliseconds"
+    )
+    print(table(header, native, node))
     if typed:
         print(text_table(typed, arguments.repeats))
     if cut:
         print(named_table(f"booleans: median of {arguments.repeats} calls in milliseconds", cut))
+    if dots and dotted:
+        side = (HALFTONE_SIDE,) * 2
+        header = (
+            f"halftone: a disc of about 3,000 dots at {side[0]}x{side[1]}, "
+            f"median of {arguments.repeats} calls in milliseconds"
+        )
+        try:
+            on_node = node_times(dots.to_json(), side, arguments.warmups, arguments.repeats, HALFTONE_OUTPUTS)
+        except BenchError:
+            on_node = None
+        print(table(header, dotted, on_node, HALFTONE_OUTPUTS))
     if problem:
         print(problem, file=sys.stderr)
     return 1 if problem and arguments.require_node else 0

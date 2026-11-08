@@ -1,11 +1,11 @@
-// The WebAssembly half of tools/bench.py: reads {document, size, warmups, repeats} as JSON on stdin and the package's
-// path as the argument, times toRgba and toMesh with performance.now, and prints {to_rgba, to_mesh} (median
-// milliseconds) as JSON on stdout.
+// The WebAssembly half of tools/bench.py: reads {document, size, warmups, repeats, outputs} as JSON on stdin and the
+// package's path as the argument, times each of the outputs (to_svg, to_rgba, to_mesh) with performance.now, and prints
+// {output: median milliseconds} as JSON on stdout.
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 const { Drawing } = createRequire(import.meta.url)(process.argv[2]);
-const { document, size, warmups, repeats } = JSON.parse(readFileSync(0, "utf-8"));
+const { document, size, warmups, repeats, outputs } = JSON.parse(readFileSync(0, "utf-8"));
 const drawing = Drawing.fromJson(document);
 
 function median(call) {
@@ -23,9 +23,9 @@ function median(call) {
 
 const [width, height] = size;
 // the mesh is freed inside the call, as the native one is dropped inside its call
-console.log(
-  JSON.stringify({
-    to_rgba: median(() => drawing.toRgba(width, height)),
-    to_mesh: median(() => drawing.toMesh(width, height).free()),
-  }),
-);
+const calls = {
+  to_svg: () => drawing.toSvg(width, height),
+  to_rgba: () => drawing.toRgba(width, height),
+  to_mesh: () => drawing.toMesh(width, height).free(),
+};
+console.log(JSON.stringify(Object.fromEntries(outputs.map((name) => [name, median(calls[name])]))));

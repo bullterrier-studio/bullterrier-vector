@@ -31,6 +31,7 @@ class Drawing {
   }
   toRgba(width, height) { return new Uint8Array(width * height * 4); }
   toMesh() { return new Mesh(); }
+  toSvg() { return ""; }
 }
 module.exports = { Drawing, Mesh };
 """
@@ -135,6 +136,17 @@ def test_booleans_adds_the_rows_of_a_line_of_type_and_two_grids_of_squares(bench
     ]
     assert all(float(line.rsplit(None, 1)[1]) >= 0 for line in timed)  # a number; nothing asserts on time
     assert "booleans:" not in bench(*TINY).out
+
+
+def test_halftone_adds_a_table_of_a_disc_of_dots_with_the_svg_row(bench):
+    result = bench(*TINY, "--halftone")
+    assert result.code == 0, result.err
+    header, columns, *timed = result.out.splitlines()[4:]
+    assert header == "halftone: a disc of about 3,000 dots at 800x800, median of 2 calls in milliseconds"
+    assert columns.split()[:2] == ["output", "native"]
+    assert [line.split()[0] for line in timed] == ["to_svg", "to_rgba", "to_mesh"]
+    assert all(float(line.split()[1]) >= 0 for line in timed)  # a number; nothing asserts on time
+    assert "halftone:" not in bench(*TINY).out
 
 
 def test_a_missing_package_is_one_line_and_the_native_column_stays(bench):
