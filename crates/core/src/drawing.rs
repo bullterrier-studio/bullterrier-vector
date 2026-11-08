@@ -14,7 +14,7 @@ mod values;
 pub use cache::Stats;
 pub(crate) use graph::Graph;
 pub use select::{Select, Wanted};
-pub use style::{Shadow, Stroke};
+pub use style::{Halftone, Shadow, Stroke};
 pub use transform::{Along, Deg, Pivot, Rotate, ScaleBy};
 
 use self::cache::Shared;
@@ -398,7 +398,14 @@ impl From<Shape> for Drawing {
             return drawing;
         }
         // a fill is always set, so that the shape never takes the default paint
-        drawing = drawing.fill(style.fill());
+        drawing = match style.halftone() {
+            Some(halftone) => drawing.halftone(
+                Halftone::new(halftone.color(), halftone.tone())
+                    .pitch(halftone.pitch())
+                    .angle(Deg(halftone.angle())),
+            ),
+            None => drawing.fill(style.fill()),
+        };
         if let Some(stroke) = style.stroke() {
             drawing = drawing.stroke(
                 Stroke::new(stroke.color())

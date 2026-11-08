@@ -1,6 +1,7 @@
-//! The style steps of a drawing: `fill`, `stroke`, `opacity`, `blend`, `shadow`, `knockout`; and the same on a `Path`.
+//! The style steps of a drawing: `fill`, `stroke`, `opacity`, `blend`, `shadow`, `knockout`, `halftone`; and the same on a `Path`.
 
 use super::Drawing;
+use super::transform::Deg;
 use crate::node::{Given, style};
 use crate::{Blend, Cap, Color, Expr, Join, Path};
 
@@ -104,6 +105,44 @@ impl Shadow {
     }
 }
 
+/// A halftone fill: the dots' colour and the tone, and the pitch (8 design pixels) and angle (45 degrees) if not the
+/// defaults.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Halftone {
+    color: Color,
+    tone: Expr,
+    pitch: Option<Expr>,
+    angle: Option<Expr>,
+}
+
+impl Halftone {
+    /// A screen of dots of `color`, `tone` from 0 (solid) to 1 (no dots): the share of each cell left bare.
+    #[must_use]
+    pub fn new(color: Color, tone: impl Into<Expr>) -> Self {
+        Self {
+            color,
+            tone: tone.into(),
+            pitch: None,
+            angle: None,
+        }
+    }
+
+    /// This screen with its dots `pitch` design pixels apart, above 0.
+    #[must_use]
+    pub fn pitch(mut self, pitch: impl Into<Expr>) -> Self {
+        self.pitch = Some(pitch.into());
+        self
+    }
+
+    /// This screen with its lattice turned `angle` degrees clockwise on the screen about the origin of the design
+    /// frame.
+    #[must_use]
+    pub fn angle<T: Into<Expr>>(mut self, angle: Deg<T>) -> Self {
+        self.angle = Some(angle.0.into());
+        self
+    }
+}
+
 impl From<Color> for Stroke {
     fn from(color: Color) -> Self {
         Self::new(color)
@@ -173,6 +212,27 @@ impl Drawing {
         self.then(&style::Shadow, given)
     }
 
+    /// This drawing with every shape filled with a screen of dots, replacing any fill it has (as [`Drawing::fill`]
+    /// replaces a halftone). The dots lie on a lattice anchored to the origin of the design frame, not to the shape, so
+    /// they stay put when the shape moves; a shape's stroke is drawn over them. A tone of 0 fills the shape solid and a
+    /// tone of 1 draws nothing.
+    ///
+    /// A colour of none, a tone outside 0 to 1 and a pitch not above 0 leave the drawing with an
+    /// [`error`](Drawing::error), or, when they read a Param, are refused when the drawing is drawn.
+    #[must_use]
+    pub fn halftone(&self, halftone: Halftone) -> Self {
+        let mut given = vec![
+            ("color", Given::Color(halftone.color)),
+            ("tone", Given::Number(halftone.tone)),
+        ];
+        for (name, number) in [("pitch", halftone.pitch), ("angle", halftone.angle)] {
+            if let Some(number) = number {
+                given.push((name, Given::Number(number)));
+            }
+        }
+        self.then(&style::Halftone, given)
+    }
+
     /// This drawing with every shape removing what is below it in the drawing instead of painting: the area its fill
     /// and stroke cover is cut out of the shapes before it, their shadows included; the shapes after it paint over the
     /// hole. A shape that paints nothing, or has an empty path, removes nothing.
@@ -211,6 +271,12 @@ impl Path {
     #[must_use]
     pub fn shadow(&self, shadow: Shadow) -> Drawing {
         Drawing::from(self.clone()).shadow(shadow)
+    }
+
+    /// A [`Drawing`] of this path filled with a screen of dots.
+    #[must_use]
+    pub fn halftone(&self, halftone: Halftone) -> Drawing {
+        Drawing::from(self.clone()).halftone(halftone)
     }
 
     /// A [`Drawing`] of this path as a knockout.

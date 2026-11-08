@@ -30,6 +30,7 @@ const NODES: &[&dyn Node] = &[
     &style::Blend,
     &style::Shadow,
     &style::Knockout,
+    &style::Halftone,
     &items::Split,
     &items::Merge,
     &boolean::Union,

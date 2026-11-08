@@ -5,7 +5,7 @@
 use crate::common::Outcome;
 use crate::common::ops::{chain, edits, extend, materialise, values_of};
 use bullterrier_vector::{
-    Blend, Color, Deg, Drawing, Error, Expr, Join, Param, Path, Select, Shadow, Shape, Stats, Stroke, Values,
+    Blend, Color, Deg, Drawing, Error, Expr, Halftone, Join, Param, Path, Select, Shadow, Shape, Stats, Stroke, Values,
 };
 use proptest::prelude::*;
 
@@ -333,6 +333,53 @@ fn shadow_pairs() -> Vec<(&'static str, Make)> {
     ]
 }
 
+/// The colour of the halftones below.
+const BLACK: Color = Color::hex(0);
+
+/// Rows that differ in one argument of a halftone, and a halftone against the fill of the same colour.
+fn halftone_pairs() -> Vec<(&'static str, Make)> {
+    vec![
+        ("the tone of a halftone", |base| {
+            halftone_pair(base, Halftone::new(BLACK, 0.25), Halftone::new(BLACK, 0.5))
+        }),
+        ("the pitch of a halftone", |base| {
+            halftone_pair(
+                base,
+                Halftone::new(BLACK, 0.5).pitch(4.0),
+                Halftone::new(BLACK, 0.5).pitch(5.0),
+            )
+        }),
+        ("the angle of a halftone", |base| {
+            halftone_pair(
+                base,
+                Halftone::new(BLACK, 0.5).angle(Deg(10.0)),
+                Halftone::new(BLACK, 0.5).angle(Deg(20.0)),
+            )
+        }),
+        ("the colour of a halftone", |base| {
+            halftone_pair(
+                base,
+                Halftone::new(BLACK, 0.5),
+                Halftone::new(Color::hex(0xff_00_00), 0.5),
+            )
+        }),
+        ("a halftone against the fill of its colour", |base| {
+            Ok((
+                base.halftone(Halftone::new(BLACK, 0.5)),
+                Values::new(),
+                base.fill(BLACK),
+                Values::new(),
+            ))
+        }),
+    ]
+}
+
+/// The pair of `base` with the halftone `left` and with the halftone `right`.
+#[expect(clippy::unnecessary_wraps, reason = "a row of a table of `Make`")]
+fn halftone_pair(base: &Drawing, left: Halftone, right: Halftone) -> Result<Pair, Error> {
+    Ok((base.halftone(left), Values::new(), base.halftone(right), Values::new()))
+}
+
 /// The pair of `base` as it is and as a knockout.
 #[expect(clippy::unnecessary_wraps, reason = "a row of a table of `Make`")]
 fn knockout_pair(base: &Drawing) -> Result<Pair, Error> {
@@ -456,7 +503,12 @@ fn outcome(drawing: &Drawing, values: &Values) -> Result<Vec<Shape>, String> {
 
 #[test]
 fn drawings_that_differ_in_one_input_never_share_a_result() -> Outcome {
-    for (case, make) in pairs().into_iter().chain(source_pairs()).chain(shadow_pairs()) {
+    for (case, make) in pairs()
+        .into_iter()
+        .chain(source_pairs())
+        .chain(shadow_pairs())
+        .chain(halftone_pairs())
+    {
         let (left, left_at, right, right_at) = make(&square()?)?;
         // a twin of the right drawing, built on a base of its own: its cache holds nothing of the left
         let (_, _, twin, twin_at) = make(&square()?)?;

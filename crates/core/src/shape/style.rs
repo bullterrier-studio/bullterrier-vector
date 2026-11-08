@@ -242,10 +242,48 @@ impl ShadowStyle {
     }
 }
 
+/// A halftone fill: a screen of dots in `color` over the shape, as many and as big as `tone` says (0 solid, 1 none), on
+/// a square lattice `pitch` apart turned `angle` degrees about the design frame's origin.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HalftoneStyle {
+    pub(crate) color: Color,
+    pub(crate) tone: f64,
+    pub(crate) pitch: f64,
+    pub(crate) angle: f64,
+}
+
+impl HalftoneStyle {
+    /// The colour of the dots, its alpha included.
+    #[must_use]
+    pub fn color(&self) -> Color {
+        self.color
+    }
+
+    /// The tone from 0 to 1: the share of each lattice cell the dot leaves bare, so 0 is solid and 1 has no dots.
+    #[must_use]
+    pub fn tone(&self) -> f64 {
+        self.tone
+    }
+
+    /// The distance between neighbouring dots in design pixels, above 0.
+    #[must_use]
+    pub fn pitch(&self) -> f64 {
+        self.pitch
+    }
+
+    /// The turn of the lattice in degrees, clockwise on the screen about the origin of the design frame.
+    #[must_use]
+    pub fn angle(&self) -> f64 {
+        self.angle
+    }
+}
+
 /// The paint of a shape as it is drawn: `None` and [`Color::NONE`] mean not painted.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Style {
     pub(crate) fill: Color,
+    /// The fill when it is a screen of dots, in which case `fill` is [`Color::NONE`].
+    pub(crate) halftone: Option<HalftoneStyle>,
     pub(crate) stroke: Option<StrokeStyle>,
     pub(crate) opacity: f64,
     pub(crate) blend: Blend,
@@ -260,6 +298,7 @@ impl Style {
     pub(crate) fn unpainted() -> Self {
         Self {
             fill: Color::NONE,
+            halftone: None,
             stroke: None,
             opacity: 1.0,
             blend: Blend::Normal,
@@ -283,9 +322,17 @@ impl Style {
         }
     }
 
-    /// Sets the fill; from now on only what is set is painted.
+    /// Sets the fill, replacing a halftone; from now on only what is set is painted.
     pub(crate) fn set_fill(&mut self, color: Color) {
         self.fill = color;
+        self.halftone = None;
+        self.painted = true;
+    }
+
+    /// Sets the fill to a screen of dots, replacing a colour; from now on only what is set is painted.
+    pub(crate) fn set_halftone(&mut self, halftone: HalftoneStyle) {
+        self.fill = Color::NONE;
+        self.halftone = Some(halftone);
         self.painted = true;
     }
 
@@ -320,10 +367,16 @@ impl Style {
         self.painted
     }
 
-    /// The fill, [`Color::NONE`] where the shape is not filled.
+    /// The fill, [`Color::NONE`] where the shape is not filled with a colour (a halftone is not one).
     #[must_use]
     pub fn fill(&self) -> Color {
         self.fill
+    }
+
+    /// The screen of dots the shape is filled with, `None` where its fill is a colour or none.
+    #[must_use]
+    pub fn halftone(&self) -> Option<&HalftoneStyle> {
+        self.halftone.as_ref()
     }
 
     /// The stroke, `None` where the shape is not stroked.
@@ -367,6 +420,15 @@ impl Keyed for ShadowStyle {
     }
 }
 
+impl Keyed for HalftoneStyle {
+    fn write_key(&self, key: &mut Key) {
+        key.of(&self.color);
+        key.number(self.tone);
+        key.number(self.pitch);
+        key.number(self.angle);
+    }
+}
+
 impl Keyed for StrokeStyle {
     fn write_key(&self, key: &mut Key) {
         key.of(&self.color);
@@ -380,6 +442,7 @@ impl Keyed for StrokeStyle {
 impl Keyed for Style {
     fn write_key(&self, key: &mut Key) {
         key.of(&self.fill);
+        key.of(&self.halftone);
         key.of(&self.stroke);
         key.number(self.opacity);
         key.text(self.blend.name());

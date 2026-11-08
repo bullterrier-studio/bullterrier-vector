@@ -1,8 +1,9 @@
-//! The style steps: `fill`, `stroke`, `opacity`, `blend`, `shadow`, `knockout`. Each changes the paint of every shape and nothing else.
+//! The style steps: `fill`, `stroke`, `opacity`, `blend`, `shadow`, `knockout`, `halftone`. Each changes the paint of every shape and nothing else.
 
 use super::{Args, Context, Inputs, Node, choice, each_shape};
 use crate::shape::{
-    Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, Join, ShadowStyle, StrokeStyle,
+    Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, HalftoneStyle, Join, ShadowStyle,
+    StrokeStyle,
 };
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
 
@@ -247,5 +248,53 @@ impl Node for Knockout {
                 shape
             })
             .collect())
+    }
+}
+
+/// The pitch of a halftone when none is given, in design pixels.
+// constant: api.md "Style" (`halftone(color, *, tone, pitch=8, angle=45)`)
+const DEFAULT_HALFTONE_PITCH: f64 = 8.0;
+
+/// The turn of a halftone's lattice when none is given, in degrees.
+// constant: api.md "Style" (`halftone(color, *, tone, pitch=8, angle=45)`), the classic screen angle
+const DEFAULT_HALFTONE_ANGLE: f64 = 45.0;
+
+/// Fills every shape with a screen of dots.
+#[derive(Debug)]
+pub(crate) struct Halftone;
+
+pub(crate) static HALFTONE: Verb = Verb {
+    name: "halftone",
+    role: Role::Step,
+    summary: "fills every shape with a screen of dots of a colour on a square lattice pitch design pixels apart, turned angle \
+              degrees about the origin of the design frame; tone from 0 (solid) to 1 (no dots) is the share of each cell \
+              left bare; replaces any fill before, as fill replaces it",
+    args: &[
+        color(Domain::Painting),
+        number("tone", None, Domain::Fraction),
+        number("pitch", Some(DEFAULT_HALFTONE_PITCH), Domain::Positive),
+        number("angle", Some(DEFAULT_HALFTONE_ANGLE), Domain::Finite),
+    ],
+    check: None,
+};
+
+impl Node for Halftone {
+    fn verb(&self) -> &'static Verb {
+        &HALFTONE
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let color = args.color("color")?;
+        each_shape(inputs.previous, cx, |shape, item| {
+            let halftone = HalftoneStyle {
+                color,
+                tone: args.number(cx, "tone", item)?,
+                pitch: args.number(cx, "pitch", item)?,
+                angle: args.number(cx, "angle", item)?,
+            };
+            let mut shape = shape.clone();
+            shape.style_mut().set_halftone(halftone);
+            Ok(shape)
+        })
     }
 }

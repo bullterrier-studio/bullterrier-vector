@@ -60,6 +60,7 @@ mod raster_fill;
 mod raster_stroke;
 mod registry;
 mod shape;
+mod style_halftone;
 mod style_knockout;
 mod style_shadow;
 mod svg;

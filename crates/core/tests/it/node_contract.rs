@@ -12,8 +12,8 @@
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, build, log_uniform, parameter_refusal, step};
 use bullterrier_vector::{
-    Along, Blend, Cap, Color, Deg, Drawing, Error, Expr, Join, Kind, Param, Path, Point, Reads, Role, Rotate, Scale,
-    ScaleBy, Select, Shadow, Shape, Stroke, Text, Values, text, verbs,
+    Along, Blend, Cap, Color, Deg, Drawing, Error, Expr, Halftone, Join, Kind, Param, Path, Point, Reads, Role, Rotate,
+    Scale, ScaleBy, Select, Shadow, Shape, Stroke, Text, Values, text, verbs,
 };
 use proptest::prelude::*;
 use std::collections::BTreeSet;
@@ -465,6 +465,35 @@ fn rows() -> Vec<Row> {
                 ("blur", -1e-9, false),
                 ("blur", f64::NAN, false),
                 ("blur", f64::INFINITY, false),
+            ],
+            geometry: None,
+        },
+        Row {
+            verb: "halftone",
+            sample: || Ok(square()?.halftone(Halftone::new(Color::hex(0), 0.5).pitch(6.0))),
+            with: Some(|argument, value| {
+                let dots = Halftone::new(Color::hex(0), 0.5);
+                match argument {
+                    "tone" => Ok(square()?.halftone(Halftone::new(Color::hex(0), value))),
+                    "pitch" => Ok(square()?.halftone(dots.pitch(value))),
+                    "angle" => Ok(square()?.halftone(dots.angle(Deg(value)))),
+                    _ => Err(unknown("halftone", argument)),
+                }
+            }),
+            ranges: &[
+                ("tone", 0.0, true),
+                ("tone", 1.0, true),
+                ("tone", -1e-9, false),
+                ("tone", 1.000_000_001, false),
+                ("tone", f64::NAN, false),
+                ("pitch", 1e300, true),
+                ("pitch", 0.0, false),
+                ("pitch", -1.0, false),
+                ("pitch", f64::INFINITY, false),
+                ("pitch", f64::NAN, false),
+                ("angle", -1e300, true),
+                ("angle", f64::NAN, false),
+                ("angle", f64::INFINITY, false),
             ],
             geometry: None,
         },
