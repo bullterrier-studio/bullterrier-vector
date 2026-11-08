@@ -54,8 +54,11 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V8 | Booleans, with fuzzing and documented limits | L | |
 | V9 | Offset, inset, stroke outline | M | |
 | V10 | SVG fidelity: drop shadows and knockouts as style attributes, the same in SVG and pixels; a fast halftone fill | M | |
-| V11 | Path modifiers: dash march, place shapes along a path, simplify, resample | M | |
-| V12 | Deformers: wobble, wave, twist, bulge | M | **M3 kinetic type piece** |
+| V10d | Paint and compositing style: gradient fills and strokes, the full separable blend set, clip groups and soft masks | M | |
+| V10e | Render a window: draw any rectangle of a drawing at the final scale | S | |
+| V10f | Text runs: one line of text from runs that each have their own font, size and axes | M | |
+| V11 | Path modifiers: dash march, place shapes along a path, simplify, resample; a width profile along a stroke (tapered strokes) | M | |
+| V12 | Deformers: wobble, wave, twist, bulge; arch and envelope warps for type | M | **M3 kinetic type piece** |
 | V13 | Morph, any shape to any shape | M | |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
 | V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output | L | **M5 poster piece** |
@@ -68,7 +71,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10 is done; V10d is next.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10 is done; V10d, V10e and V10f follow it, then V11.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -534,17 +537,45 @@ format is untouched, so allowing it later adds a draw-range kind and breaks no c
 until the tone sources of V15 (`Field`); a screen of 3,000 dots takes 20 ms in pixels and about 70 ms as SVG or mesh,
 against about 500 ms for a boolean per dot (`benchmarks.md`).
 
+## V10d Paint and compositing style
+
+The same style model as V10, extended; the result is the same in SVG and in pixels, and the mesh raises as it does for a
+blurred shadow.
+
+- Linear and radial gradient fills, on fill and on stroke (stops with colour and position, a start and end or a centre
+  and radius in design pixels). The fill of a shape is a paint, not only a colour.
+- The separable blend modes of the W3C compositing specification beyond `normal` and `multiply`: at least `screen`,
+  `overlay` and `difference`. Blending stays in sRGB values, with straight alpha out of `to_rgba`.
+- Clip groups (shapes drawn only inside a path) and soft masks (a drawing whose luminance sets the opacity of another).
+  Today only `knockout` removes what is below, through booleans.
+
+## V10e Render a window
+
+Draw any rectangle of a drawing at the final scale, so a caller can render a large canvas in bands without a raster of the
+whole. Property: a window's pixels equal the matching rows and columns of the whole render, for every output that draws
+pixels. The limits of `to_rgba` (65,000 a side, 2^27 pixels) then apply to the window, not to the drawing.
+
+## V10f Text runs
+
+One line of text built from runs, each with its own font, size and axes, shaped per run on shared lines: wrapping,
+fitting, alignment, `inside` and `along` work on the whole. Today `text` takes one font per call, and only the axis
+values and the fitted size vary from character to character, so letters of different typefaces in a word (ransom-note
+lettering) need a call per letter placed by hand.
+
 ## V11 Path modifiers
 
 Dash with a moving phase, place shapes along a path, simplify, resample to even spacing. `along` (V6) bends shapes along a
 path; placing shapes on it without bending them (copies at even spacing, each turned to the path's direction) is not built
 and stays here. Draw-on (partial path by length from a canonical start point and direction) was built in V7 as
 `Drawing.slice`; `reverse`, a draw-on the other way round, stays here.
+A width profile along a stroke (tapered strokes: a width that varies along the length, thinning at free ends) is added
+here; it needs a stroke the rasteriser and the mesh can draw as a filled outline.
 
 ## V12 Deformers
 
 Wobble (seeded noise displacement, moving by `phase`), wave, twist, bulge. Paths are resampled first so deformation is
 smooth at any size.
+Arch and envelope warps for type (a line of text bent on an arch, or fitted into an envelope shape) join them.
 
 ## V13 Morph
 
