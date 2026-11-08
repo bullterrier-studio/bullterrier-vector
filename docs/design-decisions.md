@@ -846,6 +846,26 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   to a sixth of the range there; `vello_cpu`'s is within 5 levels of exact). The primary oracle of a blur stays the
   Gaussian's error function.
 
+- **Knockout: cut by coverage, one mask for a run, groups that nest** (2026-11-08). A shape that knocks out removes the
+  area its fill and stroke cover from everything before it, shadows included, and paints nothing; its colours, alphas,
+  opacity, blend and shadow are ignored, because a cut has no tint: it is binary by coverage, and anti-aliasing is the
+  only grey. SVG: the earlier shapes become a `<g>` masked by the canvas in white with the knockouts in black; shapes
+  after it stay outside. *Reason:* a mask is the SVG form that cuts through a group, shadows and multiply included, and it
+  renders alike in `resvg`. Knockouts in a row share one mask (ids by the first one's index, unique in the document); a
+  shape between two is not in the first's group only, so the groups nest, which keeps a later multiply blending with what
+  is left, as the pixels do (flat groups would blend it with its own group only). *Consequence:* nesting is the number of
+  alternations, bounded at 128 (`MAX_KNOCKOUT_LAYERS`), under the 256 levels libxml2 and the tools built on it accept.
+  The mask's region is the canvas grown by the shadows' reach, not the unbounded plane: the SVG's own viewport clips at
+  the canvas, and a region of ever larger size costs every renderer a mask the size of it.
+- **Knockout in pixels and in the mesh** (2026-11-08). Pixels: a `DestOut` layer painted with the knockout's fill and
+  stroke made opaque, so what is below keeps `1 - coverage`, as the mask's luminance keeps it. Mesh: a boolean of regions,
+  not a stencil, so the three flat buffers stay as they are. The region of a knockout is its fill and its stroke
+  outline, each resolved (they may run opposite ways) and joined; `Path::subtract` takes it from each layer of each
+  earlier shape, a shifted hard shadow included, after the layers are made and before they are tessellated, and a layer
+  the region's box misses is left alone. *Consequence:* a stroke that is cut ends flat at the cut (a round cap is not
+  re-made there), where the pixels end it flat too; the work is charged to `MAX_SEGMENTS` as a boolean step of a drawing
+  is, so a cut of a scribble is refused before the engine runs.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

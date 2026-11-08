@@ -4,11 +4,11 @@ Status: V1a, designed from the example programs in [examples/](examples/); waiti
 in Rust and Python: `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V2a); `Param`, `Expr`, `Shape`, `Style` and
 `Drawing` with `translate`, `rotate`, `scale`, `fill`, `stroke`, `opacity`, `blend`, `only`, `without`, `with_values`,
 `parameters()`, `shapes()` and `size`, and the style verbs on a `Path` (V2b). A `Shape`'s `style` has `fill`, `stroke`,
-`stroke_width`, `join`, `cap`, `miter_limit`, `opacity`, `blend` and `shadow` (V10a); the rest of the members below arrive
+`stroke_width`, `join`, `cap`, `miter_limit`, `opacity`, `blend`, `shadow` and `knockout` (V10); the rest of the members below arrive
 with their steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6), and `along` (V6) on `Path` and `Drawing`, all in Rust
 and Python, and `text` and `along` in a document; and the per-item numbers `by_index`, `by_order`, `random` and
 `stagger`, and the steps `split`, `merge` and `slice` (V7), and the booleans `union`, `subtract`, `intersect`, `exclude`
-and `resolve` (V8), and the style step `shadow` (V10a), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
+and `resolve` (V8), and the style steps `shadow` and `knockout` (V10), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
 defaults written here. The rest is not built ([roadmap.md](roadmap.md)). Reasons:
 [design-decisions.md](design-decisions.md), "The code API". The JSON form of a drawing: [formats.md](formats.md).
 
@@ -306,7 +306,7 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | `alpha` outside 0..1 |
 | `blend` | `blend(mode)` | paints with `"normal"` or `"multiply"` over what is below | another mode |
 | `shadow` | `shadow(*, dx=0, dy=8, blur=16, color="#00000059")` | a drop shadow under each shape: the silhouette of its fill and stroke, moved by `dx` and `dy`, blurred and tinted `color`; the last call wins | `blur` below 0; `dx`, `dy` or `blur` not finite; `color` of `"none"`; pixel outputs: a blur past the limits below |
-| `knockout` | `knockout()` | each shape removes what is below it in its drawing, instead of painting | |
+| `knockout` | `knockout()` | each shape removes what is below it in its drawing, instead of painting: the area its fill and stroke cover is cut out of the shapes before it, shadows included | `to_svg`: more than 128 knockout layers nested (below) |
 | `gradient_map` | `gradient_map(colors)` | every fill and stroke colour replaced by its lightness read along `colors`, dark to light (two colours: a duotone) | fewer than 2 colours |
 | `posterize` | `posterize(levels)` | every fill and stroke colour reduced to `levels` levels a channel | `levels` below 2 |
 
@@ -329,6 +329,21 @@ output pixel up, and not a Gaussian below it (up to 22 levels off at 0.3 pixel);
 `knockout` is the style form of a cut: it keeps both shapes and cuts through everything below, shadows included;
 `subtract` makes new geometry (for a plotter, or for further verbs). Every style reaches SVG and pixels alike. Called on
 a `Path`, a style step returns a `Drawing` of that path.
+
+A shape that knocks out paints nothing itself. What it removes is the area its fill and stroke cover (a fill or stroke
+that is not `"none"`), and only from the shapes before it in paint order: those after it paint over the hole. Its
+colours and their alphas, its opacity, its blend and its shadow are not drawn and do not matter: a knockout is by
+coverage, so an anti-aliased edge removes the share of a pixel it covers, as any edge does. A shape that paints nothing,
+or has an empty path, removes nothing. `to_svg` wraps everything written before a run of knockouts in a
+`<g mask="url(#knockout-N)">`, `N` the number of the first knockout of the run; the `<mask>` is the canvas, grown by the
+farthest a shadow in the group reaches, in white, with each knockout's fill and stroke in black
+(`maskUnits="userSpaceOnUse"`), and renders alike in `resvg`, which the tests compare with the pixels. Knockouts in a row
+share one mask; a shape between two puts the first inside the second's group, so a multiply after a knockout still
+blends with what is left below, as in the pixels. Limits: at most 128 groups nest (`ParameterError` naming the
+knockout's shape and `MAX_KNOCKOUT_LAYERS`), because common XML readers refuse a document nested more than 256 levels;
+the part of an earlier shape outside the mask's region (the canvas and its shadows' reach) is cut off, which shows only
+where the SVG is displayed with `overflow:visible`. Pixels paint the knockout into a layer that is taken out of what is
+below it, within the part of the canvas it reaches, with the same anti-aliasing as the SVG.
 
 ### Values and evaluation
 
@@ -632,7 +647,9 @@ shape's fill and stroke overlap under opacity or multiply (two layers, not one g
 ground only drawn in two passes, as [mesh_upload.js](examples/mesh_upload.js) does; the single
 `blendFunc(DST_COLOR, ONE_MINUS_SRC_ALPHA)` is right only over an opaque ground (spike X1, `roadmap.md`). What each
 step becomes: opacity goes into the vertex alpha, multiply into the draw ranges, a knockout cuts the triangles below it
-(a boolean while meshing), halftone dots are triangles. A shadow with a blur of 0 is the
+(a boolean while meshing: the region its fill and its stroke outline cover is subtracted from the layers below, hard
+shadows included, and the edges and crossings are charged to `MAX_SEGMENTS` as a boolean step is, so a stroke that is
+cut ends flat at the cut, where the pixels end it the same way), halftone dots are triangles. A shadow with a blur of 0 is the
 shape's triangles moved and tinted, under it (one layer for the fill, one for the stroke, each in the tint times its own
 alpha, so where they overlap the shadow is darker than the pixels' one silhouette); with a blur above 0 there is no
 triangle form and `to_mesh` raises `ParameterError` naming `shadow` and the blur, because a blur needs an offscreen layer
