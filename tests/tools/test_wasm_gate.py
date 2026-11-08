@@ -45,16 +45,16 @@ class Verdict:
 
 
 @pytest.fixture(scope="module")
-def workspace(tmp_path_factory) -> Path:
+def workspace(tmp_path_factory, copy_tree) -> Path:
     root = tmp_path_factory.mktemp("wasm-workspace")
     for name in WORKSPACE_FILES:
         shutil.copy(ROOT / name, root)
-    shutil.copytree(ROOT / "crates", root / "crates")
-    shutil.copytree(ROOT / "tests" / "wasm", root / "tests" / "wasm", ignore=shutil.ignore_patterns("__pycache__"))
+    copy_tree(ROOT / "crates", root / "crates")
+    copy_tree(ROOT / "tests" / "wasm", root / "tests" / "wasm", ignore=shutil.ignore_patterns("__pycache__"))
     # the oracle reads an example document of the format and the star of examples/star.py
     (root / "examples").mkdir()
     shutil.copy(ROOT / "examples" / "star.py", root / "examples" / "star.py")
-    shutil.copytree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
+    copy_tree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
     return root
 
 

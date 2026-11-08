@@ -7,6 +7,7 @@ An architecture test of the tooling: its subject is the `build-check` task in py
 way `uv run poe check` does, in a copy of the project into which one fault at a time is written.
 """
 
+import hashlib
 import shutil
 import subprocess
 import sys
@@ -32,12 +33,18 @@ class Verdict:
 
 
 @pytest.fixture(scope="module")
-def rust_build_folder(tmp_path_factory) -> Path:
-    return tmp_path_factory.mktemp("target")
+def rust_build_folder(build_folder) -> Path:
+    """`build_folder`, one per state of the Rust sources as well: the sdist dates its files 2006, which cargo takes for
+    older than any artifact, so a folder that outlived an edit of the sources would build the wheel from old objects."""
+    sources = sorted((ROOT / "crates").rglob("*"))
+    digest = hashlib.sha256()
+    for path in filter(Path.is_file, sources):
+        digest.update(path.relative_to(ROOT).as_posix().encode() + path.read_bytes())
+    return build_folder.with_name(f"{build_folder.name}-{digest.hexdigest()[:12]}")
 
 
 @pytest.fixture
-def project(project_copy, rust_build_folder) -> Path:
+def project(project_copy) -> Path:
     copy = project_copy("pyproject.toml", "README.md", "LICENSE", ".gitignore", *RUST_FILES)
     (copy / "tools").mkdir()
     shutil.copy(ROOT / "tools" / "check_dists.py", copy / "tools")

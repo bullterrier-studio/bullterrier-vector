@@ -3,6 +3,7 @@ throwaway git repository (`git_repo`) and the environments the proofs run comman
 `copy_env`, `cargo_env`): built from an allow-list, so a variable of the developer's shell or of a CI runner
 (`RUSTFLAGS`, `GIT_DIR`, `CARGO_BUILD_TARGET`, `UV_*`) can neither fail a proof nor make one pass."""
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -13,6 +14,10 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
+# Where the proofs' Cargo build folders live between runs (inside `target/`, which is git-ignored).
+GATE_BUILDS = ROOT / "target" / "gate-proofs"
+# What decides how every dependency is compiled: a change to any of them starts a build folder of its own.
+BUILD_INPUTS = ("Cargo.lock", "Cargo.toml", "rust-toolchain.toml")
 # What a command of a proof inherits from the process: where programs and the toolchains are, and the temporary and
 # home folders. The Windows names are what Python, git and cargo need there to start at all (SYSTEMROOT, COMSPEC,
 # PATHEXT) and to find a home, a cache and a temporary folder (USERPROFILE, APPDATA, LOCALAPPDATA, TEMP, TMP); each is
@@ -43,6 +48,18 @@ def explicit_env() -> Callable[..., dict[str, str]]:
         return {**{name: os.environ[name] for name in INHERITED if name in os.environ}, **extra}
 
     return build
+
+
+@pytest.fixture(scope="module")
+def copy_tree() -> Callable[..., Path]:
+    """`copy_tree(source, destination, **options)`: `shutil.copytree` that gives every copied file the time of the
+    copy, where `copytree` keeps the original's. Cargo calls a build fresh when its artifacts are newer than the
+    sources, so a copy that kept an old time could be taken for the edited sources an earlier proof built."""
+
+    def copy(source: Path, destination: Path, **options) -> Path:
+        return Path(shutil.copytree(source, destination, copy_function=shutil.copy, **options))
+
+    return copy
 
 
 @pytest.fixture
@@ -116,14 +133,25 @@ def copy_env(uv_run_env) -> dict[str, str]:
 
 
 @pytest.fixture(scope="module")
-def cargo_env(explicit_env, tmp_path_factory) -> dict[str, str]:
+def build_folder(request) -> Path:
+    """The Cargo build folder of this module's proofs, shared by all its copies of the workspace and kept between runs
+    in `target/gate-proofs/`, so the dependencies are compiled once, not on every run (`rm -rf target/gate-proofs`
+    only makes the next run compile them again). One folder per module and per set of `BUILD_INPUTS`: a module runs
+    on one xdist worker (`--dist=loadfile`), so no two cargo runs share it. A copy's files must be newer than the
+    folder's artifacts (`copy_tree`), or cargo takes the artifacts of an earlier, edited copy for its own."""
+    digest = hashlib.sha256(b"".join((ROOT / name).read_bytes() for name in BUILD_INPUTS)).hexdigest()[:12]
+    return GATE_BUILDS / f"{Path(request.module.__file__).stem}-{digest}"
+
+
+@pytest.fixture(scope="module")
+def cargo_env(explicit_env, build_folder) -> dict[str, str]:
     """`uv run`'s environment (PyO3 finds this Python), offline, uncoloured, with one build folder for every copy.
     A task that runs `uv run` in a copy (`rust-test`, via `tools/run_capped.py`) uses it as it is, like `copy_env`."""
     return explicit_env(
         PATH=os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")]),
         UV_PROJECT_ENVIRONMENT=str(Path(sys.executable).parents[1]),
         UV_NO_SYNC="1",
-        CARGO_TARGET_DIR=str(tmp_path_factory.mktemp("target")),
+        CARGO_TARGET_DIR=str(build_folder),
         CARGO_NET_OFFLINE="true",
         CARGO_TERM_COLOR="never",
         NO_COLOR="1",

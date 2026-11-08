@@ -40,14 +40,14 @@ class Verdict:
 
 
 @pytest.fixture(scope="module")
-def workspace(tmp_path_factory) -> Path:
+def workspace(tmp_path_factory, copy_tree) -> Path:
     root = tmp_path_factory.mktemp("workspace")
     for name in WORKSPACE_FILES:
         shutil.copy(ROOT / name, root)
-    shutil.copytree(ROOT / "crates", root / "crates")
-    shutil.copytree(ROOT / "tools", root / "tools", ignore=shutil.ignore_patterns("__pycache__"))
+    copy_tree(ROOT / "crates", root / "crates")
+    copy_tree(ROOT / "tools", root / "tools", ignore=shutil.ignore_patterns("__pycache__"))
     # the JSON tests read the example documents of the format
-    shutil.copytree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
+    copy_tree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
     return root
 
 
