@@ -8,6 +8,7 @@
 //! the vertices are moved through the view afterwards: a drawing at twice the size has positions exactly twice as
 //! large.
 
+use super::cast;
 use super::outline::{bez_path, dots, stroke_outline, within_device};
 use super::view::View;
 use super::{Size, in_shape};
@@ -173,56 +174,91 @@ impl Maker<'_> {
             reason = "a list of at most a million shapes is exact in an f32, and an order from 0 to 1 loses nothing visible"
         )]
         let (item, order) = (shape.index() as f32, order as f32);
-        let paint = |rgba: [u8; 4]| {
-            let alpha = f64::from(rgba[3]) / 255.0 * style.opacity();
+        let paint = |rgba: [u8; 4], tint: Option<[u8; 4]>| {
+            // a shadow is the colour of its tint, as strong as the tint and the layer it is the silhouette of are
+            let (rgba, strength) = match tint {
+                Some(tint) => (tint, f64::from(tint[3]) / 255.0 * f64::from(rgba[3]) / 255.0),
+                None => (rgba, f64::from(rgba[3]) / 255.0),
+            };
             Paint {
-                rgba: premultiplied(rgba, alpha),
+                rgba: premultiplied(rgba, strength * style.opacity()),
                 blend: style.blend(),
                 item,
                 order,
             }
         };
+        // the layers in paint order: the fill, then the stroke, each with the colour it is painted in
+        let mut layers: Vec<(Vec<Ring>, [u8; 4])> = Vec::new();
         if let Some(rgba) = style.fill().rgba()
             && style.opacity() * f64::from(rgba[3]) > 0.0
         {
-            let rings: Vec<Ring> = polylines.iter().map(|polyline| ring(&polyline.points)).collect();
-            self.layer(&rings, &paint(rgba), view, &name)?;
+            layers.push((polylines.iter().map(|polyline| ring(&polyline.points)).collect(), rgba));
         }
-        let Some(stroke) = style.stroke() else { return Ok(()) };
-        let Some(rgba) = stroke.color().rgba() else {
-            return Ok(());
-        };
-        let device = view
-            .length(stroke.width())
-            .map_err(|error| in_shape(shape, "stroke width ", error))?;
-        within_device("the stroke width", device).map_err(|error| in_shape(shape, "", error))?;
-        if style.opacity() * f64::from(rgba[3]) > 0.0 {
-            // kurbo's round joins and ends are arcs on a self-overlapping outline, which the tessellator sometimes covers
-            // three times: the outline is made with bevel joins and butt ends, and discs added where the arcs were
-            let (join, cap) = match (stroke.join(), stroke.cap()) {
-                (Join::Round, cap) => (Join::Bevel, cap),
-                other => other,
-            };
-            let cap = if cap == Cap::Round { Cap::Butt } else { cap };
-            let outline = stroke_outline(
-                &bez_path(&polylines),
-                stroke,
-                (join, cap),
-                stroke.width(),
-                FLATNESS,
-                &name,
-            )?;
-            let mut rings = rings_of(&outline);
-            let mut charge = |count| self.work.made_segments(count, &name);
-            let round = (stroke.join() == Join::Round, stroke.cap() == Cap::Round);
-            for wedge in round_wedges(&polylines, round, stroke.width() / 2.0) {
-                charge(wedge.len())?;
-                rings.push(wedge);
+        if let Some(stroke) = style.stroke()
+            && let Some(rgba) = stroke.color().rgba()
+        {
+            let device = view
+                .length(stroke.width())
+                .map_err(|error| in_shape(shape, "stroke width ", error))?;
+            within_device("the stroke width", device).map_err(|error| in_shape(shape, "", error))?;
+            if style.opacity() * f64::from(rgba[3]) > 0.0 {
+                // kurbo's round joins and ends are arcs on a self-overlapping outline, which the tessellator sometimes covers
+                // three times: the outline is made with bevel joins and butt ends, and discs added where the arcs were
+                let (join, cap) = match (stroke.join(), stroke.cap()) {
+                    (Join::Round, cap) => (Join::Bevel, cap),
+                    other => other,
+                };
+                let cap = if cap == Cap::Round { Cap::Butt } else { cap };
+                let outline = stroke_outline(
+                    &bez_path(&polylines),
+                    stroke,
+                    (join, cap),
+                    stroke.width(),
+                    FLATNESS,
+                    &name,
+                )?;
+                let mut rings = rings_of(&outline);
+                let mut charge = |count| self.work.made_segments(count, &name);
+                let round = (stroke.join() == Join::Round, stroke.cap() == Cap::Round);
+                for wedge in round_wedges(&polylines, round, stroke.width() / 2.0) {
+                    charge(wedge.len())?;
+                    rings.push(wedge);
+                }
+                for dot in dots(&polylines, stroke.cap(), stroke.width(), &mut charge)? {
+                    rings.extend(dot.iter().map(|polyline| ring(&polyline.points)));
+                }
+                layers.push((rings, rgba));
             }
-            for dot in dots(&polylines, stroke.cap(), stroke.width(), &mut charge)? {
-                rings.extend(dot.iter().map(|polyline| ring(&polyline.points)));
+        }
+        if let Some((shadow, tint)) = cast(style) {
+            if shadow.blur() > 0.0 {
+                return Err(Error::parameter(
+                    "shadow",
+                    format!(
+                        "shape {}: blur {} has no triangle form, only a blur of 0 does; use to_rgba or to_svg",
+                        shape.index(),
+                        shadow.blur()
+                    ),
+                ));
             }
-            self.layer(&rings, &paint(rgba), view, &name)?;
+            let (dx, dy) = (shadow.dx(), shadow.dy());
+            for (axis, offset) in [("dx", dx), ("dy", dy)] {
+                within_device(&format!("the shadow {axis}"), offset.abs())
+                    .and_then(|()| within_device(&format!("the shadow {axis}"), view.length(offset)?.abs()))
+                    .map_err(|error| in_shape(shape, "", error))?;
+            }
+            #[expect(clippy::cast_possible_truncation, reason = "the tessellator computes in f32")]
+            let (dx, dy) = (dx as f32, dy as f32);
+            for (rings, rgba) in layers.iter().filter(|_| tint[3] > 0) {
+                let shifted: Vec<Ring> = rings
+                    .iter()
+                    .map(|ring| ring.iter().map(|[x, y]| [x + dx, y + dy]).collect())
+                    .collect();
+                self.layer(&shifted, &paint(*rgba, Some(tint)), view, &name)?;
+            }
+        }
+        for (rings, rgba) in &layers {
+            self.layer(rings, &paint(*rgba, None), view, &name)?;
         }
         Ok(())
     }

@@ -9,7 +9,7 @@ mod svg;
 mod view;
 
 use crate::node::stack::MAX_FRAME;
-use crate::{Error, Shape};
+use crate::{Error, ShadowStyle, Shape, Style};
 pub use mesh::Mesh;
 
 /// The longest side of a pixel output, in whole pixels.
@@ -99,4 +99,12 @@ pub(crate) fn in_shape(shape: &Shape, what: &str, error: Error) -> Error {
         }
         other => other,
     }
+}
+
+/// The shadow a shape casts and its colour's bytes: its own, if it has one that paints and the shape paints anything
+/// for it to be the silhouette of.
+pub(crate) fn cast(style: &Style) -> Option<(&ShadowStyle, [u8; 4])> {
+    let shadow = style.shadow()?;
+    let painted = style.fill().rgba().is_some() || style.stroke().is_some();
+    painted.then(|| shadow.color().rgba().map(|rgba| (shadow, rgba)))?
 }

@@ -7,6 +7,7 @@ pub(crate) mod mesh;
 pub(crate) mod ops;
 pub(crate) mod pixels;
 pub(crate) mod region;
+pub(crate) mod svg_oracle;
 
 use bullterrier_vector::{Error, Path};
 use proptest::prelude::*;

@@ -35,6 +35,13 @@ pub(crate) const MAX_SEGMENTS: usize = 10_000_000;
 // a glyph, a stroke around one) crosses 2 to 6 edges at a time and spends under a tenth of this on a million vertices
 pub(crate) const MAX_TESSELLATION_WORK: usize = 250_000_000;
 
+/// The most pixels the blurred shadows of one draw may filter, counted as each layer is begun: the pixels of the layer a
+/// shadow is blurred in, which is the part of its shape on the canvas grown on every side by what the shadow reaches.
+// constant: measured on this machine in release builds, the filter takes about 9 ns a pixel of layer however it is
+// shaped (a deviation of 1000 pixels on a small shape, 0.3 s; of 3000, 2.8 s), and a layer of 2^27 pixels holds 512 MiB
+// of RGBA, as the largest picture does (`MAX_PIXELS`), so about a second and the memory of one more picture
+pub(crate) const MAX_FILTER_PIXELS: u64 = 1 << 27;
+
 /// The longest document `from_json` reads and `to_json` writes, in bytes of UTF-8.
 // constant: formats.md "Limits and security" sets MAX_DOCUMENT_BYTES to 16 MiB
 pub(crate) const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
@@ -75,6 +82,7 @@ pub(crate) struct Work {
     shapes: Cell<usize>,
     segments: Cell<usize>,
     tessellation: Cell<usize>,
+    filtered: Cell<u64>,
     outline: Cell<usize>,
 }
 
@@ -126,6 +134,23 @@ impl Work {
             return Err(Error::parameter(
                 place,
                 format!("MAX_TESSELLATION_WORK {MAX_TESSELLATION_WORK} passed"),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Charges a filter layer of `pixels` made for `place`.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `place`, the counter and its limit, if the draw has now filtered more than
+    /// [`MAX_FILTER_PIXELS`].
+    pub(crate) fn filtered(&self, pixels: u64, place: &str) -> Result<(), Error> {
+        let total = self.filtered.get().saturating_add(pixels);
+        self.filtered.set(total);
+        if total > MAX_FILTER_PIXELS {
+            return Err(Error::parameter(
+                place,
+                format!("MAX_FILTER_PIXELS {MAX_FILTER_PIXELS} passed by the blur of its shadow"),
             ));
         }
         Ok(())
