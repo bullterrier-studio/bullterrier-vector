@@ -441,7 +441,7 @@ def offsets() -> list[Entry]:
 
 # The drawings whose mesh the core refuses (a blurred shadow has no triangle form): the comparison is that WebAssembly
 # refuses with the native error.
-MESH_REFUSED = {"shadow_blurred", "shadow_blurred_group", "shadow_blur_param"}
+MESH_REFUSED = {"shadow_blurred", "shadow_blurred_group", "shadow_blur_param", "knockout_blurred_shadow_below"}
 
 
 def shadows() -> list[Entry]:
@@ -481,6 +481,55 @@ def shadows() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {})])) for name, drawing in drawings.items()]
 
 
+def knockouts() -> list[Entry]:
+    """Knockouts: a hole, a stroke only, a stroke and fill with a shape after, a hard shadow cut, a blurred shadow cut
+    (its mesh refused as a blurred shadow's is), two knockouts with a shape between them, glyphs cut by a disc and a
+    hole moved by a Param. The mask is SVG text, so it is exact; the cut of the mesh is the engine's on an integer
+    grid, so the mesh buffers are exact; the pixels are `vello_cpu`'s, within the tolerance."""
+    paper = btvec.Path.rect(5, 5, 90, 90)
+    disc = btvec.Path.circle((50, 50), 22)
+    square = btvec.Path.rect(30, 30, 40, 40)
+    shift = btvec.Param("shift", default=0, min=-30, max=30, unit="px", meaning="how far the hole moves right")
+    drawings = {
+        "knockout_hole": framed(paper.fill(RED), disc.fill(INK).knockout()),
+        "knockout_stroke_only": framed(
+            paper.fill(BLUE), square.fill("none").stroke(INK, width=9, join="miter").knockout()
+        ),
+        "knockout_fill_stroke_then_shape": framed(
+            paper.fill(GOLD).stroke(INK, width=4),
+            disc.translate(-12, 0).fill(INK).stroke(INK, width=7).knockout(),
+            disc.translate(14, 0).scale(0.6).fill("#ff4f9a"),
+        ),
+        "knockout_hard_shadow_below": framed(
+            square.translate(-10, -10).fill(RED).shadow(dx=18, dy=22, blur=0, color="#000000"),
+            disc.translate(18, 18).fill(INK).knockout(),
+        ),
+        "knockout_blurred_shadow_below": framed(
+            square.translate(-10, -10).fill(RED).shadow(dx=10, dy=12, blur=12),
+            disc.translate(18, 18).fill(INK).knockout(),
+        ),
+        "knockout_two_with_a_shape_between": framed(
+            paper.fill(RED),
+            btvec.Path.rect(15, 15, 30, 30).fill(INK).knockout(),
+            btvec.Path.rect(0, 0, 100, 50).fill(BLUE),
+            btvec.Path.rect(35, 35, 30, 30).fill(INK).knockout(),
+        ),
+        "knockout_glyphs": btvec.Drawing(
+            btvec.text("Hif", font=FRAUNCES, size=90, anchor=(12, 110)).fill(INK),
+            btvec.Path.circle((60, 70), 26).fill(RED).knockout(),
+            size=(200, 140),
+        ),
+        "knockout_param": framed(
+            paper.fill(GOLD), btvec.Drawing(disc).translate(shift, 0).scale(0.7).fill(INK).knockout()
+        ),
+    }
+    draws: dict[str, list[Draw]] = {
+        "knockout_param": [(100, 100, {}), (200, 200, {"shift": 18})],
+        "knockout_glyphs": [(200, 140, {}), (100, 70, {})],
+    }
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -492,6 +541,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     booleans,
     offsets,
     shadows,
+    knockouts,
 ]
 
 
