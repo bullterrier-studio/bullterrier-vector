@@ -594,3 +594,30 @@ proptest! {
         );
     }
 }
+
+// Shapes beside far larger ones -----------------------------------------------------------------------------------------
+
+/// The engine rounds to a frame as wide as all of its input, so a result that is only a small piece of it is rounded
+/// as coarsely as the input is large (a corner at 0.006 moves by 1e-13 beside a shape at 700). Found by the fuzz: the
+/// hair a subtract left (a hole of area 3e-18 outside every outer ring) was kept, as it was judged by the result's
+/// own size.
+#[test]
+fn a_hair_left_beside_a_far_larger_shape_is_not_a_hole() -> Result<(), TestCaseError> {
+    let open = |start: P, rest: &[P]| polygon(&[&[start], rest].concat(), false);
+    let a = vec![
+        open((0.003, 0.0), &[(0.004, 0.0), (0.008, 0.002), (0.006, 0.001)]),
+        open((0.0, 0.005), &[(0.008, 0.0), (0.0, 0.006)]),
+    ];
+    let square = |near: f64, far: f64| polygon(&[(near, near), (far, near), (far, far), (near, far)], true);
+    let b = vec![
+        square(113.63698046060347, 713.6369804606035),
+        square(133.63698046060347, 693.6369804606035),
+    ];
+    let scene = Scene::new(&a, &b)?;
+    for (number, path) in scene.results()?.iter().enumerate() {
+        let found = region(path)?;
+        prop_assert_eq!(canonical_fault(&found), None, "result {}", number);
+        prop_assert_eq!(crossing_fault(&found, scene.slack), None, "result {}", number);
+    }
+    Ok(())
+}

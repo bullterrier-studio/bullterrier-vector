@@ -13,7 +13,7 @@
 //! 80 times `tolerance` strays by more than it (at most 0.00012 of the radius).
 
 use super::Path;
-use super::boolean::{Contour, canonical, checked_tolerance, contours, overlay};
+use super::boolean::{Contour, canonical, checked_tolerance, contours, largest, overlay};
 use crate::Error;
 use crate::geometry::coordinate;
 use crate::math;
@@ -75,9 +75,10 @@ impl Path {
         }
         let style = OutlineStyle::new(distance).line_join(line_join(join, miter_limit, distance.abs(), tolerance));
         // the region is lines, so there is nothing to flatten or charge
-        let shapes = contours(&region, tolerance, &mut |_| Ok(()))?.outline_as::<i64>(&style);
+        let region = contours(&region, tolerance, &mut |_| Ok(()))?;
+        let shapes = region.outline_as::<i64>(&style);
         charge(shapes.iter().flatten().map(Vec::len).sum())?;
-        canonical(shapes)
+        canonical(shapes, largest(&region))
     }
 
     /// As [`Path::outline`], calling `charge` with the number of edges each curve is flattened into, then as

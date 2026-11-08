@@ -143,7 +143,16 @@ pub(super) fn overlay(
     charge(box_pairs(subject, clip))?;
     let shapes = subject.overlay_as::<i64>(&clip, rule, FillRule::NonZero);
     charge(shapes.iter().flatten().map(Vec::len).sum())?;
-    canonical(shapes)
+    canonical(shapes, largest(subject).max(largest(clip)))
+}
+
+/// The largest coordinate of `contours`: the size the engine's frame, and so the rounding of its result, follows.
+pub(super) fn largest(contours: &[Contour]) -> f64 {
+    contours
+        .iter()
+        .flatten()
+        .flatten()
+        .fold(0.0_f64, |most, c| most.max(c.abs()))
 }
 
 /// The closed polygons `path` fills with: each sub-path flattened. One of fewer than 3 corners (a lone move or a
@@ -237,21 +246,22 @@ impl Counts {
 }
 
 /// `shapes` (an outer contour and its holes each, as the engine returns them: the outer running clockwise on a `y`-down
-/// screen, holes the other way) as a path in canonical form.
-pub(super) fn canonical(mut shapes: Vec<Vec<Contour>>) -> Result<Path, Error> {
+/// screen, holes the other way) as a path in canonical form. `input` is the largest coordinate that went into the engine:
+/// its frame is as wide as all of its input, so a result that is only a small piece of it is rounded as coarsely as
+/// the input is large.
+pub(super) fn canonical(mut shapes: Vec<Vec<Contour>>, input: f64) -> Result<Path, Error> {
     for shape in &mut shapes {
         shape.iter_mut().for_each(start_at_top);
         if let Some((_, holes)) = shape.split_first_mut() {
             holes.sort_by(by_top);
         }
     }
-    // the engine works in a frame as wide as all of its input, so that is the size the numbers are rounded to
     let scale = shapes
         .iter()
         .flatten()
         .flatten()
         .flatten()
-        .fold(0.0_f64, |most, c| most.max(c.abs()));
+        .fold(input, |most, c| most.max(c.abs()));
     shapes.retain_mut(|shape| {
         if shape.first().is_none_or(|outer| is_flat(outer, scale)) {
             return false;
@@ -277,8 +287,8 @@ pub(super) fn canonical(mut shapes: Vec<Vec<Contour>>) -> Result<Path, Error> {
     Ok(builder.finish())
 }
 
-/// Whether `contour` is no thicker than a few units in the last place of `scale`, the largest coordinate of the result
-/// (twice its area over its perimeter, about its thickness when it is thin). The engine's grid is finer than a number,
+/// Whether `contour` is no thicker than a few units in the last place of `scale`, the largest coordinate of the input
+/// or the result (twice its area over its perimeter, about its thickness when it is thin). The engine's grid is finer than a number,
 /// and it works in a frame as wide as all of its input, so a hair-thin piece of an outline that hardly leaves a line
 /// (or a spike beside a far larger shape) comes back with its corners rounded to numbers: in line, or so far out of
 /// it that the side it runs round has changed. Such a piece is no contour, and its area is below what a number holds.
