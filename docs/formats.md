@@ -124,8 +124,8 @@ when `Style.fill` is `None`): the shape then never takes the default paint, and 
 | `scale` | `by` (pair, not 0), `about` (point) |
 | `union`, `subtract`, `intersect`, `exclude` | `other` (drawing), `tolerance` (literal, above 0 and at most 1e100; default 0.01) |
 | `resolve` | `tolerance` |
-| `offset` | `distance`, `join` (`"round"`, `"miter"`, `"bevel"`), `miter_limit` |
-| `outline` | `width`, `join`, `cap` (`"butt"`, `"round"`, `"square"`), `miter_limit` |
+| `offset` | `distance` (per-item number within ±1e100), `join` (`"round"`, `"miter"`, `"bevel"`; default `"round"`), `miter_limit` (literal, from 1; default 4), `tolerance` (as the booleans) |
+| `outline` | `width` (per-item number above 0, at most 1e100), `join`, `cap` (`"butt"`, `"round"`, `"square"`; default `"round"`), `miter_limit`, `tolerance` |
 | `drop_parts`, `fill_holes` | `smaller_than` |
 | `slice` | `start`, `end` (fractions 0..1, per-item numbers allowed), `near` (point; each coordinate within ±1e100) |
 | `reverse`, `split`, `knockout` | none: `{"reverse": {}}` |
@@ -472,7 +472,7 @@ counter, its limit and the step:
 | Counter | Limit | Counts, per draw |
 |---|---|---|
 | `MAX_SHAPES` | 1,000,000 | shapes made by any step, the stack of a drawing shared twice counting its shapes twice |
-| `MAX_SEGMENTS` | 10,000,000 | path segments made (by `resample`, `dash`, `hatch`, `trace`, the flattening for pixels; one shape's stroke outline, too, may not make more than this many; by the booleans, the flattened edges, the pairs of edges whose boxes overlap and the vertices of the result) |
+| `MAX_SEGMENTS` | 10,000,000 | path segments made (by `resample`, `dash`, `hatch`, `trace`, the flattening for pixels; one shape's stroke outline, too, may not make more than this many; by the booleans, `offset` and `outline`, the flattened edges, the pairs of edges whose boxes overlap and the vertices of the result) |
 | `MAX_TESSELLATION_WORK` | 250,000,000 | for the mesh, each vertex the tessellator makes counting the most edges of its layer a sweep line crosses at once (about a second of work; a circle, a glyph or a stroke around one costs under a tenth of it for a million vertices) |
 | `MAX_FIELD_SAMPLES` | 16,777,216 | samples of a field or flow (tracing an analytic field, a distance field, hatching) |
 | `MAX_COPIES` | 1,000,000 | copies made by `repeat` |

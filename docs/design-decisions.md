@@ -772,6 +772,33 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   `ParameterError`: a `tolerance` outside the range, a result beyond ±1e100, `MAX_SEGMENTS`. *Reason:* an error the
   engine cannot produce would be dead code. `GeometryError` stays for verbs that can fail geometrically.
 
+## Offsets (V9)
+
+- **The engine is `i_overlay`, in `path/offset.rs` and `path/boolean.rs` alone** (2026-11-08). `offset` resolves the path
+  first (the nonzero region, as the booleans do) and offsets the polygons; `outline` strokes each flattened sub-path on
+  its own and unites the strokes. Both results go through the canonical form of the booleans. *Reason:* the crate is
+  already the boolean engine and has the offset, the stroke, the three joins and the three caps, so no second geometry
+  engine enters the tree.
+- **A miter beyond the limit is clipped flat, not bevelled** (2026-11-08). *Reason:* the engine gives a miter that is
+  cut at a length (SVG 2 `miter-clip`) and cannot bevel; a chamfer pass of our own is complex and breaks on edges shorter
+  than the cut. *Consequence:* `stroke(join="miter")` (SVG's `miter`) bevels past the limit and `outline` clips, so the
+  two differ at a sharp corner.
+- **The round arc step comes from `tolerance`** (2026-11-08): `2 acos(1 - tolerance / r)` for radius `r`, the widest step
+  whose chord strays by at most `tolerance`. *Reason:* the number that shapes the result is a parameter in its own terms
+  (rule 1), and `tolerance` already is.
+- **Limits of the engine found when it was built in** (2026-11-08), kept, not worked around: a `miter_limit` above about 23
+  acts as 23 (the engine takes the corner angle in integer maths); its arcs run from 1.8 to 45 degrees, so a round join of
+  a radius above about 80 times `tolerance` strays by up to 0.00012 of the radius; a turn under 5 degrees is bevelled; a
+  `distance` beyond about 1e19 times the size of the shape silently gives an empty path, and so does a `width` far below
+  the integer grid; a one-point sub-path paints nothing in `outline` though `stroke` draws a dot. *Reason:* each is far
+  outside what a drawing asks of it, and a guard would be code for a case no one meets (rule 2).
+- **`distance` and `width` are per-item numbers on a `Drawing`; `join`, `cap`, `miter_limit` and `tolerance` are
+  literals** (2026-11-08). *Reason:* a list of shapes grown by different amounts is the use (a stagger, `by_index`); the
+  rest choose a kind of corner or a precision, which one step does not vary per shape, as `tolerance` does not for the
+  booleans. *Consequence:* a Param cannot switch a join; two steps can.
+- **A `Drawing` step charges as the booleans do** (2026-11-08): the flattened edges, the pairs of edges whose boxes overlap
+  and the vertices of the result count against `MAX_SEGMENTS`; a `Path` method charges nothing.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

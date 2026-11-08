@@ -229,6 +229,25 @@ Known limits:
 - **Per frame,** `resolve` on text costs about 50 microseconds a glyph and a `subtract` of a line from a plate about 130
   ([benchmarks.md](benchmarks.md), "Booleans (V8)"), measured with a new weight on every call, so nothing is cached.
 
+### Offsets
+
+`offset` and `outline` give the region a path fills moved, and the region a stroke paints, as closed straight-edged
+polygons in the canonical form of "Path" (rows above; a `miter` clipped flat, not bevelled). On a `Drawing` they are
+steps: each shape keeps its style and attributes and gets the `Path` result; a shape that shrinks past nothing keeps an
+empty path. `distance` and `width` are numbers for each shape (a number, a `Param`, `by_index`, `Random`...), so a list
+of shapes grows by different amounts; `join`, `cap`, `miter_limit` and `tolerance` are plain values, not Params.
+Rust: `path.offset(2.0, Join::Round, 4.0, 0.01)?`, `drawing.offset(2.0, Join::Round, 4.0, 0.01)`,
+`drawing.outline(2.0, Join::Round, Cap::Round, 4.0, 0.01)`.
+
+Errors: `ParameterError` as the rows say; a `Drawing` names the step and the argument (`step 2 (offset).join`) and a draw
+past `MAX_SEGMENTS` is refused as for the booleans. No offset raises `GeometryError`.
+
+Known limits (the engine's, `docs/design-decisions.md`, "Offsets (V9)"): a `miter_limit` above about 23 acts as 23; a turn
+under 5 degrees is bevelled; a round join or cap of a radius above about 80 times `tolerance` strays by up to 0.00012 of
+the radius; a feature far below the extent of the shape or the offset is lost to rounding, so a `width` far below the
+grid, or a `distance` beyond about 1e19 times the size of the shape, gives an empty path; a one-point sub-path paints
+nothing in `outline` (`stroke` draws a dot).
+
 ### hatch
 
 Evenly spaced lines following `flow` inside each region: no two closer than the spacing, each
