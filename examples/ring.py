@@ -4,8 +4,6 @@
 numbers may be Params).
 """
 
-from pathlib import Path
-
 import bullterrier_vector as btvec
 
 circle = btvec.Path.circle((200, 200), 120)
@@ -17,5 +15,4 @@ half_width = btvec.Param("half_width", default=14, min=1, max=60, unit="px", mea
 disc = btvec.Drawing(circle, size=(400, 400))
 live = disc.offset(half_width).subtract(disc.offset(-half_width)).fill("#0d0d0d")
 
-for value in (4, 14, 40):
-    Path(f"ring-{value}.svg").write_text(live.to_svg(400, 400, half_width=value), encoding="utf-8")
+svgs = {value: live.to_svg(400, 400, half_width=value) for value in (4, 14, 40)}  # one per ring width

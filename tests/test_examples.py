@@ -278,3 +278,38 @@ def test_cutout_cuts_the_letters_out_of_the_plate_and_keeps_the_lens_two_discs_s
     assert crescents.path.bounds.width == pytest.approx(412)  # 2 * (96 + 110)
     assert crescents.path.contains((420, 640))
     assert not crescents.path.contains((500, 640))
+
+
+def test_cut_paper_layers_nest_each_one_a_step_wider_than_the_last_inside_a_ring_of_cut_line(run):
+    paper, *layers, lettering, cut_line = run("cut_paper_layers")["shapes"]
+    assert len(layers) == 4
+    # the layers run from the outermost, 4 steps of 14 px wide, to the innermost, 1 step: each grows the lettering's box
+    # by its distance on every side (a round join reaches exactly that far)
+    box = lettering.path.bounds
+    for layer, grown in zip(layers, [56, 42, 28, 14], strict=True):
+        assert layer.path.bounds.x == pytest.approx(box.x - grown, abs=0.1)
+        assert layer.path.bounds.y == pytest.approx(box.y - grown, abs=0.1)
+        assert layer.path.bounds.width == pytest.approx(box.width + 2 * grown, abs=0.2)
+        assert layer.path.bounds.height == pytest.approx(box.height + 2 * grown, abs=0.2)
+    # the cut line is a ring 3 px wide round the layers 5 steps out: it paints its own edge, not the middle of the word
+    assert cut_line.path.bounds.x == pytest.approx(box.x - 70 - 1.5, abs=0.1)
+    assert cut_line.path.contains((cut_line.path.bounds.x + 1, box.y + box.height / 2))
+    assert not cut_line.path.contains((box.x + box.width / 2, box.y + box.height / 2))
+    assert paper.path.bounds == btvec.Rect(0, 0, 1000, 420)
+
+
+def test_ring_is_a_band_round_the_circle_that_widens_with_the_half_width(run):
+    found = run("ring")
+    assert found["on_band"] is True
+    ring = found["ring"]
+    live = found["live"]
+    assert isinstance(ring, btvec.Path)
+    assert isinstance(live, btvec.Drawing)
+    assert not ring.contains((200, 200))  # the centre is in the hole
+    # the circle has radius 120 about (200, 200): the band reaches half_width either side of it
+    for half_width in (4, 14, 40):
+        (band,) = live.with_values(half_width=half_width).shapes()
+        assert band.path.bounds.width == pytest.approx(240 + 2 * half_width, abs=0.1)
+        assert band.path.contains((200, 200 - 120))
+        assert not band.path.contains((200, 200))
+        assert not band.path.contains((200, 200 - 120 - half_width - 1))

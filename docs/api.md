@@ -28,8 +28,9 @@ import bullterrier_vector as btvec
 | [hatched_poster.py](examples/hatched_poster.py) | reference piece 3: flow-field hatching by tone, rings of a distance field, a plotter file |
 | [kinetic_type.py](../examples/kinetic_type.py) | the headline of piece 1 as far as it is built: a variable-font weight a letter, two multiply inks |
 | [star.py](../examples/star.py) | building and measuring a `Path` |
-| [ring.py](examples/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
+| [ring.py](../examples/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
 | [cutout.py](../examples/cutout.py) | `resolve`, `subtract`, `intersect` and `exclude`: a headline cut out of a plate, the lens of two circles |
+| [cut_paper_layers.py](../examples/cut_paper_layers.py) | `offset` layers of a headline nesting by a `step` Param, an `outline` cut line round them |
 | [text_on_path.py](../examples/text_on_path.py) | text bent along a path, moving round it |
 | [draw_on.py](../examples/draw_on.py) | draw-on by `progress`, staggered letter by letter |
 | [marching_dashes.py](examples/marching_dashes.py) | a dash pattern with a moving phase |
