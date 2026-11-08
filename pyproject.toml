@@ -138,6 +138,8 @@ setup = { sequence = ["pre-commit install --install-hooks", "git config --local 
 # Read by tools/pre_push.py (`poe check`'s proofs step): the paths the gate proofs (tests/tools/, marker `gate`) read, copy,
 # edit or anchor on. A change to one of them since the proofs last passed makes `check` run them; `full` always does.
 # A file, or a folder ending in `/`. tests/tools/test_gate_tiers.py fails for an entry that no longer exists.
+# List a file only when a proof matches its text or copies it; one a proof only appends to (crates/core/src/lib.rs) cannot
+# break the proof, and listing it would run the proofs whenever a module is added.
 [tool.gate-proofs]
 triggers = [
     "tools/", # the scripts the gates run, copied into the proofs' workspaces
@@ -147,8 +149,6 @@ triggers = [
     "examples/star.py", # the star the wasm proof compares across languages (an offence edits it)
     "crates/core/examples/star.rs", # the Rust star of that proof (an offence edits it)
     "crates/wasm/examples/star.mjs", # the Node star of that proof (an offence edits it)
-    "crates/core/src/lib.rs", # the file the Rust-gate proofs append an offence to
-    "crates/core/src/geometry.rs", # the file the unreachable-pub proof appends to
     "crates/core/Cargo.toml", # the manifest the dependency and licence proofs edit by text
     "crates/python/Cargo.toml", # the manifest the build proof expects in the sdist
     "crates/wasm/src/lib.rs", # the glue the wasm proof breaks by text
