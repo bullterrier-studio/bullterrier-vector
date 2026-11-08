@@ -16,7 +16,7 @@ const fn color(domain: Domain) -> Arg {
 }
 
 /// The word `name` of a set, as the argument of a step, given when the call is made.
-const fn word(name: &'static str, default: Option<&'static str>, options: &'static [&'static str]) -> Arg {
+pub(super) const fn word(name: &'static str, default: Option<&'static str>, options: &'static [&'static str]) -> Arg {
     Arg {
         name,
         kind: Kind::Text,
@@ -30,7 +30,7 @@ const fn word(name: &'static str, default: Option<&'static str>, options: &'stat
 }
 
 /// A number read for each shape, within `domain`.
-const fn number(name: &'static str, default: Option<f64>, domain: Domain) -> Arg {
+pub(super) const fn number(name: &'static str, default: Option<f64>, domain: Domain) -> Arg {
     Arg {
         name,
         kind: Kind::Number,

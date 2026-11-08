@@ -5,6 +5,7 @@ mod cache;
 mod eval;
 mod graph;
 mod items;
+mod offset;
 mod select;
 mod style;
 mod transform;

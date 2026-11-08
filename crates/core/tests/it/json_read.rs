@@ -191,9 +191,9 @@ fn a_name_the_library_does_not_know_is_refused_naming_it_and_the_library_version
     assert_eq!(pointer, "/root/1/wibble");
     assert!(message.contains("`wibble`") && message.contains(LIBRARY), "{message}");
     // a call from a later batch of the roadmap reads the same way
-    let (pointer, message) = refused(&after_triangle(r#",{"offset":{"distance":4}}"#))?;
-    assert_eq!(pointer, "/root/1/offset");
-    assert!(message.contains("`offset`"), "{message}");
+    let (pointer, message) = refused(&after_triangle(r#",{"wobble":{"amplitude":4}}"#))?;
+    assert_eq!(pointer, "/root/1/wobble");
+    assert!(message.contains("`wobble`"), "{message}");
     Ok(())
 }
 

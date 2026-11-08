@@ -12,8 +12,8 @@
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, build, log_uniform, parameter_refusal, step};
 use bullterrier_vector::{
-    Along, Blend, Color, Deg, Drawing, Error, Expr, Kind, Param, Path, Point, Reads, Role, Rotate, Scale, ScaleBy,
-    Select, Shape, Stroke, Text, Values, text, verbs,
+    Along, Blend, Cap, Color, Deg, Drawing, Error, Expr, Join, Kind, Param, Path, Point, Reads, Role, Rotate, Scale,
+    ScaleBy, Select, Shape, Stroke, Text, Values, text, verbs,
 };
 use proptest::prelude::*;
 use std::collections::BTreeSet;
@@ -554,6 +554,121 @@ fn rows() -> Vec<Row> {
                     "M0 0 L10 0 L10 10 L0 10 Z M5 5 L15 5 L15 15 L5 15 Z",
                     |d| Ok(d.resolve(0.01)),
                     "M0 0 L10 0 L10 5 L15 5 L15 15 L5 15 L5 10 L0 10 Z",
+                )],
+            }),
+        },
+        Row {
+            verb: "offset",
+            sample: || Ok(square()?.offset(2.0, Join::Miter, 4.0, 0.01)),
+            with: Some(|argument, value| match argument {
+                "distance" => Ok(square()?.offset(value, Join::Round, 4.0, 0.01)),
+                "miter_limit" => Ok(square()?.offset(1.0, Join::Miter, literal(argument, &value)?, 0.01)),
+                "tolerance" => Ok(square()?.offset(1.0, Join::Round, 4.0, literal(argument, &value)?)),
+                _ => Err(unknown("offset", argument)),
+            }),
+            ranges: &[
+                ("distance", 2.0, true),
+                ("distance", 0.0, true),
+                ("distance", -2.0, true),
+                ("distance", 1e90, true),
+                ("distance", 1.000_000_1e100, false),
+                ("distance", f64::NAN, false),
+                ("distance", f64::INFINITY, false),
+                ("miter_limit", 1.0, true),
+                ("miter_limit", 1e6, true),
+                ("miter_limit", 0.99, false),
+                ("miter_limit", f64::NAN, false),
+                ("miter_limit", f64::INFINITY, false),
+                ("tolerance", 0.01, true),
+                ("tolerance", 1e100, true),
+                ("tolerance", 1e-300, true),
+                ("tolerance", 0.0, false),
+                ("tolerance", -1.0, false),
+                ("tolerance", 1.000_000_1e100, false),
+                ("tolerance", f64::NAN, false),
+                ("tolerance", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let (a, tolerance) = (a % 300.0, 0.05 + b.abs() % 1.0);
+                    let subject = Drawing::from(path.clone());
+                    Ok([(Join::Round, "round"), (Join::Miter, "miter"), (Join::Bevel, "bevel")]
+                        .into_iter()
+                        .map(|(join, name)| {
+                            (
+                                name,
+                                subject.offset(a, join, 3.0, tolerance),
+                                path.offset(a, join, 3.0, tolerance),
+                            )
+                        })
+                        .collect())
+                },
+                by_hand: &[
+                    (
+                        SQUARE,
+                        |d| Ok(d.offset(2.0, Join::Miter, 4.0, 0.01)),
+                        "M-2 -2 L12 -2 L12 12 L-2 12 Z",
+                    ),
+                    (
+                        SQUARE,
+                        |d| Ok(d.offset(-2.0, Join::Round, 4.0, 0.01)),
+                        "M2 2 L8 2 L8 8 L2 8 Z",
+                    ),
+                ],
+            }),
+        },
+        Row {
+            verb: "outline",
+            sample: || Ok(square()?.outline(2.0, Join::Miter, Cap::Butt, 4.0, 0.01)),
+            with: Some(|argument, value| match argument {
+                "width" => Ok(square()?.outline(value, Join::Round, Cap::Round, 4.0, 0.01)),
+                "miter_limit" => Ok(square()?.outline(1.0, Join::Miter, Cap::Butt, literal(argument, &value)?, 0.01)),
+                "tolerance" => Ok(square()?.outline(1.0, Join::Round, Cap::Round, 4.0, literal(argument, &value)?)),
+                _ => Err(unknown("outline", argument)),
+            }),
+            ranges: &[
+                ("width", 2.0, true),
+                ("width", 1e-9, true),
+                ("width", 1e90, true),
+                ("width", 0.0, false),
+                ("width", -1.0, false),
+                ("width", 1.000_000_1e100, false),
+                ("width", f64::NAN, false),
+                ("width", f64::INFINITY, false),
+                ("miter_limit", 1.0, true),
+                ("miter_limit", 1e6, true),
+                ("miter_limit", 0.99, false),
+                ("miter_limit", f64::NAN, false),
+                ("miter_limit", f64::INFINITY, false),
+                ("tolerance", 0.01, true),
+                ("tolerance", 1e100, true),
+                ("tolerance", 1e-300, true),
+                ("tolerance", 0.0, false),
+                ("tolerance", -1.0, false),
+                ("tolerance", 1.000_000_1e100, false),
+                ("tolerance", f64::NAN, false),
+                ("tolerance", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let (a, tolerance) = (a.abs() % 300.0, 0.05 + b.abs() % 1.0);
+                    let subject = Drawing::from(path.clone());
+                    Ok([(Cap::Butt, "butt"), (Cap::Round, "round"), (Cap::Square, "square")]
+                        .into_iter()
+                        .map(|(cap, name)| {
+                            (
+                                name,
+                                subject.outline(a, Join::Miter, cap, 3.0, tolerance),
+                                path.outline(a, Join::Miter, cap, 3.0, tolerance),
+                            )
+                        })
+                        .collect())
+                },
+                // a stroke 2 wide round the square: a ring, the outer outline clockwise, the inner one counter
+                by_hand: &[(
+                    SQUARE,
+                    |d| Ok(d.outline(2.0, Join::Miter, Cap::Butt, 4.0, 0.01)),
+                    "M-1 -1 L11 -1 L11 11 L-1 11 Z M1 1 L1 9 L9 9 L9 1 Z",
                 )],
             }),
         },

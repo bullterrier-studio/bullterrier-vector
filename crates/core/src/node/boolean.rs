@@ -18,7 +18,7 @@ const OTHER: Arg = Arg {
 };
 
 /// How far a curve may stray from the straight edges it becomes, in design pixels.
-const TOLERANCE: Arg = Arg {
+pub(super) const TOLERANCE: Arg = Arg {
     name: "tolerance",
     kind: Kind::Number,
     default: Some(Literal::Number(FLATNESS)),

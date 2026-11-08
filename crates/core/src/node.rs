@@ -47,6 +47,7 @@
 mod args;
 pub(crate) mod boolean;
 pub(crate) mod items;
+pub(crate) mod offset;
 pub(crate) mod select;
 pub(crate) mod source;
 pub(crate) mod stack;
