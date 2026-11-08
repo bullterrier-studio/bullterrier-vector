@@ -210,6 +210,17 @@ Each gate has a test proving it fails on a known-bad input (`tests/tools/`, mark
 left out of `fast`, run by `check`). A new gate gets its proof, and a line in `tests/tools/test_gate_wiring.py`, which fails
 when `check` does not run a proven gate.
 
+**Gate time.** The gate proofs dominate `check` (`pytest tests/tools -m gate`, 130 tests on up to 4 workers): the longest file is
+`test_rust_gates.py`, whose two `rust-test` cases each run the whole Rust suite (about 160 s) beside the `rust-test` step. Their
+Cargo build folders persist in `target/gate-proofs/` (git-ignored, one per module and per digest of `Cargo.lock`, `Cargo.toml`
+and `rust-toolchain.toml`): the first run, or one after a lock or toolchain change, compiles every dependency again (about 13
+min of proofs), later runs only the workspace crates (about 8 min). Safe to delete (`rm -rf target/gate-proofs`); a folder is
+left behind per dependency change (1 to 3 GB), so delete it now and then. Use `fast` while working; run `check` once per
+branch, before the merge, never to re-verify: a pass on a clean tree is recorded, so a second run of the same tree is wasted,
+and a change of documentation only (`is_documentation` in `tools/pre_push.py`) needs none. To see where a run goes:
+`uv run pytest tests/tools -m gate -n 4 --durations=30` for the proofs, `uv run poe <task>` for a step; note the load average,
+as the machine is shared.
+
 `ruff` wants type hints and a docstring on every public function, class, method and module, and no `print` outside `tools/`.
 `mypy` checks `src`, `tests`, `tools` and `examples`. Fix findings properly; for a false positive use a targeted `# noqa: CODE  <reason>` or
 `# type: ignore[code]  # reason` (a bare or unused one fails). A subprocess call carries `# noqa: S603  <why its argv is safe>`.
