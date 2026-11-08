@@ -3,6 +3,7 @@
 
 use super::cast;
 use super::outline::{bez_path, dots, stroke_outline, within_device};
+use super::screen::{Screen, screen};
 use super::view::View;
 use super::{Size, in_shape};
 use crate::limits::Work;
@@ -28,6 +29,9 @@ impl Drawing {
     /// Shapes are placed as in [`Drawing::to_svg`] and painted in order. A shape that knocks out paints nothing: the
     /// pixels its fill and stroke cover, as far as they cover them, are taken out of what the shapes before it painted
     /// (an edge pixel half covered loses half its alpha), whatever the colours, opacity, blend and shadow of the shape.
+    ///
+    /// A halftone is its dots in one path filled by the nonzero rule inside a clip to the shape's outline, under the
+    /// stroke: a translucent colour is no darker where dots overlap.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 65,000,
@@ -74,8 +78,16 @@ fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8
 /// What a shape is made of once placed: the fill and the stroke it paints.
 struct Body {
     outline: BezPath,
-    fill: Option<[u8; 4]>,
+    fill: Option<FillBody>,
     stroke: Option<StrokeBody>,
+}
+
+/// A fill ready to be painted.
+enum FillBody {
+    /// The whole outline in a colour.
+    Plain([u8; 4]),
+    /// A screen of dots in a colour, as lines, to be clipped to the outline.
+    Dots { rgba: [u8; 4], dots: BezPath },
 }
 
 /// A stroke ready to be painted: its outline as lines, the dots of its round or square ends, and its colour.
@@ -92,9 +104,20 @@ impl Body {
             Some([red, green, blue]) => AlphaColor::from_rgba8(red, green, blue, alpha),
             None => AlphaColor::from_rgba8(red, green, blue, alpha),
         };
-        if let Some(rgba) = self.fill {
-            context.set_paint(tinted(rgba));
-            context.fill_path(&self.outline);
+        match &self.fill {
+            Some(FillBody::Plain(rgba)) => {
+                context.set_paint(tinted(*rgba));
+                context.fill_path(&self.outline);
+            }
+            // the dots are one path, filled once by the nonzero rule, so that a translucent colour is no darker where
+            // two overlap, as SVG's one path is not
+            Some(FillBody::Dots { rgba, dots }) => {
+                context.push_clip_path(&self.outline);
+                context.set_paint(tinted(*rgba));
+                context.fill_path(dots);
+                context.pop_clip();
+            }
+            None => {}
         }
         let Some(StrokeBody { lines, dots, rgba }) = &self.stroke else {
             return;
@@ -176,17 +199,10 @@ fn paint(
         )]
         work.filtered(layer.ceil() as u64, &name)?;
     }
-    // what a knockout removes is the area covered, whatever the alpha of the colours that would paint it
-    let covering = |rgba: [u8; 4]| {
-        if knockout {
-            [rgba[0], rgba[1], rgba[2], 255]
-        } else {
-            rgba
-        }
-    };
+    let fill = fill_body(shape, &polylines, view, work, knockout)?;
     let body = Body {
         outline,
-        fill: style.fill().rgba().map(covering),
+        fill,
         stroke: match stroke {
             Some((stroke, width)) => match stroke.color().rgba() {
                 Some(rgba) => {
@@ -206,7 +222,7 @@ fn paint(
                     Some(StrokeBody {
                         lines,
                         dots,
-                        rgba: covering(rgba),
+                        rgba: covering(knockout, rgba),
                     })
                 }
                 None => None,
@@ -216,6 +232,62 @@ fn paint(
     };
     composite(context, style, shadow.as_ref(), &body, &bounds);
     Ok(())
+}
+
+/// `rgba` as it paints: what a knockout removes is the area covered, whatever the alpha of the colour that would paint it.
+fn covering(knockout: bool, rgba: [u8; 4]) -> [u8; 4] {
+    if knockout {
+        [rgba[0], rgba[1], rgba[2], 255]
+    } else {
+        rgba
+    }
+}
+
+/// The fill of `shape`, whose path flattened is `polylines`, seen through `view`: a colour, or the dots of a halftone as
+/// lines; `None` if it paints nothing. A halftone of the tone 0 is the colour, and `work` is charged for the dots of the
+/// others.
+///
+/// # Errors
+/// [`Error::Parameter`] if the dots would be past `MAX_SEGMENTS` or lie beyond [`MAX_DEVICE`] device pixels.
+fn fill_body(
+    shape: &Shape,
+    polylines: &[Polyline],
+    view: &View,
+    work: &Work,
+    knockout: bool,
+) -> Result<Option<FillBody>, Error> {
+    let style = shape.style();
+    let Some(halftone) = style.halftone() else {
+        return Ok(style
+            .fill()
+            .rgba()
+            .map(|rgba| FillBody::Plain(covering(knockout, rgba))));
+    };
+    let screened = screen(halftone, polylines, &mut |count| {
+        work.made_segments(count, &format!("shape {} pitch", shape.index()))
+    })?;
+    let Some(rgba) = halftone.color().rgba().map(|rgba| covering(knockout, rgba)) else {
+        return Ok(None);
+    };
+    let found = match screened {
+        Screen::Solid => return Ok(Some(FillBody::Plain(rgba))),
+        Screen::Dots(found) if found.is_empty() => return Ok(None),
+        Screen::Dots(found) => found,
+    };
+    let mut dots = BezPath::new();
+    for dot in found.all() {
+        let corners: Vec<Point> = dot.iter().map(|corner| view.point(*corner)).collect();
+        let farthest = corners
+            .iter()
+            .fold(0.0, |far: f64, corner| far.max(corner.x.abs()).max(corner.y.abs()));
+        within_device("a dot", farthest).map_err(|error| in_shape(shape, "", error))?;
+        dots.extend(bez_path(&[Polyline {
+            points: corners,
+            closed: true,
+            drawn: true,
+        }]));
+    }
+    Ok(Some(FillBody::Dots { rgba, dots }))
 }
 
 /// Paints `body` into `context` within `bounds` as `style` says: taken out of what is below it, if it knocks out; else

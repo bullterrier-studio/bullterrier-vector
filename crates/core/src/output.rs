@@ -5,6 +5,7 @@ mod mesh;
 mod outline;
 mod png;
 mod raster;
+mod screen;
 mod svg;
 mod view;
 
@@ -105,6 +106,11 @@ pub(crate) fn in_shape(shape: &Shape, what: &str, error: Error) -> Error {
 /// for it to be the silhouette of.
 pub(crate) fn cast(style: &Style) -> Option<(&ShadowStyle, [u8; 4])> {
     let shadow = style.shadow()?;
-    let painted = style.fill().rgba().is_some() || style.stroke().is_some();
+    let painted = fills(style) || style.stroke().is_some();
     painted.then(|| shadow.color().rgba().map(|rgba| (shadow, rgba)))?
+}
+
+/// Whether the fill of a style paints: a colour that is not none, or a halftone.
+pub(crate) fn fills(style: &Style) -> bool {
+    style.fill().rgba().is_some() || style.halftone().is_some()
 }
