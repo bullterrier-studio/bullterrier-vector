@@ -922,7 +922,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   gates about 3 minutes, the proofs 8 or more. *Fail safe:* the baseline is a commit in the git folder, written
   when `full` (or a `check` that ran the proofs) passed on a clean tree, never `origin/main`; no record, a commit git lost,
   a shallow clone or no repository run the proofs, and the changes are read from the diff against that commit plus the
-  untracked files, not from the working tree alone. Pass records are per tier, so a `check` pass never satisfies a tag push.
+  untracked files, not from the working tree alone. The pass record holds the tier with the tree, so a `check` pass never satisfies a tag push.
   *Consequence:* a stale trigger would silently stop guarding, so a test fails for a listed path that is gone; a proof
   that starts reading a new file must add it. CI runs `poe test` everywhere and `poe proofs` on Linux, so a skipped proof
   is caught on `main` at the latest.

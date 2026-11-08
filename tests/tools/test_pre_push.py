@@ -454,6 +454,35 @@ def test_a_pass_satisfies_its_own_tier_and_the_lower_ones(git_repo, monkeypatch,
 
 
 @pytest.mark.parametrize(
+    ("record", "needed", "satisfied"),
+    [
+        pytest.param(None, "check", False, id="no record"),
+        pytest.param("{tree} check", "check", True, id="the same tier"),
+        pytest.param("{tree} full", "check", True, id="a higher tier"),
+        pytest.param("{tree} check", "full", False, id="a lower tier"),
+        pytest.param("{other} full", "check", False, id="another tree"),
+        pytest.param("{tree}", "check", False, id="a tree without a tier"),
+        pytest.param("", "check", False, id="an empty record"),
+        pytest.param("{tree} gold", "check", False, id="an unknown tier word"),
+        pytest.param("{tree} check extra", "check", False, id="trailing words"),
+        pytest.param("check {tree}", "check", False, id="the tier before the tree"),
+    ],
+)
+def test_the_record_names_one_tree_and_its_tier_and_nothing_else_is_a_pass(
+    git_repo, monkeypatch, record, needed, satisfied
+):
+    """One file in the git folder, `<tree> <tier>`, shared with the sibling repositories."""
+    git_repo.commit("chore: start", {"start.txt": "start"})
+    monkeypatch.chdir(git_repo.path)
+    tree = git_repo.git("rev-parse", "HEAD^{tree}").strip()
+    if record is not None:
+        (git_repo.path / ".git" / "gate-passed").write_text(
+            record.format(tree=tree, other="f" * len(tree)), encoding="utf-8"
+        )
+    assert pre_push.gate_passed_on("HEAD", needed) is satisfied
+
+
+@pytest.mark.parametrize(
     ("ref", "passed", "gate_runs"),
     [
         pytest.param("refs/heads/main", "check", False, id="main, check passed"),

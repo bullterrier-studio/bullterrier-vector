@@ -23,10 +23,11 @@ as a deletion and an addition (`--no-renames`), so moving code into `docs/` stil
 
 A gate that already passed on exactly the pushed tree is not repeated. `uv run poe check` and `full` begin with
 `python tools/pre_push.py start TIER` and end with `python tools/pre_push.py pass TIER`: the second records the tree of
-`HEAD` in the git folder (never committed), one record per tier, only if the working tree was clean and `HEAD`'s tree
-was the same at both moments, so the record names contents that were checked in full. A push whose tip has that tree
-skips the gate if a pass of the needed tier or a higher one is recorded (a `full` pass satisfies `check`, a `check` pass
-never satisfies a tag); any other tree runs it. CI checks everything again. `start` says when the tree already passed.
+`HEAD` and the tier in one file of the git folder (`gate-passed`: `<tree> <tier>`, never committed), only if the
+working tree was clean and `HEAD`'s tree was the same at both moments, so the record names contents that were checked
+in full. A push whose tip has that tree skips the gate if a pass of the needed tier or a higher one is recorded (a
+`full` pass satisfies `check`, a `check` pass never satisfies a tag); any other tree runs it. CI checks everything
+again. `start` says when the tree already passed.
 
 The gate proofs (tests/tools, marker `gate`) are slow, so `check` runs them only when they are due: `python
 tools/pre_push.py proofs` runs them when a path of the trigger list (`[tool.gate-proofs]` in pyproject.toml: everything
@@ -53,19 +54,15 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 PICTURE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"})
-STARTED, RUNNING, PROOFS_PASSED = (
+STARTED, PASSED, RUNNING, PROOFS_PASSED = (
     "gate-started",
+    "gate-passed",
     "gate-running",
     "gate-proofs-passed",
-)  # files in the git folder: the tree a gate began on, the PID of the `poe` running it, the commit the proofs passed on
-# the tiers that stand for each needed tier: a pass of a higher tier covers the lower one
-COVERED_BY = {"check": ("check", "full"), "full": ("full",)}
+)  # files in the git folder: the tree a gate began on, `<tree> <tier>` of the last pass, the PID of the `poe` running
+# a gate, the commit the proofs passed on
 POE = re.compile(r"\bpoe(thepoet)?\b")
-
-
-def _passed_record(tier: str) -> Path | None:
-    """The git-folder file that holds the tree a gate of `tier` passed on."""
-    return _record_path(f"gate-passed-{tier}")
+TIERS = ("check", "full")  # the gates a pass can be of, lowest first: a `full` pass covers a push that needs `check`
 
 
 def must_run(remote_ref: str, remote: str = "origin") -> bool:
@@ -168,7 +165,7 @@ def record_gate_pass(tier: str) -> None:
     """Remember that the gate of `tier` passed on the tree of `HEAD`, if it began on that very tree with a clean working
     tree and the working tree is clean now; a `full` pass also remembers the proofs (they ran in it). The last step of
     `uv run poe check` and `full`, reached only when every step passed."""
-    started, passed = _record_path(STARTED), _passed_record(tier)
+    started, passed = _record_path(STARTED), _record_path(PASSED)
     if started is None or passed is None or not started.exists():
         print("gate: no record that a gate began here, so this pass is not remembered for the push")
         return
@@ -177,7 +174,7 @@ def record_gate_pass(tier: str) -> None:
     if (running := _record_path(RUNNING)) is not None:
         running.unlink(missing_ok=True)
     if began and began == now and _clean_tree():
-        passed.write_text(began, encoding="utf-8")
+        passed.write_text(f"{began} {tier}", encoding="utf-8")
         print(f"gate: {tier} passed on tree {began[:12]}; a push of exactly this tree will not repeat it")
         if tier == "full":
             record_proofs_pass()
@@ -187,12 +184,11 @@ def record_gate_pass(tier: str) -> None:
 
 def gate_passed_on(rev: str, tier: str) -> bool:
     """Whether a gate of `tier` or a higher one passed, as `record_gate_pass` remembers it, on the tree of `rev`."""
-    tree = _tree_of(rev)
-    for covering in COVERED_BY[tier]:
-        passed = _passed_record(covering)
-        if tree and passed is not None and passed.exists() and passed.read_text(encoding="utf-8") == tree:
-            return True
-    return False
+    passed, tree = _record_path(PASSED), _tree_of(rev)
+    if not tree or passed is None or not passed.exists():
+        return False
+    recorded_tree, _, recorded_tier = passed.read_text(encoding="utf-8").partition(" ")
+    return recorded_tree == tree and recorded_tier in TIERS and TIERS.index(recorded_tier) >= TIERS.index(tier)
 
 
 def triggers_proofs(path: str, triggers: list[str]) -> bool:
@@ -293,9 +289,9 @@ def main() -> int:
 
 if __name__ == "__main__":
     match sys.argv[1:]:
-        case ["start", ("check" | "full") as tier]:
+        case ["start", tier] if tier in TIERS:
             record_gate_start(tier)
-        case ["pass", ("check" | "full") as tier]:
+        case ["pass", tier] if tier in TIERS:
             record_gate_pass(tier)
         case ["proofs"]:
             sys.exit(
