@@ -10,6 +10,54 @@ use pyo3::types::PyDict;
 #[derive(Clone, PartialEq)]
 pub(crate) struct PyStyle(vector::Style);
 
+/// A drop shadow, as it is drawn: the offset and blur in design pixels, and the colour as `"#rrggbbaa"`.
+#[pyclass(name = "Shadow", module = "bullterrier_vector", frozen, eq)]
+#[derive(Clone, PartialEq)]
+pub(crate) struct PyShadow(vector::ShadowStyle);
+
+#[pymethods]
+impl PyShadow {
+    /// The offset to the right in design pixels.
+    #[getter]
+    fn dx(&self) -> f64 {
+        self.0.dx()
+    }
+
+    /// The offset down in design pixels.
+    #[getter]
+    fn dy(&self) -> f64 {
+        self.0.dy()
+    }
+
+    /// The blur radius in design pixels (the Gaussian's deviation is half of it); 0 is a hard copy.
+    #[getter]
+    fn blur(&self) -> f64 {
+        self.0.blur()
+    }
+
+    /// The colour the silhouette is tinted, `"#rrggbbaa"`.
+    #[getter]
+    fn color(&self) -> String {
+        self.0.color().to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Shadow(dx={:?}, dy={:?}, blur={:?}, color='{}')",
+            self.dx(),
+            self.dy(),
+            self.blur(),
+            self.color()
+        )
+    }
+
+    fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
+        (self.dx(), self.dy(), self.blur(), self.color())
+            .into_pyobject(py)?
+            .hash()
+    }
+}
+
 /// The text of a colour, or `None` where it paints nothing.
 fn color_text(color: vector::Color) -> Option<String> {
     color.rgba().map(|_| color.to_string())
@@ -71,16 +119,24 @@ impl PyStyle {
         self.0.blend().name()
     }
 
+    /// The drop shadow behind the shape, or `None`.
+    #[getter]
+    fn shadow(&self) -> Option<PyShadow> {
+        self.0.shadow().copied().map(PyShadow)
+    }
+
     fn __repr__(&self) -> String {
         let text = |value: Option<String>| value.map_or_else(|| "None".to_owned(), |value| format!("'{value}'"));
         let number = |value: Option<f64>| value.map_or_else(|| "None".to_owned(), |value| format!("{value:?}"));
         format!(
-            "Style(fill={}, stroke={}, stroke_width={}, opacity={:?}, blend='{}')",
+            "Style(fill={}, stroke={}, stroke_width={}, opacity={:?}, blend='{}', shadow={})",
             text(self.fill()),
             text(self.stroke()),
             number(self.stroke_width()),
             self.opacity(),
             self.blend(),
+            self.shadow()
+                .map_or_else(|| "None".to_owned(), |shadow| shadow.__repr__()),
         )
     }
 
@@ -94,6 +150,7 @@ impl PyStyle {
             self.miter_limit(),
             self.opacity(),
             self.blend(),
+            self.shadow(),
         )
             .into_pyobject(py)?
             .hash()

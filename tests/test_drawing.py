@@ -197,6 +197,54 @@ def test_styles_with_equal_fields_are_equal_and_hash_alike():
     assert first != only_shape(SQUARE.fill("#ff0001")).style
 
 
+def test_a_shape_casts_no_shadow_until_the_step_gives_it_one():
+    assert only_shape(Drawing(SQUARE)).style.shadow is None
+
+
+def test_a_shadow_leaves_out_what_it_takes_by_default_and_the_last_one_wins():
+    shadow = only_shape(Drawing(SQUARE).shadow()).style.shadow
+    assert shadow is not None
+    assert (shadow.dx, shadow.dy, shadow.blur, shadow.color) == (0.0, 8.0, 16.0, "#00000059")
+    last = only_shape(Drawing(SQUARE).shadow(dx=1, dy=2, blur=3, color="#ff000080").shadow(blur=5)).style.shadow
+    assert last is not None
+    assert (last.dx, last.dy, last.blur, last.color) == (0.0, 8.0, 5.0, "#00000059")
+
+
+def test_a_shadow_number_is_read_per_shape():
+    drawing = Drawing(*squares(3)).shadow(dy=btvec.by_index(0, 10), blur=param("blur", 4, 0, 20))
+    shadows = [shape.style.shadow for shape in drawing.shapes()]
+    assert [(s.dy, s.blur) for s in shadows if s is not None] == [(0.0, 4.0), (5.0, 4.0), (10.0, 4.0)]
+    assert [s.blur for s in (shape.style.shadow for shape in drawing.shapes(blur=9)) if s is not None] == [9.0] * 3
+
+
+def test_a_shadow_called_on_a_path_returns_a_drawing_of_that_path_and_survives_other_styles():
+    shadow = only_shape(SQUARE.shadow(dy=4)).style.shadow
+    assert shadow is not None
+    assert shadow.dy == 4.0
+    styled = only_shape(SQUARE.shadow(dy=4).fill("#ff0000").opacity(0.5)).style
+    assert styled.shadow == shadow
+    assert styled.shadow is not None
+    assert repr(styled.shadow) == "Shadow(dx=0.0, dy=4.0, blur=16.0, color='#00000059')"
+
+
+def test_shadows_with_equal_fields_are_equal_and_hash_alike():
+    first, second = only_shape(SQUARE.shadow(blur=3)).style, only_shape(Drawing(SQUARE).shadow(blur=3)).style
+    assert first == second
+    assert hash(first) == hash(second)
+    assert first.shadow == second.shadow
+    assert hash(first.shadow) == hash(second.shadow)
+    assert first != only_shape(SQUARE.shadow(blur=4)).style
+    assert first != only_shape(Drawing(SQUARE)).style
+
+
+def test_a_shape_with_a_shadow_goes_back_into_a_drawing_with_it_and_through_json():
+    drawing = Drawing(SQUARE).fill("#ff0000").shadow(dx=2, blur=7, color="#0000ff40")
+    shapes = drawing.shapes()
+    assert Drawing(*shapes).shapes() == shapes
+    assert Drawing.from_json(drawing.to_json()).shapes() == shapes
+    assert '"shadow":{"blur":7,"color":"#0000ff40","dx":2}' in drawing.to_json()
+
+
 # --- Params and expressions, read when the drawing is drawn ---------------------------------------------------------
 
 
@@ -632,6 +680,12 @@ def a_param() -> btvec.Param:
         pytest.param(lambda: Drawing(SQUARE).opacity(1.5), "alpha", id="opacity: above 1"),
         pytest.param(lambda: Drawing(SQUARE).opacity(-0.1), "alpha", id="opacity: below 0"),
         pytest.param(lambda: Drawing(SQUARE).blend("screen"), "mode", id="blend: another mode"),
+        pytest.param(lambda: Drawing(SQUARE).shadow(blur=-0.5), "blur", id="shadow: negative blur"),
+        pytest.param(lambda: Drawing(SQUARE).shadow(blur=float("nan")), "blur", id="shadow: NaN blur"),
+        pytest.param(lambda: Drawing(SQUARE).shadow(dx=float("inf")), "dx", id="shadow: infinite dx"),
+        pytest.param(lambda: Drawing(SQUARE).shadow(dy=float("nan")), "dy", id="shadow: NaN dy"),
+        pytest.param(lambda: Drawing(SQUARE).shadow(color="none"), "color", id="shadow: none paints nothing"),
+        pytest.param(lambda: Drawing(SQUARE).shadow(color="black"), "color", id="shadow: a colour name"),
         pytest.param(lambda: Drawing(SQUARE).translate(float("nan"), 0), "dx", id="translate: NaN"),
         pytest.param(lambda: Drawing(SQUARE).translate(0, float("inf")), "dy", id="translate: infinite"),
         pytest.param(lambda: Drawing(SQUARE).translate(1e101, 0), "dx", id="translate: beyond 1e100"),
@@ -688,6 +742,8 @@ def test_a_colour_error_shows_the_text_given():
         pytest.param(lambda: SQUARE.stroke("#000000", width=0), id="stroke width"),
         pytest.param(lambda: SQUARE.opacity(2), id="opacity"),
         pytest.param(lambda: SQUARE.blend("screen"), id="blend"),
+        pytest.param(lambda: SQUARE.shadow(blur=-1), id="shadow blur"),
+        pytest.param(lambda: SQUARE.shadow(color="red"), id="shadow colour"),
     ],
 )
 def test_a_style_step_called_on_a_path_raises_at_the_call_too(call):
@@ -880,6 +936,7 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
     "stroke": (lambda: Drawing(SQUARE).stroke("#00ff00"), {}, [row(RECT, None, "#00ff00ff")]),
     "opacity": (lambda: Drawing(SQUARE).opacity(0.5), {}, [row(RECT, opacity=0.5)]),
     "blend": (lambda: Drawing(SQUARE).blend("multiply"), {}, [row(RECT, blend="multiply")]),
+    "shadow": (lambda: Drawing(SQUARE).shadow(dy=3), {}, [row(RECT)]),
     "only": (lambda: Drawing(*squares(2)).only(index=1), {}, [row(SMALL[1])]),
     "without": (lambda: Drawing(*squares(2)).without(index=1), {}, [row(SMALL[0])]),
     "split": (lambda: Drawing(btvec.Path.from_svg_path(" ".join(SMALL))).split(), {}, [row(SMALL[0]), row(SMALL[1])]),
@@ -910,7 +967,9 @@ def test_drawing_shape_and_style_read_in_a_repr():
     assert repr(drawing) == "Drawing(size=(40.0, 30.0))"
     assert repr(Drawing(SQUARE)) == "Drawing(size=None)"
     shape = drawing.fill("#ff0000").shapes()[0]
-    assert repr(shape.style) == "Style(fill='#ff0000ff', stroke=None, stroke_width=None, opacity=1.0, blend='normal')"
+    assert repr(shape.style) == (
+        "Style(fill='#ff0000ff', stroke=None, stroke_width=None, opacity=1.0, blend='normal', shadow=None)"
+    )
     assert repr(shape) == f"Shape(index=0, path={shape.path!r}, style={shape.style!r})"
 
 

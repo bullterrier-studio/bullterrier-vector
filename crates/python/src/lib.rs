@@ -31,7 +31,7 @@ mod _core {
     #[pymodule_export]
     use super::mesh::PyMesh;
     #[pymodule_export]
-    use super::shape::{PyShape, PyStyle};
+    use super::shape::{PyShadow, PyShape, PyStyle};
     #[pymodule_export]
     use super::text::{PyFont, text};
     #[pymodule_export]
@@ -534,6 +534,13 @@ impl PyPath {
     /// A drawing of this path painted over what is below it as `mode` (`"normal"` or `"multiply"`).
     fn blend(&self, mode: &str) -> PyResult<PyDrawing> {
         PyDrawing::of(self).blend(mode)
+    }
+
+    /// A drawing of this path with a drop shadow behind it: `dx` and `dy` design pixels from it (0 and 8 where left
+    /// out), blurred by `blur` design pixels (16; 0 is a hard copy) and tinted `color` (`"#00000059"`).
+    #[pyo3(signature = (*, dx=None, dy=None, blur=None, color=None))]
+    fn shadow(&self, dx: Option<Num>, dy: Option<Num>, blur: Option<Num>, color: Option<&str>) -> PyResult<PyDrawing> {
+        PyDrawing::of(self).shadow(dx, dy, blur, color)
     }
 
     /// The path as SVG path data.

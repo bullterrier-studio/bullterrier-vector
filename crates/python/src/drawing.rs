@@ -337,6 +337,33 @@ impl PyDrawing {
         checked(self.0.blend(raised(vector::Blend::parse(mode))?))
     }
 
+    /// A drop shadow behind every shape, replacing any it has: `dx` and `dy` design pixels from it (0 and 8 where left
+    /// out), blurred by `blur` design pixels (16; 0 is a hard copy) and tinted `color` (`"#00000059"`). It is the
+    /// silhouette of the shape's fill and stroke, inside the group its opacity and blend apply to.
+    #[pyo3(signature = (*, dx=None, dy=None, blur=None, color=None))]
+    pub(crate) fn shadow(
+        &self,
+        dx: Option<Num>,
+        dy: Option<Num>,
+        blur: Option<Num>,
+        color: Option<&str>,
+    ) -> PyResult<Self> {
+        let mut shadow = vector::Shadow::new();
+        if let Some(dx) = dx {
+            shadow = shadow.dx(dx.0);
+        }
+        if let Some(dy) = dy {
+            shadow = shadow.dy(dy.0);
+        }
+        if let Some(blur) = blur {
+            shadow = shadow.blur(blur.0);
+        }
+        if let Some(color) = color {
+            shadow = shadow.color(raised(vector::Color::parse(color))?);
+        }
+        checked(self.0.shadow(shadow))
+    }
+
     /// Only the shapes whose attributes equal these (a list means any of). The list is renumbered.
     #[pyo3(signature = (**attributes))]
     fn only(&self, attributes: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {

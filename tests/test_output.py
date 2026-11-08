@@ -329,3 +329,56 @@ def test_the_decoder_refuses_a_file_that_is_not_exactly_an_8_bit_rgba_png(data: 
 
 def test_the_decoder_reads_a_good_file(decode_png):
     assert decode_png(GOOD) == (1, 1, bytes([1, 2, 3, 4]))
+
+
+# --- shadows ----------------------------------------------------------------------------------------------------------
+
+SHADOWED = btvec.Path.rect(20, 20, 20, 20).fill("#ff0000")
+
+
+def test_a_shadow_without_a_blur_is_the_shape_moved_behind_it():
+    image = SHADOWED.shadow(dx=10, dy=0, blur=0, color="#000000").to_rgba(60, 60)
+    assert pixel(image, 60, 25, 30) == (255, 0, 0, 255)  # the shape, over its shadow
+    assert pixel(image, 60, 45, 30) == (0, 0, 0, 255)  # the shadow alone, 10 to the right
+    assert pixel(image, 60, 15, 30) == (0, 0, 0, 0)  # nothing to the left
+
+
+def test_a_blurred_shadow_follows_the_gaussian():
+    # a blur of 8 is a deviation of 4; the shadow of the square 20 to 40 across, in the middle row, left of the shape
+    image = SHADOWED.shadow(dx=0, dy=0, blur=8, color="#000000").to_rgba(60, 60)
+
+    def share(x: float, low: float, high: float) -> float:
+        return (math.erf((high - x) / (4 * math.sqrt(2))) - math.erf((low - x) / (4 * math.sqrt(2)))) / 2
+
+    for x in range(5, 19):
+        wanted = 255 * share(x + 0.5, 20, 40) * share(30.5, 20, 40)
+        assert abs(pixel(image, 60, x, 30)[3] - wanted) <= 2, x
+
+
+def test_a_blurred_shadow_is_a_filter_on_a_group_in_the_svg_and_a_hard_one_a_copy():
+    blurred = parse(SHADOWED.shadow(dx=4, dy=6, blur=10).to_svg(100, 100))
+    (filtered,) = blurred.findall(f"{SVG}filter")
+    (blur,) = filtered.findall(f"{SVG}feGaussianBlur")
+    assert blur.attrib["stdDeviation"] == "5"
+    (group,) = blurred.findall(f"{SVG}g")
+    assert group.attrib["filter"] == f"url(#{filtered.attrib['id']})"
+    hard = parse(SHADOWED.shadow(dx=4, dy=6, blur=0).to_svg(100, 100))
+    assert hard.findall(f"{SVG}filter") == []
+    assert [element.attrib["d"] for element in hard.findall(f"{SVG}path")] == [
+        "M24 26 L44 26 L44 46 L24 46 Z",
+        "M20 20 L40 20 L40 40 L20 40 Z",
+    ]
+
+
+def test_a_mesh_has_the_shadow_of_a_blur_of_zero_and_refuses_a_blur():
+    mesh = SHADOWED.shadow(blur=0).to_mesh(100, 100)
+    assert len(mesh.indices) == 12  # two rectangles of two triangles
+    with pytest.raises(btvec.ParameterError, match="shadow"):
+        SHADOWED.shadow(blur=16).to_mesh(100, 100)
+
+
+def test_a_blur_past_a_thousand_output_pixels_of_deviation_raises_naming_the_blur():
+    far = btvec.Path.rect(-90_000, 0, 10, 10).fill("#ff0000")
+    far.shadow(blur=2000).to_rgba(100, 100)
+    with pytest.raises(btvec.ParameterError, match="blur"):
+        far.shadow(blur=2001).to_rgba(100, 100)

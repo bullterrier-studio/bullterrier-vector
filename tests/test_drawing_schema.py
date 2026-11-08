@@ -532,6 +532,18 @@ AGREED = [
     pytest.param(square_with({"blend": {"mode": "multiply"}}), True, id="a blend mode"),
     pytest.param(square_with({"blend": {}}), False, id="a blend without its mode"),
     pytest.param(square_with({"opacity": {}}), False, id="an opacity without its alpha"),
+    pytest.param(square_with({"shadow": {}}), True, id="a shadow of all defaults"),
+    pytest.param(
+        square_with({"shadow": {"dx": 3, "dy": -2, "blur": 0, "color": "#00000040"}}),
+        True,
+        id="a shadow of every argument",
+    ),
+    pytest.param(
+        square_with({"shadow": {"dy": {"by_index": {"first": 0, "last": 10}}}}), True, id="a shadow offset per shape"
+    ),
+    pytest.param(square_with({"shadow": {"blur": -1}}), False, id="a shadow of negative blur"),
+    pytest.param(square_with({"shadow": {"color": "none"}}), False, id="a shadow of no colour"),
+    pytest.param(square_with({"shadow": {"radius": 3}}), False, id="a shadow argument that is not one"),
     pytest.param(
         {"version": 1, "root": [{"stack": {"items": [], "size": [100000, 1]}}]}, True, id="the largest design frame"
     ),
@@ -592,6 +604,7 @@ REGISTERED = {
     "stroke",
     "opacity",
     "blend",
+    "shadow",
     "only",
     "without",
     "split",
