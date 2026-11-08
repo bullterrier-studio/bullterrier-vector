@@ -62,15 +62,19 @@ cache-keys = [
 ]
 
 [tool.poe.tasks]
-# The gates. `fast` is the inner loop (formatters, linters, Rust and Python tests, types: seconds when warm); `check`
-# is the full gate before a merge or push, cheapest first, stopping at the first failure. The proofs that each gate
-# can fail (tests/tools/, marked `gate`) build copies of the workspace and are slow: `fast` leaves them out, `check`
-# runs them.
-fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { ref = "file-size" }, { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" } }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
-check = { sequence = ["python tools/pre_push.py start", "ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-test-layout" }, { ref = "rust-lint" }, { ref = "file-size" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-fonts" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "wasm-test" }, { ref = "test" }, "python tools/pre_push.py pass"], default_item_type = "cmd", help = "The full gate, Python and Rust, cheapest first, stops at the first failure; a pass on a clean tree is remembered, so pushing exactly that tree does not repeat it" }
+# The gates, in three tiers. `fast` is the inner loop (formatters, linters, Rust and Python tests, types: seconds when
+# warm). `check` is the gate before a merge: every gate, with the gate proofs (tests/tools/, marked `gate`: they build
+# copies of the workspace and are slow) run only when one of [tool.gate-proofs] triggers changed since they last passed.
+# `full` is `check` with the proofs forced: before a tag, and in CI. `gates` is what `check` and `full` share, so they
+# cannot drift; cheapest first, stopping at the first failure.
+fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { ref = "file-size" }, { ref = "test" }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
+gates = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-test-layout" }, { ref = "rust-lint" }, { ref = "file-size" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-fonts" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "wasm-test" }, { ref = "test" }], default_item_type = "cmd", help = "The gates `check` and `full` share (not run alone: no pass is remembered)" }
+check = { sequence = ["python tools/pre_push.py start check", { ref = "gates" }, "python tools/pre_push.py proofs", "python tools/pre_push.py pass check"], default_item_type = "cmd", help = "The gate before a merge: every gate, the proofs when what they read changed; a pass on a clean tree is remembered, so pushing exactly that tree does not repeat it" }
+full = { sequence = ["python tools/pre_push.py start full", { ref = "gates" }, { ref = "proofs" }, "python tools/pre_push.py pass full"], default_item_type = "cmd", help = "check with the gate proofs always run: before a tag, in CI; a pass is remembered like check's, and resets what check treats as proven" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
-test = { cmd = "pytest -q -n auto", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the whole test suite, gate proofs included, on every CPU core (pytest-xdist; the order stays random)" }
+test = { cmd = "pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the Python tests but the gate proofs on every CPU core (pytest-xdist; the order stays random)" }
+proofs = { cmd = "pytest -q -n auto -m gate", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the gate proofs (each gate rejects a known-bad input): slow, copies of the workspace" }
 # Not part of `check`: it asks the PyPI and RustSec advisory databases about every locked dependency, so it needs the
 # network and its verdict changes as advisories are published. For CI and before a release. The lock is exported with
 # hashes (the dev tools are in it too) and pip-audit reads that file only, without resolving or installing anything.
@@ -130,6 +134,41 @@ rust-test = { cmd = "uv run python tools/run_capped.py -- cargo test --workspace
 rust-test-layout = { cmd = "uv run python tools/check_rust_test_layout.py", help = "Check that the Rust integration tests are one binary per crate (tests/it/)" }
 # `default_install_hook_types` in .pre-commit-config.yaml names the three hook types, so a bare `install` covers them
 setup = { sequence = ["pre-commit install --install-hooks", "git config --local commit.template .gitmessage", "uv run python tools/rust_tools.py install"], default_item_type = "cmd", help = "Install the git hooks, the commit-message template and the cargo tools the gate runs (once per clone)" }
+
+# Read by tools/pre_push.py (`poe check`'s proofs step): the paths the gate proofs (tests/tools/, marker `gate`) read, copy,
+# edit or anchor on. A change to one of them since the proofs last passed makes `check` run them; `full` always does.
+# A file, or a folder ending in `/`. tests/tools/test_gate_tiers.py fails for an entry that no longer exists.
+[tool.gate-proofs]
+triggers = [
+    "tools/", # the scripts the gates run, copied into the proofs' workspaces
+    "tests/tools/", # the proofs and their fixtures
+    "tests/wasm/", # the Node tests and the oracle: a proof edits them and names their tests
+    "tests/conftest.py", # the autouse fixtures every proof runs under
+    "examples/star.py", # the star the wasm proof compares across languages (an offence edits it)
+    "crates/core/examples/star.rs", # the Rust star of that proof (an offence edits it)
+    "crates/wasm/examples/star.mjs", # the Node star of that proof (an offence edits it)
+    "crates/core/src/lib.rs", # the file the Rust-gate proofs append an offence to
+    "crates/core/src/geometry.rs", # the file the unreachable-pub proof appends to
+    "crates/core/Cargo.toml", # the manifest the dependency and licence proofs edit by text
+    "crates/python/Cargo.toml", # the manifest the build proof expects in the sdist
+    "crates/wasm/src/lib.rs", # the glue the wasm proof breaks by text
+    "crates/core/fonts/", # the font licences and files the build proof expects in the distributions
+    "src/bullterrier_vector/_native/_core.pyi", # the stub the stubtest proof edits by text
+    "src/bullterrier_vector/py.typed", # the marker the build proof expects in the wheel
+    "docs/examples/json/", # the example documents the copied Rust tests read
+    "pyproject.toml", # every proof copies it and edits tasks and settings by text
+    "uv.lock", # the versions of ruff, mypy, deptry, vulture and the rest, which decide what a gate flags
+    "Cargo.toml", # the workspace, the lints, the pinned cargo tools; the font proofs edit it by text
+    "Cargo.lock", # the locked dependencies the proofs build
+    "rust-toolchain.toml", # the compiler the proofs build with
+    "rustfmt.toml", # the formatting rules the unformatted-code proof relies on
+    "clippy.toml", # the determinism rules the lint proofs rely on
+    "deny.toml", # the bans and licences the deny proofs rely on
+    ".github/", # the workflows and dependabot.yml the workflow proof lints
+    ".pre-commit-config.yaml", # the hook wiring the hook-isolation tests read
+    ".gitignore", # copied into the build proof
+    "LICENSE", # copied into the build proof
+]
 
 # Read by tools/check_commit_message.py (the commit-msg hook): Conventional Commits 1.0 with these limits.
 [tool.commit-message]

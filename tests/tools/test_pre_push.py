@@ -327,35 +327,43 @@ def test_a_rename_of_code_into_docs_runs_the_gate(git_repo, monkeypatch, capsys)
 
 
 def passed_gate(
-    repo, *, dirty_at_start=False, tidied_between=False, change_between=None, dirty_at_end=False, skip_start=False
+    repo,
+    tier="check",
+    *,
+    dirty_at_start=False,
+    tidied_between=False,
+    change_between=None,
+    dirty_at_end=False,
+    skip_start=False,
 ):
     """Run what `poe check` does around the gate in `repo`: note the start, let `change_between` happen (a commit), and
-    note the pass. `dirty_at_start` and `dirty_at_end` leave an uncommitted file at that moment; `tidied_between`
+    note the pass of gate `tier`. `dirty_at_start` and `dirty_at_end` leave an uncommitted file at that moment;
+    `tidied_between`
     removes the file again before the end."""
     if dirty_at_start:
         (repo.path / "scratch.txt").write_text("x", encoding="utf-8")
     if not skip_start:
-        pre_push.record_gate_start()
+        pre_push.record_gate_start(tier)
     if tidied_between:
         (repo.path / "scratch.txt").unlink()
     if change_between:
         repo.commit("chore: change", change_between)
     if dirty_at_end:
         (repo.path / "scratch.txt").write_text("y", encoding="utf-8")
-    pre_push.record_gate_pass()
+    pre_push.record_gate_pass(tier)
 
 
 def test_a_gate_that_passed_on_a_clean_tree_is_remembered_for_that_tree_and_no_other(git_repo, monkeypatch):
     first = git_repo.commit("chore: start", {"start.txt": "start"})
     monkeypatch.chdir(git_repo.path)
-    assert not pre_push.gate_passed_on(first)
+    assert not pre_push.gate_passed_on(first, "check")
 
     passed_gate(git_repo)
 
-    assert pre_push.gate_passed_on(first)
+    assert pre_push.gate_passed_on(first, "check")
     second = git_repo.commit("chore: more", {"more.txt": "more"})
-    assert not pre_push.gate_passed_on(second), "another tree is not the one that was checked"
-    assert pre_push.gate_passed_on(first), "the checked tree is still remembered"
+    assert not pre_push.gate_passed_on(second, "check"), "another tree is not the one that was checked"
+    assert pre_push.gate_passed_on(first, "check"), "the checked tree is still remembered"
 
 
 def test_a_commit_with_the_same_tree_counts_as_the_tree_that_passed(git_repo, monkeypatch):
@@ -363,7 +371,7 @@ def test_a_commit_with_the_same_tree_counts_as_the_tree_that_passed(git_repo, mo
     monkeypatch.chdir(git_repo.path)
     passed_gate(git_repo)
     git_repo.git("commit", "-q", "--allow-empty", "-m", "chore: same tree, new commit")
-    assert pre_push.gate_passed_on("HEAD")
+    assert pre_push.gate_passed_on("HEAD", "check")
 
 
 @pytest.mark.parametrize(
@@ -382,15 +390,15 @@ def test_a_pass_is_not_remembered_unless_the_tree_was_the_same_and_clean_through
     git_repo.commit("chore: start", {"start.txt": "start"})
     monkeypatch.chdir(git_repo.path)
     passed_gate(git_repo, **run)
-    assert not pre_push.gate_passed_on("HEAD")
-    assert not pre_push.gate_passed_on("HEAD~1" if run.get("change_between") else "HEAD")
+    assert not pre_push.gate_passed_on("HEAD", "check")
+    assert not pre_push.gate_passed_on("HEAD~1" if run.get("change_between") else "HEAD", "check")
 
 
 def test_outside_a_repository_nothing_is_remembered_and_nothing_fails(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    pre_push.record_gate_start()
-    pre_push.record_gate_pass()
-    assert not pre_push.gate_passed_on("HEAD")
+    pre_push.record_gate_start("check")
+    pre_push.record_gate_pass("check")
+    assert not pre_push.gate_passed_on("HEAD", "check")
 
 
 @pytest.mark.parametrize(
@@ -427,6 +435,80 @@ def test_a_push_of_a_newer_tree_than_the_one_that_passed_runs_the_gate(git_repo,
     monkeypatch.setattr(shutil, "which", lambda _name: None)
     assert pre_push.main() == 1
     assert "uv is not on the PATH" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("passed", "needed", "satisfied"),
+    [
+        pytest.param("check", "check", True, id="a check pass satisfies check"),
+        pytest.param("full", "check", True, id="a full pass satisfies check"),
+        pytest.param("full", "full", True, id="a full pass satisfies full"),
+        pytest.param("check", "full", False, id="a check pass never satisfies full"),
+    ],
+)
+def test_a_pass_satisfies_its_own_tier_and_the_lower_ones(git_repo, monkeypatch, passed, needed, satisfied):
+    git_repo.commit("chore: start", {"start.txt": "start"})
+    monkeypatch.chdir(git_repo.path)
+    passed_gate(git_repo, passed)
+    assert pre_push.gate_passed_on("HEAD", needed) is satisfied
+
+
+@pytest.mark.parametrize(
+    ("ref", "passed", "gate_runs"),
+    [
+        pytest.param("refs/heads/main", "check", False, id="main, check passed"),
+        pytest.param("refs/heads/main", "full", False, id="main, full passed"),
+        pytest.param("refs/heads/main", None, True, id="main, nothing passed"),
+        pytest.param("refs/tags/v1.0.0", "full", False, id="a tag, full passed"),
+        pytest.param("refs/tags/v1.0.0", "check", True, id="a tag, only check passed"),
+        pytest.param("refs/tags/v1.0.0", None, True, id="a tag, nothing passed"),
+        pytest.param("", "check", True, id="a ref that is not clearly a branch needs full too"),
+    ],
+)
+def test_main_needs_a_check_pass_and_a_tag_a_full_one(git_repo, monkeypatch, capsys, ref, passed, gate_runs):
+    """With uv hidden a gate that did run shows as a failure."""
+    before = git_repo.commit("chore: start", {"start.txt": "start"})
+    after = git_repo.commit("feat: code", {"src/code.py": "x = 1"})
+    monkeypatch.chdir(git_repo.path)
+    if passed:
+        passed_gate(git_repo, passed)
+    monkeypatch.setenv("PRE_COMMIT_REMOTE_BRANCH", ref)
+    monkeypatch.setenv("PRE_COMMIT_FROM_REF", before)
+    monkeypatch.setenv("PRE_COMMIT_TO_REF", after)
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+    assert pre_push.main() == (1 if gate_runs else 0)
+    assert ("uv is not on the PATH" in capsys.readouterr().out) is gate_runs
+
+
+def test_a_gate_starting_on_a_tree_that_already_passed_says_so_loudly(git_repo, monkeypatch, capsys):
+    git_repo.commit("chore: start", {"start.txt": "start"})
+    monkeypatch.chdir(git_repo.path)
+
+    def start_and_pass(tier: str) -> str:
+        """What starting a gate of `tier` says; it then passes, which frees the one-gate-at-a-time record."""
+        pre_push.record_gate_start(tier)
+        said = capsys.readouterr().out
+        pre_push.record_gate_pass(tier)
+        capsys.readouterr()
+        return said
+
+    assert "ALREADY PASSED" not in start_and_pass("check"), "nothing passed yet"
+    assert "ALREADY PASSED" in start_and_pass("check")
+    assert "ALREADY PASSED" not in start_and_pass("full"), "a check pass says nothing about full"
+
+
+@pytest.mark.parametrize(
+    ("tier", "remembered"),
+    [
+        pytest.param("full", True, id="a full pass remembers the proofs"),
+        pytest.param("check", False, id="check does not"),
+    ],
+)
+def test_only_a_full_pass_remembers_that_the_proofs_passed(git_repo, monkeypatch, tier, remembered):
+    git_repo.commit("chore: start", {"tools/a.py": "a = 1"})
+    monkeypatch.chdir(git_repo.path)
+    passed_gate(git_repo, tier)
+    assert (pre_push.proofs_due(["tools/"]) is None) is remembered
 
 
 # One gate per checkout --------------------------------------------------------------------------------------------
@@ -466,9 +548,9 @@ def test_a_gate_does_not_begin_while_a_live_poe_holds_the_record(git_repo, monke
 
     if refused:
         with pytest.raises(SystemExit, match=f"already running.*{pid}"):
-            pre_push.record_gate_start()
+            pre_push.record_gate_start("check")
     else:
-        pre_push.record_gate_start()
+        pre_push.record_gate_start("check")
 
 
 @needs_ps
@@ -480,6 +562,6 @@ def test_a_record_of_a_dead_gate_is_ignored_and_a_finished_gate_leaves_none(git_
     record.write_text(str(gate.pid), encoding="utf-8")
     gate.kill()
     gate.wait()
-    pre_push.record_gate_start()
-    pre_push.record_gate_pass()
+    pre_push.record_gate_start("check")
+    pre_push.record_gate_pass("check")
     assert not record.exists()
