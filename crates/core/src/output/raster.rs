@@ -25,7 +25,9 @@ impl Drawing {
     /// where none is given: rows from the top, four bytes a pixel, so `width * height * 4` bytes; transparent black
     /// where nothing is drawn.
     ///
-    /// Shapes are placed as in [`Drawing::to_svg`] and painted in order.
+    /// Shapes are placed as in [`Drawing::to_svg`] and painted in order. A shape that knocks out paints nothing: the
+    /// pixels its fill and stroke cover, as far as they cover them, are taken out of what the shapes before it painted
+    /// (an edge pixel half covered loses half its alpha), whatever the colours, opacity, blend and shadow of the shape.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 65,000,

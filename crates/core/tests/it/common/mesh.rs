@@ -134,3 +134,29 @@ pub(crate) fn check_layout(mesh: &Mesh) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// An error unless the two meshes hold the same triangles: equal indices and ranges, and vertices that agree in
+/// position to a thousandth of a pixel (the shadow moves f32 positions, the hand-built copy f64 ones) and exactly in
+/// colour. The item and the order are left out: a shadow has those of its shape, a copy those a stack gives it.
+pub(crate) fn same_triangles(left: &Mesh, right: &Mesh) -> Result<(), Box<dyn std::error::Error>> {
+    let (left_floats, right_floats) = (left.vertices(), right.vertices());
+    let vertices_agree = left_floats.len() == right_floats.len()
+        && left_floats
+            .chunks(FLOATS)
+            .zip(right_floats.chunks(FLOATS))
+            .all(|(a, b)| (a[0] - b[0]).abs() < 1e-3 && (a[1] - b[1]).abs() < 1e-3 && a[2..6] == b[2..6]);
+    if vertices_agree && left.indices() == right.indices() && left.ranges() == right.ranges() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} against {} vertices, {} against {} indices, ranges {:?} against {:?}",
+            left_floats.len() / FLOATS,
+            right_floats.len() / FLOATS,
+            left.indices().len(),
+            right.indices().len(),
+            left.ranges(),
+            right.ranges()
+        )
+        .into())
+    }
+}

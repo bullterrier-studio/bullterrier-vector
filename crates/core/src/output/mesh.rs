@@ -7,6 +7,9 @@
 //! point. The tessellator computes in f32, so it works in design pixels, where the numbers are the drawing's own, and
 //! the vertices are moved through the view afterwards: a drawing at twice the size has positions exactly twice as
 //! large.
+//!
+//! A shape that knocks out is not drawn: the region its fill and stroke cover is taken out of the layers of every shape
+//! before it (`Path::subtract`, so the cut edge of a stroke is flat), their hard shadows included.
 
 use super::cast;
 use super::outline::{bez_path, dots, stroke_outline, within_device};
@@ -14,8 +17,8 @@ use super::view::View;
 use super::{Size, in_shape};
 use crate::limits::Work;
 use crate::math::{atan2, sin_cos};
-use crate::path::{FLATNESS, Polyline};
-use crate::{Blend, Cap, Drawing, Error, Join, Point, Shape, Values};
+use crate::path::{Builder, Combine, FLATNESS, Polyline};
+use crate::{Blend, Cap, Drawing, Error, Join, Path, Point, Shape, Values};
 use kurbo::{BezPath, PathEl};
 use lyon_tessellation::math::point;
 use lyon_tessellation::path::Path as Outlines;
@@ -99,7 +102,11 @@ impl Drawing {
     /// its stroke, each a set of triangles that cover every point inside it once (by the nonzero rule, as the other
     /// outputs fill), so a translucent fill and stroke show darker where they overlap, which the pixels' one group
     /// per shape does not. A colour's alpha times the shape's `opacity` is the vertex alpha; a layer whose alpha is 0
-    /// has no triangles. A shape with an empty path adds nothing but keeps its number as `item`. Curves are flattened,
+    /// has no triangles. A shape with an empty path adds nothing but keeps its number as `item`. A shape that knocks out
+    /// adds nothing either: the region its fill and stroke cover is taken out of the layers of the shapes before it
+    /// (their blur-free shadows too) by a boolean, so what is left of a cut stroke ends flat at the cut, where the pixels
+    /// end it the same way; the edges and the crossings of the cut are charged to `MAX_SEGMENTS` as a boolean step of a
+    /// drawing is. Curves are flattened,
     /// as for the pixels, to within 0.01 design pixels.
     ///
     /// The triangles are made in design pixels in f32, so a coordinate beyond 10 million is refused.
@@ -124,8 +131,15 @@ impl Drawing {
         maker.buffers.vertices.clear();
         maker.buffers.indices.clear();
         maker.buffers.ranges.clear();
-        for shape in &shapes {
-            maker.shape(shape, &view)?;
+        let knockouts = maker.knockouts(&shapes, &view)?;
+        // the region the knockouts after a shape take out of it, kept while the knockouts after it are the same ones
+        let mut cutter: Option<(usize, Option<Region>)> = None;
+        for (position, shape) in shapes.iter().enumerate() {
+            let first = knockouts.partition_point(|(at, _)| *at <= position);
+            if cutter.as_ref().is_none_or(|(built, _)| *built != first) {
+                cutter = Some((first, Region::of(&knockouts[first..])));
+            }
+            maker.shape(shape, &view, cutter.as_ref().and_then(|(_, region)| region.as_ref()))?;
         }
         if into.scratch != into.current {
             std::mem::swap(&mut into.current, &mut into.scratch);
@@ -155,8 +169,120 @@ struct Paint {
 type Ring = Vec<[f32; 2]>;
 
 impl Maker<'_> {
-    /// Adds the layers of `shape` seen through `view`.
-    fn shape(&mut self, shape: &Shape, view: &View) -> Result<(), Error> {
+    /// The regions that the shapes which knock out take away, each with its position in `shapes`.
+    ///
+    /// # Errors
+    /// As [`Maker::shape`] for the shape that knocks out, and what resolving a region raises.
+    fn knockouts(&self, shapes: &[Shape], view: &View) -> Result<Vec<(usize, Region)>, Error> {
+        let mut found = Vec::new();
+        for (position, shape) in shapes.iter().enumerate().filter(|(_, shape)| shape.style().knockout()) {
+            let name = format!("shape {}", shape.index());
+            let mut charge = |count| self.work.made_segments(count, &name);
+            let polylines = shape.path().flattened(&mut charge)?;
+            if polylines.is_empty() {
+                continue;
+            }
+            reachable(&polylines, view).map_err(|error| in_shape(shape, "", error))?;
+            let layers = self.layers(shape, &polylines, view, &name, true)?;
+            // each layer on its own is resolved (the fill and the stroke may run opposite ways), and then they are joined
+            let mut parts = Vec::new();
+            let mut bounds = Bounds::EMPTY;
+            for (rings, _) in &layers {
+                bounds = bounds.with(rings);
+                parts.push(path_of(rings)?.resolved(FLATNESS, &mut charge)?);
+            }
+            if !parts.is_empty() {
+                found.push((
+                    position,
+                    Region {
+                        path: Path::joined(&parts),
+                        bounds,
+                    },
+                ));
+            }
+        }
+        Ok(found)
+    }
+
+    /// The layers of `shape`, its fill and then its stroke, as closed outlines in design pixels with the colour each is
+    /// painted in. `polylines` is its path flattened. A layer that is not painted is left out, and so is one with no
+    /// alpha (a colour with none, or an opacity of 0) unless `covering` asks for the area the shape covers.
+    fn layers(
+        &self,
+        shape: &Shape,
+        polylines: &[Polyline],
+        view: &View,
+        name: &str,
+        covering: bool,
+    ) -> Result<Vec<(Vec<Ring>, [u8; 4])>, Error> {
+        let style = shape.style();
+        let visible = |rgba: [u8; 4]| covering || style.opacity() * f64::from(rgba[3]) > 0.0;
+        let mut layers: Vec<(Vec<Ring>, [u8; 4])> = Vec::new();
+        if let Some(rgba) = style.fill().rgba()
+            && visible(rgba)
+        {
+            layers.push((polylines.iter().map(|polyline| ring(&polyline.points)).collect(), rgba));
+        }
+        if let Some(stroke) = style.stroke()
+            && let Some(rgba) = stroke.color().rgba()
+        {
+            let device = view
+                .length(stroke.width())
+                .map_err(|error| in_shape(shape, "stroke width ", error))?;
+            within_device("the stroke width", device).map_err(|error| in_shape(shape, "", error))?;
+            if visible(rgba) {
+                // kurbo's round joins and ends are arcs on a self-overlapping outline, which the tessellator sometimes covers
+                // three times: the outline is made with bevel joins and butt ends, and discs added where the arcs were
+                let (join, cap) = match (stroke.join(), stroke.cap()) {
+                    (Join::Round, cap) => (Join::Bevel, cap),
+                    other => other,
+                };
+                let cap = if cap == Cap::Round { Cap::Butt } else { cap };
+                let outline = stroke_outline(
+                    &bez_path(polylines),
+                    stroke,
+                    (join, cap),
+                    stroke.width(),
+                    FLATNESS,
+                    name,
+                )?;
+                let mut rings = rings_of(&outline);
+                let mut charge = |count| self.work.made_segments(count, name);
+                let round = (stroke.join() == Join::Round, stroke.cap() == Cap::Round);
+                for wedge in round_wedges(polylines, round, stroke.width() / 2.0) {
+                    charge(wedge.len())?;
+                    rings.push(wedge);
+                }
+                for dot in dots(polylines, stroke.cap(), stroke.width(), &mut charge)? {
+                    rings.extend(dot.iter().map(|polyline| ring(&polyline.points)));
+                }
+                layers.push((rings, rgba));
+            }
+        }
+        Ok(layers)
+    }
+
+    /// `rings` with `region` taken out of them, charged to `MAX_SEGMENTS` as a boolean step of a drawing is.
+    fn cut(&self, rings: Vec<Ring>, region: &Region, name: &str) -> Result<Vec<Ring>, Error> {
+        if !Bounds::EMPTY.with(&rings).meets(&region.bounds) {
+            return Ok(rings);
+        }
+        let mut charge = |count| self.work.made_segments(count, name);
+        let left = path_of(&rings)?.combined(&region.path, Combine::Subtract, FLATNESS, &mut charge)?;
+        Ok(left
+            .flattened(&mut charge)?
+            .iter()
+            .map(|polyline| ring(&polyline.points))
+            .collect())
+    }
+
+    /// Adds the layers of `shape` seen through `view`, with the `knocked` region taken out of every one, if there is
+    /// one. A shape that knocks out has none.
+    fn shape(&mut self, shape: &Shape, view: &View, knocked: Option<&Region>) -> Result<(), Error> {
+        let style = shape.style();
+        if style.knockout() {
+            return Ok(());
+        }
         let name = format!("shape {}", shape.index());
         let work = &self.work;
         let mut charge = |count| work.made_segments(count, &name);
@@ -165,7 +291,6 @@ impl Maker<'_> {
             return Ok(());
         }
         reachable(&polylines, view).map_err(|error| in_shape(shape, "", error))?;
-        let style = shape.style();
         // a shape no generator ranked has order 0
         let order = shape.attributes().order().unwrap_or(0.0);
         #[expect(
@@ -187,49 +312,7 @@ impl Maker<'_> {
                 order,
             }
         };
-        // the layers in paint order: the fill, then the stroke, each with the colour it is painted in
-        let mut layers: Vec<(Vec<Ring>, [u8; 4])> = Vec::new();
-        if let Some(rgba) = style.fill().rgba()
-            && style.opacity() * f64::from(rgba[3]) > 0.0
-        {
-            layers.push((polylines.iter().map(|polyline| ring(&polyline.points)).collect(), rgba));
-        }
-        if let Some(stroke) = style.stroke()
-            && let Some(rgba) = stroke.color().rgba()
-        {
-            let device = view
-                .length(stroke.width())
-                .map_err(|error| in_shape(shape, "stroke width ", error))?;
-            within_device("the stroke width", device).map_err(|error| in_shape(shape, "", error))?;
-            if style.opacity() * f64::from(rgba[3]) > 0.0 {
-                // kurbo's round joins and ends are arcs on a self-overlapping outline, which the tessellator sometimes covers
-                // three times: the outline is made with bevel joins and butt ends, and discs added where the arcs were
-                let (join, cap) = match (stroke.join(), stroke.cap()) {
-                    (Join::Round, cap) => (Join::Bevel, cap),
-                    other => other,
-                };
-                let cap = if cap == Cap::Round { Cap::Butt } else { cap };
-                let outline = stroke_outline(
-                    &bez_path(&polylines),
-                    stroke,
-                    (join, cap),
-                    stroke.width(),
-                    FLATNESS,
-                    &name,
-                )?;
-                let mut rings = rings_of(&outline);
-                let mut charge = |count| self.work.made_segments(count, &name);
-                let round = (stroke.join() == Join::Round, stroke.cap() == Cap::Round);
-                for wedge in round_wedges(&polylines, round, stroke.width() / 2.0) {
-                    charge(wedge.len())?;
-                    rings.push(wedge);
-                }
-                for dot in dots(&polylines, stroke.cap(), stroke.width(), &mut charge)? {
-                    rings.extend(dot.iter().map(|polyline| ring(&polyline.points)));
-                }
-                layers.push((rings, rgba));
-            }
-        }
+        let layers = self.layers(shape, &polylines, view, &name, false)?;
         if let Some((shadow, tint)) = cast(style) {
             if shadow.blur() > 0.0 {
                 return Err(Error::parameter(
@@ -254,13 +337,23 @@ impl Maker<'_> {
                     .iter()
                     .map(|ring| ring.iter().map(|[x, y]| [x + dx, y + dy]).collect())
                     .collect();
+                let shifted = self.knocked(shifted, knocked, &name)?;
                 self.layer(&shifted, &paint(*rgba, Some(tint)), view, &name)?;
             }
         }
-        for (rings, rgba) in &layers {
-            self.layer(rings, &paint(*rgba, None), view, &name)?;
+        for (rings, rgba) in layers {
+            let rings = self.knocked(rings, knocked, &name)?;
+            self.layer(&rings, &paint(rgba, None), view, &name)?;
         }
         Ok(())
+    }
+
+    /// `rings` with `region` taken out of them, as they are if there is none.
+    fn knocked(&self, rings: Vec<Ring>, region: Option<&Region>, name: &str) -> Result<Vec<Ring>, Error> {
+        match region {
+            Some(region) => self.cut(rings, region, name),
+            None => Ok(rings),
+        }
     }
 
     /// Tessellates `rings` by the nonzero rule into triangles of `paint`, seen through `view`, and adds them to the
@@ -307,6 +400,73 @@ impl Maker<'_> {
         }
         Ok(())
     }
+}
+
+/// What a knockout takes away: the region it covers, and a box that holds it.
+struct Region {
+    path: Path,
+    bounds: Bounds,
+}
+
+impl Region {
+    /// The region that all of `knockouts` take away together, or `None` if there are none.
+    fn of(knockouts: &[(usize, Self)]) -> Option<Self> {
+        if knockouts.is_empty() {
+            return None;
+        }
+        Some(Self {
+            path: Path::joined(knockouts.iter().map(|(_, region)| &region.path)),
+            bounds: knockouts
+                .iter()
+                .fold(Bounds::EMPTY, |all, (_, region)| all.union(&region.bounds)),
+        })
+    }
+}
+
+/// A box in design pixels: left, top, right and bottom.
+#[derive(Clone, Copy)]
+struct Bounds([f32; 4]);
+
+impl Bounds {
+    /// The box that holds nothing: every box is wider than it.
+    const EMPTY: Self = Self([f32::INFINITY, f32::INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY]);
+
+    /// This box grown to hold every corner of `rings`.
+    fn with(self, rings: &[Ring]) -> Self {
+        let mut found = self.0;
+        for [x, y] in rings.iter().flatten() {
+            found = [found[0].min(*x), found[1].min(*y), found[2].max(*x), found[3].max(*y)];
+        }
+        Self(found)
+    }
+
+    /// The box that holds this one and `other`.
+    fn union(self, other: &Self) -> Self {
+        let (a, b) = (self.0, other.0);
+        Self([a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])])
+    }
+
+    /// Whether the two boxes share a point.
+    fn meets(&self, other: &Self) -> bool {
+        let (a, b) = (self.0, other.0);
+        a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3]
+    }
+}
+
+/// The path that has `rings` for sub-paths, each closed.
+fn path_of(rings: &[Ring]) -> Result<Path, Error> {
+    let mut builder = Builder::new();
+    for ring in rings.iter().filter(|ring| ring.len() >= 3) {
+        let mut corners = ring.iter().map(|[x, y]| Point::new(f64::from(*x), f64::from(*y)));
+        if let Some(first) = corners.next() {
+            builder.move_to(first)?;
+        }
+        for corner in corners {
+            builder.line_to(corner)?;
+        }
+        builder.close();
+    }
+    Ok(builder.finish())
 }
 
 /// An index or a count as the `u32` of the buffers.

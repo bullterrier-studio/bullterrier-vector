@@ -1,7 +1,7 @@
 //! A shadow in the mesh `Drawing::to_mesh` fills: with no blur an offset copy of the shape's triangles under it; with a
 //! blur it is refused. Expected buffers are those of the hand-built copy, and colours worked by hand.
 
-use crate::common::mesh::{FLOATS, check_layout, mesh_of, vertex};
+use crate::common::mesh::{FLOATS, check_layout, mesh_of, same_triangles, vertex};
 use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{Blend, Cap, Color, Drawing, Error, Mesh, Path, Shadow, Size, Stroke, Values};
 
@@ -13,32 +13,6 @@ fn color(text: &str) -> Result<Color, Error> {
 
 fn rect(left: f64, top: f64, width: f64, height: f64) -> Result<Path, Error> {
     Path::rect(left, top, width, height, 0.0)
-}
-
-/// An error unless the two meshes hold the same triangles: equal indices and ranges, and vertices that agree in
-/// position to a thousandth of a pixel (the shadow moves f32 positions, the hand-built copy f64 ones) and exactly in
-/// colour. The item and the order are left out: a shadow has those of its shape, a copy those a stack gives it.
-fn same_triangles(left: &Mesh, right: &Mesh) -> Outcome {
-    let (left_floats, right_floats) = (left.vertices(), right.vertices());
-    let vertices_agree = left_floats.len() == right_floats.len()
-        && left_floats
-            .chunks(FLOATS)
-            .zip(right_floats.chunks(FLOATS))
-            .all(|(a, b)| (a[0] - b[0]).abs() < 1e-3 && (a[1] - b[1]).abs() < 1e-3 && a[2..6] == b[2..6]);
-    if vertices_agree && left.indices() == right.indices() && left.ranges() == right.ranges() {
-        Ok(())
-    } else {
-        Err(format!(
-            "{} against {} vertices, {} against {} indices, ranges {:?} against {:?}",
-            left_floats.len() / FLOATS,
-            right_floats.len() / FLOATS,
-            left.indices().len(),
-            right.indices().len(),
-            left.ranges(),
-            right.ranges()
-        )
-        .into())
-    }
 }
 
 #[test]

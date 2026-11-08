@@ -32,6 +32,7 @@ mod json_text;
 mod json_write;
 mod mesh;
 mod mesh_fill;
+mod mesh_knockout;
 mod mesh_layers;
 mod mesh_properties;
 mod mesh_shadow;
