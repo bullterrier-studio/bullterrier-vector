@@ -766,8 +766,19 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   once rounded to numbers; a hair-thin contour that rounding turned over (a hole before any outer); a thinness test that
   read a contour smaller than 1e-160 as flat; a thinness test judged on the contour instead of the whole result's width;
   a lone point or line widening the engine's frame and so moving the other operand's corners; edges that cross heavily
-  exhausting memory. The fixes keep one rule: a contour no thicker than 4 ulps of the result's largest coordinate is rounding and
+  exhausting memory. The fixes keep one rule: a contour no thicker than 4 ulps of the largest coordinate is rounding and
   is dropped.
+- **What the fuzz found later** (2026-11-08), two flakes that a random gate seed hit (2 x 20,000 cases of each property
+  on the old code found neither: they are rare). (1) The rule above took the largest coordinate from the *result*, but
+  the engine rounds to a frame as wide as all of its *input*: a subtract that left only a 0.008 piece beside a shape at
+  713 kept a hair of area 3e-18 as a hole outside every outer ring. The scale is now the larger of the input's and the
+  result's (`canonical`), and the one regression test is the shrunk case. (2) A shape beside a copy of it nudged by 1e-7
+  and then moved by 7759.6: the move rounds an exact overlap (a corner on another edge, doubled back) into a sliver
+  1e-12 thick, and `i_overlay` lost a quadrilateral of area 8e-16 (1e-8 thick, 7e-8 long) at that corner; a plain
+  triangle for the shape does not. No fix in our code, and it is invisible; it is in api.md, "Booleans". The property
+  states it: a scene whose generator nudges by `JITTER` adds ten nudges to its slack, so a probe keeps 1.4e-6 from
+  every edge and the area bound grows to match, while every other scene keeps `1e-13` of its largest coordinate. The
+  shrunk case is a plain test with that slack, red with none.
 - **No boolean raises `GeometryError`** (2026-11-07). The engine resolves any outline, so the errors are
   `ParameterError`: a `tolerance` outside the range, a result beyond ±1e100, `MAX_SEGMENTS`. *Reason:* an error the
   engine cannot produce would be dead code. `GeometryError` stays for verbs that can fail geometrically.

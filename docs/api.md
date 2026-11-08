@@ -211,9 +211,13 @@ Known limits:
   by 1e-14) and one smaller than the grid vanishes (1e-300 beside 1e100). Near zero the engine's scale leaves the range
   of a number: exact to 1e-12 relative down to coordinates of 1e-290, then off by 3e-14 relative at 1e-295 and 2.5e-9 at
   1e-300.
-- **Thin contours are dropped.** One no thicker than 4 ulps of the result's largest coordinate encloses less than a number
-  holds (a spike of no width, a retraced curve's hair pieces, a sliver of 1e-13 beside a 600-wide shape). So are sub-paths
-  of fewer than 3 corners, and the spike of an open polyline that doubles back.
+- **Thin contours are dropped.** One no thicker than 4 ulps of the largest coordinate of the input (or the result, if
+  more) encloses less than a number holds (a spike of no width, a retraced curve's hair pieces, a sliver of 1e-13 beside
+  a 600-wide shape). So are sub-paths of fewer than 3 corners, and the spike of an open polyline that doubles back.
+- **Details of the size of a nudge can vanish beside a rounding sliver.** Two edges that nearly coincide (a copy of a
+  shape nudged by 1e-7) beside an overlap that a number's rounding turned into a sliver (a corner on another edge, doubled
+  back, then moved by 7759.6: 1e-12 thick) lost a quadrilateral of area 8e-16 at the corner, 1e-8 thick; the area and
+  every point farther than ten nudges from an edge are right. Not visible at any size a drawing is shown.
 - **Touching shapes merge.** Shapes that share an edge become one contour, the shared edge dissolved; shapes that meet at
   a corner stay two. A boolean cannot tell two touching shapes from one. Collinear and duplicate vertices are not kept, so
   the vertex count differs from the input's.
