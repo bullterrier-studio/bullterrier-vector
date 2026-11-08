@@ -344,6 +344,8 @@ shape plain polygons, leaves out those wholly outside and cuts only the dots tha
 boolean. Limit: before any dot is made, the lattice points near the shape, each times the edges of the outline and the
 corners of a dot, are charged to `MAX_SEGMENTS`, so a pitch too small for its shape (about 50,000 dots for a disc) is
 refused with `ParameterError` naming the shape and its `pitch`, in every output.
+The lattice is laid over the whole shape, not the part on the canvas: a shape far larger than the canvas (a 20,000 by
+20,000 square at pitch 8) is refused though few of its dots would show; use a larger pitch or a smaller shape.
 `knockout` is the style form of a cut: it keeps both shapes and cuts through everything below, shadows included;
 `subtract` makes new geometry (for a plotter, or for further verbs). Every style reaches SVG and pixels alike. Called on
 a `Path`, a style step returns a `Drawing` of that path.
