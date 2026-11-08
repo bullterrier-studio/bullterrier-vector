@@ -198,6 +198,38 @@ fn the_miter_limit_does_not_change_a_round_or_a_bevel_join() -> Outcome {
     Ok(())
 }
 
+// The `tolerance` cuts the arc of a round join or cap into steps: a coarse one leaves few edges, a fine one many, and
+// the chords stay within it of the circle.
+#[test]
+fn the_tolerance_sets_how_many_edges_a_round_join_and_cap_become() -> Outcome {
+    let line = Path::line((0.0, 0.0), (40.0, 0.0))?;
+    let corners = square(40.0)?;
+    let edges = |path: &Path| path.to_svg_path().matches('L').count();
+    let (fine, coarse) = (
+        edges(&corners.offset(10.0, Join::Round, LIMIT, 0.01)?),
+        edges(&corners.offset(10.0, Join::Round, LIMIT, 2.0)?),
+    );
+    assert!(fine > 4 * coarse, "offset: {fine} edges at 0.01 against {coarse} at 2");
+    let (fine, coarse) = (
+        edges(&line.outline(20.0, Join::Round, Cap::Round, LIMIT, 0.01)?),
+        edges(&line.outline(20.0, Join::Round, Cap::Round, LIMIT, 2.0)?),
+    );
+    assert!(
+        fine > 4 * coarse,
+        "outline cap: {fine} edges at 0.01 against {coarse} at 2"
+    );
+    let bend = Path::from_svg_path("M0 0 L40 0 L40 40")?;
+    let (fine, coarse) = (
+        edges(&bend.outline(20.0, Join::Round, Cap::Butt, LIMIT, 0.01)?),
+        edges(&bend.outline(20.0, Join::Round, Cap::Butt, LIMIT, 2.0)?),
+    );
+    assert!(
+        fine > 2 * coarse,
+        "outline join: {fine} edges at 0.01 against {coarse} at 2"
+    );
+    Ok(())
+}
+
 // Closing (grow then shrink) fills what is narrower than 2r, opening (shrink then grow) removes it and rounds the corners.
 #[test]
 fn closing_fills_a_slot_and_opening_removes_a_spur() -> Outcome {
