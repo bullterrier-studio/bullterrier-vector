@@ -68,7 +68,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V9 is done; V10 is next.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10 is done; V10d is next.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -525,6 +525,14 @@ booleans, 16 offsets).
 - Every effect so far written into SVG as drawn in pixels. An effect with no SVG form fails a test.
 - Halftone as a fill (a screen: pitch, angle, dot size from a tone) clipped to any shape, without a boolean per dot;
   timed by the V3 benchmark.
+
+Done 2026-11-08. `shadow`, `knockout` and `halftone` are style steps, in Rust, Python, documents and the WebAssembly
+differential (128 drawings), written into SVG, drawn in pixels and cut into the mesh by the same rules (`api.md`,
+"Style"; `design-decisions.md`, "Style effects (V10)"). The SVG is checked against the pixels by rendering it with
+`resvg` in the core tests; multiply was found to agree. A blurred shadow stays a `ParameterError` in `to_mesh`: the mesh
+format is untouched, so allowing it later adds a draw-range kind and breaks no caller. The halftone `tone` is a number
+until the tone sources of V15 (`Field`); a screen of 3,000 dots takes 20 ms in pixels and about 70 ms as SVG or mesh,
+against about 500 ms for a boolean per dot (`benchmarks.md`).
 
 ## V11 Path modifiers
 
