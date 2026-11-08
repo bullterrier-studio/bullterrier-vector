@@ -219,8 +219,8 @@ Each gate has a test proving it fails on a known-bad input (`tests/tools/`, mark
 left out of `fast`, run by `full` and, when due, `check`). A new gate gets its proof, and a line in `tests/tools/test_gate_wiring.py`,
 which fails when `check` or `full` does not run a proven gate, `check` runs the proofs always or `full` records its pass as `check`.
 
-**Gate time** (warm caches, a shared 10-core Mac at load 5 to 12): `check` without the proofs about 3 minutes (`rust-test` about 2
-minutes, `build-check` 25 s, `wasm-test` 10 s, the other steps seconds); with them (`full`, or a `check` where they are due) 14
+**Gate time** (warm caches, a shared 10-core Mac at load 5 to 12): `check` without the proofs about 1.5 minutes (`rust-test` about 25 s
+(it was 2 minutes before the Rust tests were built optimised), `build-check` 25 s, `wasm-test` 10 s, the other steps seconds); with them (`full`, or a `check` where they are due) 14
 minutes, the proofs 7 to 8 of those. The proofs' Cargo build folders persist in `target/gate-proofs/` (git-ignored, one per module and per digest of `Cargo.lock`, `Cargo.toml`
 and `rust-toolchain.toml`): the first run, or one after a lock or toolchain change, compiles every dependency again (about 13
 min of proofs). Safe to delete (`rm -rf target/gate-proofs`); a folder is left behind per dependency change (1 to 3 GB), so delete
