@@ -3,7 +3,7 @@
 
 use super::cast;
 use super::outline::{bez_path, dots, stroke_outline, within_device};
-use super::screen::{Screen, screen};
+use super::screen::{Screen, charged, screen};
 use super::view::View;
 use super::{Size, in_shape};
 use crate::limits::Work;
@@ -184,6 +184,12 @@ fn paint(
     let reach = stroke.map_or(0.0, |(stroke, width)| stroke_reach(stroke, width));
     let shadow_reach = shadow.as_ref().map_or(0.0, Shadow::reach);
     let Some(bounds) = visible(&device, reach + shadow_reach, canvas) else {
+        // a shape off the canvas is drawn by the other outputs, so a pitch they refuse is refused here too
+        if let Some(halftone) = style.halftone() {
+            charged(halftone, &polylines, &mut |count| {
+                work.made_segments(count, &format!("shape {} pitch", shape.index()))
+            })?;
+        }
         return Ok(());
     };
     if let Some(shadow) = &shadow

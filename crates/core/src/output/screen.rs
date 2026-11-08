@@ -53,9 +53,7 @@ enum Place {
 
 /// The screen `halftone` makes over the shape whose outline is `outline`, in design pixels.
 ///
-/// The work is charged to `charge` before any dot is made: for each lattice point near the shape, the edges of the
-/// outline it is tested against and the corners of its dot, so that a tiny pitch on a big shape is refused rather than
-/// allocated.
+/// The work is charged to `charge` before any dot is made, as [`charged`] does.
 ///
 /// # Errors
 /// What `charge` returns.
@@ -64,21 +62,72 @@ pub(super) fn screen(
     outline: &[Polyline],
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Screen, Error> {
-    let none = || {
-        Screen::Dots(Dots {
+    Ok(match plan(halftone, outline, charge)? {
+        Plan::Solid => Screen::Solid,
+        Plan::Bare => Screen::Dots(Dots {
             inside: Vec::new(),
             crossing: Vec::new(),
-        })
-    };
+        }),
+        Plan::Lattice(lattice) => Screen::Dots(lattice.dots()),
+    })
+}
+
+/// Charges `charge` what [`screen`] would, for each lattice point near the shape the edges of the outline it is tested
+/// against and the corners of its dot, and makes no dot: a pitch too small for its shape is refused rather than
+/// allocated, and a shape that is not drawn is refused the same.
+///
+/// # Errors
+/// What `charge` returns.
+pub(super) fn charged(
+    halftone: &HalftoneStyle,
+    outline: &[Polyline],
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+) -> Result<(), Error> {
+    plan(halftone, outline, charge).map(|_| ())
+}
+
+/// What a halftone makes of a shape, once its work is charged.
+enum Plan {
+    /// The tone is 0.
+    Solid,
+    /// No dot touches the shape.
+    Bare,
+    /// The dots to make.
+    Lattice(Lattice),
+}
+
+/// The lattice points whose dots can reach a shape, and what a dot is.
+struct Lattice {
+    edges: Vec<(Point, Point)>,
+    /// The first lattice point, and how many there are across and down.
+    first: (f64, f64),
+    across: usize,
+    down: usize,
+    pitch: f64,
+    /// The sine and cosine of the angle of the lattice.
+    turn: (f64, f64),
+    radius: f64,
+    corners: usize,
+}
+
+/// The plan for `halftone` over `outline`, with its work charged to `charge`.
+///
+/// # Errors
+/// What `charge` returns.
+fn plan(
+    halftone: &HalftoneStyle,
+    outline: &[Polyline],
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+) -> Result<Plan, Error> {
     let (tone, pitch) = (halftone.tone(), halftone.pitch());
     // the tone is within 0 to 1: its ends are solid and bare by definition
     if tone <= 0.0 {
-        return Ok(Screen::Solid);
+        return Ok(Plan::Solid);
     }
     let bare = tone >= 1.0;
     let edges = edges(outline);
     let Some(bounds) = bounds(outline).filter(|_| !bare && !edges.is_empty()) else {
-        return Ok(none());
+        return Ok(Plan::Bare);
     };
     let radius = pitch * ((1.0 - tone) / PI).sqrt();
     // an arc of angle s is within radius * s^2 / 8 of its chord; a triangle is the fewest corners
@@ -121,35 +170,62 @@ pub(super) fn screen(
         reason = "charged above, so at most the limit of edges: whole numbers far below usize"
     )]
     let (corners, across, down) = (corners as usize, across as usize, down as usize);
-    let unit: Vec<(f64, f64)> = (0..corners)
-        .map(|corner| {
-            #[expect(clippy::cast_precision_loss, reason = "a count below the limit is exact")]
-            let (sin, cos) = sin_cos(TAU * corner as f64 / corners as f64);
-            (cos * radius, sin * radius)
-        })
-        .collect();
-    let mut dots = Dots {
-        inside: Vec::new(),
-        crossing: Vec::new(),
-    };
-    for row in 0..down {
-        for column in 0..across {
-            #[expect(clippy::cast_precision_loss, reason = "a count below the limit is exact")]
-            let (i, j) = ((first_i + column as f64) * pitch, (first_j + row as f64) * pitch);
-            let centre = Point::new(i * cos - j * sin, i * sin + j * cos);
-            let list = match place(centre, radius, &edges) {
-                Place::Outside => continue,
-                Place::Inside => &mut dots.inside,
-                Place::Crossing => &mut dots.crossing,
-            };
-            list.push(
-                unit.iter()
-                    .map(|(x, y)| Point::new(centre.x + x, centre.y + y))
-                    .collect(),
-            );
+    Ok(Plan::Lattice(Lattice {
+        edges,
+        first: (first_i, first_j),
+        across,
+        down,
+        pitch,
+        turn: (sin, cos),
+        radius,
+        corners,
+    }))
+}
+
+impl Lattice {
+    /// The dots of the lattice that touch the shape.
+    fn dots(&self) -> Dots {
+        let Self {
+            edges,
+            first: (first_i, first_j),
+            across,
+            down,
+            pitch,
+            turn: (sin, cos),
+            radius,
+            corners,
+        } = self;
+        let (pitch, sin, cos, radius) = (*pitch, *sin, *cos, *radius);
+        let unit: Vec<(f64, f64)> = (0..*corners)
+            .map(|corner| {
+                #[expect(clippy::cast_precision_loss, reason = "a count below the limit is exact")]
+                let (sin, cos) = sin_cos(TAU * corner as f64 / *corners as f64);
+                (cos * radius, sin * radius)
+            })
+            .collect();
+        let mut dots = Dots {
+            inside: Vec::new(),
+            crossing: Vec::new(),
+        };
+        for row in 0..*down {
+            for column in 0..*across {
+                #[expect(clippy::cast_precision_loss, reason = "a count below the limit is exact")]
+                let (i, j) = ((first_i + column as f64) * pitch, (first_j + row as f64) * pitch);
+                let centre = Point::new(i * cos - j * sin, i * sin + j * cos);
+                let list = match place(centre, radius, edges) {
+                    Place::Outside => continue,
+                    Place::Inside => &mut dots.inside,
+                    Place::Crossing => &mut dots.crossing,
+                };
+                list.push(
+                    unit.iter()
+                        .map(|(x, y)| Point::new(centre.x + x, centre.y + y))
+                        .collect(),
+                );
+            }
         }
+        dots
     }
-    Ok(Screen::Dots(dots))
 }
 
 /// The box (left, top, right, bottom) that holds the points of `outline`, if it has any.

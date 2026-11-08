@@ -4,7 +4,7 @@
 
 use crate::common::pixels::{Image, render};
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Blend, Color, Deg, Drawing, Error, Halftone, Path, Shadow, Stroke};
+use bullterrier_vector::{Blend, Color, Deg, Drawing, Error, Halftone, Mesh, Path, Shadow, Size, Stroke, Values};
 use std::f64::consts::PI;
 
 const RED: Color = Color::hex(0xff_00_00);
@@ -221,6 +221,30 @@ fn a_pitch_too_small_for_the_numbers_of_its_lattice_is_refused_naming_the_pitch(
         assert!(
             name.contains("pitch") && message.contains("MAX_SEGMENTS"),
             "pitch {pitch}: {name}: {message}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn a_pitch_too_small_for_a_shape_off_the_canvas_is_refused_in_every_output() -> Outcome {
+    // 10^10 dots of a screen over a square nowhere near the 100 by 100 canvas
+    let drawing =
+        Drawing::from(rect(10_000.0, 10_000.0, 100.0, 100.0)?).halftone(Halftone::new(BLACK, 0.5).pitch(0.001));
+    let size = Size::px(100.0, 100.0);
+    let refusals = [
+        ("to_svg", parameter_refusal(drawing.to_svg(size, &Values::new()))),
+        ("to_rgba", parameter_refusal(drawing.to_rgba(size, &Values::new()))),
+        (
+            "to_mesh",
+            parameter_refusal(drawing.to_mesh(size, &Values::new(), &mut Mesh::new())),
+        ),
+    ];
+    for (output, refusal) in refusals {
+        let (name, message) = refusal.map_err(|error| format!("{output}: {error}"))?;
+        assert!(
+            name.contains("pitch") && message.contains("MAX_SEGMENTS"),
+            "{output}: {name}: {message}"
         );
     }
     Ok(())
