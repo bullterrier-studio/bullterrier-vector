@@ -31,7 +31,7 @@ mod _core {
     #[pymodule_export]
     use super::mesh::PyMesh;
     #[pymodule_export]
-    use super::shape::{PyShadow, PyShape, PyStyle};
+    use super::shape::{PyHalftone, PyShadow, PyShape, PyStyle};
     #[pymodule_export]
     use super::text::{PyFont, text};
     #[pymodule_export]
@@ -534,6 +534,13 @@ impl PyPath {
     /// A drawing of this path painted over what is below it as `mode` (`"normal"` or `"multiply"`).
     fn blend(&self, mode: &str) -> PyResult<PyDrawing> {
         PyDrawing::of(self).blend(mode)
+    }
+
+    /// A drawing of this path filled with a screen of dots of `color`; `tone` is 0 (solid) to 1 (no dots), `pitch` (8)
+    /// the distance between dots and `angle` (45) the turn of the lattice in degrees.
+    #[pyo3(signature = (color, *, tone, pitch=None, angle=None))]
+    fn halftone(&self, color: &str, tone: Num, pitch: Option<Num>, angle: Option<Num>) -> PyResult<PyDrawing> {
+        PyDrawing::of(self).halftone(color, tone, pitch, angle)
     }
 
     /// A drawing of this path as a knockout: it removes what is below it in a drawing instead of painting.

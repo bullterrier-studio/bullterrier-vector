@@ -544,6 +544,24 @@ AGREED = [
     pytest.param(square_with({"shadow": {"blur": -1}}), False, id="a shadow of negative blur"),
     pytest.param(square_with({"shadow": {"color": "none"}}), False, id="a shadow of no colour"),
     pytest.param(square_with({"shadow": {"radius": 3}}), False, id="a shadow argument that is not one"),
+    pytest.param(square_with({"halftone": {"color": "#000000", "tone": 0.5}}), True, id="a halftone of the defaults"),
+    pytest.param(
+        square_with({"halftone": {"color": "#000000ff", "tone": 0.2, "pitch": 4, "angle": -30}}),
+        True,
+        id="a halftone of every argument",
+    ),
+    pytest.param(
+        square_with({"halftone": {"color": "#000000", "tone": {"by_index": {"first": 0, "last": 1}}}}),
+        True,
+        id="a halftone tone per shape",
+    ),
+    pytest.param(square_with({"halftone": {"color": "#000000"}}), False, id="a halftone without its tone"),
+    pytest.param(square_with({"halftone": {"tone": 0.5}}), False, id="a halftone without its colour"),
+    pytest.param(square_with({"halftone": {"color": "none", "tone": 0.5}}), False, id="a halftone of no colour"),
+    pytest.param(square_with({"halftone": {"color": "#000000", "tone": 1.5}}), False, id="a halftone tone past 1"),
+    pytest.param(
+        square_with({"halftone": {"color": "#000000", "tone": 0.5, "pitch": 0}}), False, id="a halftone of no pitch"
+    ),
     pytest.param(square_with({"knockout": {}}), True, id="a knockout"),
     pytest.param(square_with({"knockout": {"alpha": 1}}), False, id="a knockout with an argument"),
     pytest.param(
@@ -608,6 +626,7 @@ REGISTERED = {
     "blend",
     "shadow",
     "knockout",
+    "halftone",
     "only",
     "without",
     "split",

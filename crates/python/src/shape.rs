@@ -58,6 +58,55 @@ impl PyShadow {
     }
 }
 
+/// A halftone fill, as it is drawn: a screen of dots in a colour (`"#rrggbbaa"`), the tone (0 solid, 1 no dots), the pitch
+/// in design pixels and the angle in degrees of the lattice.
+#[pyclass(name = "Halftone", module = "bullterrier_vector", frozen, eq)]
+#[derive(Clone, PartialEq)]
+pub(crate) struct PyHalftone(vector::HalftoneStyle);
+
+#[pymethods]
+impl PyHalftone {
+    /// The colour of the dots, `"#rrggbbaa"`.
+    #[getter]
+    fn color(&self) -> String {
+        self.0.color().to_string()
+    }
+
+    /// The share of each lattice cell the dot leaves bare, 0 (solid) to 1 (no dots).
+    #[getter]
+    fn tone(&self) -> f64 {
+        self.0.tone()
+    }
+
+    /// The distance between neighbouring dots in design pixels.
+    #[getter]
+    fn pitch(&self) -> f64 {
+        self.0.pitch()
+    }
+
+    /// The turn of the lattice in degrees, clockwise on the screen about the origin of the design frame.
+    #[getter]
+    fn angle(&self) -> f64 {
+        self.0.angle()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Halftone(color='{}', tone={:?}, pitch={:?}, angle={:?})",
+            self.color(),
+            self.tone(),
+            self.pitch(),
+            self.angle()
+        )
+    }
+
+    fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
+        (self.color(), self.tone(), self.pitch(), self.angle())
+            .into_pyobject(py)?
+            .hash()
+    }
+}
+
 /// The text of a colour, or `None` where it paints nothing.
 fn color_text(color: vector::Color) -> Option<String> {
     color.rgba().map(|_| color.to_string())
@@ -125,6 +174,12 @@ impl PyStyle {
         self.0.shadow().copied().map(PyShadow)
     }
 
+    /// The screen of dots the shape is filled with, or `None` (`fill` is then `None` too).
+    #[getter]
+    fn halftone(&self) -> Option<PyHalftone> {
+        self.0.halftone().copied().map(PyHalftone)
+    }
+
     /// Whether the shape removes what is below it in its drawing instead of painting.
     #[getter]
     fn knockout(&self) -> bool {
@@ -135,8 +190,10 @@ impl PyStyle {
         let text = |value: Option<String>| value.map_or_else(|| "None".to_owned(), |value| format!("'{value}'"));
         let number = |value: Option<f64>| value.map_or_else(|| "None".to_owned(), |value| format!("{value:?}"));
         format!(
-            "Style(fill={}, stroke={}, stroke_width={}, opacity={:?}, blend='{}', shadow={}, knockout={})",
+            "Style(fill={}, halftone={}, stroke={}, stroke_width={}, opacity={:?}, blend='{}', shadow={}, knockout={})",
             text(self.fill()),
+            self.halftone()
+                .map_or_else(|| "None".to_owned(), |halftone| halftone.__repr__()),
             text(self.stroke()),
             number(self.stroke_width()),
             self.opacity(),
@@ -150,6 +207,7 @@ impl PyStyle {
     fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
         (
             self.fill(),
+            self.halftone(),
             self.stroke(),
             self.stroke_width(),
             self.join(),

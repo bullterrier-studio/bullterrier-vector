@@ -364,6 +364,21 @@ impl PyDrawing {
         checked(self.0.shadow(shadow))
     }
 
+    /// Every shape filled with a screen of dots of `color` (replacing any fill, as `fill` replaces it): `tone` from 0
+    /// (solid) to 1 (no dots) is the share of each cell left bare, `pitch` (8) the distance between dots in design
+    /// pixels and `angle` (45) the turn of the lattice in degrees, which is anchored to the origin of the design frame.
+    #[pyo3(signature = (color, *, tone, pitch=None, angle=None))]
+    pub(crate) fn halftone(&self, color: &str, tone: Num, pitch: Option<Num>, angle: Option<Num>) -> PyResult<Self> {
+        let mut halftone = vector::Halftone::new(raised(vector::Color::parse(color))?, tone.0);
+        if let Some(pitch) = pitch {
+            halftone = halftone.pitch(pitch.0);
+        }
+        if let Some(angle) = angle {
+            halftone = halftone.angle(vector::Deg(angle.0));
+        }
+        checked(self.0.halftone(halftone))
+    }
+
     /// Every shape removing what is below it in the drawing instead of painting: the area its fill and stroke cover is
     /// cut out of the shapes before it, their shadows included. Its colours, opacity, blend and shadow are not drawn.
     pub(crate) fn knockout(&self) -> PyResult<Self> {

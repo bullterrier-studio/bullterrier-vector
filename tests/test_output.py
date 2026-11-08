@@ -384,6 +384,45 @@ def test_a_blur_past_a_thousand_output_pixels_of_deviation_raises_naming_the_blu
         far.shadow(blur=2001).to_rgba(100, 100)
 
 
+# --- halftones --------------------------------------------------------------------------------------------------------
+
+DOTS = btvec.Path.rect(5, 5, 90, 90).halftone("#000000", tone=0.5, pitch=10, angle=0)
+
+
+def test_a_halftone_covers_the_share_of_its_shape_the_tone_leaves_over():
+    image = DOTS.to_rgba(100, 100)
+    # 81 dots of half a cell of 100 each; a dot is a polygon a hair under the circle
+    covered = sum(image[at + 3] for at in range(0, len(image), 4)) / 255
+    assert covered == pytest.approx(81 * 50, rel=0.015)
+    assert pixel(image, 100, 20, 20) == (0, 0, 0, 255)  # the middle of a dot
+    assert pixel(image, 100, 25, 25) == (0, 0, 0, 0)  # between four dots
+
+
+def test_a_halftone_is_a_clipped_group_of_one_path_of_dots_in_the_svg():
+    root = parse(DOTS.to_svg(100, 100))
+    (clip,) = root.findall(f"{SVG}clipPath")
+    (group,) = root.findall(f"{SVG}g")
+    assert group.attrib["clip-path"] == f"url(#{clip.attrib['id']})"
+    (outline,) = clip.findall(f"{SVG}path")
+    assert outline.attrib["d"] == "M5 5 L95 5 L95 95 L5 95 Z"
+    (dots,) = group.findall(f"{SVG}path")
+    assert dots.attrib["fill"] == "#000000"
+    assert dots.attrib["d"].count("M") == 81
+
+
+def test_a_mesh_has_the_triangles_of_the_dots():
+    mesh = DOTS.to_mesh(100, 100)
+    assert len(mesh.indices) > 81 * 3 * 8
+    assert all(mesh.vertices[at + 5] == 1.0 for at in range(0, len(mesh.vertices), 8))
+
+
+def test_a_pitch_that_asks_for_millions_of_dots_is_refused_naming_the_pitch():
+    big = btvec.Path.circle((500, 500), 500).halftone("#000000", tone=0.5, pitch=0.01)
+    for draw in (big.to_rgba, big.to_svg, big.to_mesh):
+        with pytest.raises(btvec.ParameterError, match="pitch"):
+            draw(100, 100)
+
+
 # --- knockouts --------------------------------------------------------------------------------------------------------
 
 RED_SQUARE = btvec.Path.rect(0, 0, 60, 60).fill("#ff0000")
