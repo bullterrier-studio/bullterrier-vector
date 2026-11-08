@@ -816,6 +816,36 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   the same SVG text and mesh buffers natively and in Node on macOS arm64, so no tolerance was loosened. *Consequence:*
   as for the booleans, Linux and Windows native bytes are checked only by CI's `wasm-test` against Node.
 
+## Style effects (V10)
+
+- **Shadow: a silhouette in the shape's group, blur as a CSS radius** (2026-11-08). The shadow is the shape's fill and
+  stroke as one alpha, moved, blurred and tinted, painted behind the shape inside the group its opacity and blend apply
+  to; `blur` is the radius of a CSS `box-shadow`, so the Gaussian's deviation is `blur / 2`, in design pixels scaled by
+  the view like a stroke width. `blur = 0` is a hard copy (SVG: a tinted copy of the path, no filter). *Reason:* the
+  numbers designers know from CSS and Figma; one group is what makes a shape at half opacity no darker where its shadow
+  lies under it. *Consequence:* a shape that paints nothing casts none.
+- **Shadow in SVG: primitives, an explicit region, sRGB** (2026-11-08). `feGaussianBlur` of `SourceAlpha`, `feOffset`,
+  `feFlood`, `feComposite in`, `feMerge`; `filterUnits="userSpaceOnUse"` over the canvas grown by the reach;
+  `color-interpolation-filters="sRGB"`. *Reason:* measured against `vello_cpu`, `resvg` and Chrome: `feDropShadow` is
+  drawn with a wrong colour by `resvg` (35 levels off); the default region clips the blur to the shape's box plus 10%,
+  where the rasteriser never clips; the default `linearRGB` changes coloured results, where the pixels blend as sRGB.
+- **Shadow in pixels: a filter layer for a blur, a moved copy without** (2026-11-08). A blur is `vello_cpu`'s
+  `DropShadowOnly` in a filter layer around the shape drawn once more (single-threaded, as the rasteriser is run); a blur
+  of 0 is the shape moved by a transform and drawn in the tint inside a layer of the tint's alpha. *Reason:* the filter's
+  offset is not exact for an offset between pixels (a 3.5 by 2.25 offset left 46 pixels up to 55 levels off the
+  hand-built copy), the copy is byte-equal to one. The filter's 8-bit kernel is within 2 to 4 levels of the Gaussian from a
+  deviation of 1 pixel and not a Gaussian below it (up to 22 levels at 0.3): documented, not worked around.
+- **Shadow limits** (2026-11-08). A deviation past 1000 output pixels is refused naming `blur`, and the pixels of the
+  layers a draw blurs are charged to `MAX_FILTER_PIXELS` (2^27, the largest picture). *Reason:* measured in release, a
+  layer costs about 9 ns a pixel, a deviation of 1000 takes 0.3 s, of 3000 2.8 s and of 5000 does not return, and a layer
+  is the shape's part on the canvas grown by 3 deviations and the offset on every side. SVG is not bounded by this: the
+  limits are a rasteriser's.
+- **`resvg` is the picture oracle of the output tests** (2026-11-08). A dev-dependency of `crates/core` only (14 crates,
+  none in the bindings; `cargo-deny` does not check dev-only licences, `arrayref` being BSD-2), it renders the SVG to
+  compare with `to_rgba`: pixels inside smooth areas within 4 levels, curved edges not closely (its coverage is off by up
+  to a sixth of the range there; `vello_cpu`'s is within 5 levels of exact). The primary oracle of a blur stays the
+  Gaussian's error function.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

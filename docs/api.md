@@ -4,11 +4,11 @@ Status: V1a, designed from the example programs in [examples/](examples/); waiti
 in Rust and Python: `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V2a); `Param`, `Expr`, `Shape`, `Style` and
 `Drawing` with `translate`, `rotate`, `scale`, `fill`, `stroke`, `opacity`, `blend`, `only`, `without`, `with_values`,
 `parameters()`, `shapes()` and `size`, and the style verbs on a `Path` (V2b). A `Shape`'s `style` has `fill`, `stroke`,
-`stroke_width`, `join`, `cap`, `miter_limit`, `opacity` and `blend`; the rest of the members below arrive with their
-steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6), and `along` (V6) on `Path` and `Drawing`, all in Rust
+`stroke_width`, `join`, `cap`, `miter_limit`, `opacity`, `blend` and `shadow` (V10a); the rest of the members below arrive
+with their steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6), and `along` (V6) on `Path` and `Drawing`, all in Rust
 and Python, and `text` and `along` in a document; and the per-item numbers `by_index`, `by_order`, `random` and
 `stagger`, and the steps `split`, `merge` and `slice` (V7), and the booleans `union`, `subtract`, `intersect`, `exclude`
-and `resolve` (V8), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
+and `resolve` (V8), and the style step `shadow` (V10a), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
 defaults written here. The rest is not built ([roadmap.md](roadmap.md)). Reasons:
 [design-decisions.md](design-decisions.md), "The code API". The JSON form of a drawing: [formats.md](formats.md).
 
@@ -305,13 +305,27 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` (a number or a `Field`) asks (0 solid, 1 none) | as `fill`; `pitch` not above 0 |
 | `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | `alpha` outside 0..1 |
 | `blend` | `blend(mode)` | paints with `"normal"` or `"multiply"` over what is below | another mode |
-| `shadow` | `shadow(*, dx=0, dy=8, blur=16, color="#00000059")` | a drop shadow under each shape, offset and blurred in pixels | `blur` below 0 |
+| `shadow` | `shadow(*, dx=0, dy=8, blur=16, color="#00000059")` | a drop shadow under each shape: the silhouette of its fill and stroke, moved by `dx` and `dy`, blurred and tinted `color`; the last call wins | `blur` below 0; `dx`, `dy` or `blur` not finite; `color` of `"none"`; pixel outputs: a blur past the limits below |
 | `knockout` | `knockout()` | each shape removes what is below it in its drawing, instead of painting | |
 | `gradient_map` | `gradient_map(colors)` | every fill and stroke colour replaced by its lightness read along `colors`, dark to light (two colours: a duotone) | fewer than 2 colours |
 | `posterize` | `posterize(levels)` | every fill and stroke colour reduced to `levels` levels a channel | `levels` below 2 |
 
 Colours are `"#rrggbb"` or `"#rrggbbaa"`. Until a fill or a stroke is set, a closed outline is filled black and an open
 line stroked black at 2 pixels; once either is set, only what is set is painted. `fill("none")` counts as set.
+`shadow`'s `dx`, `dy` and `blur` are design pixels (per-item numbers) and scale with the output like a stroke width.
+`blur` is the radius of a CSS `box-shadow`: the Gaussian's standard deviation is half of it, so the shadow of a straight edge is at half
+strength where the edge was. The shadow is painted behind its shape, inside the group the shape's
+`opacity` and blend apply to once (shadow and shape are no darker where they overlap), and a translucent fill makes a
+translucent shadow (the silhouette's alpha times the colour's). A shape with an empty path, or that paints nothing, casts
+none. `blur=0` is a hard copy: `to_svg` writes a tinted copy of the path, no filter. Blurred, `to_svg` writes a `<filter>`
+(a Gaussian blur of the alpha, offset, flooded with the colour, merged under the shape) on a `<g>`, with a region of the
+canvas grown by the shadow's reach (3 deviations and the offset), `color-interpolation-filters="sRGB"` and the id
+`shadow-N` for shape `N`; it renders alike in `resvg`, which the tests compare with the pixels. Limits, for pixel outputs
+(`to_svg` is bounded only by what a coordinate holds, 1e100): the deviation, `blur / 2` times the scale of the output, is
+at most 1000 output pixels, else `ParameterError` naming `blur`; the layers that blurs work in (each the shape's part on
+the canvas, grown by the reach) total at most 2^27 pixels in a draw, else `ParameterError` naming the shape and
+`MAX_FILTER_PIXELS`. The pixels' blur is an 8-bit filter: within 2 to 4 levels of the Gaussian from a deviation of 1
+output pixel up, and not a Gaussian below it (up to 22 levels off at 0.3 pixel); that is not worked around.
 `knockout` is the style form of a cut: it keeps both shapes and cuts through everything below, shadows included;
 `subtract` makes new geometry (for a plotter, or for further verbs). Every style reaches SVG and pixels alike. Called on
 a `Path`, a style step returns a `Drawing` of that path.
@@ -523,14 +537,15 @@ factor that fits (`min(width / frame width, height / frame height)`) and is cent
 at one output pixel to the design pixel from the top left. Content outside the frame is not clipped. `**values` give
 Params their values by name; a Param not given takes its default.
 
-`to_svg` writes coordinates and stroke widths in output pixels, not as a transform, so a drawing at twice the size has
+`to_svg` writes coordinates, stroke widths and a shadow's offset, deviation and region in output pixels, not as a transform, so a drawing at twice the size has
 numbers exactly twice as large; every number is the shortest text that reads back as the same value. A shape is one
 `<path>` in paint order; its `opacity` applies to fill and stroke together (a group opacity: the pixels composite the
 same way); a colour's alpha is `fill-opacity` or `stroke-opacity`; multiply is `mix-blend-mode:multiply`; a shape with
-an empty path writes nothing. The root has `isolation:isolate`, so multiply blends within the picture and not with the
+an empty path writes nothing. A shape with a shadow is a `<g>` that holds the shadow and the path and carries the
+opacity and blend (`style` above). The root has `isolation:isolate`, so multiply blends within the picture and not with the
 page around it.
 
-`to_rgba` paints the shapes in order, each as one group: fill, then stroke, then the shape's `opacity` and blend apply
+`to_rgba` paints the shapes in order, each as one group: its shadow, then fill, then stroke, then the shape's `opacity` and blend apply
 to the group once (a stroke over a fill at opacity 0.5 is no darker where they overlap). Colours blend as sRGB values,
 with no gamma conversion, as SVG does. The bytes are straight alpha: a colour byte is the premultiplied colour times 255
 over the alpha, rounded to the nearest whole number (halves up), and a pixel of alpha 0 is `0, 0, 0, 0`. Placement,
@@ -617,9 +632,11 @@ shape's fill and stroke overlap under opacity or multiply (two layers, not one g
 ground only drawn in two passes, as [mesh_upload.js](examples/mesh_upload.js) does; the single
 `blendFunc(DST_COLOR, ONE_MINUS_SRC_ALPHA)` is right only over an opaque ground (spike X1, `roadmap.md`). What each
 step becomes: opacity goes into the vertex alpha, multiply into the draw ranges, a knockout cuts the triangles below it
-(a boolean while meshing), halftone dots are triangles. A shadow with a blur above 0 has no triangle form: `to_mesh`
-raises `ParameterError` naming the step, until V10 decides how a display draws it (it needs an offscreen layer and blur
-passes, which spike X1 did not build).
+(a boolean while meshing), halftone dots are triangles. A shadow with a blur of 0 is the
+shape's triangles moved and tinted, under it (one layer for the fill, one for the stroke, each in the tint times its own
+alpha, so where they overlap the shadow is darker than the pixels' one silhouette); with a blur above 0 there is no
+triangle form and `to_mesh` raises `ParameterError` naming `shadow` and the blur, because a blur needs an offscreen layer
+and blur passes, which three flat buffers and draw ranges cannot hold (a later range kind for one would break no caller).
 
 ### Plotter
 
@@ -852,7 +869,7 @@ path).
   only what is set is painted.
 - **The design size is optional and inherited**; items whose sizes disagree raise `ParameterError`.
 - **The reference pose** is every Param at its default, whatever `with_values` fixed.
-- **The mesh** carries multiply as draw ranges and knockouts as booleans; only a blurred shadow raises, until V10.
+- **The mesh** carries multiply as draw ranges and knockouts as booleans; only a blurred shadow raises.
 - **Whole-number arguments** take expressions whose value is whole when drawn.
 - **JavaScript expressions** lift a leading number with `btvec.expr(n)`.
 - **Frame export may rebuild the drawing per frame**; such a clip is many drawings, not one JSON.
