@@ -622,8 +622,8 @@ fn a_hair_left_beside_a_far_larger_shape_is_not_a_hole() -> Result<(), TestCaseE
     ];
     let square = |near: f64, far: f64| polygon(&[(near, near), (far, near), (far, far), (near, far)], true);
     let b = vec![
-        square(113.63698046060347, 713.6369804606035),
-        square(133.63698046060347, 693.6369804606035),
+        square(113.636_980_460_603_47, 713.636_980_460_603_5),
+        square(133.636_980_460_603_47, 693.636_980_460_603_5),
     ];
     let scene = Scene::new(&a, &b, 0.0)?;
     for (number, path) in scene.results()?.iter().enumerate() {
@@ -664,7 +664,7 @@ fn a_detail_the_size_of_the_jitter_may_vanish_but_the_area_and_everything_clear_
         ],
         false,
     )];
-    let by = 7759.609_348_622_621;
+    let by = 7_759.609_348_622_621;
     let (a, b) = (moved(&a, |(x, y)| (x + by, y)), moved(&b, |(x, y)| (x + by, y)));
     // probes on the first corner of every edge's neighbourhood, then each corner in turn, just off it
     let units: Vec<[f64; 4]> = (0..60).map(|k| [f64::from(k) / 60.0, 0.0, 0.0, 0.0]).collect();
