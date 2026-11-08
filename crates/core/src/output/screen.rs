@@ -178,7 +178,12 @@ fn place(centre: Point, radius: f64, edges: &[(Point, Point)]) -> Place {
     let limit = radius * radius;
     let mut winding = 0_i32;
     for &(from, to) in edges {
-        if nearness(centre, from, to) < limit {
+        // an edge whose box is a radius away from the centre is not nearer than one
+        let far = from.x.max(to.x) < centre.x - radius
+            || from.x.min(to.x) > centre.x + radius
+            || from.y.max(to.y) < centre.y - radius
+            || from.y.min(to.y) > centre.y + radius;
+        if !far && nearness(centre, from, to) < limit {
             return Place::Crossing;
         }
         // the sign of the cross product says which side of the edge the centre is on
