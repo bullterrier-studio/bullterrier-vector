@@ -357,3 +357,20 @@ fn the_shadow_of_a_knockout_is_not_drawn_so_a_blur_on_it_is_no_error() -> Outcom
     let hole = inside(30.0, 30.0, 70.0, 70.0);
     covers_where(&mesh, |point| !hole(point))
 }
+
+#[test]
+fn many_knockouts_with_a_shape_between_each_cost_work_in_proportion_to_their_number() -> Outcome {
+    // every shape has all the later knockouts, far from it, to be cut by: rebuilding that set per shape is quadratic
+    // (25 s at 20,000 pairs, 25 times that at 100,000), and nothing is cut, so the mesh is the two triangles of every rectangle
+    const PAIRS: u32 = 100_000;
+    let shapes = (0..PAIRS).flat_map(|at| {
+        let left = f64::from(at % 90);
+        [filled(left, 0.0, 1.0, 1.0, RED), hole(left, 50.0, 1.0, 1.0)]
+    });
+    let mesh = mesh_of(&Drawing::new(shapes.collect::<Result<Vec<_>, _>>()?), SIDE, SIDE)?;
+    let found = triangles(&mesh).len();
+    if found != 2 * PAIRS as usize {
+        return Err(format!("{found} triangles for {PAIRS} rectangles").into());
+    }
+    Ok(())
+}

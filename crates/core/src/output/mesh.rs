@@ -137,14 +137,18 @@ impl Drawing {
         maker.buffers.indices.clear();
         maker.buffers.ranges.clear();
         let knockouts = maker.knockouts(&shapes, &view)?;
-        // the region the knockouts after a shape take out of it, kept while the knockouts after it are the same ones
-        let mut cutter: Option<(usize, Option<Region>)> = None;
+        // the box that holds the knockouts from each one on, so that a shape finds what is cut from it without a pass over them
+        let mut reach = vec![Bounds::EMPTY; knockouts.len() + 1];
+        for (at, (_, region)) in knockouts.iter().enumerate().rev() {
+            reach[at] = reach[at + 1].union(&region.bounds);
+        }
         for (position, shape) in shapes.iter().enumerate() {
             let first = knockouts.partition_point(|(at, _)| *at <= position);
-            if cutter.as_ref().is_none_or(|(built, _)| *built != first) {
-                cutter = Some((first, Region::of(&knockouts[first..])));
-            }
-            maker.shape(shape, &view, cutter.as_ref().and_then(|(_, region)| region.as_ref()))?;
+            let knocked = (first < knockouts.len()).then(|| Knocked {
+                regions: &knockouts[first..],
+                bounds: reach[first],
+            });
+            maker.shape(shape, &view, knocked.as_ref())?;
         }
         if into.scratch != into.current {
             std::mem::swap(&mut into.current, &mut into.scratch);
@@ -319,13 +323,15 @@ impl Maker<'_> {
         Ok(Some((rings, rgba)))
     }
 
-    /// `rings` with `region` taken out of them, charged to `MAX_SEGMENTS` as a boolean step of a drawing is.
-    fn cut(&self, rings: Vec<Ring>, region: &Region, name: &str) -> Result<Vec<Ring>, Error> {
-        if !Bounds::EMPTY.with(&rings).meets(&region.bounds) {
+    /// `rings` with `knocked` taken out of them, charged to `MAX_SEGMENTS` as a boolean step of a drawing is. The
+    /// regions are joined only here, where the boolean they go into is charged for their edges.
+    fn cut(&self, rings: Vec<Ring>, knocked: &Knocked, name: &str) -> Result<Vec<Ring>, Error> {
+        if !Bounds::EMPTY.with(&rings).meets(&knocked.bounds) {
             return Ok(rings);
         }
         let mut charge = |count| self.work.made_segments(count, name);
-        let left = path_of(&rings)?.combined(&region.path, Combine::Subtract, FLATNESS, &mut charge)?;
+        let region = Path::joined(knocked.regions.iter().map(|(_, region)| &region.path));
+        let left = path_of(&rings)?.combined(&region, Combine::Subtract, FLATNESS, &mut charge)?;
         Ok(left
             .flattened(&mut charge)?
             .iter()
@@ -335,7 +341,7 @@ impl Maker<'_> {
 
     /// Adds the layers of `shape` seen through `view`, with the `knocked` region taken out of every one, if there is
     /// one. A shape that knocks out has none.
-    fn shape(&mut self, shape: &Shape, view: &View, knocked: Option<&Region>) -> Result<(), Error> {
+    fn shape(&mut self, shape: &Shape, view: &View, knocked: Option<&Knocked>) -> Result<(), Error> {
         let style = shape.style();
         if style.knockout() {
             return Ok(());
@@ -406,10 +412,10 @@ impl Maker<'_> {
         Ok(())
     }
 
-    /// `rings` with `region` taken out of them, as they are if there is none.
-    fn knocked(&self, rings: Vec<Ring>, region: Option<&Region>, name: &str) -> Result<Vec<Ring>, Error> {
-        match region {
-            Some(region) => self.cut(rings, region, name),
+    /// `rings` with `knocked` taken out of them, as they are if there is none.
+    fn knocked(&self, rings: Vec<Ring>, knocked: Option<&Knocked>, name: &str) -> Result<Vec<Ring>, Error> {
+        match knocked {
+            Some(knocked) => self.cut(rings, knocked, name),
             None => Ok(rings),
         }
     }
@@ -466,19 +472,10 @@ struct Region {
     bounds: Bounds,
 }
 
-impl Region {
-    /// The region that all of `knockouts` take away together, or `None` if there are none.
-    fn of(knockouts: &[(usize, Self)]) -> Option<Self> {
-        if knockouts.is_empty() {
-            return None;
-        }
-        Some(Self {
-            path: Path::joined(knockouts.iter().map(|(_, region)| &region.path)),
-            bounds: knockouts
-                .iter()
-                .fold(Bounds::EMPTY, |all, (_, region)| all.union(&region.bounds)),
-        })
-    }
+/// The knockouts after a shape, which take their regions out of it together, and a box that holds them all.
+struct Knocked<'a> {
+    regions: &'a [(usize, Region)],
+    bounds: Bounds,
 }
 
 /// A box in design pixels: left, top, right and bottom.
