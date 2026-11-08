@@ -69,7 +69,7 @@ fn the_triangles_of_what_is_below_cover_it_less_the_hole_and_the_knockout_adds_n
         assert!(
             corners(&mesh, number)
                 .iter()
-                .all(|vertex| vertex.rgba == [1.0, 0.0, 0.0, 1.0] && vertex.item == 0)
+                .all(|vertex| vertex.paint() == ([1.0_f32.to_bits(), 0, 0, 1.0_f32.to_bits()], 0))
         );
     }
     Ok(())
@@ -339,7 +339,9 @@ fn a_cut_is_charged_for_the_edges_that_cross_and_refused_past_ten_million_segmen
         name == "shape 0" && message.contains("MAX_SEGMENTS 10000000"),
         "{name}: {message}"
     );
-    assert!(cut(400)?.indices().len() > 0);
+    let mesh = cut(400)?;
+    check_layout(&mesh)?;
+    assert_ne!(mesh.indices().len(), 0);
     Ok(())
 }
 

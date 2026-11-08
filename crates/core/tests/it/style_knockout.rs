@@ -60,7 +60,7 @@ fn the_other_styles_keep_their_say_before_and_after_it() -> Outcome {
 #[test]
 fn the_registry_declares_a_step_with_no_arguments() -> Outcome {
     let verb = verbs().find(|verb| verb.name == "knockout").ok_or("no knockout verb")?;
-    assert!(verb.args.is_empty());
+    assert_eq!(verb.args.len(), 0, "a step with no arguments");
     Ok(())
 }
 

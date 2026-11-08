@@ -7,7 +7,7 @@ use super::view::View;
 use super::{Size, in_shape};
 use crate::limits::Work;
 use crate::path::{FLATNESS, Polyline};
-use crate::{Blend, Cap, Drawing, Error, Join, Point, ShadowStyle, Shape, StrokeStyle, Values};
+use crate::{Blend, Cap, Drawing, Error, Join, Point, ShadowStyle, Shape, StrokeStyle, Style, Values};
 use kurbo::{Affine, BezPath, Rect, Shape as _};
 use std::f64::consts::SQRT_2;
 use vello_cpu::color::AlphaColor;
@@ -156,7 +156,6 @@ fn paint(
         }
         _ => None,
     };
-    let grouped = !knockout && (style.opacity() < 1.0 || style.blend() == Blend::Multiply);
     // a group is composited over the pixels it can reach only, not the whole canvas: that is what keeps a drawing of
     // thousands of small translucent or multiplied shapes from costing a canvas each
     let reach = stroke.map_or(0.0, |(stroke, width)| stroke_reach(stroke, width));
@@ -215,10 +214,17 @@ fn paint(
             None => None,
         },
     };
-    if knockout {
+    composite(context, style, shadow.as_ref(), &body, &bounds);
+    Ok(())
+}
+
+/// Paints `body` into `context` within `bounds` as `style` says: taken out of what is below it, if it knocks out; else
+/// its shadow and then itself, in a group that the opacity and the blend apply to once, if there is an opacity or a blend.
+fn composite(context: &mut RenderContext, style: &Style, shadow: Option<&Shadow>, body: &Body, bounds: &Rect) {
+    if style.knockout() {
         // the body painted into a layer that is taken out of what is below it, within the part of the canvas it reaches
         context.push_layer(
-            Some(&path_of(&bounds)),
+            Some(&path_of(bounds)),
             Some(BlendMode::new(Mix::Normal, Compose::DestOut)),
             None,
             None,
@@ -226,8 +232,9 @@ fn paint(
         );
         body.draw(context, None);
         context.pop_layer();
-        return Ok(());
+        return;
     }
+    let grouped = style.opacity() < 1.0 || style.blend() == Blend::Multiply;
     if grouped {
         let mix = match style.blend() {
             Blend::Normal => Mix::Normal,
@@ -239,21 +246,20 @@ fn paint(
         )]
         let opacity = style.opacity() as f32;
         context.push_layer(
-            Some(&path_of(&bounds)),
+            Some(&path_of(bounds)),
             Some(BlendMode::new(mix, Compose::SrcOver)),
             Some(opacity),
             None,
             None,
         );
     }
-    if let Some(shadow) = &shadow {
-        shadow.cast(context, &body, &path_of(&bounds));
+    if let Some(shadow) = shadow {
+        shadow.cast(context, body, &path_of(bounds));
     }
     body.draw(context, None);
     if grouped {
         context.pop_layer();
     }
-    Ok(())
 }
 
 /// The shadow of a shape in output pixels.

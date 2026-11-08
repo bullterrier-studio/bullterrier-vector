@@ -168,6 +168,9 @@ struct Paint {
 /// A closed outline of a layer: its corners in design pixels.
 type Ring = Vec<[f32; 2]>;
 
+/// The outlines of a layer and the colour it is painted in.
+type Layer = (Vec<Ring>, [u8; 4]);
+
 impl Maker<'_> {
     /// The regions that the shapes which knock out take away, each with its position in `shapes`.
     ///
@@ -214,10 +217,10 @@ impl Maker<'_> {
         view: &View,
         name: &str,
         covering: bool,
-    ) -> Result<Vec<(Vec<Ring>, [u8; 4])>, Error> {
+    ) -> Result<Vec<Layer>, Error> {
         let style = shape.style();
         let visible = |rgba: [u8; 4]| covering || style.opacity() * f64::from(rgba[3]) > 0.0;
-        let mut layers: Vec<(Vec<Ring>, [u8; 4])> = Vec::new();
+        let mut layers: Vec<Layer> = Vec::new();
         if let Some(rgba) = style.fill().rgba()
             && visible(rgba)
         {
