@@ -11,6 +11,7 @@ mod bounds;
 mod build;
 mod curve;
 mod measure;
+mod offset;
 mod polyline;
 mod read;
 mod region;

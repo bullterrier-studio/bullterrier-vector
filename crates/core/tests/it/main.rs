@@ -42,6 +42,7 @@ mod path_boolean;
 mod path_boolean_fuzz;
 mod path_boolean_glyphs;
 mod path_measure;
+mod path_offset;
 mod path_range;
 mod path_region;
 mod path_slice;

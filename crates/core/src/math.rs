@@ -11,6 +11,16 @@ pub(crate) fn tan(angle: f64) -> f64 {
     libm::tan(angle)
 }
 
+/// The angle (radians, from 0 to pi) whose cosine is `value`, a number from -1 to 1.
+pub(crate) fn acos(value: f64) -> f64 {
+    libm::acos(value)
+}
+
+/// The angle (radians, from -pi/2 to pi/2) whose sine is `value`, a number from -1 to 1.
+pub(crate) fn asin(value: f64) -> f64 {
+    libm::asin(value)
+}
+
 /// The angle (radians, from -pi to pi) of the point `(x, y)` seen from the origin: the direction `x` to the right and
 /// `y` down makes with the positive x axis.
 pub(crate) fn atan2(y: f64, x: f64) -> f64 {
