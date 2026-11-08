@@ -74,3 +74,22 @@ overlapping), as one `Path`; the second grid of the union is moved by 5 px on bo
 dissolved, every call), `subtract` from a plate about 130: a line of text can be cut out again at every value of a
 `Param` within a frame of 16.7 ms; the grids, with tens of thousands of edges, take 20 to 70 ms. Not measured:
 WebAssembly, a second run, curves in a grid.
+
+## Halftone (V10)
+
+`uv run poe bench --halftone` times a disc of 310 design pixels radius on an 800 by 800 frame, filled with a halftone of
+pitch 10, tone 0.5, angle 45 (3,090 dots, the SVG 5.2 MB), as `to_svg`, `to_rgba` and `to_mesh`, natively (the Python
+extension, release) and in Node (the package of `poe wasm-test`). Apple M4, macOS, Node 26.11, the V10 halftone batch,
+2026-11-08; the median of 20 calls in milliseconds, three runs in a row on a quiet machine.
+
+| Output | native | WebAssembly |
+|---|---|---|
+| `to_svg` | 67.8 to 69.8 | 86.6 to 89.2 |
+| `to_rgba` | 20.0 to 20.4 | 25.2 to 26.0 |
+| `to_mesh` | 62.4 to 64.7 | 74.1 to 76.9 |
+
+The prototypes drew about 3,000 dots through a boolean each at about 500 ms a frame (`prototype-findings.md`): the
+pixels are 25 times faster, the SVG and the mesh 7 to 8 times. `to_svg` is mostly writing the 240,000 coordinates, `to_mesh`
+tessellating and cutting the dots that cross the outline. Each dot is tested against every edge of the outline (about 390
+for this disc), so the cost grows with dots times edges; the work is bounded by `MAX_SEGMENTS`. Not measured: a letter,
+a second run on another machine, a browser.

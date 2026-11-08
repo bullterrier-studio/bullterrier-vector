@@ -866,6 +866,29 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   re-made there), where the pixels end it flat too; the work is charged to `MAX_SEGMENTS` as a boolean step of a drawing
   is, so a cut of a scribble is refused before the engine runs.
 
+- **Halftone: a lattice anchored to the frame, tone a number, area-true dots** (2026-11-08). The dots lie on a square
+  lattice turned about the origin of the design frame, not about the shape's bounds; a dot's area is `(1 - tone)` of a
+  cell, so a tone is the share of paper left bare, whatever the pitch. *Reason:* a lattice anchored to a shape's bounds
+  moves every dot when the shape moves a pixel (a screen that swims in an animation, and two shapes side by side with two
+  screens that do not meet); anchored to the frame, one screen runs under every shape, as a print screen does. A tone is a
+  number per shape for now (`Field` tones arrive in V15 as one more accepted kind, which changes no call). Circles of
+  full-cell area leave a cell's corners bare, so a tone of 0 is defined as the solid fill, and dots overlap below a tone of
+  `1 - pi / 4`; the covered share there is less than the tone says, which is documented and not corrected (a correction
+  needs the area of overlapping circles per tone and buys nothing visible).
+- **Halftone is a clip and one path of dots, not a boolean per dot** (2026-11-08). SVG: `<clipPath>` of the outline and a
+  clipped group of one `<path>` of all the dots; pixels: a clip of the outline and one path fill; both fill by the nonzero
+  rule, so a translucent colour is no darker where dots overlap, as SVG's one path is not. The mesh cuts only the dots that
+  cross the outline, all by one boolean. *Reason:* a boolean per dot cost about 500 ms for 3,000 dots in the prototypes; a
+  clip costs the rasteriser a mask and the dots one path. Dots reach the rasteriser as polygons of the flatness, not as
+  circles: `vello_cpu` flattens a curve it is given coarsely (up to 65 of 255 levels off the coverage of a circle in the
+  spike). The fill stayed a colour with a halftone beside it (`Style::halftone`), not a `Paint` enum: a shape has one of
+  them, and the setters keep it so (a `fill` clears the screen, a `halftone` clears the colour), which kept every user of
+  `Style::fill` as it was.
+- **Halftone limit** (2026-11-08). The lattice points near a shape, each times the edges of its outline and the corners of
+  one dot, are charged to `MAX_SEGMENTS` before a dot is made, and the error names the `pitch`. *Reason:* each dot is
+  tested against every edge (no spatial index: a few thousand dots on a few hundred edges is the use), and the dot's
+  corners follow from its radius, so a huge pitch is refused as a tiny one is.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

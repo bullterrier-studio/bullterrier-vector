@@ -4,11 +4,11 @@ Status: V1a, designed from the example programs in [examples/](examples/); waiti
 in Rust and Python: `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V2a); `Param`, `Expr`, `Shape`, `Style` and
 `Drawing` with `translate`, `rotate`, `scale`, `fill`, `stroke`, `opacity`, `blend`, `only`, `without`, `with_values`,
 `parameters()`, `shapes()` and `size`, and the style verbs on a `Path` (V2b). A `Shape`'s `style` has `fill`, `stroke`,
-`stroke_width`, `join`, `cap`, `miter_limit`, `opacity`, `blend`, `shadow` and `knockout` (V10); the rest of the members below arrive
+`stroke_width`, `join`, `cap`, `miter_limit`, `halftone`, `opacity`, `blend`, `shadow` and `knockout` (V10); the rest of the members below arrive
 with their steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6), and `along` (V6) on `Path` and `Drawing`, all in Rust
 and Python, and `text` and `along` in a document; and the per-item numbers `by_index`, `by_order`, `random` and
 `stagger`, and the steps `split`, `merge` and `slice` (V7), and the booleans `union`, `subtract`, `intersect`, `exclude`
-and `resolve` (V8), and the style steps `shadow` and `knockout` (V10), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
+and `resolve` (V8), and the style steps `shadow`, `knockout` and `halftone` (V10), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
 defaults written here. The rest is not built ([roadmap.md](roadmap.md)). Reasons:
 [design-decisions.md](design-decisions.md), "The code API". The JSON form of a drawing: [formats.md](formats.md).
 
@@ -37,7 +37,8 @@ import bullterrier_vector as btvec
 | [wobble_outline.py](examples/wobble_outline.py) | a small noise wobble; a font axis as a described parameter |
 | [glyph_scatter.py](../examples/glyph_scatter.py) | letters split into parts, scattered by seeded random numbers |
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
-| [halftone.py](examples/halftone.py) | halftone dots from a tone map |
+| [halftone.py](examples/halftone.py) | halftone dots from a tone map (a `Field` tone, V15) |
+| [halftone.py](../examples/halftone.py) | discs filled with a screen of dots, a tone each, over paper |
 | [duotone.py](examples/duotone.py) | a gradient map and posterize on colours |
 | [series_bars.py](../examples/series_bars.py) | a series of numbers as bars, with plain code |
 | [frame_export.py](examples/frame_export.py) | a transparent PNG sequence and a clip from a function of time; a knockout |
@@ -302,7 +303,7 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 |---|---|---|---|
 | `fill` | `fill(color)` | fills each shape; `"none"` for no fill | an unreadable colour |
 | `stroke` | `stroke(color, *, width=2, join="round", cap="round", miter_limit=4)` | strokes each outline | as `fill`; `width` not above 0; `miter_limit` below 1 |
-| `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` (a number or a `Field`) asks (0 solid, 1 none) | as `fill`; `pitch` not above 0 |
+| `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` asks (a number; a `Field` arrives in V15; 0 solid, 1 none) | `color` of `"none"`; `tone` outside 0..1; `pitch` not above 0; `angle` not finite; the limit below |
 | `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | `alpha` outside 0..1 |
 | `blend` | `blend(mode)` | paints with `"normal"` or `"multiply"` over what is below | another mode |
 | `shadow` | `shadow(*, dx=0, dy=8, blur=16, color="#00000059")` | a drop shadow under each shape: the silhouette of its fill and stroke, moved by `dx` and `dy`, blurred and tinted `color`; the last call wins | `blur` below 0; `dx`, `dy` or `blur` not finite; `color` of `"none"`; pixel outputs: a blur past the limits below |
@@ -326,6 +327,23 @@ at most 1000 output pixels, else `ParameterError` naming `blur`; the layers that
 the canvas, grown by the reach) total at most 2^27 pixels in a draw, else `ParameterError` naming the shape and
 `MAX_FILTER_PIXELS`. The pixels' blur is an 8-bit filter: within 2 to 4 levels of the Gaussian from a deviation of 1
 output pixel up, and not a Gaussian below it (up to 22 levels off at 0.3 pixel); that is not worked around.
+`halftone` is a fill of its own: it replaces a `fill`, and a `fill` after it replaces the screen (a shape has one fill, and
+`Style.fill` is `None` while it is a screen, `Style.halftone` has the colour, tone, pitch and angle). The lattice is square,
+`pitch` apart, turned `angle` degrees clockwise on the screen about the origin of the design frame, with a dot on each
+point: anchored to the frame and not to the shape, so the dots stay put when a shape moves and neighbouring shapes share
+one screen. `pitch` is in design pixels and is not scaled by `scale` (like a stroke width). A dot is a regular polygon
+of the area `(1 - tone)` of a cell (its radius `pitch * sqrt((1 - tone) / pi)`, as many corners as keep it within 0.01
+design pixels of the circle), clipped to the shape; its colour's alpha is that of every dot, once where dots overlap. A
+tone below `1 - pi / 4` (about 0.21) makes neighbours overlap, where the union covers less than `(1 - tone)` of a cell. A
+tone of 0 is the solid fill of the colour (circles cannot cover a cell's corners), a tone of 1 draws nothing. A stroke is
+drawn over the dots; opacity, blend and shadow apply to dots and stroke together, and a shadow is the dots moved and tinted.
+`to_svg` writes a `<clipPath id="halftone-N">` of the shape's outline and a `<g clip-path>` holding all the dots as one
+`<path>`, then the stroke; pixels clip one path of the dots to the outline; neither makes a boolean per dot (the
+prototypes' did, about 500 ms for 3,000 dots; [benchmarks.md](benchmarks.md)). `to_mesh` makes the dots wholly inside the
+shape plain polygons, leaves out those wholly outside and cuts only the dots that cross the outline, all together by one
+boolean. Limit: before any dot is made, the lattice points near the shape, each times the edges of the outline and the
+corners of a dot, are charged to `MAX_SEGMENTS`, so a pitch too small for its shape (about 50,000 dots for a disc) is
+refused with `ParameterError` naming the shape and its `pitch`, in every output.
 `knockout` is the style form of a cut: it keeps both shapes and cuts through everything below, shadows included;
 `subtract` makes new geometry (for a plotter, or for further verbs). Every style reaches SVG and pixels alike. Called on
 a `Path`, a style step returns a `Drawing` of that path.
@@ -649,7 +667,7 @@ ground only drawn in two passes, as [mesh_upload.js](examples/mesh_upload.js) do
 step becomes: opacity goes into the vertex alpha, multiply into the draw ranges, a knockout cuts the triangles below it
 (a boolean while meshing: the region its fill and its stroke outline cover is subtracted from the layers below, hard
 shadows included, and the edges and crossings are charged to `MAX_SEGMENTS` as a boolean step is, so a stroke that is
-cut ends flat at the cut, where the pixels end it the same way), halftone dots are triangles. A shadow with a blur of 0 is the
+cut ends flat at the cut, where the pixels end it the same way), halftone dots are triangles (those that cross the shape's outline cut to it). A shadow with a blur of 0 is the
 shape's triangles moved and tinted, under it (one layer for the fill, one for the stroke, each in the tint times its own
 alpha, so where they overlap the shadow is darker than the pixels' one silhouette); with a blur above 0 there is no
 triangle form and `to_mesh` raises `ParameterError` naming `shadow` and the blur, because a blur needs an offscreen layer
