@@ -548,7 +548,7 @@ number or an array of numbers: `toSvg` (a string), `toRgba` and `toPng` (a `Uint
 the pixels look the same: at most 2 levels apart on at most 0.02% of the values of a picture (the rasteriser crate is only
 required to look the same on every target).
 
-The same drawing and values give the same bytes on every target. `to_json` raises `ParameterError` for a drawing beyond a
+The same drawing and values look the same on every target (the same bytes wherever that holds, which the differential test checks). `to_json` raises `ParameterError` for a drawing beyond a
 limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises
 `FormatError`. Errors (`ParameterError`): a width or height that is not a whole number from 1 to 100,000 (to 65,000 for
 pixel outputs, which also refuse more than 2^27 pixels, naming `size`), a coordinate or stroke width beyond 10 million

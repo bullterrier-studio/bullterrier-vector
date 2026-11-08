@@ -271,6 +271,11 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   and the random property excludes strokes with two or more turns over 100 degrees, the boundary of the limit.
   A smooth curve gains no triangles, and the scenes measured gained under 6%.
 
+- **Looking the same outranks byte equality** (2026-11-08, the owner). The promise is a drawing that looks the same on
+  every target, not the same bytes or pixels. Byte equality of SVG text and mesh buffers stays the aim and the test
+  (below), because it needs no reviewed baseline and catches real faults. *Reason:* a last-digit difference nobody can see
+  is not worth code that fights the platform. *Consequence:* a difference found there that no one could see is fixed in the
+  test (a measured tolerance, with the cause recorded here), not by contorting the code; a visible one is a defect.
 - **Native against WebAssembly: exact for what we compute, a measured tolerance for pixels** (2026-11-01). The
   differential test (`poe wasm-test`) draws 44 drawings natively through the Python extension and in WebAssembly through
   Node, from the same JSON documents: the SVG text and the three mesh buffers (hashed with `hashlib` on one side and

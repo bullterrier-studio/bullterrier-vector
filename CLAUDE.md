@@ -2,7 +2,7 @@
 
 Rust library with Python (and, later, WebAssembly) bindings: a **typography-first vector graphics scripting library**. You write
 a picture in code (Bezier paths, type, booleans, offsets, deformers, repeaters, generative forms, tracing), and it is drawn as SVG
-or pixels, identical from Rust, Python and the browser. `README.md` (status), `docs/design.md` (what and how),
+or pixels, looking the same from Rust, Python and the browser. `README.md` (status), `docs/design.md` (what and how),
 `docs/design-decisions.md` (why), `docs/roadmap.md` (the batches, in order; effects in `docs/effects-roadmap.md`),
 `docs/prototype-findings.md` (what the taste prototypes taught), `CONTRIBUTING.md` (setup and CI for people).
 
@@ -69,7 +69,7 @@ Maintainers may keep machine-specific notes in a git-ignored `.local/` folder an
 | A generative layer: generators, deformers, repeaters, booleans, offsets, morph, hatching, tracing | An editor application (the library gives it geometry, hit testing, text layout) |
 | Effects, each added with a gallery piece (the effects track) | Photo effects and compositing over footage |
 | Describing every parameter: name, unit, range, default, meaning | Stateful simulation (particles, springs) in v1: if it comes, it produces points that a node draws |
-| The same drawing giving the same bytes on every target; SVG that keeps every effect, plotter-ready SVG, RGBA pixels | Reading other tools' file formats: inputs are plain data (width, height, bytes; lists of numbers) |
+| The same drawing looking the same on every target (same bytes wherever that is cheap); SVG that keeps every effect, plotter-ready SVG, RGBA pixels | Reading other tools' file formats: inputs are plain data (width, height, bytes; lists of numbers) |
 | Redrawing with new values cheaply: a live preview, live in a page through the WebAssembly package | |
 | Frame export: a caller's function of time looped over frames into a transparent PNG sequence or clip | |
 
@@ -124,9 +124,11 @@ formatter, 6 and 7, and "Fixing defects".
 1. **No hidden tunables.** Every value that shapes a result is a named, documented parameter in the field's own terms. Exempt:
    a named, justified constant (a mathematical or standard constant, or a tolerance below any visible effect), carrying
    `// constant: <reason>`.
-2. **Determinism.** Same inputs and `seed` give the same bytes on every target for everything we compute (geometry, the
-   view, SVG text, straight-alpha conversion); the pixels the rasteriser crate draws are required only to look the same
-   (an edge pixel may differ by a level between targets). Randomness comes only from the seed. No global random state.
+2. **Determinism, pragmatically.** Same inputs and `seed` give the same drawing on every target: it must look the same.
+   We aim for the same bytes for what we compute (geometry, the view, SVG text, straight-alpha conversion) and the
+   differential tests check it, but an unforeseen difference nobody can see (a last-digit coordinate, an edge pixel off by
+   a level) is not a defect: never add complexity (a workaround, a special path, a dependency) to remove it; loosen that test's tolerance and record the cause in
+   `docs/design-decisions.md`. A visible difference is a defect. Randomness comes only from the seed. No global random state.
 3. **Transcendental maths only through `crate::math`** (`libm`); `f64::sin`, `exp`, `powf` and the rest are banned by
    `clippy.toml`. `sqrt` and `mul_add` are allowed.
 4. **No clock, no hash-ordered collections, no IO in the core**, as banned in `clippy.toml` (the ban list lives there,
@@ -248,7 +250,7 @@ golden file, sleep, mock of our own code) is worse than none: delete it. Reviewe
   package's public API only (`import bullterrier_vector as btvec`).
 - **Behaviour through the public contract; properties, not golden files.** `proptest` for broad input spaces. Expected values come
   from an independent oracle (hand computation, a standard, a brute-force reference parsed back from the output, e.g. `roxmltree`
-  for SVG), never the code's own formula. No committed golden files: "the same bytes on every target" is a differential
+  for SVG), never the code's own formula. No committed golden files: "the same on every target" is a differential
   test (native against WebAssembly, V3), which needs no reviewed baseline.
 - Every checker/validator gets a known-good and a known-bad input. Seeds pin determinism. No sleeps, live network or wall-clock
   assertions.

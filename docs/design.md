@@ -10,7 +10,7 @@ Draft for review, 2026-10-28. Batches that build it: [roadmap.md](roadmap.md). D
 
 A typography-first vector graphics scripting library. You write a picture as code: Bezier paths, type, booleans,
 offsets, deformers, repeaters, generative forms and tracing. The library draws it as SVG or pixels. The same code works
-in Rust, Python and JavaScript (through WebAssembly), and gives the same pixels in all three. A drawing is also data: it
+in Rust, Python and JavaScript (through WebAssembly), and draws the same picture in all three. A drawing is also data: it
 saves to JSON and draws again with new values.
 
 The aim is graphics worth posting: kinetic type, cut-paper forms, generative posters, pen-plotter art, and animations to
@@ -58,7 +58,7 @@ What we found (October 2026, not exhaustive):
   and p5.js (immediate-mode drawing on a canvas, no vector model to edit or export).
 
 What this library adds: type as geometry (every glyph an editable path, variable-font axes as parameters), a generative
-layer, and one engine whose output is identical in Python, Rust and the browser.
+layer, and one engine whose output looks the same in Python, Rust and the browser.
 
 ## Who it is for
 
@@ -79,7 +79,7 @@ layer, and one engine whose output is identical in Python, Rust and the browser.
 - **Type as geometry.** Real shaping, variable-font axes as parameters, every glyph an editable path.
 - **A generative layer.** Generators, deformers, repeaters, booleans, offsets, morph, hatching, tracing a grayscale map.
   Every node has described parameters (name, unit, range, default, meaning).
-- **One engine everywhere.** The same drawing gives the same pixels in Rust, Python and WebAssembly, so a browser
+- **One engine everywhere.** The same drawing looks the same in Rust, Python and WebAssembly, so a browser
   preview matches a server render.
 - **State, not time.** Every parameter is a state; drawing again with new values is cheap, fast enough for a live
   preview ("Animation").
