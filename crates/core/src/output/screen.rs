@@ -107,7 +107,13 @@ pub(super) fn screen(
         reason = "a count of work is a whole number, and one beyond usize saturates, which any limit refuses"
     )]
     {
-        charge((across * down * (edges.len() as f64 + corners)) as usize)?;
+        // a lattice coordinate beyond a float has no span to count: infinitely many dots
+        let work = if found.iter().all(|(i, j)| i.is_finite() && j.is_finite()) {
+            (across * down * (edges.len() as f64 + corners)) as usize
+        } else {
+            usize::MAX
+        };
+        charge(work)?;
     }
     #[expect(
         clippy::cast_possible_truncation,

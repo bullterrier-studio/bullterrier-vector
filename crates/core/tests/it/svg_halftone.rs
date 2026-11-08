@@ -382,3 +382,19 @@ fn a_pitch_that_asks_for_millions_of_dots_is_refused_naming_the_pitch() -> Outco
     );
     Ok(())
 }
+
+#[test]
+fn a_pitch_too_small_for_the_numbers_of_its_lattice_is_refused_naming_the_pitch() -> Outcome {
+    // (pitch, where the shape is): the lattice coordinates, the position over the pitch, are 10^301 in the first row,
+    // and beyond what a float holds in the others, which leaves no count of dots to charge
+    for (pitch, at) in [(1e-300, 10.0), (1e-320, 10.0), (1e-310, 50.0)] {
+        let drawing =
+            Drawing::from(rect(at, at, 10.0, 10.0)?).halftone(Halftone::new(BLACK, 0.5).pitch(pitch).angle(Deg(0.0)));
+        let (name, message) = parameter_refusal(svg(&drawing, 100.0))?;
+        assert!(
+            name.contains("pitch") && message.contains("MAX_SEGMENTS"),
+            "pitch {pitch}: {name}: {message}"
+        );
+    }
+    Ok(())
+}
