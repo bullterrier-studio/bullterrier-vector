@@ -68,7 +68,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V8 is done; V9 is next.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V9 is done; V10 is next.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -509,6 +509,14 @@ plate; the WebAssembly differential has 88 drawings (44 paths, 17 texts, 2 bends
 ## V9 Offsets
 
 Offset and inset with round, miter and bevel joins; outline a stroke into a fill.
+
+State: V9 is done (Rust, Python, through JSON): `offset(distance, join=, miter_limit=, tolerance=)` and `outline(width,
+join=, cap=, miter_limit=, tolerance=)`, on a `Path` and as steps on a `Drawing` (`path/offset.rs` over `i_overlay`,
+`node/offset.rs`, `drawing/offset.rs`; `distance` and `width` are per-item numbers). A `miter` past the limit is clipped
+flat, where `stroke` bevels (design-decisions.md, "Offsets (V9)"); the limits are in api.md, "Offsets".
+`examples/cut_paper_layers.py` stacks offset layers of a headline under an outline cut line, `examples/ring.py` makes a
+ring of two offsets; the WebAssembly differential has 104 drawings (44 paths, 17 texts, 2 bends, 9 per-item, 16
+booleans, 16 offsets).
 
 ## V10 SVG fidelity and a fast halftone fill
 

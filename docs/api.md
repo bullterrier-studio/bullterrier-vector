@@ -832,7 +832,7 @@ re-drawable series node (a series is plain code now, [series_bars.py](../example
 node if a piece needs one).
 
 Verbs no example uses yet, and what needs them: `merge` (words and lines as units), `reverse` (V11: a draw-on the other way round), `locate`
-(hit-testing for an editor), `outline` (V9; die-cut sticker outlines and tapered strokes on the effects track), `Flow.contour` and
+(hit-testing for an editor), `Flow.contour` and
 `flow.mix` (V15: the findings' line fields, noise mixed with a glyph's contour), `wave` (V12; the effects track's
 deformers), `morph` (V13; glyph-to-shape morph on the effects track), `resample` (V11; dots spaced evenly along a path
 on the effects track), `map_points` (a caller's own deformation of a glyph, computed at once: every glyph an editable

@@ -782,7 +782,9 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **A miter beyond the limit is clipped flat, not bevelled** (2026-11-08). *Reason:* the engine gives a miter that is
   cut at a length (SVG 2 `miter-clip`) and cannot bevel; a chamfer pass of our own is complex and breaks on edges shorter
   than the cut. *Consequence:* `stroke(join="miter")` (SVG's `miter`) bevels past the limit and `outline` clips, so the
-  two differ at a sharp corner.
+  two differ at a sharp corner. Measured on a corner of ratio 16 at `miter_limit=4`, width 10, vertex at y=40: the
+  pixels and the mesh of the stroke reach y=39.5 (a bevel), the outline y=20.2 (cut 20 above the vertex, half the width
+  times the limit); at limit 30 both reach the full tip. The SVG text of a stroke only says `stroke-linejoin="miter"`.
 - **The round arc step comes from `tolerance`** (2026-11-08): `2 acos(1 - tolerance / r)` for radius `r`, the widest step
   whose chord strays by at most `tolerance`. *Reason:* the number that shapes the result is a parameter in its own terms
   (rule 1), and `tolerance` already is.
@@ -798,6 +800,10 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   booleans. *Consequence:* a Param cannot switch a join; two steps can.
 - **A `Drawing` step charges as the booleans do** (2026-11-08): the flattened edges, the pairs of edges whose boxes overlap
   and the vertices of the result count against `MAX_SEGMENTS`; a `Path` method charges nothing.
+- **The differential holds exactly** (2026-11-08): 16 offset and outline drawings (every join and cap, two miter limits,
+  an inset, a ring, a collapse, a coarse `tolerance`, a per-item list, a Param, text grown, shrunk and outlined) give
+  the same SVG text and mesh buffers natively and in Node on macOS arm64, so no tolerance was loosened. *Consequence:*
+  as for the booleans, Linux and Windows native bytes are checked only by CI's `wasm-test` against Node.
 
 ## Engineering
 
