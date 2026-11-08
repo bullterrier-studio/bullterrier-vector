@@ -61,6 +61,12 @@ i_overlay = { version = "=9.1.0", default-features = false }
 [profile.dev.package.lyon_tessellation]
 opt-level = 3
 
+# Line tables are enough to read a backtrace, and no separate debug-info files are written: the build folder of the
+# tests was 2.7 GB, now 0.9 GB (target/debug had grown to 44 GB of object files)
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "off"
+
 # The Rust tests are optimised (opt-level 1): unoptimised, the million-shape and glyph tests took four to eight minutes
 # of CPU, optimised under a minute (docs/design-decisions.md, "Optimised Rust tests"). Dependencies alone are not enough:
 # the time is in this workspace's own code. Debug assertions and overflow checks stay on.
