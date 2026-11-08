@@ -390,6 +390,55 @@ def booleans() -> list[Entry]:
     ]
 
 
+def offsets() -> list[Entry]:
+    """`offset` and `outline` on shapes: each join and cap, a sharp corner at two miter limits, an inset, a ring that
+    loses width, a distance that collapses a shape, a coarse tolerance, a per-item list, a Param and text grown and
+    shrunk. The engine works on an integer grid and the arcs come from `libm` only, so the SVG text and the mesh are
+    exact."""
+    square = btvec.Path.rect(30, 30, 40, 40)
+    ring = btvec.Path.circle((50, 50), 35).subtract(btvec.Path.circle((50, 50), 15))
+    sharp = btvec.Path.from_svg_path("M15 80 L50 15 L85 80 Z")
+    line = btvec.Path.from_svg_path("M20 70 L50 25 L80 70")
+    grow = btvec.Param("grow", default=0, min=-20, max=20, unit="px", meaning="how far the outline is moved")
+    frame = (400, 160)
+
+    def sized(*items: btvec.Drawing) -> btvec.Drawing:
+        return btvec.Drawing(*items, size=frame)
+
+    def at_90(content: str, font: btvec.Font = FRAUNCES, **options: Any) -> btvec.Drawing:
+        return btvec.text(content, font=font, size=90, anchor=(12, 110), **options)
+
+    drawings = {
+        "offset_round": framed(square.fill(RED)).offset(8),
+        "offset_miter": framed(sharp.fill(BLUE)).offset(8, join="miter"),
+        "offset_miter_limit_low": framed(sharp.fill(BLUE)).offset(8, join="miter", miter_limit=1.2),
+        "offset_bevel": framed(sharp.fill(GOLD)).offset(8, join="bevel"),
+        "offset_inset": framed(sharp.fill(RED).stroke(INK, width=2)).offset(-6, join="miter"),
+        "offset_inset_collapses": framed(square.fill(RED), ring.fill(BLUE)).offset(-25),
+        "offset_ring_shrinks": framed(ring.fill(INK)).offset(-6),
+        "offset_tolerance_coarse": framed(btvec.Path.circle((50, 50), 30).fill(GOLD)).offset(10, tolerance=1),
+        "offset_per_item": framed(btvec.Drawing(square, square.scale(0.5), ring.scale(0.4)).fill(BLUE)).offset(
+            btvec.by_index(-4, 8), join="miter"
+        ),
+        "offset_param": framed(sharp.fill(RED)).offset(grow),
+        "outline_round": framed(line.stroke(INK, width=2)).outline(14),
+        "outline_butt_miter": framed(line.fill(RED)).outline(14, join="miter", cap="butt"),
+        "outline_square_bevel": framed(line.fill(BLUE)).outline(14, join="bevel", cap="square"),
+        "offset_text_grown": sized(at_90("Hif").fill(INK).offset(3)),
+        "offset_text_shrunk": sized(at_90("Hif To", font=BRICOLAGE, axes={"wght": 800}).fill(RED).offset(-2)),
+        "outline_text": sized(at_90("Hif", font=BRICOLAGE).fill(BLUE).outline(2, join="miter")),
+    }
+    draws: dict[str, list[Draw]] = {"offset_param": [(100, 100, {}), (200, 200, {"grow": 7})]}
+    return [
+        (
+            name,
+            drawing,
+            draws.get(name, [(400, 160, {}), (200, 80, {})] if "text" in name else [(100, 100, {}), (50, 50, {})]),
+        )
+        for name, drawing in drawings.items()
+    ]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -399,6 +448,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     bends,
     per_item,
     booleans,
+    offsets,
 ]
 
 
