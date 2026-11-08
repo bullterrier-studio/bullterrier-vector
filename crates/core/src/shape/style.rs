@@ -205,6 +205,43 @@ impl StrokeStyle {
     }
 }
 
+/// A drop shadow: the silhouette of a shape's fill and stroke, moved by `dx` and `dy` design pixels, blurred and
+/// tinted, painted behind the shape.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ShadowStyle {
+    pub(crate) dx: f64,
+    pub(crate) dy: f64,
+    pub(crate) blur: f64,
+    pub(crate) color: Color,
+}
+
+impl ShadowStyle {
+    /// The offset to the right in design pixels.
+    #[must_use]
+    pub fn dx(&self) -> f64 {
+        self.dx
+    }
+
+    /// The offset down in design pixels.
+    #[must_use]
+    pub fn dy(&self) -> f64 {
+        self.dy
+    }
+
+    /// The blur radius in design pixels, as CSS `box-shadow` has it: the Gaussian's standard deviation is half of it.
+    /// 0 is a hard copy.
+    #[must_use]
+    pub fn blur(&self) -> f64 {
+        self.blur
+    }
+
+    /// The colour the silhouette is tinted, its alpha included.
+    #[must_use]
+    pub fn color(&self) -> Color {
+        self.color
+    }
+}
+
 /// The paint of a shape as it is drawn: `None` and [`Color::NONE`] mean not painted.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Style {
@@ -212,6 +249,7 @@ pub struct Style {
     pub(crate) stroke: Option<StrokeStyle>,
     pub(crate) opacity: f64,
     pub(crate) blend: Blend,
+    pub(crate) shadow: Option<ShadowStyle>,
     /// Whether a fill or a stroke was set, `fill("none")` included. Until then the default paint applies.
     painted: bool,
 }
@@ -224,6 +262,7 @@ impl Style {
             stroke: None,
             opacity: 1.0,
             blend: Blend::Normal,
+            shadow: None,
             painted: false,
         }
     }
@@ -264,6 +303,11 @@ impl Style {
         self.blend = blend;
     }
 
+    /// Sets the shadow, replacing the one before.
+    pub(crate) fn set_shadow(&mut self, shadow: ShadowStyle) {
+        self.shadow = Some(shadow);
+    }
+
     /// Whether a fill or a stroke was set, or the default paint resolved: false only for a shape no step has painted.
     pub(crate) fn is_painted(&self) -> bool {
         self.painted
@@ -292,6 +336,21 @@ impl Style {
     pub fn blend(&self) -> Blend {
         self.blend
     }
+
+    /// The shadow cast behind it, `None` where there is none.
+    #[must_use]
+    pub fn shadow(&self) -> Option<&ShadowStyle> {
+        self.shadow.as_ref()
+    }
+}
+
+impl Keyed for ShadowStyle {
+    fn write_key(&self, key: &mut Key) {
+        key.number(self.dx);
+        key.number(self.dy);
+        key.number(self.blur);
+        key.of(&self.color);
+    }
 }
 
 impl Keyed for StrokeStyle {
@@ -310,6 +369,7 @@ impl Keyed for Style {
         key.of(&self.stroke);
         key.number(self.opacity);
         key.text(self.blend.name());
+        key.of(&self.shadow);
         key.word(u64::from(self.painted));
     }
 }

@@ -1,4 +1,4 @@
-//! The style steps of a drawing: `fill`, `stroke`, `opacity`, `blend`; and the same on a `Path`.
+//! The style steps of a drawing: `fill`, `stroke`, `opacity`, `blend`, `shadow`; and the same on a `Path`.
 
 use super::Drawing;
 use crate::node::{Given, style};
@@ -57,6 +57,53 @@ impl Stroke {
     }
 }
 
+/// A drop shadow: what is left out is the default, no offset to the side, 8 pixels down, a blur of 16 and the colour
+/// `#00000059`.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Shadow {
+    dx: Option<Expr>,
+    dy: Option<Expr>,
+    blur: Option<Expr>,
+    color: Option<Color>,
+}
+
+impl Shadow {
+    /// A shadow with the default offset, blur and colour.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// This shadow `dx` design pixels to the right of its shape.
+    #[must_use]
+    pub fn dx(mut self, dx: impl Into<Expr>) -> Self {
+        self.dx = Some(dx.into());
+        self
+    }
+
+    /// This shadow `dy` design pixels below its shape.
+    #[must_use]
+    pub fn dy(mut self, dy: impl Into<Expr>) -> Self {
+        self.dy = Some(dy.into());
+        self
+    }
+
+    /// This shadow blurred by `blur` design pixels, at least 0: the radius of a CSS `box-shadow`, so the Gaussian's
+    /// standard deviation is half of it. 0 is a hard copy.
+    #[must_use]
+    pub fn blur(mut self, blur: impl Into<Expr>) -> Self {
+        self.blur = Some(blur.into());
+        self
+    }
+
+    /// This shadow tinted `color`, which paints (not [`Color::NONE`]); its alpha is the shadow's strength.
+    #[must_use]
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+}
+
 impl From<Color> for Stroke {
     fn from(color: Color) -> Self {
         Self::new(color)
@@ -105,6 +152,26 @@ impl Drawing {
     pub fn blend(&self, mode: Blend) -> Self {
         self.then(&style::Blend, vec![("mode", Given::Text(mode.name().to_owned()))])
     }
+
+    /// This drawing with a drop shadow under every shape, replacing any it has: the silhouette of the shape's fill and
+    /// stroke, moved, blurred and tinted, painted behind the shape inside the group that its opacity and blend apply to.
+    /// A shape with an empty path or nothing painted casts none.
+    ///
+    /// A `blur` below 0 or a colour of none leave the drawing with an [`error`](Drawing::error), or, when they read a
+    /// Param, are refused when the drawing is drawn.
+    #[must_use]
+    pub fn shadow(&self, shadow: Shadow) -> Self {
+        let mut given = Vec::new();
+        for (name, number) in [("dx", shadow.dx), ("dy", shadow.dy), ("blur", shadow.blur)] {
+            if let Some(number) = number {
+                given.push((name, Given::Number(number)));
+            }
+        }
+        if let Some(color) = shadow.color {
+            given.push(("color", Given::Color(color)));
+        }
+        self.then(&style::Shadow, given)
+    }
 }
 
 impl Path {
@@ -130,5 +197,11 @@ impl Path {
     #[must_use]
     pub fn blend(&self, mode: Blend) -> Drawing {
         Drawing::from(self.clone()).blend(mode)
+    }
+
+    /// A [`Drawing`] of this path with a drop shadow.
+    #[must_use]
+    pub fn shadow(&self, shadow: Shadow) -> Drawing {
+        Drawing::from(self.clone()).shadow(shadow)
     }
 }

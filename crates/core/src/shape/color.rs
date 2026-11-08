@@ -28,6 +28,11 @@ impl Color {
         }
     }
 
+    /// The colour of these red, green, blue and alpha bytes.
+    pub(crate) const fn from_bytes(rgba: [u8; 4]) -> Self {
+        Self { rgba: Some(rgba) }
+    }
+
     /// The colour written as `"#rrggbb"` (opaque) or `"#rrggbbaa"`, in either case, or `"none"` for [`Color::NONE`].
     /// There are no colour names, no three-digit form and no `rgb()`.
     ///

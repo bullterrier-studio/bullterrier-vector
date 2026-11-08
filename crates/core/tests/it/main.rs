@@ -56,6 +56,7 @@ mod raster_fill;
 mod raster_stroke;
 mod registry;
 mod shape;
+mod style_shadow;
 mod svg;
 mod svg_properties;
 mod svg_shapes;

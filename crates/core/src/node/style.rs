@@ -1,7 +1,9 @@
-//! The style steps: `fill`, `stroke`, `opacity`, `blend`. Each changes the paint of every shape and nothing else.
+//! The style steps: `fill`, `stroke`, `opacity`, `blend`, `shadow`. Each changes the paint of every shape and nothing else.
 
 use super::{Args, Context, Inputs, Node, choice, each_shape};
-use crate::shape::{Blend as BlendMode, Cap, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, Join, StrokeStyle};
+use crate::shape::{
+    Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, Join, ShadowStyle, StrokeStyle,
+};
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
 
 /// A colour given when the call is made.
@@ -168,5 +170,51 @@ impl Node for Blend {
                 shape
             })
             .collect())
+    }
+}
+
+/// The shadow every shape casts when `shadow` leaves out its colour.
+// constant: api.md "Style" (`shadow(*, ..., color="#00000059")`), a black at 35% (0x59 of 0xff)
+const DEFAULT_SHADOW_COLOR: Color = Color::from_bytes([0, 0, 0, 0x59]);
+
+/// Gives every shape a drop shadow.
+#[derive(Debug)]
+pub(crate) struct Shadow;
+
+pub(crate) static SHADOW: Verb = Verb {
+    name: "shadow",
+    role: Role::Step,
+    summary: "casts a drop shadow behind every shape: its fill and stroke moved by dx and dy, blurred (blur is a CSS radius, \
+              the Gaussian's deviation is half of it) and tinted color (default #00000059); replaces any shadow before",
+    args: &[
+        number("dx", Some(0.0), Domain::Finite),
+        number("dy", Some(8.0), Domain::Finite),
+        number("blur", Some(16.0), Domain::AtLeast(0.0)),
+        Arg {
+            default: Some(Literal::Unset),
+            ..color(Domain::Painting)
+        },
+    ],
+    check: None,
+};
+
+impl Node for Shadow {
+    fn verb(&self) -> &'static Verb {
+        &SHADOW
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let color = args.color_opt("color")?.unwrap_or(DEFAULT_SHADOW_COLOR);
+        each_shape(inputs.previous, cx, |shape, item| {
+            let shadow = ShadowStyle {
+                dx: args.number(cx, "dx", item)?,
+                dy: args.number(cx, "dy", item)?,
+                blur: args.number(cx, "blur", item)?,
+                color,
+            };
+            let mut shape = shape.clone();
+            shape.style_mut().set_shadow(shadow);
+            Ok(shape)
+        })
     }
 }

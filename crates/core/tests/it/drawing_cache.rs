@@ -5,7 +5,7 @@
 use crate::common::Outcome;
 use crate::common::ops::{chain, edits, extend, materialise, values_of};
 use bullterrier_vector::{
-    Blend, Color, Deg, Drawing, Error, Expr, Join, Param, Path, Select, Shape, Stats, Stroke, Values,
+    Blend, Color, Deg, Drawing, Error, Expr, Join, Param, Path, Select, Shadow, Shape, Stats, Stroke, Values,
 };
 use proptest::prelude::*;
 
@@ -313,6 +313,31 @@ fn pairs() -> Vec<(&'static str, Make)> {
     ]
 }
 
+/// Rows that differ in one argument of a shadow.
+fn shadow_pairs() -> Vec<(&'static str, Make)> {
+    vec![
+        ("the x offset of a shadow", |base| {
+            shadow_pair(base, Shadow::new().dx(1.0), Shadow::new().dx(2.0))
+        }),
+        ("the y offset of a shadow", |base| {
+            shadow_pair(base, Shadow::new().dy(1.0), Shadow::new().dy(2.0))
+        }),
+        ("the blur of a shadow", |base| {
+            shadow_pair(base, Shadow::new().blur(1.0), Shadow::new().blur(2.0))
+        }),
+        ("the colour of a shadow", |base| {
+            let color = |text| Color::parse(text).map(|color| Shadow::new().color(color));
+            shadow_pair(base, color("#000000")?, color("#00000080")?)
+        }),
+    ]
+}
+
+/// The pair of `base` with the shadow `left` and with the shadow `right`.
+#[expect(clippy::unnecessary_wraps, reason = "a row of a table of `Make`")]
+fn shadow_pair(base: &Drawing, left: Shadow, right: Shadow) -> Result<Pair, Error> {
+    Ok((base.shadow(left), Values::new(), base.shadow(right), Values::new()))
+}
+
 /// More rows: the words a step is called with, and the sources a drawing is made of.
 fn source_pairs() -> Vec<(&'static str, Make)> {
     vec![
@@ -424,7 +449,7 @@ fn outcome(drawing: &Drawing, values: &Values) -> Result<Vec<Shape>, String> {
 
 #[test]
 fn drawings_that_differ_in_one_input_never_share_a_result() -> Outcome {
-    for (case, make) in pairs().into_iter().chain(source_pairs()) {
+    for (case, make) in pairs().into_iter().chain(source_pairs()).chain(shadow_pairs()) {
         let (left, left_at, right, right_at) = make(&square()?)?;
         // a twin of the right drawing, built on a base of its own: its cache holds nothing of the left
         let (_, _, twin, twin_at) = make(&square()?)?;

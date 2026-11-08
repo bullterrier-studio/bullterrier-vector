@@ -14,7 +14,7 @@ mod values;
 pub use cache::Stats;
 pub(crate) use graph::Graph;
 pub use select::{Select, Wanted};
-pub use style::Stroke;
+pub use style::{Shadow, Stroke};
 pub use transform::{Along, Deg, Pivot, Rotate, ScaleBy};
 
 use self::cache::Shared;
@@ -413,6 +413,15 @@ impl From<Shape> for Drawing {
         }
         if style.blend() != Blend::Normal {
             drawing = drawing.blend(style.blend());
+        }
+        if let Some(shadow) = style.shadow() {
+            drawing = drawing.shadow(
+                Shadow::new()
+                    .dx(shadow.dx())
+                    .dy(shadow.dy())
+                    .blur(shadow.blur())
+                    .color(shadow.color()),
+            );
         }
         drawing
     }

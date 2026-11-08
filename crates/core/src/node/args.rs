@@ -476,6 +476,14 @@ impl Args {
         }
     }
 
+    /// The colour of `name`, or `None` if the call left it out.
+    pub(crate) fn color_opt(&self, name: &str) -> Result<Option<Color>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            _ => self.color(name).map(Some),
+        }
+    }
+
     /// The word of `name`.
     pub(crate) fn text(&self, name: &str) -> Result<&str, Error> {
         match self.find(name)? {

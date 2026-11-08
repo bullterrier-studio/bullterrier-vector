@@ -13,7 +13,7 @@ use crate::common::fonts::fraunces;
 use crate::common::{Outcome, build, log_uniform, parameter_refusal, step};
 use bullterrier_vector::{
     Along, Blend, Cap, Color, Deg, Drawing, Error, Expr, Join, Kind, Param, Path, Point, Reads, Role, Rotate, Scale,
-    ScaleBy, Select, Shape, Stroke, Text, Values, text, verbs,
+    ScaleBy, Select, Shadow, Shape, Stroke, Text, Values, text, verbs,
 };
 use proptest::prelude::*;
 use std::collections::BTreeSet;
@@ -443,6 +443,29 @@ fn rows() -> Vec<Row> {
             sample: || Ok(square()?.blend(Blend::Multiply)),
             with: None,
             ranges: &[],
+            geometry: None,
+        },
+        Row {
+            verb: "shadow",
+            sample: || Ok(square()?.shadow(Shadow::new().dy(4.0).blur(6.0))),
+            with: Some(|argument, value| match argument {
+                "dx" => Ok(square()?.shadow(Shadow::new().dx(value))),
+                "dy" => Ok(square()?.shadow(Shadow::new().dy(value))),
+                "blur" => Ok(square()?.shadow(Shadow::new().blur(value))),
+                _ => Err(unknown("shadow", argument)),
+            }),
+            ranges: &[
+                ("dx", -1e300, true),
+                ("dx", f64::NAN, false),
+                ("dx", f64::INFINITY, false),
+                ("dy", 1e300, true),
+                ("dy", f64::NEG_INFINITY, false),
+                ("blur", 0.0, true),
+                ("blur", 16.0, true),
+                ("blur", -1e-9, false),
+                ("blur", f64::NAN, false),
+                ("blur", f64::INFINITY, false),
+            ],
             geometry: None,
         },
         Row {

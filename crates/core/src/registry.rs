@@ -28,6 +28,7 @@ const NODES: &[&dyn Node] = &[
     &style::Stroke,
     &style::Opacity,
     &style::Blend,
+    &style::Shadow,
     &items::Split,
     &items::Merge,
     &boolean::Union,
