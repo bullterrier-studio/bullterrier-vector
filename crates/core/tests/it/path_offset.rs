@@ -74,7 +74,7 @@ fn a_square_changes_by_the_area_its_join_leaves() -> Outcome {
     let rows = [
         ("miter out", Join::Miter, 2.0, LIMIT, TOLERANCE, 196.0, 0.0),
         ("bevel out", Join::Bevel, 2.0, LIMIT, TOLERANCE, 188.0, 0.0),
-        // known limit (see `a_miter_beyond_the_limit_is_clipped_flat_not_bevelled`): the clip at a limit of 1 leaves a nip
+        // see `a_miter_beyond_the_limit_is_clipped_flat`: the clip at a limit of 1 leaves a nip
         // of 0.06 at each corner where a bevel leaves none
         (
             "a limit of 1 all but bevels every corner",
@@ -167,12 +167,11 @@ fn a_miter_within_the_limit_reaches_its_point() -> Outcome {
     Ok(())
 }
 
-// Known limit: the engine does not bevel a miter beyond the limit, it clips it flat. The clip is `sqrt(limit^2 - 1)` times
-// the distance from the end of the offset edge (SVG's `miter-clip`), which puts the tip at
-// `(1 + sqrt(limit^2 - 1) * sqrt(63)) / 8` for the spike, where a bevel (SVG's `miter`) puts it at `-1/8`. The test
-// below states the wanted bevel as an expected failure (`should_panic`): it fails, and so reports, once the clip is gone.
+// A miter beyond the limit is clipped flat at `sqrt(limit^2 - 1)` times the distance from the end of the offset edge
+// (SVG 2's `miter-clip`), not bevelled as a stroke's: the engine has no bevel for it (docs/design-decisions.md,
+// "Offsets (V9)"). For the spike that puts the tip at `(1 + sqrt(limit^2 - 1) * sqrt(63)) / 8`.
 #[test]
-fn a_miter_beyond_the_limit_is_clipped_flat_not_bevelled() -> Outcome {
+fn a_miter_beyond_the_limit_is_clipped_flat() -> Outcome {
     for outlined in [false, true] {
         for limit in [7.0_f64, 4.0, 2.0] {
             let clip = (1.0 + (limit * limit - 1.0).sqrt() * 63.0_f64.sqrt()) / 8.0;
@@ -185,16 +184,6 @@ fn a_miter_beyond_the_limit_is_clipped_flat_not_bevelled() -> Outcome {
         }
     }
     Ok(())
-}
-
-#[test]
-#[should_panic(expected = "limit 7, outlined false")]
-fn a_miter_beyond_the_limit_is_a_bevel() {
-    // the wanted tip: the offset edges lean by the half-angle, so the bevel joining their ends reaches an eighth
-    assert!(
-        spike_tip(7.0, false).is_ok_and(|tip| (tip + 1.0 / 8.0).abs() <= 0.02),
-        "limit 7, outlined false: not a bevel"
-    );
 }
 
 // A round join stays a round join however sharp, and the limit does not touch it.
