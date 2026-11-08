@@ -8,7 +8,10 @@
 //! area may differ from the exact one by `slack` times the perimeter. For straight edges the slack is 1e-13 of the
 //! largest coordinate: the engine snaps to a grid of 2^-60 of the half-extent and writes a number, so it is 1000 times
 //! what the rounding of a number is. A curve is flattened within the tolerance (0.01) and the oracle samples it at 256
-//! points a curve (at most 0.003 off), so a scene with curves adds `CURVE_SLACK`.
+//! points a curve (at most 0.003 off), so a scene with curves adds `CURVE_SLACK`. A scene whose generator puts edges
+//! `JITTER` apart (a shape beside a copy nudged by that much) has details of that size, which the engine can lose where
+//! they meet a sliver that a number's rounding left of an exact overlap (docs/api.md, "Booleans"): it adds `GRAIN`
+//! times the jitter.
 
 use crate::common::region::{canonical_fault, crossing_fault, exact_areas, inside, nearest_edge, sampled};
 use crate::common::{Corners, Ring, log_uniform, net_area, polygons_path, rings};
@@ -23,6 +26,12 @@ const SLACK: f64 = 1e-13;
 /// What a curve adds: the flattening tolerance and the oracle's own sampling error, rounded up.
 const CURVE_SLACK: f64 = 0.02;
 const CURVE_STEPS: usize = 256;
+/// How far the copy of a shape is nudged in a "near" scene, at most in each direction.
+const JITTER: f64 = 1e-7;
+/// How many jitters a probe keeps from every edge of a scene with that jitter, and a result may stray by.
+// constant: the engine lost a region 1e-8 thick beside an edge 1.8e-9 from the probe (api.md, "Booleans"); a probe
+// ten times the largest nudge (1.4e-7) away is clear of every such detail
+const GRAIN: f64 = 10.0;
 
 type P = (f64, f64);
 
@@ -273,23 +282,25 @@ fn kind() -> BoxedStrategy<Subs> {
     .boxed()
 }
 
-/// A scene: the two operands. Independent shapes, a shape and the same shape with every point moved by up to 1e-7
-/// (edges nearly coincident), a huge shape with a tiny one inside, or both at some other size.
-fn scenes() -> BoxedStrategy<(Subs, Subs)> {
+/// A scene: the two operands and the size of the finest detail the generator itself makes (0 when it makes none).
+/// Independent shapes, a shape and the same shape with every point moved by up to `JITTER` (edges nearly coincident), a
+/// huge shape with a tiny one inside, or both at some other size.
+fn scenes() -> BoxedStrategy<(Subs, Subs, f64)> {
     let near = (kind(), prop::collection::vec((-1.0..1.0_f64, -1.0..1.0_f64), 1..9)).prop_map(|(a, jitter)| {
         let mut next = 0;
         let b = moved(&a, |(x, y)| {
             let (jx, jy) = jitter[next % jitter.len()];
             next += 1;
-            (x + 1e-7 * jx, y + 1e-7 * jy)
+            (x + JITTER * jx, y + JITTER * jy)
         });
-        (a, b)
+        (a, b, JITTER)
     });
     let ratio = (blob(), blob(), 0.0..6.0_f64, -6.0..-3.0_f64).prop_map(|(big, small, up, down)| {
         let (up, down) = (libm::pow(10.0, up), libm::pow(10.0, down));
         (
             moved(&big, |(x, y)| (x * up, y * up)),
             moved(&small, |(x, y)| (500.0 * up + x * down, 500.0 * up + y * down)),
+            0.0,
         )
     });
     // two straight-edged shapes, both 1e-100 to 1e60 times their size (curves would need a tolerance to match)
@@ -299,9 +310,10 @@ fn scenes() -> BoxedStrategy<(Subs, Subs)> {
         (
             moved(&a, |(x, y)| (x * by, y * by)),
             moved(&b, |(x, y)| (x * by, y * by)),
+            0.0,
         )
     });
-    prop_oneof![5 => (kind(), kind()), 3 => near, 2 => ratio, 2 => scaled].boxed()
+    prop_oneof![5 => (kind(), kind(), Just(0.0)), 3 => near, 2 => ratio, 2 => scaled].boxed()
 }
 
 fn probe_units() -> impl Strategy<Value = Vec<[f64; 4]>> {
@@ -329,7 +341,7 @@ fn region(path: &Path) -> Result<Vec<Ring>, TestCaseError> {
 }
 
 impl Scene {
-    fn new(a: &[Sub], b: &[Sub]) -> Result<Self, TestCaseError> {
+    fn new(a: &[Sub], b: &[Sub], grain: f64) -> Result<Self, TestCaseError> {
         let (path_a, path_b) = (path_of(a)?, path_of(b)?);
         let polys_a = sampled(&path_a, CURVE_STEPS).map_err(|e| fail(&e))?;
         let polys_b = sampled(&path_b, CURVE_STEPS).map_err(|e| fail(&e))?;
@@ -345,7 +357,7 @@ impl Scene {
             polys_a,
             polys_b,
             scale,
-            slack: SLACK * scale + if curves { CURVE_SLACK } else { 0.0 },
+            slack: SLACK * scale + GRAIN * grain + if curves { CURVE_SLACK } else { 0.0 },
         })
     }
 
@@ -486,27 +498,27 @@ fn check_against_the_rule(scene: &Scene, units: &[[f64; 4]]) -> Result<(), TestC
 proptest! {
     #[test]
     fn a_point_clear_of_every_edge_is_in_the_result_when_the_set_rule_says_so_and_the_area_is_exact(
-        (a, b) in scenes(),
+        (a, b, grain) in scenes(),
         units in probe_units(),
     ) {
-        check_against_the_rule(&Scene::new(&a, &b)?, &units)?;
+        check_against_the_rule(&Scene::new(&a, &b, grain)?, &units)?;
     }
 
     #[test]
     fn moving_both_shapes_by_any_vector_does_not_change_the_answer(
-        (a, b) in scenes(),
+        (a, b, grain) in scenes(),
         units in probe_units(),
         by in (-1.0e4..1.0e4_f64, -1.0e4..1.0e4_f64),
     ) {
         let (a, b) = (moved(&a, |(x, y)| (x + by.0, y + by.1)), moved(&b, |(x, y)| (x + by.0, y + by.1)));
-        check_against_the_rule(&Scene::new(&a, &b)?, &units)?;
+        check_against_the_rule(&Scene::new(&a, &b, grain)?, &units)?;
     }
 
     #[test]
     fn every_result_is_canonical_and_does_not_cross_itself(
-        (a, b) in scenes(),
+        (a, b, grain) in scenes(),
     ) {
-        let scene = Scene::new(&a, &b)?;
+        let scene = Scene::new(&a, &b, grain)?;
         for (number, path) in scene.results()?.iter().enumerate() {
             let found = region(path)?;
             prop_assert_eq!(canonical_fault(&found), None, "result {}", number);
@@ -516,10 +528,10 @@ proptest! {
 
     #[test]
     fn resolving_a_result_again_keeps_its_region(
-        (a, b) in scenes(),
+        (a, b, grain) in scenes(),
         units in probe_units(),
     ) {
-        let scene = Scene::new(&a, &b)?;
+        let scene = Scene::new(&a, &b, grain)?;
         let bound = scene.area_bound();
         for (number, path) in scene.results()?.iter().enumerate() {
             let again = path.resolve(TOLERANCE)?;
@@ -540,10 +552,10 @@ proptest! {
 
     #[test]
     fn the_four_results_relate_as_sets_do(
-        (a, b) in scenes(),
+        (a, b, grain) in scenes(),
         units in probe_units(),
     ) {
-        let scene = Scene::new(&a, &b)?;
+        let scene = Scene::new(&a, &b, grain)?;
         let bound = scene.area_bound();
         let found: Vec<Vec<Ring>> = scene.results()?.iter().map(region).collect::<Result<_, _>>()?;
         let area: Vec<f64> = found.iter().map(|rings| net_area(rings)).collect();
@@ -613,11 +625,48 @@ fn a_hair_left_beside_a_far_larger_shape_is_not_a_hole() -> Result<(), TestCaseE
         square(113.63698046060347, 713.6369804606035),
         square(133.63698046060347, 693.6369804606035),
     ];
-    let scene = Scene::new(&a, &b)?;
+    let scene = Scene::new(&a, &b, 0.0)?;
     for (number, path) in scene.results()?.iter().enumerate() {
         let found = region(path)?;
         prop_assert_eq!(canonical_fault(&found), None, "result {}", number);
         prop_assert_eq!(crossing_fault(&found, scene.slack), None, "result {}", number);
     }
     Ok(())
+}
+
+/// A shape beside a copy nudged by 1e-7, moved by 7759.6: the move rounds the exact overlap of two edges of the shape
+/// (a corner on another edge, doubled back) into a sliver 1e-12 thick, and the engine then loses a quadrilateral of area
+/// 8e-16 at the corner, 1e-8 thick and 7e-8 long, which the oracle says is inside both shapes (api.md, "Booleans").
+/// Found by the fuzz; the scene claims what is above its jitter: the area is exact and every probe 1.4e-6 from an edge
+/// is right.
+#[test]
+fn a_detail_the_size_of_the_jitter_may_vanish_but_the_area_and_everything_clear_of_it_hold() -> Result<(), TestCaseError>
+{
+    let a = vec![polygon(
+        &[
+            (250.0, 375.0),
+            (500.0, 125.0),
+            (250.0, 500.0),
+            (250.0, 500.0),
+            (375.0, 250.0),
+            (375.0, 250.0),
+        ],
+        false,
+    )];
+    let b = vec![polygon(
+        &[
+            (250.000_000_065_906_6, 375.000_000_018_706_1),
+            (500.0, 124.999_999_958_428_67),
+            (250.000_000_065_906_6, 500.000_000_018_706_1),
+            (250.0, 499.999_999_958_428_7),
+            (375.000_000_065_906_6, 250.000_000_018_706_1),
+            (375.0, 249.999_999_958_428_67),
+        ],
+        false,
+    )];
+    let by = 7759.609_348_622_621;
+    let (a, b) = (moved(&a, |(x, y)| (x + by, y)), moved(&b, |(x, y)| (x + by, y)));
+    // probes on the first corner of every edge's neighbourhood, then each corner in turn, just off it
+    let units: Vec<[f64; 4]> = (0..60).map(|k| [f64::from(k) / 60.0, 0.0, 0.0, 0.0]).collect();
+    check_against_the_rule(&Scene::new(&a, &b, JITTER)?, &units)
 }
