@@ -111,9 +111,10 @@ number of a field or a flow.
 | `trace` | `trace(field, *, ...)` | `field` (field), `levels` (numbers), `tolerance`, `before`, `after` (fields), `sigma` |
 
 A tag is four printable ASCII characters (`"wght"`). A shape's style is written as the style steps that set it, in the
-order of api.md's `Style` (`fill`, `stroke`, `halftone`, `opacity`, `blend`, `shadow`, `knockout`), each with the
-shape's values. `Style` holds the paint as drawn, so the `fill` step is always written (`{"fill": {"color": "none"}}`
-when `Style.fill` is `None`): the shape then never takes the default paint, and draws as it did.
+order `fill` (or `halftone`, for a screen), `stroke`, `opacity`, `blend`, `shadow`, `knockout`, each with the shape's
+values. `Style` holds the paint as drawn, so the fill is always written, as `fill` or as `halftone`
+(`{"fill": {"color": "none"}}` when `Style.fill` is `None` and there is no screen): the shape then never takes the
+default paint, and draws as it did.
 
 ### Steps
 
