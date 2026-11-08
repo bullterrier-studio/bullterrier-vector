@@ -235,6 +235,10 @@ impl<'a, 'py> FromPyObject<'a, 'py> for By {
 // constant: the core's FLATNESS, a tolerance below any visible effect
 pub(crate) const DEFAULT_TOLERANCE: f64 = 0.01;
 
+/// The `miter_limit` default of `offset` and `outline`: the core's default stroke miter limit (the core keeps it private).
+// constant: SVG's own default miter limit
+pub(crate) const DEFAULT_MITER_LIMIT: f64 = 4.0;
+
 /// A number a `Path` verb takes: a plain number, never a Param or an expression.
 #[derive(Clone, Copy)]
 struct Plain(f64);
@@ -455,6 +459,29 @@ impl PyPath {
     #[pyo3(signature = (other, *, tolerance=Plain(DEFAULT_TOLERANCE)), text_signature = "($self, other, *, tolerance=0.01)")]
     fn exclude(&self, other: &Bound<'_, Self>, tolerance: Plain) -> PyResult<Self> {
         Self::of(self.0.exclude(&other.get().0, tolerance.0))
+    }
+
+    /// The region this path fills moved outward by `distance`, inward when negative, as canonical straight-edged
+    /// polygons; `join` is `"round"`, `"miter"` or `"bevel"`, a miter sharper than `miter_limit` is clipped flat.
+    #[pyo3(
+        signature = (distance, *, join="round", miter_limit=Plain(DEFAULT_MITER_LIMIT), tolerance=Plain(DEFAULT_TOLERANCE)),
+        text_signature = "($self, distance, *, join='round', miter_limit=4, tolerance=0.01)"
+    )]
+    fn offset(&self, distance: Plain, join: &str, miter_limit: Plain, tolerance: Plain) -> PyResult<Self> {
+        let join = raised(vector::Join::parse(join))?;
+        Self::of(self.0.offset(distance.0, join, miter_limit.0, tolerance.0))
+    }
+
+    /// The region a stroke of `width` along this path paints, as a closed outline; `cap` is `"butt"`, `"round"` or
+    /// `"square"`; `join` and `miter_limit` as for `offset`.
+    #[pyo3(
+        signature = (width, *, join="round", cap="round", miter_limit=Plain(DEFAULT_MITER_LIMIT), tolerance=Plain(DEFAULT_TOLERANCE)),
+        text_signature = "($self, width, *, join='round', cap='round', miter_limit=4, tolerance=0.01)"
+    )]
+    fn outline(&self, width: Plain, join: &str, cap: &str, miter_limit: Plain, tolerance: Plain) -> PyResult<Self> {
+        let join = raised(vector::Join::parse(join))?;
+        let cap = raised(vector::Cap::parse(cap))?;
+        Self::of(self.0.outline(width.0, join, cap, miter_limit.0, tolerance.0))
     }
 
     /// The path with every point, on and off the curve, replaced by what `fn(point)` returns.

@@ -602,6 +602,8 @@ REGISTERED = {
     "intersect",
     "exclude",
     "resolve",
+    "offset",
+    "outline",
     "text",
     "param",
     "add",

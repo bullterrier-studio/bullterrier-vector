@@ -4,7 +4,7 @@ use crate::expr::{Num, PyExpr, PyParam};
 use crate::mesh::PyMesh;
 use crate::shape::PyShape;
 use crate::text::{bytes_of, entries};
-use crate::{DEFAULT_TOLERANCE, PyPath, PyPoint, exception, raised};
+use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, PyPath, PyPoint, exception, raised};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -273,6 +273,29 @@ impl PyDrawing {
     #[pyo3(signature = (other, *, tolerance=DEFAULT_TOLERANCE), text_signature = "($self, other, *, tolerance=0.01)")]
     fn exclude(&self, other: Item, tolerance: f64) -> PyResult<Self> {
         checked(self.0.exclude(other.0, tolerance))
+    }
+
+    /// The edge of the region every shape fills moved outward by `distance` (a number, a Param or an expression, for
+    /// each shape), inward when negative; as `Path.offset`. `join`, `miter_limit` and `tolerance` are plain values.
+    #[pyo3(
+        signature = (distance, *, join="round", miter_limit=DEFAULT_MITER_LIMIT, tolerance=DEFAULT_TOLERANCE),
+        text_signature = "($self, distance, *, join='round', miter_limit=4, tolerance=0.01)"
+    )]
+    fn offset(&self, distance: Num, join: &str, miter_limit: f64, tolerance: f64) -> PyResult<Self> {
+        let join = raised(vector::Join::parse(join))?;
+        checked(self.0.offset(distance.0, join, miter_limit, tolerance))
+    }
+
+    /// Every shape turned into the region a stroke of `width` (a number, a Param or an expression, for each shape)
+    /// along it paints; as `Path.outline`.
+    #[pyo3(
+        signature = (width, *, join="round", cap="round", miter_limit=DEFAULT_MITER_LIMIT, tolerance=DEFAULT_TOLERANCE),
+        text_signature = "($self, width, *, join='round', cap='round', miter_limit=4, tolerance=0.01)"
+    )]
+    fn outline(&self, width: Num, join: &str, cap: &str, miter_limit: f64, tolerance: f64) -> PyResult<Self> {
+        let join = raised(vector::Join::parse(join))?;
+        let cap = raised(vector::Cap::parse(cap))?;
+        checked(self.0.outline(width.0, join, cap, miter_limit, tolerance))
     }
 
     /// Every shape cut to the piece of its outline between `start` and `end` (fractions 0 to 1 of its length, each a

@@ -865,6 +865,16 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
         [row("M0 0 L10 0 L10 5 L5 5 L5 10 L0 10 Z M10 5 L15 5 L15 15 L5 15 L5 10 L10 10 Z")],
     ),
     "resolve": (lambda: Drawing(BOW_TIE).resolve(), {}, [row("M0 0 L5 5 L0 10 Z M10 0 L10 10 L5 5 Z")]),
+    "offset": (
+        lambda: Drawing(SQUARE).offset(1, join="miter"),
+        {},
+        [row("M-1 -1 L11 -1 L11 11 L-1 11 Z")],
+    ),
+    "outline": (
+        lambda: Drawing(LINE).outline(2, cap="butt"),
+        {},
+        [row("M0 -1 L10 -1 L10 1 L0 1 Z")],
+    ),
     "slice": (lambda: Drawing(LINE).slice(0.25, 0.75), {}, [row("M2.5 0 L7.5 0", None, BLACK)]),
     "fill": (lambda: Drawing(SQUARE).fill("#0000ff"), {}, [row(RECT, "#0000ffff")]),
     "stroke": (lambda: Drawing(SQUARE).stroke("#00ff00"), {}, [row(RECT, None, "#00ff00ff")]),
