@@ -439,6 +439,48 @@ def offsets() -> list[Entry]:
     ]
 
 
+# The drawings whose mesh the core refuses (a blurred shadow has no triangle form): the comparison is that WebAssembly
+# refuses with the native error.
+MESH_REFUSED = {"shadow_blurred", "shadow_blurred_group", "shadow_blur_param"}
+
+
+def shadows() -> list[Entry]:
+    """Shadows: a hard copy (the shape moved by an offset between pixels, a stroke, a translucent tint), a blur, a blur
+    under opacity and multiply, an offset per shape and a Param blur. The copy is the shape moved, so the SVG text and
+    the mesh are exact; the blur is `vello_cpu`'s filter, drawn alike natively and in WebAssembly, and the mesh of a
+    blur is refused."""
+    disc = btvec.Path.circle((45, 50), 25)
+    square = btvec.Path.rect(55, 25, 30, 30)
+    blur = btvec.Param("blur", default=10, min=0, max=60, unit="px", meaning="the blur radius of the shadows")
+    drawings = {
+        "shadow_hard": framed(disc.fill(RED).shadow(dx=6.5, dy=9.25, blur=0, color="#00000066")),
+        "shadow_hard_stroked": framed(
+            square.fill(GOLD).stroke(INK, width=5).shadow(dx=-8, dy=10, blur=0, color="#1a1a1ab3"),
+            disc.stroke(BLUE, width=6).shadow(dx=5, dy=5, blur=0),
+        ),
+        "shadow_blurred": framed(disc.fill(RED).shadow(dy=6, blur=14), square.fill(BLUE).shadow(dx=4, dy=8, blur=6)),
+        "shadow_blurred_group": framed(
+            disc.fill(GOLD),
+            disc.translate(22, 10).fill("#ff4f9a").stroke(INK, width=3).shadow(dx=6, dy=6, blur=10).opacity(0.7),
+            square.translate(-20, 30).fill("#4fa0ff").shadow(dx=6, dy=6, blur=10, color="#202080c0").blend("multiply"),
+        ),
+        "shadow_per_item": framed(
+            btvec.Drawing(
+                disc.scale(0.4, about=(20, 25)), disc.scale(0.4, about=(60, 25)), disc.scale(0.4, about=(80, 70))
+            )
+            .fill(RED)
+            .shadow(dy=btvec.by_index(0, 16), blur=0, color="#000000")
+        ),
+        "shadow_blur_param": framed(disc.fill(BLUE).shadow(blur=blur)),
+    }
+    draws: dict[str, list[Draw]] = {
+        "shadow_blur_param": [(100, 100, {"blur": 4}), (200, 200, {"blur": 30})],
+        "shadow_hard": [(100, 100, {}), (200, 200, {})],
+        "shadow_blurred": [(100, 100, {}), (200, 200, {})],
+    }
+    return [(name, drawing, draws.get(name, [(100, 100, {})])) for name, drawing in drawings.items()]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -449,6 +491,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     per_item,
     booleans,
     offsets,
+    shadows,
 ]
 
 
@@ -533,7 +576,6 @@ def sha256(data: bytes) -> str:
 def compared(drawing: btvec.Drawing, name: str, index: int, draw: Draw, pixels: Path) -> dict[str, Any]:
     """What the native extension makes of one draw of the corpus: hashes of the exact outputs, pixels in a file."""
     width, height, values = draw
-    mesh = drawing.to_mesh(width, height, **values)
     file = f"{name}-{index}.rgba"
     (pixels / file).write_bytes(drawing.to_rgba(width, height, **values))
     return {
@@ -541,17 +583,34 @@ def compared(drawing: btvec.Drawing, name: str, index: int, draw: Draw, pixels: 
         "height": height,
         "values": values,
         "svg_sha256": sha256(drawing.to_svg(width, height, **values).encode("utf-8")),
-        "mesh": {
-            "vertices_sha256": sha256(mesh.vertices.tobytes()),
-            "indices_sha256": sha256(mesh.indices.tobytes()),
-            "ranges_sha256": sha256(mesh.ranges.tobytes()),
-            "vertices_length": len(mesh.vertices),
-            "indices_length": len(mesh.indices),
-            "ranges_length": len(mesh.ranges),
-            "generation": mesh.generation,
-        },
+        "mesh": refused_mesh(drawing, draw)
+        if name in MESH_REFUSED
+        else described(drawing.to_mesh(width, height, **values)),
         "rgba_file": file,
     }
+
+
+def described(mesh: btvec.Mesh) -> dict[str, Any]:
+    """A mesh as the hashes and lengths of its buffers."""
+    return {
+        "vertices_sha256": sha256(mesh.vertices.tobytes()),
+        "indices_sha256": sha256(mesh.indices.tobytes()),
+        "ranges_sha256": sha256(mesh.ranges.tobytes()),
+        "vertices_length": len(mesh.vertices),
+        "indices_length": len(mesh.indices),
+        "ranges_length": len(mesh.ranges),
+        "generation": mesh.generation,
+    }
+
+
+def refused_mesh(drawing: btvec.Drawing, draw: Draw) -> dict[str, Any]:
+    """The refusal `to_mesh` raises for a drawing of `MESH_REFUSED`: the exception class and message."""
+    width, height, values = draw
+    try:
+        drawing.to_mesh(width, height, **values)
+    except btvec.BullterrierVectorError as error:
+        return {"refusal": {"name": type(error).__name__, "message": str(error)}}
+    sys.exit("oracle: to_mesh did not raise for a drawing of MESH_REFUSED")
 
 
 def inputs_of(text: str) -> dict[str, str]:

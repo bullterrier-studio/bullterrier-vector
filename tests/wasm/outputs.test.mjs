@@ -103,6 +103,11 @@ for (const { name, json, inputs, draws } of native.corpus) {
 
   test(`${name}: the mesh buffers are the native ones`, () => {
     each((draw, label) => {
+      if (draw.mesh.refusal) {
+        // a mesh the core refuses: the same error, by name and message
+        assert.throws(() => drawing.toMesh(draw.width, draw.height, draw.values), draw.mesh.refusal, `${label}: mesh refusal`);
+        return;
+      }
       const mesh = drawing.toMesh(draw.width, draw.height, draw.values);
       assert.deepEqual(describe(mesh), draw.mesh, `${label}: mesh`);
       mesh.free();
@@ -139,7 +144,8 @@ test("every draw of the corpus that draws something holds a mesh and pixels no o
       if (draw.mesh.vertices_length === 0) continue;
       const label = `${name} ${draw.width}x${draw.height}`;
       const pixels = sha256(nativePixels(draw.rgba_file));
-      for (const key of [`mesh ${draw.mesh.vertices_sha256}`, `pixels ${pixels}`]) {
+      const keys = draw.mesh.refusal ? [`pixels ${pixels}`] : [`mesh ${draw.mesh.vertices_sha256}`, `pixels ${pixels}`];
+      for (const key of keys) {
         assert.equal(seen.get(key), undefined, `${label} and ${seen.get(key)} are the same draw (${key.split(" ")[0]}): a row that changes nothing tests nothing`);
         seen.set(key, label);
       }
@@ -233,8 +239,9 @@ test("a view made before the memory grew is detached; a fresh one reads the same
   const mesh = drawing.toMesh(400, 400);
   const stale = view(Float32Array, mesh.verticesPtr, mesh.verticesLength);
   const before = describe(mesh);
-  const pixels = drawing.toRgba(2000, 2000); // 16 MB of pixels: the memory grows
-  assert.equal(pixels.length, 2000 * 2000 * 4);
+  // growing is what any draw that outgrows the memory does; it is done here by hand, since the draws before this test
+  // leave free memory that a large draw would take without growing
+  memory().grow(1);
   assert.equal(stale.length, 0, "the old view is detached once the memory grew");
   assert.deepEqual(describe(mesh), before);
 });
