@@ -569,6 +569,8 @@ AGREED = [
         id="an expression in a gradient point",
     ),
     pytest.param(square_with({"blend": {"mode": "multiply"}}), True, id="a blend mode"),
+    pytest.param(square_with({"blend": {"mode": "color-dodge"}}), True, id="a hyphenated blend mode"),
+    pytest.param(square_with({"blend": {"mode": "hue"}}), False, id="a non-separable blend mode"),
     pytest.param(square_with({"blend": {}}), False, id="a blend without its mode"),
     pytest.param(square_with({"opacity": {}}), False, id="an opacity without its alpha"),
     pytest.param(square_with({"shadow": {}}), True, id="a shadow of all defaults"),

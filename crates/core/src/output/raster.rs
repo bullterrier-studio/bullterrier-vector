@@ -427,12 +427,9 @@ fn composite(context: &mut RenderContext, style: &Style, shadow: Option<&Shadow>
         context.pop_layer();
         return;
     }
-    let grouped = style.opacity() < 1.0 || style.blend() == Blend::Multiply;
+    let grouped = style.opacity() < 1.0 || style.blend() != Blend::Normal;
     if grouped {
-        let mix = match style.blend() {
-            Blend::Normal => Mix::Normal,
-            Blend::Multiply => Mix::Multiply,
-        };
+        let mix = mix_of(style.blend());
         #[expect(
             clippy::cast_possible_truncation,
             reason = "an opacity from 0 to 1 loses nothing visible in an f32"
@@ -452,6 +449,24 @@ fn composite(context: &mut RenderContext, style: &Style, shadow: Option<&Shadow>
     body.draw(context, None);
     if grouped {
         context.pop_layer();
+    }
+}
+
+/// The compositing mix that draws `blend`.
+fn mix_of(blend: Blend) -> Mix {
+    match blend {
+        Blend::Normal => Mix::Normal,
+        Blend::Multiply => Mix::Multiply,
+        Blend::Screen => Mix::Screen,
+        Blend::Overlay => Mix::Overlay,
+        Blend::Darken => Mix::Darken,
+        Blend::Lighten => Mix::Lighten,
+        Blend::ColorDodge => Mix::ColorDodge,
+        Blend::ColorBurn => Mix::ColorBurn,
+        Blend::HardLight => Mix::HardLight,
+        Blend::SoftLight => Mix::SoftLight,
+        Blend::Difference => Mix::Difference,
+        Blend::Exclusion => Mix::Exclusion,
     }
 }
 

@@ -919,6 +919,16 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **The mesh refuses a gradient** like a blurred shadow: `ParameterError` naming `fill` or `stroke` and the shape. A
   colour per vertex would interpolate in the triangles, not at the pixels, and a texture needs a range kind that three
   flat buffers lack.
+- **The blend set is the ten separable W3C modes** (`screen`, `overlay`, `darken`, `lighten`, `color-dodge`, `color-burn`,
+  `hard-light`, `soft-light`, `difference`, `exclusion`) under their CSS names; `hue`, `saturation`, `color` and
+  `luminosity` mix channels and stay out. One list (`Blend::NAMES`, built from the variants) gives the word, the
+  `mix-blend-mode` value, the verb's choice and the schema. SVG and pixels agree the way multiply does: the blend
+  applies to the shape's group (shadow and shape together), and `vello_cpu` and `resvg` are checked against each other
+  per mode (plain, at an opacity, with a shadow). Pixels against the W3C formulas worked in f64: an opaque source is
+  within 1 level; a translucent one (colour alpha, opacity or both) within 2 levels, the 8-bit rounding of the group
+  alpha and of the mix. The mesh keeps its 0 normal, 1 multiply range column and refuses every other mode naming
+  `blend` and the shape: a range has no room for a formula, and a fixed blend function covers only multiply over an
+  opaque ground. Only the f32 fallback of the non-u8 modes costs speed, nothing else.
 - **`gradient_map` and `posterize` stay unregistered** (docs only): they recolour fills and strokes, and there is nothing
   to recolour yet. When they are added they must map the stops of a gradient, not skip it.
 

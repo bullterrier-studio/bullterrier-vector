@@ -4,6 +4,7 @@
 
 mod common;
 
+mod blend_modes;
 mod drawing_along;
 mod drawing_boolean;
 mod drawing_cache;

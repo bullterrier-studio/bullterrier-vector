@@ -308,7 +308,7 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | `radial_gradient` | `radial_gradient(stops, *, center, radius)` | a paint: offset 0 at `center`, offset 1 at `radius`, held beyond | as `linear_gradient`; `radius` not above 0 |
 | `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` asks (a number; a `Field` arrives in V15; 0 solid, 1 none) | `color` of `"none"`; `tone` outside 0..1; `pitch` not above 0; `angle` not finite; the limit below |
 | `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | `alpha` outside 0..1 |
-| `blend` | `blend(mode)` | paints with `"normal"` or `"multiply"` over what is below | another mode |
+| `blend` | `blend(mode)` | paints over what is below with a CSS blend `mode`: `"normal"`, `"multiply"`, `"screen"`, `"overlay"`, `"darken"`, `"lighten"`, `"color-dodge"`, `"color-burn"`, `"hard-light"`, `"soft-light"`, `"difference"` or `"exclusion"`; it applies to a shape with its shadow once | another word, the non-separable `"hue"`, `"saturation"`, `"color"` and `"luminosity"` included; a mesh: any mode but normal and multiply |
 | `shadow` | `shadow(*, dx=0, dy=8, blur=16, color="#00000059")` | a drop shadow under each shape: the silhouette of its fill and stroke, moved by `dx` and `dy`, blurred and tinted `color`; the last call wins | `blur` below 0; `dx`, `dy` or `blur` not finite; `color` of `"none"`; pixel outputs: a blur past the limits below |
 | `knockout` | `knockout()` | each shape removes what is below it in its drawing, instead of painting: the area its fill and stroke cover is cut out of the shapes before it, shadows included | `to_svg`: more than 128 knockout layers nested (below) |
 | `gradient_map` | `gradient_map(colors)` | every fill and stroke colour replaced by its lightness read along `colors`, dark to light (two colours: a duotone) | fewer than 2 colours |
@@ -589,9 +589,9 @@ Params their values by name; a Param not given takes its default.
 `to_svg` writes coordinates, stroke widths and a shadow's offset, deviation and region in output pixels, not as a transform, so a drawing at twice the size has
 numbers exactly twice as large; every number is the shortest text that reads back as the same value. A shape is one
 `<path>` in paint order; its `opacity` applies to fill and stroke together (a group opacity: the pixels composite the
-same way); a colour's alpha is `fill-opacity` or `stroke-opacity`; multiply is `mix-blend-mode:multiply`; a shape with
+same way); a colour's alpha is `fill-opacity` or `stroke-opacity`; a blend is `mix-blend-mode:<mode>`; a shape with
 an empty path writes nothing. A shape with a shadow is a `<g>` that holds the shadow and the path and carries the
-opacity and blend (`style` above). The root has `isolation:isolate`, so multiply blends within the picture and not with the
+opacity and blend (`style` above). The root has `isolation:isolate`, so a blend works within the picture and not with the
 page around it.
 
 `to_rgba` paints the shapes in order, each as one group: its shadow, then fill, then stroke, then the shape's `opacity` and blend apply
@@ -649,7 +649,7 @@ outside its Param's range, a list of the wrong length; and whatever a step raise
 A `Mesh` holds three buffers, not objects. `vertices`: 8 `float32` a vertex, `x, y` (output pixels, y down), `r, g, b,
 a` (premultiplied), `item` (the shape's index) and `order` (its `order` attribute), for a shader's own per-item
 effects. `indices`: `uint32`, three a triangle, in paint order. `ranges`: `uint32`, three a draw range (first index,
-index count, blend mode: 0 normal, 1 multiply), in paint order, so a page draws each range with its blending.
+index count, blend mode: 0 normal, 1 multiply; `to_mesh` refuses every other blend), in paint order, so a page draws each range with its blending.
 `generation`: a number that changes exactly when the contents change, so a redraw with the same values uploads
 nothing. A new mesh is generation 0 and empty; a fill whose buffers differ from what the mesh held adds 1 (the first
 fill with something to draw gives 1), and one that makes the same buffers leaves it.

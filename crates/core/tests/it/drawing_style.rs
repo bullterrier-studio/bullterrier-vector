@@ -269,6 +269,16 @@ fn blend_sets_the_mode() -> Outcome {
     Ok(())
 }
 
+#[test]
+fn blend_sets_every_mode_on_a_drawing_and_on_a_path() -> Outcome {
+    for word in ["screen", "overlay", "color-dodge", "soft-light", "exclusion"] {
+        let mode = Blend::parse(word)?;
+        assert_eq!(plain(&Drawing::from(square()?).blend(mode))?.blend(), mode, "{word}");
+        assert_eq!(plain(&square()?.blend(mode))?.blend(), mode, "{word}: on a path");
+    }
+    Ok(())
+}
+
 // On a Path ---------------------------------------------------------------------------------------------------------
 
 #[test]

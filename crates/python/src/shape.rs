@@ -316,7 +316,7 @@ impl PyStyle {
         self.0.opacity()
     }
 
-    /// How it is painted over what is below (`"normal"` or `"multiply"`).
+    /// How it is painted over what is below (a CSS blend name such as `"multiply"`, `"screen"` or `"color-dodge"`).
     #[getter]
     fn blend(&self) -> &'static str {
         self.0.blend().name()

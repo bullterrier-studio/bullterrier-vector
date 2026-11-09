@@ -191,7 +191,7 @@ State: done; independently reviewed 2026-10-31 and the proven findings fixed (de
 
 ### V2b Drawings
 
-- Shapes: paths, style (fill, stroke, opacity, blend mode: normal or multiply), attributes.
+- Shapes: paths, style (fill, stroke, opacity, blend mode: normal, multiply or another separable CSS mode), attributes.
 - The node trait and its contract, written first (inputs, the evaluation context, each argument's kind: expression,
   whole number, per-item, read once, literal; shape-by-shape or whole-list; how an error names its verb and place), and
   the registry vocabulary that can generate the draft schema (read-once, literal-only, nonzero, cross-argument rules, a
@@ -539,15 +539,15 @@ against about 500 ms for a boolean per dot (`benchmarks.md`).
 
 ## V10d Paint and compositing style
 
-Part 1 (gradient fills and strokes) is built: see `design-decisions.md`, "Paint and compositing style (V10d)".
+Parts 1 (gradient fills and strokes) and 2 (the separable blend set) are built: see `design-decisions.md`, "Paint and compositing style (V10d)".
 
 The same style model as V10, extended; the result is the same in SVG and in pixels, and the mesh raises as it does for a
 blurred shadow.
 
 - Linear and radial gradient fills, on fill and on stroke (stops with colour and position, a start and end or a centre
   and radius in design pixels). The fill of a shape is a paint, not only a colour.
-- The separable blend modes of the W3C compositing specification beyond `normal` and `multiply`: at least `screen`,
-  `overlay` and `difference`. Blending stays in sRGB values, with straight alpha out of `to_rgba`.
+- The separable blend modes of the W3C compositing specification beyond `normal` and `multiply` (built: all ten).
+  Blending stays in sRGB values, with straight alpha out of `to_rgba`.
 - Clip groups (shapes drawn only inside a path) and soft masks (a drawing whose luminance sets the opacity of another).
   Today only `knockout` removes what is below, through booleans.
 

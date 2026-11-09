@@ -162,11 +162,11 @@ fn element(svg: &mut String, shape: &Shape, view: &View, (canvas, work): ((f64, 
         if style.opacity() < 1.0 {
             let _ = write!(svg, " opacity=\"{}\"", number(style.opacity()));
         }
-        if style.blend() == Blend::Multiply {
-            svg.push_str(" style=\"mix-blend-mode:multiply\"");
+        if style.blend() != Blend::Normal {
+            let _ = write!(svg, " style=\"mix-blend-mode:{}\"", style.blend().name());
         }
     };
-    let grouped = style.opacity() < 1.0 || style.blend() == Blend::Multiply;
+    let grouped = style.opacity() < 1.0 || style.blend() != Blend::Normal;
     let Some((shadow, tint)) = cast(style) else {
         fill.define(svg, &data);
         define_gradients(svg, shape, view, (Ink::Own, (0.0, 0.0)))?;

@@ -109,29 +109,83 @@ impl Cap {
     }
 }
 
-/// How a shape is painted over what is below it.
+/// How a shape is painted over what is below it: the CSS names of the W3C separable blend modes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Blend {
     /// Over, as ordinary paint.
     Normal,
-    /// Multiplied with what is below.
+    /// Multiplied with what is below: darker.
     Multiply,
+    /// The inverse of multiplying the inverses: lighter.
+    Screen,
+    /// Multiply or screen by what is below: its lights stay light and its darks dark.
+    Overlay,
+    /// The darker of the two, per channel.
+    Darken,
+    /// The lighter of the two, per channel.
+    Lighten,
+    /// What is below, brightened by the shape.
+    ColorDodge,
+    /// What is below, darkened by the shape.
+    ColorBurn,
+    /// Multiply or screen by the shape: overlay with the two exchanged.
+    HardLight,
+    /// A gentler hard light.
+    SoftLight,
+    /// The distance between the two, per channel.
+    Difference,
+    /// Like difference, with less contrast.
+    Exclusion,
 }
 
 impl Blend {
-    /// The words a blend is written as.
-    pub(crate) const NAMES: &'static [&'static str] = &["normal", "multiply"];
+    /// Every blend, in the order of its words.
+    const ALL: [Self; 12] = [
+        Self::Normal,
+        Self::Multiply,
+        Self::Screen,
+        Self::Overlay,
+        Self::Darken,
+        Self::Lighten,
+        Self::ColorDodge,
+        Self::ColorBurn,
+        Self::HardLight,
+        Self::SoftLight,
+        Self::Difference,
+        Self::Exclusion,
+    ];
+
+    /// The words a blend is written as, which are also the CSS `mix-blend-mode` values.
+    pub(crate) const NAMES: &'static [&'static str] = &{
+        let mut names = [""; Self::ALL.len()];
+        let mut at = 0;
+        while at < names.len() {
+            names[at] = Self::ALL[at].name();
+            at += 1;
+        }
+        names
+    };
 
     /// The word this blend is written as.
     #[must_use]
-    pub fn name(self) -> &'static str {
+    pub const fn name(self) -> &'static str {
         match self {
             Self::Normal => "normal",
             Self::Multiply => "multiply",
+            Self::Screen => "screen",
+            Self::Overlay => "overlay",
+            Self::Darken => "darken",
+            Self::Lighten => "lighten",
+            Self::ColorDodge => "color-dodge",
+            Self::ColorBurn => "color-burn",
+            Self::HardLight => "hard-light",
+            Self::SoftLight => "soft-light",
+            Self::Difference => "difference",
+            Self::Exclusion => "exclusion",
         }
     }
 
-    /// The blend written as `text`, one of `"normal"` or `"multiply"`.
+    /// The blend written as `text`, one of [`NAMES`](Self::NAMES).
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `mode` if `text` is none of them.
@@ -141,9 +195,7 @@ impl Blend {
 
     /// The blend written as `name`.
     pub(crate) fn named(name: &str) -> Option<Self> {
-        [Self::Normal, Self::Multiply]
-            .into_iter()
-            .find(|blend| blend.name() == name)
+        Self::ALL.into_iter().find(|blend| blend.name() == name)
     }
 }
 

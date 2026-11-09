@@ -337,9 +337,9 @@ fn a_literal_outside_the_range_of_its_argument_is_refused_with_the_message_of_th
         ),
         (
             "a blend mode that is not one",
-            after_triangle(r#",{"blend":{"mode":"screen"}}"#),
+            after_triangle(r#",{"blend":{"mode":"hue"}}"#),
             "/root/1/blend/mode",
-            "\"normal\", \"multiply\"",
+            "\"normal\", \"multiply\", \"screen\"",
         ),
         (
             "a colour that is three digits",

@@ -146,6 +146,25 @@ def painting() -> list[Entry]:
         ("opacity_half", framed(disc.fill(RED).stroke(INK, width=8).opacity(0.5)), [(100, 100, {})]),
         ("opacity_two_shapes", framed(disc.fill(RED).opacity(0.5), other.fill(BLUE).opacity(0.5)), [(100, 100, {})]),
         ("multiply", framed(disc.fill("#ffaa00"), other.fill("#00aaff").blend("multiply")), [(100, 100, {})]),
+        ("blend_screen", framed(disc.fill("#ffaa00"), other.fill("#00aaff").blend("screen")), [(100, 100, {})]),
+        (
+            "blend_soft_light_opacity",
+            framed(disc.fill("#ffaa00"), other.fill("#40a0ff").opacity(0.7).blend("soft-light")),
+            [(100, 100, {})],
+        ),
+        (
+            "blend_color_dodge",
+            framed(disc.fill("#806040"), other.fill("#80a0c0").blend("color-dodge")),
+            [(100, 100, {})],
+        ),
+        (
+            "blend_difference_shadow",
+            framed(
+                disc.fill("#ffaa00"),
+                other.fill("#00aaff").shadow(dx=6, dy=6, blur=0, color="#202080c0").blend("difference"),
+            ),
+            [(100, 100, {})],
+        ),
         (
             "alpha_colours",
             framed(disc.fill("#ff000080"), other.fill("#0000ff80").stroke("#00000080", width=6)),
@@ -439,9 +458,13 @@ def offsets() -> list[Entry]:
     ]
 
 
-# The drawings whose mesh the core refuses (a blurred shadow and a gradient have no triangle form): the comparison is
-# that WebAssembly refuses with the native error.
+# The drawings whose mesh the core refuses (a blurred shadow, a gradient and a blend beyond multiply have no triangle
+# form): the comparison is that WebAssembly refuses with the native error.
 MESH_REFUSED = {
+    "blend_screen",
+    "blend_soft_light_opacity",
+    "blend_color_dodge",
+    "blend_difference_shadow",
     "shadow_blurred",
     "shadow_blurred_group",
     "shadow_blur_param",

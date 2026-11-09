@@ -333,7 +333,7 @@ impl PyDrawing {
         checked(self.0.opacity(alpha.0))
     }
 
-    /// Every shape painted over what is below it as `mode` (`"normal"` or `"multiply"`).
+    /// Every shape painted over what is below it as `mode` (a CSS blend name, as on `Path.blend`).
     pub(crate) fn blend(&self, mode: &str) -> PyResult<Self> {
         checked(self.0.blend(raised(vector::Blend::parse(mode))?))
     }

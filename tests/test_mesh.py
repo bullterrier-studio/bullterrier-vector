@@ -31,6 +31,18 @@ def test_to_mesh_returns_a_mesh_of_a_rectangles_four_vertices_and_two_triangles(
     assert corners == {(10.0, 20.0), (40.0, 20.0), (10.0, 60.0), (40.0, 60.0)}
 
 
+@pytest.mark.parametrize(("word", "range_blend"), [("normal", 0), ("multiply", 1)])
+def test_a_mesh_has_ranges_for_normal_and_multiply(word, range_blend):
+    assert list(SQUARE.blend(word).to_mesh(100, 100).ranges) == [0, 6, range_blend]
+
+
+@pytest.mark.parametrize("word", ["screen", "overlay", "color-dodge", "soft-light", "exclusion"])
+def test_a_mesh_refuses_the_other_blends_naming_blend_and_the_mode(word):
+    with pytest.raises(btvec.ParameterError, match="blend") as raised:
+        SQUARE.blend(word).to_mesh(100, 100)
+    assert word in str(raised.value)
+
+
 def test_the_buffers_are_float32_and_uint32_that_the_buffer_protocol_shows_as_such():
     # numpy.asarray reads exactly this: a format and an item size
     mesh = SQUARE.to_mesh(100, 100)

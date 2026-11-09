@@ -406,9 +406,9 @@ fn source_pairs() -> Vec<(&'static str, Make)> {
         }),
         ("a word", |base| {
             Ok((
-                base.blend(Blend::Normal),
-                Values::new(),
                 base.blend(Blend::Multiply),
+                Values::new(),
+                base.blend(Blend::ColorBurn),
                 Values::new(),
             ))
         }),

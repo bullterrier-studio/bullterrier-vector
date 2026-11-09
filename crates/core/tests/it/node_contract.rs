@@ -445,7 +445,7 @@ fn rows() -> Vec<Row> {
         },
         Row {
             verb: "blend",
-            sample: || Ok(square()?.blend(Blend::Multiply)),
+            sample: || Ok(square()?.blend(Blend::ColorDodge)),
             with: None,
             ranges: &[],
             geometry: None,

@@ -97,7 +97,7 @@ fn another_word_is_refused_naming_the_argument_the_words_and_the_text() -> Outco
     let rows = [
         ("join", parameter_refusal(Join::parse("Round")), "bevel"),
         ("cap", parameter_refusal(Cap::parse("")), "square"),
-        ("mode", parameter_refusal(Blend::parse("screen")), "multiply"),
+        ("mode", parameter_refusal(Blend::parse("hue")), "multiply"),
     ];
     for (argument, refusal, listed) in rows {
         let (name, message) = refusal?;

@@ -54,7 +54,7 @@ impl PyMesh {
         )
     }
 
-    /// The draw ranges: 3 `uint32` each, the first index, the number of indices and the blend (0 normal, 1 multiply).
+    /// The draw ranges: 3 `uint32` each, the first index, the number of indices and the blend (0 normal, 1 multiply; a mesh of any other blend is refused).
     #[getter]
     fn ranges<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         array(

@@ -145,7 +145,7 @@ default paint, and draws as it did.
 | `stroke` | `color` (colour or gradient), `width`, `join`, `cap`, `miter_limit` |
 | `halftone` | `color` (colour), `tone` (number or field), `pitch`, `angle` |
 | `opacity` | `alpha` |
-| `blend` | `mode` (`"normal"`, `"multiply"`) |
+| `blend` | `mode` (a CSS blend: `"normal"`, `"multiply"`, `"screen"`, `"overlay"`, `"darken"`, `"lighten"`, `"color-dodge"`, `"color-burn"`, `"hard-light"`, `"soft-light"`, `"difference"`, `"exclusion"`) |
 | `shadow` | `dx`, `dy`, `blur`, `color` (colour) |
 | `gradient_map` | `colors` (colours, at least 2) |
 | `posterize` | `levels` (whole number) |

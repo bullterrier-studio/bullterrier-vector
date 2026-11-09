@@ -698,7 +698,7 @@
         "blend": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "mode": { "enum": ["normal", "multiply"] } },
+          "properties": { "mode": { "enum": ["normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion"] } },
           "required": ["mode"]
         },
         "shadow": {

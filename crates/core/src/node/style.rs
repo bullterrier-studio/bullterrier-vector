@@ -158,7 +158,7 @@ pub(crate) struct Blend;
 pub(crate) static BLEND: Verb = Verb {
     name: "blend",
     role: Role::Step,
-    summary: "paints every shape over what is below it as \"normal\" or \"multiply\"",
+    summary: "paints every shape over what is below it with a CSS blend mode: \"normal\", \"multiply\", \"screen\", ..",
     args: &[word("mode", None, BlendMode::NAMES)],
     check: None,
 };

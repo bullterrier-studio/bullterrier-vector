@@ -169,6 +169,24 @@ def test_opacity_multiplies_and_blend_replaces():
     assert (style.opacity, style.blend) == (0.25, "multiply")
 
 
+BLEND_WORDS = [
+    "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light",
+    "soft-light", "difference", "exclusion",
+]  # fmt: skip
+
+
+@pytest.mark.parametrize("word", BLEND_WORDS)
+def test_blend_accepts_every_separable_css_mode(word):
+    assert only_shape(Drawing(SQUARE).blend(word)).style.blend == word
+    assert only_shape(SQUARE.blend(word)).style.blend == word
+
+
+@pytest.mark.parametrize("word", ["hue", "saturation", "color", "luminosity", "Screen", "color_dodge", ""])
+def test_blend_refuses_other_words_naming_the_mode(word):
+    with pytest.raises(btvec.ParameterError, match="mode"):
+        Drawing(SQUARE).blend(word)
+
+
 @pytest.mark.parametrize("alpha", [0, 1, 0.5])
 def test_opacity_accepts_the_ends_of_its_range(alpha):
     assert only_shape(Drawing(SQUARE).opacity(alpha)).style.opacity == alpha
@@ -768,7 +786,7 @@ def a_param() -> btvec.Param:
         pytest.param(lambda: Drawing(SQUARE).stroke("#000000", cap="flat"), "cap", id="stroke: another cap"),
         pytest.param(lambda: Drawing(SQUARE).opacity(1.5), "alpha", id="opacity: above 1"),
         pytest.param(lambda: Drawing(SQUARE).opacity(-0.1), "alpha", id="opacity: below 0"),
-        pytest.param(lambda: Drawing(SQUARE).blend("screen"), "mode", id="blend: another mode"),
+        pytest.param(lambda: Drawing(SQUARE).blend("hue"), "mode", id="blend: another mode"),
         pytest.param(lambda: Drawing(SQUARE).shadow(blur=-0.5), "blur", id="shadow: negative blur"),
         pytest.param(lambda: Drawing(SQUARE).shadow(blur=float("nan")), "blur", id="shadow: NaN blur"),
         pytest.param(lambda: Drawing(SQUARE).shadow(dx=float("inf")), "dx", id="shadow: infinite dx"),
@@ -830,7 +848,7 @@ def test_a_colour_error_shows_the_text_given():
         pytest.param(lambda: SQUARE.stroke("none"), id="stroke colour"),
         pytest.param(lambda: SQUARE.stroke("#000000", width=0), id="stroke width"),
         pytest.param(lambda: SQUARE.opacity(2), id="opacity"),
-        pytest.param(lambda: SQUARE.blend("screen"), id="blend"),
+        pytest.param(lambda: SQUARE.blend("hue"), id="blend"),
         pytest.param(lambda: SQUARE.shadow(blur=-1), id="shadow blur"),
         pytest.param(lambda: SQUARE.shadow(color="red"), id="shadow colour"),
     ],

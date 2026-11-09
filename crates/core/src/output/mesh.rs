@@ -36,7 +36,7 @@ use lyon_tessellation::{
 /// `vertices` holds 8 `f32` a vertex: `x` and `y` in output pixels (`y` down), the colour `r, g, b, a` premultiplied,
 /// the `item` (the shape's index) and the `order` (the shape's `order` attribute, 0 where it has none). `indices`
 /// holds three `u32` a triangle, in paint order. `ranges` holds three `u32` a draw range: the first index, the number
-/// of indices, and the blend (0 normal, 1 multiply); the ranges follow one another and tile the indices.
+/// of indices, and the blend (0 normal, 1 multiply; any other blend is refused); the ranges follow one another and tile the indices.
 ///
 /// A mesh is a display format: the pixels and the SVG are the reference.
 #[derive(Debug, Clone, Default)]
@@ -441,6 +441,7 @@ impl Maker<'_> {
     /// Tessellates `rings` by the nonzero rule into triangles of `paint`, seen through `view`, and adds them to the
     /// buffers and to the draw ranges.
     fn layer(&mut self, rings: &[Ring], paint: &Paint, view: &View, name: &str) -> Result<(), Error> {
+        let blend = blend_range(paint.blend, name)?;
         let mut outlines = Outlines::builder();
         for ring in rings.iter().filter(|ring| ring.len() >= 3) {
             let mut corners = ring.iter().map(|[x, y]| point(*x, *y));
@@ -473,7 +474,6 @@ impl Maker<'_> {
         }
         let indices = self.buffers.indices.len();
         if indices > first_index {
-            let blend = u32::from(paint.blend == Blend::Multiply);
             let (first, count) = (as_index(first_index), as_index(indices - first_index));
             match self.buffers.ranges.last_chunk_mut::<3>() {
                 Some([_, length, last]) if *last == blend => *length += count,
@@ -494,6 +494,21 @@ struct Region {
 struct Knocked<'a> {
     regions: &'a [(usize, Region)],
     bounds: Bounds,
+}
+
+/// The number a draw range carries for `blend`: 0 for normal, 1 for multiply; the other modes have no triangle form.
+fn blend_range(blend: Blend, name: &str) -> Result<u32, Error> {
+    match blend {
+        Blend::Normal => Ok(0),
+        Blend::Multiply => Ok(1),
+        other => Err(Error::parameter(
+            "blend",
+            format!(
+                "{name}: blend {} has no triangle form, only normal and multiply do; use to_rgba or to_svg",
+                other.name()
+            ),
+        )),
+    }
 }
 
 /// A box in design pixels: left, top, right and bottom.

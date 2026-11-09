@@ -533,7 +533,7 @@ impl PyPath {
         PyDrawing::of(self).opacity(alpha)
     }
 
-    /// A drawing of this path painted over what is below it as `mode` (`"normal"` or `"multiply"`).
+    /// A drawing of this path painted over what is below it as `mode` (a CSS blend name: `"normal"`, `"multiply"`, `"screen"`, `"overlay"`, `"darken"`, `"lighten"`, `"color-dodge"`, `"color-burn"`, `"hard-light"`, `"soft-light"`, `"difference"` or `"exclusion"`).
     fn blend(&self, mode: &str) -> PyResult<PyDrawing> {
         PyDrawing::of(self).blend(mode)
     }
