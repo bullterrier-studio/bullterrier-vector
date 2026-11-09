@@ -29,7 +29,7 @@ The rules, each reported as `[rule-id] explanation: "offending line"`:
 
 Accepted without validation: merge commits (`Merge ...`), `Revert "..."`, and `fixup!`, `squash!`, `amend!` commits,
 which git creates or rewrites itself. Trailers such as `Co-Authored-By:` need no special handling: they are ordinary
-body lines. The imperative mood is a convention in .gitmessage that is deliberately not checked: a heuristic would make
+body lines. The imperative mood is a convention in CLAUDE.md that is deliberately not checked: a heuristic would make
 people fight it.
 """
 
@@ -184,7 +184,7 @@ def _report(problems: list[str]) -> str:
     return (
         f"commit-message: this message does not follow Conventional Commits:\n{bullets}\n\n"
         f"A valid message:  {EXAMPLE}\n"
-        'The convention is in CLAUDE.md, section "Git conventions" (the template is .gitmessage).'
+        "The convention is explained in the 'Git conventions' section of CLAUDE.md."
     )
 
 
