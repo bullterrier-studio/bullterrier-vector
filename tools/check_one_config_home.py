@@ -74,7 +74,7 @@ def _is_stray(path: Path, root: Path) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     """Check the repository root given as `argv[0]` (default: the repository this script lives in)."""
-    parser = argparse.ArgumentParser(description="Check that pyproject.toml is the only Python tool config.")
+    parser = argparse.ArgumentParser(description="Check that pyproject.toml and Cargo.toml are the only tool config.")
     parser.add_argument("root", nargs="?", type=Path, default=Path(__file__).resolve().parent.parent)
     stray = find_stray_configs(parser.parse_args(argv).root)
     if stray:

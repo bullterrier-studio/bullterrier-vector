@@ -52,13 +52,13 @@ VALID = {
         "docs: explain the recipe format\n\nWhy: new users guessed the step order.\n\n"
         "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\nSigned-off-by: A B <a@b.example>\n"
     ),
-    "breaking change footer": "feat: replace spacing\n\nBREAKING CHANGE: spacing is now called tracking\n",
-    "breaking-change footer with hyphen": "feat: replace spacing\n\nBREAKING-CHANGE: spacing is now called tracking\n",
+    "breaking change footer": "feat: replace strength\n\nBREAKING CHANGE: strength is now called amount\n",
+    "breaking-change footer with hyphen": "feat: replace strength\n\nBREAKING-CHANGE: strength is now called amount\n",
     "header of exactly 72 characters": HEADER_72 + "\n",
     "body line of exactly 100 characters": f"fix: x\n\n{BODY_100}\n",
     "body line longer than the header limit but within the body limit": f"fix: x\n\n{'c' * 90}\n",
     "single long URL line": f"docs: link the spec\n\nhttps://example.com/{'a' * 150}\n",
-    "indented code block": f"docs: show usage\n\nExample:\n\n    uv run poe check {'x' * 120}\n",
+    "indented code block": f"docs: show usage\n\nExample:\n\n    uv run bt-vector run {'x' * 120}\n",
     "tab indented code line": f"docs: show usage\n\n\t{'x' * 120}\n",
     "acronym subject": "fix: ASCII glyphs are cut off\n",
     "code identifier subject": "feat: RoundingParams gets a mode\n",
@@ -289,7 +289,7 @@ def test_a_boolean_limit_is_rejected_naming_the_key_and_the_value(tmp_path):
 
 @pytest.mark.parametrize(
     ("content", "what"),
-    [(None, "missing"), (b"feat: add a caf\xe9 glyph\n", "not UTF-8")],  # \xe9 is Latin-1, not valid UTF-8
+    [(None, "missing"), (b"feat: add a caf\xe9 effect\n", "not UTF-8")],  # \xe9 is Latin-1, not valid UTF-8
     ids=["missing file", "not UTF-8"],
 )
 def test_an_unreadable_message_file_is_rejected_with_a_rule_not_a_traceback(tmp_path, capsys, content, what):
