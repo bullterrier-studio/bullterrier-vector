@@ -185,9 +185,9 @@ Three tiers, through `uv run poe`:
 |---|---|---|
 | `fast` | `rust-fmt`, `ruff format --check`, `rust-lint`, `ruff check`, `rust-test`, `rust-wasm`, `mypy`, `file-size`, `test` | while working |
 | `check` | the gates `ruff format --check`, `rust-fmt`, `ruff check`, `rust-test-layout`, `rust-lint`, `file-size`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `rust-fonts`, `build-check`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `wasm-test`, `test` (the `gates` task), then the gate proofs only when due; stops at the first failure | once per branch, before the merge or push to `main` |
-| `full` | the same gates, then the gate proofs (`proofs`) always | before a tag; CI |
+| `full` | the same gates, then the gate proofs (`gate-tests`) always | before a tag; CI |
 
-`test` is `pytest -m 'not gate'`, `proofs` is `pytest -m gate`: together every test. The proofs are due in `check` when a path of
+`test` is `pytest -m 'not gate'`, `gate-tests` is `pytest -m gate`: together every test. The proofs are due in `check` when a path of
 `[tool.gate-proofs]` in `pyproject.toml` (what they read, copy, edit or anchor on) changed since they last passed (a `full` pass, or a
 `check` that ran them, on a clean tree: the commit is in the git folder), counting uncommitted and untracked files; with no record,
 a shallow clone or git unreadable they are due. `check` says `proofs: skipped` or `proofs: running, <why>`. A new proof that reads

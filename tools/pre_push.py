@@ -223,13 +223,13 @@ def proofs_due(triggers: list[str]) -> str | None:
 
 
 def run_proofs_if_due(triggers: list[str]) -> int:
-    """The step of `poe check` that runs `poe proofs` when they are due and remembers a pass; its exit status."""
+    """The step of `poe check` that runs `poe gate-tests` when they are due and remembers a pass; its exit status."""
     reason = proofs_due(triggers)
     if reason is None:
         print("proofs: skipped, nothing they read changed since they last passed (`uv run poe full` forces them)")
         return 0
     print(f"proofs: running, {reason}")
-    status = subprocess.run([sys.executable, "-m", "poethepoet", "proofs"], check=False).returncode
+    status = subprocess.run([sys.executable, "-m", "poethepoet", "gate-tests"], check=False).returncode
     if status == 0:
         record_proofs_pass()
     return status

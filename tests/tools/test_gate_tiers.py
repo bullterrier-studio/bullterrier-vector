@@ -171,8 +171,8 @@ def test_outside_a_repository_the_proofs_are_due(tmp_path, monkeypatch):
 
 # The step `poe check` runs ------------------------------------------------------------------------------------------
 
-PROOFS_TASK = '[tool.poe.tasks]\nproofs = "python -c \\"print(\'the proofs ran\')\\""\n'
-FAILING_PROOFS_TASK = '[tool.poe.tasks]\nproofs = "python -c \\"raise SystemExit(3)\\""\n'
+PROOFS_TASK = '[tool.poe.tasks]\ngate-tests = "python -c \\"print(\'the proofs ran\')\\""\n'
+FAILING_PROOFS_TASK = '[tool.poe.tasks]\ngate-tests = "python -c \\"raise SystemExit(3)\\""\n'
 
 
 def test_check_skips_the_proofs_when_nothing_they_read_changed_and_says_so(git_repo, monkeypatch, capsys):

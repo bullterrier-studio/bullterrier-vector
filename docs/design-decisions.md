@@ -924,7 +924,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   a shallow clone or no repository run the proofs, and the changes are read from the diff against that commit plus the
   untracked files, not from the working tree alone. The pass record holds the tier with the tree, so a `check` pass never satisfies a tag push.
   *Consequence:* a stale trigger would silently stop guarding, so a test fails for a listed path that is gone; a proof
-  that starts reading a new file must add it. CI runs `poe test` everywhere and `poe proofs` on Linux, so a skipped proof
+  that starts reading a new file must add it. CI runs `poe test` everywhere and `poe gate-tests` once on Linux, so a skipped proof
   is caught on `main` at the latest.
 - **Optimised Rust tests, the stack tests not** (2026-11-08). `cargo test` builds with `opt-level = 1` (`[profile.test]`),
   workspace code included. Measured warm at load 7 to 12: `tests/it` 437 s of CPU unoptimised, 59 s optimised;

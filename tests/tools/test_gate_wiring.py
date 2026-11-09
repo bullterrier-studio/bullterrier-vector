@@ -38,7 +38,8 @@ PROVEN_COMMANDS = ["ruff format --check .", "ruff check .", "deptry .", "mypy"]
 GATES = [*PROVEN_TASKS, *PROVEN_COMMANDS]
 NOT_IN_FAST = ["wasm-test"]  # a release build and Node: `check` and `full` only
 SKIP_PROOFS = "-m 'not gate'"  # what keeps the slow proofs out of `fast`, `check` and the `test` task
-ONLY_PROOFS = "-m gate"  # what the `proofs` task selects
+ONLY_PROOFS = "-m gate"  # what the `gate-tests` task selects
+CAPPED = "python tools/run_capped.py -- "  # how the test tasks start: pytest under the memory cap
 TRIGGERED_PROOFS = "python tools/pre_push.py proofs"  # the step of `check` that runs them when they are due
 
 
@@ -69,7 +70,8 @@ def reached(tasks: dict[str, Any], name: str) -> set[str]:
 
 
 def pytest_steps(tasks: dict[str, Any], name: str) -> list[str]:
-    return [command for _, command in steps(tasks, name) if command.startswith("pytest ")]
+    commands = (command.removeprefix(CAPPED) for _, command in steps(tasks, name))
+    return [command for command in commands if command.startswith("pytest ")]
 
 
 def problems(pyproject: dict[str, Any]) -> list[str]:
@@ -90,13 +92,13 @@ def problems(pyproject: dict[str, Any]) -> list[str]:
                 found.append(f"{tier} lacks the `{prefix + tier}` step")
     fast_reaches = reached(tasks, "fast")
     found += [f"fast runs {gate}, which is for check and full only" for gate in NOT_IN_FAST if gate in fast_reaches]
-    if "proofs" in fast_reaches:
+    if "gate-tests" in fast_reaches:
         found.append("fast runs the proofs, which are for full")
     if TRIGGERED_PROOFS not in [command for _, command in steps(tasks, "check")]:
         found.append(f"check does not run the proofs when they are due (`{TRIGGERED_PROOFS}`)")
-    if "proofs" in reached(tasks, "check"):
+    if "gate-tests" in reached(tasks, "check"):
         found.append("check runs the proofs always; only full does")
-    if "proofs" not in reached(tasks, "full"):
+    if "gate-tests" not in reached(tasks, "full"):
         found.append("full does not run the proofs")
     for tier in ("fast", "check", "full"):
         tests = pytest_steps(tasks, tier)
@@ -161,7 +163,7 @@ def test_fast_running_a_check_only_gate_is_rejected():
 
 
 def test_fast_running_the_proofs_is_rejected():
-    copied = edited(lambda tasks: tasks["fast"]["sequence"].append({"ref": "proofs"}))
+    copied = edited(lambda tasks: tasks["fast"]["sequence"].append({"ref": "gate-tests"}))
     assert "fast runs the proofs, which are for full" in problems(copied)
 
 
@@ -178,7 +180,7 @@ def test_a_test_task_without_the_marker_is_rejected_in_every_tier_that_runs_it()
 
 
 def test_check_running_the_proofs_always_is_rejected():
-    copied = edited(lambda tasks: tasks["check"]["sequence"].append({"ref": "proofs"}))
+    copied = edited(lambda tasks: tasks["check"]["sequence"].append({"ref": "gate-tests"}))
     assert problems(copied) == ["check runs the proofs always; only full does"]
 
 
@@ -188,7 +190,7 @@ def test_check_without_the_triggered_proofs_step_is_rejected():
 
 
 def test_full_without_the_proofs_is_rejected():
-    copied = edited(lambda tasks: tasks["full"]["sequence"].remove({"ref": "proofs"}))
+    copied = edited(lambda tasks: tasks["full"]["sequence"].remove({"ref": "gate-tests"}))
     assert problems(copied) == ["full does not run the proofs", "full: no pytest step with -m gate"]
 
 

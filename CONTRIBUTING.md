@@ -80,7 +80,7 @@ steps are the local gate's `uv run poe` tasks; the differences are noted:
 - `lint.yml`: format, clippy, dead code, rustdoc, dependencies, WebAssembly build, types, stub, workflows: the commands
   of `check`, with ruff, deptry and mypy called directly, as `check` calls them.
 - `test.yml`: the Rust tests and the Python suite on Linux, macOS and Windows. Linux also runs `poe wasm-test` (Node
-  from `actions/setup-node`) and `poe proofs`, the gate proofs; every platform runs `poe test`, which leaves them out.
+  from `actions/setup-node`) and `poe gate-tests`, the gate proofs; every platform runs `poe test`, which leaves them out.
 - `security.yml` (also weekly): `poe audit`, which `check` leaves out; CodeQL and dependency review, which have no
   local equivalent.
 - `pre-commit.yml`: the commit hooks over every file.
