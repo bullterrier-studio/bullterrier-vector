@@ -81,7 +81,7 @@ wasm-test = { sequence = [
     { cmd = "cargo build -p bullterrier-vector-wasm --target wasm32-unknown-unknown --release --locked --quiet", env = { RUSTFLAGS = "-C target-feature=+simd128" } },
     "wasm-bindgen --target nodejs --out-dir pkg ${CARGO_TARGET_DIR:-target}/wasm32-unknown-unknown/release/bullterrier_vector_wasm.wasm",
     "python tests/wasm/oracle.py pkg/oracle.json",
-    "node --max-old-space-size=2048 --test \"tests/wasm/*.test.mjs\"",  # a runaway test dies at 2 GB of JavaScript heap, not at the machine's
+    "node --max-old-space-size=2048 --test --test-reporter=spec \"tests/wasm/*.test.mjs\"",  # a runaway test dies at 2 GB of JavaScript heap, not at the machine's
 ], default_item_type = "cmd", help = "Build the WebAssembly package (simd128), run it in Node and compare it with the native extension" }
 # The stack tests (crates/core/tests/stack.rs) unoptimised, so the 256 KB stack bound is proved on the largest frames.
 rust-test-stack = { cmd = "python tools/run_capped.py -- cargo test -p bullterrier-vector --profile stack --test stack --locked --quiet", help = "Run the stack tests unoptimised under the memory cap" }
