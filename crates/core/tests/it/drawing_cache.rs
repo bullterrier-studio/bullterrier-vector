@@ -5,7 +5,8 @@
 use crate::common::Outcome;
 use crate::common::ops::{chain, edits, extend, materialise, values_of};
 use bullterrier_vector::{
-    Blend, Color, Deg, Drawing, Error, Expr, Halftone, Join, Param, Path, Select, Shadow, Shape, Stats, Stroke, Values,
+    Blend, Color, Deg, Drawing, Error, Expr, Gradient, Halftone, Join, Param, Path, Select, Shadow, Shape, Stats,
+    Stroke, Values,
 };
 use proptest::prelude::*;
 
@@ -497,6 +498,93 @@ fn source_pairs() -> Vec<(&'static str, Make)> {
     ]
 }
 
+/// Rows that differ in one part of a gradient, or in a gradient against a colour or another kind.
+fn gradient_pairs() -> Vec<(&'static str, Make)> {
+    vec![
+        ("the start of a gradient", |base| {
+            let stops = [(0.0, Color::hex(0xff_00_00)), (1.0, Color::hex(0x00_00_ff))];
+            Ok((
+                base.fill(Gradient::linear((0.0, 0.0), (10.0, 0.0), stops)?),
+                Values::new(),
+                base.fill(Gradient::linear((1.0, 0.0), (10.0, 0.0), stops)?),
+                Values::new(),
+            ))
+        }),
+        ("the end of a gradient", |base| {
+            let stops = [(0.0, Color::hex(0xff_00_00)), (1.0, Color::hex(0x00_00_ff))];
+            Ok((
+                base.fill(Gradient::linear((0.0, 0.0), (10.0, 0.0), stops)?),
+                Values::new(),
+                base.fill(Gradient::linear((0.0, 0.0), (10.0, 1.0), stops)?),
+                Values::new(),
+            ))
+        }),
+        ("an offset of a gradient", |base| {
+            let stops = |at| [(0.0, Color::hex(0xff_00_00)), (at, Color::hex(0x00_00_ff))];
+            Ok((
+                base.fill(Gradient::linear((0.0, 0.0), (10.0, 0.0), stops(0.5))?),
+                Values::new(),
+                base.fill(Gradient::linear((0.0, 0.0), (10.0, 0.0), stops(0.75))?),
+                Values::new(),
+            ))
+        }),
+        ("a colour of a gradient", |base| {
+            let stops = |color| [(0.0, Color::hex(0xff_00_00)), (1.0, color)];
+            Ok((
+                base.fill(Gradient::linear(
+                    (0.0, 0.0),
+                    (10.0, 0.0),
+                    stops(Color::hex(0x00_00_ff)),
+                )?),
+                Values::new(),
+                base.fill(Gradient::linear(
+                    (0.0, 0.0),
+                    (10.0, 0.0),
+                    stops(Color::hex(0x00_ff_00)),
+                )?),
+                Values::new(),
+            ))
+        }),
+        ("the radius of a gradient", |base| {
+            let stops = [(0.0, Color::hex(0xff_00_00)), (1.0, Color::hex(0x00_00_ff))];
+            Ok((
+                base.fill(Gradient::radial((5.0, 5.0), 4.0, stops)?),
+                Values::new(),
+                base.fill(Gradient::radial((5.0, 5.0), 5.0, stops)?),
+                Values::new(),
+            ))
+        }),
+        ("a gradient of two kinds", |base| {
+            let stops = [(0.0, Color::hex(0xff_00_00)), (1.0, Color::hex(0x00_00_ff))];
+            Ok((
+                base.fill(Gradient::linear((0.0, 0.0), (5.0, 0.0), stops)?),
+                Values::new(),
+                base.fill(Gradient::radial((0.0, 0.0), 5.0, stops)?),
+                Values::new(),
+            ))
+        }),
+        ("a gradient against a colour", |base| {
+            let stops = [(0.0, Color::hex(0xff_00_00)), (1.0, Color::hex(0xff_00_00))];
+            Ok((
+                base.fill(Gradient::linear((0.0, 0.0), (5.0, 0.0), stops)?),
+                Values::new(),
+                base.fill(Color::hex(0xff_00_00)),
+                Values::new(),
+            ))
+        }),
+        ("a gradient fill against a gradient stroke", |base| {
+            let stops = [(0.0, Color::hex(0xff_00_00)), (1.0, Color::hex(0x00_00_ff))];
+            let gradient = Gradient::linear((0.0, 0.0), (5.0, 0.0), stops)?;
+            Ok((
+                base.fill(gradient.clone()),
+                Values::new(),
+                base.stroke(gradient),
+                Values::new(),
+            ))
+        }),
+    ]
+}
+
 fn outcome(drawing: &Drawing, values: &Values) -> Result<Vec<Shape>, String> {
     drawing.shapes(values).map_err(|error| error.to_string())
 }
@@ -508,6 +596,7 @@ fn drawings_that_differ_in_one_input_never_share_a_result() -> Outcome {
         .chain(source_pairs())
         .chain(shadow_pairs())
         .chain(halftone_pairs())
+        .chain(gradient_pairs())
     {
         let (left, left_at, right, right_at) = make(&square()?)?;
         // a twin of the right drawing, built on a base of its own: its cache holds nothing of the left

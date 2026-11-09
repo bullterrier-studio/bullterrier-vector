@@ -439,9 +439,21 @@ def offsets() -> list[Entry]:
     ]
 
 
-# The drawings whose mesh the core refuses (a blurred shadow has no triangle form): the comparison is that WebAssembly
-# refuses with the native error.
-MESH_REFUSED = {"shadow_blurred", "shadow_blurred_group", "shadow_blur_param", "knockout_blurred_shadow_below"}
+# The drawings whose mesh the core refuses (a blurred shadow and a gradient have no triangle form): the comparison is
+# that WebAssembly refuses with the native error.
+MESH_REFUSED = {
+    "shadow_blurred",
+    "shadow_blurred_group",
+    "shadow_blur_param",
+    "knockout_blurred_shadow_below",
+    "gradient_linear_fill",
+    "gradient_radial_stroke",
+    "gradient_translucent_stops",
+    "gradient_stroke_dots",
+    "gradient_hard_shadow",
+    "gradient_blurred_shadow",
+    "gradient_framed",
+}
 
 
 def shadows() -> list[Entry]:
@@ -569,6 +581,43 @@ def halftones() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {})])) for name, drawing in drawings.items()]
 
 
+def gradients() -> list[Entry]:
+    """Gradient paints: a linear fill, a radial stroke, stops of different alpha (interpolated unpremultiplied), a
+    stroke whose zero-length pieces overlap its line, a hard and a blurred shadow that follow the paint's alpha, a
+    frame at two sizes, and a knockout that ignores its gradient (its mesh is made). The geometry goes through the one
+    `View`, so the SVG text is exact; the pixels are the rasteriser's; a gradient has no mesh."""
+    disc = btvec.Path.circle((50, 50), 38)
+    fade = btvec.linear_gradient([(0, RED), (0.6, GOLD), (1, BLUE)], start=(10, 10), end=(90, 80))
+    clear = btvec.linear_gradient([(0, "#e2412e00"), (1, "#336699ff")], start=(20, 0), end=(80, 0))
+    glow = btvec.radial_gradient([(0, "#ffffff"), (1, "#00000000")], center=(50, 50), radius=40)
+    ring = btvec.radial_gradient([(0, "#00aa44c0"), (1, "#aa0044c0")], center=(50, 50), radius=45)
+    dotted = (
+        btvec.Path.from_svg_path("M15 50 L85 50")
+        .move_to((50, 50))
+        .line_to((50, 50))
+        .move_to((30, 22))
+        .line_to((30, 22))
+    )
+    drawings = {
+        "gradient_linear_fill": framed(btvec.Path.rect(10, 10, 80, 80).fill(fade)),
+        "gradient_radial_stroke": framed(disc.fill(glow).stroke(ring, width=9)),
+        "gradient_translucent_stops": framed(btvec.Path.rect(10, 10, 80, 80).fill(clear)),
+        "gradient_stroke_dots": framed(dotted.stroke(ring, width=14, cap="round")),
+        "gradient_hard_shadow": framed(
+            btvec.Path.rect(20, 20, 50, 50).fill(clear).shadow(dx=10, dy=12, blur=0, color="#000000a0")
+        ),
+        "gradient_blurred_shadow": framed(
+            btvec.Path.rect(20, 20, 50, 50).fill(clear).shadow(dx=8, dy=10, blur=14, color="#000000d0")
+        ),
+        "gradient_framed": framed(btvec.Path.rect(0, 0, 100, 100).fill(fade)),
+        "gradient_knockout": framed(
+            btvec.Path.rect(0, 0, 100, 100).fill(GOLD), disc.fill(fade).stroke(ring, width=5).knockout()
+        ),
+    }
+    draws: dict[str, list[Draw]] = {"gradient_framed": [(100, 100, {}), (240, 160, {})]}
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -582,6 +631,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     shadows,
     knockouts,
     halftones,
+    gradients,
 ]
 
 

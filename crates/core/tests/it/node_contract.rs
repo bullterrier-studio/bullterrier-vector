@@ -12,8 +12,8 @@
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, build, log_uniform, parameter_refusal, step};
 use bullterrier_vector::{
-    Along, Blend, Cap, Color, Deg, Drawing, Error, Expr, Halftone, Join, Kind, Param, Path, Point, Reads, Role, Rotate,
-    Scale, ScaleBy, Select, Shadow, Shape, Stroke, Text, Values, text, verbs,
+    Along, Blend, Cap, Color, Deg, Drawing, Error, Expr, Gradient, Halftone, Join, Kind, Param, Path, Point, Reads,
+    Role, Rotate, Scale, ScaleBy, Select, Shadow, Shape, Stroke, Text, Values, text, verbs,
 };
 use proptest::prelude::*;
 use std::collections::BTreeSet;
@@ -66,6 +66,11 @@ fn unknown(verb: &str, argument: &str) -> Error {
 /// The guide the `along` rows bend along: a closed circle, so that every start has a place.
 fn ring() -> Result<Path, Error> {
     Path::circle((0.0, 0.0), 50.0)
+}
+
+/// A gradient across the square: the paint the `fill` and `stroke` rows are made with.
+fn fade() -> Result<Gradient, Error> {
+    Gradient::linear((0.0, 0.0), (10.0, 0.0), [(0.0, blue()), (1.0, Color::hex(0xff_ff_00))])
 }
 
 fn blue() -> Color {
@@ -393,17 +398,17 @@ fn rows() -> Vec<Row> {
         },
         Row {
             verb: "fill",
-            sample: || Ok(square()?.fill(blue())),
+            sample: || Ok(square()?.fill(fade()?)),
             with: None,
             ranges: &[],
             geometry: None,
         },
         Row {
             verb: "stroke",
-            sample: || Ok(square()?.stroke(Stroke::new(blue()).width(3.0))),
+            sample: || Ok(square()?.stroke(Stroke::new(fade()?).width(3.0))),
             with: Some(|argument, value| match argument {
-                "width" => Ok(square()?.stroke(Stroke::new(blue()).width(value))),
-                "miter_limit" => Ok(square()?.stroke(Stroke::new(blue()).miter_limit(value))),
+                "width" => Ok(square()?.stroke(Stroke::new(fade()?).width(value))),
+                "miter_limit" => Ok(square()?.stroke(Stroke::new(fade()?).miter_limit(value))),
                 _ => Err(unknown("stroke", argument)),
             }),
             ranges: &[

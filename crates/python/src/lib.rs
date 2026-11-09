@@ -15,6 +15,7 @@ use pyo3::types::{PyList, PyTuple};
 
 use crate::drawing::{PyDrawing, refuse_expr, refuse_expr_in_pair};
 use crate::expr::Num;
+use crate::shape::PaintArg;
 
 pyo3::import_exception!(bullterrier_vector.errors, BullterrierVectorError);
 pyo3::import_exception!(bullterrier_vector.errors, ParameterError);
@@ -31,7 +32,7 @@ mod _core {
     #[pymodule_export]
     use super::mesh::PyMesh;
     #[pymodule_export]
-    use super::shape::{PyHalftone, PyShadow, PyShape, PyStyle};
+    use super::shape::{PyGradient, PyHalftone, PyShadow, PyShape, PyStyle, linear_gradient, radial_gradient};
     #[pymodule_export]
     use super::text::{PyFont, text};
     #[pymodule_export]
@@ -508,16 +509,17 @@ impl PyPath {
         }
     }
 
-    /// A drawing of this path filled with `color` (`"#rrggbb"`, `"#rrggbbaa"` or `"none"`).
-    fn fill(&self, color: &str) -> PyResult<PyDrawing> {
+    /// A drawing of this path filled with `color` (`"#rrggbb"`, `"#rrggbbaa"` or `"none"`) or a `Gradient`.
+    fn fill(&self, color: PaintArg) -> PyResult<PyDrawing> {
         PyDrawing::of(self).fill(color)
     }
 
-    /// A drawing of this path stroked with `color`; what is left out takes the defaults (2 pixels, round, round, 4).
+    /// A drawing of this path stroked with `color` or a `Gradient`; what is left out takes the defaults (2 pixels, round,
+    /// round, 4).
     #[pyo3(signature = (color, *, width=None, join=None, cap=None, miter_limit=None))]
     fn stroke(
         &self,
-        color: &str,
+        color: PaintArg,
         width: Option<Num>,
         join: Option<&str>,
         cap: Option<&str>,

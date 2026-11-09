@@ -2,7 +2,7 @@
 
 use crate::expr::{Num, PyExpr, PyParam};
 use crate::mesh::PyMesh;
-use crate::shape::PyShape;
+use crate::shape::{PaintArg, PyShape};
 use crate::text::{bytes_of, entries};
 use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, PyPath, PyPoint, exception, raised};
 use bullterrier_vector as vector;
@@ -93,13 +93,13 @@ impl<'a, 'py> FromPyObject<'a, 'py> for By {
 
 /// The stroke a call describes; the core holds the defaults of what is left out.
 fn stroke_of(
-    color: &str,
+    paint: PaintArg,
     width: Option<Num>,
     join: Option<&str>,
     cap: Option<&str>,
     miter_limit: Option<Num>,
 ) -> PyResult<vector::Stroke> {
-    let mut stroke = vector::Stroke::new(raised(vector::Color::parse(color))?);
+    let mut stroke = vector::Stroke::new(paint.0);
     if let Some(width) = width {
         stroke = stroke.width(width.0);
     }
@@ -309,16 +309,17 @@ impl PyDrawing {
         })
     }
 
-    /// Every shape filled with `color` (`"#rrggbb"`, `"#rrggbbaa"` or `"none"`).
-    pub(crate) fn fill(&self, color: &str) -> PyResult<Self> {
-        checked(self.0.fill(raised(vector::Color::parse(color))?))
+    /// Every shape filled with `color` (`"#rrggbb"`, `"#rrggbbaa"` or `"none"`) or a `Gradient`.
+    pub(crate) fn fill(&self, color: PaintArg) -> PyResult<Self> {
+        checked(self.0.fill(color.0))
     }
 
-    /// Every outline stroked with `color`; what is left out takes the defaults (2 pixels, round, round, 4).
+    /// Every outline stroked with `color` (`"#rrggbb"`, `"#rrggbbaa"`) or a `Gradient`; what is left out takes the
+    /// defaults (2 pixels, round, round, 4).
     #[pyo3(signature = (color, *, width=None, join=None, cap=None, miter_limit=None))]
     pub(crate) fn stroke(
         &self,
-        color: &str,
+        color: PaintArg,
         width: Option<Num>,
         join: Option<&str>,
         cap: Option<&str>,
