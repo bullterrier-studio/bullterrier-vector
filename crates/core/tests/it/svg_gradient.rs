@@ -357,3 +357,19 @@ fn a_knockout_with_a_gradient_cuts_as_one_with_a_colour_does() -> Outcome {
     );
     Ok(())
 }
+
+#[test]
+fn the_svg_and_the_pixels_hold_a_hard_edge_at_an_end_to_the_stop_the_ends_take() -> Outcome {
+    let Kit { paper, .. } = kit()?;
+    let green = color("#00ff00")?;
+    let row = |stops: Vec<(f64, Color)>| -> Result<Drawing, Error> {
+        Ok(Drawing::from(rect(10.0, 10.0, 100.0, 100.0)?).fill(Gradient::linear((20.0, 20.0), (100.0, 20.0), stops)?))
+    };
+    let rows = vec![
+        ("two stops at 0", row(vec![(0.0, RED), (0.0, BLUE), (1.0, green)])?),
+        ("two stops at 1", row(vec![(0.0, RED), (1.0, BLUE), (1.0, green)])?),
+        ("only stops at 0", row(vec![(0.0, RED), (0.0, BLUE)])?),
+        ("only stops at 1", row(vec![(1.0, RED), (1.0, BLUE)])?),
+    ];
+    agree(&paper, rows)
+}

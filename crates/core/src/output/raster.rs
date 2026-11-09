@@ -114,16 +114,35 @@ enum StrokePaint {
 /// `ramp` as the rasteriser has it: unpremultiplied stops in sRGB, held at the ends, as SVG interpolates them. The
 /// rasteriser's own default is premultiplied, which differs wherever the stops differ in alpha.
 fn gradient(ramp: &Ramp) -> Gradient {
-    let stops: Vec<ColorStop> = ramp
-        .stops
+    // SVG holds the first stop before offset 0 and the last after offset 1. The rasteriser holds the stop it sorts last
+    // at a shared end offset instead, so the earlier stop at 1 moves one f32 step in, and a line whose first two
+    // stops share offset 0 is made longer at its start by `LEAD` of its length, with the first colour in front.
+    let mut kind = ramp.kind;
+    let mut stops = ramp.stops.clone();
+    if let GradientKind::Linear { start, end } = &mut kind
+        && stops.get(1).is_some_and(|(offset, _)| *offset == 0.0)
+    {
+        *start = Point::new(start.x - (end.x - start.x) * LEAD, start.y - (end.y - start.y) * LEAD);
+        for (offset, _) in &mut stops {
+            *offset = (*offset + LEAD) / (1.0 + LEAD);
+        }
+        stops.insert(0, (0.0, stops[0].1));
+    }
+    let last = stops.len() - 1;
+    let stops: Vec<ColorStop> = stops
         .iter()
-        .map(|(offset, [red, green, blue, alpha])| ColorStop {
+        .enumerate()
+        .map(|(index, (offset, [red, green, blue, alpha]))| ColorStop {
             #[expect(clippy::cast_possible_truncation, reason = "the rasteriser computes in f32")]
-            offset: *offset as f32,
+            offset: if *offset == 1.0 && index < last {
+                1.0 - f32::EPSILON
+            } else {
+                *offset as f32
+            },
             color: DynamicColor::from_alpha_color(AlphaColor::from_rgba8(*red, *green, *blue, *alpha)),
         })
         .collect();
-    let gradient = match ramp.kind {
+    let gradient = match kind {
         GradientKind::Linear { start, end } => Gradient::new_linear((start.x, start.y), (end.x, end.y)),
         #[expect(clippy::cast_possible_truncation, reason = "the rasteriser computes in f32")]
         GradientKind::Radial { center, radius } => Gradient::new_radial((center.x, center.y), radius as f32),
@@ -132,6 +151,9 @@ fn gradient(ramp: &Ramp) -> Gradient {
         .with_interpolation_alpha_space(InterpolationAlphaSpace::Unpremultiplied)
         .with_stops(stops.as_slice())
 }
+
+/// How much of a line's length is added in front of it to hold the first colour there (see `gradient`).
+const LEAD: f64 = 1.0 / 64.0; // constant: any share well above the rasteriser's colour table step (1/1024)
 
 impl Body {
     /// Paints the fill, then the stroke; with a `tint`, in that colour and their own alphas.
