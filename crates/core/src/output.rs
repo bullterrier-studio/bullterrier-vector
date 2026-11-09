@@ -4,6 +4,7 @@
 mod mesh;
 mod outline;
 mod png;
+mod ramp;
 mod raster;
 mod screen;
 mod svg;

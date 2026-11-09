@@ -3,17 +3,21 @@
 
 use super::cast;
 use super::outline::{bez_path, dots, stroke_outline, within_device};
+use super::ramp::Ramp;
 use super::screen::{Screen, charged, screen};
 use super::view::View;
 use super::{Size, in_shape};
 use crate::limits::Work;
 use crate::path::{FLATNESS, Polyline};
-use crate::{Blend, Cap, Drawing, Error, Join, Point, ShadowStyle, Shape, StrokeStyle, Style, Values};
+use crate::{
+    Blend, Cap, Drawing, Error, GradientKind, Join, Paint, Point, ShadowStyle, Shape, StrokeStyle, Style, Values,
+};
 use kurbo::{Affine, BezPath, Rect, Shape as _};
 use std::f64::consts::SQRT_2;
 use vello_cpu::color::AlphaColor;
 use vello_cpu::filter_effects::{EdgeMode, Filter, FilterPrimitive};
-use vello_cpu::peniko::{BlendMode, Compose, Fill, ImageAlphaType, Mix};
+use vello_cpu::peniko::color::DynamicColor;
+use vello_cpu::peniko::{BlendMode, ColorStop, Compose, Fill, Gradient, ImageAlphaType, InterpolationAlphaSpace, Mix};
 use vello_cpu::{Level, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources};
 
 /// The largest deviation of a shadow's blur, in output pixels.
@@ -86,15 +90,47 @@ struct Body {
 enum FillBody {
     /// The whole outline in a colour.
     Plain([u8; 4]),
+    /// The whole outline in a gradient.
+    Ramp(Ramp),
     /// A screen of dots in a colour, as lines, to be clipped to the outline.
     Dots { rgba: [u8; 4], dots: BezPath },
 }
 
-/// A stroke ready to be painted: its outline as lines, the dots of its round or square ends, and its colour.
+/// A stroke ready to be painted: its outline as lines, the dots of its round or square ends, the box that holds them
+/// all, and its paint.
 struct StrokeBody {
     lines: BezPath,
     dots: Vec<BezPath>,
-    rgba: [u8; 4],
+    bounds: BezPath,
+    paint: StrokePaint,
+}
+
+/// The paint of a stroke.
+enum StrokePaint {
+    Plain([u8; 4]),
+    Ramp(Ramp),
+}
+
+/// `ramp` as the rasteriser has it: unpremultiplied stops in sRGB, held at the ends, as SVG interpolates them. The
+/// rasteriser's own default is premultiplied, which differs wherever the stops differ in alpha.
+fn gradient(ramp: &Ramp) -> Gradient {
+    let stops: Vec<ColorStop> = ramp
+        .stops
+        .iter()
+        .map(|(offset, [red, green, blue, alpha])| ColorStop {
+            #[expect(clippy::cast_possible_truncation, reason = "the rasteriser computes in f32")]
+            offset: *offset as f32,
+            color: DynamicColor::from_alpha_color(AlphaColor::from_rgba8(*red, *green, *blue, *alpha)),
+        })
+        .collect();
+    let gradient = match ramp.kind {
+        GradientKind::Linear { start, end } => Gradient::new_linear((start.x, start.y), (end.x, end.y)),
+        #[expect(clippy::cast_possible_truncation, reason = "the rasteriser computes in f32")]
+        GradientKind::Radial { center, radius } => Gradient::new_radial((center.x, center.y), radius as f32),
+    };
+    gradient
+        .with_interpolation_alpha_space(InterpolationAlphaSpace::Unpremultiplied)
+        .with_stops(stops.as_slice())
 }
 
 impl Body {
@@ -104,9 +140,15 @@ impl Body {
             Some([red, green, blue]) => AlphaColor::from_rgba8(red, green, blue, alpha),
             None => AlphaColor::from_rgba8(red, green, blue, alpha),
         };
+        // a shadow's gradient is the same in the tint, with the stops' own alphas
+        let ramped = |ramp: &Ramp| gradient(&tint.map_or_else(|| ramp.clone(), |rgb| ramp.tinted(rgb)));
         match &self.fill {
             Some(FillBody::Plain(rgba)) => {
                 context.set_paint(tinted(*rgba));
+                context.fill_path(&self.outline);
+            }
+            Some(FillBody::Ramp(ramp)) => {
+                context.set_paint(ramped(ramp));
                 context.fill_path(&self.outline);
             }
             // the dots are one path, filled once by the nonzero rule, so that a translucent colour is no darker where
@@ -119,23 +161,52 @@ impl Body {
             }
             None => {}
         }
-        let Some(StrokeBody { lines, dots, rgba }) = &self.stroke else {
+        let Some(StrokeBody {
+            lines,
+            dots,
+            bounds,
+            paint,
+        }) = &self.stroke
+        else {
             return;
         };
-        let alpha = rgba[3];
-        // the outline and the dots overlap, and a translucent colour painted twice where they do would be darker than
-        // SVG's one stroke: they are painted opaque into a layer that has the colour's alpha
-        let layered = alpha < 255 && !dots.is_empty();
-        if layered {
-            context.push_layer(None, None, Some(f32::from(alpha) / 255.0), None, None);
-        }
-        context.set_paint(tinted([rgba[0], rgba[1], rgba[2], if layered { 255 } else { alpha }]));
-        context.fill_path(lines);
-        for dot in dots {
-            context.fill_path(dot);
-        }
-        if layered {
-            context.pop_layer();
+        match paint {
+            StrokePaint::Plain(rgba) => {
+                let alpha = rgba[3];
+                // the outline and the dots overlap, and a translucent colour painted twice where they do would be
+                // darker than SVG's one stroke: they are painted opaque into a layer that has the colour's alpha
+                let layered = alpha < 255 && !dots.is_empty();
+                if layered {
+                    context.push_layer(None, None, Some(f32::from(alpha) / 255.0), None, None);
+                }
+                context.set_paint(tinted([rgba[0], rgba[1], rgba[2], if layered { 255 } else { alpha }]));
+                context.fill_path(lines);
+                for dot in dots {
+                    context.fill_path(dot);
+                }
+                if layered {
+                    context.pop_layer();
+                }
+            }
+            StrokePaint::Ramp(ramp) if dots.is_empty() => {
+                context.set_paint(ramped(ramp));
+                context.fill_path(lines);
+            }
+            // the pieces overlap and the gradient has an alpha of its own: they are painted opaque into a layer, which
+            // is then given the gradient wherever it is covered (`SrcIn`), so that no pixel is painted twice
+            StrokePaint::Ramp(ramp) => {
+                context.push_layer(None, None, None, None, None);
+                context.set_paint(AlphaColor::from_rgba8(0, 0, 0, 255));
+                context.fill_path(lines);
+                for dot in dots {
+                    context.fill_path(dot);
+                }
+                context.set_blend_mode(BlendMode::new(Mix::Normal, Compose::SrcIn));
+                context.set_paint(ramped(ramp));
+                context.fill_path(bounds);
+                context.set_blend_mode(BlendMode::new(Mix::Normal, Compose::SrcOver));
+                context.pop_layer();
+            }
         }
     }
 }
@@ -210,11 +281,10 @@ fn paint(
         outline,
         fill,
         stroke: match stroke {
-            Some((stroke, width)) => match match stroke.paint() {
-                crate::Paint::Color(c) => c.rgba(),
-                crate::Paint::Gradient(_) => None,
-            } {
-                Some(rgba) => {
+            Some((stroke, width)) => match stroke_paint(stroke.paint(), view, knockout)
+                .map_err(|error| in_shape(shape, "gradient ", error))?
+            {
+                Some(paint) => {
                     // the outline has arcs for the round joins and ends; the rasteriser must be given lines only
                     let lines = stroke_outline(
                         &bez_path(&device),
@@ -231,7 +301,8 @@ fn paint(
                     Some(StrokeBody {
                         lines,
                         dots,
-                        rgba: covering(knockout, rgba),
+                        bounds: path_of(&extent(&device, reach)),
+                        paint,
                     })
                 }
                 None => None,
@@ -242,6 +313,22 @@ fn paint(
     composite(context, style, shadow.as_ref(), &body, &bounds);
     Ok(())
 }
+
+/// The paint of a stroke seen through `view`; `None` if it paints nothing. A knockout takes the area covered, whatever the
+/// paint, so a gradient is opaque for it.
+///
+/// # Errors
+/// [`Error::Parameter`] if a gradient lies beyond [`MAX_DEVICE`] device pixels.
+fn stroke_paint(paint: &Paint, view: &View, knockout: bool) -> Result<Option<StrokePaint>, Error> {
+    Ok(match paint {
+        Paint::Color(color) => color.rgba().map(|rgba| StrokePaint::Plain(covering(knockout, rgba))),
+        Paint::Gradient(_) if knockout => Some(StrokePaint::Plain(OPAQUE_BLACK)),
+        Paint::Gradient(gradient) => Some(StrokePaint::Ramp(Ramp::new(gradient, view)?)),
+    })
+}
+
+/// What a knockout paints a gradient as: the area covered, in any colour.
+const OPAQUE_BLACK: [u8; 4] = [0, 0, 0, 255];
 
 /// `rgba` as it paints: what a knockout removes is the area covered, whatever the alpha of the colour that would paint it.
 fn covering(knockout: bool, rgba: [u8; 4]) -> [u8; 4] {
@@ -268,10 +355,12 @@ fn fill_body(
     let style = shape.style();
     let Some(halftone) = style.halftone() else {
         return Ok(match style.fill() {
-            crate::Paint::Color(c) => c.rgba(),
-            crate::Paint::Gradient(_) => None,
-        }
-        .map(|rgba| FillBody::Plain(covering(knockout, rgba))));
+            Paint::Color(color) => color.rgba().map(|rgba| FillBody::Plain(covering(knockout, rgba))),
+            Paint::Gradient(_) if knockout => Some(FillBody::Plain(OPAQUE_BLACK)),
+            Paint::Gradient(gradient) => Some(FillBody::Ramp(
+                Ramp::new(gradient, view).map_err(|error| in_shape(shape, "gradient ", error))?,
+            )),
+        });
     };
     let screened = screen(halftone, polylines, &mut |count| {
         work.made_segments(count, &format!("shape {} pitch", shape.index()))

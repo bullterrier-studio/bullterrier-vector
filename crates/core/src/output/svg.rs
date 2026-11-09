@@ -1,11 +1,12 @@
 //! `Drawing::to_svg`: the drawing as an SVG document, one `<path>` per shape in paint order.
 
+use super::ramp::Ramp;
 use super::screen::{Screen, screen};
 use super::view::View;
 use super::{Size, cast, fills, in_shape};
 use crate::limits::{MAX_KNOCKOUT_LAYERS, Work};
 use crate::path::number;
-use crate::{Blend, Color, Drawing, Error, Shape, Values};
+use crate::{Blend, Color, Drawing, Error, GradientKind, Paint, Shape, Values};
 use std::fmt::Write as _;
 
 /// The black a knockout is painted in inside a mask: what is black there is cut.
@@ -168,6 +169,7 @@ fn element(svg: &mut String, shape: &Shape, view: &View, (canvas, work): ((f64, 
     let grouped = style.opacity() < 1.0 || style.blend() == Blend::Multiply;
     let Some((shadow, tint)) = cast(style) else {
         fill.define(svg, &data);
+        define_gradients(svg, shape, view, (Ink::Own, (0.0, 0.0)))?;
         if let Fill::Plain(_) = fill {
             // one path takes the group's attributes itself
             svg.push_str("<path");
@@ -192,6 +194,7 @@ fn element(svg: &mut String, shape: &Shape, view: &View, (canvas, work): ((f64, 
         view.length(shadow.dy()).map_err(in_shape("shadow dy "))?,
     );
     fill.define(svg, &data);
+    define_gradients(svg, shape, view, (Ink::Own, (0.0, 0.0)))?;
     if shadow.blur() > 0.0 {
         let sigma = view.length(shadow.blur() / 2.0).map_err(in_shape("shadow blur "))?;
         // the region the filter works in: the canvas, and the farthest the shadow reaches (3 deviations and the offset)
@@ -232,6 +235,7 @@ fn element(svg: &mut String, shape: &Shape, view: &View, (canvas, work): ((f64, 
         svg.push_str("</g>\n");
         return Ok(reach);
     }
+    define_gradients(svg, shape, view, (Ink::Tint(tint), (dx, dy)))?;
     if grouped {
         svg.push_str("<g");
         group(svg);
@@ -250,10 +254,75 @@ fn element(svg: &mut String, shape: &Shape, view: &View, (canvas, work): ((f64, 
     Ok(dx.abs().max(dy.abs()))
 }
 
+/// The paint of a path that has no fill.
+static NO_PAINT: Paint = Paint::NONE;
+
+/// Appends the gradients that paint `shape` as `ink` says, moved by `shift` output pixels: its own, or for a shadow's
+/// copy the same in the colour of the tint with their own alphas, so that the copy follows the paint's alpha.
+fn define_gradients(
+    svg: &mut String,
+    shape: &Shape,
+    view: &View,
+    (ink, shift): (Ink, (f64, f64)),
+) -> Result<(), Error> {
+    let style = shape.style();
+    let paints = [
+        ("fill", Some(style.fill())),
+        ("stroke", style.stroke().map(crate::StrokeStyle::paint)),
+    ];
+    for (slot, paint) in paints {
+        let Some(Paint::Gradient(gradient)) = paint else {
+            continue;
+        };
+        let mut ramp = Ramp::new(gradient, view).map_err(|error| in_shape(shape, "gradient ", error))?;
+        if let Ink::Tint([red, green, blue, _]) = ink {
+            ramp = ramp.tinted([red, green, blue]).shifted(shift.0, shift.1);
+        }
+        let id = gradient_id(shape.index(), slot, ink);
+        match ramp.kind {
+            GradientKind::Linear { start, end } => {
+                let _ = writeln!(
+                    svg,
+                    "<linearGradient id=\"{id}\" gradientUnits=\"userSpaceOnUse\" x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\">",
+                    number(start.x),
+                    number(start.y),
+                    number(end.x),
+                    number(end.y)
+                );
+            }
+            GradientKind::Radial { center, radius } => {
+                let _ = writeln!(
+                    svg,
+                    "<radialGradient id=\"{id}\" gradientUnits=\"userSpaceOnUse\" cx=\"{}\" cy=\"{}\" r=\"{}\">",
+                    number(center.x),
+                    number(center.y),
+                    number(radius)
+                );
+            }
+        }
+        for (offset, [red, green, blue, alpha]) in &ramp.stops {
+            let _ = write!(
+                svg,
+                "<stop offset=\"{}\" stop-color=\"#{red:02x}{green:02x}{blue:02x}\"",
+                number(*offset)
+            );
+            if *alpha < u8::MAX {
+                let _ = write!(svg, " stop-opacity=\"{}\"", number(f64::from(*alpha) / OPAQUE));
+            }
+            svg.push_str("/>\n");
+        }
+        svg.push_str(match ramp.kind {
+            GradientKind::Linear { .. } => "</linearGradient>\n",
+            GradientKind::Radial { .. } => "</radialGradient>\n",
+        });
+    }
+    Ok(())
+}
+
 /// How the fill of a shape is painted.
 enum Fill {
-    /// One colour all over the shape, [`Color::NONE`] for none.
-    Plain(Color),
+    /// One paint all over the shape, [`Paint::NONE`] for none.
+    Plain(Paint),
     /// A screen of dots: the colour, the id of the clip path that is the shape's outline, and the dots as path data.
     Dots { color: Color, id: String, dots: String },
 }
@@ -264,18 +333,15 @@ impl Fill {
     fn of(shape: &Shape, view: &View, work: &Work) -> Result<Self, Error> {
         let style = shape.style();
         let Some(halftone) = style.halftone() else {
-            return Ok(Self::Plain(match style.fill() {
-                crate::Paint::Color(c) => *c,
-                crate::Paint::Gradient(_) => Color::NONE,
-            }));
+            return Ok(Self::Plain(style.fill().clone()));
         };
         let name = format!("shape {}", shape.index());
         let outline = shape.path().flattened(&mut |count| work.made_segments(count, &name))?;
         let dots = match screen(halftone, &outline, &mut |count| {
             work.made_segments(count, &format!("{name} pitch"))
         })? {
-            Screen::Solid => return Ok(Self::Plain(halftone.color())),
-            Screen::Dots(dots) if dots.is_empty() => return Ok(Self::Plain(Color::NONE)),
+            Screen::Solid => return Ok(Self::Plain(Paint::Color(halftone.color()))),
+            Screen::Dots(dots) if dots.is_empty() => return Ok(Self::Plain(Paint::NONE)),
             Screen::Dots(dots) => dots,
         };
         let polygons: Vec<String> = dots
@@ -305,11 +371,11 @@ impl Fill {
         })
     }
 
-    /// The colour of a plain fill, none for a screen of dots, whose path has no fill.
-    fn plain(&self) -> Color {
+    /// The paint of a plain fill, none for a screen of dots, whose path has no fill.
+    fn plain(&self) -> &Paint {
         match self {
-            Self::Plain(color) => *color,
-            Self::Dots { .. } => Color::NONE,
+            Self::Plain(paint) => paint,
+            Self::Dots { .. } => &NO_PAINT,
         }
     }
 
@@ -332,7 +398,34 @@ enum Ink {
     Mask,
 }
 
+/// What an attribute is painted with.
+enum Coat {
+    /// A colour, or none.
+    Flat(Color),
+    /// The gradient with this id.
+    Gradient(String),
+}
+
+/// The id of the gradient that paints `slot` (`fill` or `stroke`) of the shape numbered `index`: one id for every
+/// gradient the document has, and the only place one is made. A shadow's copy has a gradient of its own, in the tint.
+fn gradient_id(index: usize, slot: &str, ink: Ink) -> String {
+    match ink {
+        Ink::Tint(_) => format!("gradient-{index}-shadow-{slot}"),
+        Ink::Own | Ink::Mask => format!("gradient-{index}-{slot}"),
+    }
+}
+
 impl Ink {
+    /// `paint`, which fills or strokes (`slot`) the shape numbered `index`, as this ink paints it: a colour as
+    /// [`Ink::on`] has it, a gradient by the id `gradient_id` gives, or black where the ink is a mask's.
+    fn coat(self, paint: &Paint, slot: &str, index: usize) -> Coat {
+        match (paint, self) {
+            (Paint::Color(color), _) => Coat::Flat(self.on(*color)),
+            (Paint::Gradient(_), Self::Mask) => Coat::Flat(BLACK),
+            (Paint::Gradient(_), _) => Coat::Gradient(gradient_id(index, slot, self)),
+        }
+    }
+
     /// `color` as this ink paints it.
     fn on(self, color: Color) -> Color {
         match (self, color.rgba()) {
@@ -384,11 +477,11 @@ fn drawn(
         svg.push_str(">\n");
     }
     let _ = write!(svg, "<g clip-path=\"url(#{id})\"><path d=\"{dots}\"");
-    paint(svg, "fill", ink.on(*color));
+    attribute(svg, "fill", &Coat::Flat(ink.on(*color)));
     svg.push_str("/></g>\n");
     if shape.style().stroke().is_some() {
         svg.push_str("<path");
-        body(svg, data, (shape, view), ink, Color::NONE)?;
+        body(svg, data, (shape, view), ink, &NO_PAINT)?;
         svg.push_str("/>\n");
     }
     if wrapped {
@@ -399,19 +492,12 @@ fn drawn(
 
 /// Appends the attributes of the path `data` that paint it: the `fill` given and the stroke of the style, coloured as
 /// `ink` says.
-fn body(svg: &mut String, data: &str, (shape, view): (&Shape, &View), ink: Ink, fill: Color) -> Result<(), Error> {
+fn body(svg: &mut String, data: &str, (shape, view): (&Shape, &View), ink: Ink, fill: &Paint) -> Result<(), Error> {
     let style = shape.style();
     let _ = write!(svg, " d=\"{data}\"");
-    paint(svg, "fill", ink.on(fill));
+    attribute(svg, "fill", &ink.coat(fill, "fill", shape.index()));
     if let Some(stroke) = style.stroke() {
-        paint(
-            svg,
-            "stroke",
-            ink.on(match stroke.paint() {
-                crate::Paint::Color(c) => *c,
-                crate::Paint::Gradient(_) => Color::NONE,
-            }),
-        );
+        attribute(svg, "stroke", &ink.coat(stroke.paint(), "stroke", shape.index()));
         let _ = write!(
             svg,
             " stroke-width=\"{}\" stroke-linejoin=\"{}\" stroke-linecap=\"{}\" stroke-miterlimit=\"{}\"",
@@ -427,8 +513,15 @@ fn body(svg: &mut String, data: &str, (shape, view): (&Shape, &View), ink: Ink, 
     Ok(())
 }
 
-/// Appends the attribute `name` (`fill` or `stroke`) for `color`, and `<name>-opacity` where its alpha is below 255.
-fn paint(svg: &mut String, name: &str, color: Color) {
+/// Appends the attribute `name` (`fill` or `stroke`) for `coat`, and `<name>-opacity` where a colour's alpha is below 255.
+fn attribute(svg: &mut String, name: &str, coat: &Coat) {
+    let color = match coat {
+        Coat::Flat(color) => color,
+        Coat::Gradient(id) => {
+            let _ = write!(svg, " {name}=\"url(#{id})\"");
+            return;
+        }
+    };
     let Some([red, green, blue, alpha]) = color.rgba() else {
         let _ = write!(svg, " {name}=\"none\"");
         return;
