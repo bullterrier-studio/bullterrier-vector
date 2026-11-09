@@ -6,7 +6,7 @@ readme = "README.md"
 license = "MIT AND OFL-1.1"  # the code is MIT; the bundled fonts are SIL Open Font License 1.1
 license-files = ["LICENSE", "crates/core/fonts/*/OFL.txt"]  # each bundled font's licence text
 authors = [
-    { name = "jcakstins", email = "janis.cakstins@gmail.com" }
+    { name = "Janis Cakstins", email = "janis.cakstins@gmail.com" }
 ]
 # 3.12 is the oldest version the code needs; the extension is built once per platform (abi3-py312) for every later one.
 requires-python = ">=3.12"
@@ -68,10 +68,10 @@ cache-keys = [
 # `full` is `check` with the proofs forced: before a tag, and in CI. `gates` is what `check` and `full` share, so they
 # cannot drift; cheapest first, stopping at the first failure.
 fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { ref = "file-size" }, { ref = "test" }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
-gates = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-test-layout" }, { ref = "rust-lint" }, { ref = "file-size" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-fonts" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "wasm-test" }, { ref = "test" }], default_item_type = "cmd", help = "The gates `check` and `full` share (not run alone: no pass is remembered)" }
+gates = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-test-layout" }, { ref = "rust-lint" }, { ref = "file-size" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-fonts" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "wasm-test" }, { ref = "test" }], default_item_type = "cmd", help = "The gates `check` and `full` share (not run alone: no pass is remembered)" }
 proofs = { cmd = "uv run python tools/pre_push.py proofs", help = "Run the gate proofs if the change touches what they test (or they never passed here)" }
 check = { sequence = ["uv run python tools/pre_push.py start", { ref = "gates" }, { ref = "proofs" }, "uv run python tools/pre_push.py pass check"], default_item_type = "cmd", help = "The gate before a push to main: every gate, and the proofs when the change touches what they test; a pass is remembered for that tree" }
-full = { sequence = ["uv run python tools/pre_push.py start", { ref = "gates" }, { ref = "gate-tests" }, "uv run python tools/pre_push.py pass full"], default_item_type = "cmd", help = "The gate before a tag and in CI: `check` with the proofs always run; a pass is remembered for that tree" }
+full = { sequence = ["uv run python tools/pre_push.py start", { ref = "gates" }, { ref = "build-check" }, { ref = "gate-tests" }, "uv run python tools/pre_push.py pass full"], default_item_type = "cmd", help = "The gate before a tag and in CI: `check` with the proofs always run; a pass is remembered for that tree" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
 # Three tiers (CLAUDE.md, "Gates"): `fast` while working, `check` before a push to main, `full` before a tag and in CI. The tests that

@@ -4,7 +4,7 @@ use crate::node::Place;
 use std::fmt;
 
 /// Why the core refused a request. The bindings pass every value on unchecked, so the core owns the range checks and
-/// every language gets the same error.
+/// every language gets the same error. New variants may come in a minor release, so a `match` needs a `_` arm.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Error {

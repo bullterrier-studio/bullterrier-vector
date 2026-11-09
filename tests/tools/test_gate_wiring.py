@@ -31,11 +31,11 @@ PROVEN_TASKS = [
     "stubtest",
     "dead-code",
     "lint-workflows",
-    "build-check",
     "file-size",
 ]
 PROVEN_COMMANDS = ["ruff format --check .", "ruff check .", "deptry .", "mypy"]
 GATES = [*PROVEN_TASKS, *PROVEN_COMMANDS]
+FULL_ONLY = ["build-check"]  # a release wheel and sdist: `full` and CI, not every `check`
 NOT_IN_FAST = ["wasm-test"]  # a release build and Node: `check` and `full` only
 SKIP_PROOFS = "-m 'not gate and not tooling'"  # what keeps the slow proofs out of `fast`, `check` and the `test` task
 ONLY_PROOFS = "-m 'gate or tooling'"  # what the `gate-tests` task selects
@@ -82,6 +82,10 @@ def problems(pyproject: dict[str, Any]) -> list[str]:
     for tier in ("check", "full"):
         tier_reaches = reached(tasks, tier)
         found += [f"{tier} does not run {gate}" for gate in GATES if gate not in tier_reaches]
+        if tier == "full":
+            found += [f"full does not run {gate}" for gate in FULL_ONLY if gate not in tier_reaches]
+        else:
+            found += [f"check runs {gate}, which is for full only" for gate in FULL_ONLY if gate in tier_reaches]
         commands = [command for _, command in steps(tasks, tier)]
         # a tier recording its pass under another's name would let a check pass satisfy a tag push
         prefix = f"{HOOK} pass "
@@ -161,6 +165,16 @@ def edited(change) -> dict[str, Any]:
 def test_fast_running_a_check_only_gate_is_rejected():
     copied = edited(lambda tasks: tasks["fast"]["sequence"].append({"ref": "wasm-test"}))
     assert problems(copied) == ["fast runs wasm-test, which is for check and full only"]
+
+
+def test_check_running_a_full_only_gate_is_rejected():
+    copied = edited(lambda tasks: tasks["check"]["sequence"].append({"ref": "build-check"}))
+    assert problems(copied) == ["check runs build-check, which is for full only"]
+
+
+def test_full_without_a_full_only_gate_is_rejected():
+    copied = edited(lambda tasks: tasks["full"]["sequence"].remove({"ref": "build-check"}))
+    assert problems(copied) == ["full does not run build-check"]
 
 
 def test_fast_running_the_proofs_is_rejected():
