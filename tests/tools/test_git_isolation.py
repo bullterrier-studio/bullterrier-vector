@@ -16,6 +16,11 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
+import pytest
+
+# slow: the tests of this module run with the gate proofs (`poe gate-tests`, `poe full`), when their inputs change
+pytestmark = pytest.mark.gate
+
 ROOT = Path(__file__).resolve().parents[2]
 
 PROBE = """import subprocess

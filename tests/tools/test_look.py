@@ -19,6 +19,9 @@ import pytest
 
 import bullterrier_vector as btvec
 
+# slow: the tests of this module run with the gate proofs (`poe gate-tests`, `poe full`), when their inputs change
+pytestmark = pytest.mark.gate
+
 ROOT = Path(__file__).resolve().parents[2]
 SVG = "{http://www.w3.org/2000/svg}"
 SERIES_BARS = "docs/examples/json/series_bars.json"

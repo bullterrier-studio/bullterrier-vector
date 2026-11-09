@@ -13,6 +13,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+# slow: the tests of this module run with the gate proofs (`poe gate-tests`, `poe full`), when their inputs change
+pytestmark = pytest.mark.gate
+
 ROOT = Path(__file__).resolve().parents[2]
 NO_FIXTURE = '"""The control: nothing defends the tests from an enclosing hook."""\n'
 # the rows that read the hook's variables or the remote's name; the other rows set what they need or none

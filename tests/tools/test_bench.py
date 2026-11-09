@@ -20,6 +20,9 @@ from typing import Any, NamedTuple
 
 import pytest
 
+# slow: the tests of this module run with the gate proofs (`poe gate-tests`, `poe full`), when their inputs change
+pytestmark = pytest.mark.gate
+
 ROOT = Path(__file__).resolve().parents[2]
 TINY = ("--shapes", "5", "--size", "80x60", "--repeats", "2", "--warmups", "1")
 STUB_PACKAGE = """\
