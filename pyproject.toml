@@ -114,7 +114,7 @@ rust-deny = { cmd = "cargo deny --offline --locked check bans licenses sources",
 # The font crates are built without `std`, so that their maths is libm's and not the platform's (same outline bytes
 # natively and in WebAssembly): cargo unifies features across the workspace, so one dependency asking for `std` would
 # switch it on. tools/check_font_features.py reads `cargo tree`; tests/tools/test_rust_gates.py shows it failing.
-rust-fonts = { cmd = "python tools/check_font_features.py", help = "Check that the font crates (read-fonts, harfrust) are not built with their std feature" }
+rust-fonts = { cmd = "uv run python tools/check_font_features.py", help = "Check that the font crates (read-fonts, harfrust) are not built with their std feature" }
 stubtest = { cmd = "uv run python -m mypy.stubtest --mypy-config-file pyproject.toml bullterrier_vector._native._core", help = "Check the stub _core.pyi against the built extension" }
 # Not in `fast`: it builds the sdist and the wheel (the Rust extension included, tens of seconds). The files go to
 # dist/check, emptied first; tools/check_dists.py then checks them as PyPI and an install would see them.
