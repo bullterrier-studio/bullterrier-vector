@@ -120,7 +120,7 @@ fn gradient(ramp: &Ramp) -> Gradient {
     let mut kind = ramp.kind;
     let mut stops = ramp.stops.clone();
     if let GradientKind::Linear { start, end } = &mut kind
-        && stops.get(1).is_some_and(|(offset, _)| *offset == 0.0)
+        && stops.get(1).is_some_and(|(offset, _)| *offset <= 0.0)
     {
         *start = Point::new(start.x - (end.x - start.x) * LEAD, start.y - (end.y - start.y) * LEAD);
         for (offset, _) in &mut stops {
@@ -134,7 +134,7 @@ fn gradient(ramp: &Ramp) -> Gradient {
         .enumerate()
         .map(|(index, (offset, [red, green, blue, alpha]))| ColorStop {
             #[expect(clippy::cast_possible_truncation, reason = "the rasteriser computes in f32")]
-            offset: if *offset == 1.0 && index < last {
+            offset: if *offset >= 1.0 && index < last {
                 1.0 - f32::EPSILON
             } else {
                 *offset as f32
