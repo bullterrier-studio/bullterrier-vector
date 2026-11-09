@@ -117,14 +117,17 @@ The design's planned modules (geometry, type, scene, parameters, nodes, output, 
 `docs/design.md`, "Shape of the library"; `math`, `error`, geometry (`geometry`, `path`) and the core of scene, parameters and
 nodes (`drawing`, `shape`, `node`, `param`, `expr`, `registry`), `json` and `output` (SVG so far) exist so far. A crate that does one of these jobs is never exposed in the API.
 
-## The rules
+## Rules
 
-Gated (the gate fails): rules 3, 4 (the bans), 5, 8 (no printing) and 9 (the stack tests). Convention (reviewed, not gated): 1, 2, 4's one number
-formatter, 6 and 7, and "Fixing defects".
+@docs/rules.md
 
-1. **No hidden tunables.** Every value that shapes a result is a named, documented parameter in the field's own terms. Exempt:
-   a named, justified constant (a mathematical or standard constant, or a tolerance below any visible effect), carrying
-   `// constant: <reason>`.
+The shared rules are the template's (`docs/rules.md`, `docs/template-decisions.md` say why). Vector's own rules, on top:
+
+Gated (the gate fails): the maths and clock bans (clippy.toml), the wasm build and the stack tests. Convention (reviewed, not gated): 1, 2, the
+one number formatter and 6.
+
+1. **Hidden tunables.** A value that shapes a result is a named, documented parameter in the field's own terms. The exempt
+   constants (a mathematical or standard constant, or a tolerance below any visible effect) carry `// constant: <reason>`.
 2. **Determinism, pragmatically.** Same inputs and `seed` give the same drawing on every target: it must look the same.
    We aim for the same bytes for what we compute (geometry, the view, SVG text, straight-alpha conversion) and the
    differential tests check it, but an unforeseen difference nobody can see (a last-digit coordinate, an edge pixel off by
@@ -135,180 +138,67 @@ formatter, 6 and 7, and "Fixing defects".
 4. **No clock, no hash-ordered collections, no IO in the core**, as banned in `clippy.toml` (the ban list lives there,
    with the reason beside each entry): use `BTreeMap`/`BTreeSet` and take bytes from the caller. One formatter writes every
    number into SVG (now `number` in `path/write.rs`): no other `format!` of a coordinate.
-5. **The core builds for `wasm32-unknown-unknown` in every gate run** (`rust-wasm`): a native-only API in it fails there.
-6. **Errors by kind.** Callers catch `BullterrierVectorError` (`bullterrier_vector.errors`). Library code raises a subclass
-   (`ParameterError`), never a bare `ValueError`, for anything a caller can get wrong; each also inherits the matching builtin.
-   In Rust, `bullterrier_vector::Error` is `#[non_exhaustive]` (`Parameter`, `Geometry`): a new kind is a new variant
-   (`Error::Format` for a document `from_json` cannot read).
-7. **No backwards-compatibility shims, aliases or re-exports before 1.0** unless the owner asks: change the callers.
-8. The library never prints and never configures logging.
-9. **Bounded depth.** Anything a caller can build or load has a depth limit enforced where it is built, never in a walk
+5. **The core builds for `wasm32-unknown-unknown` in every gate run** (`rust-wasm`, and the bindings with `wasm-build`): a
+   native-only API in it fails there.
+6. **Errors by kind.** In Rust, `bullterrier_vector::Error` is `#[non_exhaustive]` (`Parameter`, `Geometry`): a new kind is a new
+   variant (`Error::Format` for a document `from_json` cannot read). `ParameterError`, `GeometryError` and `FormatError` are
+   the Python classes; `FormatError` and `ParameterError` also inherit `ValueError`.
+7. **Bounded depth.** Anything a caller can build or load has a depth limit enforced where it is built, never in a walk
    over it, so no recursion runs over unbounded depth and nothing needs a bigger stack than the 256 KB minimum
    (`docs/design-decisions.md`, "Bounded depth"). A new node, step or reader adds its deepest structure to the stack
    tests (`tests/test_stack_depth.py`, `crates/core/tests/stack.rs`: unoptimised, see `[profile.stack]`).
 
-## Rust code
+## Vector's gates
 
-No `unwrap`, `expect`, `panic!`, `todo!`, `unimplemented!`, `dbg!`, `println!` or `eprintln!` (clippy warns, the gate fails): return
-an `Error`. Core code is safe Rust (`#![forbid(unsafe_code)]`; the bindings deny it too). Every public item has a doc comment
-(`missing_docs`), with a `# Errors` section where it returns `Result`. Clippy `pedantic` is on; for a false positive use a
-targeted `#[expect(clippy::name, reason = "...")]`.
+The template's gates are in `docs/rules.md`. Vector adds five, hung on `project-gates` in `pyproject.toml` (run last by `check`
+and `full`; `tests/tools/test_gate_wiring.py` fails when a tier lacks one; each has a proof in `tests/tools/`):
 
-## Fixing defects: structurally, not defensively
+- `file-size` (`tools/check_file_size.py`) fails a tracked `.py` or `.rs` file over 1000 lines (test files: 1500): split it by
+  topic, never raise the budget. A file already over is listed in `[tool.file-size.exempt]` (path = current lines): it may
+  shrink but never grow, and a stale entry fails.
+- `rust-fonts` fails when `read-fonts` or `harfrust` is built with `std` (their maths would be the platform's;
+  `tools/check_font_features.py`).
+- `wasm-build` builds the core and the bindings crate for WebAssembly (the template's `rust-wasm` checks the core alone).
+- `rust-test-stack` runs the 256 KB stack tests unoptimised.
+- `wasm-test` (needs Node) builds the package in release with `RUSTFLAGS=-C target-feature=+simd128` (for that build alone),
+  runs `wasm-bindgen --target nodejs` into the ignored `pkg/` and runs `tests/wasm` in Node (2 GB heap cap) against
+  `tests/wasm/oracle.py`'s native answers (exact SVG text, mesh buffers, JSON, Param descriptions, error names and messages;
+  pixels and PNG within a measured tolerance, `tests/wasm/compare.mjs`).
 
-A fix removes the cause, not the symptom (reasoning in `docs/design-decisions.md`).
-1. **Reproduce first, at the public interface** (failing test, red evidence), then **find where the invalid state is created**,
-   not where it is noticed. Fix it there.
-2. **Make the bad state impossible:** a stricter type (an enum, a newtype, a checked constructor), one source of truth, a
-   function whose result cannot be wrong, or remove the code path. Not a branch that copes afterwards.
-3. **Check the class, not the instance:** `grep` for the same shape elsewhere; fix it the same way or say why not.
-4. **Trust contracts inside the library; validate at the boundary.** Outside input (a parameter, bytes, a file's contents) is
-   validated once, where it enters, with an error naming the value. Internal code does not re-check what the layer above
-   guarantees; a broken guarantee fails loudly and its cause is fixed.
-5. **No defensive code:** no fallback or default hiding a missing or invalid value; no `unwrap_or` or `.ok()` that discards an
-   error; no `catch_unwind`; no clamping, NaN-to-zero or retry "just in case"; no `try/except` that continues (`except
-   Exception`, bare `except`, `contextlib.suppress`); no widening a type to silence an error; no skipped, ignored, xfailed or
-   loosened tests.
-6. **A fix that needs a design change says so:** propose it instead of patching around the design.
-7. **One decision, one place.** A table, constant, name or rule that exists twice is a defect. For tests: look for existing
-   coverage first; add a row to the existing table; setup two files need is a fixture in the nearest `conftest.py`.
-8. **KISS outranks these rules.** If applying one makes the code longer, more indirect or harder to read than the problem, don't:
-   note the finding and move on.
-9. Where a skill (`systematic-debugging`'s defence-in-depth, "add validation at every layer") disagrees with this section, this
-   section wins.
-
-## Lint, types and gates
-
-Three tiers, through `uv run poe`:
-
-| Task | Runs, cheapest first | Use |
-|---|---|---|
-| `fast` | `rust-fmt`, `ruff format --check`, `rust-lint`, `ruff check`, `rust-test`, `rust-wasm`, `mypy`, `file-size`, `test` | while working |
-| `check` | the gates `ruff format --check`, `rust-fmt`, `ruff check`, `rust-test-layout`, `rust-lint`, `file-size`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `rust-fonts`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `wasm-test`, `test` (the `gates` task), then the gate proofs only when due; stops at the first failure | once per branch, before the merge or push to `main` |
-| `full` | the same gates, then `build-check` and the gate proofs (`gate-tests`) always | before a tag; CI |
-
-`test` is `pytest -m 'not gate and not tooling'` (the project's own suite), `gate-tests` is `pytest -m 'gate or tooling'` (the proofs and the template's shared-tool tests): together every test. The proofs are due in `check` when a path of
-`[tool.gate-proofs]` in `pyproject.toml` (what they read, copy, edit or anchor on) changed since they last passed (a `full` pass, or a
-`check` that ran them, on a clean tree: the commit is in the git folder), counting uncommitted and untracked files; with no record,
-a shallow clone or git unreadable they are due. `check` says `proofs: skipped` or `proofs: running, <why>`. A new proof that reads
-or edits a file adds it to the list (a test fails for an entry whose path is gone). Never re-run a gate to re-verify: `start`
-prints `ALREADY PASSED` when the tree did. A change of documentation only needs none.
-
-`rust-lint` is clippy with `-D warnings` over the workspace and all targets (pedantic, the determinism rules of `clippy.toml`, dead
-code, missing docs, unreachable `pub`; `[workspace.lints]` in `Cargo.toml`). `rust-tools` checks that cargo-shear, cargo-deny and the `wasm-bindgen` command are
-installed at the versions `Cargo.toml` pins (`poe setup` installs them) and that the command's version is that of the
-`wasm-bindgen` crate in `Cargo.lock`. `rust-wasm` builds the core and the bindings crate for WebAssembly. `wasm-test` (needs Node)
-builds the package in release with `RUSTFLAGS=-C target-feature=+simd128` (set by the task, for that build alone),
-runs `wasm-bindgen --target nodejs` into the ignored `pkg/` and runs `tests/wasm` in Node (with a 2 GB JavaScript heap cap) against `tests/wasm/oracle.py`'s
-native answers (exact SVG text, mesh buffers, JSON, Param descriptions, error names and messages; pixels and PNG within a
-measured tolerance, `tests/wasm/compare.mjs`; the star from Python, Rust and Node); `fast` leaves it out. `rust-fonts` fails when `read-fonts` or `harfrust` is built with `std` (their maths would be the platform's; `tools/check_font_features.py`). `rust-deny` is offline (bans, licences, sources;
-`deny.toml`); `uv run poe audit` adds the advisories and needs the network (CI runs it with every code change and weekly).
-`lint-workflows` runs actionlint and zizmor (offline) on `.github` (`tools/lint_workflows.py`; no `.github` folder, nothing to
-lint; an empty one fails). `dead-code` is vulture on
-`src`. `build-check` builds the sdist and wheel into `dist/check` (`dist/` is git-ignored, as is `audit`'s `dist/audit`)
-and checks them as PyPI would see them (`tools/check_dists.py`: twine, the sdist's Rust sources and bundled fonts, the licence files with each bundled font's `OFL.txt`, one
-extension, check-wheel-contents); `tools/check_installed.py` smoke-checks an installed artifact (its file, version, import
-location, the documented exceptions). `stubtest` checks `_native/_core.pyi` against the built extension. `uv run poe fix`
-applies every automatic fix (`ruff check --fix`, `ruff format`, `cargo fmt`).
-
-`file-size` (`tools/check_file_size.py`) fails a tracked `.py` or `.rs` file over 1000 lines (test files: 1500): split it by topic, never
-raise the budget. An agent reads a file in chunks, and one under the budget stays navigable. A file already over is listed in
-`[tool.file-size.exempt]` (path = current lines): it may shrink but never grow, and a stale entry (file within budget or gone) fails.
-
-Each gate has a test proving it fails on a known-bad input (`tests/tools/`, marker `gate`: builds copies of the workspace, slow,
-left out of `fast`, run by `full` and, when due, `check`). A new gate gets its proof, and a line in `tests/tools/test_gate_wiring.py`,
-which fails when `check` or `full` does not run a proven gate, `check` runs the proofs always or `full` records its pass as `check`.
-
-**Gate time** (warm caches, a shared 10-core Mac at load 5 to 12): `check` without the proofs about 1.5 minutes (`rust-test` about 25 s
-(it was 2 minutes before the Rust tests were built optimised), `wasm-test` 10 s, the other steps seconds; `build-check`, about 55 s, is in `full` and CI only); with them (`full`, or a `check` where they are due) 14
-minutes, the proofs 7 to 8 of those. The proofs' Cargo build folders persist in `target/gate-proofs/` (git-ignored, one per module and per digest of `Cargo.lock`, `Cargo.toml`
-and `rust-toolchain.toml`): the first run, or one after a lock or toolchain change, compiles every dependency again (about 13
-min of proofs). Safe to delete (`rm -rf target/gate-proofs`); a folder is left behind per dependency change (1 to 3 GB), so delete
-it now and then. To see where a run goes: `uv run pytest tests/tools -m gate -n 4 --durations=30` for the proofs,
-`uv run poe <task>` for a step; note the load average, as the machine is shared.
-
-`ruff` wants type hints and a docstring on every public function, class, method and module, and no `print` outside `tools/`.
-`mypy` checks `src`, `tests`, `tools` and `examples`. Fix findings properly; for a false positive use a targeted `# noqa: CODE  <reason>` or
-`# type: ignore[code]  # reason` (a bare or unused one fails). A subprocess call carries `# noqa: S603  <why its argv is safe>`.
-Tests may not reach private names (`SLF001`, `PLC2701`).
-
-Config homes: Python tooling in `pyproject.toml` (ruff, mypy, pytest, poe, commit-message, maturin, vulture, deptry,
-check-wheel-contents), Rust tooling in `Cargo.toml` (workspace lints, pinned cargo tools). The Rust tools that cannot read `Cargo.toml` have one file each, at the root
-only: `rust-toolchain.toml`, `rustfmt.toml`, `deny.toml`, `clippy.toml`. Do not add `ruff.toml`, `mypy.ini`, `setup.cfg`,
-`pytest.ini`, `.coveragerc`, a second `clippy.toml`, `.cargo/config.toml` or similar (a test fails). Other config files:
-`.pre-commit-config.yaml` (hook wiring only), `.editorconfig`, `.gitmessage`.
+`[tool.gate-proofs] project-triggers` lists what vector's own proofs read. `tools/check_installed.py` and `tools/check_dists.py`
+(the bundled fonts' `OFL.txt` among the licence files) check an installed or built distribution; `uv run poe look FILE` draws a
+drawing file to `dist/look/`; `uv run poe bench` times the outputs.
 
 ## CI
 
 `.github/workflows/`: `ci.yml` (pushes to `main`, pull requests, merge queue; calls the rest), `lint.yml`, `test.yml`,
-`security.yml` (also weekly), `pre-commit.yml`, `build.yml`; `.github/dependabot.yml` for weekly updates. Most steps are
-local gate tasks (`uv run --locked poe <task>`); `lint.yml` calls ruff, deptry and mypy directly, as `check` does; Linux also runs `wasm-test` (Node);
-macOS and Windows run `rust-test` and plain pytest without the gate proofs; `security.yml` adds `poe audit`, CodeQL and dependency
-review (the last two have no local equivalent). `ci-ok` is the only required check: every job is in its `needs`, and a
-skipped job passes. The `changes` job skips lint, test, security and build for a pull request that changes only
-documentation; the set is in two places, `is_documentation` in `tools/pre_push.py` and the `changes` filter in `ci.yml`:
-change both. `build` runs after the checks passed and produces the sdist and a wheel per platform
-(`docs/design-decisions.md`, "Platforms"). A job or a poe task added to the gate is added to the other too. Third-party
-actions are pinned by commit SHA; `lint-workflows` rejects the rest.
+`security.yml` (also weekly), `pre-commit.yml`, `build.yml` and `project.yml`; `.github/dependabot.yml` for weekly updates. The
+first six and dependabot are the template's; `project.yml` is vector's: one job runs `poe project-gates` (file size, fonts,
+WebAssembly with Node, the stack tests) on Linux. `ci-ok` is the only required check: every job is in its `needs`, and a skipped
+job passes. A pull request that changes only documentation skips the code jobs. The gate proofs run once, on Linux Python 3.12.
+`build` runs after the checks passed and produces the sdist and a wheel per platform (`docs/template-decisions.md`, "Platforms").
+Third-party actions are pinned by commit SHA; `lint-workflows` rejects the rest.
 
-## Testing
+## Testing, vector's specifics
 
-Follow the `testing-best-practices` skill. A test coupled to implementation or otherwise poor (weak sole assertion, tautology,
-golden file, sleep, mock of our own code) is worse than none: delete it. Reviewers treat such tests as blocking.
+On top of the Testing section of `docs/rules.md`:
 
-- **Rust first.** Rust tests live in `crates/core/tests/it/` and use the public API (`use bullterrier_vector::...`); no unit
-  tests in `src/` unless no public route reaches the behaviour (never widen an item to `pub` to move a test out).
-  **One integration binary:** `tests/it/main.rs` declares a `mod` per area, helpers are in `tests/it/common/`; a new test
-  file is a module there, not a `tests/<name>.rs` (each is an executable that macOS scans on first launch, about 12 s). A
-  file is a binary of its own only for a process-wide need (a `#[global_allocator]`; `tests/drawing_limits.rs`, whose
-  million-shape tests peak at several GB and a process keeps what it allocated; `tests/stack.rs`, the 256 KB stack tests,
-  which `rust-test` also runs unoptimised): first line `//! Own binary: <why>`,
-  listed in `[tool.rust-tests.own-binaries]`; `poe rust-test-layout` fails otherwise. Every task that runs tests goes through `tools/run_capped.py` (a memory cap); Rust tests are built optimised (`[profile.test]`).
-  The Python suite tests the bindings through the
-  package's public API only (`import bullterrier_vector as btvec`).
-- **Behaviour through the public contract; properties, not golden files.** `proptest` for broad input spaces. Expected values come
-  from an independent oracle (hand computation, a standard, a brute-force reference parsed back from the output, e.g. `roxmltree`
-  for SVG), never the code's own formula. No committed golden files: "the same on every target" is a differential
-  test (native against WebAssembly, V3), which needs no reviewed baseline.
-- Every checker/validator gets a known-good and a known-bad input. Seeds pin determinism. No sleeps, live network or wall-clock
-  assertions.
-- Python tests run in random order (pytest-randomly; rerun with `-p randomly --randomly-seed=N`, disable with `-p no:randomly`);
-  none may depend on another. Every warning fails the test that raised it.
-- **Mutation-check your tests, by hand:** break the code on purpose (a sign, a boundary, an ignored argument) and see a test
-  fail; about ten mutants per batch, on the settled edge cases and the arithmetic (docs/roadmap.md, "How we work"); no
-  mutation tool is set up. A surviving mutant on core behaviour becomes a test. Run Rust mutants with
-  `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1` and never commit a `*.proptest-regressions` file a mutant created; for Python use
-  `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` between mutants.
-- **Hook-run tests must not touch the enclosing repository:** the autouse `no_enclosing_git` fixture (`tests/conftest.py`) removes
-  every `GIT_*` variable, and tests that need git use the throwaway `git_repo` fixture (`tests/tools/conftest.py`). Never run
-  `git` against the real repository from a test. The commands of a gate proof get an explicit environment (the `explicit_env`
-  fixture: `PATH`, `HOME`, the cargo and rustup homes, the temporary folder, what Windows needs to start a program),
-  never a copy of `os.environ`; the autouse `no_enclosing_hook` fixture removes `PRE_COMMIT_*` the same way as `GIT_*`.
-- Refactors prove behaviour is preserved by comparing outputs before and after (byte-identical), in the report, not committed.
-
-**Tests describe behaviour, not implementation:** they must survive any behaviour-preserving refactor.
-- Never import underscore names, read production constants or private attributes, or call private functions. Worth testing means
-  worth a public name; otherwise test it through the behaviour it serves.
-- Never monkeypatch or mock our own code; never assert call counts or order on it. Substitute only true external boundaries.
-- Assert observable outputs only: returned values, files written, errors raised. For errors, the kind plus a short substring naming
-  the argument and value, never the whole sentence.
-- Hard to test through the public interface is a design signal, in Rust too: change the interface, don't reach inside.
-
-Writing tests:
-- **Parametrise by default:** cases differing by literals are one table (`pytest.param(..., id=...)`; in Rust a table of tuples
-  with the rule in each row's name) with good and bad rows together.
-- **DAMP, not DRY:** each case and its expectation are visible; helpers build input or name an assertion, never hide what is checked.
-- **No change-detectors:** test a rule with a known-bad input; never restate configuration.
-- **Marker `tooling`** is for the tests of a shared tool of the template (`test_pre_push`, `test_run_capped`, `test_rust_tools`, `test_check_dists`,
-  `test_check_installed`): the same file in every project. A test of vector's own code is never `tooling`.
-- **Slow tests in one file:** xdist runs all the tests of a file on one worker (`--dist=loadfile`), so a module-scoped fixture
-  that spawns tools (ruff, mypy, poe, cargo, git) is built once: keep such tests in one file. `xdist_group` marks do nothing
-  (pytest 9.2 broke them in xdist 3.8: every group was spread over the workers); do not add them.
-- **Running:** one Rust test module: `cargo test -p bullterrier-vector --test it path::`; one Python file:
-  `uv run pytest tests/test_path.py -n 0` (`-p no:randomly` for fixed order); all Python tests: `uv run poe test`.
-- **Fast feedback (agents):** while iterating or doing red-green TDD run only the tests covering your change (a filter, one file),
-  and `uv run poe fast` between steps. Run `uv run poe check` once when the work is finished, before you report. If it fails, fix
-  and rerun only the failing tests, then `check` once more.
+- **Rust first, black-box.** Rust tests live in `crates/core/tests/it/` and use the public API (`use bullterrier_vector::...`).
+  A file is a binary of its own only for a process-wide need: `tests/drawing_limits.rs` (million-shape tests peak at several
+  GB) and `tests/stack.rs` (the 256 KB stack tests, also run unoptimised); first line `//! Own binary: <why>`, listed in
+  `[tool.rust-tests.own-binaries]`. The Python suite tests the bindings through the public API only
+  (`import bullterrier_vector as btvec`).
+- **Oracles.** Expected values come from an independent oracle (hand computation, a standard, a brute-force reference parsed
+  back from the output, e.g. `roxmltree` for SVG). No committed golden files: "the same on every target" is a differential
+  test (native against WebAssembly), which needs no reviewed baseline.
+- **Mutation-check by hand:** about ten mutants per batch (`docs/roadmap.md`, "How we work"); no mutation tool is set up. Run
+  Rust mutants with `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1` and never commit a `*.proptest-regressions` file a mutant
+  created; for Python use `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` between mutants.
+- **Hook-run tests** never touch the enclosing repository: the session fixture of `tests/conftest.py` hides `GIT_*` and
+  `PRE_COMMIT_*`, proven by `tests/tools/test_git_isolation.py` and `test_hook_isolation.py`. Never run `git` against the
+  real repository from a test.
+- **Refactors** prove behaviour is preserved by comparing outputs before and after (byte-identical), in the report, not committed.
+- **Marker `tooling`** is for the template's shared-tool tests only; a test of vector's own code is never `tooling`.
 
 ## Skills
 
@@ -318,34 +208,3 @@ modules, no pass-throughs, no information leakage; interface docs state promises
 `superpowers:*` skills are process aids, not authority: they tend to verbose, over-engineered, over-defensive output. Where one
 asks for more validation, layers, documents or steps than this file, follow this file. Tests follow this file (no goldens); fixes
 follow "Fixing defects"; design follows the skill.
-
-## Working style
-
-- **Read narrowly:** the files your task names, `CLAUDE.md`, one reference module. If you need more, say why in the report.
-- **Propose before refactoring** outside your brief's file scope; inside it, execute (plans are pre-approved).
-- Report honestly: red/green evidence, exact commands run, anything skipped or unverified.
-- Scratch space for plans, briefs, reports: `.superpowers/` (git-ignored; never commit it).
-
-## Git conventions
-
-Once per clone: `uv run poe setup` (hooks and commit template). Before a merge or a push to `main`: `uv run poe check`; before a
-tag: `uv run poe full`. The commit hooks check Python formatting (ruff) and the message; rustfmt, compiling and testing wait for the gate.
-The pre-push hook runs the gate for a push to `main` (`check`) or a tag (`full`; so does any ref that is not clearly a branch),
-and for any push while local `main` has unpushed code or git cannot say. (Pre-commit does not call the hook at all for a tag that
-points at a commit the remote already has: "nothing to push".) It skips the gate for a branch other than `main` while `main` has
-no unpushed code, for a push whose changes (and `main`'s unpushed ones) are documentation only, and for a push of exactly the tree
-a passing gate of the needed tier or a higher one ran on (a `full` pass covers `check`; a `check` pass never covers a tag; it must
-have started and ended on a clean working tree; the record is in the git folder, so commit before you run the gate).
-- **Trunk-based:** short-lived branch `<type>/<short-description>` (`feat/polygon-rotation`), merged into `main` and deleted when
-  the work is complete; nothing unmerged is left behind. No worktrees unless the owner asks. Rebase on `main` before reporting.
-  Never push.
-- **Conventional Commits 1.0:** `type(scope)!: subject`. Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
-  `build`, `ci`, `chore`, `revert`. Scope optional, lowercase: `core`, `python`, `docs`, `deps`. `!` or a `BREAKING CHANGE:`
-  footer marks a breaking change.
-- **Subject:** imperative present tense, lowercase start (acronyms and identifiers excepted), no final period.
-- **Body** (after a blank line): why, not what. **One logical change per commit.**
-- **Agents** end the message with `Co-Authored-By: <your model name> <noreply@anthropic.com>`.
-- The `commit-msg` hook (`tools/check_commit_message.py`) rejects a malformed message and says which rule failed. Limits and
-  scope pattern: `[tool.commit-message]` in `pyproject.toml`. Merge, revert and fixup commits git writes pass unchanged.
-- **Never `--no-verify`, skip, silence or loosen a hook:** fix the cause. If a rule is wrong, change it in its one config home
-  (`pyproject.toml` for the commit-message limits) in its own commit and say why.

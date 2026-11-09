@@ -8,6 +8,7 @@ variables set to a hook's values; a control run without the fixture shows they f
 never touches this repository: the probe runs in tmp_path.
 """
 
+import os
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,12 @@ import pytest
 
 # slow: the tests of this module run with the gate proofs (`poe gate-tests`, `poe full`), when their inputs change
 pytestmark = pytest.mark.gate
+
+
+def explicit_env(**extra: str) -> dict[str, str]:
+    """This process's environment (tests/conftest.py has hidden GIT_* and PRE_COMMIT_*) plus `extra`."""
+    return {**os.environ, **extra}
+
 
 ROOT = Path(__file__).resolve().parents[2]
 NO_FIXTURE = '"""The control: nothing defends the tests from an enclosing hook."""\n'
@@ -51,13 +58,13 @@ def run_pre_push_tests(tmp_path: Path, tests_conftest: str, explicit_env) -> sub
     )
 
 
-def test_the_pre_push_tests_pass_inside_a_push_to_a_remote_not_named_origin(tmp_path, explicit_env):
+def test_the_pre_push_tests_pass_inside_a_push_to_a_remote_not_named_origin(tmp_path):
     done = run_pre_push_tests(tmp_path, (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8"), explicit_env)
     assert done.returncode == 0, done.stdout + done.stderr
     assert "passed" in done.stdout
 
 
-def test_without_the_fixture_the_hooks_variables_do_fail_those_tests(tmp_path, explicit_env):
+def test_without_the_fixture_the_hooks_variables_do_fail_those_tests(tmp_path):
     """The control: this is what the fixture prevents, so the test above can fail."""
     done = run_pre_push_tests(tmp_path, NO_FIXTURE, explicit_env)
     assert done.returncode != 0, done.stdout + done.stderr

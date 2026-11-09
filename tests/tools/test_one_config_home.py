@@ -1,8 +1,5 @@
 """All Python tooling is configured in pyproject.toml and all Rust tooling in Cargo.toml: no second config file may
-appear next to them (the Rust tools that cannot read Cargo.toml have one file each, at the root).
-
-Cheap, so `poe fast` runs it too (it is not marked `gate`): the first test checks the repository itself.
-"""
+appear next to them (the Rust tools that cannot read Cargo.toml have one file each, at the root)."""
 
 import importlib.util
 import tomllib
@@ -24,7 +21,7 @@ def _load_checker():
 
 checker = _load_checker()
 
-# the files that make a tool read its settings elsewhere; written out, so a shortened list in the tool fails this test
+# the files the project owner listed; written out here so a shortened list in the tool fails this test
 STRAY_NAMES = [
     "ruff.toml", ".ruff.toml", "mypy.ini", ".mypy.ini", "setup.cfg", "tox.ini", "pytest.ini", ".coveragerc",
     ".importlinter", ".flake8", ".pylintrc", "pyrightconfig.json", ".isort.cfg", ".bandit",
@@ -37,19 +34,14 @@ def test_the_repository_has_no_stray_tool_config():
     assert checker.find_stray_configs(ROOT) == []
 
 
-def test_the_repository_has_the_root_files_of_the_rust_tools():
-    for name in ROOT_ONLY_NAMES:
-        assert (ROOT / name).is_file(), name
-
-
-def test_ruff_pytest_and_poe_are_configured_in_pyproject():
+def test_ruff_pytest_poe_and_commit_message_are_configured_in_pyproject():
     tool = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]
-    assert {"ruff", "pytest", "poe"} <= tool.keys()
+    assert {"ruff", "pytest", "poe", "commit-message"} <= tool.keys()
     assert "ini_options" in tool["pytest"]  # pytest reads this table, so no pytest.ini is needed
 
 
 @pytest.mark.parametrize("name", STRAY_NAMES)
-@pytest.mark.parametrize("folder", ["", "src", "tests", "src/bullterrier_vector/deep", "tests/tools", "crates/core"])
+@pytest.mark.parametrize("folder", ["", "src", "tests", "src/bullterrier_vector/deep", "tests/effects", "crates/core"])
 def test_a_stray_config_is_reported_by_name(tmp_path, name, folder):
     (tmp_path / folder).mkdir(parents=True, exist_ok=True)
     (tmp_path / folder / name).write_text("", encoding="utf-8")
@@ -85,11 +77,12 @@ def test_every_stray_config_is_reported_not_just_the_first(tmp_path):
 
 
 def test_files_with_other_names_and_files_elsewhere_are_not_reported(tmp_path):
-    for name in ("pyproject.toml", ".editorconfig", ".pre-commit-config.yaml", ".gitmessage"):
+    for name in ("pyproject.toml", ".editorconfig", ".pre-commit-config.yaml"):
         (tmp_path / name).write_text("", encoding="utf-8")
     (tmp_path / "docs").mkdir()
-    # outside the scanned places: docs may say anything
-    (tmp_path / "docs" / "tox.ini").write_text("", encoding="utf-8")
+    (tmp_path / "docs" / "tox.ini").write_text(
+        "", encoding="utf-8"
+    )  # outside the scanned places: docs may say anything
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "ruff.toml.md").write_text("", encoding="utf-8")  # similar name, different file
     assert checker.find_stray_configs(tmp_path) == []

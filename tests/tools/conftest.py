@@ -1,9 +1,13 @@
-"""What the tests of the tooling share: a scratch copy of the project to write one fault into (`project_copy`), a
-throwaway git repository (`git_repo`) and the environments the proofs run commands in (`explicit_env`, `uv_run_env`,
-`copy_env`, `cargo_env`): built from an allow-list, so a variable of the developer's shell or of a CI runner
-(`RUSTFLAGS`, `GIT_DIR`, `CARGO_BUILD_TARGET`, `UV_*`) can neither fail a proof nor make one pass."""
+"""What the tests of the tooling share: a throwaway git repository with a local bare `origin` (`git_repo`).
+
+The repository is isolated from the developer's git configuration (no global or system config, so no signing, hooks or
+default branch of theirs leaks in), and the tools run with this environment's executables first on PATH, as under
+`uv run`. Ahead of them all is a stand-in for the GitHub CLI, `gh`, so no test reaches GitHub: it answers every call
+with the reply the test chose (`GitRepo.answer_gh`; by default, a green `ci-ok`) and records its arguments.
+"""
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -14,96 +18,76 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-# Where the proofs' Cargo build folders live between runs (inside `target/`, which is git-ignored).
+# where the proofs' Cargo build folders live between runs (in the git-ignored `target/`; deleting it only makes the
+# next run compile the dependencies again)
 GATE_BUILDS = ROOT / "target" / "gate-proofs"
-# What decides how every dependency is compiled: a change to any of them starts a build folder of its own.
+# what decides how every dependency is compiled: a change to any of them starts a build folder of its own
 BUILD_INPUTS = ("Cargo.lock", "Cargo.toml", "rust-toolchain.toml")
-# What a command of a proof inherits from the process: where programs and the toolchains are, and the temporary and
-# home folders. The Windows names are what Python, git and cargo need there to start at all (SYSTEMROOT, COMSPEC,
-# PATHEXT) and to find a home, a cache and a temporary folder (USERPROFILE, APPDATA, LOCALAPPDATA, TEMP, TMP); each is
-# passed on when set. Anything else is set by the proof itself.
-INHERITED = (
-    "PATH",
-    "HOME",
-    "CARGO_HOME",
-    "RUSTUP_HOME",
-    "TMPDIR",
-    "SYSTEMROOT",
-    "USERPROFILE",
-    "TEMP",
-    "TMP",
-    "APPDATA",
-    "LOCALAPPDATA",
-    "COMSPEC",
-    "PATHEXT",
-)
 
 
-@pytest.fixture(scope="module")
-def explicit_env() -> Callable[..., dict[str, str]]:
-    """`explicit_env(**extra)`: the `INHERITED` variables that are set in this process now, plus `extra`. Nothing else
-    of this process's environment (a `RUSTFLAGS`, a `GIT_DIR`) reaches a command of a proof."""
-
-    def build(**extra: str) -> dict[str, str]:
-        return {**{name: os.environ[name] for name in INHERITED if name in os.environ}, **extra}
-
-    return build
-
-
-@pytest.fixture(scope="module")
-def copy_tree() -> Callable[..., Path]:
-    """`copy_tree(source, destination, **options)`: `shutil.copytree` that gives every copied file the time of the
-    copy, where `copytree` keeps the original's. Cargo calls a build fresh when its artifacts are newer than the
-    sources, so a copy that kept an old time could be taken for the edited sources an earlier proof built."""
-
-    def copy(source: Path, destination: Path, **options) -> Path:
-        return Path(shutil.copytree(source, destination, copy_function=shutil.copy, **options))
-
-    return copy
-
-
-@pytest.fixture
-def project_copy(tmp_path):
-    """`project_copy(*names)` copies the project's src/ (without bytecode caches) and the files `names` at its root
-    into tmp_path, and returns tmp_path: a scratch project to write one fault into, the real one untouched."""
-
-    def copy(*names: str) -> Path:
-        shutil.copytree(ROOT / "src", tmp_path / "src", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-        for name in names:
-            shutil.copy(ROOT / name, tmp_path)
-        return tmp_path
-
-    return copy
+# what `gh api repos/OWNER/REPO/commits/SHA/check-runs` prints for a commit whose `ci-ok` passed (a real reply, trimmed)
+GREEN_CI_OK = {
+    "total_count": 1,
+    "check_runs": [
+        {
+            "name": "ci-ok",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/owner/demo/actions/runs/1/job/2",
+        }
+    ],
+}
+# the stand-in `gh`: replies as gh-reply.json next to it says, and appends its arguments to gh-calls.txt
+FAKE_GH = """import json, pathlib, sys
+here = pathlib.Path(__file__).parent
+with (here / "gh-calls.txt").open("a", encoding="utf-8") as calls:
+    calls.write(" ".join(sys.argv[1:]) + "\\n")
+reply = json.loads((here / "gh-reply.json").read_text(encoding="utf-8"))
+sys.stdout.write(reply["stdout"])
+sys.stderr.write(reply["stderr"])
+sys.exit(reply["exit_code"])
+"""
 
 
 class GitRepo:
-    """A throwaway repository on `main`, isolated from the developer's git configuration (no global or system config,
-    so none of their signing, hooks or default branch leaks in). Its environment is the explicit one it is given."""
+    """A working repository on `main` whose `origin` is a bare repository next to it."""
 
-    def __init__(self, path: Path, env: dict[str, str]) -> None:
-        self.path = path / "work"
-        self.path.mkdir()
-        empty_config = path / "gitconfig"
+    def __init__(self, base: Path, uv_run_path: str) -> None:
+        self.path = base / "work"
+        self.origin = base / "origin.git"
+        self.bin = base / "bin"
+        self.bin.mkdir()
+        if sys.platform == "win32":  # Windows finds a program by its extension: a batch file runs the script
+            (self.bin / "gh.py").write_text(FAKE_GH, encoding="utf-8")
+            (self.bin / "gh.cmd").write_text(f'@"{sys.executable}" "{self.bin / "gh.py"}" %*\n', encoding="utf-8")
+        else:
+            (self.bin / "gh").write_text(f"#!{sys.executable}\n{FAKE_GH}", encoding="utf-8")
+            (self.bin / "gh").chmod(0o755)
+        self.answer_gh(stdout=json.dumps(GREEN_CI_OK))
+        empty_config = base / "gitconfig"
         empty_config.write_text("", encoding="utf-8")
-        self.env = {**env, "GIT_CONFIG_GLOBAL": str(empty_config), "GIT_CONFIG_NOSYSTEM": "1"}
+        self.env = {
+            **os.environ,
+            "GIT_CONFIG_GLOBAL": str(empty_config),
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "PATH": os.pathsep.join([str(self.bin), uv_run_path]),
+            "UV_OFFLINE": "1",  # nothing here may need the network
+            "NO_COLOR": "1",
+        }
+        self.path.mkdir()
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(self.origin)], check=True, env=self.env)
         self.git("init", "-q", "-b", "main")
         self.git("config", "user.name", "Test Author")
         self.git("config", "user.email", "author@example.com")
-        self.add_remote("origin")
+        self.git("remote", "add", "origin", str(self.origin))
 
     def git(self, *args: str) -> str:
-        """Run git in the repository and return its output (stripped); fail the test if git fails."""
+        """Run git in the working repository and return its output (stripped); fail the test if git fails."""
         result = subprocess.run(
             ["git", *args], cwd=self.path, env=self.env, capture_output=True, encoding="utf-8", check=False
         )
         assert result.returncode == 0, f"git {' '.join(args)}: {result.stderr}"
         return result.stdout.strip()
-
-    def add_remote(self, name: str = "origin") -> None:
-        """Add a new empty bare repository, next to the working one, as the remote `name`."""
-        bare = self.path.parent / f"{name}.git"
-        self.git("init", "-q", "--bare", "-b", "main", str(bare))
-        self.git("remote", "add", name, str(bare))
 
     def write(self, name: str, text: str) -> None:
         (self.path / name).parent.mkdir(parents=True, exist_ok=True)
@@ -123,16 +107,44 @@ class GitRepo:
     def push(self) -> None:
         self.git("push", "-q", "origin", "main")
 
+    def add_remote(self, name: str) -> None:
+        """Add a remote `name`: a new empty bare repository next to the working one."""
+        bare = self.path.parent / f"{name}.git"
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(bare)], check=True, env=self.env)
+        self.git("remote", "add", name, str(bare))
+
+    def answer_gh(self, *, stdout: str = "", stderr: str = "", exit_code: int = 0) -> None:
+        """Make every later `gh` call print `stdout` and `stderr` and exit with `exit_code`."""
+        reply = {"stdout": stdout, "stderr": stderr, "exit_code": exit_code}
+        (self.bin / "gh-reply.json").write_text(json.dumps(reply), encoding="utf-8")
+
+    def gh_calls(self) -> list[str]:
+        """The arguments of every `gh` call so far, one string per call."""
+        calls = self.bin / "gh-calls.txt"
+        return calls.read_text(encoding="utf-8").splitlines() if calls.exists() else []
+
+    def run_uv(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["uv", *args], cwd=self.path, env=self.env, capture_output=True, encoding="utf-8", check=False
+        )
+
+    def run_tool(self, script: str, *args: str, answer: str = "") -> subprocess.CompletedProcess:
+        """Run `tools/<script>` from this checkout with the repository as its working directory; `answer` is what is
+        typed at its prompt (by default nothing: the input is closed, as when no one is at the terminal)."""
+        return subprocess.run(
+            [sys.executable, str(ROOT / "tools" / script), *args],
+            cwd=self.path,
+            env=self.env,
+            input=answer,
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+        )
+
 
 @pytest.fixture
-def git_repo(tmp_path, explicit_env) -> GitRepo:
-    return GitRepo(tmp_path, explicit_env())
-
-
-@pytest.fixture
-def uv_run_env(explicit_env) -> dict[str, str]:
-    """The environment a command gets under `uv run`: the explicit one, with its executables first on PATH."""
-    return explicit_env(PATH=os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")]))
+def git_repo(tmp_path, uv_run_env) -> GitRepo:
+    return GitRepo(tmp_path, uv_run_env["PATH"])
 
 
 @pytest.fixture
@@ -142,27 +154,22 @@ def copy_env(uv_run_env) -> dict[str, str]:
     return {**uv_run_env, "UV_PROJECT_ENVIRONMENT": str(Path(sys.executable).parents[1]), "UV_NO_SYNC": "1"}
 
 
+@pytest.fixture(scope="session")
+def copy_tree() -> Callable[..., Path]:
+    """`copy_tree(source, destination, **options)`: `shutil.copytree` that gives every copied file the time of the copy,
+    where `copytree` keeps the original's. Cargo calls a build fresh when its artifacts are newer than the sources, so a
+    copy that kept an old time could be taken for the edited sources an earlier proof built in the same folder."""
+
+    def copy(source: Path, destination: Path, **options) -> Path:
+        return Path(shutil.copytree(source, destination, copy_function=shutil.copy, **options))
+
+    return copy
+
+
 @pytest.fixture(scope="module")
 def build_folder(request) -> Path:
     """The Cargo build folder of this module's proofs, shared by all its copies of the workspace and kept between runs
-    in `target/gate-proofs/`, so the dependencies are compiled once, not on every run (`rm -rf target/gate-proofs`
-    only makes the next run compile them again). One folder per module and per set of `BUILD_INPUTS`: a module runs
-    on one xdist worker (`--dist=loadfile`), so no two cargo runs share it. A copy's files must be newer than the
-    folder's artifacts (`copy_tree`), or cargo takes the artifacts of an earlier, edited copy for its own."""
+    in `target/gate-proofs/`, so the dependencies are compiled once, not on every run. One folder per module and per
+    state of `BUILD_INPUTS`: a module runs on one xdist worker (`--dist=loadfile`), so no two cargo runs share it."""
     digest = hashlib.sha256(b"".join((ROOT / name).read_bytes() for name in BUILD_INPUTS)).hexdigest()[:12]
     return GATE_BUILDS / f"{Path(request.module.__file__).stem}-{digest}"
-
-
-@pytest.fixture(scope="module")
-def cargo_env(explicit_env, build_folder) -> dict[str, str]:
-    """`uv run`'s environment (PyO3 finds this Python), offline, uncoloured, with one build folder for every copy.
-    A task that runs `uv run` in a copy (`rust-test`, via `tools/run_capped.py`) uses it as it is, like `copy_env`."""
-    return explicit_env(
-        PATH=os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")]),
-        UV_PROJECT_ENVIRONMENT=str(Path(sys.executable).parents[1]),
-        UV_NO_SYNC="1",
-        CARGO_TARGET_DIR=str(build_folder),
-        CARGO_NET_OFFLINE="true",
-        CARGO_TERM_COLOR="never",
-        NO_COLOR="1",
-    )

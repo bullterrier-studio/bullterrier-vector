@@ -9,6 +9,7 @@ The WebAssembly package of the cases that need one is a stub of the package's pu
 """
 
 import json
+import os
 import re
 import runpy
 import shutil
@@ -22,6 +23,12 @@ import pytest
 
 # slow: the tests of this module run with the gate proofs (`poe gate-tests`, `poe full`), when their inputs change
 pytestmark = pytest.mark.gate
+
+
+def explicit_env(**extra: str) -> dict[str, str]:
+    """This process's environment (tests/conftest.py has hidden GIT_* and PRE_COMMIT_*) plus `extra`."""
+    return {**os.environ, **extra}
+
 
 ROOT = Path(__file__).resolve().parents[2]
 TINY = ("--shapes", "5", "--size", "80x60", "--repeats", "2", "--warmups", "1")
@@ -169,7 +176,7 @@ def test_a_missing_package_fails_only_when_node_is_required(bench):
     assert set(rows(result.out)) == {"to_rgba", "to_mesh"}, "the native table is still printed"
 
 
-def test_a_missing_node_is_one_line(stub_package, bench, explicit_env):
+def test_a_missing_node_is_one_line(stub_package, bench):
     without_node = explicit_env(PATH=str(Path(sys.executable).parent))
     result = bench(*TINY, env=without_node)
     assert result.code == 0

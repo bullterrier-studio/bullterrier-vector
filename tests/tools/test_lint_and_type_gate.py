@@ -1,26 +1,25 @@
 """The lint and type gate can fail: each rule family it promises rejects a known-bad file, naming the rule.
 
 An architecture test of the tooling: its subject is the configuration in pyproject.toml, so it runs ruff and mypy, the
-way `uv run poe check` does, on a copy of the package, its tests, the examples and the tool scripts into which one
-offending file at a time is written. A known-good file passes both, so a failure is the offence's and not the copy's.
+way `uv run poe check` does, on a copy of the package and its tests into which one offending file at a time is
+written. A known-good file passes both, so a failure is the offence's and not the copy's.
 """
 
 import json
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-# one xdist worker runs this module, so its fixture (a copy of the project and a cold mypy cache) is built once
-pytestmark = pytest.mark.gate
+pytestmark = [pytest.mark.gate, pytest.mark.typecheck]
 LIBRARY_MODULE = "src/bullterrier_vector/probe.py"  # a module of the package, under no per-file exemption
 TEST_MODULE = "tests/test_probe.py"
-TOOL_MODULE = "tools/probe.py"  # mypy checks the scripts of the gate too
+TOOL_MODULE = "tools/probe.py"  # a script the gate runs
 
 
 @dataclass(frozen=True)
@@ -31,7 +30,7 @@ class Verdict:
 
 def ruff(checkout: Path) -> Verdict:
     command = [sys.executable, "-m", "ruff", "check", "--no-cache", "--output-format=json", "."]
-    result = subprocess.run(command, cwd=checkout, capture_output=True, encoding="utf-8", check=False)
+    result = subprocess.run(command, cwd=checkout, capture_output=True, encoding="utf-8")
     findings = json.loads(result.stdout) if result.stdout.strip() else []
     report = "\n".join(f"{Path(f['filename']).relative_to(checkout)}: {f['code']} {f['message']}" for f in findings)
     return Verdict(result.returncode, report + result.stderr)
@@ -39,8 +38,7 @@ def ruff(checkout: Path) -> Verdict:
 
 def mypy(checkout: Path) -> Verdict:
     # incremental, with its cache in the copy: after the first run only the probe file is checked again
-    command = [sys.executable, "-m", "mypy"]
-    result = subprocess.run(command, cwd=checkout, capture_output=True, encoding="utf-8", check=False)
+    result = subprocess.run([sys.executable, "-m", "mypy"], cwd=checkout, capture_output=True, encoding="utf-8")
     return Verdict(result.returncode, result.stdout + result.stderr)  # "path:line: error: message  [code]"
 
 
@@ -51,13 +49,12 @@ def checkout(tmp_path_factory) -> Path:
     shutil.copytree(ROOT / "src", root / "src", ignore=skip)
     shutil.copytree(ROOT / "tests", root / "tests", ignore=skip)
     shutil.copytree(ROOT / "tools", root / "tools", ignore=skip)
-    shutil.copytree(ROOT / "examples", root / "examples", ignore=skip)
     shutil.copy(ROOT / "pyproject.toml", root)
     return root
 
 
 @pytest.fixture
-def with_file(checkout) -> Iterator[Callable[[str, str], Path]]:
+def with_file(checkout) -> Iterator:
     """Write `source` at `relative` in the copy for one test; the copy is clean again afterwards."""
     written: list[Path] = []
 
@@ -86,18 +83,6 @@ UNTYPED = '"""Probe."""\n\n\ndef double(value) -> float:\n    """Twice `value`."
 OFFENCES = {
     "public function without type hints (ruff)": (LIBRARY_MODULE, UNTYPED, ruff, "ANN001"),
     "public function without type hints (mypy)": (LIBRARY_MODULE, UNTYPED, mypy, "[no-untyped-def]"),
-    "a type error in a tool script (mypy)": (
-        TOOL_MODULE,
-        '"""Probe."""\n\n\ndef total() -> int:\n    """Not an int."""\n    return "three"\n',
-        mypy,
-        "[return-value]",
-    ),
-    "a tool function without a return type (mypy)": (
-        TOOL_MODULE,
-        '"""Probe."""\n\n\ndef total():\n    """No type."""\n    return 3\n',
-        mypy,
-        "[no-untyped-def]",
-    ),
     "public function without a docstring": (
         LIBRARY_MODULE,
         '"""Probe."""\n\n\ndef scale(value: float) -> float:\n    return value * 2\n',
@@ -140,9 +125,27 @@ OFFENCES = {
     "os.path instead of pathlib": (
         LIBRARY_MODULE,
         '"""Probe."""\n\nimport os\n\n\ndef config(folder: str) -> str:\n    """Its config file."""\n'
-        '    return os.path.join(folder, "bullterrier-vector.toml")\n',
+        '    return os.path.join(folder, "bt-vector.toml")\n',
         ruff,
         "PTH118",
+    ),
+    "a test importing a private name": (
+        TEST_MODULE,
+        "from bullterrier_vector.cli import _EXIT_CODES\n\n\ndef test_probe():\n    assert _EXIT_CODES\n",
+        ruff,
+        "PLC2701",
+    ),
+    "a type error in a tool script": (
+        TOOL_MODULE,
+        '"""Probe."""\n\n\ndef total() -> int:\n    """Not an int."""\n    return "three"\n',
+        mypy,
+        "[return-value]",
+    ),
+    "a tool function without a return type": (
+        TOOL_MODULE,
+        '"""Probe."""\n\n\ndef total():\n    """No type."""\n    return 3\n',
+        mypy,
+        "[no-untyped-def]",
     ),
     "eval of a string": (
         LIBRARY_MODULE,
@@ -150,28 +153,23 @@ OFFENCES = {
         ruff,
         "S307",
     ),
-    "assert in library code": (
+    "an assert in library code": (
         LIBRARY_MODULE,
-        '"""Probe."""\n\n\ndef positive(value: float) -> float:\n    """`value`, if it is positive."""\n'
+        '"""Probe."""\n\n\ndef positive(value: float) -> float:\n    """`value`, if positive."""\n'
         "    assert value > 0\n    return value\n",
         ruff,
         "S101",
     ),
-    "a test importing a private name": (
-        TEST_MODULE,
-        "from bullterrier_vector.errors import _hidden\n\n\ndef test_probe():\n    assert callable(_hidden)\n",
-        ruff,
-        "PLC2701",
-    ),
     "a test reading a private attribute": (
         TEST_MODULE,
-        "import bullterrier_vector as btvec\n\n\ndef test_probe():\n    assert btvec._native is not None\n",
+        "from bullterrier_vector import cli\n\n\ndef test_probe():\n    assert cli._EXIT_CODES\n",
         ruff,
         "SLF001",
     ),
 }
 
 
+@pytest.mark.control
 def test_the_copy_with_a_known_good_module_passes_both_tools(checkout, with_file):
     with_file(LIBRARY_MODULE, GOOD_MODULE)
     for tool in (ruff, mypy):

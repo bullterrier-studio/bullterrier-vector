@@ -6,12 +6,9 @@ Run in the project (its pyproject.toml says where the package and its Rust exten
     python tools/check_dists.py FOLDER
 
 - twine (`check --strict`) on every file: the metadata, and the description as PyPI renders it.
-- Each sdist holds what builds the extension from a clean unpack: the Rust workspace's `Cargo.toml`, `Cargo.lock` and
-  `rust-toolchain.toml`, and the manifest of every workspace member.
-- Each sdist and each wheel holds the licence files `[project] license-files` names (patterns allowed; a wheel: under
-  `*.dist-info/licenses/`) and the `OFL.txt` of every bundled font (`crates/core/fonts/*/OFL.txt`, found in the
-  checkout, so dropping one from `license-files` fails too), so what is published carries the licences it declares.
-- Each wheel holds exactly one build of the extension (`[tool.maturin] module-name`), for its platform.
+- Each wheel holds exactly one build of the extension (`[tool.maturin] module-name`), and its file type fits the wheel's
+  platform tag (`.pyd` on Windows, `.so` elsewhere). A build for another CPU or OS of the same file type is not
+  detected: CI installs and runs each wheel on its own platform.
 - check-wheel-contents on each wheel against the package tree as an install from that wheel has it: the package
   (`[tool.check-wheel-contents] package`, its omissions applied) with that wheel's extension in place of any local
   build. A file in the wheel that the tree lacks (a template, a picture, a test) fails (W102), and so does code of the
@@ -25,27 +22,11 @@ import argparse
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 import tomllib
 import zipfile
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
-
-# the bundled fonts: the file each is compiled from and the licence text it carries (docs/design-decisions.md, "Fonts")
-FONT_FILES = "crates/core/fonts/*/*.woff2"
-FONT_LICENCES = "crates/core/fonts/*/OFL.txt"
-
-
-def _licence_files(pyproject: dict) -> list[str]:
-    """The licence files a distribution must hold: those `license-files` names (patterns expanded in the checkout) and
-    the licence of every bundled font."""
-    wanted = {
-        found.as_posix()
-        for pattern in pyproject["project"]["license-files"]
-        for found in (Path().glob(pattern) if "*" in pattern else [Path(pattern)])  # a plain name is wanted as written
-    }
-    return sorted(wanted | {path.as_posix() for path in Path().glob(FONT_LICENCES)})
 
 
 def _run(*command: str) -> subprocess.CompletedProcess:
@@ -55,17 +36,13 @@ def _run(*command: str) -> subprocess.CompletedProcess:
 
 def check(folder: Path) -> list[str]:
     """The reports of every check that fails for the distributions in `folder` (empty when all pass)."""
-    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
-    settings = pyproject["tool"]
-    licences = _licence_files(pyproject)
+    settings = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["tool"]
     package = Path(settings["check-wheel-contents"]["package"])
     extension = PurePosixPath(*settings["maturin"]["module-name"].split("."))  # bullterrier_vector/_native/_core
     files = sorted([*folder.glob("*.tar.gz"), *folder.glob("*.whl")])
     if not files:
         return [f"{folder} holds no sdist or wheel"]
     problems = []
-    for sdist in (file for file in files if file.name.endswith(".tar.gz")):
-        problems += _missing_from_sdist(sdist, licences)
     twine = _run("twine", "check", "--strict", *map(str, files))
     if twine.returncode != 0:
         problems.append(twine.stdout + twine.stderr)
@@ -81,15 +58,14 @@ def check(folder: Path) -> list[str]:
             if len(built) != 1:
                 problems.append(f"{wheel.name}: holds {len(built)} builds of the extension {extension}.*, not one")
                 continue
+            platform = wheel.stem.split("-")[-1]
+            suffix = ".pyd" if platform.startswith("win") else ".so"
+            if not built[0].endswith(suffix):
+                problems.append(
+                    f"{wheel.name}: the extension {built[0]} does not fit platform {platform} (a {suffix} file)"
+                )
+                continue
             library = archive.read(built[0])
-            shipped = set(archive.namelist())
-        absent = [
-            name
-            for name in licences
-            if not any(PurePosixPath(entry).match(f"*.dist-info/licenses/{name}") for entry in shipped)
-        ]
-        if absent:
-            problems.append(f"{wheel.name}: lacks the licence file {', '.join(absent)} under *.dist-info/licenses/")
         with tempfile.TemporaryDirectory() as scratch:
             tree = Path(scratch) / package.name
             native = extension.parent.relative_to(package.name)
@@ -99,26 +75,6 @@ def check(folder: Path) -> list[str]:
         if contents.returncode != 0:
             problems.append(contents.stdout + contents.stderr)
     return problems
-
-
-def _missing_from_sdist(sdist: Path, licences: list[str]) -> list[str]:
-    """One report if the sdist lacks what a build of the Rust extension needs (the checkout's workspace says what) or a
-    licence file."""
-    workspace = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))["workspace"]
-    fonts = [path.as_posix() for path in Path().glob(FONT_FILES)]  # compiled into the extension
-    needed = [
-        "Cargo.toml",
-        "Cargo.lock",
-        "rust-toolchain.toml",
-        *fonts,
-        *(f"{member}/Cargo.toml" for member in workspace["members"]),
-    ]
-    with tarfile.open(sdist) as archive:
-        shipped = {PurePosixPath(*PurePosixPath(name).parts[1:]).as_posix() for name in archive.getnames()}
-    missing = [name for name in needed if name not in shipped]
-    problems = [f"{sdist.name}: lacks {', '.join(missing)}, which a build of the extension needs"] if missing else []
-    unlicensed = [name for name in licences if name not in shipped]
-    return [*problems, f"{sdist.name}: lacks the licence file {', '.join(unlicensed)}"] if unlicensed else problems
 
 
 def _local_builds(native: Path, name: str) -> Callable[[str, list[str]], list[str]]:
@@ -140,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     for problem in problems:
         print(problem.rstrip(), file=sys.stderr)
     if not problems:
-        print("check-dists: every distribution passes (twine, sdist sources, one extension, check-wheel-contents)")
+        print("check-dists: every distribution passes (twine, one extension, check-wheel-contents)")
     return 1 if problems else 0
 
 

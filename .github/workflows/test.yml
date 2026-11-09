@@ -1,7 +1,7 @@
-# The Rust tests and the Python test suite on every supported operating system and Python. A pull request runs the
-# oldest and the newest Python on Linux; every other event (main, merge queue, by hand) runs all nine. The gate proofs
-# (marker `gate`: they copy the workspace and run cargo, ruff, mypy and Node) run on Linux only: macOS and Windows run the
-# Rust tests and the rest of the suite. Called by ci.yml; can also be started by hand.
+# The Rust tests and the test suite (it runs the import contracts too) on every supported operating system and Python.
+# A pull request runs the corners of that grid: the oldest and newest Python on Linux, and one newer Python on macOS and
+# on Windows; every other event (main, tags, releases, by hand) runs all nine. Called by ci.yml; can also be started by
+# hand.
 name: Test
 
 on:
@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false # one red platform must not hide the state of the others
       # `github.event_name` is the caller's event (ci.yml's) when this file is called
-      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"include":[{"os":"ubuntu-latest","python":"3.12"},{"os":"ubuntu-latest","python":"3.14"}]}' || '{"os":["ubuntu-latest","macos-latest","windows-latest"],"python":["3.12","3.13","3.14"]}') }}
+      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"include":[{"os":"ubuntu-latest","python":"3.12"},{"os":"ubuntu-latest","python":"3.14"},{"os":"macos-latest","python":"3.13"},{"os":"windows-latest","python":"3.13"}]}' || '{"os":["ubuntu-latest","macos-latest","windows-latest"],"python":["3.12","3.13","3.14"]}') }}
     steps:
       # Windows runners check text files out with CRLF line endings; the suite expects the files as committed
       - name: Keep line endings as committed
@@ -36,23 +36,15 @@ jobs:
       - name: Install the pinned Rust toolchain (rust-toolchain.toml)
         run: rustup toolchain install --no-self-update && cargo --version
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      # the gate proofs run the cargo tools too (tests/tools/test_rust_gates.py), so only the runs that have them need
-      # them; their versions are written once, in Cargo.toml's [workspace.metadata.tools], and install-action downloads
-      # prebuilt, checksum-verified binaries
+      # the suite runs the cargo tools too (tests/tools/test_rust_gates.py); their versions are written once, in
+      # Cargo.toml's [workspace.metadata.tools], and install-action downloads prebuilt, checksum-verified binaries
       - name: Read the cargo tools' versions (Cargo.toml)
         id: cargo-tools
-        if: runner.os == 'Linux'
+        shell: bash
         run: echo "specs=$(uv run --no-project python tools/rust_tools.py specs)" >> "$GITHUB_OUTPUT"
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
-        if: runner.os == 'Linux'
         with:
           tool: ${{ steps.cargo-tools.outputs.specs }}
-      # the WebAssembly package is tested in Node (`poe wasm-test`, which the gate proofs below run too), on Linux only
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: runner.os == 'Linux'
-        with:
-          node-version: "26"
-          package-manager-cache: false
       # every crate Cargo.lock names, for every platform and target: the dev-dependencies and the cargo-deny gate's
       # metadata too, which building the extension does not download. The gates and tests below run cargo offline.
       - name: Fetch the locked crates (cargo fetch)
@@ -61,14 +53,11 @@ jobs:
         run: uv sync --locked
       - name: Rust tests (cargo test)
         run: uv run --locked poe rust-test
-      - name: WebAssembly package (build, run in Node, compare with the native extension)
-        if: runner.os == 'Linux'
-        run: uv run --locked poe wasm-test
       # -ra lists every skipped or expected-failing test with its reason; --durations shows what makes the run slow
-      - name: Tests (pytest without the gate proofs; skips and the 10 slowest tests are listed)
+      - name: Tests (pytest; skips and the 10 slowest tests are listed)
         run: uv run --locked poe test -ra --durations=10
-      # the proofs `poe full` runs after the gates; CI always runs them (`poe check` runs them only when due). The gates
-      # run on Linux in lint.yml, so the proofs run once, on the Linux cell both matrices have.
-      - name: Gate proofs (each gate rejects a known-bad input; the 10 slowest tests are listed)
+      # the gate proofs (`poe full` runs them too): each copies the workspace, writes a known-bad input and expects the gate to fail.
+      # The gates run on Linux in lint.yml, so the proofs run once, on the Linux cell both matrices have.
+      - name: Gate proofs (pytest -m gate; the 10 slowest are listed)
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
         run: uv run --locked poe gate-tests -ra --durations=10

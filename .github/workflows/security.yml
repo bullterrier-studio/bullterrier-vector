@@ -1,7 +1,7 @@
 # Known vulnerabilities in the locked dependencies (pip-audit for Python, cargo-deny for Rust), code scanning (CodeQL,
 # Python and Rust), and the dependencies a pull request adds (dependency review). Part of every CI run (ci.yml calls it,
-# so a known vulnerability stops the build), and on its own weekly, because advisories appear without any change here,
-# and by hand.
+# so a known vulnerability stops the build), and on its own weekly, because advisories appear without
+# any change here, and by hand.
 # No `concurrency`: called from ci.yml, a group shared with a scheduled run could cancel CI's pending security job.
 name: Security
 
@@ -69,8 +69,8 @@ jobs:
 
   dependency-review:
     name: Dependency review
-    # called from ci.yml the event is ci.yml's: a pull request runs this, a push, merge queue or schedule skips it (a
-    # skipped job does not fail the workflow), since only a pull request has a base to compare against
+    # called from ci.yml the event is ci.yml's: a pull request runs this, a push, merge queue or schedule skips
+    # it (a skipped job does not fail the workflow), since only a pull request has a base to compare against
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10

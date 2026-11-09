@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   lint:
-    name: Format, lint, dead code, docs, dependencies, types, WebAssembly, workflows
+    name: Format, lint, dead code, docs, dependencies, types, workflows
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -22,7 +22,7 @@ jobs:
         with:
           enable-cache: true
       # rustup is on the runner; with no argument it installs the toolchain rust-toolchain.toml pins (rustfmt, clippy,
-      # and the wasm32-unknown-unknown target the WebAssembly step builds for)
+      # the wasm32 target)
       - name: Install the pinned Rust toolchain (rust-toolchain.toml)
         run: rustup toolchain install --no-self-update && cargo --version
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -46,11 +46,9 @@ jobs:
         run: uv run --locked poe rust-fmt
       - name: Lint (ruff check)
         run: uv run --locked ruff check .
-      - name: Rust integration tests are one binary per crate
-        run: uv run --locked poe rust-test-layout
       - name: Lint (clippy)
         run: uv run --locked poe rust-lint
-      - name: Dead code (vulture)
+      - name: Dead code (vulture, the fields the Rust core reads excepted)
         run: uv run --locked poe dead-code && echo "vulture found no dead code"
       - name: Rust documentation (rustdoc)
         run: uv run --locked poe rust-doc
@@ -58,13 +56,13 @@ jobs:
         run: uv run --locked deptry .
       - name: Cargo tools at the pinned versions
         run: uv run --locked poe rust-tools
+      - name: Rust integration tests are one binary per crate
+        run: uv run --locked poe rust-test-layout
       - name: Unused Rust dependencies (cargo-shear)
         run: uv run --locked poe rust-shear
       - name: Rust dependencies (cargo-deny bans, licenses, sources)
         run: uv run --locked poe rust-deny
-      - name: The font crates are built without std (their maths is libm's)
-        run: uv run --locked poe rust-fonts
-      - name: The core builds for WebAssembly (wasm32-unknown-unknown)
+      - name: Core builds for the browser (wasm32-unknown-unknown)
         run: uv run --locked poe rust-wasm
       - name: Types (mypy)
         run: uv run --locked mypy

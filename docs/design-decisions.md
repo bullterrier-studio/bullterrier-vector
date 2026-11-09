@@ -909,23 +909,6 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **Same output on every target is a differential test, not golden files** (2026-10-28). The same drawings are rendered
   natively and in WebAssembly and compared byte for byte. *Reason:* committed golden images go stale and get updated
   without review; a differential test needs no reviewed baseline.
-- **A gate that passed is not repeated on the same tree** (2026-11-01). `poe check` notes the tree of `HEAD` when it
-  starts and, when every step passed, records it in the git folder if the working tree was clean at both ends and `HEAD`
-  was unchanged; the pre-push hook skips the gate for a tip with that tree. *Reason:* the hook repeated a 6-minute gate
-  on contents just checked, and a slow loop gets worked around. *Consequence:* nothing is skipped that was not checked;
-  an edit, a commit during the run or any uncommitted file means no record, and CI checks everything again.
-- **Gate tiers** (2026-11-08). `fast` (inner loop), `check` (before a merge) and `full` (before a tag, in CI). The gate proofs
-  (130 tests that copy the workspace and prove each gate rejects a known-bad input) are most of a gate's time and depend
-  on little: `check` runs them only when a path of `[tool.gate-proofs]` (everything they read, copy, edit or anchor on)
-  changed since the last recorded pass, `full` always does. *Reason:* a proof can only change its verdict when the gate, the
-  tool versions or the files it edits change; the library code it copies is checked by the gates themselves. Measured warm: the
-  gates about 3 minutes, the proofs 8 or more. *Fail safe:* the baseline is a commit in the git folder, written
-  when `full` (or a `check` that ran the proofs) passed on a clean tree, never `origin/main`; no record, a commit git lost,
-  a shallow clone or no repository run the proofs, and the changes are read from the diff against that commit plus the
-  untracked files, not from the working tree alone. The pass record holds the tier with the tree, so a `check` pass never satisfies a tag push.
-  *Consequence:* a stale trigger would silently stop guarding, so a test fails for a listed path that is gone; a proof
-  that starts reading a new file must add it. CI runs `poe test` everywhere and `poe gate-tests` once on Linux, so a skipped proof
-  is caught on `main` at the latest.
 - **Optimised Rust tests, the stack tests not** (2026-11-08). `cargo test` builds with `opt-level = 1` (`[profile.test]`),
   workspace code included. Measured warm at load 7 to 12: `tests/it` 437 s of CPU unoptimised, 59 s optimised;
   `drawing_limits` 70 s of CPU and 64 s wall, 13 s; `poe rust-test` about 120 s wall, 30 s. *Reason:* the time is in this
@@ -947,12 +930,9 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   and later, adds `unsafe` and a C compiler to the sdist build, and trades a bounded stack for unbounded memory.
   *Consequence:* `tests/test_stack_depth.py` and `crates/core/tests/stack.rs` run the deepest structures on the minimum
   stack; a new node or reader adds its structure to them.
-- **Platforms** (2026-10-28). One abi3 wheel (every Python from 3.12) for Linux x86_64 and aarch64 (manylinux_2_28), macOS
-  arm64 and x86_64, and Windows x86_64; the sdist, which builds the extension with rustup, covers every other platform.
-  No musl wheel. *Reason:* no dependency sets a floor, so this is the conventional set; revisit when asked.
-  *Consequence:* development and the full gate target macOS and Linux first. CI builds and installs a wheel on all five
-  platforms; its gate proofs run on Linux, and its macOS and Windows legs run the Rust tests and the rest of the suite.
-  Windows stays a reduced set until the first real CI run says otherwise.
+
+The template's decisions (the gate tiers, the pass record, the memory cap, the test layout, the platforms) are in
+[template-decisions.md](template-decisions.md).
 
 ## Open
 

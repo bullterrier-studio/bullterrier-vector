@@ -1,5 +1,5 @@
-"""The Rust gates can fail: each Rust task of `poe check` rejects a known-bad change, naming the rule, and passes the
-workspace as it is.
+"""The Rust gates can fail: each Rust task of `poe check` rejects a known-bad change, naming the rule. That the
+workspace as it is passes is not tested here: `poe check` runs the same tasks on it.
 
 An architecture test of the tooling: its subject is the configuration (the poe tasks in pyproject.toml, the lints in
 Cargo.toml, rustfmt.toml, deny.toml), so it runs those tasks, the way `uv run poe check` does, in a copy of the Rust
@@ -7,30 +7,24 @@ workspace into which one offence at a time is written. The copies share one buil
 compiled once, and nothing needs the network.
 """
 
+import os
 import shutil
 import subprocess
 import sys
+import time
+import tomllib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-# one xdist worker runs this module, so its copy of the workspace and its build folder are made once
 pytestmark = pytest.mark.gate
-WORKSPACE_FILES = [
-    "pyproject.toml",
-    "Cargo.toml",
-    "Cargo.lock",
-    "rust-toolchain.toml",
-    "rustfmt.toml",
-    "clippy.toml",
-    "deny.toml",
-]
+
+ROOT = Path(__file__).resolve().parents[2]
+WORKSPACE_FILES = ["pyproject.toml", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rustfmt.toml", "deny.toml"]
 CORE = "crates/core/src/lib.rs"
 CORE_MANIFEST = "crates/core/Cargo.toml"
-CARGO_TASKS = ["rust-fmt", "rust-lint", "rust-doc", "rust-wasm", "rust-shear", "rust-deny", "rust-fonts", "rust-test"]
 
 
 @dataclass(frozen=True)
@@ -46,28 +40,54 @@ def workspace(tmp_path_factory, copy_tree) -> Path:
         shutil.copy(ROOT / name, root)
     copy_tree(ROOT / "crates", root / "crates")
     copy_tree(ROOT / "tools", root / "tools", ignore=shutil.ignore_patterns("__pycache__"))
-    # the JSON tests read the example documents of the format
-    copy_tree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
     return root
 
 
+@pytest.fixture(scope="module")
+def cargo_env(build_folder) -> dict[str, str]:
+    """`uv run`'s environment (PyO3 finds this Python), offline, uncoloured, with one build folder for every copy."""
+    return {
+        **os.environ,
+        "PATH": os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")]),
+        "CARGO_TARGET_DIR": str(build_folder),
+        # `uv run` (the rust-test task) uses this environment as it is: no sync, no build of the copy
+        "UV_PROJECT_ENVIRONMENT": sys.prefix,
+        "UV_NO_SYNC": "1",
+        "CARGO_NET_OFFLINE": "true",
+        "CARGO_TERM_COLOR": "never",
+        "NO_COLOR": "1",
+    }
+
+
 def poe(workspace: Path, task: str, env: dict[str, str]) -> Verdict:
+    """Run `task` (a poe task, with any arguments it passes on, such as a test filter) in the copy."""
     # the simple executor: the commands run in this environment, as under `uv run`, without making one for the copy
-    command = [sys.executable, "-m", "poethepoet", "--executor", "simple", task]
+    command = [sys.executable, "-m", "poethepoet", "--executor", "simple", *task.split()]
     result = subprocess.run(command, cwd=workspace, env=env, capture_output=True, encoding="utf-8", check=False)
-    return Verdict(result.returncode, result.stdout + result.stderr)
+    # cargo prints paths with the platform's separator; the cases name them with `/`
+    return Verdict(result.returncode, (result.stdout + result.stderr).replace("\\", "/"))
+
+
+def read(path: Path) -> str:
+    """The text of `path` as its bytes spell it: no newline translation, so a write restores the file exactly."""
+    return path.read_bytes().decode("utf-8")
+
+
+def write(path: Path, text: str) -> None:
+    """`text` as UTF-8 with its newlines as they are: rustfmt wants Unix ones (`newline_style`) on every platform."""
+    path.write_bytes(text.encode("utf-8"))
 
 
 @pytest.fixture
 def edit(workspace, cargo_env) -> Iterator[Callable[[str, Callable[[str], str]], None]]:
     """`edit(relative, change)` rewrites one file of the copy with `change(text)` for one test; afterwards the copy is
     as it was, Cargo.lock included. A manifest edit updates the lock offline, as `cargo add` would."""
-    touched = {"Cargo.lock": (workspace / "Cargo.lock").read_text(encoding="utf-8")}
+    touched = {"Cargo.lock": read(workspace / "Cargo.lock")}
 
     def change(relative: str, rewrite: Callable[[str], str]) -> None:
         path = workspace / relative
-        touched.setdefault(relative, path.read_text(encoding="utf-8"))
-        path.write_text(rewrite(path.read_text(encoding="utf-8")), encoding="utf-8")
+        touched.setdefault(relative, read(path))
+        write(path, rewrite(read(path)))
         if relative.endswith("Cargo.toml"):
             subprocess.run(
                 ["cargo", "metadata", "--offline", "--format-version", "1"],
@@ -79,11 +99,23 @@ def edit(workspace, cargo_env) -> Iterator[Callable[[str, Callable[[str], str]],
 
     yield change
     for relative, text in touched.items():
-        (workspace / relative).write_text(text, encoding="utf-8")
+        write(workspace / relative, text)
 
 
 def appended(source: str) -> Callable[[str], str]:
     return lambda text: text + source
+
+
+def dependency(line: str) -> Callable[[str], str]:
+    """A manifest rewrite adding `line` to `[dependencies]`: under the table when the crate has one, else a new table
+    (a core may or may not have runtime dependencies of its own)."""
+
+    def rewrite(text: str) -> str:
+        if "\n[dependencies]\n" in text:
+            return text.replace("\n[dependencies]\n", f"\n[dependencies]\n{line}\n", 1)
+        return f"{text.rstrip()}\n\n[dependencies]\n{line}\n"
+
+    return rewrite
 
 
 def replaced(old: str, new: str) -> Callable[[str], str]:
@@ -92,12 +124,6 @@ def replaced(old: str, new: str) -> Callable[[str], str]:
         return text.replace(old, new)
 
     return rewrite
-
-
-@pytest.mark.parametrize("task", CARGO_TASKS)
-def test_the_workspace_as_it_is_passes_each_rust_gate(workspace, cargo_env, task):
-    verdict = poe(workspace, task, cargo_env)
-    assert verdict.returncode == 0, verdict.report
 
 
 # One offence each: (task, file, change, what the report must name: the rule, and where it was broken)
@@ -138,9 +164,9 @@ OFFENCES = {
     ),
     "pub where no user of the crate reaches it": (
         "rust-lint",
-        "crates/core/src/geometry.rs",
-        appended("\n/// Probe.\npub fn reachable_only_inside() {}\n"),
-        ["unreachable-pub", "crates/core/src/geometry.rs"],
+        CORE,
+        appended("\nmod inside {\n    /// Probe.\n    pub fn reachable_only_inside() {}\n}\n"),
+        ["unreachable-pub", CORE],
     ),
     "unsafe code in the core": (
         "rust-lint",
@@ -149,6 +175,15 @@ OFFENCES = {
             "\n/// Probe.\n#[must_use]\npub fn probe(value: &u8) -> u8 {\n    unsafe { *std::ptr::from_ref(value) }\n}"
         ),
         ["unsafe_code", CORE],
+    ),
+    "unsafe code allowed on a function in the core": (
+        "rust-lint",
+        CORE,
+        appended(
+            "\n/// Probe.\n#[must_use]\n#[allow(unsafe_code)]\npub fn probe(value: &u8) -> u8 {\n"
+            "    // SAFETY: a reference is valid to read.\n    unsafe { *std::ptr::from_ref(value) }\n}\n"
+        ),
+        ["allow(unsafe_code)", "forbid", CORE],
     ),
     "a pedantic lint": (
         "rust-lint",
@@ -162,122 +197,23 @@ OFFENCES = {
         appended("\n/// Like [`Nowhere`].\npub fn probe() {}\n"),
         ["broken-intra-doc-links", "Nowhere"],
     ),
-    "platform trigonometry": (
-        "rust-lint",
-        CORE,
-        appended("\n/// Probe.\n#[must_use]\npub fn probe(x: f64) -> f64 {\n    x.sin()\n}\n"),
-        ["disallowed_methods", "crate::math", CORE],
-    ),
-    "reading a file in the core": (
-        "rust-lint",
-        CORE,
-        appended('\n/// Probe.\npub fn probe() {\n    drop(std::fs::read("x"));\n}\n'),
-        ["disallowed_methods", "callers pass bytes", CORE],
-    ),
-    "the clock": (
-        "rust-lint",
-        CORE,
-        appended("\n/// Probe.\npub fn probe() {\n    let _ = std::time::Instant::now();\n}\n"),
-        ["disallowed_methods", "no clock", CORE],
-    ),
-    "hyperbolic maths": (
-        "rust-lint",
-        CORE,
-        appended("\n/// Probe.\n#[must_use]\npub fn probe(x: f64) -> f64 {\n    x.asinh()\n}\n"),
-        ["disallowed_methods", "crate::math", CORE],
-    ),
-    "reading the environment": (
-        "rust-lint",
-        CORE,
-        appended('\n/// Probe.\npub fn probe() {\n    drop(std::env::var_os("X"));\n}\n'),
-        ["disallowed_methods", "callers pass bytes", CORE],
-    ),
-    "the clock through the Unix epoch": (
-        "rust-lint",
-        CORE,
-        appended("\n/// Probe.\npub fn probe() {\n    let _ = std::time::UNIX_EPOCH.elapsed();\n}\n"),
-        ["disallowed_methods", "no clock", CORE],
-    ),
-    "opening a file with OpenOptions": (
-        "rust-lint",
-        CORE,
-        appended("\n/// Probe.\npub fn probe() {\n    let _ = std::fs::OpenOptions::new();\n}\n"),
-        ["disallowed_types", "callers pass bytes", CORE],
-    ),
-    "a file handle in a signature": (
-        "rust-lint",
-        CORE,
-        appended("\n/// Probe.\npub fn probe(_file: &std::fs::File) {}\n"),
-        ["disallowed_types", "callers pass bytes", CORE],
-    ),
-    "a SystemTime in a signature": (
-        "rust-lint",
-        CORE,
-        appended("\n/// Probe.\npub fn probe(_time: std::time::SystemTime) {}\n"),
-        ["disallowed_types", "no clock", CORE],
-    ),
-    "a hash-ordered map": (
-        "rust-lint",
-        CORE,
-        appended(
-            "\n/// Probe.\n#[must_use]\npub fn probe() -> std::collections::HashMap<u8, u8> {\n"
-            "    Default::default()\n}\n"
-        ),
-        ["disallowed_types", CORE],
-    ),
-    "code that does not build for WebAssembly": (
-        "rust-wasm",
-        CORE,
-        appended(
-            "\n/// Probe.\n#[must_use]\npub fn probe(text: &std::ffi::OsStr) -> &[u8] {\n"
-            "    use std::os::unix::ffi::OsStrExt;\n    text.as_bytes()\n}\n"
-        ),
-        ["cannot find `unix` in `os`", CORE],
-    ),
-    "code in the WebAssembly bindings that does not build for WebAssembly": (
-        "rust-wasm",
-        "crates/wasm/src/lib.rs",
-        appended(
-            "\n/// Probe.\n#[must_use]\npub fn probe(text: &std::ffi::OsStr) -> &[u8] {\n"
-            "    use std::os::unix::ffi::OsStrExt;\n    text.as_bytes()\n}\n"
-        ),
-        ["cannot find `unix` in `os`", "crates/wasm/src/lib.rs"],
-    ),
     "a dependency no code uses": (
         "rust-shear",
         CORE_MANIFEST,
-        replaced("[dependencies]\n", '[dependencies]\nlibc = "0.2"\n'),
+        dependency('libc = "0.2"'),
         ["unused dependency `libc`", CORE_MANIFEST],
     ),
     "PyO3 in the pure-Rust core": (
         "rust-deny",
         CORE_MANIFEST,
-        replaced("[dependencies]\n", "[dependencies]\npyo3.workspace = true\n"),
-        ["banned", "pyo3", "parent 'bullterrier-vector = "],  # the core, by name
+        dependency("pyo3.workspace = true"),
+        ["banned", "pyo3", "bullterrier-vector"],
     ),
-    "wasm-bindgen in the pure-Rust core": (
+    "PyO3's raw bindings in the pure-Rust core": (
         "rust-deny",
         CORE_MANIFEST,
-        replaced("[dependencies]\n", "[dependencies]\nwasm-bindgen.workspace = true\n"),
-        ["banned", "wasm-bindgen", "parent 'bullterrier-vector = "],
-    ),
-    "std switched on for a font crate": (
-        "rust-fonts",
-        "Cargo.toml",
-        replaced(
-            'harfrust = { version = "=0.15.0", default-features = false, features = ["libm"] }',
-            'harfrust = { version = "=0.15.0", default-features = false, features = ["libm", "std"] }',
-        ),
-        ["harfrust 0.15.0", "std"],
-    ),
-    "default features switched on for a font crate": (
-        "rust-fonts",
-        "Cargo.toml",
-        replaced(
-            'read-fonts = { version = "=0.46.0", default-features = false, features = ["libm"] }',
-            'read-fonts = { version = "=0.46.0", features = ["libm"] }',
-        ),
-        ["read-fonts 0.46.0", "std"],
+        dependency('pyo3-ffi = "0.30"'),
+        ["banned", "pyo3-ffi", "bullterrier-vector"],
     ),
     "a licence outside the allow-list": (
         "rust-deny",
@@ -285,8 +221,15 @@ OFFENCES = {
         replaced("license.workspace = true", 'license = "GPL-3.0-only"'),
         ["rejected", "GPL-3.0-only"],
     ),
+    "an API the browser build lacks": (
+        "rust-wasm",
+        CORE,
+        appended("\nuse std::os::unix::ffi::OsStrExt;\n"),
+        ["unix", CORE],
+    ),
+    # only the probe runs (a test filter): the proof is that `rust-test` fails on a failing test, not the suite again
     "a failing Rust test": (
-        "rust-test",
+        "rust-test probe::fails",
         CORE,
         appended(
             "\n#[cfg(test)]\nmod probe {\n    #[test]\n    fn fails() {\n        assert_eq!(1 + 1, 3);\n    }\n}\n"
@@ -305,6 +248,43 @@ def test_each_offence_fails_its_gate_naming_the_rule(workspace, cargo_env, edit,
         assert name in verdict.report, verdict.report
 
 
+@pytest.mark.parametrize(
+    "manifest",
+    [
+        pytest.param('[package]\nname = "core"\n\n[dev-dependencies]\nproptest = "1"\n', id="no runtime dependencies"),
+        pytest.param('[package]\nname = "core"\n\n[dependencies]\nlibm = "0.2"\n', id="dependencies of its own"),
+    ],
+)
+def test_a_probe_adds_its_dependency_to_any_core_manifest(manifest):
+    added = tomllib.loads(dependency('libc = "0.2"')(manifest))
+    assert added["dependencies"]["libc"] == "0.2"
+    assert set(tomllib.loads(manifest).get("dependencies", {})) <= set(added["dependencies"])  # none lost
+
+
+def test_a_copy_is_newer_than_what_an_earlier_copy_built(tmp_path, copy_tree):
+    """The build folder outlives the copies, and cargo rebuilds a crate only when a source is newer than its artifacts:
+    a copy keeping the original's old time would be taken for an earlier proof's edited sources."""
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "lib.rs").write_text("pub fn one() {}\n", encoding="utf-8")
+    os.utime(source / "lib.rs", (1_136_073_600, 1_136_073_600))  # 2006, the sdist's date
+    before = time.time()
+    copy = copy_tree(source, tmp_path / "copy")
+    assert (copy / "lib.rs").stat().st_mtime >= before - 1
+
+
+def test_a_stray_test_binary_fails_the_layout_gate_naming_the_file(workspace, cargo_env):
+    """A new `tests/*.rs` is an executable of its own; it is not an `OFFENCES` row, which edit a file that exists."""
+    stray = workspace / "crates/core/tests/stray.rs"
+    write(stray, "//! Stray.\n")
+    try:
+        verdict = poe(workspace, "rust-test-layout", cargo_env)
+    finally:
+        stray.unlink()
+    assert verdict.returncode != 0, verdict.report
+    assert "crates/core/tests/stray.rs: a test binary of its own" in verdict.report
+
+
 # --- stubtest: the stub against the built extension ---------------------------------------------------------------
 
 
@@ -316,40 +296,42 @@ def stubtest(checkout: Path, env: dict[str, str]) -> Verdict:
 
 
 STUB = "src/bullterrier_vector/_native/_core.pyi"
+EXTENSION = "bullterrier_vector._native._core"
 
 
+@pytest.mark.typecheck
+@pytest.mark.control
 def test_the_stub_as_it_is_matches_the_extension(project_copy, copy_env):
     verdict = stubtest(project_copy("pyproject.toml"), copy_env)
     assert verdict.returncode == 0, verdict.report
 
 
-REVERSE = "    def reverse(self) -> Path: ...\n"
-
-
+# A function left out of the stub is not a row: the package imports `scale`, so mypy reports it first and stubtest does
+# not run.
+@pytest.mark.typecheck
 @pytest.mark.parametrize(
-    ("edits", "named"),
+    ("old", "new", "named"),
     [
         pytest.param(
-            {STUB: [("def circle(center: _PointLike, radius: float)", "def circle(center: _PointLike, size: float)")]},
-            ["bullterrier_vector._native._core.Path.circle"],
-            id="a parameter renamed",
+            "def scale(value: float, factor: float) -> float: ...\n",
+            "def scale(value: float, factor: float) -> float: ...\ndef ghost() -> int: ...\n",
+            f"{EXTENSION}.ghost",
+            id="a function the extension lacks",
         ),
         pytest.param(
-            {STUB: [(REVERSE, "")]},
-            ["bullterrier_vector._native._core.Path.reverse", "not present in stub"],
-            id="a method left out",
+            "def scale(value: float, factor: float) -> float: ...\n",
+            "def scale(value: float, factor: float, extra: int) -> float: ...\n",
+            f"{EXTENSION}.scale",
+            id="a parameter the extension lacks",
         ),
     ],
 )
-def test_a_stub_that_disagrees_with_the_extension_fails_naming_the_member(project_copy, copy_env, edits, named):
+def test_a_stub_that_disagrees_with_the_extension_fails_naming_the_function(project_copy, copy_env, old, new, named):
     checkout = project_copy("pyproject.toml")
-    for relative, changes in edits.items():
-        text = (checkout / relative).read_text(encoding="utf-8")
-        for old, new in changes:
-            assert old in text
-            text = text.replace(old, new)
-        (checkout / relative).write_text(text, encoding="utf-8")
+    stub = checkout / STUB
+    text = stub.read_text(encoding="utf-8")
+    assert old in text
+    stub.write_text(text.replace(old, new), encoding="utf-8")
     verdict = stubtest(checkout, copy_env)
     assert verdict.returncode != 0, verdict.report
-    for name in named:
-        assert name in verdict.report, verdict.report
+    assert named in verdict.report, verdict.report

@@ -21,6 +21,12 @@ import pytest
 # slow: the tests of this module run with the gate proofs (`poe gate-tests`, `poe full`), when their inputs change
 pytestmark = pytest.mark.gate
 
+
+def explicit_env(**extra: str) -> dict[str, str]:
+    """This process's environment (tests/conftest.py has hidden GIT_* and PRE_COMMIT_*) plus `extra`."""
+    return {**os.environ, **extra}
+
+
 ROOT = Path(__file__).resolve().parents[2]
 
 PROBE = """import subprocess
@@ -102,14 +108,14 @@ def run_probe(tmp_path: Path, tests_conftest: str, explicit_env) -> Run:
     return Run(enclosing, head, status, result)
 
 
-def test_a_git_repo_never_reaches_the_repository_that_enclosing_git_variables_name(tmp_path, explicit_env):
+def test_a_git_repo_never_reaches_the_repository_that_enclosing_git_variables_name(tmp_path):
     run = run_probe(tmp_path, (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8"), explicit_env)
     assert run.probe.returncode == 0, run.probe.stdout + run.probe.stderr  # the probe committed in its own repository
     assert git(run.enclosing, "rev-parse", "HEAD") == run.head
     assert git(run.enclosing, "status", "--porcelain") == run.status
 
 
-def test_without_the_fixture_the_probe_does_reach_the_enclosing_repository(tmp_path, explicit_env):
+def test_without_the_fixture_the_probe_does_reach_the_enclosing_repository(tmp_path):
     """The control: this is what the fixture prevents, so the test above can fail."""
     run = run_probe(tmp_path, NO_FIXTURE, explicit_env)
     assert git(run.enclosing, "rev-parse", "HEAD") != run.head

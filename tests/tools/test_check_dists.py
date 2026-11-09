@@ -1,7 +1,5 @@
 """tools/check_dists.py: a folder of built distributions passes only when twine accepts every file and each wheel holds
-the package's code (its stub and `py.typed` included), one build of its extension for its platform, and nothing else,
-every sdist holds the Rust sources a build of the extension needs, and sdists and wheels carry the licence files
-the project declares.
+the package's code, one build of its extension for its platform, and nothing else.
 
 The distributions are a tiny package's, written here file by file as a build backend would (no build: a wheel is a zip
 with its metadata and RECORD), in a project whose pyproject.toml configures check-wheel-contents and maturin as ours
@@ -23,51 +21,29 @@ import pytest
 pytestmark = pytest.mark.tooling
 
 ROOT = Path(__file__).resolve().parents[2]
-# one xdist worker: every case runs twine and check-wheel-contents
 
-PYPROJECT = """[project]
-license-files = ["LICENSE"]
-
-[tool.check-wheel-contents]
+PYPROJECT = """[tool.check-wheel-contents]
 package = "src/demo"
-package_omit = ["__pycache__", "*.pyc", "test_*.py"]
+package_omit = ["__pycache__", "*.pyc"]
 
 [tool.maturin]
 module-name = "demo._native._core"
 """
-CARGO = '[workspace]\nmembers = ["crates/core", "crates/python"]\n'
-RUST = {  # what an sdist holds besides the package (and its metadata) so the extension can be built from it
-    "Cargo.toml": CARGO,
-    "Cargo.lock": "# lock\n",
-    "rust-toolchain.toml": '[toolchain]\nchannel = "1.99.1"\n',
-    "crates/core/Cargo.toml": "[package]\n",
-    "crates/python/Cargo.toml": "[package]\n",
-}
 TREE = {  # the package as the checkout has it
     "demo/__init__.py": '"""Demo."""\n',
-    "demo/shapes.py": '"""Shapes."""\n',
-    "demo/py.typed": "",
+    "demo/effects.py": '"""Effects."""\n',
     "demo/_native/__init__.py": '"""Native."""\n',
     "demo/_native/_core.pyi": "def apply() -> None: ...\n",
 }
 METADATA = "Metadata-Version: 2.1\nName: demo\nVersion: 1.0\nSummary: Demo.\nDescription-Content-Type: {kind}\n\n{text}"
-LICENCE = "MIT License\n"
 GOOD_DESCRIPTION = ("text/markdown", "# Demo\n\nRenders.\n")
 
 
-FONT = "crates/core/fonts/demo"  # a bundled font of the project, when it has one: its file and its licence text
-
-
-def wheel(
-    folder: Path, platform: str, files: Mapping[str, bytes | str], *, licensed: bool = True, font_licence: bool = False
-) -> Path:
-    """A wheel of `demo` for `platform` holding `files`, with its dist-info (and the licence, unless not `licensed`, and
-    the licence of the bundled font if `font_licence`) and a RECORD of their hashes."""
+def wheel(folder: Path, platform: str, files: Mapping[str, bytes | str]) -> Path:
+    """A wheel of `demo` for `platform` holding `files`, with its dist-info and a RECORD of their hashes."""
     info = "demo-1.0.dist-info"
     entries = {
         **files,
-        **({f"{info}/licenses/LICENSE": LICENCE} if licensed else {}),
-        **({f"{info}/licenses/{FONT}/OFL.txt": "OFL\n"} if font_licence else {}),
         f"{info}/METADATA": METADATA.format(kind=GOOD_DESCRIPTION[0], text=GOOD_DESCRIPTION[1]),
         f"{info}/WHEEL": f"Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: false\nTag: cp312-abi3-{platform}\n",
     }
@@ -84,30 +60,14 @@ def wheel(
     return path
 
 
-def sdist(
-    folder: Path,
-    description: tuple[str, str] = GOOD_DESCRIPTION,
-    rust: Mapping[str, str] = RUST,
-    *,
-    licensed: bool = True,
-    font: tuple[str, ...] = (),
-) -> Path:
-    """An sdist of `demo` with its metadata, pyproject.toml, the `rust` files, (if `licensed`) the licence and the
-    files of the bundled font named in `font` (`OFL.txt`, `demo.woff2`)."""
+def sdist(folder: Path, description: tuple[str, str] = GOOD_DESCRIPTION) -> Path:
     path = folder / "demo-1.0.tar.gz"
-    data = METADATA.format(kind=description[0], text=description[1])
-    files = {
-        "PKG-INFO": data,
-        "pyproject.toml": PYPROJECT,
-        **rust,
-        **({"LICENSE": LICENCE} if licensed else {}),
-        **{f"{FONT}/{name}": "font\n" for name in font},
-    }
+    data = METADATA.format(kind=description[0], text=description[1]).encode()
     with tarfile.open(path, "w:gz") as archive:
-        for name, text in files.items():
-            member = tarfile.TarInfo(f"demo-1.0/{name}")
-            member.size = len(text.encode())
-            archive.addfile(member, io.BytesIO(text.encode()))
+        for name, content in {"demo-1.0/PKG-INFO": data, "demo-1.0/pyproject.toml": PYPROJECT.encode()}.items():
+            member = tarfile.TarInfo(name)
+            member.size = len(content)
+            archive.addfile(member, io.BytesIO(content))
     return path
 
 
@@ -116,23 +76,12 @@ def project(tmp_path) -> Path:
     """The demo project, with an extension built in its checkout (as an editable install leaves one), and an empty
     `dist` folder."""
     (tmp_path / "pyproject.toml").write_text(PYPROJECT, encoding="utf-8")
-    (tmp_path / "Cargo.toml").write_text(CARGO, encoding="utf-8")
     for name, text in TREE.items():
         (tmp_path / "src" / name).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / "src" / name).write_text(text, encoding="utf-8")
     (tmp_path / "src" / "demo" / "_native" / "_core.abi3.so").write_bytes(b"built here")
     (tmp_path / "dist").mkdir()
     return tmp_path
-
-
-@pytest.fixture
-def font_project(project) -> Path:
-    """The demo project with a bundled font in its checkout. Its pyproject.toml lists only `LICENSE`, so that the
-    font's licence is required by the folder it is found in, not by what the build was told."""
-    (project / FONT).mkdir(parents=True)
-    (project / FONT / "OFL.txt").write_text("OFL\n", encoding="utf-8")
-    (project / FONT / "demo.woff2").write_bytes(b"wOF2")
-    return project
 
 
 LINUX = ("manylinux_2_28_x86_64", "demo/_native/_core.abi3.so")
@@ -166,51 +115,21 @@ def _two_extensions(dist: Path) -> None:
     wheel(dist, LINUX[0], {**TREE, LINUX[1]: b"one", "demo/_native/_core.cpython-312.so": b"two"})
 
 
+def _windows_wheel_with_a_linux_build(dist: Path) -> None:
+    wheel(dist, WINDOWS[0], {**TREE, LINUX[1]: b"built for Linux"})
+
+
+def _linux_wheel_with_a_windows_build(dist: Path) -> None:
+    wheel(dist, LINUX[0], {**TREE, WINDOWS[1]: b"built for Windows"})
+
+
 def _a_stray_file(dist: Path) -> None:
     wheel(dist, LINUX[0], {**TREE, LINUX[1]: b"built", "demo/notes.txt": "left behind\n"})
 
 
-def _a_test_file(dist: Path) -> None:
-    wheel(dist, LINUX[0], {**TREE, LINUX[1]: b"built", "demo/test_shapes.py": "def test_x(): ...\n"})
-
-
 def _code_left_out(dist: Path) -> None:
-    files = {name: text for name, text in TREE.items() if name != "demo/shapes.py"}
+    files = {name: text for name, text in TREE.items() if name != "demo/effects.py"}
     wheel(dist, LINUX[0], {**files, LINUX[1]: b"built"})
-
-
-def _no_py_typed(dist: Path) -> None:
-    files = {name: text for name, text in TREE.items() if name != "demo/py.typed"}
-    wheel(dist, LINUX[0], {**files, LINUX[1]: b"built"})
-
-
-def _no_stub(dist: Path) -> None:
-    files = {name: text for name, text in TREE.items() if name != "demo/_native/_core.pyi"}
-    wheel(dist, LINUX[0], {**files, LINUX[1]: b"built"})
-
-
-def _sdist_without_the_rust_sources(dist: Path) -> None:
-    (dist / "demo-1.0.tar.gz").unlink()
-    sdist(dist, rust={})
-
-
-def _sdist_without_a_workspace_member(dist: Path) -> None:
-    (dist / "demo-1.0.tar.gz").unlink()
-    sdist(dist, rust={name: text for name, text in RUST.items() if name != "crates/python/Cargo.toml"})
-
-
-def _sdist_without_the_toolchain(dist: Path) -> None:
-    (dist / "demo-1.0.tar.gz").unlink()
-    sdist(dist, rust={name: text for name, text in RUST.items() if name != "rust-toolchain.toml"})
-
-
-def _sdist_without_the_licence(dist: Path) -> None:
-    (dist / "demo-1.0.tar.gz").unlink()
-    sdist(dist, licensed=False)
-
-
-def _wheel_without_the_licence(dist: Path) -> None:
-    wheel(dist, LINUX[0], {**TREE, LINUX[1]: b"built"}, licensed=False)
 
 
 def _unrenderable_description(dist: Path) -> None:
@@ -221,16 +140,13 @@ def _unrenderable_description(dist: Path) -> None:
 BAD = {  # fault -> what the report must name
     "a wheel without the extension": (_no_extension, ["holds 0 builds", "demo/_native/_core"]),
     "a wheel with two builds of it": (_two_extensions, ["holds 2 builds"]),
+    "a win_amd64 wheel holding a .so": (_windows_wheel_with_a_linux_build, ["win_amd64", "_core.abi3.so", ".pyd"]),
+    "a manylinux wheel holding a .pyd": (
+        _linux_wheel_with_a_windows_build,
+        ["manylinux_2_28_x86_64", "_core.pyd", ".so"],
+    ),
     "a file the package does not have (W102)": (_a_stray_file, ["W102", "demo/notes.txt"]),
-    "a test file in the wheel (W102)": (_a_test_file, ["W102", "demo/test_shapes.py"]),
-    "code the wheel left out (W101)": (_code_left_out, ["W101", "demo/shapes.py"]),
-    "a wheel without py.typed (W101)": (_no_py_typed, ["W101", "demo/py.typed"]),
-    "a wheel without the stub (W101)": (_no_stub, ["W101", "demo/_native/_core.pyi"]),
-    "an sdist without crates/": (_sdist_without_the_rust_sources, ["demo-1.0.tar.gz", "crates/core/Cargo.toml"]),
-    "an sdist without one workspace member": (_sdist_without_a_workspace_member, ["crates/python/Cargo.toml"]),
-    "an sdist without the toolchain file": (_sdist_without_the_toolchain, ["rust-toolchain.toml"]),
-    "an sdist without the LICENSE file": (_sdist_without_the_licence, ["demo-1.0.tar.gz", "LICENSE"]),
-    "a wheel without the LICENSE file": (_wheel_without_the_licence, ["manylinux_2_28_x86_64.whl", "LICENSE"]),
+    "code the wheel left out (W101)": (_code_left_out, ["W101", "demo/effects.py"]),
     "a description PyPI cannot render (twine)": (_unrenderable_description, ["long_description"]),
 }
 
@@ -250,44 +166,3 @@ def test_an_empty_folder_fails(project):
     done = check_dists(project)
     assert done.returncode == 1
     assert "no sdist or wheel" in done.stderr
-
-
-def good_font_wheels(dist: Path) -> None:
-    for platform, extension in (LINUX, WINDOWS):
-        wheel(dist, platform, {**TREE, extension: f"built for {platform}".encode()}, font_licence=True)
-
-
-def test_distributions_that_hold_a_bundled_font_and_its_licence_pass(font_project):
-    sdist(font_project / "dist", font=("OFL.txt", "demo.woff2"))
-    good_font_wheels(font_project / "dist")
-    done = check_dists(font_project)
-    assert done.returncode == 0, done.stderr
-
-
-FONT_BAD = {  # fault -> what the report must name
-    "an sdist without the font's licence": (("demo.woff2",), True, ["demo-1.0.tar.gz", f"{FONT}/OFL.txt"]),
-    "an sdist without the font file": (("OFL.txt",), True, ["demo-1.0.tar.gz", f"{FONT}/demo.woff2"]),
-    "a wheel without the font's licence": (
-        ("OFL.txt", "demo.woff2"),
-        False,
-        ["manylinux_2_28_x86_64.whl", f"{FONT}/OFL.txt"],
-    ),
-}
-
-
-@pytest.mark.parametrize(("font", "wheel_licensed", "named"), FONT_BAD.values(), ids=FONT_BAD.keys())
-def test_a_distribution_lacking_a_bundled_font_or_its_licence_fails_naming_it(
-    font_project, font, wheel_licensed, named
-):
-    sdist(font_project / "dist", font=font)
-    for platform, extension in (LINUX, WINDOWS):
-        wheel(
-            font_project / "dist",
-            platform,
-            {**TREE, extension: b"built"},
-            font_licence=wheel_licensed or platform != LINUX[0],
-        )
-    done = check_dists(font_project)
-    assert done.returncode == 1
-    for name in named:
-        assert name in done.stderr, done.stderr

@@ -28,26 +28,25 @@ repos:
         name: ruff-format (fix with `uv run poe fix`)
         entry: uv run --no-sync ruff format --check
         language: system
-        types_or: [python, pyi]
+        types_or: [python, pyi]  # stubs too: pre-commit tags a .pyi file `pyi`, not `python`
       - id: ruff-check
         name: ruff-check (fix with `uv run poe fix`)
         entry: uv run --no-sync ruff check
         language: system
-        types_or: [python, pyi]
+        types_or: [python, pyi]  # stubs too: pre-commit tags a .pyi file `pyi`, not `python`
       - id: commit-message
-        name: commit-message (see CLAUDE.md, Git conventions; check with `uv run python tools/check_commit_message.py <file>`)
+        name: commit-message (see docs/rules.md; check with `uv run python tools/check_commit_message.py <file>`)
         entry: uv run --no-sync python tools/check_commit_message.py
         language: system
         stages: [commit-msg]
-      # The whole local gate runs on a push to main or a tag, and on any push while local main has commits its
-      # remote-tracking branch lacks (a multi-ref push cannot hide main): tools/pre_push.py decides, and runs
-      # `uv run poe check` (`full` for a tag). CI checks a feature branch when its pull request opens. `verbose` shows what the hook prints
-      # (why the gate was skipped, then the gate's own output) even when it passes.
+      # The whole local gate runs on a push to main, of a tag, or of a branch while main has unpushed code; not on every
+      # commit. tools/pre_push.py decides, and runs `uv run poe check` (`full` for a tag). CI checks a feature branch's
+      # pull request. `verbose` shows its output even when it passes or skips, so a skipped gate says why.
       - id: gate
-        name: the gate (reproduce with `uv run poe check`, `full` for a tag)
+        name: the whole gate (reproduce with `uv run poe check`; `full` for a tag)
+        verbose: true
         entry: uv run python tools/pre_push.py
         language: system
         pass_filenames: false
         always_run: true
-        verbose: true
         stages: [pre-push]

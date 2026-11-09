@@ -12,28 +12,32 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.gate
+
+ROOT = Path(__file__).resolve().parents[2]
 
 CLEAN = 'def test_probe(tmp_path):\n    (tmp_path / "a.txt").write_text("é", encoding="utf-8")\n'
 LEAKS_A_FILE = 'def test_probe(tmp_path):\n    open(tmp_path / "a.txt", "w", encoding="utf-8")\n'
 LOCALE_ENCODING = 'def test_probe(tmp_path):\n    (tmp_path / "a.txt").write_text("é")\n'
-A_WARNING = (
+A_DEPRECATION = (
     'import warnings\n\n\ndef test_probe():\n    warnings.warn("deprecated", DeprecationWarning, stacklevel=1)\n'
 )
 
 
-def poe_test(tmp_path: Path, probe: str, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    # only the task may switch the encoding warning on: this run's own setting must not reach the probe
-    env = {name: value for name, value in env.items() if name != "PYTHONWARNDEFAULTENCODING"}
+def poe_test(tmp_path: Path, probe: str, env: dict[str, str]) -> subprocess.CompletedProcess:
     shutil.copy(ROOT / "pyproject.toml", tmp_path)
     (tmp_path / "tools").mkdir()
     shutil.copy(ROOT / "tools" / "run_capped.py", tmp_path / "tools")  # the task runs pytest under the memory cap
     (tmp_path / "test_probe.py").write_text(probe, encoding="utf-8")
     # the `simple` executor runs the task's command from this environment (the copy is no uv project of its own);
-    # extra arguments go to pytest after the task's own: only the probe, in one process (`-n 0`), so it stays fast
+    # extra arguments go to pytest after the task's own: only the probe, in one process (`-n 0`), so it stays fast.
+    # The child writes in its own console encoding (cp1252 on Windows, where the probe's `é` is one byte that is not
+    # UTF-8): undecodable bytes are replaced, so the output is always text; the verdicts are ASCII words. The probe's
+    # temporary folders go under tmp_path: in the folder all pytest runs share, its cleanup races the other runs'
+    # (pytest then leaks a scandir iterator, and the ResourceWarning, an error here, ends the run before its report)
+    probe_run = ["test_probe.py", "-n", "0", "-p", "no:randomly", f"--basetemp={tmp_path / 'basetemp'}"]
     return subprocess.run(
-        [sys.executable, "-m", "poethepoet", "-e", "simple", "test", "test_probe.py", "-n", "0", "-p", "no:randomly"],
+        [sys.executable, "-m", "poethepoet", "-e", "simple", "test", *probe_run],
         cwd=tmp_path,
         env=env,
         capture_output=True,
@@ -43,23 +47,23 @@ def poe_test(tmp_path: Path, probe: str, env: dict[str, str]) -> subprocess.Comp
     )
 
 
+@pytest.mark.control
 def test_a_clean_test_passes(tmp_path, uv_run_env):
     result = poe_test(tmp_path, CLEAN, uv_run_env)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
 @pytest.mark.parametrize(
-    ("probe", "reported"),
+    ("probe", "warning"),
+    # the class with its message: the class name alone is also in the probe's source, which pytest prints
     [
         (LEAKS_A_FILE, "ResourceWarning"),
         (LOCALE_ENCODING, "EncodingWarning"),
-        # not the bare class name, which the probe's own source line (printed in the report) contains: the class with
-        # the message, as pytest prints a raised warning ("E   DeprecationWarning: deprecated")
-        (A_WARNING, "DeprecationWarning: deprecated"),
+        (A_DEPRECATION, "DeprecationWarning: deprecated"),
     ],
     ids=["leaked-file", "locale-encoding", "deprecation"],
 )
-def test_a_warning_fails_the_test_that_raised_it(tmp_path, uv_run_env, probe, reported):
+def test_a_warning_fails_the_test_that_raised_it(tmp_path, uv_run_env, probe, warning):
     result = poe_test(tmp_path, probe, uv_run_env)
-    assert result.returncode != 0, result.stdout + result.stderr
-    assert reported in result.stdout, result.stdout + result.stderr
+    assert result.returncode != 0
+    assert warning in result.stdout, result.stdout + result.stderr

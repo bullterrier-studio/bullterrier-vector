@@ -1,10 +1,8 @@
 # Build the distributions once, check them as PyPI would, keep them as the `dist` artifact, and prove each works when
 # installed on its own, away from the checkout. Called by ci.yml once every check passed; can also be started by hand.
 #
-# The sdist and one abi3 wheel (every Python from 3.12) per platform: Linux x86_64 and aarch64 (manylinux_2_28), macOS
-# arm64 and x86_64, Windows x86_64. The sdist carries rust-toolchain.toml and covers every other platform, so there is
-# no musl wheel (docs/design-decisions.md, "Platforms"). No job here restores a build cache: what it builds may be
-# published.
+# The sdist and one abi3 wheel per platform; which platforms, and why: docs/template-decisions.md, "Platforms". No job
+# here restores a build cache: what it builds may be published.
 name: Build
 
 on:
@@ -137,7 +135,8 @@ jobs:
         with:
           persist-credentials: false
           path: checkout
-          sparse-checkout: tools/check_installed.py
+          sparse-checkout: |
+            tools/check_installed.py
           sparse-checkout-cone-mode: false
       # an sdist builds on the machine that installs it: that machine needs the toolchain the sdist pins
       - name: Install the Rust toolchain the sdist pins (its rust-toolchain.toml)
@@ -153,9 +152,10 @@ jobs:
       # no release from PyPI; `--only-binary`: no sdist built on the fly), the platform's wheel chosen by uv; then its
       # dependencies, as its installed metadata names them, from PyPI (`--no-index` cannot resolve them). The sdist is
       # installed from its file and built here, with the toolchain its own rust-toolchain.toml pins (installed in the
-      # step before). check_installed.py then names the artifact's file it came from, or fails; it also draws the
-      # documented square with the installed extension.
-      - name: Install the ${{ matrix.from }} in a fresh environment and draw a square
+      # step before). check_installed.py then names the artifact's file it came from, or fails. The last line is the
+      # project's smoke command, which calls the Rust extension, so its answer proves the installed build runs: the
+      # template's runs the demo `scale`, a project replaces it with its own, and the template never changes that line.
+      - name: Install the ${{ matrix.from }} in a fresh environment and run the extension
         shell: bash
         env:
           FROM: ${{ matrix.from }}
@@ -174,3 +174,5 @@ jobs:
           fi
           "$bin/python" "$GITHUB_WORKSPACE/checkout/tools/check_installed.py" "$dist" --from "$FROM"
           uv pip list --python smoke
+          # the project's own smoke command (the template never changes this line)
+          true # vector has no command line: check_installed.py above draws the documented square with the installed extension

@@ -1,0 +1,45 @@
+# Vector's own CI jobs: the gates the template does not know (file size, the font crates without std, the WebAssembly
+# bindings and their Node tests, the stack tests unoptimised), as `poe project-gates` runs them locally. ci.yml runs this
+# file beside the template's checks, the build waits for it, and so does ci-ok.
+name: Project
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  project-gates:
+    name: Vector gates (file size, fonts, WebAssembly, stack tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+      # rustup is on every runner; with no argument it installs the toolchain rust-toolchain.toml pins
+      - name: Install the pinned Rust toolchain (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update && cargo --version
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      # the cargo tools' versions are written once, in Cargo.toml's [workspace.metadata.tools]; the `wasm-bindgen`
+      # command is one of them
+      - name: Read the cargo tools' versions (Cargo.toml)
+        id: cargo-tools
+        run: echo "specs=$(uv run --no-project python tools/rust_tools.py specs)" >> "$GITHUB_OUTPUT"
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: ${{ steps.cargo-tools.outputs.specs }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26"
+          package-manager-cache: false
+      - name: Fetch the locked crates (cargo fetch)
+        run: cargo fetch --locked
+      - name: Install the locked dependencies (builds the Rust extension)
+        run: uv sync --locked
+      - name: Vector's gates (poe project-gates)
+        run: uv run --locked poe project-gates

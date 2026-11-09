@@ -1,8 +1,8 @@
 # Contributing
 
-A Rust core (`crates/core`) with Python bindings (`crates/python`, `src/bullterrier_vector`) and WebAssembly bindings
-(`crates/wasm`). `CLAUDE.md` holds the rules
-the code follows (also for people); `docs/` holds the design and the roadmap.
+Thank you for helping. This page is the short version; [CLAUDE.md](CLAUDE.md) and [docs/rules.md](docs/rules.md) hold every rule in full (it is written for
+AI agents and people alike), and [docs/design-decisions.md](docs/design-decisions.md) and [docs/template-decisions.md](docs/template-decisions.md) say why the project is built the
+way it is.
 
 ## Install from source
 
