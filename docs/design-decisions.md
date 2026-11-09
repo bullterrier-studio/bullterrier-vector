@@ -934,12 +934,12 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   half grey give 0.75 where they overlap, a group fade 0.5). A group form would be a different verb on a `Drawing`,
   not a style; it is not built. The region (the source's shapes united once, as a boolean's `other`) is an `Arc<Path>` on
   `Style`, the mask an `Arc<[Shape]>` of the source as painted; every shape one step cuts holds the same `Arc`.
-- **Made once per step.** Outputs tell clips and masks apart by that pointer: the SVG writes one `<clipPath>` or `<mask>`
+- **Made once per step.** Outputs tell clips and masks apart by that pointer, or by equality: the SVG writes one `<clipPath>` or `<mask>`
   per distinct one and each element names it, the pixel writer builds one luminance `Mask` (a second `RenderContext` and
   `Pixmap` at the canvas size, because a mask of another size is ignored without a word), and the canvas pixels of each
   distinct mask are charged once to `MAX_FILTER_PIXELS`, which now says "the blur of its shadow" or "its mask". Per shape,
   a fifty-glyph headline at 1920 by 1080 would have charged 100 million pixels, built fifty masks and written fifty
-  `<mask>`s. Equal masks built apart by two steps are two (the `Arc`s differ); a step is the unit.
+  `<mask>`s. Equal masks built apart (two steps, or shapes put back into a drawing one by one, each of which makes a step) are one: the pointer is the quick test, equality the fallback.
 - **Clip and mask share the shape's outer group** (SVG: the attributes go on the element or `<g>` that has the opacity and
   blend; pixels: one layer with the clip path, blend, opacity and mask), so a shadow is cut with the shape and a blend still
   mixes with the backdrop. A `<g clip-path>` around the element would isolate the blend; the one group does not. A knockout
