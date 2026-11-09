@@ -88,7 +88,7 @@ pub(crate) static RESOLVE: Verb = Verb {
 
 /// The region the shapes of `other` fill together: one shape's own path, else each shape resolved (a path that runs the
 /// other way would take the overlap out under the nonzero rule) and joined.
-fn region<'a>(
+pub(super) fn region<'a>(
     other: &'a [Shape],
     tolerance: f64,
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,

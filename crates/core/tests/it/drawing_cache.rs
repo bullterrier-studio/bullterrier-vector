@@ -585,6 +585,62 @@ fn gradient_pairs() -> Vec<(&'static str, Make)> {
     ]
 }
 
+/// Rows that differ in the region of a clip or the shapes of a mask, as a step and as a shape put back into a drawing.
+fn cut_pairs() -> Vec<(&'static str, Make)> {
+    vec![
+        ("the region of a clip", |base| {
+            Ok((
+                base.clip(Path::rect(0.0, 0.0, 5.0, 10.0, 0.0)?),
+                Values::new(),
+                base.clip(Path::rect(5.0, 0.0, 5.0, 10.0, 0.0)?),
+                Values::new(),
+            ))
+        }),
+        ("a clip against none", |base| {
+            Ok((
+                base.clone(),
+                Values::new(),
+                base.clip(Path::rect(0.0, 0.0, 5.0, 10.0, 0.0)?),
+                Values::new(),
+            ))
+        }),
+        ("the shapes of a mask", |base| {
+            let mask = |level: u8| -> Result<Drawing, Error> {
+                Ok(Drawing::from(Path::rect(0.0, 0.0, 10.0, 10.0, 0.0)?)
+                    .fill(Color::hex(u32::from(level) * 0x01_01_01)))
+            };
+            Ok((
+                base.mask(mask(60)?),
+                Values::new(),
+                base.mask(mask(200)?),
+                Values::new(),
+            ))
+        }),
+        ("a mask against none", |base| {
+            let mask = Drawing::from(Path::rect(0.0, 0.0, 10.0, 10.0, 0.0)?).fill(Color::hex(0xff_ff_ff));
+            Ok((base.clone(), Values::new(), base.mask(mask), Values::new()))
+        }),
+        ("the region of a clip on a shape put back", |base| {
+            let clipped = |left| -> Result<Drawing, Error> {
+                Ok(Drawing::from(
+                    base.clip(Path::rect(left, 0.0, 5.0, 10.0, 0.0)?)
+                        .shapes(&Values::new())?[0]
+                        .clone(),
+                ))
+            };
+            Ok((clipped(0.0)?, Values::new(), clipped(5.0)?, Values::new()))
+        }),
+        ("the shapes of a mask on a shape put back", |base| {
+            let masked = |level: u8| -> Result<Drawing, Error> {
+                let mask = Drawing::from(Path::rect(0.0, 0.0, 10.0, 10.0, 0.0)?)
+                    .fill(Color::hex(u32::from(level) * 0x01_01_01));
+                Ok(Drawing::from(base.mask(mask).shapes(&Values::new())?[0].clone()))
+            };
+            Ok((masked(60)?, Values::new(), masked(200)?, Values::new()))
+        }),
+    ]
+}
+
 fn outcome(drawing: &Drawing, values: &Values) -> Result<Vec<Shape>, String> {
     drawing.shapes(values).map_err(|error| error.to_string())
 }
@@ -597,6 +653,7 @@ fn drawings_that_differ_in_one_input_never_share_a_result() -> Outcome {
         .chain(shadow_pairs())
         .chain(halftone_pairs())
         .chain(gradient_pairs())
+        .chain(cut_pairs())
     {
         let (left, left_at, right, right_at) = make(&square()?)?;
         // a twin of the right drawing, built on a base of its own: its cache holds nothing of the left

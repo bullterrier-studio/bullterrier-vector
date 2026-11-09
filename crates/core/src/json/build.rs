@@ -135,7 +135,7 @@ impl<'a> Builder<'a> {
                 let path = Path::from_svg_path(data).map_err(|error| refuse(pointer, reason(&error)))?;
                 let mut shape = Shape::from_path(path, 0);
                 *shape.attributes_mut() = attributes.clone();
-                Given::Shape(shape)
+                Given::Shape(Box::new(shape))
             }
             Value::Drawings(items) => {
                 Given::Drawings(items.iter().map(|item| self.chain(item)).collect::<Result<_, _>>()?)

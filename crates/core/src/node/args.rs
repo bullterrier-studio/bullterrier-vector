@@ -46,7 +46,7 @@ pub(crate) enum Given {
     /// A path.
     Path(Path),
     /// A shape.
-    Shape(Shape),
+    Shape(Box<Shape>),
     /// Drawings, bottom first.
     Drawings(Vec<Drawing>),
     /// One drawing.
@@ -196,7 +196,7 @@ impl Args {
                 }
                 Given::Shape(shape) => {
                     key.word(5);
-                    key.of(shape);
+                    key.of(&**shape);
                 }
                 Given::Drawings(items) => {
                     key.word(6);
@@ -581,7 +581,7 @@ impl Args {
     /// The shape of `name`.
     pub(crate) fn shape(&self, name: &str) -> Result<&Shape, Error> {
         match self.find(name)? {
-            (_, Given::Shape(shape)) => Ok(shape),
+            (_, Given::Shape(shape)) => Ok(&**shape),
             _ => Err(self.misread(name, "a shape")),
         }
     }

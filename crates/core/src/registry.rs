@@ -1,6 +1,6 @@
 //! The list of every verb a drawing can be built from.
 
-use crate::node::{Node, Verb, boolean, items, offset, select, source, stack, style, text, transform, values};
+use crate::node::{Node, Verb, boolean, clip, items, offset, select, source, stack, style, text, transform, values};
 
 /// Every verb the library can build a drawing from. This is the declaration only (name, arguments, ranges); a tool
 /// reads it to describe the verbs, and what a verb does stays inside the crate.
@@ -31,6 +31,8 @@ const NODES: &[&dyn Node] = &[
     &style::Shadow,
     &style::Knockout,
     &style::Halftone,
+    &clip::Clip,
+    &clip::Mask,
     &items::Split,
     &items::Merge,
     &boolean::Union,

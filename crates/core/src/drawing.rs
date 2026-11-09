@@ -2,6 +2,7 @@
 
 mod boolean;
 mod cache;
+mod clip;
 mod eval;
 mod graph;
 mod items;
@@ -393,7 +394,10 @@ impl From<Shape> for Drawing {
         let style = shape.style().clone();
         let mut bare = shape.at(0);
         *bare.style_mut() = Style::unpainted();
-        let mut drawing = Self::source(&node::source::ShapeSource, vec![("shape", Given::Shape(bare))]);
+        let mut drawing = Self::source(
+            &node::source::ShapeSource,
+            vec![("shape", Given::Shape(Box::new(bare)))],
+        );
         if !style.is_painted() {
             return drawing;
         }
@@ -432,6 +436,12 @@ impl From<Shape> for Drawing {
         }
         if style.knockout() {
             drawing = drawing.knockout();
+        }
+        if let Some(region) = style.clip() {
+            drawing = drawing.clip(region.clone());
+        }
+        if let Some(mask) = style.mask() {
+            drawing = drawing.mask(Self::new(mask.iter().cloned().map(Self::from)));
         }
         drawing
     }

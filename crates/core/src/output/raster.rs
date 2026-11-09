@@ -10,15 +10,16 @@ use super::{Size, in_shape};
 use crate::limits::Work;
 use crate::path::{FLATNESS, Polyline};
 use crate::{
-    Blend, Cap, Drawing, Error, GradientKind, Join, Paint, Point, ShadowStyle, Shape, StrokeStyle, Style, Values,
+    Blend, Cap, Drawing, Error, GradientKind, Join, Paint, Path, Point, ShadowStyle, Shape, StrokeStyle, Style, Values,
 };
 use kurbo::{Affine, BezPath, Rect, Shape as _};
 use std::f64::consts::SQRT_2;
+use std::sync::Arc;
 use vello_cpu::color::AlphaColor;
 use vello_cpu::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::peniko::color::DynamicColor;
 use vello_cpu::peniko::{BlendMode, ColorStop, Compose, Fill, Gradient, ImageAlphaType, InterpolationAlphaSpace, Mix};
-use vello_cpu::{Level, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources};
+use vello_cpu::{Level, Mask, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources};
 
 /// The largest deviation of a shadow's blur, in output pixels.
 // constant: measured on this machine in release builds, one layer at a deviation of 1000 takes 0.3 s and one of 3000
@@ -51,6 +52,15 @@ impl Drawing {
 
 /// The picture of `shapes` seen through `view`, `width` by `height` pixels.
 fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8>, Error> {
+    let pixmap = picture(shapes, view, (width, height), &Work::new())?;
+    let mut bytes = pixmap.take_rgba8(ImageAlphaType::AlphaPremultiplied);
+    unpremultiply(&mut bytes);
+    Ok(bytes)
+}
+
+/// `shapes` painted in order into a new pixmap of `canvas` pixels, premultiplied.
+fn picture(shapes: &[Shape], view: &View, canvas: (u16, u16), work: &Work) -> Result<Pixmap, Error> {
+    let (width, height) = canvas;
     let mut context = RenderContext::new_with(
         width,
         height,
@@ -60,9 +70,9 @@ fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8
         },
     );
     context.set_fill_rule(Fill::NonZero);
-    let work = Work::new();
+    let mut cuts = Cuts::default();
     for shape in shapes {
-        paint(&mut context, shape, view, (width, height), &work)?;
+        paint(&mut context, shape, view, canvas, (work, &mut cuts))?;
     }
     context.flush();
     let mut pixmap = Pixmap::new(width, height);
@@ -74,9 +84,67 @@ fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8
             ..RasterizerSettings::default()
         },
     );
-    let mut bytes = pixmap.take_rgba8(ImageAlphaType::AlphaPremultiplied);
-    unpremultiply(&mut bytes);
-    Ok(bytes)
+    Ok(pixmap)
+}
+
+/// The clips and masks a draw has made, told apart by the `Arc` the steps share between their shapes, so that a
+/// headline of fifty glyphs faded by one mask builds that mask once.
+#[derive(Default)]
+struct Cuts {
+    clips: Vec<(Arc<Path>, Arc<BezPath>)>,
+    masks: Vec<(Arc<[Shape]>, Mask)>,
+}
+
+/// How a shape is cut: to a region, and faded by a mask.
+struct Cut {
+    clip: Option<Arc<BezPath>>,
+    mask: Option<Mask>,
+}
+
+impl Cuts {
+    /// The clip of `style` in output pixels, made if it is the first of its step.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] if the region would pass `MAX_SEGMENTS` or lies beyond [`MAX_DEVICE`] device pixels.
+    fn clip(&mut self, style: &Style, view: &View, work: &Work, name: &str) -> Result<Option<Arc<BezPath>>, Error> {
+        let Some(region) = style.shared_clip() else {
+            return Ok(None);
+        };
+        if let Some((_, made)) = self.clips.iter().find(|(known, _)| Arc::ptr_eq(known, region)) {
+            return Ok(Some(Arc::clone(made)));
+        }
+        let polylines = region.flattened(&mut |count| work.made_segments(count, &format!("{name} clip")))?;
+        let made = Arc::new(bez_path(&moved(&polylines, view)?));
+        self.clips.push((Arc::clone(region), Arc::clone(&made)));
+        Ok(Some(made))
+    }
+
+    /// The mask of `style` as pixels of the canvas, made if it is the first of its step: the shapes of the mask drawn
+    /// apart, their luminance by the alpha they cover. Its pixels are charged once.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] if the canvas pixels of the masks of the draw pass `MAX_FILTER_PIXELS`, or what the shapes
+    /// of the mask are refused for.
+    fn mask(
+        &mut self,
+        style: &Style,
+        view: &View,
+        canvas: (u16, u16),
+        (work, name): (&Work, &str),
+    ) -> Result<Option<Mask>, Error> {
+        let Some(shapes) = style.shared_mask() else {
+            return Ok(None);
+        };
+        if let Some((_, made)) = self.masks.iter().find(|(known, _)| Arc::ptr_eq(known, shapes)) {
+            return Ok(Some(made.clone()));
+        }
+        work.filtered(u64::from(canvas.0) * u64::from(canvas.1), name, "its mask")?;
+        // a mask must be the size of the canvas, or the rasteriser leaves it out without a word
+        let pixmap = picture(shapes, view, canvas, work).map_err(|error| error.inside(&format!("{name} mask")))?;
+        let made = Mask::new_luminance(&pixmap);
+        self.masks.push((Arc::clone(shapes), made.clone()));
+        Ok(Some(made))
+    }
 }
 
 /// What a shape is made of once placed: the fill and the stroke it paints.
@@ -246,7 +314,7 @@ fn paint(
     shape: &Shape,
     view: &View,
     canvas: (u16, u16),
-    work: &Work,
+    (work, cuts): (&Work, &mut Cuts),
 ) -> Result<(), Error> {
     let name = format!("shape {}", shape.index());
     let mut charge = |count| work.made_segments(count, &name);
@@ -276,6 +344,12 @@ fn paint(
     // thousands of small translucent or multiplied shapes from costing a canvas each
     let reach = stroke.map_or(0.0, |(stroke, width)| stroke_reach(stroke, width));
     let shadow_reach = shadow.as_ref().map_or(0.0, Shadow::reach);
+    // a knockout takes the area it covers whatever it is clipped to or masked by
+    let clip = if knockout {
+        None
+    } else {
+        cuts.clip(style, view, work, &name)?
+    };
     let Some(bounds) = visible(&device, reach + shadow_reach, canvas) else {
         // a shape off the canvas is drawn by the other outputs, so a pitch they refuse is refused here too
         if let Some(halftone) = style.halftone() {
@@ -296,7 +370,7 @@ fn paint(
             clippy::cast_sign_loss,
             reason = "an area of at most 4 * 10^7 squared pixels, rounded up, is a whole number far below 2^63"
         )]
-        work.filtered(layer.ceil() as u64, &name)?;
+        work.filtered(layer.ceil() as u64, &name, "the blur of its shadow")?;
     }
     let fill = fill_body(shape, &polylines, view, work, knockout)?;
     let body = Body {
@@ -332,7 +406,12 @@ fn paint(
             None => None,
         },
     };
-    composite(context, style, shadow.as_ref(), &body, &bounds);
+    let mask = if knockout {
+        None
+    } else {
+        cuts.mask(style, view, canvas, (work, &name))?
+    };
+    composite(context, style, shadow.as_ref(), &body, (&bounds, &Cut { clip, mask }));
     Ok(())
 }
 
@@ -413,7 +492,13 @@ fn fill_body(
 
 /// Paints `body` into `context` within `bounds` as `style` says: taken out of what is below it, if it knocks out; else
 /// its shadow and then itself, in a group that the opacity and the blend apply to once, if there is an opacity or a blend.
-fn composite(context: &mut RenderContext, style: &Style, shadow: Option<&Shadow>, body: &Body, bounds: &Rect) {
+fn composite(
+    context: &mut RenderContext,
+    style: &Style,
+    shadow: Option<&Shadow>,
+    body: &Body,
+    (bounds, cut): (&Rect, &Cut),
+) {
     if style.knockout() {
         // the body painted into a layer that is taken out of what is below it, within the part of the canvas it reaches
         context.push_layer(
@@ -427,7 +512,7 @@ fn composite(context: &mut RenderContext, style: &Style, shadow: Option<&Shadow>
         context.pop_layer();
         return;
     }
-    let grouped = style.opacity() < 1.0 || style.blend() != Blend::Normal;
+    let grouped = style.opacity() < 1.0 || style.blend() != Blend::Normal || cut.clip.is_some() || cut.mask.is_some();
     if grouped {
         let mix = mix_of(style.blend());
         #[expect(
@@ -435,11 +520,14 @@ fn composite(context: &mut RenderContext, style: &Style, shadow: Option<&Shadow>
             reason = "an opacity from 0 to 1 loses nothing visible in an f32"
         )]
         let opacity = style.opacity() as f32;
+        // the clip and the mask belong to the group the opacity and the blend do (as SVG's `<g>` has them), so that the
+        // shadow is cut and a blend mixes with what is below; the clip is inside the bounds the group can reach
+        let reach = path_of(bounds);
         context.push_layer(
-            Some(&path_of(bounds)),
+            Some(cut.clip.as_deref().unwrap_or(&reach)),
             Some(BlendMode::new(mix, Compose::SrcOver)),
             Some(opacity),
-            None,
+            cut.mask.clone(),
             None,
         );
     }

@@ -68,6 +68,21 @@ impl<T: Keyed> Keyed for Option<T> {
     }
 }
 
+impl<T: Keyed + ?Sized> Keyed for std::sync::Arc<T> {
+    fn write_key(&self, key: &mut Key) {
+        (**self).write_key(key);
+    }
+}
+
+impl<T: Keyed> Keyed for [T] {
+    fn write_key(&self, key: &mut Key) {
+        key.count(self.len());
+        for item in self {
+            key.of(item);
+        }
+    }
+}
+
 impl Keyed for u64 {
     fn write_key(&self, key: &mut Key) {
         key.word(*self);

@@ -6,8 +6,10 @@ use super::view::View;
 use super::{Size, cast, fills, in_shape};
 use crate::limits::{MAX_KNOCKOUT_LAYERS, Work};
 use crate::path::number;
-use crate::{Blend, Color, Drawing, Error, GradientKind, Paint, Shape, Values};
+use crate::{Blend, Color, Drawing, Error, GradientKind, Paint, Path, Shape, Values};
 use std::fmt::Write as _;
+use std::ops::Deref;
+use std::sync::Arc;
 
 /// The black a knockout is painted in inside a mask: what is black there is cut.
 const BLACK: Color = Color::hex(0x00_00_00);
@@ -15,6 +17,30 @@ const BLACK: Color = Color::hex(0x00_00_00);
 /// The largest alpha byte of a colour, which is fully opaque.
 // constant: an alpha byte is 0..=255
 const OPAQUE: f64 = 255.0;
+
+/// Where elements are written: the view that places the design frame, and the scope the ids are made in. The document's
+/// is empty; what a mask draws has one of its own, so that two shapes numbered alike (the mask's and the drawing's) never
+/// share an id.
+struct Frame<'a> {
+    view: &'a View,
+    scope: &'a str,
+}
+
+impl Deref for Frame<'_> {
+    type Target = View;
+
+    fn deref(&self) -> &View {
+        self.view
+    }
+}
+
+/// The clips and masks written so far in a scope, told apart by the `Arc` that the shapes of one step share: each is
+/// written once, and the id says where. A clip whose region fills nothing has no id.
+#[derive(Default)]
+struct Defined {
+    clips: Vec<(Arc<Path>, Option<String>)>,
+    masks: Vec<(Arc<[Shape]>, String)>,
+}
 
 impl Drawing {
     /// The drawing as an SVG document of `size`, with the Params at the `values` given and at their defaults where
@@ -35,6 +61,11 @@ impl Drawing {
     /// closed polygons (a translucent colour is no darker where dots overlap), then the stroke; a tone of 0 is a plain
     /// fill and a tone of 1 a fill of none. Its opacity and blend are on a `<g>` round both, and a hard shadow is a
     /// second `<g transform="translate(..)">` of the dots in the shadow's colour.
+    /// A clip is a `<clipPath id="clip-N">` of the region and a mask a `<mask id="mask-N">` of the mask's shapes over the
+    /// canvas (`N` the number of the first shape that uses it), each written once however many shapes use it and
+    /// referenced by `clip-path` and `mask` on the element that carries the shape's opacity and blend, or the `<g>` that
+    /// does, so that the shadow is cut with the shape. What a mask draws has ids prefixed with its own (`mask-3-shadow-0`).
+    /// A shape whose clip region fills nothing writes no element.
     /// The root has `isolation:isolate`, so that multiply blends with the picture and not with the page it is in.
     ///
     /// # Errors
@@ -51,7 +82,12 @@ impl Drawing {
             "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" \
              viewBox=\"0 0 {width} {height}\" style=\"isolation:isolate\">\n"
         );
-        svg.push_str(&elements(&shapes, &view, canvas, &Work::new())?);
+        svg.push_str(&elements(
+            &shapes,
+            &Frame { view: &view, scope: "" },
+            canvas,
+            &Work::new(),
+        )?);
         svg.push_str("</svg>\n");
         Ok(svg)
     }
@@ -59,8 +95,9 @@ impl Drawing {
 
 /// The elements of `shapes` in paint order, with a mask over everything below each run of knockouts. `work` counts the
 /// edges that halftones flatten their shapes into and the dots they make.
-fn elements(shapes: &[Shape], view: &View, canvas: (f64, f64), work: &Work) -> Result<String, Error> {
+fn elements(shapes: &[Shape], view: &Frame<'_>, canvas: (f64, f64), work: &Work) -> Result<String, Error> {
     let mut written = String::new();
+    let mut defined = Defined::default();
     // the farthest a shadow in `written` reaches beyond the canvas
     let mut reach = 0.0_f64;
     let mut layers = 0;
@@ -76,15 +113,15 @@ fn elements(shapes: &[Shape], view: &View, canvas: (f64, f64), work: &Work) -> R
             continue;
         }
         let mut one = String::new();
-        let farthest = element(&mut one, shape, view, (canvas, work))?;
+        let farthest = element(&mut one, shape, view, (canvas, work, &mut defined))?;
         if one.is_empty() {
             continue;
         }
-        written = cut(written, run.take(), (reach, canvas), &mut layers)?;
+        written = cut(written, run.take(), (reach, canvas, view.scope), &mut layers)?;
         reach = reach.max(farthest);
         written.push_str(&one);
     }
-    cut(written, run, (reach, canvas), &mut layers)
+    cut(written, run, (reach, canvas, view.scope), &mut layers)
 }
 
 /// `written` inside a group masked by the `run` of knockouts (the number of the first and the black of each) that comes
@@ -95,7 +132,7 @@ fn elements(shapes: &[Shape], view: &View, canvas: (f64, f64), work: &Work) -> R
 fn cut(
     written: String,
     run: Option<(usize, String)>,
-    (reach, canvas): (f64, (f64, f64)),
+    (reach, canvas, scope): (f64, (f64, f64), &str),
     layers: &mut usize,
 ) -> Result<String, Error> {
     let Some((first, black)) = run else { return Ok(written) };
@@ -114,7 +151,7 @@ fn cut(
         number(canvas.0 + 2.0 * reach),
         number(canvas.1 + 2.0 * reach),
     );
-    let id = format!("knockout-{first}");
+    let id = format!("{scope}knockout-{first}");
     Ok(format!(
         "<mask id=\"{id}\" maskUnits=\"userSpaceOnUse\" x=\"{origin}\" y=\"{origin}\" width=\"{width}\" height=\"{height}\">\n\
          <rect x=\"{origin}\" y=\"{origin}\" width=\"{width}\" height=\"{height}\" fill=\"#ffffff\"/>\n{black}</mask>\n\
@@ -124,7 +161,7 @@ fn cut(
 
 /// The markup of a shape that knocks out as a mask paints it: its fill and stroke in black. `None` if it paints neither or
 /// its path is empty, which cut nothing.
-fn knocked(shape: &Shape, view: &View, work: &Work) -> Result<Option<String>, Error> {
+fn knocked(shape: &Shape, view: &Frame<'_>, work: &Work) -> Result<Option<String>, Error> {
     let style = shape.style();
     let painted = fills(style) || style.stroke().is_some_and(|stroke| stroke.paint().paints());
     let data = view
@@ -149,7 +186,12 @@ fn knocked(shape: &Shape, view: &View, work: &Work) -> Result<Option<String>, Er
 /// to both. A blurred shadow is that group's `filter`: the blur, offset and tint of the shape's alpha, merged under the
 /// shape. A shadow with no blur is a plain copy of the path before the shape, tinted. A halftone is a group of its own
 /// (the dots, clipped, and the stroke), which takes the opacity and the blend when there is no shadow's group to.
-fn element(svg: &mut String, shape: &Shape, view: &View, (canvas, work): ((f64, f64), &Work)) -> Result<f64, Error> {
+fn element(
+    svg: &mut String,
+    shape: &Shape,
+    view: &Frame<'_>,
+    (canvas, work, defined): ((f64, f64), &Work, &mut Defined),
+) -> Result<f64, Error> {
     let in_shape = |what: &'static str| move |error| in_shape(shape, what, error);
     let device = view.path(shape.path()).map_err(in_shape(""))?;
     let data = device.to_svg_path();
@@ -158,7 +200,11 @@ fn element(svg: &mut String, shape: &Shape, view: &View, (canvas, work): ((f64, 
     }
     let style = shape.style();
     let fill = Fill::of(shape, view, work)?;
+    let Some(cuts) = define_cuts(svg, shape, view, (canvas, work, defined))? else {
+        return Ok(0.0);
+    };
     let group = |svg: &mut String| {
+        svg.push_str(&cuts);
         if style.opacity() < 1.0 {
             let _ = write!(svg, " opacity=\"{}\"", number(style.opacity()));
         }
@@ -166,7 +212,7 @@ fn element(svg: &mut String, shape: &Shape, view: &View, (canvas, work): ((f64, 
             let _ = write!(svg, " style=\"mix-blend-mode:{}\"", style.blend().name());
         }
     };
-    let grouped = style.opacity() < 1.0 || style.blend() != Blend::Normal;
+    let grouped = style.opacity() < 1.0 || style.blend() != Blend::Normal || !cuts.is_empty();
     let Some((shadow, tint)) = cast(style) else {
         fill.define(svg, &data);
         define_gradients(svg, shape, view, (Ink::Own, (0.0, 0.0)))?;
@@ -199,35 +245,8 @@ fn element(svg: &mut String, shape: &Shape, view: &View, (canvas, work): ((f64, 
         let sigma = view.length(shadow.blur() / 2.0).map_err(in_shape("shadow blur "))?;
         // the region the filter works in: the canvas, and the farthest the shadow reaches (3 deviations and the offset)
         let reach = 3.0 * sigma + dx.abs().max(dy.abs());
-        let (x, y, width, height) = (-reach, -reach, canvas.0 + 2.0 * reach, canvas.1 + 2.0 * reach);
-        let id = format!("shadow-{}", shape.index());
-        let _ = writeln!(
-            svg,
-            "<filter id=\"{id}\" filterUnits=\"userSpaceOnUse\" x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" \
-             color-interpolation-filters=\"sRGB\">",
-            number(x),
-            number(y),
-            number(width),
-            number(height),
-        );
-        let _ = write!(
-            svg,
-            "<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"{}\"/>\
-             <feOffset dx=\"{}\" dy=\"{}\" result=\"b\"/>",
-            number(sigma),
-            number(dx),
-            number(dy),
-        );
-        let [red, green, blue, alpha] = tint;
-        let _ = write!(svg, "<feFlood flood-color=\"#{red:02x}{green:02x}{blue:02x}\"");
-        if alpha < u8::MAX {
-            let _ = write!(svg, " flood-opacity=\"{}\"", number(f64::from(alpha) / OPAQUE));
-        }
-        svg.push_str("/>");
-        svg.push_str(
-            "<feComposite in2=\"b\" operator=\"in\" result=\"s\"/>\
-             <feMerge><feMergeNode in=\"s\"/><feMergeNode in=\"SourceGraphic\"/></feMerge>\n</filter>\n",
-        );
+        let id = format!("{}shadow-{}", view.scope, shape.index());
+        blur_filter(svg, &id, (sigma, (dx, dy)), (tint, reach, canvas));
         let _ = write!(svg, "<g filter=\"url(#{id})\"");
         group(svg);
         svg.push_str(">\n");
@@ -254,6 +273,98 @@ fn element(svg: &mut String, shape: &Shape, view: &View, (canvas, work): ((f64, 
     Ok(dx.abs().max(dy.abs()))
 }
 
+/// Writes the clip and the mask of `shape` if they are not yet written in this scope, and returns the attributes that
+/// apply them to its element (`None` if its clip fills nothing, so that the shape is not drawn).
+fn define_cuts(
+    svg: &mut String,
+    shape: &Shape,
+    view: &Frame<'_>,
+    (canvas, work, defined): ((f64, f64), &Work, &mut Defined),
+) -> Result<Option<String>, Error> {
+    let style = shape.style();
+    let mut attributes = String::new();
+    if let Some(region) = style.shared_clip() {
+        let known = defined.clips.iter().find(|(known, _)| Arc::ptr_eq(known, region));
+        let id = if let Some((_, id)) = known {
+            id.clone()
+        } else {
+            let data = view
+                .path(region)
+                .map_err(|error| in_shape(shape, "clip ", error))?
+                .to_svg_path();
+            let id = (!data.is_empty()).then(|| format!("{}clip-{}", view.scope, shape.index()));
+            if let Some(id) = &id {
+                let _ = writeln!(svg, "<clipPath id=\"{id}\"><path d=\"{data}\"/></clipPath>");
+            }
+            defined.clips.push((Arc::clone(region), id.clone()));
+            id
+        };
+        let Some(id) = id else { return Ok(None) };
+        let _ = write!(attributes, " clip-path=\"url(#{id})\"");
+    }
+    if let Some(shapes) = style.shared_mask() {
+        let id = if let Some((_, id)) = defined.masks.iter().find(|(known, _)| Arc::ptr_eq(known, shapes)) {
+            id.clone()
+        } else {
+            let id = format!("{}mask-{}", view.scope, shape.index());
+            let scope = format!("{id}-");
+            let inner = Frame {
+                view: view.view,
+                scope: &scope,
+            };
+            let content = elements(shapes, &inner, canvas, work)
+                .map_err(|error| error.inside(&format!("shape {} mask", shape.index())))?;
+            let (width, height) = (number(canvas.0), number(canvas.1));
+            let _ = write!(
+                svg,
+                "<mask id=\"{id}\" maskUnits=\"userSpaceOnUse\" x=\"0\" y=\"0\" width=\"{width}\" height=\"{height}\">\n{content}</mask>\n"
+            );
+            defined.masks.push((Arc::clone(shapes), id.clone()));
+            id
+        };
+        let _ = write!(attributes, " mask=\"url(#{id})\"");
+    }
+    Ok(Some(attributes))
+}
+
+/// Appends the filter `id` of a blurred shadow: the blur of the shape's alpha by `sigma`, moved by `shift`, tinted, and
+/// merged under the shape. It works in the canvas grown by `reach` on every side.
+fn blur_filter(
+    svg: &mut String,
+    id: &str,
+    (sigma, (dx, dy)): (f64, (f64, f64)),
+    (tint, reach, canvas): ([u8; 4], f64, (f64, f64)),
+) {
+    let (x, y, width, height) = (-reach, -reach, canvas.0 + 2.0 * reach, canvas.1 + 2.0 * reach);
+    let _ = writeln!(
+        svg,
+        "<filter id=\"{id}\" filterUnits=\"userSpaceOnUse\" x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" \
+         color-interpolation-filters=\"sRGB\">",
+        number(x),
+        number(y),
+        number(width),
+        number(height),
+    );
+    let _ = write!(
+        svg,
+        "<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"{}\"/>\
+         <feOffset dx=\"{}\" dy=\"{}\" result=\"b\"/>",
+        number(sigma),
+        number(dx),
+        number(dy),
+    );
+    let [red, green, blue, alpha] = tint;
+    let _ = write!(svg, "<feFlood flood-color=\"#{red:02x}{green:02x}{blue:02x}\"");
+    if alpha < u8::MAX {
+        let _ = write!(svg, " flood-opacity=\"{}\"", number(f64::from(alpha) / OPAQUE));
+    }
+    svg.push_str("/>");
+    svg.push_str(
+        "<feComposite in2=\"b\" operator=\"in\" result=\"s\"/>\
+         <feMerge><feMergeNode in=\"s\"/><feMergeNode in=\"SourceGraphic\"/></feMerge>\n</filter>\n",
+    );
+}
+
 /// The paint of a path that has no fill.
 static NO_PAINT: Paint = Paint::NONE;
 
@@ -262,7 +373,7 @@ static NO_PAINT: Paint = Paint::NONE;
 fn define_gradients(
     svg: &mut String,
     shape: &Shape,
-    view: &View,
+    view: &Frame<'_>,
     (ink, shift): (Ink, (f64, f64)),
 ) -> Result<(), Error> {
     let style = shape.style();
@@ -278,7 +389,7 @@ fn define_gradients(
         if let Ink::Tint([red, green, blue, _]) = ink {
             ramp = ramp.tinted([red, green, blue]).shifted(shift.0, shift.1);
         }
-        let id = gradient_id(shape.index(), slot, ink);
+        let id = gradient_id(view.scope, shape.index(), (slot, ink));
         match ramp.kind {
             GradientKind::Linear { start, end } => {
                 let _ = writeln!(
@@ -330,7 +441,7 @@ enum Fill {
 impl Fill {
     /// The fill of `shape` seen through `view`: a halftone of the tone 0 is a plain fill of its colour, and one with no
     /// dots a fill of none. `work` is charged the edges the shape is flattened into for the dots, and the dots.
-    fn of(shape: &Shape, view: &View, work: &Work) -> Result<Self, Error> {
+    fn of(shape: &Shape, view: &Frame<'_>, work: &Work) -> Result<Self, Error> {
         let style = shape.style();
         let Some(halftone) = style.halftone() else {
             return Ok(Self::Plain(style.fill().clone()));
@@ -366,7 +477,7 @@ impl Fill {
             .collect();
         Ok(Self::Dots {
             color: halftone.color(),
-            id: format!("halftone-{}", shape.index()),
+            id: format!("{}halftone-{}", view.scope, shape.index()),
             dots: polygons.join(" "),
         })
     }
@@ -406,23 +517,23 @@ enum Coat {
     Gradient(String),
 }
 
-/// The id of the gradient that paints `slot` (`fill` or `stroke`) of the shape numbered `index`: one id for every
-/// gradient the document has, and the only place one is made. A shadow's copy has a gradient of its own, in the tint.
-fn gradient_id(index: usize, slot: &str, ink: Ink) -> String {
+/// The id of the gradient that paints `slot` (`fill` or `stroke`) of the shape numbered `index` in `scope`: one id for
+/// every gradient the document has, and the only place one is made. A shadow's copy has a gradient of its own, in the tint.
+fn gradient_id(scope: &str, index: usize, (slot, ink): (&str, Ink)) -> String {
     match ink {
-        Ink::Tint(_) => format!("gradient-{index}-shadow-{slot}"),
-        Ink::Own | Ink::Mask => format!("gradient-{index}-{slot}"),
+        Ink::Tint(_) => format!("{scope}gradient-{index}-shadow-{slot}"),
+        Ink::Own | Ink::Mask => format!("{scope}gradient-{index}-{slot}"),
     }
 }
 
 impl Ink {
     /// `paint`, which fills or strokes (`slot`) the shape numbered `index`, as this ink paints it: a colour as
     /// [`Ink::on`] has it, a gradient by the id `gradient_id` gives, or black where the ink is a mask's.
-    fn coat(self, paint: &Paint, slot: &str, index: usize) -> Coat {
+    fn coat(self, paint: &Paint, slot: &str, (scope, index): (&str, usize)) -> Coat {
         match (paint, self) {
             (Paint::Color(color), _) => Coat::Flat(self.on(*color)),
             (Paint::Gradient(_), Self::Mask) => Coat::Flat(BLACK),
-            (Paint::Gradient(_), _) => Coat::Gradient(gradient_id(index, slot, self)),
+            (Paint::Gradient(_), _) => Coat::Gradient(gradient_id(scope, index, (slot, self))),
         }
     }
 
@@ -449,7 +560,7 @@ impl Ink {
 /// plain fill the path. A screen is moved by `moved` (the hard shadow's offset), by a transform on its group.
 fn drawn(
     svg: &mut String,
-    (shape, view): (&Shape, &View),
+    (shape, view): (&Shape, &Frame<'_>),
     data: &str,
     fill: &Fill,
     ink: Ink,
@@ -492,12 +603,22 @@ fn drawn(
 
 /// Appends the attributes of the path `data` that paint it: the `fill` given and the stroke of the style, coloured as
 /// `ink` says.
-fn body(svg: &mut String, data: &str, (shape, view): (&Shape, &View), ink: Ink, fill: &Paint) -> Result<(), Error> {
+fn body(
+    svg: &mut String,
+    data: &str,
+    (shape, view): (&Shape, &Frame<'_>),
+    ink: Ink,
+    fill: &Paint,
+) -> Result<(), Error> {
     let style = shape.style();
     let _ = write!(svg, " d=\"{data}\"");
-    attribute(svg, "fill", &ink.coat(fill, "fill", shape.index()));
+    attribute(svg, "fill", &ink.coat(fill, "fill", (view.scope, shape.index())));
     if let Some(stroke) = style.stroke() {
-        attribute(svg, "stroke", &ink.coat(stroke.paint(), "stroke", shape.index()));
+        attribute(
+            svg,
+            "stroke",
+            &ink.coat(stroke.paint(), "stroke", (view.scope, shape.index())),
+        );
         let _ = write!(
             svg,
             " stroke-width=\"{}\" stroke-linejoin=\"{}\" stroke-linecap=\"{}\" stroke-miterlimit=\"{}\"",

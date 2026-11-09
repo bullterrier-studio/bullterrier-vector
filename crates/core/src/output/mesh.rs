@@ -364,6 +364,17 @@ impl Maker<'_> {
         if style.knockout() {
             return Ok(());
         }
+        for (cut, word) in [(style.clip().is_some(), "clip"), (style.mask().is_some(), "mask")] {
+            if cut {
+                return Err(Error::parameter(
+                    word,
+                    format!(
+                        "shape {}: a {word} has no triangle form; use to_rgba or to_svg",
+                        shape.index()
+                    ),
+                ));
+            }
+        }
         let name = format!("shape {}", shape.index());
         let work = &self.work;
         let mut charge = |count| work.made_segments(count, &name);

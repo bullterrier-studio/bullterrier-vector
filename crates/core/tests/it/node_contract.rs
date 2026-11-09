@@ -510,6 +510,20 @@ fn rows() -> Vec<Row> {
             geometry: None,
         },
         Row {
+            verb: "clip",
+            sample: || Ok(square()?.clip(offset_square()?)),
+            with: None,
+            ranges: &[],
+            geometry: None,
+        },
+        Row {
+            verb: "mask",
+            sample: || Ok(square()?.mask(Drawing::from(offset_square()?).fill(Color::hex(0x80_80_80)))),
+            with: None,
+            ranges: &[],
+            geometry: None,
+        },
+        Row {
             verb: "split",
             sample: || Ok(Drawing::from(Path::from_svg_path("M0 0 L4 0 L4 4 Z M10 0 L14 0 L14 4 Z")?).split()),
             with: None,

@@ -3,7 +3,8 @@
 use super::color::Color;
 use super::paint::Paint;
 use crate::key::{Key, Keyed};
-use crate::{Error, Path};
+use crate::{Error, Path, Shape};
+use std::sync::Arc;
 
 /// The width of a stroke when none is given, in design pixels.
 // constant: api.md "Style" (`stroke(color, *, width=2, ...)`), which is also the width of the default paint of an
@@ -342,6 +343,10 @@ pub struct Style {
     pub(crate) blend: Blend,
     pub(crate) shadow: Option<ShadowStyle>,
     pub(crate) knockout: bool,
+    /// The region the shape and its shadow are cut to, shared by every shape one `clip` step made.
+    pub(crate) clip: Option<Arc<Path>>,
+    /// The shapes whose luminance sets the opacity of the shape and its shadow, shared by every shape one `mask` step made.
+    pub(crate) mask: Option<Arc<[Shape]>>,
     /// Whether a fill or a stroke was set, `fill("none")` included. Until then the default paint applies.
     painted: bool,
 }
@@ -357,6 +362,8 @@ impl Style {
             blend: Blend::Normal,
             shadow: None,
             knockout: false,
+            clip: None,
+            mask: None,
             painted: false,
         }
     }
@@ -415,6 +422,16 @@ impl Style {
         self.knockout = true;
     }
 
+    /// Cuts the shape to `region`, and to the clip it has already.
+    pub(crate) fn set_clip(&mut self, region: Arc<Path>) {
+        self.clip = Some(region);
+    }
+
+    /// Sets the mask.
+    pub(crate) fn set_mask(&mut self, mask: Arc<[Shape]>) {
+        self.mask = Some(mask);
+    }
+
     /// Whether a fill or a stroke was set, or the default paint resolved: false only for a shape no step has painted.
     pub(crate) fn is_painted(&self) -> bool {
         self.painted
@@ -462,6 +479,30 @@ impl Style {
     pub fn knockout(&self) -> bool {
         self.knockout
     }
+
+    /// The region the shape and its shadow are cut to, `None` where it is not clipped. It is in the design frame, as a
+    /// gradient is. A knockout ignores it.
+    #[must_use]
+    pub fn clip(&self) -> Option<&Path> {
+        self.clip.as_deref()
+    }
+
+    /// The shapes whose luminance sets the opacity of the shape and its shadow, `None` where it is not masked. A
+    /// knockout ignores it.
+    #[must_use]
+    pub fn mask(&self) -> Option<&[Shape]> {
+        self.mask.as_deref()
+    }
+
+    /// The clip as shared by the shapes one step made: outputs tell clips apart by this pointer.
+    pub(crate) fn shared_clip(&self) -> Option<&Arc<Path>> {
+        self.clip.as_ref()
+    }
+
+    /// The mask as shared by the shapes one step made.
+    pub(crate) fn shared_mask(&self) -> Option<&Arc<[Shape]>> {
+        self.mask.as_ref()
+    }
 }
 
 impl Keyed for ShadowStyle {
@@ -501,6 +542,8 @@ impl Keyed for Style {
         key.text(self.blend.name());
         key.of(&self.shadow);
         key.word(u64::from(self.knockout));
+        key.of(&self.clip);
+        key.of(&self.mask);
         key.word(u64::from(self.painted));
     }
 }
