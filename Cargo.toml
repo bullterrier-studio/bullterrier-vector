@@ -78,6 +78,13 @@ opt-level = 1
 [profile.stack]
 inherits = "dev"
 
+# Release builds (the wheel, the WebAssembly package, the benchmarks): one codegen unit and link-time optimisation let the
+# rasteriser's dependencies inline into the paint path. `panic` stays `unwind`: PyO3 turns a panic into an exception
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "unwind"
+
 # Warnings, not errors, so a newer compiler's new lint never breaks a user's install; the gate (`poe check`) runs clippy
 # and rustdoc with `-D warnings`, so every one fails it.
 [workspace.lints.rust]
