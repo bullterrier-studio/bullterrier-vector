@@ -127,5 +127,18 @@ The bar was a gain of 10% at 1080p; it was not met (about 3% at best, inside the
 small canvases gain (about 15%), where the fixed cost of the context dominates. The churn is mostly per shape (`Curve::flatten`,
 `stroke_outline`, the drops of a `Body`), which a render state does not touch. Output bytes were identical in both orders.
 
+A second spike reused scratch within one call, with no state kept between calls: one `edges` Vec for all sub-paths of a
+flattening, `points` reserved to the curve count, and the shape's centre outline built once instead of twice. Interleaved
+base, spike (three rounds, separate processes), 200 shapes, load average 10 to 13; minimum of 80 calls in milliseconds.
+
+| `to_rgba` | main | spike |
+|---|---|---|
+| 200 shapes, 1920 by 1080 | 15.3, 17.2, 17.6 | 15.4, 18.6, 17.0 |
+| 200 shapes, 3840 by 2160 | 25.6, 27.6, 26.8 | 27.0, 26.5, 31.2 |
+| 50 shapes, 333 by 217 | 3.1, 5.4, 3.3 | 4.3, 3.2, 3.3 |
+
+No difference beyond the noise, so the code is reverted. The allocations that remain are kurbo's own (the stroker's output
+growth) and the drops of each shape's `Body`, which a caller's scratch cannot reach without owning kurbo's buffers.
+
 The `pow`, `atan2`, `sincos` and `hypot` of the profile (2% in all) are called by kurbo's stroker (`round_join`, `do_join`):
 left, in kurbo.
