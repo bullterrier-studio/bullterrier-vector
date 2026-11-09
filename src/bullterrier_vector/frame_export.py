@@ -127,9 +127,11 @@ def _write_clip(
             with subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=log) as process:  # noqa: S603  see above
                 stdin = cast(IO[bytes], process.stdin)  # PIPE was asked for
                 try:
-                    for rgba in chain([first], pixels):
-                        stdin.write(rgba)
-                    stdin.close()
+                    try:
+                        for rgba in chain([first], pixels):
+                            stdin.write(rgba)
+                    finally:
+                        stdin.close()  # even after a failed write: Popen's exit would flush and raise over our error
                 except BrokenPipeError:
                     pass  # ffmpeg stopped reading; its exit status and message, next, say why
                 status = process.wait()

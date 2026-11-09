@@ -76,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("file", type=Path, help="a .json document or a .py program with a `drawing`")
     parser.add_argument("--size", help="WIDTHxHEIGHT in pixels (default: the drawing's own size, else 800x600)")
     parser.add_argument("values", nargs="*", metavar="NAME=VALUE", help="a value for a Param")
-    arguments = parser.parse_args(argv)
+    arguments = parser.parse_intermixed_args(argv)  # older 3.12s reject NAME=VALUE after an option
     try:
         drawing = load(arguments.file)
         values = parse_values(arguments.values)
