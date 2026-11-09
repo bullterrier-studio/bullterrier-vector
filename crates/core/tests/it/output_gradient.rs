@@ -259,23 +259,32 @@ fn a_gradient_stroke_is_the_gradient_inside_the_stroke_and_nothing_outside() -> 
 }
 
 #[test]
-fn a_stroke_that_overlaps_itself_is_not_painted_twice_where_it_does() -> Outcome {
-    // two crossing lines and round ends, all of one gradient of alpha 128: wherever the stroke is, the alpha is 128, not
-    // the 192 of two layers
+fn a_stroke_whose_pieces_overlap_is_not_painted_twice_where_they_do() -> Outcome {
+    // a line and, on it and beside it, zero-length segments the round caps draw as discs (a separate piece of the
+    // stroke): wherever the stroke is, the alpha is the gradient's 128, not the 192 of two layers
     let half = Gradient::linear(
         (0.0, 0.0),
         (100.0, 0.0),
         [(0.0, color("#ff000080")?), (1.0, color("#0000ff80")?)],
     )?;
-    let cross = Path::from_svg_path("M10 10 L90 90 M10 90 L90 10")?;
+    let path = Path::line((10.0, 50.0), (90.0, 50.0))?
+        .move_to((50.0, 50.0))?
+        .line_to((50.0, 50.0))?
+        .move_to((30.0, 20.0))?
+        .line_to((30.0, 20.0))?;
     let image = render(
-        &Drawing::from(cross).stroke(Stroke::new(half).width(16.0).cap(Cap::Round)),
+        &Drawing::from(path).stroke(Stroke::new(half).width(16.0).cap(Cap::Round)),
         100,
         100,
     )?;
-    for (x, y) in [(50, 50), (30, 30), (70, 30), (12, 12), (88, 88)] {
+    // on the line and the disc, on the line only, on the disc beside it only
+    for (x, y) in [(50, 50), (46, 46), (70, 50), (30, 20), (30, 14)] {
         let alpha = image.alpha(x, y);
         assert!((127..=129).contains(&alpha), "({x}, {y}) has alpha {alpha}");
+    }
+    // and nothing is left of the opaque layer the pieces are painted into
+    for (x, y) in [(50, 30), (5, 5), (80, 80)] {
+        assert_eq!(image.alpha(x, y), 0, "({x}, {y})");
     }
     Ok(())
 }
