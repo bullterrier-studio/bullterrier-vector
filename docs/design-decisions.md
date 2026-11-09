@@ -929,6 +929,34 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   alpha and of the mix. The mesh keeps its 0 normal, 1 multiply range column and refuses every other mode naming
   `blend` and the shape: a range has no room for a formula, and a fixed blend function covers only multiply over an
   opaque ground. Only the f32 fallback of the non-u8 modes costs speed, nothing else.
+- **A clip and a mask cut each shape on its own** (part 3), as `opacity` applies to a shape: not a group of the drawing.
+  A clip commutes with painting over, so only a blend or a mask shows the difference (two opaque squares masked at
+  half grey give 0.75 where they overlap, a group fade 0.5). A group form would be a different verb on a `Drawing`,
+  not a style; it is not built. The region (the source's shapes united once, as a boolean's `other`) is an `Arc<Path>` on
+  `Style`, the mask an `Arc<[Shape]>` of the source as painted; every shape one step cuts holds the same `Arc`.
+- **Made once per step.** Outputs tell clips and masks apart by that pointer: the SVG writes one `<clipPath>` or `<mask>`
+  per distinct one and each element names it, the pixel writer builds one luminance `Mask` (a second `RenderContext` and
+  `Pixmap` at the canvas size, because a mask of another size is ignored without a word), and the canvas pixels of each
+  distinct mask are charged once to `MAX_FILTER_PIXELS`, which now says "the blur of its shadow" or "its mask". Per shape,
+  a fifty-glyph headline at 1920 by 1080 would have charged 100 million pixels, built fifty masks and written fifty
+  `<mask>`s. Equal masks built apart by two steps are two (the `Arc`s differ); a step is the unit.
+- **Clip and mask share the shape's outer group** (SVG: the attributes go on the element or `<g>` that has the opacity and
+  blend; pixels: one layer with the clip path, blend, opacity and mask), so a shadow is cut with the shape and a blend still
+  mixes with the backdrop. A `<g clip-path>` around the element would isolate the blend; the one group does not. A knockout
+  ignores both, like its colours, opacity and blend. A region that fills nothing draws nothing (not "no clip").
+- **A mask holds no masks; a shape takes one.** The mask's shapes carry no mask, refused at the `mask` step naming `source`,
+  so the depth of what a mask draws is bounded by construction, not by a limit. A mask's shapes may be clipped. A second
+  `mask` on a masked shape is refused (the two would multiply, which nothing asked for); a second `clip` cuts to both
+  (the regions are intersected once for each distinct earlier clip).
+- **Ids of what a mask draws** are prefixed with the mask's id (`mask-3-shadow-0`, `mask-3-gradient-0-fill`), built in
+  the one place that makes an id, because the shapes of a mask are numbered from 0 again and a shadow, halftone or
+  gradient of shape 0 in the mask and in the drawing would otherwise share an id.
+- **A tolerance for the luminance.** `vello_cpu` rounds the luminance of a mask pixel to nearest, `resvg` (tiny-skia) rounds it
+  up: they differ by about one level, and the SVG tests of masks allow what the other rows of the file do (interior 4,
+  edges 40 over 1%). A clip or mask in a layer composites an edge pixel a level off a direct draw (a white mask against
+  none, 1 level), the rasteriser's own 8-bit rounding. Neither is worked around (CLAUDE.md, rule 2).
+- **The mesh refuses a clip and a mask** like a gradient: `ParameterError` naming `clip` or `mask` and the shape, which
+  uses the same wording, "use to_rgba or to_svg".
 - **`gradient_map` and `posterize` stay unregistered** (docs only): they recolour fills and strokes, and there is nothing
   to recolour yet. When they are added they must map the stops of a gradient, not skip it.
 

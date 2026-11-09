@@ -4,11 +4,11 @@ Status: V1a, designed from the example programs in [examples/](examples/); waiti
 in Rust and Python: `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V2a); `Param`, `Expr`, `Shape`, `Style` and
 `Drawing` with `translate`, `rotate`, `scale`, `fill`, `stroke`, `opacity`, `blend`, `only`, `without`, `with_values`,
 `parameters()`, `shapes()` and `size`, and the style verbs on a `Path` (V2b). A `Shape`'s `style` has `fill`, `stroke`,
-`stroke_width`, `join`, `cap`, `miter_limit`, `halftone`, `opacity`, `blend`, `shadow` and `knockout` (V10); the rest of the members below arrive
+`stroke_width`, `join`, `cap`, `miter_limit`, `halftone`, `opacity`, `blend`, `shadow`, `knockout`, `clip` and `mask` (V10, V10d); the rest of the members below arrive
 with their steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6), and `along` (V6) on `Path` and `Drawing`, all in Rust
 and Python, and `text` and `along` in a document; and the per-item numbers `by_index`, `by_order`, `random` and
 `stagger`, and the steps `split`, `merge` and `slice` (V7), and the booleans `union`, `subtract`, `intersect`, `exclude`
-and `resolve` (V8), and the style steps `shadow`, `knockout` and `halftone` (V10), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
+and `resolve` (V8), and the style steps `shadow`, `knockout` and `halftone` (V10) and `clip` and `mask` (V10d), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
 defaults written here. The rest is not built ([roadmap.md](roadmap.md)). Reasons:
 [design-decisions.md](design-decisions.md), "The code API". The JSON form of a drawing: [formats.md](formats.md).
 
@@ -39,6 +39,7 @@ import bullterrier_vector as btvec
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
 | [halftone.py](examples/halftone.py) | halftone dots from a tone map (a `Field` tone, V15) |
 | [halftone.py](../examples/halftone.py) | discs filled with a screen of dots, a tone each, over paper |
+| [cut_type.py](../examples/cut_type.py) | a headline faded by one mask, over stripes clipped to a circular window |
 | [gradient_type.py](../examples/gradient_type.py) | a headline filled with one gradient across the frame, a glow and a ring with radial ones |
 | [duotone.py](examples/duotone.py) | a gradient map and posterize on colours |
 | [series_bars.py](../examples/series_bars.py) | a series of numbers as bars, with plain code |
@@ -311,6 +312,8 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | `blend` | `blend(mode)` | paints over what is below with a CSS blend `mode`: `"normal"`, `"multiply"`, `"screen"`, `"overlay"`, `"darken"`, `"lighten"`, `"color-dodge"`, `"color-burn"`, `"hard-light"`, `"soft-light"`, `"difference"` or `"exclusion"`; it applies to a shape with its shadow once | another word, the non-separable `"hue"`, `"saturation"`, `"color"` and `"luminosity"` included; a mesh: any mode but normal and multiply |
 | `shadow` | `shadow(*, dx=0, dy=8, blur=16, color="#00000059")` | a drop shadow under each shape: the silhouette of its fill and stroke, moved by `dx` and `dy`, blurred and tinted `color`; the last call wins | `blur` below 0; `dx`, `dy` or `blur` not finite; `color` of `"none"`; pixel outputs: a blur past the limits below |
 | `knockout` | `knockout()` | each shape removes what is below it in its drawing, instead of painting: the area its fill and stroke cover is cut out of the shapes before it, shadows included | `to_svg`: more than 128 knockout layers nested (below) |
+| `clip` | `clip(region)` | cuts each shape, and its shadow, to the region the drawing `region` (a `Drawing`, `Path` or `Shape`) fills: all its shapes united once, whichever way round their outlines run; each shape is cut on its own, as `opacity` applies to it, not as a group of the drawing; a region that fills nothing leaves nothing drawn; a second clip cuts to both; a knockout is not cut | a `region` that holds an error; the work of uniting it past `MAX_SEGMENTS`; a mesh |
+| `mask` | `mask(source)` | fades each shape, and its shadow, by the luminance of `source` as painted (gradients, blends and opacity included; 0.2126 R + 0.7152 G + 0.0722 B of the sRGB values, times the alpha): white keeps, black and what `source` leaves bare hide; each shape on its own; a knockout is not masked | a shape that is masked already, or a `source` whose shapes are masked (naming `source`); the canvas pixels of the masks of a draw past `MAX_FILTER_PIXELS`; a mesh |
 | `gradient_map` | `gradient_map(colors)` | every fill and stroke colour replaced by its lightness read along `colors`, dark to light (two colours: a duotone) | fewer than 2 colours |
 | `posterize` | `posterize(levels)` | every fill and stroke colour reduced to `levels` levels a channel | `levels` below 2 |
 
@@ -379,6 +382,18 @@ the part of an earlier shape outside the mask's region (the canvas and its shado
 where the SVG is displayed with `overflow:visible`. Pixels paint the knockout into a layer that is taken out of what is
 below it, within the part of the canvas it reaches, with the same anti-aliasing as the SVG.
 
+A clip and a mask belong to the group a shape's opacity and blend do, outermost: a shadow is cut or faded with its shape, and
+a blend mixes with what is below, as the pixels do. A knockout ignores both, as it ignores its colours. The region and the
+mask lie in the design frame, as a gradient does (set them after the transforms). `clip` and `mask` make the region
+and the mask once for the step and every shape it cuts shares them, so a headline of fifty letters faded by one mask has one
+`<mask id="mask-N">` (the canvas, with the mask's shapes drawn in it) that each letter's element names, one luminance mask in
+the pixels, and its canvas pixels charged once to `MAX_FILTER_PIXELS`, the budget of the blur's layers (two masks of a
+8,200 by 8,200 canvas pass it). A `<clipPath id="clip-N">` is written once the same way. What a mask draws has ids with
+the mask's own prefix (`mask-3-shadow-0`), so shapes numbered alike never share one. A mesh refuses a clip and a mask,
+naming `clip` or `mask` and the shape: three flat buffers have no clip or mask range. The pixels' luminance is rounded by
+`vello_cpu` and `resvg`'s is not: they differ by about a level, within the tolerance of the SVG tests
+([design-decisions.md](design-decisions.md), "Paint and compositing style (V10d)").
+
 ### Values and evaluation
 
 | Method | Signature | Promise | Errors |
@@ -397,7 +412,7 @@ drawing with their style and attributes.
 | Member | Type | Promise |
 |---|---|---|
 | `shape.path` | `Path` | its outline |
-| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, a `Gradient`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`) |
+| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, a `Gradient`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`), `clip` (a `Path` or `None`) and `mask` (the mask's shapes, a list of `Shape`, or `None`) |
 | `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`) |
 
 ## Generators
@@ -618,7 +633,7 @@ opens nothing.
 
 | Method | Signature | Promise |
 |---|---|---|
-| `to_svg` | `to_svg(width, height, /, **values)` | an SVG document of that size; shadows, halftone, knockouts and multiply kept, so it shows what the pixels show |
+| `to_svg` | `to_svg(width, height, /, **values)` | an SVG document of that size; shadows, halftone, knockouts, clips, masks and blends kept, so it shows what the pixels show |
 | `to_png` | `to_png(width, height, /, **values)` | PNG bytes, 8-bit RGBA, transparent where nothing is drawn |
 | `to_rgba` | `to_rgba(width, height, /, **values)` | `width × height × 4` bytes, rows top to bottom, straight alpha |
 | `to_plotter_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
@@ -920,7 +935,7 @@ path).
   only what is set is painted.
 - **The design size is optional and inherited**; items whose sizes disagree raise `ParameterError`.
 - **The reference pose** is every Param at its default, whatever `with_values` fixed.
-- **The mesh** carries multiply as draw ranges and knockouts as booleans; only a blurred shadow raises.
+- **The mesh** carries multiply as draw ranges and knockouts as booleans; a blurred shadow, a gradient, a blend beyond multiply, a clip and a mask raise.
 - **Whole-number arguments** take expressions whose value is whole when drawn.
 - **JavaScript expressions** lift a leading number with `btvec.expr(n)`.
 - **Frame export may rebuild the drawing per frame**; such a clip is many drawings, not one JSON.

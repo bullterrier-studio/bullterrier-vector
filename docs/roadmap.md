@@ -54,7 +54,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V8 | Booleans, with fuzzing and documented limits | L | |
 | V9 | Offset, inset, stroke outline | M | |
 | V10 | SVG fidelity: drop shadows and knockouts as style attributes, the same in SVG and pixels; a fast halftone fill | M | |
-| V10d | Paint and compositing style: gradient fills and strokes, the full separable blend set, clip groups and soft masks | M | |
+| V10d | Paint and compositing style: gradient fills and strokes, the full separable blend set, clip groups and soft masks | M | Done 2026-11-09 |
 | V10e | Render a window: draw any rectangle of a drawing at the final scale | S | |
 | V10f | Text runs: one line of text from runs that each have their own font, size and axes | M | |
 | V11 | Path modifiers: dash march, place shapes along a path, simplify, resample; a width profile along a stroke (tapered strokes) | M | |
@@ -539,7 +539,7 @@ against about 500 ms for a boolean per dot (`benchmarks.md`).
 
 ## V10d Paint and compositing style
 
-Parts 1 (gradient fills and strokes) and 2 (the separable blend set) are built: see `design-decisions.md`, "Paint and compositing style (V10d)".
+Parts 1 (gradient fills and strokes), 2 (the separable blend set) and 3 (clip groups and soft masks) are built; done 2026-11-09: see `design-decisions.md`, "Paint and compositing style (V10d)".
 
 The same style model as V10, extended; the result is the same in SVG and in pixels, and the mesh raises as it does for a
 blurred shadow.
@@ -548,8 +548,8 @@ blurred shadow.
   and radius in design pixels). The fill of a shape is a paint, not only a colour.
 - The separable blend modes of the W3C compositing specification beyond `normal` and `multiply` (built: all ten).
   Blending stays in sRGB values, with straight alpha out of `to_rgba`.
-- Clip groups (shapes drawn only inside a path) and soft masks (a drawing whose luminance sets the opacity of another).
-  Today only `knockout` removes what is below, through booleans.
+- Clip groups (shapes drawn only inside a path) and soft masks (a drawing whose luminance sets the opacity of another)
+  (built: `clip` and `mask`, each shape on its own; a group form is not built).
 
 ## V10e Render a window
 

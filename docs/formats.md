@@ -111,7 +111,7 @@ number of a field or a flow.
 | `trace` | `trace(field, *, ...)` | `field` (field), `levels` (numbers), `tolerance`, `before`, `after` (fields), `sigma` |
 
 A tag is four printable ASCII characters (`"wght"`). A shape's style is written as the style steps that set it, in the
-order `fill` (or `halftone`, for a screen), `stroke`, `opacity`, `blend`, `shadow`, `knockout`, each with the shape's
+order `fill` (or `halftone`, for a screen), `stroke`, `opacity`, `blend`, `shadow`, `knockout`, `clip`, `mask`, each with the shape's
 values. `Style` holds the paint as drawn, so the fill is always written, as `fill` or as `halftone`
 (`{"fill": {"color": "none"}}` when `Style.fill` is `None` and there is no screen): the shape then never takes the
 default paint, and draws as it did.
@@ -145,6 +145,8 @@ default paint, and draws as it did.
 | `stroke` | `color` (colour or gradient), `width`, `join`, `cap`, `miter_limit` |
 | `halftone` | `color` (colour), `tone` (number or field), `pitch`, `angle` |
 | `opacity` | `alpha` |
+| `clip` | `region` (drawing: an array of calls, as the `other` of a boolean; all its shapes united once) |
+| `mask` | `source` (drawing; its shapes are written as painted and hold no mask) |
 | `blend` | `mode` (a CSS blend: `"normal"`, `"multiply"`, `"screen"`, `"overlay"`, `"darken"`, `"lighten"`, `"color-dodge"`, `"color-burn"`, `"hard-light"`, `"soft-light"`, `"difference"`, `"exclusion"`) |
 | `shadow` | `dx`, `dy`, `blur`, `color` (colour) |
 | `gradient_map` | `colors` (colours, at least 2) |
