@@ -20,16 +20,10 @@ repos:
   - repo: local
     hooks:
       # Hooks only check; they never rewrite staged files. The hook name is what pre-commit prints on a failure,
-      # so it carries the fix. A commit compiles no Rust: rustfmt only reads the sources, and clippy, the tests and
-      # the WebAssembly build wait for the gate (`uv run poe check`, run before a push to main).
+      # so it carries the fix. A commit compiles no Rust: rustfmt, clippy, the tests and the WebAssembly
+      # build wait for the gate (`uv run poe check`, run before a push to main).
       # ruff and the commit-message check run with `--no-sync`: neither imports the package, and syncing would
       # rebuild the Rust extension after every Rust change (and fail on a commit that stages only part of one).
-      - id: rust-fmt
-        name: rust-fmt (fix with `uv run poe fix`)
-        entry: cargo fmt --all --check
-        language: system
-        types: [rust]
-        pass_filenames: false
       - id: ruff-format
         name: ruff-format (fix with `uv run poe fix`)
         entry: uv run --no-sync ruff format --check

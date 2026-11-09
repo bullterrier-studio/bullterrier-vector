@@ -327,7 +327,7 @@ follow "Fixing defects"; design follows the skill.
 ## Git conventions
 
 Once per clone: `uv run poe setup` (hooks and commit template). Before a merge or a push to `main`: `uv run poe check`; before a
-tag: `uv run poe full`. The commit hooks check formatting (rustfmt, ruff) and the message; compiling and testing wait for the gate.
+tag: `uv run poe full`. The commit hooks check Python formatting (ruff) and the message; rustfmt, compiling and testing wait for the gate.
 The pre-push hook runs the gate for a push to `main` (`check`) or a tag (`full`; so does any ref that is not clearly a branch),
 and for any push while local `main` has unpushed code or git cannot say. (Pre-commit does not call the hook at all for a tag that
 points at a commit the remote already has: "nothing to push".) It skips the gate for a branch other than `main` while `main` has
