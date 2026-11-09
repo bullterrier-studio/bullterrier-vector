@@ -1096,6 +1096,8 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
     "blend": (lambda: Drawing(SQUARE).blend("multiply"), {}, [row(RECT, blend="multiply")]),
     "shadow": (lambda: Drawing(SQUARE).shadow(dy=3), {}, [row(RECT)]),
     "knockout": (lambda: Drawing(SQUARE).knockout(), {}, [row(RECT)]),
+    "clip": (lambda: Drawing(SQUARE).clip(HALF), {}, [row(RECT)]),
+    "mask": (lambda: Drawing(SQUARE).mask(WHITE_SQUARE), {}, [row(RECT)]),
     "halftone": (lambda: Drawing(SQUARE).halftone("#000000", tone=0.5), {}, [row(RECT, fill=None)]),
     "only": (lambda: Drawing(*squares(2)).only(index=1), {}, [row(SMALL[1])]),
     "without": (lambda: Drawing(*squares(2)).without(index=1), {}, [row(SMALL[0])]),
@@ -1129,7 +1131,7 @@ def test_drawing_shape_and_style_read_in_a_repr():
     shape = drawing.fill("#ff0000").shapes()[0]
     assert repr(shape.style) == (
         "Style(fill='#ff0000ff', halftone=None, stroke=None, stroke_width=None, opacity=1.0, blend='normal', "
-        "shadow=None, knockout=False)"
+        "shadow=None, knockout=False, clip=None, mask=None)"
     )
     assert repr(shape) == f"Shape(index=0, path={shape.path!r}, style={shape.style!r})"
 
