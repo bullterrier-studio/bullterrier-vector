@@ -266,6 +266,55 @@ def test_a_knockout_goes_back_into_a_drawing_and_through_json():
     assert [shape.style.knockout for shape in Drawing.from_json(Drawing(*shapes).to_json()).shapes()] == [True, True]
 
 
+HALF = btvec.Path.rect(0, 0, 5, 10)
+WHITE_SQUARE = btvec.Path.rect(0, 0, 10, 10).fill("#ffffff")
+
+
+def test_a_clip_and_a_mask_are_on_the_style_of_every_shape_and_none_before():
+    (bare,) = Drawing(SQUARE).shapes()
+    assert (bare.style.clip, bare.style.mask) == (None, None)
+    clipped, masked = only_shape(SQUARE.clip(HALF)).style, only_shape(SQUARE.mask(WHITE_SQUARE)).style
+    assert clipped.clip == HALF
+    assert [shape.path for shape in masked.mask or []] == [SQUARE]
+    assert [shape.style.fill for shape in masked.mask or []] == ["#ffffffff"]
+    assert clipped == only_shape(Drawing(SQUARE).clip(HALF)).style
+    assert hash(clipped) == hash(only_shape(Drawing(SQUARE).clip(HALF)).style)
+    assert clipped != only_shape(SQUARE.clip(OVERLAP)).style
+    assert clipped != bare.style
+    assert "clip=Path.from_svg_path('M0 0 L5 0 L5 10 L0 10 Z')" in repr(clipped)
+
+
+def test_a_clip_and_a_mask_go_back_into_a_drawing_and_through_json():
+    drawing = Drawing(SQUARE.fill("#ff0000").clip(HALF), OVERLAP.fill("#0000ff").mask(WHITE_SQUARE))
+    shapes = drawing.shapes()
+    assert Drawing(*shapes).shapes() == shapes
+    assert Drawing.from_json(drawing.to_json()).shapes() == shapes
+    assert '"clip":{"region"' in drawing.to_json()
+
+
+def test_a_clip_cuts_the_pixels_and_a_mask_fades_them():
+    red = btvec.Path.rect(0, 0, 4, 4).fill("#ff0000")
+    clipped = red.clip(btvec.Path.rect(0, 0, 2, 4)).to_rgba(4, 4)
+    faded = red.mask(btvec.Path.rect(0, 0, 4, 4).fill("#808080")).to_rgba(4, 4)
+    alpha = lambda data, x: data[(1 * 4 + x) * 4 + 3]  # noqa: E731  (row 1 of the 4 by 4 picture)
+    assert [alpha(clipped, x) for x in range(4)] == [255, 255, 0, 0]
+    assert all(abs(alpha(faded, x) - 128) <= 1 for x in range(4))
+
+
+def test_a_mask_in_a_mask_and_a_second_mask_are_refused_naming_source():
+    masked = SQUARE.mask(WHITE_SQUARE)
+    for drawing in (SQUARE.mask(masked), masked.mask(WHITE_SQUARE)):
+        with pytest.raises(ParameterError, match=r"mask\)\.source"):
+            drawing.shapes()
+
+
+def test_a_mesh_refuses_a_clip_and_a_mask_naming_the_step():
+    for word, drawing in (("clip", SQUARE.clip(HALF)), ("mask", SQUARE.mask(WHITE_SQUARE))):
+        with pytest.raises(ParameterError, match=word) as raised:
+            drawing.to_mesh(10, 10)
+        assert "to_rgba" in str(raised.value)
+
+
 def test_shadows_with_equal_fields_are_equal_and_hash_alike():
     first, second = only_shape(SQUARE.shadow(blur=3)).style, only_shape(Drawing(SQUARE).shadow(blur=3)).style
     assert first == second

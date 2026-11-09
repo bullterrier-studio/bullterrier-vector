@@ -340,10 +340,24 @@ impl PyStyle {
         self.0.knockout()
     }
 
+    /// The region the shape and its shadow are cut to, or `None`.
+    #[getter]
+    fn clip(&self) -> Option<PyPath> {
+        self.0.clip().cloned().map(PyPath)
+    }
+
+    /// The shapes whose luminance sets the opacity of the shape and its shadow, or `None`.
+    #[getter]
+    fn mask(&self) -> Option<Vec<PyShape>> {
+        self.0
+            .mask()
+            .map(|shapes| shapes.iter().cloned().map(PyShape).collect())
+    }
+
     fn __repr__(&self) -> String {
         let number = |value: Option<f64>| value.map_or_else(|| "None".to_owned(), |value| format!("{value:?}"));
         format!(
-            "Style(fill={}, halftone={}, stroke={}, stroke_width={}, opacity={:?}, blend='{}', shadow={}, knockout={})",
+            "Style(fill={}, halftone={}, stroke={}, stroke_width={}, opacity={:?}, blend='{}', shadow={}, knockout={}, clip={}, mask={})",
             paint_repr(self.0.fill()),
             self.halftone()
                 .map_or_else(|| "None".to_owned(), |halftone| halftone.__repr__()),
@@ -356,6 +370,10 @@ impl PyStyle {
             self.shadow()
                 .map_or_else(|| "None".to_owned(), |shadow| shadow.__repr__()),
             if self.knockout() { "True" } else { "False" },
+            self.clip().map_or_else(|| "None".to_owned(), |clip| clip.__repr__()),
+            self.0
+                .mask()
+                .map_or_else(|| "None".to_owned(), |shapes| format!("<{} shapes>", shapes.len())),
         )
     }
 
@@ -372,6 +390,16 @@ impl PyStyle {
             self.blend(),
             self.shadow(),
             self.knockout(),
+            (
+                self.clip(),
+                // the paths of the shapes tell masks apart well enough: equal masks have equal paths
+                self.0.mask().map(|shapes| {
+                    shapes
+                        .iter()
+                        .map(|shape| PyPath(shape.path().clone()))
+                        .collect::<Vec<_>>()
+                }),
+            ),
         )
             .into_pyobject(py)?
             .hash()

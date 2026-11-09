@@ -13,7 +13,7 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
 
-use crate::drawing::{PyDrawing, refuse_expr, refuse_expr_in_pair};
+use crate::drawing::{Item, PyDrawing, refuse_expr, refuse_expr_in_pair};
 use crate::expr::Num;
 use crate::shape::PaintArg;
 
@@ -548,6 +548,16 @@ impl PyPath {
     /// A drawing of this path as a knockout: it removes what is below it in a drawing instead of painting.
     fn knockout(&self) -> PyResult<PyDrawing> {
         PyDrawing::of(self).knockout()
+    }
+
+    /// A drawing of this path cut to the region `region` (a Path, a Shape or a Drawing) fills.
+    fn clip(&self, region: Item) -> PyResult<PyDrawing> {
+        PyDrawing::of(self).clip(region)
+    }
+
+    /// A drawing of this path faded by the luminance of `source` (a Path, a Shape or a Drawing) as painted.
+    fn mask(&self, source: Item) -> PyResult<PyDrawing> {
+        PyDrawing::of(self).mask(source)
     }
 
     /// A drawing of this path with a drop shadow behind it: `dx` and `dy` design pixels from it (0 and 8 where left

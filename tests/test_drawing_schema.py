@@ -605,6 +605,13 @@ AGREED = [
     ),
     pytest.param(square_with({"knockout": {}}), True, id="a knockout"),
     pytest.param(square_with({"knockout": {"alpha": 1}}), False, id="a knockout with an argument"),
+    pytest.param(square_with({"clip": {"region": [{"path": SQUARE}]}}), True, id="a clip"),
+    pytest.param(square_with({"clip": {}}), False, id="a clip without its region"),
+    pytest.param(square_with({"clip": {"region": [{"path": SQUARE}], "other": 1}}), False, id="a clip with an extra"),
+    pytest.param(
+        square_with({"mask": {"source": [{"path": SQUARE}, {"fill": {"color": "#808080"}}]}}), True, id="a mask"
+    ),
+    pytest.param(square_with({"mask": {"region": [{"path": SQUARE}]}}), False, id="a mask with a region"),
     pytest.param(
         {"version": 1, "root": [{"stack": {"items": [], "size": [100000, 1]}}]}, True, id="the largest design frame"
     ),
@@ -668,6 +675,8 @@ REGISTERED = {
     "shadow",
     "knockout",
     "halftone",
+    "clip",
+    "mask",
     "only",
     "without",
     "split",

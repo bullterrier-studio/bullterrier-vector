@@ -476,6 +476,13 @@ MESH_REFUSED = {
     "gradient_hard_shadow",
     "gradient_blurred_shadow",
     "gradient_framed",
+    "clip_disc",
+    "clip_shadows",
+    "clip_two_shapes",
+    "mask_flat",
+    "mask_gradient",
+    "mask_translucent_shadow",
+    "clip_and_mask_framed",
 }
 
 
@@ -641,6 +648,40 @@ def gradients() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def cuts() -> list[Entry]:
+    """Clips and masks: a clip with its edge a curve, one with a hard and a blurred shadow, two shapes of one step
+    (one region), a flat and a gradient mask, a mask of translucent shapes with a shadow, both on a frame at two sizes,
+    and a knockout that ignores both (its mesh is made). The region goes through the one `View`, so the SVG text is
+    exact; the pixels are the rasteriser's; neither has a mesh."""
+    disc = btvec.Path.circle((50, 50), 38)
+    region = btvec.Path.circle((40, 55), 30)
+    fade = btvec.linear_gradient([(0, "#000000"), (1, "#ffffff")], start=(10, 0), end=(90, 0))
+    whole = btvec.Path.rect(0, 0, 100, 100)
+    drawings = {
+        "clip_disc": framed(disc.fill(BLUE).clip(region)),
+        "clip_shadows": framed(
+            btvec.Path.rect(15, 15, 40, 40).fill(RED).shadow(dx=12, dy=8, blur=0, color="#000000a0").clip(region),
+            btvec.Path.rect(45, 45, 40, 40).fill(GOLD).shadow(dx=6, dy=6, blur=10, color="#000000c0").clip(region),
+        ),
+        "clip_two_shapes": framed(
+            btvec.Drawing(disc.fill(GOLD), region.fill(RED)).clip(btvec.Path.rect(20, 20, 60, 60))
+        ),
+        "mask_flat": framed(disc.fill(RED).mask(whole.fill("#808080"))),
+        "mask_gradient": framed(disc.fill(BLUE).stroke(INK, width=6).mask(whole.fill(fade))),
+        "mask_translucent_shadow": framed(
+            disc.fill(GOLD)
+            .shadow(dx=8, dy=8, blur=0, color="#000000b0")
+            .mask(btvec.Drawing(region.fill("#ffffffc0"), btvec.Path.circle((65, 50), 25).fill("#ffffff").opacity(0.6)))
+        ),
+        "clip_and_mask_framed": framed(
+            whole.fill(RED).blend("multiply").opacity(0.8).clip(region).mask(whole.fill(fade))
+        ),
+        "cut_knockout": framed(whole.fill(GOLD), disc.fill(BLUE).knockout().clip(region).mask(whole.fill("#000000"))),
+    }
+    draws: dict[str, list[Draw]] = {"clip_and_mask_framed": [(100, 100, {}), (240, 160, {})]}
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -655,6 +696,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     knockouts,
     halftones,
     gradients,
+    cuts,
 ]
 
 

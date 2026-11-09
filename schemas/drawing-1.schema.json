@@ -461,6 +461,8 @@
           "blend",
           "shadow",
           "knockout",
+          "clip",
+          "mask",
           "gradient_map",
           "posterize",
           "with_values"
@@ -712,6 +714,18 @@
           }
         },
         "knockout": { "type": "object", "additionalProperties": false, "properties": {} },
+        "clip": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "region": { "$ref": "#/$defs/drawing" } },
+          "required": ["region"]
+        },
+        "mask": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "source": { "$ref": "#/$defs/drawing" } },
+          "required": ["source"]
+        },
         "gradient_map": {
           "type": "object",
           "additionalProperties": false,

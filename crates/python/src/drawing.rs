@@ -25,7 +25,7 @@ pub(crate) fn checked(drawing: vector::Drawing) -> PyResult<PyDrawing> {
 }
 
 /// What a drawing is made of, as the caller gave it: a `Path`, a `Shape` or a `Drawing`.
-struct Item(vector::Drawing);
+pub(crate) struct Item(vector::Drawing);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for Item {
     type Error = PyErr;
@@ -384,6 +384,19 @@ impl PyDrawing {
     /// cut out of the shapes before it, their shadows included. Its colours, opacity, blend and shadow are not drawn.
     pub(crate) fn knockout(&self) -> PyResult<Self> {
         checked(self.0.knockout())
+    }
+
+    /// Every shape, and its shadow, cut to the region `region` (a Drawing, a Path or a Shape; all its shapes united
+    /// once) fills. Each shape is cut on its own; a region that fills nothing leaves nothing drawn. `region` may hold
+    /// Params.
+    pub(crate) fn clip(&self, region: Item) -> PyResult<Self> {
+        checked(self.0.clip(region.0))
+    }
+
+    /// Every shape, and its shadow, faded by the luminance of `source` (a Drawing, a Path or a Shape) as painted.
+    /// Each shape is masked on its own; a shape takes one mask and the shapes of `source` take none.
+    pub(crate) fn mask(&self, source: Item) -> PyResult<Self> {
+        checked(self.0.mask(source.0))
     }
 
     /// Only the shapes whose attributes equal these (a list means any of). The list is renumbered.

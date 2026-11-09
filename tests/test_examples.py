@@ -353,3 +353,23 @@ def test_gradient_type_fills_the_letters_with_one_gradient_across_the_frame_and_
     assert len(root.findall(f"{svg}linearGradient")) == len(letters)
     with pytest.raises(btvec.ParameterError, match="gradient"):
         drawing.to_mesh(900, 420)
+
+
+def test_cut_type_clips_the_stripes_to_one_window_and_fades_every_letter_by_one_mask(run):
+    found = run("cut_type")
+    drawing = found["drawing"]
+    assert isinstance(drawing, btvec.Drawing)
+    shapes = drawing.shapes()
+    stripes = [shape for shape in shapes if shape.style.clip is not None]
+    letters = [shape for shape in shapes if shape.style.mask is not None]
+    assert (len(stripes), len(letters)) == (19, len("Fade out") - 1)  # 900 / 48 stripes; the space is no shape
+    # the window is the circle of radius 190 about (450, 210), the one region of every stripe
+    assert stripes[0].style.clip is not None
+    assert stripes[0].style.clip.bounds == btvec.Rect(260, 20, 380, 380)
+    assert all(stripe.style.clip == stripes[0].style.clip for stripe in stripes)
+    root = ET.fromstring(found["svg"])  # noqa: S314  our own output
+    svg = "{http://www.w3.org/2000/svg}"
+    # one clip path and one mask, however many shapes use them
+    assert (len(root.findall(f"{svg}clipPath")), len(root.findall(f"{svg}mask"))) == (1, 1)
+    with pytest.raises(btvec.ParameterError, match=r"clip|mask"):
+        drawing.to_mesh(900, 420)
