@@ -65,6 +65,8 @@ cache-keys = [
 # A fast pure-Python scan of the tracked files: no .py or .rs file over 1000 lines, no test file over 1500, and the files
 # listed in [tool.file-size.exempt] never grow. tests/tools/test_file_size_gate.py shows it failing.
 file-size = { cmd = "python tools/check_file_size.py", help = "Check that no tracked Python or Rust file is over 1000 lines (test files 1500); listed exceptions may not grow" }
+# The examples are code the docs run: mypy checks them too (the template's `mypy` covers src, tests and tools).
+examples-types = { cmd = "mypy examples", help = "Type-check the example programs" }
 # The font crates are built without `std`, so that their maths is libm's and not the platform's (same outline bytes
 # natively and in WebAssembly): cargo unifies features across the workspace, so one dependency asking for `std` would
 # switch it on. tools/check_font_features.py reads `cargo tree`; tests/tools/test_rust_gates.py shows it failing.
@@ -132,7 +134,7 @@ rust-test-layout = { cmd = "python tools/check_rust_test_layout.py", help = "Che
 dead-code = { cmd = "vulture src", help = "Find dead code in src (vulture)" }
 # The project's own gates (vector: file size, the font crates without std, the WebAssembly bindings and their Node tests, the
 # stack tests unoptimised). `check` and `full` run this last; tests/tools/test_*_gate.py show each failing.
-project-gates = { sequence = [{ ref = "file-size" }, { ref = "rust-fonts" }, { ref = "wasm-build" }, { ref = "rust-test-stack" }, { ref = "wasm-test" }], help = "Vector's own gates, run last by check and full" }
+project-gates = { sequence = [{ ref = "file-size" }, { ref = "examples-types" }, { ref = "rust-fonts" }, { ref = "wasm-build" }, { ref = "rust-test-stack" }, { ref = "wasm-test" }], help = "Vector's own gates, run last by check and full" }
 # The steps only `full` runs: after build-check, whose dist/check it reads. tests/tools/test_check_dist_contents.py shows it failing.
 dist-contents = { cmd = "python tools/check_dist_contents.py dist/check", help = "Check the sdist's Rust sources and the licence files of the sdist and wheels (fonts included)" }
 project-full = { sequence = [{ ref = "dist-contents" }], help = "Vector's own steps that only full runs" }
@@ -287,7 +289,7 @@ convention = "google"
 # `uv run mypy` checks src, tests, tools and examples; the gate (`poe check`) and the pre-push hook run it.
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "tests", "tools", "examples"]
+files = ["src", "tests", "tools"]  # the tools are code too: the gate runs them
 # tests/ has no __init__.py (pytest imports it with importlib), so equal test file names in different folders need
 # module names from their paths: tests/test_errors.py is tests.test_errors, src/bullterrier_vector/errors.py is
 # bullterrier_vector.errors.
@@ -313,12 +315,15 @@ disallow_incomplete_defs = false
 module = ["fontTools.*", "brotli"]
 ignore_missing_imports = true
 
-# Read by tools/check_dists.py (`poe build-check`): each wheel holds exactly src/bullterrier_vector minus these, plus its
-# own build of the extension, so a shipped test or stray file fails (W102), and so does package code left out of the
-# wheel (W101: py.typed and the stub included).
+# Read by tools/check_dists.py (`poe build-check`, and CI's build of every platform's wheel): each wheel holds exactly
+# src/bullterrier_vector minus these, plus its own build of the extension, so a shipped picture or test fails (W102), and so does
+# library code left out of the wheel (W101).
 [tool.check-wheel-contents]
 package = "src/bullterrier_vector"
-package_omit = ["__pycache__", "*.pyc", ".*", "test_*.py"]
+# the one top-level name a wheel may hold; it also keeps W005 (a name common to many wheels)
+# from firing for it, and adds W201/W202: a stray top-level entry in the wheel fails
+toplevel = ["bullterrier_vector"]
+package_omit = ["__pycache__", "*.pyc", ".*", "*.jpg", "*.jpeg", "*.png", "*.gif", "test_*.py"]
 
 [dependency-groups]
 dev = [

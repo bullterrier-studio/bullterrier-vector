@@ -1,8 +1,7 @@
 """A test that uses git never reaches the repository that runs it. A git hook (the pre-push gate runs pytest), a linked
 worktree, `rebase -x` and `bisect` pass the repository they serve in `GIT_DIR`, `GIT_INDEX_FILE` and `GIT_WORK_TREE`;
-without the autouse `no_enclosing_git` fixture the `git init` and `git commit` of a test that runs git in this process's
-environment would land in it. (The `git_repo` fixture builds its environment from an allow-list as well, so it is
-defended twice; the probe also runs git the plain way, which only the fixture defends.)
+without the session fixture `no_enclosing_git_or_push` of tests/conftest.py the `git init` and `git commit` of a test
+that runs git in this process's environment would land in it.
 
 The proof runs a probe test in its own pytest process, with those variables pointing at a throwaway "enclosing"
 repository made in tmp_path (never this repository), and checks that repository afterwards. A control run without the
@@ -32,8 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PROBE = """import subprocess
 
 
-def test_probe(git_repo, tmp_path):
-    git_repo.commit("chore: inside the probe", {"probe.txt": "probe"})
+def test_probe(tmp_path):
     plain = ["git", "-c", "user.name=Probe", "-c", "user.email=probe@example.com"]
     subprocess.run([*plain, "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
     subprocess.run([*plain, "commit", "-q", "--allow-empty", "-m", "chore: plain git"], cwd=tmp_path, check=True)

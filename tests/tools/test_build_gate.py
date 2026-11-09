@@ -60,7 +60,8 @@ def build_check(project: Path, env: dict[str, str]) -> subprocess.CompletedProce
 def test_the_project_as_it_is_builds_clean_distributions(project, build_env):
     result = build_check(project, build_env)
     assert result.returncode == 0, result.stdout + result.stderr
-    version = tomllib.loads((project / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+    cargo = tomllib.loads((project / "Cargo.toml").read_text(encoding="utf-8"))
+    version = cargo["workspace"]["package"]["version"]  # pyproject.toml's version is dynamic: maturin reads this one
     [sdist] = (project / "dist" / "check").glob("*.tar.gz")
     [wheel] = (project / "dist" / "check").glob("*.whl")  # sdist and wheel, nothing else
     assert len(list((project / "dist" / "check").iterdir())) == 2

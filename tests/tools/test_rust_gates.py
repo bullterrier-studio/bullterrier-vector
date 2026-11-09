@@ -40,6 +40,8 @@ def workspace(tmp_path_factory, copy_tree) -> Path:
         shutil.copy(ROOT / name, root)
     copy_tree(ROOT / "crates", root / "crates")
     copy_tree(ROOT / "tools", root / "tools", ignore=shutil.ignore_patterns("__pycache__"))
+    # the JSON tests of the core read the example documents of the format
+    copy_tree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
     return root
 
 
@@ -306,22 +308,22 @@ def test_the_stub_as_it_is_matches_the_extension(project_copy, copy_env):
     assert verdict.returncode == 0, verdict.report
 
 
-# A function left out of the stub is not a row: the package imports `scale`, so mypy reports it first and stubtest does
-# not run.
+# A function left out of the stub is not a row: the package imports `by_order`, so mypy reports it first and stubtest
+# does not run.
 @pytest.mark.typecheck
 @pytest.mark.parametrize(
     ("old", "new", "named"),
     [
         pytest.param(
-            "def scale(value: float, factor: float) -> float: ...\n",
-            "def scale(value: float, factor: float) -> float: ...\ndef ghost() -> int: ...\n",
+            "def by_order(first: _Num, last: _Num) -> Expr: ...\n",
+            "def by_order(first: _Num, last: _Num) -> Expr: ...\ndef ghost() -> int: ...\n",
             f"{EXTENSION}.ghost",
             id="a function the extension lacks",
         ),
         pytest.param(
-            "def scale(value: float, factor: float) -> float: ...\n",
-            "def scale(value: float, factor: float, extra: int) -> float: ...\n",
-            f"{EXTENSION}.scale",
+            "def by_order(first: _Num, last: _Num) -> Expr: ...\n",
+            "def by_order(first: _Num, last: _Num, extra: int) -> Expr: ...\n",
+            f"{EXTENSION}.by_order",
             id="a parameter the extension lacks",
         ),
     ],

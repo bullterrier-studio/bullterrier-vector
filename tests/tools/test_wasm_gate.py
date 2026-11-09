@@ -10,6 +10,7 @@ way `uv run poe check` does, in a copy of the workspace into which one offence a
 one build folder, so the core is compiled once.
 """
 
+import os
 import shutil
 import subprocess
 import sys
@@ -56,6 +57,21 @@ def workspace(tmp_path_factory, copy_tree) -> Path:
     shutil.copy(ROOT / "examples" / "star.py", root / "examples" / "star.py")
     copy_tree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
     return root
+
+
+@pytest.fixture(scope="module")
+def cargo_env(build_folder) -> dict[str, str]:
+    """`uv run`'s environment, offline, uncoloured, with one build folder for every copy of the workspace."""
+    return {
+        **os.environ,
+        "PATH": os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")]),
+        "CARGO_TARGET_DIR": str(build_folder),
+        "UV_PROJECT_ENVIRONMENT": sys.prefix,
+        "UV_NO_SYNC": "1",
+        "CARGO_NET_OFFLINE": "true",
+        "CARGO_TERM_COLOR": "never",
+        "NO_COLOR": "1",
+    }
 
 
 @pytest.fixture
