@@ -187,7 +187,7 @@ Three tiers, through `uv run poe`:
 | `check` | the gates `ruff format --check`, `rust-fmt`, `ruff check`, `rust-test-layout`, `rust-lint`, `file-size`, `lint-workflows`, `dead-code`, `rust-doc`, `deptry`, `rust-tools`, `rust-shear`, `rust-deny`, `rust-fonts`, `build-check`, `rust-wasm`, `mypy`, `stubtest`, `rust-test`, `wasm-test`, `test` (the `gates` task), then the gate proofs only when due; stops at the first failure | once per branch, before the merge or push to `main` |
 | `full` | the same gates, then the gate proofs (`gate-tests`) always | before a tag; CI |
 
-`test` is `pytest -m 'not gate'`, `gate-tests` is `pytest -m gate`: together every test. The proofs are due in `check` when a path of
+`test` is `pytest -m 'not gate and not tooling'` (the project's own suite), `gate-tests` is `pytest -m 'gate or tooling'` (the proofs and the template's shared-tool tests): together every test. The proofs are due in `check` when a path of
 `[tool.gate-proofs]` in `pyproject.toml` (what they read, copy, edit or anchor on) changed since they last passed (a `full` pass, or a
 `check` that ran them, on a clean tree: the commit is in the git folder), counting uncommitted and untracked files; with no record,
 a shallow clone or git unreadable they are due. `check` says `proofs: skipped` or `proofs: running, <why>`. A new proof that reads
@@ -299,6 +299,8 @@ Writing tests:
   with the rule in each row's name) with good and bad rows together.
 - **DAMP, not DRY:** each case and its expectation are visible; helpers build input or name an assertion, never hide what is checked.
 - **No change-detectors:** test a rule with a known-bad input; never restate configuration.
+- **Marker `tooling`** is for the tests of a shared tool of the template (`test_pre_push`, `test_run_capped`, `test_rust_tools`, `test_check_dists`,
+  `test_check_installed`): the same file in every project. A test of vector's own code is never `tooling`.
 - **Slow tests in one file:** xdist runs all the tests of a file on one worker (`--dist=loadfile`), so a module-scoped fixture
   that spawns tools (ruff, mypy, poe, cargo, git) is built once: keep such tests in one file. `xdist_group` marks do nothing
   (pytest 9.2 broke them in xdist 3.8: every group was spread over the workers); do not add them.

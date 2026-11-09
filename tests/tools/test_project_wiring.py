@@ -98,10 +98,12 @@ def test_full_runs_everything_check_runs_but_the_conditional_proofs_and_the_reco
     assert missing == [conditional]
 
 
-def test_the_python_suite_leaves_the_gate_proofs_to_their_own_task(poe_runs):
+def test_the_python_suite_leaves_the_slow_tests_of_the_tooling_to_their_own_task(poe_runs):
+    """The gate proofs and the shared tools' own tests (the same in every project, tested in the template) run in
+    `gate-tests`: in `check` only when the tooling changed, in `full` always. The suite is the project's own."""
     for task in ["test"]:
-        assert "not gate" in poe_runs[task][0], poe_runs[task]
-    assert " -m gate" in poe_runs["gate-tests"][0]
+        assert "not gate and not tooling" in poe_runs[task][0], poe_runs[task]
+    assert "-m 'gate or tooling'" in poe_runs["gate-tests"][0]
 
 
 def test_every_poe_command_runs_a_dev_dependency_or_a_system_tool(pyproject, poe_runs):

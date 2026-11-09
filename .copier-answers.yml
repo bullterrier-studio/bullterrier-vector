@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; `copier update` reads this file. Commit it.
-_commit: v0.2.2-12-gc8dc8b9
+_commit: v0.3.0
 _src_path: gh:jcakstins/rust-project-template
 concept: vector
 description: 'A typography-first vector graphics scripting library: pictures written

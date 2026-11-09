@@ -6,10 +6,13 @@ import importlib.util
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
 import yaml
+
+pytestmark = pytest.mark.tooling
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -401,6 +404,34 @@ def test_a_pass_covers_its_own_tier_and_the_lower_one_only(git_repo, monkeypatch
 )
 def test_the_proofs_run_when_the_change_touches_what_they_test_or_is_unknown(changed, needed):
     assert pre_push.proofs_needed(changed, ["pyproject.toml", "tools/*", "tests/tools/*", ".github/*"]) is needed
+
+
+def unmatched(triggers: list[str], files: list[str]) -> list[str]:
+    """The triggers that match none of `files`, by the hook's own rule."""
+    return [trigger for trigger in triggers if not pre_push.proofs_needed(files, [trigger])]
+
+
+def test_every_trigger_matches_a_tracked_file():
+    """A trigger that matches nothing (a file renamed, a typo) silently stops the proofs guarding what it named."""
+    triggers = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["gate-proofs"]["triggers"]
+    tracked = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, encoding="utf-8", check=True
+    ).stdout.splitlines()
+    assert triggers
+    assert unmatched(triggers, tracked) == []
+
+
+@pytest.mark.parametrize(
+    ("triggers", "missing"),
+    [
+        pytest.param(["tools/*", "pyproject.toml", "docs/*.md"], [], id="a folder glob, a file, a nested glob"),
+        pytest.param(["pyproject.toml", "gone.toml"], ["gone.toml"], id="a file that does not exist"),
+        pytest.param(["tools/*", "toolz/*"], ["toolz/*"], id="a glob over a folder that does not exist"),
+        pytest.param(["docs/*.nothing"], ["docs/*.nothing"], id="a glob that matches no file in a folder that exists"),
+    ],
+)
+def test_the_trigger_check_names_each_trigger_that_matches_nothing(triggers, missing):
+    assert unmatched(triggers, ["tools/a.py", "docs/page.md", "pyproject.toml"]) == missing
 
 
 def test_without_a_record_of_a_pass_the_change_is_unknown_so_the_proofs_run(git_repo, monkeypatch):

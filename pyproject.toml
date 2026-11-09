@@ -74,12 +74,15 @@ check = { sequence = ["uv run python tools/pre_push.py start", { ref = "gates" }
 full = { sequence = ["uv run python tools/pre_push.py start", { ref = "gates" }, { ref = "gate-tests" }, "uv run python tools/pre_push.py pass full"], default_item_type = "cmd", help = "The gate before a tag and in CI: `check` with the proofs always run; a pass is remembered for that tree" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
-test = { cmd = "python tools/run_capped.py -- pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the Python tests but the gate proofs on every CPU core (pytest-xdist; the order stays random)" }
-gate-tests = { cmd = "python tools/run_capped.py -- pytest -q -n auto -m gate", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the gate proofs (each gate rejects a known-bad input): slow, copies of the workspace" }
-# Not part of `check`: it asks the PyPI and RustSec advisory databases about every locked dependency, so it needs the
-# network and its verdict changes as advisories are published. For CI and before a release. The lock is exported with
-# hashes (the dev tools are in it too) and pip-audit reads that file only, without resolving or installing anything.
-# Cargo.lock is checked by cargo-deny against the RustSec database.
+# Three tiers (CLAUDE.md, "Gates"): `fast` while working, `check` before a push to main, `full` before a tag and in CI. The tests that
+# prove a gate fails on a known-bad input copy the workspace and build in it (marked `gate`), and the shared tools' own tests are the
+# same in every project (marked `tooling`): `test` is the project's own suite, and `gate-tests` runs both when the tooling changed.
+test = { cmd = "python tools/run_capped.py -- pytest -q -n auto -m 'not gate and not tooling'", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the project's test suite on every CPU core (pytest-xdist; the order stays random), without the tests of the tooling" }
+gate-tests = { cmd = "python tools/run_capped.py -- pytest -q -n auto -m 'gate or tooling'", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the tests of the tooling: the proofs that each gate fails on a known-bad input, and the shared tools' own tests" }
+# Not part of `check`: it asks the PyPI vulnerability database about every locked package (runtime, extras and dev
+# tools, pinned by hash), so it needs the network and its verdict changes as advisories are published. For CI and
+# before a release; an advisory with no fixed release is ignored with `--ignore-vuln ID` and listed in SECURITY.md.
+# The Rust crates in Cargo.lock are checked by cargo-deny against the RustSec advisory database, likewise online.
 audit = { sequence = ["uv export --frozen --all-extras --all-groups --no-emit-project --quiet --output-file dist/audit/requirements.txt", "pip-audit --requirement dist/audit/requirements.txt --disable-pip --require-hashes --progress-spinner off", "cargo deny --locked check advisories"], default_item_type = "cmd", help = "Check every locked dependency (Python and Rust) against known vulnerabilities (needs the network)" }
 fix = { sequence = ["ruff check --fix .", "ruff format .", "cargo fmt --all"], default_item_type = "cmd", help = "Apply every automatic lint and format fix" }
 # The GitHub workflows and dependabot.yml, offline: actionlint (syntax, expressions, job wiring) and zizmor (unpinned
@@ -215,6 +218,7 @@ testpaths = ["tests"]
 addopts = ["--import-mode=importlib", "--strict-markers", "--strict-config", "--dist=loadfile"]
 markers = [
     "gate: proves a gate fails on a known-bad input (builds copies, slow); `poe fast` leaves it out",
+    "tooling: tests a shared tool of the template (the same file in every project, tested in the template too); `poe test` leaves it out, `poe gate-tests` runs it with the proofs",
 ]
 # an xfail that starts passing fails the run, so the marker cannot outlive the bug it names
 xfail_strict = true

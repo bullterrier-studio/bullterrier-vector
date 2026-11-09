@@ -37,8 +37,8 @@ PROVEN_TASKS = [
 PROVEN_COMMANDS = ["ruff format --check .", "ruff check .", "deptry .", "mypy"]
 GATES = [*PROVEN_TASKS, *PROVEN_COMMANDS]
 NOT_IN_FAST = ["wasm-test"]  # a release build and Node: `check` and `full` only
-SKIP_PROOFS = "-m 'not gate'"  # what keeps the slow proofs out of `fast`, `check` and the `test` task
-ONLY_PROOFS = "-m gate"  # what the `gate-tests` task selects
+SKIP_PROOFS = "-m 'not gate and not tooling'"  # what keeps the slow proofs out of `fast`, `check` and the `test` task
+ONLY_PROOFS = "-m 'gate or tooling'"  # what the `gate-tests` task selects
 CAPPED = "python tools/run_capped.py -- "  # how the test tasks start: pytest under the memory cap
 HOOK = "uv run python tools/pre_push.py"  # the tool that remembers a pass: `start` and `pass TIER`
 TRIGGERED_PROOFS = "proofs"  # the task of `check` that runs them when they are due
@@ -176,7 +176,7 @@ def test_a_test_task_without_the_marker_is_rejected_in_every_tier_that_runs_it()
             f"{tier}: `{unmarked}` names no marker, so it runs the proofs where they are not wanted"
             for tier in ("fast", "check", "full")
         ),
-        "full: no pytest step with -m 'not gate'",
+        f"full: no pytest step with {SKIP_PROOFS}",
     ]
 
 
@@ -192,7 +192,7 @@ def test_check_without_the_triggered_proofs_step_is_rejected():
 
 def test_full_without_the_proofs_is_rejected():
     copied = edited(lambda tasks: tasks["full"]["sequence"].remove({"ref": "gate-tests"}))
-    assert problems(copied) == ["full does not run the proofs", "full: no pytest step with -m gate"]
+    assert problems(copied) == ["full does not run the proofs", f"full: no pytest step with {ONLY_PROOFS}"]
 
 
 def test_full_remembering_its_pass_as_check_is_rejected():
