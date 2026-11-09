@@ -7,7 +7,7 @@ use crate::expr::{Op, View};
 use crate::limits::{MAX_CALLS, MAX_DEPTH, MAX_DOCUMENT_BYTES};
 use crate::node::{Args, Given};
 use crate::shape::{SELECTABLE, Single};
-use crate::{Arg, Color, Drawing, Error, Expr, Kind, Literal, Select, Shape, Value, Values, Verb};
+use crate::{Arg, Color, Drawing, Error, Expr, GradientKind, Kind, Literal, Paint, Select, Shape, Value, Values, Verb};
 use std::cell::Cell;
 use std::collections::BTreeMap;
 
@@ -205,6 +205,7 @@ impl<'a> Writer<'a> {
             Given::Pair(first, second) => Json::Array(vec![self.expression(first)?, self.expression(second)?]),
             Given::Text(text) => Json::text(text),
             Given::Color(color) => Json::String(color_text(*color)),
+            Given::Paint(paint) => paint_json(paint),
             Given::Path(path) => Json::String(path.to_svg_path()),
             Given::Shape(shape) => shape_json(shape),
             Given::Drawings(items) => {
@@ -350,6 +351,41 @@ fn color_text(color: Color) -> String {
         Some(opaque) if text.len() == 9 => opaque.to_owned(),
         _ => text,
     }
+}
+
+/// `paint` as the document writes it: a colour text, or the gradient object.
+fn paint_json(paint: &Paint) -> Json {
+    let Paint::Gradient(gradient) = paint else {
+        return match paint {
+            Paint::Color(color) => Json::String(color_text(*color)),
+            Paint::Gradient(_) => unreachable!("matched above"),
+        };
+    };
+    let pair = |at: crate::Point| Json::Array(vec![Json::Number(at.x), Json::Number(at.y)]);
+    let stops = gradient
+        .stops()
+        .iter()
+        .map(|(offset, rgba)| {
+            Json::Array(vec![
+                Json::Number(*offset),
+                Json::String(color_text(Color::from_bytes(*rgba))),
+            ])
+        })
+        .collect();
+    let mut members = vec![("stops", Json::Array(stops))];
+    match gradient.kind() {
+        GradientKind::Linear { start, end } => members.extend([
+            ("gradient", Json::text("linear")),
+            ("from", pair(start)),
+            ("to", pair(end)),
+        ]),
+        GradientKind::Radial { center, radius } => members.extend([
+            ("gradient", Json::text("radial")),
+            ("center", pair(center)),
+            ("radius", Json::Number(radius)),
+        ]),
+    }
+    Json::object(members)
 }
 
 /// A `shape` source's value: its path and the attributes its generators wrote.

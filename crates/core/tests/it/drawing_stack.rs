@@ -2,7 +2,7 @@
 //! as an item, through the public API. Expected values are written by hand.
 
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Color, Drawing, Error, Param, Path, Shape, StrokeStyle, Values};
+use bullterrier_vector::{Color, Drawing, Error, Paint, Param, Path, Shape, StrokeStyle, Values};
 
 /// A square of side 10 whose left edge is at `x`.
 fn square_at(x: f64) -> Result<Path, Error> {
@@ -170,8 +170,11 @@ fn a_restacked_shape_takes_a_new_style_like_any_other() -> Outcome {
         .style()
         .clone();
     // it was drawn black-filled; a stroke added to it adds to that
-    assert_eq!(style.fill(), Color::hex(0));
-    assert_eq!(style.stroke().map(StrokeStyle::color), Some(Color::hex(0x2a_5b_ff)));
+    assert_eq!(*style.fill(), Color::hex(0));
+    assert_eq!(
+        style.stroke().map(StrokeStyle::paint),
+        Some(&Paint::from(Color::hex(0x2a_5b_ff)))
+    );
     Ok(())
 }
 

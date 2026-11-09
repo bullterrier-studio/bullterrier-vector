@@ -2,11 +2,13 @@
 
 mod attributes;
 mod color;
+mod paint;
 mod style;
 
 pub use attributes::Attributes;
 pub(crate) use attributes::{Holds, SELECTABLE, Single, holds};
 pub use color::Color;
+pub use paint::{Gradient, GradientKind, Paint};
 pub use style::{Blend, Cap, HalftoneStyle, Join, ShadowStyle, StrokeStyle, Style};
 pub(crate) use style::{DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, refused};
 

@@ -9,7 +9,9 @@ use crate::limits::{MAX_CALLS, MAX_PARAMS};
 use crate::param::is_name;
 use crate::shape::{Holds, SELECTABLE, Single};
 use crate::r#type::is_tag;
-use crate::{Arg, Attributes, Color, Domain, Error, Kind, Point, Reads, Role, Select, Unit, Verb, Wanted};
+use crate::{
+    Arg, Attributes, Color, Domain, Error, Gradient, Kind, Paint, Point, Reads, Role, Select, Unit, Verb, Wanted,
+};
 
 /// The version of the library, named in the errors that say a document is from a newer one.
 const LIBRARY: &str = env!("CARGO_PKG_VERSION");
@@ -350,6 +352,7 @@ impl Reader {
                     .map(Value::Color)
                     .map_err(|error| refuse(pointer, reason(&error)))
             }
+            Kind::Paint => paint(pointer, json).map(Value::Paint),
             Kind::Text => {
                 let text = string(pointer, json)?;
                 if let Domain::Choice(words) = arg.domain
@@ -690,6 +693,98 @@ fn number_at(pointer: &str, json: &Json) -> Result<f64, Error> {
         Json::Number(number) => Ok(*number),
         other => Err(refuse(pointer, format!("must be a number, not {}", other.describe()))),
     }
+}
+
+/// A paint: a colour text, or a gradient object (`gradient`, `stops` and its geometry, nothing else).
+fn paint(pointer: &str, json: &Json) -> Result<Paint, Error> {
+    let members = match json {
+        Json::String(text) => {
+            return Color::parse(text)
+                .map(Paint::Color)
+                .map_err(|error| refuse(pointer, reason(&error)));
+        }
+        Json::Object(members) => members,
+        other => {
+            return Err(refuse(
+                pointer,
+                format!("must be a colour text or a gradient object, not {}", other.describe()),
+            ));
+        }
+    };
+    let kind = match members.get("gradient") {
+        Some(Json::String(kind)) if kind == "linear" || kind == "radial" => kind.as_str(),
+        Some(other) => {
+            return Err(refuse(
+                &at(pointer, "gradient"),
+                format!("must be \"linear\" or \"radial\", got {}", other.describe()),
+            ));
+        }
+        None => return Err(refuse(pointer, "is missing `gradient`: \"linear\" or \"radial\"")),
+    };
+    let geometry: &[&str] = if kind == "linear" {
+        &["from", "to"]
+    } else {
+        &["center", "radius"]
+    };
+    for name in members.keys() {
+        if !["gradient", "stops"].contains(&name.as_str()) && !geometry.contains(&name.as_str()) {
+            return Err(refuse(
+                &at(pointer, name),
+                format!(
+                    "is not a member of a {kind} gradient, which has gradient, stops, {}",
+                    geometry.join(", ")
+                ),
+            ));
+        }
+    }
+    let member = |name: &str| {
+        members
+            .get(name)
+            .ok_or_else(|| refuse(pointer, format!("is missing `{name}`")))
+    };
+    let stops = match member("stops")? {
+        Json::Array(items) => items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| {
+                let here = format!("{}/{index}", at(pointer, "stops"));
+                match item {
+                    Json::Array(pair) if pair.len() == 2 => Ok((
+                        number_at(&format!("{here}/0"), &pair[0])?,
+                        Color::parse(string(&format!("{here}/1"), &pair[1])?)
+                            .map_err(|error| refuse(&format!("{here}/1"), reason(&error)))?,
+                    )),
+                    other => Err(refuse(
+                        &here,
+                        format!("must be a stop [offset, colour], not {}", other.describe()),
+                    )),
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+        other => {
+            return Err(refuse(
+                &at(pointer, "stops"),
+                format!("must be an array of stops, not {}", other.describe()),
+            ));
+        }
+    };
+    let at_member = |name: &str| at(pointer, name);
+    let built = if kind == "linear" {
+        Gradient::linear(
+            point(&at_member("from"), member("from")?)?,
+            point(&at_member("to"), member("to")?)?,
+            stops,
+        )
+    } else {
+        Gradient::radial(
+            point(&at_member("center"), member("center")?)?,
+            number_at(&at_member("radius"), member("radius")?)?,
+            stops,
+        )
+    };
+    built
+        .map(Paint::Gradient)
+        .map_err(|error| refuse(pointer, reason(&error)))
 }
 
 // Attributes and selections ---------------------------------------------------------------------------------------

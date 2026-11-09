@@ -110,7 +110,7 @@ pub(crate) fn cast(style: &Style) -> Option<(&ShadowStyle, [u8; 4])> {
     painted.then(|| shadow.color().rgba().map(|rgba| (shadow, rgba)))?
 }
 
-/// Whether the fill of a style paints: a colour that is not none, or a halftone.
+/// Whether the fill of a style paints: a colour that is not none, a gradient, or a halftone.
 pub(crate) fn fills(style: &Style) -> bool {
-    style.fill().rgba().is_some() || style.halftone().is_some()
+    style.fill().paints() || style.halftone().is_some()
 }

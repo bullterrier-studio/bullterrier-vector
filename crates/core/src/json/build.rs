@@ -123,6 +123,7 @@ impl<'a> Builder<'a> {
             Value::Pair(first, second) => Given::Pair(self.expr(first)?, self.expr(second)?),
             Value::Text(text) => Given::Text(text.clone()),
             Value::Color(color) => Given::Color(*color),
+            Value::Paint(paint) => Given::Paint(paint.clone()),
             Value::Path { data, pointer } => {
                 Given::Path(Path::from_svg_path(data).map_err(|error| refuse(pointer, reason(&error)))?)
             }

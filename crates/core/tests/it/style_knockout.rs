@@ -51,7 +51,7 @@ fn the_other_styles_keep_their_say_before_and_after_it() -> Outcome {
     let shapes = drawing.shapes(&Values::new())?;
     let style = shapes[0].style();
     assert!(style.knockout());
-    assert_eq!(style.fill().to_string(), "#ff0000ff");
+    assert_eq!(*style.fill(), Color::parse("#ff0000")?);
     assert_eq!(style.opacity(), 0.5);
     assert_eq!(style.shadow().map(bullterrier_vector::ShadowStyle::dy), Some(4.0));
     Ok(())

@@ -158,6 +158,25 @@ impl Drawing {
     }
 }
 
+/// The bytes of `paint` (named `argument` for the refusal): a colour's. A gradient has no triangle form, so it is refused;
+/// where only the area matters (`covering`, a knockout's) it counts as opaque.
+///
+/// # Errors
+/// [`Error::Parameter`] naming `argument` for a gradient that is not `covering`.
+fn solid(shape: &Shape, (argument, paint): (&str, &crate::Paint), covering: bool) -> Result<Option<[u8; 4]>, Error> {
+    match paint {
+        crate::Paint::Color(color) => Ok(color.rgba()),
+        crate::Paint::Gradient(_) if covering => Ok(Some([0, 0, 0, 255])),
+        crate::Paint::Gradient(_) => Err(Error::parameter(
+            argument,
+            format!(
+                "shape {}: a gradient has no triangle form; use to_rgba or to_svg",
+                shape.index()
+            ),
+        )),
+    }
+}
+
 /// What the layers of a draw are made into.
 struct Maker<'a> {
     buffers: &'a mut Buffers,
@@ -231,9 +250,9 @@ impl Maker<'_> {
         let style = shape.style();
         let visible = |rgba: [u8; 4]| covering || style.opacity() * f64::from(rgba[3]) > 0.0;
         let mut layers: Vec<Layer> = Vec::new();
-        layers.extend(self.fill_layer(shape, polylines, view, name, visible)?);
+        layers.extend(self.fill_layer(shape, polylines, view, name, covering, visible)?);
         if let Some(stroke) = style.stroke()
-            && let Some(rgba) = stroke.color().rgba()
+            && let Some(rgba) = solid(shape, ("stroke", stroke.paint()), covering)?
         {
             let device = view
                 .length(stroke.width())
@@ -285,14 +304,13 @@ impl Maker<'_> {
         polylines: &[Polyline],
         view: &View,
         name: &str,
+        covering: bool,
         visible: impl Fn([u8; 4]) -> bool,
     ) -> Result<Option<Layer>, Error> {
         let style = shape.style();
         let whole = || polylines.iter().map(|polyline| ring(&polyline.points)).collect();
         let Some(halftone) = style.halftone() else {
-            return Ok(style
-                .fill()
-                .rgba()
+            return Ok(solid(shape, ("fill", style.fill()), covering)?
                 .filter(|rgba| visible(*rgba))
                 .map(|rgba| (whole(), rgba)));
         };

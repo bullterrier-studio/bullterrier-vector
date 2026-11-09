@@ -32,6 +32,50 @@
     "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*(?![\\s\\S])" },
     "tag": { "type": "string", "pattern": "^[\\x20-\\x7E]{4}(?![\\s\\S])" },
     "color": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})(?![\\s\\S])" },
+    "literal_point": {
+      "type": "array",
+      "prefixItems": [{ "type": "number" }, { "type": "number" }],
+      "minItems": 2,
+      "items": false
+    },
+    "stops": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "array",
+        "prefixItems": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "$ref": "#/$defs/color" }],
+        "minItems": 2,
+        "items": false
+      },
+      "$comment": "offsets must not decrease (the loader checks it)"
+    },
+    "gradient": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gradient", "stops", "from", "to"],
+          "properties": {
+            "gradient": { "const": "linear" },
+            "stops": { "$ref": "#/$defs/stops" },
+            "from": { "$ref": "#/$defs/literal_point" },
+            "to": { "$ref": "#/$defs/literal_point" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gradient", "stops", "center", "radius"],
+          "properties": {
+            "gradient": { "const": "radial" },
+            "stops": { "$ref": "#/$defs/stops" },
+            "center": { "$ref": "#/$defs/literal_point" },
+            "radius": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      ],
+      "$comment": "in design pixels of the frame; from and to differ, coordinates within +-1e100 (the loader checks both)"
+    },
     "path_data": { "type": "string", "pattern": "^(\\s*[Mm][MmZzLlHhVvCcSsQqTtAa0-9eE.,+\\-\\s]*)?$" },
     "number": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/expression" }] },
     "coordinate": {
@@ -617,14 +661,16 @@
         "fill": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "color": { "anyOf": [{ "$ref": "#/$defs/color" }, { "const": "none" }] } },
+          "properties": {
+            "color": { "anyOf": [{ "$ref": "#/$defs/color" }, { "const": "none" }, { "$ref": "#/$defs/gradient" }] }
+          },
           "required": ["color"]
         },
         "stroke": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "color": { "$ref": "#/$defs/color" },
+            "color": { "anyOf": [{ "$ref": "#/$defs/color" }, { "$ref": "#/$defs/gradient" }] },
             "width": { "$ref": "#/$defs/positive" },
             "join": { "$ref": "#/$defs/join" },
             "cap": { "$ref": "#/$defs/cap" },

@@ -5,7 +5,7 @@ use super::{Arg, Context, Domain, Kind, Reads, Verb};
 use crate::geometry::{coordinate, finite, fraction};
 use crate::key::Key;
 use crate::limits::MAX_DEPTH;
-use crate::{Color, Drawing, Error, Expr, Font, Literal, Param, Path, Point, Select, Shape, Values};
+use crate::{Color, Drawing, Error, Expr, Font, Literal, Paint, Param, Path, Point, Select, Shape, Values};
 
 /// The place of a shape in the list a step works on, and how long the list is.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -41,6 +41,8 @@ pub(crate) enum Given {
     Text(String),
     /// A colour.
     Color(Color),
+    /// A colour or a gradient.
+    Paint(Paint),
     /// A path.
     Path(Path),
     /// A shape.
@@ -228,6 +230,10 @@ impl Args {
                         key.word(u64::from(*value));
                     }
                 }
+                Given::Paint(paint) => {
+                    key.word(14);
+                    key.of(paint);
+                }
                 Given::Drawing(_) => key.word(13),
                 Given::Unset => key.word(9),
             }
@@ -333,9 +339,12 @@ impl Args {
             }
         }
         for (arg, given) in self.declared() {
-            if let (Given::Color(color), Domain::Painting) = (given, arg.domain)
-                && color.rgba().is_none()
-            {
+            let unpainted = match given {
+                Given::Color(color) => color.rgba().is_none(),
+                Given::Paint(paint) => !paint.paints(),
+                _ => false,
+            };
+            if unpainted && arg.domain == Domain::Painting {
                 return Err(Error::parameter(
                     arg.name,
                     "must be \"#rrggbb\" or \"#rrggbbaa\": \"none\" paints nothing here",
@@ -473,6 +482,14 @@ impl Args {
         match self.find(name)? {
             (_, Given::Color(color)) => Ok(*color),
             _ => Err(self.misread(name, "a colour")),
+        }
+    }
+
+    /// The paint of `name`.
+    pub(crate) fn paint(&self, name: &str) -> Result<Paint, Error> {
+        match self.find(name)? {
+            (_, Given::Paint(paint)) => Ok(paint.clone()),
+            _ => Err(self.misread(name, "a colour or a gradient")),
         }
     }
 

@@ -125,7 +125,7 @@ fn cut(
 /// its path is empty, which cut nothing.
 fn knocked(shape: &Shape, view: &View, work: &Work) -> Result<Option<String>, Error> {
     let style = shape.style();
-    let painted = fills(style) || style.stroke().is_some_and(|stroke| stroke.color().rgba().is_some());
+    let painted = fills(style) || style.stroke().is_some_and(|stroke| stroke.paint().paints());
     let data = view
         .path(shape.path())
         .map_err(|error| in_shape(shape, "", error))?
@@ -264,7 +264,10 @@ impl Fill {
     fn of(shape: &Shape, view: &View, work: &Work) -> Result<Self, Error> {
         let style = shape.style();
         let Some(halftone) = style.halftone() else {
-            return Ok(Self::Plain(style.fill()));
+            return Ok(Self::Plain(match style.fill() {
+                crate::Paint::Color(c) => *c,
+                crate::Paint::Gradient(_) => Color::NONE,
+            }));
         };
         let name = format!("shape {}", shape.index());
         let outline = shape.path().flattened(&mut |count| work.made_segments(count, &name))?;
@@ -401,7 +404,14 @@ fn body(svg: &mut String, data: &str, (shape, view): (&Shape, &View), ink: Ink, 
     let _ = write!(svg, " d=\"{data}\"");
     paint(svg, "fill", ink.on(fill));
     if let Some(stroke) = style.stroke() {
-        paint(svg, "stroke", ink.on(stroke.color()));
+        paint(
+            svg,
+            "stroke",
+            ink.on(match stroke.paint() {
+                crate::Paint::Color(c) => *c,
+                crate::Paint::Gradient(_) => Color::NONE,
+            }),
+        );
         let _ = write!(
             svg,
             " stroke-width=\"{}\" stroke-linejoin=\"{}\" stroke-linecap=\"{}\" stroke-miterlimit=\"{}\"",

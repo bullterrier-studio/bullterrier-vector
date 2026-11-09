@@ -1,6 +1,7 @@
 //! `Style`: how a shape is painted.
 
 use super::color::Color;
+use super::paint::Paint;
 use crate::key::{Key, Keyed};
 use crate::{Error, Path};
 
@@ -146,10 +147,10 @@ impl Blend {
     }
 }
 
-/// A stroke: its colour, width in design pixels and the finish of its corners and ends.
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// A stroke: its paint, width in design pixels and the finish of its corners and ends.
+#[derive(Debug, Clone, PartialEq)]
 pub struct StrokeStyle {
-    pub(crate) color: Color,
+    pub(crate) paint: Paint,
     pub(crate) width: f64,
     pub(crate) join: Join,
     pub(crate) cap: Cap,
@@ -158,9 +159,9 @@ pub struct StrokeStyle {
 
 impl StrokeStyle {
     /// A stroke of `color` with the default width, joins, caps and miter limit.
-    pub(crate) fn new(color: Color) -> Self {
+    pub(crate) fn new(paint: Paint) -> Self {
         Self {
-            color,
+            paint,
             width: DEFAULT_STROKE_WIDTH,
             join: Join::Round,
             cap: Cap::Round,
@@ -174,10 +175,10 @@ impl StrokeStyle {
         self
     }
 
-    /// The colour.
+    /// The paint: a colour, or a gradient.
     #[must_use]
-    pub fn color(&self) -> Color {
-        self.color
+    pub fn paint(&self) -> &Paint {
+        &self.paint
     }
 
     /// The width in design pixels.
@@ -281,8 +282,8 @@ impl HalftoneStyle {
 /// The paint of a shape as it is drawn: `None` and [`Color::NONE`] mean not painted.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Style {
-    pub(crate) fill: Color,
-    /// The fill when it is a screen of dots, in which case `fill` is [`Color::NONE`].
+    pub(crate) fill: Paint,
+    /// The fill when it is a screen of dots, in which case `fill` is [`Paint::NONE`].
     pub(crate) halftone: Option<HalftoneStyle>,
     pub(crate) stroke: Option<StrokeStyle>,
     pub(crate) opacity: f64,
@@ -297,7 +298,7 @@ impl Style {
     /// The style of a shape no step has painted: the default paint is resolved when the drawing is drawn.
     pub(crate) fn unpainted() -> Self {
         Self {
-            fill: Color::NONE,
+            fill: Paint::NONE,
             halftone: None,
             stroke: None,
             opacity: 1.0,
@@ -314,24 +315,24 @@ impl Style {
     pub(crate) fn resolve_paint(&mut self, path: &Path) {
         if !self.painted {
             if path.is_closed() {
-                self.fill = BLACK;
+                self.fill = Paint::Color(BLACK);
             } else {
-                self.stroke = Some(StrokeStyle::new(BLACK));
+                self.stroke = Some(StrokeStyle::new(Paint::Color(BLACK)));
             }
             self.painted = true;
         }
     }
 
     /// Sets the fill, replacing a halftone; from now on only what is set is painted.
-    pub(crate) fn set_fill(&mut self, color: Color) {
-        self.fill = color;
+    pub(crate) fn set_fill(&mut self, paint: Paint) {
+        self.fill = paint;
         self.halftone = None;
         self.painted = true;
     }
 
     /// Sets the fill to a screen of dots, replacing a colour; from now on only what is set is painted.
     pub(crate) fn set_halftone(&mut self, halftone: HalftoneStyle) {
-        self.fill = Color::NONE;
+        self.fill = Paint::NONE;
         self.halftone = Some(halftone);
         self.painted = true;
     }
@@ -367,10 +368,10 @@ impl Style {
         self.painted
     }
 
-    /// The fill, [`Color::NONE`] where the shape is not filled with a colour (a halftone is not one).
+    /// The fill, [`Paint::NONE`] where the shape is not filled with a colour or a gradient (a halftone is neither).
     #[must_use]
-    pub fn fill(&self) -> Color {
-        self.fill
+    pub fn fill(&self) -> &Paint {
+        &self.fill
     }
 
     /// The screen of dots the shape is filled with, `None` where its fill is a colour or none.
@@ -431,7 +432,7 @@ impl Keyed for HalftoneStyle {
 
 impl Keyed for StrokeStyle {
     fn write_key(&self, key: &mut Key) {
-        key.of(&self.color);
+        key.of(&self.paint);
         key.number(self.width);
         key.text(self.join.name());
         key.text(self.cap.name());

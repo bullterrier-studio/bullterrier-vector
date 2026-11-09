@@ -33,6 +33,9 @@ pub use output::{Mesh, Size};
 pub use param::{Param, Unit};
 pub use path::Path;
 pub use registry::verbs;
-pub use shape::{Attributes, Blend, Cap, Color, HalftoneStyle, Join, ShadowStyle, Shape, StrokeStyle, Style};
+pub use shape::{
+    Attributes, Blend, Cap, Color, Gradient, GradientKind, HalftoneStyle, Join, Paint, ShadowStyle, Shape, StrokeStyle,
+    Style,
+};
 pub use r#type::{Align, Font, Text, text};
 pub use values::{Value, Values};

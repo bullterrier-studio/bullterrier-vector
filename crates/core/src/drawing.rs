@@ -404,11 +404,11 @@ impl From<Shape> for Drawing {
                     .pitch(halftone.pitch())
                     .angle(Deg(halftone.angle())),
             ),
-            None => drawing.fill(style.fill()),
+            None => drawing.fill(style.fill().clone()),
         };
         if let Some(stroke) = style.stroke() {
             drawing = drawing.stroke(
-                Stroke::new(stroke.color())
+                Stroke::new(stroke.paint().clone())
                     .width(stroke.width())
                     .join(stroke.join())
                     .cap(stroke.cap())

@@ -18,6 +18,14 @@ const fn color(domain: Domain) -> Arg {
     }
 }
 
+/// A colour or a gradient given when the call is made.
+const fn paint(domain: Domain) -> Arg {
+    Arg {
+        kind: Kind::Paint,
+        ..color(domain)
+    }
+}
+
 /// The word `name` of a set, as the argument of a step, given when the call is made.
 pub(super) const fn word(name: &'static str, default: Option<&'static str>, options: &'static [&'static str]) -> Arg {
     Arg {
@@ -53,8 +61,8 @@ pub(crate) struct Fill;
 pub(crate) static FILL: Verb = Verb {
     name: "fill",
     role: Role::Step,
-    summary: "fills every shape with a colour, \"none\" for no fill; once a fill or stroke is set only what is set is painted",
-    args: &[color(Domain::Any)],
+    summary: "fills every shape with a colour or a gradient, \"none\" for no fill; once a fill or stroke is set only what is set is painted",
+    args: &[paint(Domain::Any)],
     check: None,
 };
 
@@ -64,13 +72,13 @@ impl Node for Fill {
     }
 
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, _: &Context<'_>) -> Result<Vec<Shape>, Error> {
-        let color = args.color("color")?;
+        let paint = args.paint("color")?;
         Ok(inputs
             .previous
             .iter()
             .cloned()
             .map(|mut shape| {
-                shape.style_mut().set_fill(color);
+                shape.style_mut().set_fill(paint.clone());
                 shape
             })
             .collect())
@@ -84,9 +92,9 @@ pub(crate) struct Stroke;
 pub(crate) static STROKE: Verb = Verb {
     name: "stroke",
     role: Role::Step,
-    summary: "strokes every outline; once a fill or stroke is set only what is set is painted",
+    summary: "strokes every outline with a colour or a gradient; once a fill or stroke is set only what is set is painted",
     args: &[
-        color(Domain::Painting),
+        paint(Domain::Painting),
         number("width", Some(DEFAULT_STROKE_WIDTH), Domain::Positive),
         word("join", Some("round"), Join::NAMES),
         word("cap", Some("round"), Cap::NAMES),
@@ -101,7 +109,7 @@ impl Node for Stroke {
     }
 
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
-        let color = args.color("color")?;
+        let paint = args.paint("color")?;
         let join = choice(args, "join", Join::named)?;
         let cap = choice(args, "cap", Cap::named)?;
         each_shape(inputs.previous, cx, |shape, item| {
@@ -110,7 +118,7 @@ impl Node for Stroke {
             let mut shape = shape.clone();
             shape
                 .style_mut()
-                .set_stroke(StrokeStyle::new(color).finished(width, join, cap, miter_limit));
+                .set_stroke(StrokeStyle::new(paint.clone()).finished(width, join, cap, miter_limit));
             Ok(shape)
         })
     }

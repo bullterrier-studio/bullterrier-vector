@@ -210,7 +210,10 @@ fn paint(
         outline,
         fill,
         stroke: match stroke {
-            Some((stroke, width)) => match stroke.color().rgba() {
+            Some((stroke, width)) => match match stroke.paint() {
+                crate::Paint::Color(c) => c.rgba(),
+                crate::Paint::Gradient(_) => None,
+            } {
                 Some(rgba) => {
                     // the outline has arcs for the round joins and ends; the rasteriser must be given lines only
                     let lines = stroke_outline(
@@ -264,10 +267,11 @@ fn fill_body(
 ) -> Result<Option<FillBody>, Error> {
     let style = shape.style();
     let Some(halftone) = style.halftone() else {
-        return Ok(style
-            .fill()
-            .rgba()
-            .map(|rgba| FillBody::Plain(covering(knockout, rgba))));
+        return Ok(match style.fill() {
+            crate::Paint::Color(c) => c.rgba(),
+            crate::Paint::Gradient(_) => None,
+        }
+        .map(|rgba| FillBody::Plain(covering(knockout, rgba))));
     };
     let screened = screen(halftone, polylines, &mut |count| {
         work.made_segments(count, &format!("shape {} pitch", shape.index()))

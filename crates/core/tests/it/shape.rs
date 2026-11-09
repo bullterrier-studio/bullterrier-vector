@@ -183,7 +183,7 @@ fn a_drawing_of_a_path_draws_one_shape_with_that_path_and_no_attributes() -> Out
 fn a_closed_outline_is_filled_black_by_default() -> Outcome {
     let square = Path::rect(0.0, 0.0, 10.0, 10.0, 0.0)?;
     let style = only_shape(&square)?.style().clone();
-    assert_eq!(style.fill(), Color::hex(0x00_00_00));
+    assert_eq!(*style.fill(), Color::hex(0x00_00_00));
     assert_eq!(style.stroke(), None);
     assert_eq!(style.opacity(), 1.0);
     assert_eq!(style.blend(), Blend::Normal);
@@ -194,9 +194,9 @@ fn a_closed_outline_is_filled_black_by_default() -> Outcome {
 fn an_open_line_is_stroked_black_two_pixels_wide_by_default() -> Outcome {
     let line = Path::line((0.0, 0.0), (10.0, 5.0))?;
     let style = only_shape(&line)?.style().clone();
-    assert_eq!(style.fill(), Color::NONE);
+    assert_eq!(*style.fill(), Color::NONE);
     let stroke = style.stroke().ok_or("an open line has no stroke")?;
-    assert_eq!(stroke.color(), Color::hex(0x00_00_00));
+    assert_eq!(*stroke.paint(), Color::hex(0x00_00_00));
     assert_eq!(stroke.width(), 2.0);
     assert_eq!((stroke.join(), stroke.cap()), (Join::Round, Cap::Round));
     assert_eq!(stroke.miter_limit(), 4.0);
@@ -227,7 +227,7 @@ fn a_path_with_any_open_sub_path_is_stroked_not_filled() -> Outcome {
         ("a lone point", point),
     ] {
         let style = only_shape(&path)?.style().clone();
-        assert_eq!(style.fill(), Color::NONE, "{case}");
+        assert_eq!(*style.fill(), Color::NONE, "{case}");
         assert!(style.stroke().is_some(), "{case}");
     }
     Ok(())
@@ -242,7 +242,7 @@ fn a_path_whose_sub_paths_are_all_closed_is_filled() -> Outcome {
     let circle = Path::circle((5.0, 5.0), 3.0)?;
     for (case, path) in [("two closed sub-paths", two_rings), ("a circle", circle)] {
         let style = only_shape(&path)?.style().clone();
-        assert_eq!(style.fill(), Color::hex(0x00_00_00), "{case}");
+        assert_eq!(*style.fill(), Color::hex(0x00_00_00), "{case}");
         assert_eq!(style.stroke(), None, "{case}");
     }
     Ok(())
@@ -252,7 +252,7 @@ fn a_path_whose_sub_paths_are_all_closed_is_filled() -> Outcome {
 fn an_empty_path_is_a_filled_shape_that_draws_nothing() -> Outcome {
     let shape = only_shape(&Path::new())?;
     assert_eq!(shape.path(), &Path::new());
-    assert_eq!(shape.style().fill(), Color::hex(0x00_00_00));
+    assert_eq!(*shape.style().fill(), Color::hex(0x00_00_00));
     assert_eq!(shape.style().stroke(), None);
     assert_eq!(shape.index(), 0);
     Ok(())

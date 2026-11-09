@@ -3,7 +3,7 @@
 
 use crate::expr::Op;
 use crate::node::Node;
-use crate::{Attributes, Color, Select, Unit, Verb};
+use crate::{Attributes, Color, Paint, Select, Unit, Verb};
 
 /// A whole document.
 pub(super) struct Doc {
@@ -67,6 +67,7 @@ pub(super) enum Value {
     Pair(Ex, Ex),
     Text(String),
     Color(Color),
+    Paint(Paint),
     Path {
         data: String,
         pointer: String,

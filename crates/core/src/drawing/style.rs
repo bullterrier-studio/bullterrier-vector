@@ -3,13 +3,13 @@
 use super::Drawing;
 use super::transform::Deg;
 use crate::node::{Given, style};
-use crate::{Blend, Cap, Color, Expr, Join, Path};
+use crate::{Blend, Cap, Color, Expr, Join, Paint, Path};
 
-/// A stroke: its colour, and the width, joins, caps and miter limit if not the defaults (2 pixels, round, round, 4). A
-/// [`Color`] alone converts into one.
+/// A stroke: its paint, and the width, joins, caps and miter limit if not the defaults (2 pixels, round, round, 4). A
+/// [`Color`] or a [`Gradient`](crate::Gradient) alone converts into one.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stroke {
-    color: Color,
+    paint: Paint,
     width: Option<Expr>,
     join: Option<Join>,
     cap: Option<Cap>,
@@ -17,11 +17,11 @@ pub struct Stroke {
 }
 
 impl Stroke {
-    /// A stroke of `color`.
+    /// A stroke of `paint`, a colour or a gradient.
     #[must_use]
-    pub fn new(color: Color) -> Self {
+    pub fn new(paint: impl Into<Paint>) -> Self {
         Self {
-            color,
+            paint: paint.into(),
             width: None,
             join: None,
             cap: None,
@@ -143,28 +143,30 @@ impl Halftone {
     }
 }
 
-impl From<Color> for Stroke {
-    fn from(color: Color) -> Self {
-        Self::new(color)
+impl<P: Into<Paint>> From<P> for Stroke {
+    fn from(paint: P) -> Self {
+        Self::new(paint)
     }
 }
 
 impl Drawing {
-    /// This drawing with every shape filled with `color` ([`Color::NONE`] for no fill). Once a fill or a stroke is
-    /// set, only what is set is painted.
+    /// This drawing with every shape filled with `paint`, a [`Color`] ([`Color::NONE`] for no fill) or a
+    /// [`Gradient`](crate::Gradient), whose geometry is in the design frame, not in the shape. Once a fill or a stroke
+    /// is set, only what is set is painted.
     #[must_use]
-    pub fn fill(&self, color: Color) -> Self {
-        self.then(&style::Fill, vec![("color", Given::Color(color))])
+    pub fn fill(&self, paint: impl Into<Paint>) -> Self {
+        self.then(&style::Fill, vec![("color", Given::Paint(paint.into()))])
     }
 
-    /// This drawing with every outline stroked: a [`Color`] for the default stroke, or a [`Stroke`].
+    /// This drawing with every outline stroked: a [`Color`] or a [`Gradient`](crate::Gradient) for the default stroke,
+    /// or a [`Stroke`].
     ///
     /// A colour of none, a width not above 0 and a miter limit below 1 leave the drawing with an
     /// [`error`](Drawing::error), or, when they read a Param, are refused when the drawing is drawn.
     #[must_use]
     pub fn stroke(&self, stroke: impl Into<Stroke>) -> Self {
         let stroke = stroke.into();
-        let mut given = vec![("color", Given::Color(stroke.color))];
+        let mut given = vec![("color", Given::Paint(stroke.paint))];
         if let Some(width) = stroke.width {
             given.push(("width", Given::Number(width)));
         }
@@ -243,10 +245,10 @@ impl Drawing {
 }
 
 impl Path {
-    /// A [`Drawing`] of this path filled with `color`.
+    /// A [`Drawing`] of this path filled with `paint`, a colour or a gradient.
     #[must_use]
-    pub fn fill(&self, color: Color) -> Drawing {
-        Drawing::from(self.clone()).fill(color)
+    pub fn fill(&self, paint: impl Into<Paint>) -> Drawing {
+        Drawing::from(self.clone()).fill(paint)
     }
 
     /// A [`Drawing`] of this path stroked.

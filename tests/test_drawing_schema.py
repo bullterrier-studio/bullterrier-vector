@@ -37,6 +37,22 @@ def failures(document: Any, schema: dict[str, Any] = SCHEMA) -> set[tuple[str, s
     return found
 
 
+def linear(**members: Any) -> dict[str, Any]:
+    """A linear gradient object, with `members` set over a valid one."""
+    return {
+        "gradient": "linear",
+        "stops": [[0, "#ff0066"], [1, "#ffcc0080"]],
+        "from": [0, 0],
+        "to": [0, 400],
+        **members,
+    }
+
+
+def radial() -> dict[str, Any]:
+    """A valid radial gradient object."""
+    return {"gradient": "radial", "stops": [[0, "#ffffff"], [1, "#00000000"]], "center": [1, 2], "radius": 3}
+
+
 def square_with(*steps: Any) -> dict[str, Any]:
     """A document whose root is a square path followed by `steps`."""
     return {"version": 1, "root": [{"path": SQUARE}, *steps]}
@@ -529,6 +545,29 @@ AGREED = [
     pytest.param(square_with({"stroke": {"color": "none"}}), False, id="a stroke of none"),
     pytest.param(square_with({"stroke": {"color": "#000000", "width": 0}}), False, id="a stroke of no width"),
     pytest.param(square_with({"stroke": {"color": "#000000", "cap": "flat"}}), False, id="a cap that is not one"),
+    pytest.param(square_with({"fill": {"color": linear()}}), True, id="a linear gradient fill"),
+    pytest.param(square_with({"stroke": {"color": radial(), "width": 4}}), True, id="a radial gradient stroke"),
+    pytest.param(square_with({"fill": {"color": linear(stops=[[0, "#ff0066"]])}}), False, id="a gradient of one stop"),
+    pytest.param(
+        square_with({"fill": {"color": linear(stops=[[0, "#ff0066"], [2, "#000000"]])}}),
+        False,
+        id="a gradient offset above 1",
+    ),
+    pytest.param(
+        square_with({"fill": {"color": linear(stops=[[0, "#ff0066"], [1, "none"]])}}),
+        False,
+        id="a gradient stop of none",
+    ),
+    pytest.param(
+        square_with({"fill": {"color": linear(center=[0, 0], radius=1)}}),
+        False,
+        id="radial members on a linear gradient",
+    ),
+    pytest.param(
+        square_with({"stroke": {"color": linear(to=[{"param": "x"}, 400])}}),
+        False,
+        id="an expression in a gradient point",
+    ),
     pytest.param(square_with({"blend": {"mode": "multiply"}}), True, id="a blend mode"),
     pytest.param(square_with({"blend": {}}), False, id="a blend without its mode"),
     pytest.param(square_with({"opacity": {}}), False, id="an opacity without its alpha"),

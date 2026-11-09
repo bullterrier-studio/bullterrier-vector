@@ -189,6 +189,9 @@ pub enum Kind {
     Pair,
     /// A colour: `"#rrggbb"`, `"#rrggbbaa"` or `"none"`.
     Color,
+    /// A colour as `Color` has it, or a gradient: `{"gradient": "linear", "stops": [[0, "#ff0066"], [1, "#ffcc00"]],
+    /// "from": [0, 0], "to": [0, 400]}`, or `"radial"` with `"center"` and `"radius"` in place of `"from"` and `"to"`.
+    Paint,
     /// One of a fixed set of words ([`Domain::Choice`]).
     Text,
     /// One number for both directions, or an `(x, y)` pair (a scale factor).

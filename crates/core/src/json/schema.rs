@@ -145,6 +145,14 @@ fn argument(arg: &Arg) -> Json {
             Domain::Painting => reference("color"),
             _ => any_of(vec![reference("color"), Json::object([("const", Json::text("none"))])]),
         },
+        Kind::Paint => match arg.domain {
+            Domain::Painting => any_of(vec![reference("color"), reference("gradient")]),
+            _ => any_of(vec![
+                reference("color"),
+                Json::object([("const", Json::text("none"))]),
+                reference("gradient"),
+            ]),
+        },
         Kind::Text => match arg.domain {
             Domain::Choice(words) => {
                 Json::object([("enum", Json::Array(words.iter().map(|word| Json::text(word)).collect()))])

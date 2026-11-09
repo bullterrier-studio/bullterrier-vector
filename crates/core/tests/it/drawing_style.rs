@@ -4,7 +4,7 @@
 
 use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{
-    Blend, Cap, Color, Drawing, Error, Expr, Join, Param, Path, Stroke, StrokeStyle, Style, Values,
+    Blend, Cap, Color, Drawing, Error, Expr, Join, Paint, Param, Path, Stroke, StrokeStyle, Style, Values,
 };
 
 const PINK: Color = Color::hex(0xff_4f_9a);
@@ -44,7 +44,7 @@ fn held(drawing: &Drawing) -> Result<Error, Box<dyn std::error::Error>> {
 fn a_fill_replaces_the_default_paint_and_leaves_no_stroke() -> Outcome {
     for (case, path) in [("closed", square()?), ("open", line()?)] {
         let style = plain(&Drawing::from(path).fill(PINK))?;
-        assert_eq!(style.fill(), PINK, "{case}");
+        assert_eq!(*style.fill(), PINK, "{case}");
         assert_eq!(
             style.stroke(),
             None,
@@ -58,7 +58,7 @@ fn a_fill_replaces_the_default_paint_and_leaves_no_stroke() -> Outcome {
 fn a_fill_of_none_counts_as_set_so_nothing_is_painted() -> Outcome {
     for (case, path) in [("closed", square()?), ("open", line()?)] {
         let style = plain(&Drawing::from(path).fill(Color::NONE))?;
-        assert_eq!((style.fill(), style.stroke()), (Color::NONE, None), "{case}");
+        assert_eq!((style.fill(), style.stroke()), (&Paint::NONE, None), "{case}");
     }
     Ok(())
 }
@@ -66,9 +66,9 @@ fn a_fill_of_none_counts_as_set_so_nothing_is_painted() -> Outcome {
 #[test]
 fn a_stroke_alone_leaves_the_fill_off_and_takes_the_defaults() -> Outcome {
     let style = plain(&Drawing::from(square()?).stroke(BLUE))?;
-    assert_eq!(style.fill(), Color::NONE);
+    assert_eq!(*style.fill(), Color::NONE);
     let stroke = style.stroke().ok_or("no stroke")?;
-    assert_eq!(stroke.color(), BLUE);
+    assert_eq!(*stroke.paint(), BLUE);
     assert_eq!(stroke.width(), 2.0);
     assert_eq!((stroke.join(), stroke.cap()), (Join::Round, Cap::Round));
     assert_eq!(stroke.miter_limit(), 4.0);
@@ -80,8 +80,8 @@ fn fill_and_stroke_together_give_both_in_either_order() -> Outcome {
     let a = plain(&Drawing::from(square()?).fill(PINK).stroke(BLUE))?;
     let b = plain(&Drawing::from(square()?).stroke(BLUE).fill(PINK))?;
     assert_eq!(a, b);
-    assert_eq!(a.fill(), PINK);
-    assert_eq!(a.stroke().map(StrokeStyle::color), Some(BLUE));
+    assert_eq!(*a.fill(), PINK);
+    assert_eq!(a.stroke().map(StrokeStyle::paint), Some(&Paint::from(BLUE)));
     Ok(())
 }
 
@@ -118,8 +118,8 @@ fn every_join_and_cap_is_drawn_as_asked() -> Outcome {
 #[test]
 fn a_colour_is_kept_as_its_bytes_whatever_the_case_it_was_written_in() -> Outcome {
     let style = plain(&Drawing::from(square()?).fill(Color::parse("#FF4F9A")?))?;
-    assert_eq!(style.fill().to_string(), "#ff4f9aff");
-    assert_eq!(style.fill(), Color::parse("#ff4f9a")?);
+    assert_eq!(*style.fill(), Color::parse("#ff4f9aff")?);
+    assert_eq!(*style.fill(), Color::parse("#ff4f9a")?);
     Ok(())
 }
 
@@ -209,7 +209,7 @@ fn opacity_multiplies() -> Outcome {
     assert_eq!(plain(&base.opacity(0.0))?.opacity(), 0.0);
     assert_eq!(plain(&base.opacity(1.0))?.opacity(), 1.0);
     // it leaves the paint alone
-    assert_eq!(plain(&base.opacity(0.5))?.fill(), Color::hex(0));
+    assert_eq!(*plain(&base.opacity(0.5))?.fill(), Color::hex(0));
     Ok(())
 }
 

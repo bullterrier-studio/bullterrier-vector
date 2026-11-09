@@ -74,14 +74,14 @@ fn a_halftone_is_the_fill_and_the_last_of_the_two_wins() -> Outcome {
     let red = color("#ff0000")?;
     // a halftone paints no solid fill
     let screened = Drawing::from(square()?).halftone(dots.clone());
-    assert_eq!(screened.shapes(&Values::new())?[0].style().fill(), Color::NONE);
+    assert_eq!(*screened.shapes(&Values::new())?[0].style().fill(), Color::NONE);
     // fill after halftone replaces it
     let filled = screened.fill(red);
     assert_eq!(halftones(&filled, &Values::new())?, vec![None]);
-    assert_eq!(filled.shapes(&Values::new())?[0].style().fill(), red);
+    assert_eq!(*filled.shapes(&Values::new())?[0].style().fill(), red);
     // halftone after fill replaces it, and so does a second halftone
     let again = filled.halftone(dots.clone());
-    assert_eq!(again.shapes(&Values::new())?[0].style().fill(), Color::NONE);
+    assert_eq!(*again.shapes(&Values::new())?[0].style().fill(), Color::NONE);
     let last = again.halftone(Halftone::new(red, 0.75));
     assert_eq!(parts(&only_halftone(&last)?), ("#ff0000ff".to_owned(), 0.75, 8.0, 45.0));
     Ok(())
