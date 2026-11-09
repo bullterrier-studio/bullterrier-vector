@@ -93,3 +93,19 @@ pixels are 25 times faster, the SVG and the mesh 7 to 8 times. `to_svg` is mostl
 tessellating and cutting the dots that cross the outline. Each dot is tested against every edge of the outline (about 390
 for this disc), so the cost grows with dots times edges; the work is bounded by `MAX_SEGMENTS`. Not measured: a letter,
 a second run on another machine, a browser.
+
+## Release profile and straight alpha (2026-11-09)
+
+`[profile.release]` with `lto = "fat"` and `codegen-units = 1`, and a lookup table in place of the three divisions per pixel in
+`unpremultiply`. `uv run poe bench` (200 shapes, 1920 by 1080), Apple M4, release, the median of 30 calls in milliseconds, three
+runs in a row at load average 5 to 10, so read the ratios. Rendered bytes (RGBA and SVG of the reference drawing at three
+sizes and six examples) are identical before and after.
+
+| Output | before | LTO | LTO and table |
+|---|---|---|---|
+| native `to_rgba` | 19.5 to 20.4 | 16.9 to 17.0 | 15.3 to 15.5 |
+| native `to_mesh` | 20.3 to 20.4 | 16.1 to 16.7 | 16.3 to 16.4 |
+| WebAssembly `to_rgba` | 25.6 to 26.1 | 22.8 to 23.5 | |
+
+The package `bullterrier_vector_wasm_bg.wasm` goes from 4.30 to 3.80 MB. `to_mesh` does not unpremultiply, so its flat
+column is the control. A release build takes about 50 s longer to link; not measured in CI.
