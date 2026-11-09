@@ -109,3 +109,23 @@ sizes and six examples) are identical before and after.
 
 The package `bullterrier_vector_wasm_bg.wasm` goes from 4.30 to 3.80 MB. `to_mesh` does not unpremultiply, so its flat
 column is the control. A release build takes about 50 s longer to link; not measured in CI.
+
+## Reusing the render state (2026-11-09): measured, not adopted
+
+A spike kept a `RenderContext` (`reset_and_resize`) and the `Pixmap` per thread between calls, copying the output out of
+the pixmap (`take_rgba8` hands its buffer over, so a kept pixmap needs a fresh output buffer). Interleaved base, spike, base,
+spike (four rounds, separate processes), 200 shapes, Apple M4, release, load average 4 to 6; minimum of 80 calls in milliseconds.
+
+| `to_rgba` | main | spike |
+|---|---|---|
+| 200 shapes, 1920 by 1080 | 15.4 to 15.6 | 14.4 to 16.8 |
+| 200 shapes, 3840 by 2160 | 23.4 to 24.6 | 22.8 to 25.7 |
+| 100 shapes, 800 by 600 | 6.7 to 7.2 | 5.8 to 6.1 |
+| 50 shapes, 333 by 217 | 2.7 to 3.1 | 2.3 to 3.0 |
+
+The bar was a gain of 10% at 1080p; it was not met (about 3% at best, inside the noise), so the code is reverted. Only the
+small canvases gain (about 15%), where the fixed cost of the context dominates. The churn is mostly per shape (`Curve::flatten`,
+`stroke_outline`, the drops of a `Body`), which a render state does not touch. Output bytes were identical in both orders.
+
+The `pow`, `atan2`, `sincos` and `hypot` of the profile (2% in all) are called by kurbo's stroker (`round_join`, `do_join`):
+left, in kurbo.
