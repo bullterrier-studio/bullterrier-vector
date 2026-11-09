@@ -968,7 +968,9 @@ def registered_verbs() -> set[str]:
     return found
 
 
-def summary(drawing: btvec.Drawing, **values: Any) -> list[tuple[str, str | None, str | None, float, str]]:
+def summary(
+    drawing: btvec.Drawing, **values: Any
+) -> list[tuple[str, str | btvec.Gradient | None, str | btvec.Gradient | None, float, str]]:
     """What each shape shows: path data, fill, stroke, opacity, blend."""
     return [
         (shape.path.to_svg_path(), shape.style.fill, shape.style.stroke, shape.style.opacity, shape.style.blend)
