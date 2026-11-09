@@ -435,7 +435,7 @@ def test_a_full_pass_records_the_proofs_it_ran_and_a_check_pass_does_not(git_rep
     git_repo.commit("chore: start", {"start.txt": "start"})
     monkeypatch.chdir(git_repo.path)
     passed_gate(git_repo, tier=tier)
-    assert (pre_push.changed_since_proofs() == []) is recorded
+    assert pre_push.changed_since_proofs() == ([] if recorded else None)
 
 
 def project_whose_proofs_exit(repo, status: int) -> None:

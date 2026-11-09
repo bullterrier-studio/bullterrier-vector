@@ -125,13 +125,23 @@ def runs_tests(words: list[str]) -> bool:
 
 def test_every_task_that_runs_tests_runs_them_under_the_memory_cap(poe_runs):
     # a runaway test froze the machine; a timeout limits seconds, not memory
-    uncapped = [
-        (task, command)
+    runners = [
+        (task, words)
         for task, commands in poe_runs.items()
         for command in commands
-        if runs_tests(words := shlex.split(command)) and "tools/run_capped.py" not in words
+        if runs_tests(words := shlex.split(command))
     ]
-    assert uncapped == []
+    assert {"test", "gate-tests"} <= {task for task, _ in runners}, "the detector must see the suite's own tasks"
+    assert [(task, words) for task, words in runners if "tools/run_capped.py" not in words] == []
+
+
+def test_the_test_runner_detector_finds_pytest_and_cargo_test_and_nothing_else():
+    assert runs_tests(shlex.split("pytest -q -m 'not gate'"))
+    assert runs_tests(shlex.split("cargo test --workspace --locked"))
+    assert runs_tests(shlex.split("python tools/run_capped.py -- pytest -q"))
+    assert not runs_tests(shlex.split("cargo build --locked"))
+    assert not runs_tests(shlex.split("cargo deny --locked check"))
+    assert not runs_tests(shlex.split("ruff check tests/"))
 
 
 def test_the_rewrite_detector_catches_each_fixing_option_and_passes_checking_commands():

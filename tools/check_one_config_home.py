@@ -1,13 +1,12 @@
 """Check that all Python tooling is configured in pyproject.toml, and all Rust tooling in Cargo.toml, and nowhere else.
 
-A second config file (ruff.toml, mypy.ini, setup.cfg, pytest.ini, .cargo/config.toml ...) silently overrides or shadows
-the settings in pyproject.toml or Cargo.toml, so the project has exactly one home for them. The Rust tools that cannot
-read Cargo.toml have one file each, at the root only: rust-toolchain.toml (rustup), rustfmt.toml (rustfmt), deny.toml
-(cargo-deny) and clippy.toml (clippy). clippy.toml is allowed because clippy's determinism rules (the disallowed
-methods and types of the vector core) have no home in Cargo.toml: `[workspace.lints]` sets only which lints are on, not
-their configuration. Under `crates/` it would still shadow the root one, so it is stray there. No `.cargo/config.toml`
-either: its build flags (such as `target-cpu=native`) would make wheels that do not run on every CPU of their platform.
-Run by hand with `python tools/check_one_config_home.py`; the test suite runs it too.
+A second config file (ruff.toml, mypy.ini, setup.cfg, pytest.ini, .cargo/config.toml ...) silently
+overrides or shadows the settings in pyproject.toml or Cargo.toml, so the project has exactly one home for them. The
+Rust tools that cannot read Cargo.toml have one file each, at the root only: rust-toolchain.toml (rustup),
+rustfmt.toml (rustfmt), deny.toml (cargo-deny), clippy.toml (clippy's settings such as `disallowed-methods`;
+its lint levels stay in Cargo.toml). No `.cargo/config.toml` either: its build flags (such as
+`target-cpu=native`) would make wheels that do not run on every CPU of their platform. Run by hand with
+`python tools/check_one_config_home.py`; the test suite runs it too.
 
 Interface:
     find_stray_configs(root) -> the tool-config files found at `root`, under `root/src`, `root/tests` or `root/crates`,

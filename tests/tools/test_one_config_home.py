@@ -30,8 +30,7 @@ STRAY_NAMES = [
     ".importlinter", ".flake8", ".pylintrc", "pyrightconfig.json", ".isort.cfg", ".bandit",
     ".clippy.toml", ".rustfmt.toml", "rust-toolchain", ".deny.toml",
 ]  # fmt: skip
-# clippy.toml is here: clippy's determinism rules (disallowed methods) cannot be set in Cargo.toml
-ROOT_ONLY_NAMES = ["rust-toolchain.toml", "rustfmt.toml", "deny.toml", "clippy.toml"]
+ROOT_ONLY_NAMES = ["rust-toolchain.toml", "rustfmt.toml", "deny.toml", "clippy.toml"]  # clippy: disallowed-methods
 
 
 def test_the_repository_has_no_stray_tool_config():
