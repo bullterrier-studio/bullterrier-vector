@@ -53,23 +53,48 @@ def nested_through_other(leaf_expression):
     return drawing
 
 
-def nested_through(step_name):
-    """128 drawings nested through the `region` of a clip or the `source` of a mask."""
+def nested_through(step_name, levels):
+    """`levels` clips or masks nested through the `region` or the `source` of the next. A mask's source may be clipped
+    but not masked, so masks alternate with a clip of the drawing below them (two drawings a level)."""
     drawing = btvec.Path.circle((5, 5), 2).fill("#112233").translate(btvec.Param("x", default=1, min=0, max=10), 0)
-    for _ in range(127):
-        drawing = getattr(btvec.Path.circle((5, 5), 4).fill("#445566"), step_name)(drawing)
+    for _ in range(levels):
+        ink = btvec.Path.circle((5, 5), 4).fill("#445566")
+        if step_name == "mask":
+            drawing = ink.mask(btvec.Path.circle((5, 5), 3).fill("#ffffff").clip(drawing))
+        else:
+            drawing = ink.clip(drawing)
     return drawing
 
 
+def deepest_cut_document(step_name):
+    """The deepest nesting through `step_name` that `to_json` accepts, saved, loaded, drawn and dropped."""
+    for levels in range(127, 0, -1):
+        drawing = nested_through(step_name, levels // 2 if step_name == "mask" else levels)
+        try:
+            text = drawing.to_json()
+        except btvec.BullterrierVectorError:
+            continue
+        step("from_json")
+        loaded = btvec.Drawing.from_json(text)
+        step("draw the loaded document")
+        loaded.to_svg(10, 10)
+        loaded.to_rgba(10, 10)
+        step("drop")
+        return
+    raise AssertionError("no nesting is saved")
+
+
 def every_output_refusing(drawing):
-    """Every output of a drawing a mesh, or a mask in a mask, refuses: it may raise, never overflow."""
-    for name in ("shapes", "to_svg", "to_rgba", "to_png", "to_mesh"):
+    """Every output of a drawing whose mesh is refused (a clip and a mask have no range in it): the rest must draw."""
+    for name in ("shapes", "to_svg", "to_rgba", "to_png"):
         step(name)
         method = getattr(drawing, name)
-        try:
-            method() if name == "shapes" else method(10, 10)
-        except btvec.ParameterError:
-            pass
+        method() if name == "shapes" else method(10, 10)
+    step("to_mesh")
+    try:
+        drawing.to_mesh(10, 10)
+    except btvec.ParameterError:
+        pass
     step("parameters")
     drawing.parameters()
     step("repr")
@@ -128,10 +153,13 @@ def run():
         step("drop")
         del drawing
     elif scenario in ("nested_through_clip", "nested_through_mask"):
-        drawing = nested_through(scenario.removeprefix("nested_through_"))
+        name = scenario.removeprefix("nested_through_")
+        drawing = nested_through(name, 63 if name == "mask" else 127)
         every_output_refusing(drawing)
         step("drop")
         del drawing
+    elif scenario in ("cut_document_clip", "cut_document_mask"):
+        deepest_cut_document(scenario.removeprefix("cut_document_"))
     elif scenario == "nested_with_the_deepest_expression":
         deepest = x
         for _ in range(127):
@@ -266,6 +294,8 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
         pytest.param("nested_through_other", id="128-drawings-nested-through-the-other-of-booleans"),
         pytest.param("nested_through_clip", id="128-drawings-nested-through-the-region-of-clips"),
         pytest.param("nested_through_mask", id="128-drawings-nested-through-the-source-of-masks"),
+        pytest.param("cut_document_clip", id="deepest-document-of-clips-to_json-accepts"),
+        pytest.param("cut_document_mask", id="deepest-document-of-masks-to_json-accepts"),
         pytest.param("nested_with_the_deepest_expression", id="128-drawings-nested-over-a-128-level-expression"),
         pytest.param("expression_a_loop_builds", id="expression-100000-levels-built-by-a-loop"),
         pytest.param(
