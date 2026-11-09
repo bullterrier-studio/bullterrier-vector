@@ -10,7 +10,7 @@ pub(crate) use attributes::{Holds, SELECTABLE, Single, holds};
 pub use color::Color;
 pub use paint::{Gradient, GradientKind, Paint};
 pub use style::{Blend, Cap, HalftoneStyle, Join, ShadowStyle, StrokeStyle, Style};
-pub(crate) use style::{DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, refused};
+pub(crate) use style::{DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, refused, same_cut};
 
 use crate::Path;
 use crate::key::{Key, Keyed};

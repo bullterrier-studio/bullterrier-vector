@@ -616,6 +616,25 @@ fn a_headline_faded_by_one_mask_draws_at_full_hd_and_equals_its_glyphs_masked_on
 }
 
 #[test]
+fn a_masked_headline_rebuilt_from_its_shapes_still_makes_one_mask_and_one_clip() -> Outcome {
+    // `Drawing::from(shape)` rebuilds each shape's own step: the masks are equal, though no longer one allocation
+    let faded = headline()?.mask(fade_text()?).clip(rect(0.0, 0.0, 1000.0, 200.0)?);
+    let rebuilt = Drawing::new(faded.shapes(&Values::new())?.into_iter().map(Drawing::from));
+    let size = Size::px(1920.0, 1080.0);
+    let svg = rebuilt.to_svg(size, &Values::new())?;
+    let document = roxmltree::Document::parse(&svg)?;
+    let count = |name: &str| document.descendants().filter(|node| node.has_tag_name(name)).count();
+    assert_eq!((count("mask"), count("clipPath")), (1, 1));
+    // 88 masks of 2 million pixels would pass MAX_FILTER_PIXELS
+    let bytes = rebuilt.to_rgba(size, &Values::new())?;
+    assert!(
+        bytes == faded.to_rgba(size, &Values::new())?,
+        "the rebuilt headline draws differently"
+    );
+    Ok(())
+}
+
+#[test]
 fn a_mask_costs_the_canvas_once_for_each_distinct_mask_and_is_refused_past_the_budget() -> Outcome {
     // two masks of 8200 by 8200 pixels pass 2^27 pixels together, one does not
     let width = 8200.0;

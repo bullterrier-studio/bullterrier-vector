@@ -505,6 +505,12 @@ impl Style {
     }
 }
 
+/// Whether two clips or two masks are the one a step made: the same allocation, or (shapes put back into a drawing one by
+/// one make a step each) equal, so that outputs write and charge them once.
+pub(crate) fn same_cut<T: PartialEq + ?Sized>(left: &Arc<T>, right: &Arc<T>) -> bool {
+    Arc::ptr_eq(left, right) || **left == **right
+}
+
 impl Keyed for ShadowStyle {
     fn write_key(&self, key: &mut Key) {
         key.number(self.dx);

@@ -6,6 +6,7 @@ use super::view::View;
 use super::{Size, cast, fills, in_shape};
 use crate::limits::{MAX_KNOCKOUT_LAYERS, Work};
 use crate::path::number;
+use crate::shape::same_cut;
 use crate::{Blend, Color, Drawing, Error, GradientKind, Paint, Path, Shape, Values};
 use std::fmt::Write as _;
 use std::ops::Deref;
@@ -34,7 +35,7 @@ impl Deref for Frame<'_> {
     }
 }
 
-/// The clips and masks written so far in a scope, told apart by the `Arc` that the shapes of one step share: each is
+/// The clips and masks written so far in a scope, told apart by `same_cut` (the `Arc` that the shapes of one step share, or an equal one): each is
 /// written once, and the id says where. A clip whose region fills nothing has no id.
 #[derive(Default)]
 struct Defined {
@@ -284,7 +285,7 @@ fn define_cuts(
     let style = shape.style();
     let mut attributes = String::new();
     if let Some(region) = style.shared_clip() {
-        let known = defined.clips.iter().find(|(known, _)| Arc::ptr_eq(known, region));
+        let known = defined.clips.iter().find(|(known, _)| same_cut(known, region));
         let id = if let Some((_, id)) = known {
             id.clone()
         } else {
@@ -303,7 +304,7 @@ fn define_cuts(
         let _ = write!(attributes, " clip-path=\"url(#{id})\"");
     }
     if let Some(shapes) = style.shared_mask() {
-        let id = if let Some((_, id)) = defined.masks.iter().find(|(known, _)| Arc::ptr_eq(known, shapes)) {
+        let id = if let Some((_, id)) = defined.masks.iter().find(|(known, _)| same_cut(known, shapes)) {
             id.clone()
         } else {
             let id = format!("{}mask-{}", view.scope, shape.index());

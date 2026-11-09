@@ -9,6 +9,7 @@ use super::view::View;
 use super::{Size, in_shape};
 use crate::limits::Work;
 use crate::path::{FLATNESS, Polyline};
+use crate::shape::same_cut;
 use crate::{
     Blend, Cap, Drawing, Error, GradientKind, Join, Paint, Path, Point, ShadowStyle, Shape, StrokeStyle, Style, Values,
 };
@@ -87,7 +88,7 @@ fn picture(shapes: &[Shape], view: &View, canvas: (u16, u16), work: &Work) -> Re
     Ok(pixmap)
 }
 
-/// The clips and masks a draw has made, told apart by the `Arc` the steps share between their shapes, so that a
+/// The clips and masks a draw has made, told apart by `same_cut` (the `Arc` the steps share between their shapes, or an equal one), so that a
 /// headline of fifty glyphs faded by one mask builds that mask once.
 #[derive(Default)]
 struct Cuts {
@@ -110,7 +111,7 @@ impl Cuts {
         let Some(region) = style.shared_clip() else {
             return Ok(None);
         };
-        if let Some((_, made)) = self.clips.iter().find(|(known, _)| Arc::ptr_eq(known, region)) {
+        if let Some((_, made)) = self.clips.iter().find(|(known, _)| same_cut(known, region)) {
             return Ok(Some(Arc::clone(made)));
         }
         let polylines = region.flattened(&mut |count| work.made_segments(count, &format!("{name} clip")))?;
@@ -135,7 +136,7 @@ impl Cuts {
         let Some(shapes) = style.shared_mask() else {
             return Ok(None);
         };
-        if let Some((_, made)) = self.masks.iter().find(|(known, _)| Arc::ptr_eq(known, shapes)) {
+        if let Some((_, made)) = self.masks.iter().find(|(known, _)| same_cut(known, shapes)) {
             return Ok(Some(made.clone()));
         }
         work.filtered(u64::from(canvas.0) * u64::from(canvas.1), name, "its mask")?;
