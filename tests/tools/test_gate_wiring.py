@@ -40,7 +40,8 @@ NOT_IN_FAST = ["wasm-test"]  # a release build and Node: `check` and `full` only
 SKIP_PROOFS = "-m 'not gate'"  # what keeps the slow proofs out of `fast`, `check` and the `test` task
 ONLY_PROOFS = "-m gate"  # what the `gate-tests` task selects
 CAPPED = "python tools/run_capped.py -- "  # how the test tasks start: pytest under the memory cap
-TRIGGERED_PROOFS = "python tools/pre_push.py proofs"  # the step of `check` that runs them when they are due
+HOOK = "uv run python tools/pre_push.py"  # the tool that remembers a pass: `start` and `pass TIER`
+TRIGGERED_PROOFS = "proofs"  # the task of `check` that runs them when they are due
 
 
 def steps(tasks: dict[str, Any], name: str, path: tuple[str, ...] = ()) -> list[tuple[tuple[str, ...], str]]:
@@ -83,19 +84,19 @@ def problems(pyproject: dict[str, Any]) -> list[str]:
         found += [f"{tier} does not run {gate}" for gate in GATES if gate not in tier_reaches]
         commands = [command for _, command in steps(tasks, tier)]
         # a tier recording its pass under another's name would let a check pass satisfy a tag push
-        for kind in ("start", "pass"):
-            prefix = f"python tools/pre_push.py {kind} "
-            found += [
-                f"{tier}: `{c}` does not name {tier}" for c in commands if c.startswith(prefix) and c != prefix + tier
-            ]
-            if prefix + tier not in commands:
-                found.append(f"{tier} lacks the `{prefix + tier}` step")
+        prefix = f"{HOOK} pass "
+        found += [
+            f"{tier}: `{c}` does not name {tier}" for c in commands if c.startswith(prefix) and c != prefix + tier
+        ]
+        for step in (f"{HOOK} start", prefix + tier):
+            if step not in commands:
+                found.append(f"{tier} lacks the `{step}` step")
     fast_reaches = reached(tasks, "fast")
     found += [f"fast runs {gate}, which is for check and full only" for gate in NOT_IN_FAST if gate in fast_reaches]
     if "gate-tests" in fast_reaches:
         found.append("fast runs the proofs, which are for full")
-    if TRIGGERED_PROOFS not in [command for _, command in steps(tasks, "check")]:
-        found.append(f"check does not run the proofs when they are due (`{TRIGGERED_PROOFS}`)")
+    if TRIGGERED_PROOFS not in reached(tasks, "check"):
+        found.append(f"check does not run the proofs when they are due (`poe {TRIGGERED_PROOFS}`)")
     if "gate-tests" in reached(tasks, "check"):
         found.append("check runs the proofs always; only full does")
     if "gate-tests" not in reached(tasks, "full"):
@@ -185,8 +186,8 @@ def test_check_running_the_proofs_always_is_rejected():
 
 
 def test_check_without_the_triggered_proofs_step_is_rejected():
-    copied = edited(lambda tasks: tasks["check"]["sequence"].remove(TRIGGERED_PROOFS))
-    assert problems(copied) == [f"check does not run the proofs when they are due (`{TRIGGERED_PROOFS}`)"]
+    copied = edited(lambda tasks: tasks["check"]["sequence"].remove({"ref": TRIGGERED_PROOFS}))
+    assert problems(copied) == [f"check does not run the proofs when they are due (`poe {TRIGGERED_PROOFS}`)"]
 
 
 def test_full_without_the_proofs_is_rejected():
@@ -199,9 +200,9 @@ def test_full_remembering_its_pass_as_check_is_rejected():
 
     def rename(tasks):
         sequence = tasks["full"]["sequence"]
-        sequence[sequence.index("python tools/pre_push.py pass full")] = "python tools/pre_push.py pass check"
+        sequence[sequence.index(f"{HOOK} pass full")] = f"{HOOK} pass check"
 
     assert problems(edited(rename)) == [
-        "full: `python tools/pre_push.py pass check` does not name full",
-        "full lacks the `python tools/pre_push.py pass full` step",
+        f"full: `{HOOK} pass check` does not name full",
+        f"full lacks the `{HOOK} pass full` step",
     ]

@@ -29,10 +29,10 @@ concurrency:
 # `./` and not GitHub's newer `$/` self-repository form, which zizmor prefers: actionlint 1.7.12 rejects `$/`, and a
 # job-level `uses: ./` already resolves to this repository at the running commit (no checkout is involved).
 jobs:
-  # Whether a pull request changes anything but documentation. Every other event (main, merge queue, by hand) always
-  # runs everything. The documentation is the same set tools/pre_push.py skips the local gate for (its
-  # `is_documentation`): pages in the top level and docs/, and the pictures (png, jpg, jpeg, gif, svg, webp, in any
-  # case) under docs/images/. The patterns below and that function are two copies of one rule: change them together.
+  # Whether a pull request changes anything but documentation. Every other event (main, merge queue, tags, releases, by
+  # hand) always runs everything. The documentation is the same set tools/pre_push.py skips the local gate for: pages in
+  # the top level and docs/, and the pictures in docs/images/ (its PICTURE_SUFFIXES; tests/tools/test_pre_push.py keeps
+  # the two equal).
   changes:
     name: What changed
     runs-on: ubuntu-latest
@@ -53,10 +53,10 @@ jobs:
               - '**'
               - '!*.md'
               - '!docs/*.md'
-              - '!docs/images/**/*.[pP][nN][gG]'
-              - '!docs/images/**/*.[jJ][pP][gG]'
-              - '!docs/images/**/*.[jJ][pP][eE][gG]'
               - '!docs/images/**/*.[gG][iI][fF]'
+              - '!docs/images/**/*.[jJ][pP][eE][gG]'
+              - '!docs/images/**/*.[jJ][pP][gG]'
+              - '!docs/images/**/*.[pP][nN][gG]'
               - '!docs/images/**/*.[sS][vV][gG]'
               - '!docs/images/**/*.[wW][eE][bB][pP]'
       - name: Say what runs

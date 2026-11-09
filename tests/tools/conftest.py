@@ -89,6 +89,7 @@ class GitRepo:
         self.git("init", "-q", "-b", "main")
         self.git("config", "user.name", "Test Author")
         self.git("config", "user.email", "author@example.com")
+        self.add_remote("origin")
 
     def git(self, *args: str) -> str:
         """Run git in the repository and return its output (stripped); fail the test if git fails."""
@@ -101,17 +102,26 @@ class GitRepo:
     def add_remote(self, name: str = "origin") -> None:
         """Add a new empty bare repository, next to the working one, as the remote `name`."""
         bare = self.path.parent / f"{name}.git"
-        self.git("init", "-q", "--bare", str(bare))
+        self.git("init", "-q", "--bare", "-b", "main", str(bare))
         self.git("remote", "add", name, str(bare))
 
-    def commit(self, message: str, files: dict[str, str]) -> str:
-        """Write `files` (name to text), commit everything with `message` and return the commit's hash."""
-        for name, text in files.items():
-            (self.path / name).parent.mkdir(parents=True, exist_ok=True)
-            (self.path / name).write_text(text, encoding="utf-8")
+    def write(self, name: str, text: str) -> None:
+        (self.path / name).parent.mkdir(parents=True, exist_ok=True)
+        (self.path / name).write_text(text, encoding="utf-8")
+
+    def read(self, name: str) -> str:
+        return (self.path / name).read_text(encoding="utf-8")
+
+    def commit(self, message: str, files: dict[str, str] | None = None) -> str:
+        """Write `files` (default: one new file named after the commit count), commit everything, return the hash."""
+        for name, text in (files or {f"file{self.git('rev-list', '--all', '--count')}.txt": message}).items():
+            self.write(name, text)
         self.git("add", "--all")
         self.git("commit", "-q", "-m", message)
         return self.git("rev-parse", "HEAD")
+
+    def push(self) -> None:
+        self.git("push", "-q", "origin", "main")
 
 
 @pytest.fixture

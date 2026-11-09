@@ -69,8 +69,9 @@ cache-keys = [
 # cannot drift; cheapest first, stopping at the first failure.
 fast = { sequence = [{ ref = "rust-fmt" }, "ruff format --check .", { ref = "rust-lint" }, "ruff check .", { ref = "rust-test" }, { ref = "rust-wasm" }, "mypy", { ref = "file-size" }, { ref = "test" }], default_item_type = "cmd", help = "The inner loop: format, lint, Rust tests, WebAssembly build, types, Python tests; leaves out the slow gate proofs" }
 gates = { sequence = ["ruff format --check .", { ref = "rust-fmt" }, "ruff check .", { ref = "rust-test-layout" }, { ref = "rust-lint" }, { ref = "file-size" }, { ref = "lint-workflows" }, { ref = "dead-code" }, { ref = "rust-doc" }, "deptry .", { ref = "rust-tools" }, { ref = "rust-shear" }, { ref = "rust-deny" }, { ref = "rust-fonts" }, { ref = "build-check" }, { ref = "rust-wasm" }, "mypy", { ref = "stubtest" }, { ref = "rust-test" }, { ref = "wasm-test" }, { ref = "test" }], default_item_type = "cmd", help = "The gates `check` and `full` share (not run alone: no pass is remembered)" }
-check = { sequence = ["python tools/pre_push.py start check", { ref = "gates" }, "python tools/pre_push.py proofs", "python tools/pre_push.py pass check"], default_item_type = "cmd", help = "The gate before a merge: every gate, the proofs when what they read changed; a pass on a clean tree is remembered, so pushing exactly that tree does not repeat it" }
-full = { sequence = ["python tools/pre_push.py start full", { ref = "gates" }, { ref = "gate-tests" }, "python tools/pre_push.py pass full"], default_item_type = "cmd", help = "check with the gate proofs always run: before a tag, in CI; a pass is remembered like check's, and resets what check treats as proven" }
+proofs = { cmd = "uv run python tools/pre_push.py proofs", help = "Run the gate proofs if the change touches what they test (or they never passed here)" }
+check = { sequence = ["uv run python tools/pre_push.py start", { ref = "gates" }, { ref = "proofs" }, "uv run python tools/pre_push.py pass check"], default_item_type = "cmd", help = "The gate before a push to main: every gate, and the proofs when the change touches what they test; a pass is remembered for that tree" }
+full = { sequence = ["uv run python tools/pre_push.py start", { ref = "gates" }, { ref = "gate-tests" }, "uv run python tools/pre_push.py pass full"], default_item_type = "cmd", help = "The gate before a tag and in CI: `check` with the proofs always run; a pass is remembered for that tree" }
 # PYTHONWARNDEFAULTENCODING makes the interpreter, and every xdist worker it starts, report text IO without an
 # encoding (EncodingWarning), which `filterwarnings` below turns into a failure; an -X flag would not reach the workers
 test = { cmd = "python tools/run_capped.py -- pytest -q -n auto -m 'not gate'", env = { PYTHONWARNDEFAULTENCODING = "1" }, help = "Run the Python tests but the gate proofs on every CPU core (pytest-xdist; the order stays random)" }
@@ -145,9 +146,9 @@ setup = { sequence = ["pre-commit install --install-hooks", "git config --local 
 # break the proof, and listing it would run the proofs whenever a module is added.
 [tool.gate-proofs]
 triggers = [
-    "tools/", # the scripts the gates run, copied into the proofs' workspaces
-    "tests/tools/", # the proofs and their fixtures
-    "tests/wasm/", # the Node tests and the oracle: a proof edits them and names their tests
+    "tools/*", # the scripts the gates run, copied into the proofs' workspaces
+    "tests/tools/*", # the proofs and their fixtures
+    "tests/wasm/*", # the Node tests and the oracle: a proof edits them and names their tests
     "tests/conftest.py", # the autouse fixtures every proof runs under
     "examples/star.py", # the star the wasm proof compares across languages (an offence edits it)
     "crates/core/examples/star.rs", # the Rust star of that proof (an offence edits it)
@@ -155,10 +156,10 @@ triggers = [
     "crates/core/Cargo.toml", # the manifest the dependency and licence proofs edit by text
     "crates/python/Cargo.toml", # the manifest the build proof expects in the sdist
     "crates/wasm/src/lib.rs", # the glue the wasm proof breaks by text
-    "crates/core/fonts/", # the font licences and files the build proof expects in the distributions
+    "crates/core/fonts/*", # the font licences and files the build proof expects in the distributions
     "src/bullterrier_vector/_native/_core.pyi", # the stub the stubtest proof edits by text
     "src/bullterrier_vector/py.typed", # the marker the build proof expects in the wheel
-    "docs/examples/json/", # the example documents the copied Rust tests read
+    "docs/examples/json/*", # the example documents the copied Rust tests read
     "pyproject.toml", # every proof copies it and edits tasks and settings by text
     "uv.lock", # the versions of ruff, mypy, deptry, vulture and the rest, which decide what a gate flags
     "Cargo.toml", # the workspace, the lints, the pinned cargo tools; the font proofs edit it by text
@@ -167,7 +168,7 @@ triggers = [
     "rustfmt.toml", # the formatting rules the unformatted-code proof relies on
     "clippy.toml", # the determinism rules the lint proofs rely on
     "deny.toml", # the bans and licences the deny proofs rely on
-    ".github/", # the workflows and dependabot.yml the workflow proof lints
+    ".github/*", # the workflows and dependabot.yml the workflow proof lints
     ".pre-commit-config.yaml", # the hook wiring; no proof copies it today, listed by the owner's design (drop if it never matters)
     ".gitignore", # copied into the build proof
     "LICENSE", # copied into the build proof
@@ -186,6 +187,11 @@ scope-pattern = "^[a-z0-9][a-z0-9/_-]*$"
 # runaway still stops well below the 24 GB of the machine
 [tool.run-capped]
 cap-mb = 8000
+
+# The system tools the gates run that are not dev dependencies (tests/tools/test_project_wiring.py): Node runs the
+# WebAssembly package's tests.
+[tool.project-wiring]
+system-commands = ["node"]
 
 # Read by tools/check_rust_test_layout.py: the Rust test files that are binaries of their own (path -> why they need a
 # process to themselves). Every other integration test is a module of tests/it/.
@@ -322,9 +328,11 @@ dev = [
     "pytest>=9.2.0",
     "pytest-randomly>=5.0.0",
     "pytest-xdist>=3.8.0",
+    "pyyaml>=6.0.3",
     "ruff>=0.17.3",
     "twine>=7.0.0",
     "types-jsonschema>=4.26.0.20261006",
+    "types-pyyaml>=6.0.12.20260906",
     "vulture>=2.16",
     "zizmor>=1.31.1",
 ]
