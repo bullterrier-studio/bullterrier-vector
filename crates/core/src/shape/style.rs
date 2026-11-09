@@ -185,7 +185,7 @@ impl Blend {
         }
     }
 
-    /// The blend written as `text`, one of [`NAMES`](Self::NAMES).
+    /// The blend written as `text`, one of the twelve CSS words: `"normal"`, `"multiply"`, `"screen"`, `"overlay"`, `"darken"`, `"lighten"`, `"color-dodge"`, `"color-burn"`, `"hard-light"`, `"soft-light"`, `"difference"` or `"exclusion"`.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `mode` if `text` is none of them.
