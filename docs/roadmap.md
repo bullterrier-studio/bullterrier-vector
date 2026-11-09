@@ -539,6 +539,8 @@ against about 500 ms for a boolean per dot (`benchmarks.md`).
 
 ## V10d Paint and compositing style
 
+Part 1 (gradient fills and strokes) is built: see `design-decisions.md`, "Paint and compositing style (V10d)".
+
 The same style model as V10, extended; the result is the same in SVG and in pixels, and the mesh raises as it does for a
 blurred shadow.
 

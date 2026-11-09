@@ -331,3 +331,25 @@ def test_halftone_draws_a_row_of_discs_of_rising_tone_and_a_big_disc_with_its_st
     assert all(110 < count < 200 for count in counts), counts
     big = root.findall(f"{svg}path")[-1]
     assert (big.attrib["fill"], big.attrib["stroke"], big.attrib["stroke-width"]) == ("none", "#c4372b", "3")
+
+
+def test_gradient_type_fills_the_letters_with_one_gradient_across_the_frame_and_the_svg_names_each_gradient(run):
+    found = run("gradient_type")
+    drawing = found["drawing"]
+    assert isinstance(drawing, btvec.Drawing)
+    shapes = drawing.shapes()
+    letters = [shape for shape in shapes if "glyph" in shape.attributes]
+    assert len(letters) == len("Gradient")
+    # every letter has the one gradient: it lies in the frame, not in the letter
+    fills = {repr(letter.style.fill) for letter in letters}
+    assert len(fills) == 1
+    fade = letters[0].style.fill
+    assert isinstance(fade, btvec.Gradient)
+    assert (fade.start, fade.end) == (btvec.Point(60, 0), btvec.Point(540, 0))
+    root = ET.fromstring(found["svg"])  # noqa: S314  our own output
+    svg = "{http://www.w3.org/2000/svg}"
+    assert len(root.findall(f"{svg}radialGradient")) == 2
+    # one linear gradient for each letter, since each is a path of its own
+    assert len(root.findall(f"{svg}linearGradient")) == len(letters)
+    with pytest.raises(btvec.ParameterError, match="gradient"):
+        drawing.to_mesh(900, 420)

@@ -39,6 +39,7 @@ import bullterrier_vector as btvec
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
 | [halftone.py](examples/halftone.py) | halftone dots from a tone map (a `Field` tone, V15) |
 | [halftone.py](../examples/halftone.py) | discs filled with a screen of dots, a tone each, over paper |
+| [gradient_type.py](../examples/gradient_type.py) | a headline filled with one gradient across the frame, a glow and a ring with radial ones |
 | [duotone.py](examples/duotone.py) | a gradient map and posterize on colours |
 | [series_bars.py](../examples/series_bars.py) | a series of numbers as bars, with plain code |
 | [frame_export.py](examples/frame_export.py) | a transparent PNG sequence and a clip from a function of time; a knockout |
@@ -301,8 +302,10 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 
 | Step | Signature | Promise | Errors |
 |---|---|---|---|
-| `fill` | `fill(color)` | fills each shape; `"none"` for no fill | an unreadable colour |
-| `stroke` | `stroke(color, *, width=2, join="round", cap="round", miter_limit=4)` | strokes each outline | as `fill`; `width` not above 0; `miter_limit` below 1 |
+| `fill` | `fill(paint)` | fills each shape with a colour or a gradient; `"none"` for no fill | an unreadable colour |
+| `stroke` | `stroke(paint, *, width=2, join="round", cap="round", miter_limit=4)` | strokes each outline with a colour or a gradient | as `fill`; a paint of `"none"`; `width` not above 0; `miter_limit` below 1 |
+| `linear_gradient` | `linear_gradient(stops, *, start, end)` | a paint for `fill` and `stroke`: `stops` are `(offset, color)`, the colour along the line from `start` to `end`, held at the end colours beyond it | fewer than 2 stops; an offset outside 0..1 or below the one before; a stop colour of `"none"`; `start` equal to `end`; a coordinate beyond ±1e100 |
+| `radial_gradient` | `radial_gradient(stops, *, center, radius)` | a paint: offset 0 at `center`, offset 1 at `radius`, held beyond | as `linear_gradient`; `radius` not above 0 |
 | `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` asks (a number; a `Field` arrives in V15; 0 solid, 1 none) | `color` of `"none"`; `tone` outside 0..1; `pitch` not above 0; `angle` not finite; the limit below |
 | `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | `alpha` outside 0..1 |
 | `blend` | `blend(mode)` | paints with `"normal"` or `"multiply"` over what is below | another mode |
@@ -311,7 +314,18 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | `gradient_map` | `gradient_map(colors)` | every fill and stroke colour replaced by its lightness read along `colors`, dark to light (two colours: a duotone) | fewer than 2 colours |
 | `posterize` | `posterize(levels)` | every fill and stroke colour reduced to `levels` levels a channel | `levels` below 2 |
 
-Colours are `"#rrggbb"` or `"#rrggbbaa"`. Until a fill or a stroke is set, a closed outline is filled black and an open
+Colours are `"#rrggbb"` or `"#rrggbbaa"`. A gradient is a value (Rust `Gradient::linear(start, end, stops)?` and
+`Gradient::radial(center, radius, stops)?`, stops `(f64, Color)`; Python `Gradient`, `Style.fill` and `Style.stroke`
+give back the text or the `Gradient`; Rust `Style::fill()` and `StrokeStyle::paint()` give a `Paint`, a `Color` or a
+`Gradient`). Its numbers are literals (no Param) in design pixels of the frame, not of the shape: a shape moved under a
+gradient shows another part of it, so set the paint after the transforms. Stops are interpolated in sRGB with the alpha
+not premultiplied (as SVG does), colour and alpha apart; there is no repeat, reflect or focal point. A `fill` of a
+colour after a gradient replaces it, and the other way round. `to_svg` writes a `<linearGradient>` or `<radialGradient>`
+in user space with the id `gradient-N-fill` or `gradient-N-stroke` for shape `N`, before the path that uses it. A shadow
+follows the paint's alpha, as it follows a translucent colour's: blurred it is the group's alpha through the filter;
+blur 0 is a copy under a gradient of its own in the tint with the stops' alphas (`gradient-N-shadow-fill`). A shape that
+knocks out ignores its paint, a gradient too. `to_mesh` raises `ParameterError` naming `fill` or `stroke` for a gradient
+(no triangle form: a colour per vertex would not be the colour at a pixel); use `to_rgba` or `to_svg`. Until a fill or a stroke is set, a closed outline is filled black and an open
 line stroked black at 2 pixels; once either is set, only what is set is painted. `fill("none")` counts as set.
 `shadow`'s `dx`, `dy` and `blur` are design pixels (per-item numbers) and scale with the output like a stroke width.
 `blur` is the radius of a CSS `box-shadow`: the Gaussian's standard deviation is half of it, so the shadow of a straight edge is at half
@@ -383,7 +397,7 @@ drawing with their style and attributes.
 | Member | Type | Promise |
 |---|---|---|
 | `shape.path` | `Path` | its outline |
-| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`) |
+| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, a `Gradient`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`) |
 | `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`) |
 
 ## Generators

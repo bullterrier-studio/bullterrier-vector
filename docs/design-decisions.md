@@ -889,6 +889,39 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   tested against every edge (no spatial index: a few thousand dots on a few hundred edges is the use), and the dot's
   corners follow from its radius, so a huge pitch is refused as a tiny one is.
 
+## Paint and compositing style (V10d)
+
+- **Gradient paints** (2026-11-09). `Style::fill` and `StrokeStyle` hold a `Paint` (a `Color` or a `Gradient`), where the
+  halftone stays a field of its own (a shape has one screen; a `fill` clears it). `Gradient::linear` and `radial`
+  validate (two stops or more, offsets 0..1 that do not decrease, colours that paint, a line with a direction, a radius
+  above 0), because `vello_cpu` silently draws a bad gradient as one colour: no output has to check again. The geometry
+  is in the design frame as halftone's lattice is, and literals only, so a later accepted kind of number changes no call.
+  Pad extend only, radial without a focal point: SVG and the rasteriser agree there, and nothing asked for more.
+  `Gradient` keeps its parts behind one `Arc`, so that a `Style` stays small.
+- **Unpremultiplied stops.** SVG interpolates colour and alpha apart; `vello_cpu` defaults to premultiplied, which differs
+  for stops of different alpha (transparent red to opaque blue passes through purple in SVG and through blue in the
+  default). `interpolation_alpha_space` is set to unpremultiplied explicitly, and a test of stops of different alpha
+  fails on the other setting.
+- **Where a gradient sits in an output.** `output/ramp.rs` places it through the same `View` as the paths and checks
+  the range once; the SVG writer and the pixel writer draw from it. Ids come from one function (`gradient_id`): part 3
+  gives its mask content a prefix of its own.
+- **A shadow follows the paint's alpha.** A blurred shadow is the alpha of the group (SVG's `SourceAlpha`, and the pixels'
+  filter layer draws the gradient body), so the silhouette fades where the gradient does. A hard shadow is a copy of the
+  path under a gradient of its own with every stop in the tint and its own alpha, moved by the offset, which SVG and the
+  pixels draw alike (checked against `resvg` with translucent stops).
+- **A gradient stroke does not composite twice.** The stroke outline is one path, but zero-length segments under round or
+  square caps are discs of their own, and a translucent gradient painted over both would be darker where they overlap.
+  With such pieces the pixels paint them opaque into a layer and give the layer the gradient wherever it is covered
+  (`Compose::SrcIn`, over the stroke's bounds); a stroke with no such piece is one fill. A plain translucent colour keeps its
+  alpha layer. *Reason:* SVG paints a stroke once.
+- **A knockout ignores a gradient** as it ignores colours and alpha: it counts as opaque coverage, in the pixels, the SVG
+  mask and the mesh (where a knockout shape is not refused).
+- **The mesh refuses a gradient** like a blurred shadow: `ParameterError` naming `fill` or `stroke` and the shape. A
+  colour per vertex would interpolate in the triangles, not at the pixels, and a texture needs a range kind that three
+  flat buffers lack.
+- **`gradient_map` and `posterize` stay unregistered** (docs only): they recolour fills and strokes, and there is nothing
+  to recolour yet. When they are added they must map the stops of a gradient, not skip it.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

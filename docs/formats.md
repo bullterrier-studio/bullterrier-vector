@@ -141,8 +141,8 @@ default paint, and draws as it did.
 | `merge` | `by` (an attribute name) |
 | `only`, `without` | attribute names to a value or a list of values: `{"only": {"char": "O"}}` |
 | `repeat` | `count` (whole number), `translate` (point), `rotate`, `scale` (pair), `about` (point) |
-| `fill` | `color` (colour or `"none"`) |
-| `stroke` | `color` (colour), `width`, `join`, `cap`, `miter_limit` |
+| `fill` | `color` (colour, `"none"` or gradient) |
+| `stroke` | `color` (colour or gradient), `width`, `join`, `cap`, `miter_limit` |
 | `halftone` | `color` (colour), `tone` (number or field), `pitch`, `angle` |
 | `opacity` | `alpha` |
 | `blend` | `mode` (`"normal"`, `"multiply"`) |
@@ -314,6 +314,13 @@ rounded.
   em, areas square pixels.
 - **Angles** wrap: a cyclic Param, or a literal angle, may take any value.
 - **Points** are `[x, y]`; `y` points down.
+- **Gradients** (the `color` of `fill` and `stroke`) are an object, never a colour text:
+  `{"gradient": "linear", "stops": [[0, "#ff0066"], [1, "#ffcc00"]], "from": [0, 0], "to": [0, 400]}` or
+  `{"gradient": "radial", "stops": [...], "center": [200, 200], "radius": 150}`. Stops are `[offset, colour]` with at
+  least two, offsets 0 to 1 that do not decrease, and colours that paint (not `"none"`); the points are literal numbers
+  within ±1e100 in design pixels, `from` differs from `to`, `radius` is above 0. An unknown member, or one of the other
+  kind, is refused at its pointer. The schema's `gradient` definition has the shape; the loader checks the offsets'
+  order and the points.
 - **Colours** are `"#rrggbb"` or `"#rrggbbaa"`, hex digits in either case; `fill` also takes `"none"`. No names, no
   three-digit form, no `rgb()`.
 - **Path data** is SVG path data. A `Path` is a list of sub-paths, each a start, its segments (straight, quadratic,
