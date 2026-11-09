@@ -505,18 +505,32 @@ fn moved(polylines: &[Polyline], view: &View) -> Result<Vec<Polyline>, Error> {
     Ok(device)
 }
 
+/// `STRAIGHT[alpha][colour]` is `colour * 255 / alpha` rounded to the nearest whole number (halves up), 0 for alpha 0.
+static STRAIGHT: [[u8; 256]; 256] = {
+    let mut table = [[0; 256]; 256];
+    let mut alpha = 1;
+    while alpha < 256 {
+        let mut colour = 0;
+        while colour <= alpha {
+            // a premultiplied colour is at most its alpha, so the quotient is at most 255
+            #[expect(clippy::cast_possible_truncation, reason = "at most 255")]
+            let straight = ((colour * 255 + alpha / 2) / alpha) as u8;
+            table[alpha][colour] = straight;
+            colour += 1;
+        }
+        alpha += 1;
+    }
+    table
+};
+
 /// Turns premultiplied RGBA bytes into straight alpha, in place: each colour byte becomes `colour * 255 / alpha`
 /// rounded to the nearest whole number (halves up), and a pixel with alpha 0 becomes all zeros.
 fn unpremultiply(bytes: &mut [u8]) {
     let (pixels, _) = bytes.as_chunks_mut::<4>();
     for [red, green, blue, alpha] in pixels {
-        let alpha = u32::from(*alpha);
+        let row = &STRAIGHT[usize::from(*alpha)];
         for channel in [red, green, blue] {
-            // a premultiplied colour is at most its alpha, so the quotient is at most 255
-            let straight = (u32::from(*channel) * 255 + alpha / 2).checked_div(alpha).unwrap_or(0);
-            #[expect(clippy::cast_possible_truncation, reason = "at most 255")]
-            let byte = straight as u8;
-            *channel = byte;
+            *channel = row[usize::from(*channel)];
         }
     }
 }
