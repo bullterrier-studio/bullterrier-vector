@@ -197,7 +197,6 @@ On top of the Testing section of `docs/rules.md`:
 - **Hook-run tests** never touch the enclosing repository: the session fixture of `tests/conftest.py` hides `GIT_*` and
   `PRE_COMMIT_*`, proven by `tests/tools/test_git_isolation.py` and `test_hook_isolation.py`. Never run `git` against the
   real repository from a test.
-- **Refactors** prove behaviour is preserved by comparing outputs before and after (byte-identical), in the report, not committed.
 - **Marker `tooling`** is for the template's shared-tool tests only; a test of vector's own code is never `tooling`.
 
 ## Skills
