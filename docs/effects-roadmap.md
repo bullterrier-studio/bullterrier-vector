@@ -21,6 +21,7 @@ with a gallery piece"). The primitive comes from its batch; the effect adds the 
 | Die-cut sticker outlines with shadows | a thick, rounded outline cut around a shape, lifted by a drop shadow | V9, V10 (both built) |
 | Ink-bleed edges | edges roughened like ink spreading into paper; taken up after V12 | V9, V12 |
 | Radial, grid and scatter repeaters | copies around a centre, on a grid, or scattered with even spacing, each with its copy index | V2, V7 |
+| Perspective floor | a grid, or any drawing, laid on a ground plane receding to a horizon: rows close up toward the horizon, rays meet at a vanishing point (the synthwave floor); a projective deformer under the grid repeater. A prototype wrote this as hand maths | V2, V7, V12 |
 | Smooth blob merging | shapes that melt into each other where they come close | V8, V9 |
 | Tapered strokes | a stroke whose width varies along its length, thinning at free ends | V11 |
 | Riso inks | inks multiplied over paper, each misregistered by its own offset | V8, V10 |

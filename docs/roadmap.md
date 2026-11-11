@@ -612,7 +612,18 @@ still.
 
 ## V16 SVG import
 
-Logos and other SVG paths in as shapes.
+Logos and other SVG paths in as shapes. A logo is a set of named parts, so keep the names: every imported shape takes its source
+element's `id` and `class`, and its group path, as attributes, so `only(id="ring")`, `split` and the per-shape numbers
+(`stagger`, `by_index`) address parts of an imported drawing without counting contours. Fills, strokes, transforms and the
+`viewBox` come too (the `viewBox` becomes the drawing's size); an element with no id still gets its `index`.
+
+Why: a prototype animated a club logo part by part (a ring that draws on, then a triangle, then the monogram and letters). The
+only import was `Path.from_svg_path` on the whole compound path, so which of its 42 contours was the ring was read off a picture
+that coloured each contour and typed in as indices, which breaks when the logo is exported again. The roles belong in the SVG's own
+ids and groups (a designer already names layers); vector adds no sidecar format and does not guess which contour is which.
+
+Done when: an SVG with ids on a logo of 40 or more contours imports, `only(id=...)` selects each part, nested groups give the
+group path, and the JSON round trip keeps the attributes.
 
 ## V17 to V20
 
@@ -653,5 +664,7 @@ Also:
 - Gate lints for hidden tunables and swallowed errors: ruff `PLR2004` and clippy's `let_underscore_must_use`,
   `map_err_ignore`, `allow_attributes`, tried on a short branch with the hits counted, keeping those that are quiet or
   find real problems; `// constant:` stays a reviewed rule (no tool tells a tunable from a harmless literal).
+- `Drawing.bounds` (the union of its shapes' `path.bounds`): when scene's layout, or a second caller laying out words or parts, needs it;
+  until then callers union `shape.path.bounds`.
 - Wrapping tests for right-to-left text, ligatures across a break and combining marks, and right-to-left text inside a
   shape: when a test font for them exists or a piece needs them.
