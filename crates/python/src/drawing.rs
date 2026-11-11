@@ -115,7 +115,7 @@ fn stroke_of(
     Ok(stroke)
 }
 
-/// What a selection asks of one attribute: a number, a character, a `Point`, or a list of them for any of.
+/// What a selection asks of one attribute: a number, a character, text, a `Point`, or a list of them for any of.
 fn wanted(name: &str, value: &Bound<'_, PyAny>) -> PyResult<vector::Wanted> {
     if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
         let listed = value
@@ -127,12 +127,10 @@ fn wanted(name: &str, value: &Bound<'_, PyAny>) -> PyResult<vector::Wanted> {
     if let Ok(text) = value.cast::<PyString>() {
         let text = text.to_str()?;
         let mut characters = text.chars();
-        return match (characters.next(), characters.next()) {
-            (Some(character), None) => Ok(character.into()),
-            _ => Err(crate::ParameterError::new_err(format!(
-                "{name}: a character is one character, got {text:?}"
-            ))),
-        };
+        return Ok(match (characters.next(), characters.next()) {
+            (Some(character), None) => character.into(),
+            _ => text.into(),
+        });
     }
     if let Ok(point) = value.cast::<PyPoint>() {
         let PyPoint { x, y } = *point.get();
@@ -141,7 +139,7 @@ fn wanted(name: &str, value: &Bound<'_, PyAny>) -> PyResult<vector::Wanted> {
     match value.extract::<f64>() {
         Ok(number) => Ok(number.into()),
         Err(_) => Err(PyTypeError::new_err(format!(
-            "{name}: expected a number, a character, a Point or a list of them, got {}",
+            "{name}: expected a number, text, a Point or a list of them, got {}",
             value.repr()?
         ))),
     }
@@ -456,6 +454,24 @@ impl PyDrawing {
             }
         }
         checked(raised(py.detach(|| vector::Drawing::from_json(text, &supplied)))?)
+    }
+
+    /// The drawing an SVG document describes: a shape for each `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`
+    /// and `polygon`, in document order, with the attributes `id`, `class` and `group` (the ids of the enclosing `g`
+    /// elements joined by `/`, as `"logo/mark"`) besides `index`, so `only(id="ring")` picks a part by name.
+    /// `only(group=...)` matches the whole text. The `viewBox` is the size; `transform`s are worked into the points.
+    /// `fill` (black unless set), `stroke`, `stroke-width`, `stroke-opacity`, `fill-opacity`, `stroke-linejoin`,
+    /// `stroke-linecap` and `stroke-miterlimit` are read as attributes or in `style` and handed down groups; `opacity`
+    /// on shapes; colours as `#rgb`, `#rrggbb`, `#rrggbbaa` or `none`; lengths in pixels.
+    ///
+    /// What is not read raises a `ParameterError` naming the element or attribute: `fill-rule="evenodd"` (the renderer
+    /// fills nonzero only: split the shape into paths that need no evenodd), `use`, `defs` holding anything, gradients,
+    /// patterns, `clip-path`, `mask`, `filter`, markers, dashes, `text`, `image`, `<style>` elements, nested `svg`,
+    /// `opacity` on a `g`, colour names and `rgb()`, units other than pixels, a stroke under a transform that
+    /// stretches one way. Past 20,000 elements or 128 levels of nesting it raises too.
+    #[staticmethod]
+    fn from_svg(py: Python<'_>, text: &str) -> PyResult<Self> {
+        checked(raised(py.detach(|| vector::Drawing::from_svg(text)))?)
     }
 
     /// Every Param the drawing reads, in the order first used.

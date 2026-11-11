@@ -436,7 +436,7 @@ impl PyShape {
     }
 
     /// A read-only mapping: `index` always, then what generators wrote (`glyph`, `char`, `word`, `line`, `part`,
-    /// `copy`, `level`, `order`, `origin`).
+    /// `copy`, `level`, `order`, `origin`, and `id`, `class`, `group` from an SVG import).
     #[getter]
     fn attributes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let found = PyDict::new(py);
@@ -468,6 +468,15 @@ impl PyShape {
         }
         if let Some(origin) = attributes.origin() {
             found.set_item("origin", PyPoint::from(origin))?;
+        }
+        for (name, text) in [
+            ("id", attributes.id()),
+            ("class", attributes.class()),
+            ("group", attributes.group()),
+        ] {
+            if let Some(text) = text {
+                found.set_item(name, text)?;
+            }
         }
         py.import("types")?.getattr("MappingProxyType")?.call1((found,))
     }

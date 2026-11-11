@@ -236,6 +236,27 @@ def run():
                 pass
             else:
                 raise SystemExit("a hostile document was read")
+    elif scenario == "svg_documents":
+        def svg(groups):
+            return (
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 9">' + "<g>" * groups
+                + '<rect width="1" height="1"/>' + "</g>" * groups + "</svg>"
+            )
+        step("deepest svg")
+        drawing = btvec.Drawing.from_svg(svg(126))  # the root and the rect are two of the 128 levels
+        drawing.shapes()
+        drawing.to_svg(9, 9)
+        btvec.Drawing.from_json(drawing.to_json())
+        for groups in (127, 100_000):
+            step(f"svg nested {groups} groups")
+            try:
+                btvec.Drawing.from_svg(svg(groups))
+            except btvec.ParameterError:
+                pass
+            else:
+                raise SystemExit("a too deep svg was read")
+        step("drop")
+        del drawing
     elif scenario == "text_in_the_deepest_composite_glyph":
         step("font")
         font_bytes = open(font_file, "rb").read()
@@ -305,6 +326,7 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
         pytest.param("per_item_expression_a_loop_builds", id="per-item-expression-100000-levels-built-by-a-loop"),
         pytest.param("deepest_document", id="deepest-document-to_json-accepts"),
         pytest.param("hostile_documents", id="documents-nested-100000-levels"),
+        pytest.param("svg_documents", id="svg-128-levels-and-100000-levels"),
         pytest.param("text_in_the_deepest_composite_glyph", id="text-of-a-glyph-of-64-nested-composites"),
     ],
 )
