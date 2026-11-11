@@ -489,6 +489,7 @@ counter, its limit and the step:
 | `MAX_GLYPHS` | 100,000 | glyphs shaped by `text` |
 | `MAX_SETTINGS` | 64 | axes, and features, one `text` call gives |
 | `MAX_SVG_ELEMENTS` | 20,000 | elements `Drawing.from_svg` reads, the root included (a drawing read from SVG then fits `MAX_CALLS` when saved) |
+| `MAX_SVG_NODES` | 80,000 | nodes (elements, and the text and comments between them) the XML parser builds for `Drawing.from_svg`, four for each element allowed; a document past it is refused before its tree is allocated |
 | `MAX_SVG_DEPTH` | 128 | levels of elements `Drawing.from_svg` reads, the root being 1 |
 
 The values are placeholders that V2 sets from the reference pieces. A value given as an expression (a `posterize`

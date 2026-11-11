@@ -588,3 +588,15 @@ fn a_document_at_the_element_limit_still_saves_to_json_and_loads_again() -> Outc
     assert_eq!(again.shapes(&Values::new())?.len(), 19_999);
     Ok(())
 }
+
+#[test]
+fn a_document_a_node_past_the_limit_is_refused_before_it_is_read_into_a_tree() -> Outcome {
+    // `<a/>` is not an element the import reads: only the count of nodes can refuse this document first
+    let head = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">"#;
+    let (_, message) = parameter_refusal(Drawing::from_svg(&format!("{head}{}</svg>", "<a/>".repeat(80_000))))?;
+    assert!(
+        message.contains("MAX_SVG_ELEMENTS") && !message.contains("not read"),
+        "{message}"
+    );
+    Ok(())
+}

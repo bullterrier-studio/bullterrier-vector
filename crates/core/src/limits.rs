@@ -63,6 +63,13 @@ pub(crate) const MAX_CALLS: usize = 100_000;
 // 100,000, so a drawing read from SVG still saves to JSON; icon sets and logos have hundreds
 pub(crate) const MAX_SVG_ELEMENTS: usize = 20_000;
 
+/// The most nodes (elements, and the text and comments between them) the XML parser builds for `Drawing::from_svg`, so
+/// that a document is refused before its tree is allocated; derived from `MAX_SVG_ELEMENTS`.
+// constant: an element, the indentation text before it, a comment and the text after it, and one more: four for each
+// element leaves any document written by hand or by an editor its room
+#[expect(clippy::cast_possible_truncation, reason = "80,000 fits in 32 bits")]
+pub(crate) const MAX_SVG_NODES: u32 = (MAX_SVG_ELEMENTS * 4) as u32;
+
 /// The deepest nesting of elements `Drawing::from_svg` reads, the root counting as 1.
 // constant: the depth of `MAX_DEPTH`, which bounds a document `from_json` reads; libxml2 refuses 256 levels
 pub(crate) const MAX_SVG_DEPTH: usize = 128;

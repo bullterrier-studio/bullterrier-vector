@@ -7,9 +7,9 @@ mod style;
 use self::affine::Affine;
 use self::shapes::Failure;
 use self::style::Painting;
-use crate::limits::{MAX_DOCUMENT_BYTES, MAX_SVG_DEPTH, MAX_SVG_ELEMENTS};
+use crate::limits::{MAX_DOCUMENT_BYTES, MAX_SVG_DEPTH, MAX_SVG_ELEMENTS, MAX_SVG_NODES};
 use crate::{Drawing, Error, Path, Shape, Stroke};
-use roxmltree::{Document, Node};
+use roxmltree::{Document, Node, ParsingOptions};
 use std::sync::Arc;
 
 /// The namespace every element read is in.
@@ -28,6 +28,17 @@ struct Inherited {
     painting: Painting,
     /// The ids of the groups round it, joined by `/`.
     group: Option<String>,
+}
+
+/// The error of a document with more than `MAX_SVG_ELEMENTS` elements, or more nodes than `MAX_SVG_NODES`.
+fn too_many_elements() -> Error {
+    Error::parameter(
+        "svg",
+        format!(
+            "holds more than MAX_SVG_ELEMENTS {MAX_SVG_ELEMENTS} elements (the text and comments between them count \
+             toward MAX_SVG_NODES {MAX_SVG_NODES})"
+        ),
+    )
 }
 
 /// How an element reads in an error: its name, and its id if it has one.
@@ -95,7 +106,12 @@ impl Drawing {
                 format!("is {} bytes, past MAX_DOCUMENT_BYTES {MAX_DOCUMENT_BYTES}", text.len()),
             ));
         }
-        let document = Document::parse(text).map_err(|error| match error {
+        let options = ParsingOptions {
+            nodes_limit: MAX_SVG_NODES,
+            ..ParsingOptions::default()
+        };
+        let document = Document::parse_with_options(text, options).map_err(|error| match error {
+            roxmltree::Error::NodesLimitReached => too_many_elements(),
             roxmltree::Error::DtdDetected => Error::parameter(
                 "svg",
                 "starts with a <!DOCTYPE>, which is not read (its entities could expand without bound); remove the <!DOCTYPE> line",
@@ -123,10 +139,7 @@ impl Drawing {
         while let Some((node, depth, parent)) = pending.pop() {
             count += 1;
             if count > MAX_SVG_ELEMENTS {
-                return Err(Error::parameter(
-                    "svg",
-                    format!("holds more than MAX_SVG_ELEMENTS {MAX_SVG_ELEMENTS} elements"),
-                ));
+                return Err(too_many_elements());
             }
             if depth > MAX_SVG_DEPTH {
                 return Err(refuse(node, format!("is nested past MAX_SVG_DEPTH {MAX_SVG_DEPTH}")));
