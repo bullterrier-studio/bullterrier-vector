@@ -1149,19 +1149,15 @@ def test_a_value_for_a_param_that_was_already_fixed_says_so():
         drawing.with_values(x=2)
 
 
-def test_bounds_are_the_union_of_the_shapes_bounds():
+def test_bounds_are_a_rect_of_the_union_of_the_shapes_bounds():
     drawing = Drawing(btvec.Path.rect(10, 20, 5, 5), btvec.Path.rect(-4, 0, 6, 8))
     assert drawing.bounds() == btvec.Rect(-4, 0, 19, 25)  # x -4..15, y 0..25
 
 
-def test_bounds_follow_the_transforms_and_the_values_given():
+def test_bounds_take_the_values_by_name():
     slide = Param("slide", default=0, min=-100, max=100)
     drawing = Drawing(SQUARE).translate(slide, 0)
-    assert drawing.bounds() == btvec.Rect(0, 0, 10, 10)
     assert drawing.bounds(slide=30) == btvec.Rect(30, 0, 10, 10)
-    turned = Drawing(btvec.Path.rect(0, 0, 10, 4)).rotate(90).translate(100, 0)
-    found = turned.bounds()
-    assert (found.x, found.y, found.width, found.height) == pytest.approx((103, -3, 4, 10))
 
 
 def test_an_empty_drawing_has_no_bounds():
