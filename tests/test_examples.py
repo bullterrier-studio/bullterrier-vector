@@ -373,3 +373,16 @@ def test_cut_type_clips_the_stripes_to_one_window_and_fades_every_letter_by_one_
     assert (len(root.findall(f"{svg}clipPath")), len(root.findall(f"{svg}mask"))) == (1, 1)
     with pytest.raises(btvec.ParameterError, match=r"clip|mask"):
         drawing.to_mesh(900, 420)
+
+
+def test_svg_logo_picks_the_ring_by_its_id_and_the_mark_by_its_group(run):
+    found = run("svg_logo")
+    (ring,) = found["shapes"]
+    assert ring.attributes["id"] == "ring"
+    assert ring.attributes["group"] == "logo"
+    assert ring.style.fill is None
+    assert ring.style.stroke == "#1a1a1aff"
+    assert ring.style.stroke_width == 24
+    assert ring.path.bounds.width == pytest.approx(300)
+    assert [shape.attributes["id"] for shape in found["mark"].shapes()] == ["spark", "dot"]
+    assert found["logo"].size == (400, 400)

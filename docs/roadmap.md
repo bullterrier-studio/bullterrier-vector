@@ -62,7 +62,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V13 | Morph, any shape to any shape | M | |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
 | V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output | L | **M5 poster piece** |
-| V16 | SVG import (logos) | S | |
+| V16 | SVG import (logos) | S | Done 2026-11-11, trimmed |
 | V17 | Presets as JSON | S | |
 | V18 | Command line: `render`, `describe`, `list`, `validate` | S | |
 | V19 | Presets and gallery | M | |
@@ -621,6 +621,9 @@ Why: a prototype animated a club logo part by part (a ring that draws on, then a
 only import was `Path.from_svg_path` on the whole compound path, so which of its 42 contours was the ring was read off a picture
 that coloured each contour and typed in as indices, which breaks when the logo is exported again. The roles belong in the SVG's own
 ids and groups (a designer already names layers); vector adds no sidecar format and does not guess which contour is which.
+
+**Done (2026-11-11), trimmed:** `Drawing.from_svg(text)` reads `svg`, `g` and the shape elements; the limits are in
+`docs/api.md`, "SVG import". Not in the first version: `evenodd`, `use`, gradients, clip paths, masks, text, CSS stylesheets.
 
 Done when: an SVG with ids on a logo of 40 or more contours imports, `only(id=...)` selects each part, nested groups give the
 group path, and the JSON round trip keeps the attributes.

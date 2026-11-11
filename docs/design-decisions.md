@@ -18,6 +18,18 @@ Each decision once, with its reason. The design: [design.md](design.md).
   *Consequence:* the core does no IO, runs single-threaded, and uses one portable maths implementation.
 - **Licence: MIT** (2026-10-28), not the Rust ecosystem's usual `MIT OR Apache-2.0`. The owner's choice. *Consequence:*
   one `LICENSE` file; `deny.toml` admits dependencies whose licences ask no more of the package than MIT does.
+- **`roxmltree` reads SVG; the import is trimmed** (2026-11-11). `Drawing::from_svg` parses with `roxmltree` (a library
+  dependency of `crates/core` since this batch; before, a dev-dependency). *Reason:* XML has entities, namespaces,
+  CDATA and character references that a hand-written reader would get wrong; `roxmltree` is 1 crate with no
+  dependencies, no `unsafe`, no DTDs (a document with one is refused, so no entity bombs), builds for
+  `wasm32-unknown-unknown`, and `cargo-deny` admits its licence (MIT or Apache-2.0). The JSON parser was written by hand
+  (`json/parse.rs`) for the opposite reason: its grammar is small and the format ours. *Consequence:* the import reads
+  `svg`, `g` and seven shape elements; everything else that changes the picture is an error naming it, so a logo that
+  uses it fails loudly instead of drawing wrongly. `fill-rule="evenodd"` is refused because the renderer fills nonzero
+  only. A group's `opacity` is refused because it fades the group as one picture, which `Style` cannot say; stroke
+  widths scale with an even transform and a stretching one is refused, since a baked transform leaves `Style` with no
+  stroke to stretch. `group` is one string of the enclosing ids (`logo/mark`) matched whole: a hierarchical match
+  would widen `only`, left for a later batch.
 - **Frame export in, timeline out** (2026-10-28). The library ships a small helper that loops a caller's function of
   time over frames and writes a transparent PNG sequence or clip; it has no timeline, keyframes, mixing or `onFrame`
   loop. *Reason:* the owner wants to edit videos with these animations and drop them on footage with transparency, and

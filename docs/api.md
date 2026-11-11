@@ -279,6 +279,44 @@ size its items have; items whose sizes differ raise `ParameterError` naming both
 output pixels. A size is above 0 and at most 100,000 a side; others raise `ParameterError`. `Drawing(x)` of one item and no size draws and saves exactly as `x` does (a path becomes a one-shape
 `Drawing`; a drawing is returned as it is).
 
+### SVG import
+
+```python
+logo = btvec.Drawing.from_svg(svg_text)  # a shape per path, rect, circle, ellipse, line, polyline, polygon
+ring = logo.only(id="ring")  # the part the SVG calls "ring"
+```
+
+`Drawing.from_svg(text)` reads one SVG document. Each shape has `index`, `order` (as any stack writes it) and, where the
+element has them, `id`, `class` (as written) and `group`: the ids of the enclosing `g` elements, outermost first, joined
+by `/` (`"logo/mark"`; a `g` without an id adds nothing). `only(group="logo")` matches the whole text, so a shape in
+`logo/mark` is not in it; list the paths wanted (`group=["logo", "logo/mark"]`). The `viewBox` is the drawing's size
+(without one, `width` and `height` in pixels) and its corner becomes the origin. `transform` (`matrix`, `translate`,
+`scale`, `rotate`, `skewX`, `skewY`) is worked into the points. `fill` (black unless set), `fill-opacity`, `stroke` (none
+unless set), `stroke-opacity`, `stroke-width` (1 unless set, scaled by the transform), `stroke-linejoin`,
+`stroke-linecap` and `stroke-miterlimit` come from attributes or `style` and pass down groups; `opacity` on shapes.
+Colours: `#rgb`, `#rrggbb`, `#rrggbbaa`, `none`. Lengths: numbers, pixels.
+
+Skipped, as they change nothing drawn: `title`, `desc`, `metadata`, comments, an empty `defs`, elements of other
+namespaces (an editor's own), and attributes that do not draw (`data-*`, `isolation`, `fill-rule="nonzero"`).
+
+Anything else that changes the picture is a `ParameterError` that names the element or attribute and what to do, never
+dropped. The first version's limits:
+
+| Not read | Why and what to do |
+|---|---|
+| `fill-rule="evenodd"` | the renderer fills nonzero only: split the shape into separate paths that need no evenodd |
+| `use`, `symbol`, a `defs` that holds anything | write the shape out where it is used |
+| gradients and patterns (`fill="url(#g)"`) | paint with one colour |
+| `clip-path`, `mask`, `filter`, markers, dashes, `display="none"`, blend modes | delete them or draw the effect with the library's own steps |
+| `text`, `image`, `style` elements (CSS stylesheets) | convert text to outlines; set fill and stroke on the elements |
+| nested `svg`, `opacity` on a `g` | a group's opacity fades it as one picture; set `opacity` on the shapes |
+| colour names, `rgb()`, `currentColor`; lengths in percent or units other than pixels | write `#rrggbb` and pixels |
+| a stroke under a transform that stretches one way or skews | a stroke cannot follow it; draw it without the transform |
+| `rx` unequal to `ry` | only round corners |
+
+Past `MAX_SVG_ELEMENTS` (20,000 elements, the root included), `MAX_SVG_DEPTH` (128 levels, the root being 1) or
+`MAX_DOCUMENT_BYTES` (16 MiB) it raises as well. Errors: `ParameterError` naming `svg`.
+
 ### Items
 
 | Step | Signature | Promise | Errors |
@@ -414,7 +452,7 @@ drawing with their style and attributes.
 |---|---|---|
 | `shape.path` | `Path` | its outline |
 | `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, a `Gradient`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`), `clip` (a `Path` or `None`) and `mask` (the mask's shapes, a list of `Shape`, or `None`) |
-| `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`) |
+| `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`); from `Drawing.from_svg`: `id`, `class`, `group` (`str`) |
 
 ## Generators
 

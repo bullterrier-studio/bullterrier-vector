@@ -8,7 +8,9 @@
 #[path = "it/common/mod.rs"]
 mod common;
 
-use bullterrier_vector::{Color, Drawing, Error, Expr, Param, Random, Size, Stagger, Text, Values, by_index, by_order, text};
+use bullterrier_vector::{
+    Color, Drawing, Error, Expr, Param, Random, Size, Stagger, Text, Values, by_index, by_order, text,
+};
 use common::fonts::synthetic;
 use common::{Outcome, parameter_refusal};
 

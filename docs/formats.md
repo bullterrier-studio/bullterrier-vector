@@ -104,7 +104,7 @@ number of a field or a flow.
 | Call | Code | Arguments |
 |---|---|---|
 | `path` | a `Path` | its path data: the value is the string itself, `{"path": "M0 0 L10 0"}` |
-| `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order`, `origin` a point); its style follows as steps, a `fill` step always |
+| `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order`, `origin` a point, and the text `id`, `class`, `group` of an SVG import); its style follows as steps, a `fill` step always |
 | `drawing` | a shared drawing | the value is its name: `{"drawing": "letters"}` |
 | `stack` | `Drawing(*items, size=None)` | `items` (drawings, bottom first; none is a blank frame of `size`), `size` (`[width, height]`, literal numbers above 0) |
 | `text` | `text(content, *, font, ...)` | `content` (a string), `font` (input), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width` (above 0), `fit` (a tag or `"size"`; needs `width`), `inside` (path data; not with `width`, `fit` or `anchor`) |
@@ -166,8 +166,8 @@ out, then resolved:
 ```
 
 `only`, `without` and `with_values` take keyword arguments in the code (`only(char="O")`), so their arguments are those
-keywords. An attribute is `index`, `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order` or `origin` (a
-point). A whole-number attribute is at most 4,294,967,295, a `char` is one character, and an empty list (`{"index":
+keywords. An attribute is `index`, `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order`, `origin` (a
+point), `id`, `class` or `group` (text, matched whole). A whole-number attribute is at most 4,294,967,295, a `char` is one character, and an empty list (`{"index":
 []}`) is a selection that matches no shape; `{}` names no attribute and is refused when the call is checked
 (`call-checks`).
 
