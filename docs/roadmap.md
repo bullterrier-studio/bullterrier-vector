@@ -625,6 +625,17 @@ ids and groups (a designer already names layers); vector adds no sidecar format 
 **Done (2026-11-11), trimmed:** `Drawing.from_svg(text)` reads `svg`, `g` and the shape elements; the limits are in
 `docs/api.md`, "SVG import". Not in the first version: `evenodd`, `use`, gradients, clip paths, masks, text, CSS stylesheets.
 
+Deferred importer features, each refused with an error today, and what each needs:
+
+- `fill-rule="evenodd"`: the rasteriser is hard-wired nonzero (`output/raster.rs`, `output/mesh.rs`); needs a `Style`
+  fill-rule field, then the rasteriser, mesh, SVG writer, JSON and the WebAssembly oracle.
+- CSS `<style>` and `class` rules: needs a CSS parser; minimal class and tag selectors are feasible.
+- Gradients: the model exists (`Gradient`); needs `defs`, `url(#id)` lookup, `gradientUnits` and `gradientTransform`.
+- `use`: needs an id map and a cycle guard.
+- `<!DOCTYPE>` (Illustrator and Inkscape headers): refused because `roxmltree` does not cap entity expansion
+  (`design-decisions.md`, "`roxmltree` reads SVG"); needs a pre-scan that refuses `<!ENTITY` and lets a bare DOCTYPE
+  through, or a parser with an expansion cap.
+
 Done when: an SVG with ids on a logo of 40 or more contours imports, `only(id=...)` selects each part, nested groups give the
 group path, and the JSON round trip keeps the attributes.
 

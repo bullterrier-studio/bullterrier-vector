@@ -467,6 +467,9 @@ impl PyDrawing {
     /// `stroke-linecap` and `stroke-miterlimit` are read as attributes or in `style` and handed down groups; `opacity`
     /// on shapes; colours as `#rgb`, `#rrggbb`, `#rrggbbaa` or `none`; lengths in pixels.
     ///
+    /// Every imported shape has a fill, so `.stroke(c)` alone leaves it showing: outline everything with
+    /// `Drawing.from_svg(text).fill("none").stroke(c)` (call `.only(...)` first to keep some fills).
+    ///
     /// What is not read raises a `ParameterError` naming the element or attribute: `fill-rule="evenodd"` (the renderer
     /// fills nonzero only: split the shape into paths that need no evenodd), `use`, `defs` holding anything, gradients,
     /// patterns, `clip-path`, `mask`, `filter`, markers, dashes, `paint-order`, `vector-effect`, `transform-origin`, a `<!DOCTYPE>` (remove the line), `text`, `image`, `<style>`

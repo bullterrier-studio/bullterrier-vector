@@ -89,6 +89,10 @@ impl Drawing {
     /// `none`. Lengths are plain numbers or pixels. `title`, `desc`, `metadata`, comments, an empty `defs`, elements
     /// of other namespaces (an editor's own) and attributes that change nothing drawn are skipped.
     ///
+    /// Every imported shape has a fill, so `.stroke(..)` alone leaves it showing. To outline everything, clear the fill
+    /// first: `logo.fill(Color::NONE).stroke(colour)`; to keep some fills, take those out with `only`/`without` and
+    /// join them again.
+    ///
     /// What is not read is an error that names the element or the attribute and what to do instead, never dropped:
     /// `fill-rule="evenodd"` (the renderer fills nonzero only: split the shape into paths that need no evenodd),
     /// `use`, `symbol`, `defs` holding anything, gradients, patterns, `clip-path`, `mask`, `filter`, markers, dashes,

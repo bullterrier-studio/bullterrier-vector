@@ -549,6 +549,51 @@ fn a_doctype_is_refused_with_what_to_do() -> Outcome {
     Ok(())
 }
 
+/// The `fill` and `stroke` attributes of an exported path.
+type Paint2 = (Option<String>, Option<String>);
+
+#[test]
+fn clearing_the_fill_then_stroking_outlines_every_shape_but_a_selected_one_keeps_its_fill() -> Outcome {
+    let logo = Drawing::from_svg(&svg(
+        r##"<rect id="a" width="5" height="5"/><circle id="b" cx="20" cy="20" r="4" fill="#336699"/>"##,
+    ))?;
+    let red = Color::parse("#ff0000")?;
+    // the documented recipe, and `only` before it to keep the fill of "b"
+    let outlined = logo.fill(Color::NONE).stroke(red);
+    let mixed = Drawing::new([
+        logo.only(Select::new().attribute("id", "b")),
+        logo.without(Select::new().attribute("id", "b"))
+            .fill(Color::NONE)
+            .stroke(red),
+    ]);
+    let painted = |drawing: &Drawing| -> Result<Vec<Paint2>, Box<dyn std::error::Error>> {
+        let text = drawing.to_svg(Size::px(200.0, 100.0), &Values::new())?;
+        let document = roxmltree::Document::parse(&text)?;
+        Ok(document
+            .descendants()
+            .filter(|node| node.has_tag_name("path"))
+            .map(|node| {
+                (
+                    node.attribute("fill").map(str::to_owned),
+                    node.attribute("stroke").map(str::to_owned),
+                )
+            })
+            .collect())
+    };
+    let stroked = |paint: &Paint2| paint.1.as_deref() == Some("#ff0000");
+    let unfilled = |paint: &Paint2| matches!(paint.0.as_deref(), None | Some("none"));
+    let all = painted(&outlined)?;
+    assert_eq!(all.len(), 2);
+    assert!(all.iter().all(|paint| stroked(paint) && unfilled(paint)), "{all:?}");
+    // control: stroke alone leaves the import's fill showing
+    assert!(painted(&logo.stroke(red))?.iter().all(|paint| !unfilled(paint)));
+    let kept = painted(&mixed)?;
+    assert_eq!(kept.len(), 2);
+    assert_eq!(kept[0].0.as_deref(), Some("#336699"), "{kept:?}");
+    assert!(stroked(&kept[1]) && unfilled(&kept[1]), "{kept:?}");
+    Ok(())
+}
+
 #[test]
 fn a_rounded_corner_larger_than_half_a_side_is_cut_to_half_the_shorter_side() -> Outcome {
     // 10 by 4: half the shorter side is 2, so any larger radius is the radius 2

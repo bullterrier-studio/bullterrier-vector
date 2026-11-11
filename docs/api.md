@@ -299,6 +299,10 @@ unless set), `stroke-opacity`, `stroke-width` (1 unless set, scaled by the trans
 `stroke-linecap` and `stroke-miterlimit` come from attributes or `style` and pass down groups; `opacity` on shapes.
 Colours: `#rgb`, `#rrggbb`, `#rrggbbaa`, `none`. Lengths: numbers, pixels.
 
+Every imported shape has a fill, so `.stroke(c)` alone leaves it showing. To outline everything, clear the fill first:
+`logo.fill("none").stroke(c)`. To keep some fills, select those out with `only` and join the rest: `btvec.Drawing(logo.only(id="ring"),
+logo.without(id="ring").fill("none").stroke(c))`.
+
 Skipped: `title`, `desc`, `metadata`, comments, an empty `defs`, elements of other namespaces (an editor's own), and
 attributes the importer has no use for (`data-*`, `aria-*`, `isolation`, `shape-rendering`, `width` and `height` next to a
 `viewBox`). Every attribute and `style` property that changes how a shape is drawn and is not read is refused (below).
@@ -313,7 +317,7 @@ dropped. The first version's limits:
 | gradients and patterns (`fill="url(#g)"`) | paint with one colour |
 | `clip-path`, `mask`, `filter`, markers, dashes, `paint-order`, `vector-effect`, `transform-origin` (write `rotate(angle x y)`), `display="none"`, blend modes, a `transform` inside `style` (write the attribute) | delete them or draw the effect with the library's own steps |
 | `text`, `image`, `style` elements and `<?xml-stylesheet?>` (CSS stylesheets) | convert text to outlines; set fill and stroke on the elements |
-| a `<!DOCTYPE>` line (an Illustrator header has one) | remove the line: its entities could expand without bound |
+| a `<!DOCTYPE>` line (an Illustrator header has one) | remove the line: entity definitions can expand to gigabytes, and the parser cannot cap that |
 | nested `svg`, `opacity` on a `g` | a group's opacity fades it as one picture; set `opacity` on the shapes |
 | colour names, `rgb()`, `currentColor`; lengths in percent or units other than pixels | write `#rrggbb` and pixels |
 | a stroke under a transform that stretches one way or skews | a stroke cannot follow it; draw it without the transform |

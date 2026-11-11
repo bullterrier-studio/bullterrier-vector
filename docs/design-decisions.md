@@ -29,7 +29,11 @@ Each decision once, with its reason. The design: [design.md](design.md).
   only. A group's `opacity` is refused because it fades the group as one picture, which `Style` cannot say; stroke
   widths scale with an even transform and a stretching one is refused, since a baked transform leaves `Style` with no
   stroke to stretch. `group` is one string of the enclosing ids (`logo/mark`) matched whole: a hierarchical match
-  would widen `only`, left for a later batch.
+  would widen `only`, left for a later batch. *DOCTYPE stays refused* (2026-11-11, measured): `roxmltree` with `allow_dtd`
+  stops billion laughs and entity loops (its depth 10 and 255-references limits) but not a quadratic blow-up: a 60 KB
+  entity, 255 of it in a second entity, that one used 300 times in 2 KB of text expands to 4.6 GB (4 GB memory cap hit; 20
+  uses gave a 740 MB peak and an `Ok`). Nothing in its options caps the expanded size. Allowing Illustrator headers needs
+  our own pre-scan (refuse `<!ENTITY` and allow a bare DOCTYPE), or a parser with an expansion cap; not built.
 - **Frame export in, timeline out** (2026-10-28). The library ships a small helper that loops a caller's function of
   time over frames and writes a transparent PNG sequence or clip; it has no timeline, keyframes, mixing or `onFrame`
   loop. *Reason:* the owner wants to edit videos with these animations and drop them on footage with transparency, and
