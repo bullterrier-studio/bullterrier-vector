@@ -32,6 +32,13 @@ pub enum Error {
 }
 
 impl Error {
+    /// What is wrong, without the name of the parameter, verb or pointer it came with.
+    pub(crate) fn reason(&self) -> &str {
+        match self {
+            Self::Parameter { message, .. } | Self::Geometry { message, .. } | Self::Format { message, .. } => message,
+        }
+    }
+
     /// A [`Error::Parameter`] naming `parameter`.
     pub(crate) fn parameter(parameter: &str, message: impl Into<String>) -> Self {
         Self::Parameter {

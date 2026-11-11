@@ -5,7 +5,7 @@ use crate::json::value::Json;
 use crate::shape::{Holds, SELECTABLE, Single};
 use crate::{Attributes, Error, Point, Select, Wanted};
 
-/// The attributes a `shape` carries: each of the nine a generator writes, and nothing else.
+/// The attributes a `shape` carries: each of the twelve a generator or an import writes, and nothing else.
 pub(super) fn attributes(pointer: &str, json: &Json) -> Result<Attributes, Error> {
     let Json::Object(members) = json else {
         return Err(refuse(pointer, format!("must be an object, not {}", json.describe())));
@@ -32,10 +32,13 @@ pub(super) fn attributes(pointer: &str, json: &Json) -> Result<Attributes, Error
             "level" => written.level = Some(number_at(&here, json)?),
             "order" => written.order = Some(number_at(&here, json)?),
             "origin" => written.origin = Some(point(&here, json)?),
+            "id" => written.id = Some(string(&here, json)?.into()),
+            "class" => written.class = Some(string(&here, json)?.into()),
+            "group" => written.group = Some(string(&here, json)?.into()),
             _ => {
                 return Err(refuse(
                     &here,
-                    "is not an attribute a shape carries (glyph, char, word, line, part, copy, level, order, origin)",
+                    "is not an attribute a shape carries (glyph, char, word, line, part, copy, level, order, origin, id, class, group)",
                 ));
             }
         }
@@ -102,6 +105,7 @@ fn singles(pointer: &str, holds: Holds, json: &Json) -> Result<Vec<Single>, Erro
             Holds::Whole | Holds::Real => Single::Number(number_at(pointer, json)?),
             Holds::Char => Single::Char(one_character(pointer, json)?),
             Holds::Point => Single::Point(point(pointer, json)?),
+            Holds::Text => Single::Text(string(pointer, json)?.to_owned()),
         })
     };
     match json {

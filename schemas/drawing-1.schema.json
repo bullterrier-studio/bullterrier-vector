@@ -220,7 +220,7 @@
     "miter_limit": {
       "anyOf": [{ "type": "number", "minimum": 1 }, { "$ref": "#/$defs/expression" }]
     },
-    "attribute": { "enum": ["index", "glyph", "char", "word", "line", "part", "copy", "level", "order"] },
+    "attribute": { "enum": ["index", "glyph", "char", "word", "line", "part", "copy", "level", "order", "id", "class", "group"] },
     "attribute_values": {
       "type": "object",
       "additionalProperties": false,
@@ -234,6 +234,9 @@
         "char": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 1 }, { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 1 } }] },
         "level": { "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" } }] },
         "order": { "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" } }] },
+        "id": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "class": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "group": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
         "origin": { "anyOf": [{ "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "items": false }, { "type": "array", "items": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "items": false } }] }
       },
       "$comment": "an attribute to the value a shape's must equal, or a list of values, any of which will do; an empty list matches no shape"
@@ -355,7 +358,10 @@
                   "prefixItems": [{ "type": "number" }, { "type": "number" }],
                   "minItems": 2,
                   "items": false
-                }
+                },
+                "id": { "type": "string" },
+                "class": { "type": "string" },
+                "group": { "type": "string" }
               }
             }
           },

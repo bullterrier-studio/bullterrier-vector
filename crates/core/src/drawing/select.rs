@@ -4,7 +4,7 @@ use super::Drawing;
 use crate::Point;
 use crate::key::{Key, Keyed};
 use crate::node::{Given, select};
-use crate::shape::Single;
+use crate::shape::{Holds, Single, holds};
 use std::collections::BTreeMap;
 
 /// What a selection asks of one attribute: one value, or a list of which a shape's must be one.
@@ -37,6 +37,18 @@ impl From<char> for Wanted {
     }
 }
 
+impl From<&str> for Wanted {
+    fn from(text: &str) -> Self {
+        Self(vec![Single::Text(text.to_owned())])
+    }
+}
+
+impl From<String> for Wanted {
+    fn from(text: String) -> Self {
+        Self(vec![Single::Text(text)])
+    }
+}
+
 impl From<Point> for Wanted {
     fn from(point: Point) -> Self {
         Self(vec![Single::Point(point)])
@@ -56,10 +68,11 @@ impl<T: Into<Wanted>, const N: usize> From<[T; N]> for Wanted {
 }
 
 /// Which shapes `only` and `without` act on: the attributes to compare (`index`, `glyph`, `char`, `word`, `line`,
-/// `part`, `copy`, `level`, `order`, `origin`) and the values a shape's must equal. A shape matches when every
-/// attribute asked about has one of the values given for it.
+/// `part`, `copy`, `level`, `order`, `origin`, and `id`, `class`, `group`, which an SVG import writes) and the values
+/// a shape's must equal. A shape matches when every attribute asked about has one of the values given for it; text
+/// is compared whole, not as a prefix.
 ///
-/// Values are constants: a number, a character, a [`Point`], or a list of them for any of. Naming something that is
+/// Values are constants: a number, a character, text, a [`Point`], or a list of them for any of. Naming something that is
 /// not an attribute, or a value it cannot hold, leaves the drawing with an [`error`](Drawing::error).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Select {
@@ -90,7 +103,16 @@ impl Select {
     /// `attribute("char", 'O')`, `attribute("order", [0.0, 1.0])`. Asking about a name twice keeps the last.
     #[must_use]
     pub fn attribute(mut self, name: &str, wanted: impl Into<Wanted>) -> Self {
-        self.by_name.insert(name.to_owned(), wanted.into());
+        let mut wanted = wanted.into();
+        // a one-character string is a character to the conversions, and an id of one character is still text
+        if holds(name) == Ok(Holds::Text) {
+            for single in &mut wanted.0 {
+                if let Single::Char(character) = single {
+                    *single = Single::Text(character.to_string());
+                }
+            }
+        }
+        self.by_name.insert(name.to_owned(), wanted);
         self
     }
 

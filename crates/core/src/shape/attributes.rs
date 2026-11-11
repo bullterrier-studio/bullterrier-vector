@@ -2,6 +2,7 @@
 
 use crate::Point;
 use crate::key::{Key, Keyed};
+use std::sync::Arc;
 
 /// What the step that made a shape wrote about it, each present only where a step wrote it: a shape of a path has
 /// none. The shape's `index` is not here: it is its place in the current list, which every step renumbers.
@@ -16,6 +17,9 @@ pub struct Attributes {
     pub(crate) level: Option<f64>,
     pub(crate) order: Option<f64>,
     pub(crate) origin: Option<Point>,
+    pub(crate) id: Option<Arc<str>>,
+    pub(crate) class: Option<Arc<str>>,
+    pub(crate) group: Option<Arc<str>>,
 }
 
 /// One value an attribute holds, or a selection asks for.
@@ -24,6 +28,7 @@ pub(crate) enum Single {
     Number(f64),
     Char(char),
     Point(Point),
+    Text(String),
 }
 
 /// How a value reads in an error message: a number as itself, a character quoted, a point as `(x, y)`.
@@ -33,6 +38,7 @@ impl std::fmt::Display for Single {
             Self::Number(number) => write!(formatter, "{number}"),
             Self::Char(character) => write!(formatter, "'{character}'"),
             Self::Point(point) => write!(formatter, "({}, {})", point.x, point.y),
+            Self::Text(text) => write!(formatter, "{text:?}"),
         }
     }
 }
@@ -48,10 +54,13 @@ pub(crate) enum Holds {
     Char,
     /// A point.
     Point,
+    /// Text.
+    Text,
 }
 
-/// The attributes a selection can ask about, by name: the shape's `index` and the nine a generator writes.
-pub(crate) const SELECTABLE: [(&str, Holds); 10] = [
+/// The attributes a selection can ask about, by name: the shape's `index`, the nine a generator writes and
+/// the three an SVG import writes.
+pub(crate) const SELECTABLE: [(&str, Holds); 13] = [
     ("index", Holds::Whole),
     ("glyph", Holds::Whole),
     ("char", Holds::Char),
@@ -62,6 +71,9 @@ pub(crate) const SELECTABLE: [(&str, Holds); 10] = [
     ("level", Holds::Real),
     ("order", Holds::Real),
     ("origin", Holds::Point),
+    ("id", Holds::Text),
+    ("class", Holds::Text),
+    ("group", Holds::Text),
 ];
 
 /// What the attribute `name` holds, or why there is no such attribute.
@@ -90,6 +102,9 @@ impl Attributes {
             "level" => self.level.map(Single::Number),
             "order" => self.order.map(Single::Number),
             "origin" => self.origin.map(Single::Point),
+            "id" => self.id.as_deref().map(|text| Single::Text(text.to_owned())),
+            "class" => self.class.as_deref().map(|text| Single::Text(text.to_owned())),
+            "group" => self.group.as_deref().map(|text| Single::Text(text.to_owned())),
             _ => None,
         }
     }
@@ -147,6 +162,25 @@ impl Attributes {
     pub fn origin(&self) -> Option<Point> {
         self.origin
     }
+
+    /// The `id` of the SVG element it was imported from.
+    #[must_use]
+    pub fn id(&self) -> Option<&str> {
+        self.id.as_deref()
+    }
+
+    /// The `class` attribute of the SVG element it was imported from, as written.
+    #[must_use]
+    pub fn class(&self) -> Option<&str> {
+        self.class.as_deref()
+    }
+
+    /// The ids of the groups it sat in, outermost first, joined by `/` (`logo/mark`); a group without an id adds
+    /// nothing, and a shape in no named group has none.
+    #[must_use]
+    pub fn group(&self) -> Option<&str> {
+        self.group.as_deref()
+    }
 }
 
 impl Keyed for Single {
@@ -164,6 +198,10 @@ impl Keyed for Single {
                 key.word(2);
                 key.of(point);
             }
+            Self::Text(text) => {
+                key.word(3);
+                key.text(text);
+            }
         }
     }
 }
@@ -177,5 +215,14 @@ impl Keyed for Attributes {
         key.of(&self.level);
         key.of(&self.order);
         key.of(&self.origin);
+        for text in [&self.id, &self.class, &self.group] {
+            match text {
+                None => key.word(0),
+                Some(text) => {
+                    key.word(1);
+                    key.text(text);
+                }
+            }
+        }
     }
 }

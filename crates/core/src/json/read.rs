@@ -30,11 +30,7 @@ fn at(pointer: &str, token: &str) -> String {
 
 /// What the core said was wrong, without the name of the parameter it came with.
 pub(super) fn reason(error: &Error) -> String {
-    match error {
-        Error::Parameter { message, .. } | Error::Geometry { message, .. } | Error::Format { message, .. } => {
-            message.clone()
-        }
-    }
+    error.reason().to_owned()
 }
 
 /// Reads `top` as a document.

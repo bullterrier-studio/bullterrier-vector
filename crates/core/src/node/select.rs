@@ -65,9 +65,10 @@ fn fits(name: &str, holds: Holds, single: &Single) -> Result<(), Error> {
         (Holds::Real, Single::Number(n)) if n.is_finite() => Ok(()),
         (Holds::Real, Single::Number(n)) => refuse("a finite number", n.to_string()),
         (Holds::Real, other) => refuse("a number", other.to_string()),
-        (Holds::Char, Single::Char(_)) | (Holds::Point, Single::Point(_)) => Ok(()),
+        (Holds::Char, Single::Char(_)) | (Holds::Point, Single::Point(_)) | (Holds::Text, Single::Text(_)) => Ok(()),
         (Holds::Char, other) => refuse("one character", other.to_string()),
         (Holds::Point, other) => refuse("a point", other.to_string()),
+        (Holds::Text, other) => refuse("text", other.to_string()),
     }
 }
 

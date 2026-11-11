@@ -22,10 +22,10 @@ harfrust.workspace = true
 sha2.workspace = true
 wuff.workspace = true
 i_overlay.workspace = true
+roxmltree.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
-roxmltree.workspace = true
 resvg.workspace = true
 
 [lints]

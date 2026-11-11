@@ -57,6 +57,15 @@ pub(crate) const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
 // constant: formats.md "Limits and security" sets MAX_CALLS to 100,000
 pub(crate) const MAX_CALLS: usize = 100_000;
 
+/// The most elements (the root, groups and shapes) an SVG `Drawing::from_svg` reads.
+// constant: a shape becomes up to four calls (shape, fill, stroke, opacity) and a document holds at most `MAX_CALLS`
+// 100,000, so a drawing read from SVG still saves to JSON; icon sets and logos have hundreds
+pub(crate) const MAX_SVG_ELEMENTS: usize = 20_000;
+
+/// The deepest nesting of elements `Drawing::from_svg` reads, the root counting as 1.
+// constant: the depth of `MAX_DEPTH`, which bounds a document `from_json` reads; libxml2 refuses 256 levels
+pub(crate) const MAX_SVG_DEPTH: usize = 128;
+
 /// The most distinct Params a drawing may read, those a `with_values` fixed included, and the most entries of a
 /// document's `params`.
 // constant: formats.md "Limits and security" sets MAX_PARAMS to 1,000; building a step costs time in proportion to the

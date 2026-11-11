@@ -20,6 +20,7 @@ mod param;
 mod path;
 mod registry;
 mod shape;
+mod svg;
 mod r#type;
 mod values;
 

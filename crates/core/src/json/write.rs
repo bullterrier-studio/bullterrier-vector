@@ -407,6 +407,7 @@ fn single_json(single: &Single) -> Json {
         Single::Number(number) => Json::Number(*number),
         Single::Char(character) => Json::String(character.to_string()),
         Single::Point(point) => Json::Array(vec![Json::Number(point.x), Json::Number(point.y)]),
+        Single::Text(text) => Json::String(text.clone()),
     }
 }
 

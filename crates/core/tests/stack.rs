@@ -8,7 +8,7 @@
 #[path = "it/common/mod.rs"]
 mod common;
 
-use bullterrier_vector::{Color, Error, Expr, Param, Random, Size, Stagger, Text, Values, by_index, by_order, text};
+use bullterrier_vector::{Color, Drawing, Error, Expr, Param, Random, Size, Stagger, Text, Values, by_index, by_order, text};
 use common::fonts::synthetic;
 use common::{Outcome, parameter_refusal};
 
@@ -100,6 +100,32 @@ fn a_glyph_of_the_deepest_composites_the_reader_draws_is_shaped_and_drawn_on_the
                     .to_svg(Size::px(400.0, 200.0), &Values::new())?
                     .contains("<path")
             );
+            drop(drawing);
+            Ok(())
+        };
+        run().map_err(|error| error.to_string())
+    })?;
+    handle.join().map_err(|_| "the thread panicked")??;
+    Ok(())
+}
+
+#[test]
+fn an_svg_of_the_deepest_nesting_and_one_nested_a_hundred_thousand_levels_are_read_on_the_smallest_stack() -> Outcome {
+    let handle = std::thread::Builder::new().stack_size(SMALLEST_STACK).spawn(|| {
+        let run = || -> Outcome {
+            let nested = |groups: usize| {
+                format!(
+                    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 9">{}<rect width="1" height="1"/>{}</svg>"#,
+                    "<g>".repeat(groups),
+                    "</g>".repeat(groups)
+                )
+            };
+            // the root and the rect are two of the 128 levels
+            let drawing = Drawing::from_svg(&nested(126))?;
+            assert_eq!(drawing.shapes(&Values::new())?.len(), 1);
+            parameter_refusal(Drawing::from_svg(&nested(127)))?;
+            // far past anything a reader accepts: refused, not an overflow
+            parameter_refusal(Drawing::from_svg(&nested(100_000)))?;
             drop(drawing);
             Ok(())
         };

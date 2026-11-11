@@ -74,6 +74,7 @@ mod style_shadow;
 mod svg;
 mod svg_gradient;
 mod svg_halftone;
+mod svg_import;
 mod svg_knockout;
 mod svg_multiply;
 mod svg_properties;

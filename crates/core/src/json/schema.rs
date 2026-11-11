@@ -241,6 +241,7 @@ fn attribute(holds: Holds) -> Json {
         Holds::Real => typed("number"),
         Holds::Char => character(),
         Holds::Point => pair(typed("number"), typed("number")),
+        Holds::Text => typed("string"),
     }
 }
 

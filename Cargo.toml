@@ -20,7 +20,7 @@ libm = "0.2"
 pyo3 = { version = "0.30", features = ["abi3-py312"] }
 wasm-bindgen = "=0.2.130"  # exactly the version of the `wasm-bindgen` command below: generated glue must match it
 proptest = "1.12"
-roxmltree = "0.21"  # the SVG oracle of the output tests
+roxmltree = "0.21"  # reads SVG in `Drawing::from_svg`, and is the SVG oracle of the output tests
 # the SVG oracle of the output tests for what the XML cannot say, how the picture looks (a blur): renders an SVG so it can
 # be compared with `to_rgba`; pinned exactly, because its edges may move a level; a dev-dependency of crates/core only
 # (cargo-deny does not check dev-only licences: tiny-skia is BSD-3 and arrayref BSD-2). No default features: no text,
