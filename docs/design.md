@@ -115,7 +115,7 @@ examples: [api.md](api.md).
 | Idea | What it is |
 |---|---|
 | `Path` | a Bezier outline (one or more sub-paths): a plain value; every verb on it computes at once |
-| `Shape` | one path with a style and attributes (index; glyph, char, word, line; part; copy; level; order 0..1; origin) |
+| `Shape` | one path with a style and attributes (index; glyph, char, word, line; part; copy; level; order 0..1; origin; id, class, group from an SVG import) |
 | `Drawing` | an immutable tree of steps over shapes: draws again with new values, saves to JSON, the same in every language |
 | `Param` | a named number with unit, range, default and meaning; any number in a step may be one |
 
@@ -265,7 +265,7 @@ place in the library when one of these needs it, or when a user asks for it with
 ## Works with
 
 The library is independent: it depends on no other Bullterrier package and none is needed to use it. It meets other
-tools only through plain data, with no runtime link in either direction. In the
+tools only through plain data, with no runtime link in either direction (SVG import, `Drawing.from_svg`, is the one file format it reads, for logos). In the
 [Bullterrier](https://github.com/bullterrier-studio) family it is the drawing layer:
 
 - **Maps in:** bullterrier-image's subject or depth map of a picture (width, height, bytes) drives tracing, hatching or

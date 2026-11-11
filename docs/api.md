@@ -54,7 +54,7 @@ cut, combine and offset geometry the way Paper.js does, with callbacks where the
 
 **`Shape`** is what a drawing is made of: one `Path` with a style (fill, stroke, opacity, blend mode, shadow, knockout)
 and attributes (its index, and what its generator wrote: glyph, char, word, line, copy, level, part, order 0..1, the
-origin it turns about). A shape is read, never built by hand: `drawing.shapes()` evaluates a drawing into a list of
+origin it turns about; from `Drawing.from_svg`, the text `id`, `class` and `group`). A shape is read, never built by hand: `drawing.shapes()` evaluates a drawing into a list of
 them. A list of shapes is a plain list; there is no collection type.
 
 **`Drawing`** is an immutable tree of steps that evaluates to a list of shapes. Every call on a drawing returns a new
@@ -289,15 +289,17 @@ ring = logo.only(id="ring")  # the part the SVG calls "ring"
 `Drawing.from_svg(text)` reads one SVG document. Each shape has `index`, `order` (as any stack writes it) and, where the
 element has them, `id`, `class` (as written) and `group`: the ids of the enclosing `g` elements, outermost first, joined
 by `/` (`"logo/mark"`; a `g` without an id adds nothing). `only(group="logo")` matches the whole text, so a shape in
-`logo/mark` is not in it; list the paths wanted (`group=["logo", "logo/mark"]`). The `viewBox` is the drawing's size
+`logo/mark` is not in it; list the paths wanted (`group=["logo", "logo/mark"]`). `class` is the attribute's whole
+text too: `class="a b"` matches only `"a b"`. The `viewBox` is the drawing's size
 (without one, `width` and `height` in pixels) and its corner becomes the origin. `transform` (`matrix`, `translate`,
 `scale`, `rotate`, `skewX`, `skewY`) is worked into the points. `fill` (black unless set), `fill-opacity`, `stroke` (none
 unless set), `stroke-opacity`, `stroke-width` (1 unless set, scaled by the transform), `stroke-linejoin`,
 `stroke-linecap` and `stroke-miterlimit` come from attributes or `style` and pass down groups; `opacity` on shapes.
 Colours: `#rgb`, `#rrggbb`, `#rrggbbaa`, `none`. Lengths: numbers, pixels.
 
-Skipped, as they change nothing drawn: `title`, `desc`, `metadata`, comments, an empty `defs`, elements of other
-namespaces (an editor's own), and attributes that do not draw (`data-*`, `isolation`, `fill-rule="nonzero"`).
+Skipped: `title`, `desc`, `metadata`, comments, an empty `defs`, elements of other namespaces (an editor's own), and
+attributes the importer has no use for (`data-*`, `aria-*`, `isolation`, `shape-rendering`, `width` and `height` next to a
+`viewBox`). Every attribute and `style` property that changes how a shape is drawn and is not read is refused (below).
 
 Anything else that changes the picture is a `ParameterError` that names the element or attribute and what to do, never
 dropped. The first version's limits:
@@ -307,8 +309,8 @@ dropped. The first version's limits:
 | `fill-rule="evenodd"` | the renderer fills nonzero only: split the shape into separate paths that need no evenodd |
 | `use`, `symbol`, a `defs` that holds anything | write the shape out where it is used |
 | gradients and patterns (`fill="url(#g)"`) | paint with one colour |
-| `clip-path`, `mask`, `filter`, markers, dashes, `display="none"`, blend modes | delete them or draw the effect with the library's own steps |
-| `text`, `image`, `style` elements (CSS stylesheets) | convert text to outlines; set fill and stroke on the elements |
+| `clip-path`, `mask`, `filter`, markers, dashes, `paint-order`, `vector-effect`, `display="none"`, blend modes, a `transform` inside `style` (write the attribute) | delete them or draw the effect with the library's own steps |
+| `text`, `image`, `style` elements and `<?xml-stylesheet?>` (CSS stylesheets) | convert text to outlines; set fill and stroke on the elements |
 | nested `svg`, `opacity` on a `g` | a group's opacity fades it as one picture; set `opacity` on the shapes |
 | colour names, `rgb()`, `currentColor`; lengths in percent or units other than pixels | write `#rrggbb` and pixels |
 | a stroke under a transform that stretches one way or skews | a stroke cannot follow it; draw it without the transform |
@@ -329,7 +331,7 @@ Past `MAX_SVG_ELEMENTS` (20,000 elements, the root included), `MAX_SVG_DEPTH` (1
 
 `index` is every shape's place in the current list. Generators write the rest: `text` writes `glyph`, `char`, `word`,
 `line`, `order` and a typographic `origin`; `repeat` writes `copy` and, on shapes that carry none, `order` (0..1 over
-the copies); `trace` writes `level`; `Drawing(...)` writes `order` on the shapes that carry none.
+the copies); `trace` writes `level`; `Drawing.from_svg` writes the text `id`, `class` and `group` ("SVG import"); `Drawing(...)` writes `order` on the shapes that carry none.
 `order` runs 0..1 over the shapes the step that writes it writes it on, in list order (a single shape has 0; a stack
 spreads it over its shapes that carry none, so a text keeps its per-letter order beside a rectangle) and survives
 `split` and `only`; `index`

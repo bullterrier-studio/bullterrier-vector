@@ -79,7 +79,7 @@ frame-export helper (V4), which loops a caller's function of time over frames. A
 in cycles, `seed`); whoever animates it sets it per frame and draws again.
 **Code first, JSON second:** every drawing written in code saves to JSON and loads back to the same drawing, never the other way
 round. Design each API with examples written first, then the format.
-Works with other tools only through plain data: `docs/design.md`, "Works with".
+Works with other tools only through plain data: `docs/design.md`, "Works with" (the one reader of another format is `Drawing::from_svg`).
 
 ## Names
 

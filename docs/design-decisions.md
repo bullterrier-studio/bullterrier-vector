@@ -20,8 +20,8 @@ Each decision once, with its reason. The design: [design.md](design.md).
   one `LICENSE` file; `deny.toml` admits dependencies whose licences ask no more of the package than MIT does.
 - **`roxmltree` reads SVG; the import is trimmed** (2026-11-11). `Drawing::from_svg` parses with `roxmltree` (a library
   dependency of `crates/core` since this batch; before, a dev-dependency). *Reason:* XML has entities, namespaces,
-  CDATA and character references that a hand-written reader would get wrong; `roxmltree` is 1 crate with no
-  dependencies, no `unsafe`, no DTDs (a document with one is refused, so no entity bombs), builds for
+  CDATA and character references that a hand-written reader would get wrong; `roxmltree` is 1 crate with one
+  dependency (`memchr`, already in the lock file), no `unsafe`, no DTDs (a document with one is refused, so no entity bombs), builds for
   `wasm32-unknown-unknown`, and `cargo-deny` admits its licence (MIT or Apache-2.0). The JSON parser was written by hand
   (`json/parse.rs`) for the opposite reason: its grammar is small and the format ours. *Consequence:* the import reads
   `svg`, `g` and seven shape elements; everything else that changes the picture is an error naming it, so a logo that
