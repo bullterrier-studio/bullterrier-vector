@@ -385,4 +385,5 @@ def test_svg_logo_picks_the_ring_by_its_id_and_the_mark_by_its_group(run):
     assert ring.style.stroke_width == 24
     assert ring.path.bounds.width == pytest.approx(300)
     assert [shape.attributes["id"] for shape in found["mark"].shapes()] == ["spark", "dot"]
+    assert [shape.attributes["id"] for shape in found["accent"].shapes()] == ["dot"]
     assert found["logo"].size == (400, 400)

@@ -284,13 +284,15 @@ output pixels. A size is above 0 and at most 100,000 a side; others raise `Param
 ```python
 logo = btvec.Drawing.from_svg(svg_text)  # a shape per path, rect, circle, ellipse, line, polyline, polygon
 ring = logo.only(id="ring")  # the part the SVG calls "ring"
+lines = logo.only(**{"class": "outline"})  # `class` is a Python keyword: pass it in a dict
 ```
 
 `Drawing.from_svg(text)` reads one SVG document. Each shape has `index`, `order` (as any stack writes it) and, where the
 element has them, `id`, `class` (as written) and `group`: the ids of the enclosing `g` elements, outermost first, joined
 by `/` (`"logo/mark"`; a `g` without an id adds nothing). `only(group="logo")` matches the whole text, so a shape in
 `logo/mark` is not in it; list the paths wanted (`group=["logo", "logo/mark"]`). `class` is the attribute's whole
-text too: `class="a b"` matches only `"a b"`. The `viewBox` is the drawing's size
+text too: `class="st0 st1"` is selected by `"st0 st1"`, not by `"st0"` (selecting by one token is a follow-up). `class` is a Python
+keyword, so write `drawing.only(**{"class": "st0"})`; `class_=` is not an attribute and raises. The `viewBox` is the drawing's size
 (without one, `width` and `height` in pixels) and its corner becomes the origin. `transform` (`matrix`, `translate`,
 `scale`, `rotate`, `skewX`, `skewY`) is worked into the points. `fill` (black unless set), `fill-opacity`, `stroke` (none
 unless set), `stroke-opacity`, `stroke-width` (1 unless set, scaled by the transform), `stroke-linejoin`,
@@ -326,7 +328,7 @@ Past `MAX_SVG_ELEMENTS` (20,000 elements, the root included), `MAX_SVG_DEPTH` (1
 |---|---|---|---|
 | `split` | `split()` | every shape split into its parts (as `Path.split`), each a shape of its own keeping the attributes and style, with `part` (from 0, within its shape) and its own bounds centre as `origin`, replacing one the shape carried | |
 | `merge` | `merge(*, by=None)` | shapes with an equal attribute `by` (all shapes, if `None`) joined into one: their sub-paths in list order, not united (overlaps stay; `union` or `resolve` unites them), with the first's attributes and style, at the first's place; groups in the order their first members appear; shapes that lack `by` are a group | `by` that is no attribute name; `by` that no shape of the list carries (when drawn) |
-| `only` | `only(**attributes)` | the shapes whose attributes equal these (a list means any of) | an attribute no shape carries |
+| `only` | `only(**attributes)` | the shapes whose attributes equal these (a list means any of; `class` goes in a dict, `only(**{"class": "c"})`) | an attribute no shape carries |
 | `without` | `without(**attributes)` | the other shapes | as `only` |
 | `repeat` | `repeat(count, *, translate=(0, 0), rotate=0, scale=1, about=None)` | `count` copies, copy `i` transformed `i` times; writes `copy`, and `order` where a shape has none | `count` below 1 |
 
@@ -442,7 +444,7 @@ naming `clip` or `mask` and the shape: three flat buffers have no clip or mask r
 | `with_values` | `with_values(**values)` | the same drawing with these Params fixed; they leave `parameters()` | as outputs (below) |
 | `parameters` | `parameters()` | every `Param` the drawing reads, in the order first used (the walk of [formats.md](formats.md), "Params") | two Params with one name that differ in a field (Params equal in all six fields are one) |
 | `shapes` | `shapes(**values)` | the evaluated shapes, in design pixels | as outputs |
-| `bounds` | `bounds(**values)` | the bounds of the geometry: the smallest `Rect` round every shape drawn (the union of their path bounds); not the painted extent, since strokes, shadows and effects reach past it | as outputs; `GeometryError`: no shape drawn |
+| `bounds` | `bounds(**values)` | the bounds of the geometry: the smallest `Rect` round every shape drawn (the union of their path bounds); not the painted extent, since strokes, shadows and effects reach past it. A shape with an empty path (an SVG `<path d=""/>`) has no bounds | as outputs; `GeometryError`: no shape drawn |
 | `size` | property | the design frame, or `None` | |
 
 ## Shape

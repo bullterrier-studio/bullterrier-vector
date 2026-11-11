@@ -78,8 +78,8 @@ impl Drawing {
     ///
     /// A shape has `id` and `class` as written on its element, and `group`, the ids of the `g` elements round it from
     /// the outside in, joined by `/` (`logo/mark`); a group without an id adds nothing, and an attribute the element
-    /// lacks is absent. `only(group="logo")` matches exactly: a shape in `logo/mark` is not in it. Every shape also
-    /// has its `index`.
+    /// lacks is absent. `only(group="logo")` matches exactly: a shape in `logo/mark` is not in it, and `class="st0 st1"` is selected by
+    /// the whole text `"st0 st1"`, not by `"st0"`. Every shape also has its `index` and, as any stack writes it, `order`.
     ///
     /// The `viewBox` is the drawing's size (without one, `width` and `height` in pixels), shapes are moved so that its
     /// corner is the origin, and `transform`s (`matrix`, `translate`, `scale`, `rotate`, `skewX`, `skewY`) are worked

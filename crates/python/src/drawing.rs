@@ -397,7 +397,8 @@ impl PyDrawing {
         checked(self.0.mask(source.0))
     }
 
-    /// Only the shapes whose attributes equal these (a list means any of). The list is renumbered.
+    /// Only the shapes whose attributes equal these (a list means any of). The list is renumbered. `class` is a Python
+    /// keyword: `only(**{"class": "c"})`.
     #[pyo3(signature = (**attributes))]
     fn only(&self, attributes: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
         checked(self.0.only(selection(attributes)?))
@@ -459,8 +460,9 @@ impl PyDrawing {
     /// The drawing an SVG document describes, so that `Drawing.from_svg(text).only(id="ring")` picks the part the SVG
     /// calls "ring". A shape for each `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`
     /// and `polygon`, in document order, with the attributes `id`, `class` and `group` (the ids of the enclosing `g`
-    /// elements joined by `/`, as `"logo/mark"`) besides `index`, so `only(id="ring")` picks a part by name.
-    /// `only(group=...)` matches the whole text. The `viewBox` is the size; `transform`s are worked into the points.
+    /// elements joined by `/`, as `"logo/mark"`) besides `index` and `order`, so `only(id="ring")` picks a part by name.
+    /// `only(group=...)` and `only(**{"class": ...})` match the whole attribute text (`class="st0 st1"` is selected by
+    /// `"st0 st1"`, not `"st0"`); `class` is a Python keyword, so it goes in a dict. The `viewBox` is the size; `transform`s are worked into the points.
     /// `fill` (black unless set), `stroke`, `stroke-width`, `stroke-opacity`, `fill-opacity`, `stroke-linejoin`,
     /// `stroke-linecap` and `stroke-miterlimit` are read as attributes or in `style` and handed down groups; `opacity`
     /// on shapes; colours as `#rgb`, `#rrggbb`, `#rrggbbaa` or `none`; lengths in pixels.
