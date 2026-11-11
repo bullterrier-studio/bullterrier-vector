@@ -549,6 +549,17 @@ fn a_doctype_is_refused_with_what_to_do() -> Outcome {
     Ok(())
 }
 
+#[test]
+fn a_rounded_corner_larger_than_half_a_side_is_cut_to_half_the_shorter_side() -> Outcome {
+    // 10 by 4: half the shorter side is 2, so any larger radius is the radius 2
+    let want = Path::rect(0.0, 0.0, 10.0, 4.0, 2.0)?.to_svg_path();
+    for corners in [r#"rx="50""#, r#"ry="30""#, r#"rx="3" ry="3""#] {
+        let rect = only(shapes(&svg(&format!(r#"<rect width="10" height="4" {corners}/>"#)))?)?;
+        assert_eq!(rect.path().to_svg_path(), want, "{corners}");
+    }
+    Ok(())
+}
+
 // Limits ------------------------------------------------------------------------------------------------------------
 
 #[test]
@@ -598,5 +609,19 @@ fn a_document_a_node_past_the_limit_is_refused_before_it_is_read_into_a_tree() -
         message.contains("MAX_SVG_ELEMENTS") && !message.contains("not read"),
         "{message}"
     );
+    Ok(())
+}
+
+#[test]
+fn a_document_of_the_most_bytes_is_read_and_one_byte_more_is_refused() -> Outcome {
+    let (head, tail) = (
+        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">"#,
+        "</svg>",
+    );
+    let most = 16 * 1024 * 1024;
+    let padded = |bytes: usize| format!("{head}{}{tail}", " ".repeat(bytes - head.len() - tail.len()));
+    assert_eq!(shapes(&padded(most))?.len(), 0);
+    let (_, message) = parameter_refusal(Drawing::from_svg(&padded(most + 1)))?;
+    assert!(message.contains("MAX_DOCUMENT_BYTES"), "{message}");
     Ok(())
 }
