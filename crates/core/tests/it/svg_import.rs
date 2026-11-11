@@ -135,6 +135,21 @@ fn group_and_class_select_by_the_whole_text() -> Outcome {
 }
 
 #[test]
+fn a_one_character_text_asked_of_a_character_attribute_is_that_character() -> Outcome {
+    let drawing = Drawing::from(Path::rect(0.0, 0.0, 1.0, 1.0, 0.0)?);
+    // the same words select by `char` whether they are typed as a character or as text
+    assert!(drawing.only(Select::new().attribute("char", "O")).error().is_none());
+    assert!(drawing.only(Select::new().attribute("char", 'O')).error().is_none());
+    let by_long_text = drawing.only(Select::new().attribute("char", "OO"));
+    assert!(
+        by_long_text
+            .error()
+            .is_some_and(|error| format!("{error}").contains("one character"))
+    );
+    Ok(())
+}
+
+#[test]
 fn a_text_attribute_asked_as_a_number_and_a_number_attribute_asked_as_text_are_refused() -> Outcome {
     let logo = Drawing::from_svg(&logo())?;
     let by_number = logo.only(Select::new().attribute("id", 3_u32));
@@ -357,7 +372,7 @@ fn every_shape_element_is_read_as_its_geometry() -> Outcome {
 #[test]
 fn what_does_not_draw_is_skipped() -> Outcome {
     let skipped = svg(
-        r#"<?xml-stylesheet href="x"?><!-- a comment --><title>t</title><desc>d</desc><metadata><x/></metadata><defs/><defs>
+        r#"<!-- a comment --><title>t</title><desc>d</desc><metadata><x/></metadata><defs/><defs>
         </defs><foo:bar xmlns:foo="urn:other"><rect width="1" height="1"/></foo:bar>
         <rect width="3" height="3" fill-rule="nonzero" data-x="1" aria-hidden="true" style="isolation:isolate" clip-path="none" display="inline"/>"#,
     );
@@ -365,93 +380,120 @@ fn what_does_not_draw_is_skipped() -> Outcome {
     Ok(())
 }
 
+/// What each case is, the document or the body of one, and the words its error must hold.
+const NOT_READ: [(&str, &str, &[&str]); 25] = [
+    (
+        "evenodd",
+        r#"<path id="ring" fill-rule="evenodd" d="M0 0 L5 0 L5 5 Z"/>"#,
+        &["<path id=\"ring\">", "fill-rule=\"evenodd\"", "nonzero", "split"],
+    ),
+    (
+        "evenodd in style",
+        r#"<path style="fill-rule:evenodd" d="M0 0 L5 0 L5 5 Z"/>"#,
+        &["fill-rule=\"evenodd\""],
+    ),
+    ("use", r##"<use href="#a"/>"##, &["<use>", "write the shape out"]),
+    ("text", "<text>hi</text>", &["<text>", "outlines"]),
+    ("style element", "<style>.a{fill:red}</style>", &["<style>", "CSS"]),
+    (
+        "linear gradient",
+        r#"<linearGradient id="g"/>"#,
+        &["<linearGradient id=\"g\">", "gradients"],
+    ),
+    (
+        "gradient fill",
+        r#"<rect width="1" height="1" fill="url(#g)"/>"#,
+        &["fill=\"url(#g)\"", "gradients"],
+    ),
+    (
+        "clip path attribute",
+        r#"<rect width="1" height="1" clip-path="url(#c)"/>"#,
+        &["clip-path", "clip paths"],
+    ),
+    ("clip path element", "<clipPath/>", &["<clipPath>", "clip paths"]),
+    (
+        "mask",
+        r#"<rect width="1" height="1" mask="url(#m)"/>"#,
+        &["mask", "masks"],
+    ),
+    (
+        "filter",
+        r#"<rect width="1" height="1" filter="url(#f)"/>"#,
+        &["filter"],
+    ),
+    (
+        "dashes",
+        r#"<rect width="1" height="1" stroke-dasharray="2 1"/>"#,
+        &["stroke-dasharray", "dashes"],
+    ),
+    (
+        "hidden",
+        r#"<rect width="1" height="1" display="none"/>"#,
+        &["display=\"none\"", "delete"],
+    ),
+    (
+        "defs with content",
+        r#"<defs><rect id="a" width="1" height="1"/></defs>"#,
+        &["<defs>", "<rect id=\"a\">"],
+    ),
+    (
+        "group opacity",
+        r#"<g opacity="0.5"><rect width="1" height="1"/></g>"#,
+        &["<g>", "opacity", "set opacity on the shapes"],
+    ),
+    ("nested svg", "<svg/>", &["<svg>", "nested"]),
+    (
+        "colour name",
+        r#"<rect width="1" height="1" fill="red"/>"#,
+        &["fill=\"red\"", "#rrggbb"],
+    ),
+    (
+        "percent",
+        r#"<rect width="50%" height="1"/>"#,
+        &["width=\"50%\"", "pixels"],
+    ),
+    (
+        "bad transform",
+        r#"<rect width="1" height="1" transform="spin(3)"/>"#,
+        &["transform", "spin"],
+    ),
+    (
+        "two radii",
+        r#"<rect width="9" height="9" rx="1" ry="2"/>"#,
+        &["rx", "ry"],
+    ),
+    ("image", "<image/>", &["<image>"]),
+    (
+        "stylesheet instruction",
+        r#"<?xml-stylesheet type="text/css" href="a.css"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>"#,
+        &["xml-stylesheet", "CSS"],
+    ),
+    (
+        "paint order",
+        r#"<rect width="1" height="1" paint-order="stroke"/>"#,
+        &["paint-order=\"stroke\""],
+    ),
+    (
+        "non-scaling stroke",
+        r#"<rect width="1" height="1" vector-effect="non-scaling-stroke"/>"#,
+        &["vector-effect"],
+    ),
+    (
+        "css transform",
+        r#"<rect width="1" height="1" style="transform:rotate(45deg)"/>"#,
+        &["transform", "style"],
+    ),
+];
+
 #[test]
 fn what_is_not_read_is_an_error_that_names_it() -> Outcome {
-    let rows: [(&str, &str, &[&str]); 21] = [
-        (
-            "evenodd",
-            r#"<path id="ring" fill-rule="evenodd" d="M0 0 L5 0 L5 5 Z"/>"#,
-            &["<path id=\"ring\">", "fill-rule=\"evenodd\"", "nonzero", "split"],
-        ),
-        (
-            "evenodd in style",
-            r#"<path style="fill-rule:evenodd" d="M0 0 L5 0 L5 5 Z"/>"#,
-            &["fill-rule=\"evenodd\""],
-        ),
-        ("use", r##"<use href="#a"/>"##, &["<use>", "write the shape out"]),
-        ("text", "<text>hi</text>", &["<text>", "outlines"]),
-        ("style element", "<style>.a{fill:red}</style>", &["<style>", "CSS"]),
-        (
-            "linear gradient",
-            r#"<linearGradient id="g"/>"#,
-            &["<linearGradient id=\"g\">", "gradients"],
-        ),
-        (
-            "gradient fill",
-            r#"<rect width="1" height="1" fill="url(#g)"/>"#,
-            &["fill=\"url(#g)\"", "gradients"],
-        ),
-        (
-            "clip path attribute",
-            r#"<rect width="1" height="1" clip-path="url(#c)"/>"#,
-            &["clip-path", "clip paths"],
-        ),
-        ("clip path element", "<clipPath/>", &["<clipPath>", "clip paths"]),
-        (
-            "mask",
-            r#"<rect width="1" height="1" mask="url(#m)"/>"#,
-            &["mask", "masks"],
-        ),
-        (
-            "filter",
-            r#"<rect width="1" height="1" filter="url(#f)"/>"#,
-            &["filter"],
-        ),
-        (
-            "dashes",
-            r#"<rect width="1" height="1" stroke-dasharray="2 1"/>"#,
-            &["stroke-dasharray", "dashes"],
-        ),
-        (
-            "hidden",
-            r#"<rect width="1" height="1" display="none"/>"#,
-            &["display=\"none\"", "delete"],
-        ),
-        (
-            "defs with content",
-            r#"<defs><rect id="a" width="1" height="1"/></defs>"#,
-            &["<defs>", "<rect id=\"a\">"],
-        ),
-        (
-            "group opacity",
-            r#"<g opacity="0.5"><rect width="1" height="1"/></g>"#,
-            &["<g>", "opacity", "set opacity on the shapes"],
-        ),
-        ("nested svg", "<svg/>", &["<svg>", "nested"]),
-        (
-            "colour name",
-            r#"<rect width="1" height="1" fill="red"/>"#,
-            &["fill=\"red\"", "#rrggbb"],
-        ),
-        (
-            "percent",
-            r#"<rect width="50%" height="1"/>"#,
-            &["width=\"50%\"", "pixels"],
-        ),
-        (
-            "bad transform",
-            r#"<rect width="1" height="1" transform="spin(3)"/>"#,
-            &["transform", "spin"],
-        ),
-        (
-            "two radii",
-            r#"<rect width="9" height="9" rx="1" ry="2"/>"#,
-            &["rx", "ry"],
-        ),
-        ("image", "<image/>", &["<image>"]),
-    ];
-    for (rule, body, words) in rows {
-        let (name, message) = parameter_refusal(shapes(&svg(body))).map_err(|error| format!("{rule}: {error}"))?;
+    for (rule, body, words) in NOT_READ {
+        let text = if body.starts_with("<?xml") {
+            body.to_owned()
+        } else {
+            svg(body)
+        };
+        let (name, message) = parameter_refusal(shapes(&text)).map_err(|error| format!("{rule}: {error}"))?;
         assert_eq!(name, "svg", "{rule}");
         for word in words {
             assert!(message.contains(word), "{rule}: {message:?} lacks {word:?}");
@@ -507,5 +549,14 @@ fn the_deepest_nesting_is_read_and_one_deeper_is_refused() -> Outcome {
     assert_eq!(shapes(&nested(deepest))?.len(), 1);
     let (_, message) = parameter_refusal(shapes(&nested(deepest + 1)))?;
     assert!(message.contains("MAX_SVG_DEPTH"), "{message}");
+    Ok(())
+}
+
+#[test]
+fn a_document_at_the_element_limit_still_saves_to_json_and_loads_again() -> Outcome {
+    let body = r##"<rect width="1" height="1" fill="#112233" stroke="#445566" opacity="0.5"/>"##.repeat(19_999);
+    let drawing = Drawing::from_svg(&svg(&body))?;
+    let again = Drawing::from_json(&drawing.to_json()?, &bullterrier_vector::Inputs::new())?;
+    assert_eq!(again.shapes(&Values::new())?.len(), 19_999);
     Ok(())
 }

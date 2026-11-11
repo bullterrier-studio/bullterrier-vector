@@ -483,6 +483,10 @@ AGREED = [
     pytest.param(square_with({"only": {"char": "ab"}}), False, id="selecting by two characters"),
     pytest.param(square_with({"only": {"char": ["a", ""]}}), False, id="selecting by an empty character"),
     pytest.param(square_with({"only": {"colour": 1}}), False, id="selecting by no attribute"),
+    pytest.param(square_with({"only": {"id": "ring"}}), True, id="selecting by an id"),
+    pytest.param(square_with({"only": {"group": ["logo", "logo/mark"]}}), True, id="selecting by a list of groups"),
+    pytest.param(square_with({"only": {"id": 3}}), False, id="selecting by a number as an id"),
+    pytest.param(square_with({"only": {"class": [1]}}), False, id="selecting by a list of numbers as classes"),
     pytest.param(
         {
             "version": 1,
@@ -490,6 +494,16 @@ AGREED = [
         },
         True,
         id="a shape with attributes",
+    ),
+    pytest.param(
+        {"version": 1, "root": [{"shape": {"path": SQUARE, "attributes": {"id": "ring", "group": "logo/mark"}}}]},
+        True,
+        id="a shape with text attributes",
+    ),
+    pytest.param(
+        {"version": 1, "root": [{"shape": {"path": SQUARE, "attributes": {"group": 3}}}]},
+        False,
+        id="a shape with a number as its group",
     ),
     pytest.param(
         {"version": 1, "root": [{"shape": {"path": SQUARE, "attributes": {"glyph": 2**32}}}]},

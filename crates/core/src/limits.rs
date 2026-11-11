@@ -49,7 +49,8 @@ pub(crate) const MAX_FILTER_PIXELS: u64 = 1 << 27;
 // no reader that matters at 128; each layer is one `<g>`, so the root and the shapes inside leave room to spare
 pub(crate) const MAX_KNOCKOUT_LAYERS: usize = 128;
 
-/// The longest document `from_json` reads and `to_json` writes, in bytes of UTF-8.
+/// The longest document `from_json` reads and `to_json` writes, and the longest SVG `Drawing::from_svg` reads, in bytes
+/// of UTF-8.
 // constant: formats.md "Limits and security" sets MAX_DOCUMENT_BYTES to 16 MiB
 pub(crate) const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
 

@@ -18,7 +18,7 @@ const READ: [&str; 9] = [
 
 /// The properties that change what is drawn and are not read: each with the values that change nothing, and what to
 /// do instead. Any other value raises.
-const REFUSED: [(&str, &[&str], &str); 12] = [
+const REFUSED: [(&str, &[&str], &str); 14] = [
     (
         "fill-rule",
         &["nonzero"],
@@ -33,6 +33,12 @@ const REFUSED: [(&str, &[&str], &str); 12] = [
     ("marker-end", &["none"], "markers are not read"),
     ("stroke-dasharray", &["none"], "dashes are not read"),
     ("mix-blend-mode", &["normal"], "blend modes are not read"),
+    (
+        "paint-order",
+        &["normal"],
+        "a stroke under the fill is not read: draw the stroke as its own shape",
+    ),
+    ("vector-effect", &["none"], "non-scaling strokes are not read"),
     (
         "display",
         &["inline", "block"],
@@ -50,11 +56,11 @@ pub(super) fn refusal(declared: &BTreeMap<String, String>) -> Option<String> {
 }
 
 /// The properties named in `attributes` and in the declarations of `style`, the declarations winning, among those
-/// that are read or refused. Others (`data-*`, `isolation`, `shape-rendering`, an editor's own) change nothing and are
-/// left out.
+/// that are read or refused. Others (`data-*`, `isolation`, `shape-rendering`, an editor's own) do not change what is
+/// drawn here and are left out.
 ///
 /// # Errors
-/// A declaration of `style` that has no colon.
+/// A declaration of `style` that has no colon, or that sets `transform`.
 pub(super) fn declared<'a>(
     attributes: impl Iterator<Item = (&'a str, &'a str)>,
     style: Option<&str>,
@@ -73,6 +79,11 @@ pub(super) fn declared<'a>(
         let (name, value) = declaration
             .split_once(':')
             .ok_or_else(|| format!("has a style declaration without a colon: {declaration:?}"))?;
+        if name.trim() == "transform" {
+            return Err(format!(
+                "has transform in style: write it as the transform attribute, got {declaration:?}"
+            ));
+        }
         if known(name.trim()) {
             found.insert(name.trim().to_owned(), value.trim().to_owned());
         }

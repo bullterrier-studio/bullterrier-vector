@@ -104,13 +104,25 @@ impl Select {
     #[must_use]
     pub fn attribute(mut self, name: &str, wanted: impl Into<Wanted>) -> Self {
         let mut wanted = wanted.into();
-        // a one-character string is a character to the conversions, and an id of one character is still text
-        if holds(name) == Ok(Holds::Text) {
-            for single in &mut wanted.0 {
-                if let Single::Char(character) = single {
-                    *single = Single::Text(character.to_string());
+        // a one-character string is a character to the conversions, and a character is text to `char` and `id`
+        match holds(name) {
+            Ok(Holds::Text) => {
+                for single in &mut wanted.0 {
+                    if let Single::Char(character) = single {
+                        *single = Single::Text(character.to_string());
+                    }
                 }
             }
+            Ok(Holds::Char) => {
+                for single in &mut wanted.0 {
+                    if let Single::Text(text) = single
+                        && let (Some(character), None) = (text.chars().next(), text.chars().nth(1))
+                    {
+                        *single = Single::Char(character);
+                    }
+                }
+            }
+            _ => {}
         }
         self.by_name.insert(name.to_owned(), wanted);
         self

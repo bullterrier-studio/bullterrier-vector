@@ -81,7 +81,7 @@ impl Drawing {
     /// What is not read is an error that names the element or the attribute and what to do instead, never dropped:
     /// `fill-rule="evenodd"` (the renderer fills nonzero only: split the shape into paths that need no evenodd),
     /// `use`, `symbol`, `defs` holding anything, gradients, patterns, `clip-path`, `mask`, `filter`, markers, dashes,
-    /// `text`, `image`, `style` elements and stylesheets, nested `svg`, `opacity` on a `g`, lengths in other units, a
+    /// `paint-order`, `vector-effect`, `text`, `image`, `style` elements, `<?xml-stylesheet?>`, a `transform` in `style`, nested `svg`, `opacity` on a `g`, lengths in other units, a
     /// stroke under a transform that stretches one way (the stroke cannot follow it), unequal `rx` and `ry`.
     ///
     /// # Errors
@@ -97,16 +97,7 @@ impl Drawing {
         }
         let document =
             Document::parse(text).map_err(|error| Error::parameter("svg", format!("is not XML: {error}")))?;
-        let root = document.root_element();
-        if root.tag_name().name() != "svg" || root.tag_name().namespace() != Some(NAMESPACE) {
-            return Err(Error::parameter(
-                "svg",
-                format!(
-                    "starts with <{}>, not <svg xmlns=\"{NAMESPACE}\">",
-                    root.tag_name().name()
-                ),
-            ));
-        }
+        let root = svg_root(&document)?;
         let Frame {
             left,
             top,
@@ -187,6 +178,37 @@ impl Drawing {
             None => Ok(drawing),
         }
     }
+}
+
+/// The `svg` element of `document`.
+///
+/// # Errors
+/// The document starts with a stylesheet instruction, or its root is not `svg` in the SVG namespace.
+fn svg_root<'a, 'i>(document: &'a Document<'i>) -> Result<Node<'a, 'i>, Error> {
+    if let Some(instruction) = document
+        .root()
+        .children()
+        .find(|node| node.pi().is_some_and(|pi| pi.target == "xml-stylesheet"))
+    {
+        return Err(Error::parameter(
+            "svg",
+            format!(
+                "starts with <?xml-stylesheet?> at byte {}: CSS stylesheets are not read; set fill and stroke on each element",
+                instruction.range().start
+            ),
+        ));
+    }
+    let root = document.root_element();
+    if root.tag_name().name() != "svg" || root.tag_name().namespace() != Some(NAMESPACE) {
+        return Err(Error::parameter(
+            "svg",
+            format!(
+                "starts with <{}>, not <svg xmlns=\"{NAMESPACE}\">",
+                root.tag_name().name()
+            ),
+        ));
+    }
+    Ok(root)
 }
 
 /// The corner and the size of the frame of a drawing.

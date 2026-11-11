@@ -456,7 +456,8 @@ impl PyDrawing {
         checked(raised(py.detach(|| vector::Drawing::from_json(text, &supplied)))?)
     }
 
-    /// The drawing an SVG document describes: a shape for each `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`
+    /// The drawing an SVG document describes, so that `Drawing.from_svg(text).only(id="ring")` picks the part the SVG
+    /// calls "ring". A shape for each `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`
     /// and `polygon`, in document order, with the attributes `id`, `class` and `group` (the ids of the enclosing `g`
     /// elements joined by `/`, as `"logo/mark"`) besides `index`, so `only(id="ring")` picks a part by name.
     /// `only(group=...)` matches the whole text. The `viewBox` is the size; `transform`s are worked into the points.
@@ -466,11 +467,19 @@ impl PyDrawing {
     ///
     /// What is not read raises a `ParameterError` naming the element or attribute: `fill-rule="evenodd"` (the renderer
     /// fills nonzero only: split the shape into paths that need no evenodd), `use`, `defs` holding anything, gradients,
-    /// patterns, `clip-path`, `mask`, `filter`, markers, dashes, `text`, `image`, `<style>` elements, nested `svg`,
+    /// patterns, `clip-path`, `mask`, `filter`, markers, dashes, `paint-order`, `vector-effect`, `text`, `image`, `<style>`
+    /// elements and `<?xml-stylesheet?>`, a `transform` in `style`, nested `svg`,
     /// `opacity` on a `g`, colour names and `rgb()`, units other than pixels, a stroke under a transform that
     /// stretches one way. Past 20,000 elements or 128 levels of nesting it raises too.
     #[staticmethod]
-    fn from_svg(py: Python<'_>, text: &str) -> PyResult<Self> {
+    fn from_svg(py: Python<'_>, text: &Bound<'_, PyString>) -> PyResult<Self> {
+        // a `str` holding a lone surrogate has no UTF-8 form: a problem in the text, so a `ParameterError`
+        let text = text.to_str().map_err(|_| {
+            exception(&vector::Error::Parameter {
+                parameter: "svg".to_owned(),
+                message: "the text is not valid UTF-8 (it holds a lone surrogate)".to_owned(),
+            })
+        })?;
         checked(raised(py.detach(|| vector::Drawing::from_svg(text)))?)
     }
 

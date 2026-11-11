@@ -162,6 +162,12 @@ def test_what_does_not_change_the_picture_is_accepted(body):
         pytest.param('<g opacity="0.5"><rect width="1" height="1"/></g>', ["<g>", "opacity"], id="group-opacity"),
         pytest.param('<rect width="1" height="1" fill="red"/>', ['fill="red"', "#rrggbb"], id="colour-name"),
         pytest.param('<rect width="50%" height="1"/>', ['width="50%"'], id="percent"),
+        pytest.param('<rect width="1" height="1" paint-order="stroke"/>', ["paint-order"], id="paint-order"),
+        pytest.param(
+            '<rect width="1" height="1" style="transform:rotate(45deg)"/>',
+            ["transform", "style"],
+            id="css-transform",
+        ),
     ],
 )
 def test_what_is_not_read_raises_a_parameter_error_naming_it(body, words):
@@ -192,3 +198,19 @@ def test_the_deepest_nesting_is_read_and_one_deeper_raises():
     assert len(Drawing.from_svg(nested(128)).shapes()) == 1
     with pytest.raises(btvec.ParameterError, match="MAX_SVG_DEPTH"):
         Drawing.from_svg(nested(129))
+
+
+def test_a_stylesheet_instruction_before_the_root_raises():
+    text = '<?xml-stylesheet type="text/css" href="a.css"?>' + svg("")
+    with pytest.raises(btvec.ParameterError, match="xml-stylesheet"):
+        Drawing.from_svg(text)
+
+
+def test_a_text_with_a_lone_surrogate_raises_a_parameter_error():
+    with pytest.raises(btvec.ParameterError, match="UTF-8"):
+        Drawing.from_svg("\ud800")
+
+
+def test_one_character_selects_by_char_and_by_id_alike():
+    assert len(btvec.text("O", font=btvec.Font.bundled("fraunces"), size=50).only(char="O").shapes()) >= 1
+    assert len(Drawing.from_svg(svg('<rect id="O" width="1" height="1"/>')).only(id="O").shapes()) == 1
