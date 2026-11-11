@@ -42,8 +42,9 @@ impl Drawing {
         Ok(found.shapes.iter().cloned().map(Shape::painted).collect())
     }
 
-    /// The smallest rectangle that holds every shape the drawing evaluates to with `values`: the union of their
-    /// [`Path::bounds`](crate::Path::bounds), in design pixels. Strokes and effects add nothing.
+    /// The bounds of the geometry: the smallest rectangle that holds every shape the drawing evaluates to with
+    /// `values`, the union of their [`Path::bounds`](crate::Path::bounds), in design pixels. It is not the painted
+    /// extent: a stroke's half width, a shadow, a blur and the other effects reach past it.
     ///
     /// # Errors
     /// Those of [`Drawing::shapes`]; [`Error::Geometry`] if the drawing draws no shape or only empty paths.

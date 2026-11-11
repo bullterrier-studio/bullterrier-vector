@@ -475,7 +475,9 @@ impl PyDrawing {
         Ok(shapes.into_iter().map(PyShape).collect())
     }
 
-    /// The smallest rectangle that holds every shape the drawing draws, with each Param at the value given by name.
+    /// The bounds of the geometry: the smallest rectangle that holds every shape the drawing draws (the union of their
+    /// path bounds), with each Param at the value given by name. Not the painted extent: strokes, shadows and effects
+    /// reach past it.
     #[pyo3(signature = (**given))]
     fn bounds(&self, py: Python<'_>, given: Option<&Bound<'_, PyDict>>) -> PyResult<PyRect> {
         let values = values(given)?;
