@@ -381,7 +381,7 @@ fn what_does_not_draw_is_skipped() -> Outcome {
 }
 
 /// What each case is, the document or the body of one, and the words its error must hold.
-const NOT_READ: [(&str, &str, &[&str]); 25] = [
+const NOT_READ: [(&str, &str, &[&str]); 27] = [
     (
         "evenodd",
         r#"<path id="ring" fill-rule="evenodd" d="M0 0 L5 0 L5 5 Z"/>"#,
@@ -477,6 +477,16 @@ const NOT_READ: [(&str, &str, &[&str]); 25] = [
         "non-scaling stroke",
         r#"<rect width="1" height="1" vector-effect="non-scaling-stroke"/>"#,
         &["vector-effect"],
+    ),
+    (
+        "transform origin attribute",
+        r#"<rect width="1" height="1" transform="rotate(45)" transform-origin="5 5"/>"#,
+        &["transform-origin=\"5 5\"", "transform"],
+    ),
+    (
+        "transform origin in style",
+        r#"<rect width="1" height="1" style="transform-origin:5px 5px"/>"#,
+        &["transform-origin=\"5px 5px\""],
     ),
     (
         "css transform",

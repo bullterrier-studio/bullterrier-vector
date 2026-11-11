@@ -18,7 +18,7 @@ const READ: [&str; 9] = [
 
 /// The properties that change what is drawn and are not read: each with the values that change nothing, and what to
 /// do instead. Any other value raises.
-const REFUSED: [(&str, &[&str], &str); 14] = [
+const REFUSED: [(&str, &[&str], &str); 15] = [
     (
         "fill-rule",
         &["nonzero"],
@@ -39,6 +39,11 @@ const REFUSED: [(&str, &[&str], &str); 14] = [
         "a stroke under the fill is not read: draw the stroke as its own shape",
     ),
     ("vector-effect", &["none"], "non-scaling strokes are not read"),
+    (
+        "transform-origin",
+        &[],
+        "a transform about another point is not read: write it in the transform attribute, where rotate(angle x y) turns about a point",
+    ),
     (
         "display",
         &["inline", "block"],

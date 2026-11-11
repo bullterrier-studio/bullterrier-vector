@@ -81,7 +81,7 @@ impl Drawing {
     /// What is not read is an error that names the element or the attribute and what to do instead, never dropped:
     /// `fill-rule="evenodd"` (the renderer fills nonzero only: split the shape into paths that need no evenodd),
     /// `use`, `symbol`, `defs` holding anything, gradients, patterns, `clip-path`, `mask`, `filter`, markers, dashes,
-    /// `paint-order`, `vector-effect`, a `<!DOCTYPE>` (remove the line), `text`, `image`, `style` elements, `<?xml-stylesheet?>`, a `transform` in `style`, nested `svg`, `opacity` on a `g`, lengths in other units, a
+    /// `paint-order`, `vector-effect`, `transform-origin`, a `<!DOCTYPE>` (remove the line), `text`, `image`, `style` elements, `<?xml-stylesheet?>`, a `transform` in `style`, nested `svg`, `opacity` on a `g`, lengths in other units, a
     /// stroke under a transform that stretches one way (the stroke cannot follow it), unequal `rx` and `ry`.
     ///
     /// # Errors

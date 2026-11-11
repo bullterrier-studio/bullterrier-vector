@@ -467,7 +467,7 @@ impl PyDrawing {
     ///
     /// What is not read raises a `ParameterError` naming the element or attribute: `fill-rule="evenodd"` (the renderer
     /// fills nonzero only: split the shape into paths that need no evenodd), `use`, `defs` holding anything, gradients,
-    /// patterns, `clip-path`, `mask`, `filter`, markers, dashes, `paint-order`, `vector-effect`, a `<!DOCTYPE>` (remove the line), `text`, `image`, `<style>`
+    /// patterns, `clip-path`, `mask`, `filter`, markers, dashes, `paint-order`, `vector-effect`, `transform-origin`, a `<!DOCTYPE>` (remove the line), `text`, `image`, `<style>`
     /// elements and `<?xml-stylesheet?>`, a `transform` in `style`, nested `svg`,
     /// `opacity` on a `g`, colour names and `rgb()`, units other than pixels, a stroke under a transform that
     /// stretches one way. Past 20,000 elements or 128 levels of nesting it raises too.

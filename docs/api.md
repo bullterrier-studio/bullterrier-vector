@@ -309,7 +309,7 @@ dropped. The first version's limits:
 | `fill-rule="evenodd"` | the renderer fills nonzero only: split the shape into separate paths that need no evenodd |
 | `use`, `symbol`, a `defs` that holds anything | write the shape out where it is used |
 | gradients and patterns (`fill="url(#g)"`) | paint with one colour |
-| `clip-path`, `mask`, `filter`, markers, dashes, `paint-order`, `vector-effect`, `display="none"`, blend modes, a `transform` inside `style` (write the attribute) | delete them or draw the effect with the library's own steps |
+| `clip-path`, `mask`, `filter`, markers, dashes, `paint-order`, `vector-effect`, `transform-origin` (write `rotate(angle x y)`), `display="none"`, blend modes, a `transform` inside `style` (write the attribute) | delete them or draw the effect with the library's own steps |
 | `text`, `image`, `style` elements and `<?xml-stylesheet?>` (CSS stylesheets) | convert text to outlines; set fill and stroke on the elements |
 | a `<!DOCTYPE>` line (an Illustrator header has one) | remove the line: its entities could expand without bound |
 | nested `svg`, `opacity` on a `g` | a group's opacity fades it as one picture; set `opacity` on the shapes |
