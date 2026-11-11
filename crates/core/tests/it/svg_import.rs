@@ -509,16 +509,34 @@ fn a_document_that_is_not_an_svg_is_an_error() {
         ("no namespace", r#"<svg viewBox="0 0 1 1"/>"#),
         ("another root", r#"<html xmlns="http://www.w3.org/2000/svg"/>"#),
         ("no size", r#"<svg xmlns="http://www.w3.org/2000/svg"/>"#),
-        (
-            "a doctype",
-            r#"<!DOCTYPE svg [<!ENTITY a "b">]><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>"#,
-        ),
     ] {
         assert!(
             matches!(Drawing::from_svg(text), Err(Error::Parameter { .. })),
             "{rule}"
         );
     }
+}
+
+#[test]
+fn a_doctype_is_refused_with_what_to_do() -> Outcome {
+    for (rule, text) in [
+        (
+            "with an entity",
+            r#"<!DOCTYPE svg [<!ENTITY a "b">]><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>"#,
+        ),
+        (
+            "an Illustrator header",
+            r#"<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>"#,
+        ),
+    ] {
+        let (name, message) = parameter_refusal(Drawing::from_svg(text)).map_err(|error| format!("{rule}: {error}"))?;
+        assert_eq!(name, "svg", "{rule}");
+        assert!(
+            message.contains("<!DOCTYPE>") && message.contains("remove"),
+            "{rule}: {message:?}"
+        );
+    }
+    Ok(())
 }
 
 // Limits ------------------------------------------------------------------------------------------------------------

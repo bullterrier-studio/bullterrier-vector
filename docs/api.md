@@ -311,6 +311,7 @@ dropped. The first version's limits:
 | gradients and patterns (`fill="url(#g)"`) | paint with one colour |
 | `clip-path`, `mask`, `filter`, markers, dashes, `paint-order`, `vector-effect`, `display="none"`, blend modes, a `transform` inside `style` (write the attribute) | delete them or draw the effect with the library's own steps |
 | `text`, `image`, `style` elements and `<?xml-stylesheet?>` (CSS stylesheets) | convert text to outlines; set fill and stroke on the elements |
+| a `<!DOCTYPE>` line (an Illustrator header has one) | remove the line: its entities could expand without bound |
 | nested `svg`, `opacity` on a `g` | a group's opacity fades it as one picture; set `opacity` on the shapes |
 | colour names, `rgb()`, `currentColor`; lengths in percent or units other than pixels | write `#rrggbb` and pixels |
 | a stroke under a transform that stretches one way or skews | a stroke cannot follow it; draw it without the transform |

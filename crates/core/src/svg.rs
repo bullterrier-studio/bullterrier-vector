@@ -81,7 +81,7 @@ impl Drawing {
     /// What is not read is an error that names the element or the attribute and what to do instead, never dropped:
     /// `fill-rule="evenodd"` (the renderer fills nonzero only: split the shape into paths that need no evenodd),
     /// `use`, `symbol`, `defs` holding anything, gradients, patterns, `clip-path`, `mask`, `filter`, markers, dashes,
-    /// `paint-order`, `vector-effect`, `text`, `image`, `style` elements, `<?xml-stylesheet?>`, a `transform` in `style`, nested `svg`, `opacity` on a `g`, lengths in other units, a
+    /// `paint-order`, `vector-effect`, a `<!DOCTYPE>` (remove the line), `text`, `image`, `style` elements, `<?xml-stylesheet?>`, a `transform` in `style`, nested `svg`, `opacity` on a `g`, lengths in other units, a
     /// stroke under a transform that stretches one way (the stroke cannot follow it), unequal `rx` and `ry`.
     ///
     /// # Errors
@@ -95,8 +95,13 @@ impl Drawing {
                 format!("is {} bytes, past MAX_DOCUMENT_BYTES {MAX_DOCUMENT_BYTES}", text.len()),
             ));
         }
-        let document =
-            Document::parse(text).map_err(|error| Error::parameter("svg", format!("is not XML: {error}")))?;
+        let document = Document::parse(text).map_err(|error| match error {
+            roxmltree::Error::DtdDetected => Error::parameter(
+                "svg",
+                "starts with a <!DOCTYPE>, which is not read (its entities could expand without bound); remove the <!DOCTYPE> line",
+            ),
+            other => Error::parameter("svg", format!("is not XML: {other}")),
+        })?;
         let root = svg_root(&document)?;
         let Frame {
             left,
