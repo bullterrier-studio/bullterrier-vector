@@ -6,7 +6,7 @@ use super::{Drawing, Step};
 use crate::key::Key;
 use crate::limits::Work;
 use crate::node::{Context, Inputs};
-use crate::{Error, Shape, Values};
+use crate::{Error, Rect, Shape, Values};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -40,6 +40,30 @@ impl Drawing {
             }
         };
         Ok(found.shapes.iter().cloned().map(Shape::painted).collect())
+    }
+
+    /// The smallest rectangle that holds every shape the drawing evaluates to with `values`: the union of their
+    /// [`Path::bounds`](crate::Path::bounds), in design pixels. Strokes and effects add nothing.
+    ///
+    /// # Errors
+    /// Those of [`Drawing::shapes`]; [`Error::Geometry`] if the drawing draws no shape or only empty paths.
+    pub fn bounds(&self, values: &Values) -> Result<Rect, Error> {
+        let mut found: Option<(f64, f64, f64, f64)> = None;
+        for shape in self.shapes(values)? {
+            let Rect { x, y, width, height } = shape.path().bounds()?;
+            let (left, top, right, bottom) = (x, y, x + width, y + height);
+            found = Some(found.map_or((left, top, right, bottom), |(l, t, r, b)| {
+                (l.min(left), t.min(top), r.max(right), b.max(bottom))
+            }));
+        }
+        let (left, top, right, bottom) =
+            found.ok_or_else(|| Error::geometry("bounds", "the drawing draws no shape"))?;
+        Ok(Rect {
+            x: left,
+            y: top,
+            width: right - left,
+            height: bottom - top,
+        })
     }
 
     /// What the most recent draw did: how many steps it computed and how many it was served, and how many results

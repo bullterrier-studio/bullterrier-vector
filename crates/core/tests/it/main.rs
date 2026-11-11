@@ -8,6 +8,7 @@ mod blend_modes;
 mod clip_mask;
 mod drawing_along;
 mod drawing_boolean;
+mod drawing_bounds;
 mod drawing_cache;
 mod drawing_items;
 mod drawing_offset;
