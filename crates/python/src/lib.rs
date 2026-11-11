@@ -174,7 +174,7 @@ impl PyPoint {
 /// An axis-aligned rectangle: its top-left corner and its size, in design pixels.
 #[pyclass(name = "Rect", module = "bullterrier_vector", frozen, eq)]
 #[derive(Clone, Copy, PartialEq)]
-struct PyRect {
+pub(crate) struct PyRect {
     /// Left edge.
     #[pyo3(get)]
     x: f64,
@@ -187,6 +187,17 @@ struct PyRect {
     /// Size downwards.
     #[pyo3(get)]
     height: f64,
+}
+
+impl From<vector::Rect> for PyRect {
+    fn from(rect: vector::Rect) -> Self {
+        Self {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+        }
+    }
 }
 
 #[pymethods]
@@ -360,13 +371,7 @@ impl PyPath {
     /// The smallest rectangle around the outline.
     #[getter]
     fn bounds(&self) -> PyResult<PyRect> {
-        let rect = raised(self.0.bounds())?;
-        Ok(PyRect {
-            x: rect.x,
-            y: rect.y,
-            width: rect.width,
-            height: rect.height,
-        })
+        raised(self.0.bounds()).map(PyRect::from)
     }
 
     /// The point a fraction `at` (0 to 1) of the way along.

@@ -4,7 +4,7 @@ use crate::expr::{Num, PyExpr, PyParam};
 use crate::mesh::PyMesh;
 use crate::shape::{PaintArg, PyShape};
 use crate::text::{bytes_of, entries};
-use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, PyPath, PyPoint, exception, raised};
+use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, PyPath, PyPoint, PyRect, exception, raised};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -473,6 +473,13 @@ impl PyDrawing {
         let values = values(given)?;
         let shapes = raised(py.detach(|| self.0.shapes(&values)))?;
         Ok(shapes.into_iter().map(PyShape).collect())
+    }
+
+    /// The smallest rectangle that holds every shape the drawing draws, with each Param at the value given by name.
+    #[pyo3(signature = (**given))]
+    fn bounds(&self, py: Python<'_>, given: Option<&Bound<'_, PyDict>>) -> PyResult<PyRect> {
+        let values = values(given)?;
+        raised(py.detach(|| self.0.bounds(&values))).map(PyRect::from)
     }
 
     /// The drawing as an SVG document of `width` by `height` pixels, with each Param at the value given by name.

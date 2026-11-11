@@ -664,7 +664,5 @@ Also:
 - Gate lints for hidden tunables and swallowed errors: ruff `PLR2004` and clippy's `let_underscore_must_use`,
   `map_err_ignore`, `allow_attributes`, tried on a short branch with the hits counted, keeping those that are quiet or
   find real problems; `// constant:` stays a reviewed rule (no tool tells a tunable from a harmless literal).
-- `Drawing.bounds` (the union of its shapes' `path.bounds`): when scene's layout, or a second caller laying out words or parts, needs it;
-  until then callers union `shape.path.bounds`.
 - Wrapping tests for right-to-left text, ligatures across a break and combining marks, and right-to-left text inside a
   shape: when a test font for them exists or a piece needs them.

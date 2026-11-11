@@ -401,6 +401,7 @@ naming `clip` or `mask` and the shape: three flat buffers have no clip or mask r
 | `with_values` | `with_values(**values)` | the same drawing with these Params fixed; they leave `parameters()` | as outputs (below) |
 | `parameters` | `parameters()` | every `Param` the drawing reads, in the order first used (the walk of [formats.md](formats.md), "Params") | two Params with one name that differ in a field (Params equal in all six fields are one) |
 | `shapes` | `shapes(**values)` | the evaluated shapes, in design pixels | as outputs |
+| `bounds` | `bounds(**values)` | the smallest `Rect` round every shape drawn (the union of their path bounds; strokes and effects add nothing) | as outputs; `GeometryError`: no shape drawn |
 | `size` | property | the design frame, or `None` | |
 
 ## Shape
