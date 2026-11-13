@@ -26,6 +26,7 @@ with a gallery piece"). The primitive comes from its batch; the effect adds the 
 | Tapered strokes | a stroke whose width varies along its length, thinning at free ends | V11 |
 | Riso inks | inks multiplied over paper, each misregistered by its own offset | V8, V10 |
 | Voronoi and Delaunay, truchet, superformula | generators | V2 |
+| Lit and chrome type | letters or shapes with a lit bevel, emboss or metal: vector gives the distance field as a grayscale map, image's `relight` or `liquid_metal` lights it, scene joins them (an effect on a drawing layer). Not a vector effect itself | V15 (fields), image, scene C5 |
 | Series input | bars and waveform paths from a list of numbers | V2 |
 
 Duotone, gradient maps, posterize, halftone dots, glitch slices and misregistration (the offsets of riso inks) are the

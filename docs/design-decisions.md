@@ -1026,3 +1026,16 @@ The template's decisions (the gate tiers, the pass record, the memory cap, the t
 Undecided questions and what they wait for are in [design.md, "Open decisions"](design.md#open-decisions), among them
 stable placement over changing values (D7), which the prototypes raised. A question moves here, with its reason, once
 it is decided.
+
+## Wow gaps (2026-11-13)
+
+A review of the docs against the code found two missing capabilities. The code has no deformer, morph, trace, dash modifier or
+streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the reference pieces for them.
+
+- **Transforming type (V12 and V13) is the headline.** Letters that bend, ripple, twist and turn into other shapes or words are what
+  makes kinetic type look finished, and the first public demo needs them. *Reason:* the live page and M3 have nothing
+  striking to show without them. So the order is V11 (resample), V12, V13, M3, then V15 before V14.
+- **Depth and light stay out of vector.** Lit, chrome and glass type exists in image (`relight`, `liquid_metal`, planned `glass`)
+  and is joined by scene (C5, an effect on a drawing layer). *Reason:* vector never links a raster library. Vector's part is the
+  distance field of a shape as a grayscale map (V15). Whether `relight` can take a given map as its field is an open question for
+  image, not settled here.

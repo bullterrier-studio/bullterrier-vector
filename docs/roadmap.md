@@ -71,6 +71,10 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
+Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
+unbuilt batches. Next: V11, V12, V13, then the kinetic type piece (M3) as the first public demo; V15's distance fields
+(see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
+
 Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10 is done; V10d, V10e and V10f follow it, then V11.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
@@ -566,7 +570,8 @@ lettering) need a call per letter placed by hand.
 
 ## V11 Path modifiers
 
-Dash with a moving phase, place shapes along a path, simplify, resample to even spacing. `along` (V6) bends shapes along a
+Dash with a moving phase, place shapes along a path, simplify, resample to even spacing. Resample comes first inside this
+batch because V12 deforms resampled paths. V11 then V12 then V13 is the order of the transforming-type capability. `along` (V6) bends shapes along a
 path; placing shapes on it without bending them (copies at even spacing, each turned to the path's direction) is not built
 and stays here. Draw-on (partial path by length from a canonical start point and direction) was built in V7 as
 `Drawing.slice`; `reverse`, a draw-on the other way round, stays here.
@@ -579,9 +584,17 @@ Wobble (seeded noise displacement, moving by `phase`), wave, twist, bulge. Paths
 smooth at any size.
 Arch and envelope warps for type (a line of text bent on an arch, or fitted into an envelope shape) join them.
 
+Done when: `docs/examples/wobble_outline.py` and the deformer half of `docs/examples/kinetic_type.*` run as shipped
+examples, with a letter line that bends, ripples and twists on `phase` and `progress`.
+
 ## V13 Morph
 
-Any shape to any shape, matching points when the counts differ.
+Any shape to any shape, matching points when the counts differ. Spike first (as X1 and X2 did): a letter into a
+circle, a word into another word of a different length, a letter with counters (holes) into one without. Measure what
+pairing of points looks right; the rest of the batch follows the finding.
+
+Done when: a letter turns into a shape and back, and one word into another, by a single `progress` value, in a gallery
+piece. With V12 this is the transforming-type capability and the headline of the first demo (M3).
 
 ## V14 Trace
 
@@ -606,6 +619,10 @@ With V9 this is the cut-paper piece.
 - Hatching clipped to shapes; contour lines of a field or a map.
 - Plotter output: stroke only, ordered to reduce pen travel (nearest neighbour, ends flipped), simplified, solids as
   pen-width hatching, one layer per pen.
+
+Distance fields have a second job: a signed, normalised distance field of letters or shapes is the relief that
+image's `relight`, and later `glass`, light. Written out as a grayscale map (bytes; the call is not designed yet, and `Field.map` only reads maps in), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link
+between image and vector. Done when a chrome-type example exists in scene's roadmap (C5), using this map.
 
 Placement that stays stable as values change (design.md, D7) is needed before hatching is animated; the poster is a
 still.
