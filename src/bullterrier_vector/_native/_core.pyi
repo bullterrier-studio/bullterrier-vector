@@ -27,6 +27,7 @@ __all__ = [
     "linear_gradient",
     "radial_gradient",
     "random",
+    "run",
     "stagger",
     "text",
 ]
