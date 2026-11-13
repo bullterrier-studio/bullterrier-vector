@@ -101,8 +101,8 @@ impl Cells {
 
     /// The region the rasteriser works in to draw this window exactly: the window grown by `margin` pixels on every
     /// side, its top left moved up and left to a multiple of `align` (which a blur's decimation grid needs to be
-    /// the same as in the whole picture), and kept inside the `canvas`, past which nothing is drawn in the whole
-    /// picture either. Of the same size as the window when `margin` is 0.
+    /// the same as in the whole picture), and kept inside the `canvas`, past which no pixel is wanted. Of the same
+    /// size as the window when `margin` is 0.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `window` if the region is past the limits of a pixel output.

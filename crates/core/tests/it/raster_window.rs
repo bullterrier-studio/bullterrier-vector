@@ -83,6 +83,33 @@ fn shadows() -> Result<Vec<Row>, Error> {
             ]),
         ),
         (
+            "shadow of a shape that runs off the canvas",
+            0,
+            Drawing::new([
+                paper()?,
+                solid(rect(100.0, 60.0, 400.0, 400.0)?, "#3070c0")?
+                    .shadow(Shadow::new().dx(0.0).dy(0.0).blur(40.0).color(color("#000000")?)),
+            ]),
+        ),
+        (
+            "shadow offset far past its blur",
+            0,
+            Drawing::new([
+                paper()?,
+                solid(rect(20.0, 20.0, 30.0, 20.0)?, "#3070c0")?
+                    .shadow(Shadow::new().dx(90.0).dy(70.0).blur(6.0).color(color("#000000")?)),
+            ]),
+        ),
+        (
+            "shadow offset far up and left past its blur",
+            0,
+            Drawing::new([
+                paper()?,
+                solid(rect(140.0, 100.0, 30.0, 20.0)?, "#3070c0")?
+                    .shadow(Shadow::new().dx(-90.0).dy(-70.0).blur(6.0).color(color("#000000")?)),
+            ]),
+        ),
+        (
             "shadow without a blur",
             0,
             Drawing::new([
