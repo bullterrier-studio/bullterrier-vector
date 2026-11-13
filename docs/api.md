@@ -53,7 +53,7 @@ computes at once and returns a new `Path`; nothing changes the old one. This is 
 cut, combine and offset geometry the way Paper.js does, with callbacks where they help.
 
 **`Shape`** is what a drawing is made of: one `Path` with a style (fill, stroke, opacity, blend mode, shadow, knockout)
-and attributes (its index, and what its generator wrote: glyph, char, word, line, copy, level, part, order 0..1, the
+and attributes (its index, and what its generator wrote: glyph, char, word, line, run, copy, level, part, order 0..1, the
 origin it turns about; from `Drawing.from_svg`, the text `id`, `class` and `group`). A shape is read, never built by hand: `drawing.shapes()` evaluates a drawing into a list of
 them. A list of shapes is a plain list; there is no collection type.
 
@@ -461,7 +461,7 @@ drawing with their style and attributes.
 |---|---|---|
 | `shape.path` | `Path` | its outline |
 | `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, a `Gradient`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`), `clip` (a `Path` or `None`) and `mask` (the mask's shapes, a list of `Shape`, or `None`) |
-| `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`); from `Drawing.from_svg`: `id`, `class`, `group` (`str`) |
+| `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `run` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`); from `Drawing.from_svg`: `id`, `class`, `group` (`str`) |
 
 ## Generators
 
@@ -469,15 +469,15 @@ Functions of the module that return a `Drawing`.
 
 ### text
 
-`text(content, *, font, size=100, axes={}, features={}, tracking=0, leading=None, align="left", anchor=(0, 0),
+`text(content, *, font=None, size=100, axes={}, features={}, tracking=0, leading=None, align="left", anchor=(0, 0),
 width=None, fit=None, inside=None)`: one shape per drawn glyph (a space or a line break gives none), shaped with
 kerning, ligatures and complex scripts, each outline the font's own contours (they may overlap and fill nonzero;
 `resolve` removes the overlaps, at the cost of a step at every draw).
 
 | Argument | Meaning |
 |---|---|
-| `content` | the text; `"\n"` breaks a line |
-| `font` | a `Font` |
+| `content` | the text; `"\n"` breaks a line; or a list of `run`s (below) |
+| `font` | a `Font`; none with runs, which bring their own |
 | `size` | pixels to the em |
 | `axes` | variable axis values by tag (`{"wght": weight}`): a number, a `Param` or an expression in the font's own units, each in the font's range; a per-item number gives each character its own, and advances follow (below) |
 | `features` | OpenType features by tag (`{"ss01": 1, "liga": 0}`): literal whole numbers from 0 to 4,294,967,295, not expressions; at most 64 axes and 64 features (`MAX_SETTINGS`) |
@@ -496,7 +496,28 @@ value is a Python `int`, `inside` is a `Path`) and in Rust as
 Each line is shaped as one run in the script and direction of its first strong character (no
 reordering inside a line), or as several where the axis values change between characters; `glyph` counts the shapes
 made, `word` the runs of characters between breaks over the whole text (a no-break space is part of a word, as in a
-wrap), `line` the lines, and `origin` is the middle of the advance at half the cap height above the baseline.
+wrap), `line` the lines, `run` the run (0 for a plain text), and `origin` is the middle of the advance at half the cap
+height above the baseline.
+
+**Runs.** `run(content, *, font, size=None, axes={}, features={}, tracking=None)` (Rust `Run::new(content,
+&font).size(..).axes(..).features(..).tracking(..)`) is a stretch of a text with a font of its own; `text([run(..),
+run(..)], width=900)` (Rust `text([Run::new(..), ..], Text::default().width(900.0))`) sets them as one text. A run takes
+the `size` and `tracking` of the text unless it gives its own; `font`, `axes` and `features` are the run's, so the text
+gives none of them. A plain `text("x", font=f)` is the text of one run. `examples/ransom_note.py` sets a headline letter
+by letter in three typefaces. What follows is the same for runs as for a plain text, except where it says so:
+- Each run is shaped apart: kerning, ligatures and joins do not reach across the boundary between two runs (as across a
+  change of axis value). A word that spans runs is one word: wrapping breaks at the whitespace of the joined text and
+  never inside it, and `word` counts it once.
+- A line takes the leading of its largest run, 1.2 times that size, unless `leading` is given; with runs of one size the
+  lines stand `n × leading` below the first, else each stands its own leading below the one before. `inside` plans its
+  lines with the largest size and the tallest capital of any run.
+- `fit="size"` is one factor for every run on a line (the proportions of the runs stay). `fit` on an axis sets each run
+  whose font has the axis, at the same fraction of that font's range, and leaves the others as they are; `ParameterError`
+  if no run's font has it, or if a run gives the axis in its own `axes`. The error for a width the axes cannot reach
+  names the axis value of the first run that has it.
+- `glyph`, `word` and `line` count through all the runs; `run` is the index of the glyph's run. A `Param` list for a
+  run's `axes` has one entry per character of that run, counted from its first; an error from a run names it (`run 1:`).
+- At least one and at most `MAX_RUNS` (1,000) runs; the characters of all runs together at most `MAX_GLYPHS`.
 
 **Wrap.** With `width`, a part breaks greedily at whitespace (`char::is_whitespace`, except U+00A0, U+2007 and U+202F, which are part of a word):
 a line takes words while it stays within `width`. The whitespace run at a break is dropped, and so is the whitespace a line ends
@@ -538,8 +559,9 @@ Errors (`ParameterError`): an axis or feature the font lacks (the message lists 
 font's range, a `width` not above 0, `fit` without `width`, `fit` that is neither `"size"` nor an axis of the font, `fit`
 on an axis also given in `axes`, a line `fit` cannot make `width` wide (the message names the line and the nearest width
 the axis reaches, and the axis value there; for `"size"`, a line of no width), `inside` with `width`, `fit` or `anchor`,
-`leading` not above 0 with `inside`, an `inside` shape with no outline, text that does not fit the shape, and more than
-`MAX_GLYPHS` baselines tried.
+`leading` not above 0 with `inside`, an `inside` shape with no outline, text that does not fit the shape, more than
+`MAX_GLYPHS` baselines tried; and, for runs, none or more than `MAX_RUNS`, a `font`, `axes` or `features` on the text as
+well, or a plain text without a `font`. In Python `content` that is neither a `str` nor a list of `Run` is a `TypeError`.
 
 ### trace
 

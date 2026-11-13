@@ -1010,6 +1010,41 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   canvas changed no pixel in the tests (a shape running off the canvas included); it keeps a whole render, which is the
   window that is the canvas, within the limits of `to_rgba` whatever its blur asks beyond the canvas.
 
+## Text runs (V10f)
+
+- **One `text`, runs inside it** (2026-11-13). A text of runs is `text` whose `content` is a list of `Run`s; a plain text is
+  the text of one run, so there is one layout path and no second system. The "runs per location" of `type/layout.rs`
+  (stretches of one font at one axis location, shaped alone) were extended, not repeated: a location is now a run and its
+  axis values, so a run boundary is a shaping boundary exactly as a change of axis value is, and every per-location fact
+  (size, tracking, features, cap height) is read from the location's run. *Reason:* wrapping, fitting, alignment, `inside`
+  and `along` already work on locations; they work on runs by the same code.
+- **What a run takes from the text.** `size` and `tracking` are the text's unless the run gives its own; `font`, `axes` and
+  `features` are the run's, because an axis tag or a feature means something only in a font. A text of runs that also gives
+  `font`, `axes` or `features` is refused, rather than guessing which font a run without one would take. *Rejected:* a text
+  `font` as the default of runs (two ways to write one font, and `Text::new(&font)` with runs then means two things).
+- **A run is a record read like a call's arguments.** `Kind::Runs` is an array of objects, each read, written, validated,
+  keyed and put into the schema by the code that reads a call's arguments, from the one table `RUN` (`node/text.rs`: content,
+  font, size, axes, features, tracking). The table is a `Verb` that is never registered, so a run is no call and `verbs()`
+  does not list it. *Reason:* a second set of readers and writers for the same six arguments was the alternative; this way a
+  run's `axes` is the per-character argument `text` has, its `size` the read-once number, with the same domains and errors,
+  and the generated schema and the draft agree on it (`tests/test_drawing_schema.py`). Several fonts need no new input rule:
+  every font a run names is an input with its `sha256`, and equal bytes are one input.
+- **Boundaries and words.** No kerning, ligature or join reaches across a run boundary (a run of `A` then a run of `V` are
+  not kerned). Wrapping breaks at the whitespace of the joined text, so a word that spans runs is never broken inside and is
+  one `word`. *Rejected:* shaping across the boundary when the fonts are the same, which would make the result depend on
+  whether two runs happen to hold one font.
+- **Sizes and lines.** A line's leading is 1.2 times its largest run's size (given `leading` wins), each line standing its own
+  leading below the one before when they differ, as fitted lines already did. `fit="size"` is one factor for all runs on a
+  line, fixed at the reference pose like every fit, and the line is then drawn at those sizes whatever a size `Param` is at.
+  `fit` on an axis sets the same fraction of each font's range in every run whose font has the axis (a run whose font lacks it keeps
+  its look); the search is over that fraction, not an axis value, because the fonts' ranges differ. `inside` plans with the
+  largest size and the tallest capital of any run, since its baselines are placed before the lines exist: a run much smaller
+  than the largest sits on baselines spaced for the largest (a known limit).
+- **Limits.** `MAX_RUNS` is 1,000: every run builds its font at its own locations, which is the cost a text of many runs
+  pays; the characters of all runs share `MAX_GLYPHS`.
+- **The `run` attribute** (the run's index, from 0; a plain text is run 0) is selectable like `line` (`only(run=2)`,
+  `merge(by="run")`); `glyph`, `word` and `line` count through all runs.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

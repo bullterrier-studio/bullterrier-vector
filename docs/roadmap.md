@@ -56,7 +56,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V10 | SVG fidelity: drop shadows and knockouts as style attributes, the same in SVG and pixels; a fast halftone fill | M | |
 | V10d | Paint and compositing style: gradient fills and strokes, the full separable blend set, clip groups and soft masks | M | Done 2026-11-09 |
 | V10e | Render a window: draw any rectangle of a drawing at the final scale | S | Done 2026-11-13 |
-| V10f | Text runs: one line of text from runs that each have their own font, size and axes | M | |
+| V10f | Text runs: one line of text from runs that each have their own font, size and axes | M | Done 2026-11-13 |
 | V11 | Path modifiers: dash march, place shapes along a path, simplify, resample; a width profile along a stroke (tapered strokes) | M | |
 | V12 | Deformers: wobble, wave, twist, bulge; arch and envelope warps for type | M | **M3 kinetic type piece** |
 | V13 | Morph, any shape to any shape | M | |
@@ -72,10 +72,10 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window) is done; next: V10f, then V11, V12, V13, then the kinetic type piece (M3) as the first public demo; V15's distance fields
+unbuilt batches. V10e (render a window) and V10f (text runs) are done; next: V11, then V12, V13, then the kinetic type piece (M3) as the first public demo; V15's distance fields
 (see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d and V10e are done; V10f follows, then V11.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e and V10f are done; V11 follows.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -569,6 +569,9 @@ One line of text built from runs, each with its own font, size and axes, shaped 
 fitting, alignment, `inside` and `along` work on the whole. Today `text` takes one font per call, and only the axis
 values and the fitted size vary from character to character, so letters of different typefaces in a word (ransom-note
 lettering) need a call per letter placed by hand.
+
+State: done 2026-11-13, in Rust, Python and WebAssembly (`design-decisions.md`, "Text runs (V10f)"): `run(content, *, font,
+size, axes, features, tracking)` and `text([run, ..], ...)`, the `run` attribute, `examples/ransom_note.py`.
 
 ## V11 Path modifiers
 

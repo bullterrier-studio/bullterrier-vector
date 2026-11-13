@@ -107,8 +107,16 @@ number of a field or a flow.
 | `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `part`, `copy`, `level`, `order`, `origin` a point, and the text `id`, `class`, `group` of an SVG import); its style follows as steps, a `fill` step always |
 | `drawing` | a shared drawing | the value is its name: `{"drawing": "letters"}` |
 | `stack` | `Drawing(*items, size=None)` | `items` (drawings, bottom first; none is a blank frame of `size`), `size` (`[width, height]`, literal numbers above 0) |
-| `text` | `text(content, *, font, ...)` | `content` (a string), `font` (input), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width` (above 0), `fit` (a tag or `"size"`; needs `width`), `inside` (path data; not with `width`, `fit` or `anchor`) |
+| `text` | `text(content, *, font, ...)` | `content` (a string) and `font` (input), or `runs` instead (below; with `runs` the text gives no `content`, `font`, `axes` or `features`), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width` (above 0), `fit` (a tag or `"size"`; needs `width`), `inside` (path data; not with `width`, `fit` or `anchor`) |
 | `trace` | `trace(field, *, ...)` | `field` (field), `levels` (numbers), `tolerance`, `before`, `after` (fields), `sigma` |
+
+`text`'s `runs` is an array of one to `MAX_RUNS` objects, each a stretch of the text with a font of its own:
+`{"content": "N", "font": "serif", "size": 120, "axes": {"wght": 800}, "features": {"liga": 0}, "tracking": 20}`. `content`
+and `font` (an input) are required; `size` and `tracking` default to the text's; `axes` (tag to number, `Param` or
+expression, per character of the run) and `features` are as in the text. The text's `width`, `fit`, `align`, `leading`,
+`anchor` and `inside` apply to the whole. Every font a run names is an input with its `sha256`, each once (inputs of equal
+bytes are one input). An unknown key of a run, a run without `content` or `font`, no runs and more than `MAX_RUNS` are
+refused, the first two at the run's pointer (`/root/0/text/runs/1/colour`).
 
 A tag is four printable ASCII characters (`"wght"`). A shape's style is written as the style steps that set it, in the
 order `fill` (or `halftone`, for a screen), `stroke`, `opacity`, `blend`, `shadow`, `knockout`, `clip`, `mask`, each with the shape's
@@ -487,7 +495,8 @@ counter, its limit and the step:
 | `MAX_FIELD_SAMPLES` | 16,777,216 | samples of a field or flow (tracing an analytic field, a distance field, hatching) |
 | `MAX_COPIES` | 1,000,000 | copies made by `repeat` |
 | `MAX_GLYPHS` | 100,000 | glyphs shaped by `text` |
-| `MAX_SETTINGS` | 64 | axes, and features, one `text` call gives |
+| `MAX_SETTINGS` | 64 | axes, and features, one `text` call, or one run of one, gives |
+| `MAX_RUNS` | 1,000 | runs one `text` call is made of |
 | `MAX_SVG_ELEMENTS` | 20,000 | elements `Drawing.from_svg` reads, the root included (a drawing read from SVG then fits `MAX_CALLS` when saved) |
 | `MAX_SVG_NODES` | 80,000 | nodes (elements, and the text and comments between them) the XML parser builds for `Drawing.from_svg`, four for each element allowed; a document past it is refused before its tree is allocated |
 | `MAX_SVG_DEPTH` | 128 | levels of elements `Drawing.from_svg` reads, the root being 1 |
@@ -518,8 +527,8 @@ registered, with a test named after it; every later call brings its own checks a
 | `drawing-used` | an entry of `drawings` is used nowhere |
 | `path-data` | path data does not parse; the error names the first bad command |
 | `with-values` | a key names a Param the drawing before it does not read, or one an earlier `with_values` fixed; a value outside its Param's range (a cyclic one wraps) |
-| `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `trace` levels not increasing, `trace` neighbours (`before`, `after`) whose literal `width`, `height` or `box` differ from the field's, `random` with `low` above `high` or a `seed` that is not a whole number, `stagger` with a `spread` outside 0..1 or equal to 1, `merge` with a `by` that is no attribute name, `text` `fit` without `width` or on an axis also in `axes`, `text` `inside` with `width`, `fit` or `anchor` or with a constant `leading` not above 0, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
-| `font-checks` | with the font supplied: an axis or feature the font lacks, the axis a `fit` names if the font lacks it (`fit` `"size"` is not an axis), an axis value outside its range (`ParameterError`: the caller supplied the wrong font) |
+| `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `trace` levels not increasing, `trace` neighbours (`before`, `after`) whose literal `width`, `height` or `box` differ from the field's, `random` with `low` above `high` or a `seed` that is not a whole number, `stagger` with a `spread` outside 0..1 or equal to 1, `merge` with a `by` that is no attribute name, `text` `fit` without `width`, on an axis also in a face's `axes` or that no face's font has, `text` with both `content` and `runs` or neither (a text of runs gives no `font`, `axes` or `features` itself), `text` `inside` with `width`, `fit` or `anchor` or with a constant `leading` not above 0, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
+| `font-checks` | with the font supplied (each run's own font for the axes and features of the run): an axis or feature the font lacks, the axis a `fit` names if the font lacks it (`fit` `"size"` is not an axis), an axis value outside its range (`ParameterError`: the caller supplied the wrong font) |
 | `inputs-supplied` | an input the document declares that `inputs` does not give, a name in `inputs` the document does not declare, two names with equal bytes, bytes that do not match `sha256`, a font the library cannot read, a map whose bytes are not `width × height` (a checked multiply: an overflow is a mismatch; `ParameterError`) |
 
 As built (V2c). `json-text` and `limits` run while the text is read: the parser stops at `MAX_DEPTH` levels of text, so a
