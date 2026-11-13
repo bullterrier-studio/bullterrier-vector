@@ -220,7 +220,7 @@
     "miter_limit": {
       "anyOf": [{ "type": "number", "minimum": 1 }, { "$ref": "#/$defs/expression" }]
     },
-    "attribute": { "enum": ["index", "glyph", "char", "word", "line", "part", "copy", "level", "order", "id", "class", "group"] },
+    "attribute": { "enum": ["index", "glyph", "char", "word", "line", "run", "part", "copy", "level", "order", "id", "class", "group"] },
     "attribute_values": {
       "type": "object",
       "additionalProperties": false,
@@ -229,6 +229,7 @@
         "glyph": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
         "word": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
         "line": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
+        "run": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
         "part": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
         "copy": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
         "char": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 1 }, { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 1 } }] },
@@ -348,6 +349,7 @@
                 "glyph": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
                 "word": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
                 "line": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+                "run": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
                 "part": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
                 "copy": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
                 "char": { "type": "string", "minLength": 1, "maxLength": 1 },

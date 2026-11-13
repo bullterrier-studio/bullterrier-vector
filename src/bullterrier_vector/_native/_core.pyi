@@ -17,6 +17,7 @@ __all__ = [
     "Path",
     "Point",
     "Rect",
+    "Run",
     "Shadow",
     "Shape",
     "Style",

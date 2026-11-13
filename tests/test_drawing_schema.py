@@ -664,6 +664,13 @@ AGREED = [
         True,
         id="a text of runs in two fonts, wrapped",
     ),
+    pytest.param(
+        {"version": 1, "root": [{"shape": {"path": SQUARE, "attributes": {"glyph": 0, "run": 1}}}]},
+        True,
+        id="a shape with the run attribute",
+    ),
+    pytest.param(square_with({"only": {"run": [0, 2]}}), True, id="a selection by run"),
+    pytest.param(square_with({"only": {"runs": 1}}), False, id="a selection by an attribute that is not one"),
     pytest.param(text_runs([]), False, id="a text of no runs"),
     pytest.param(text_runs([{"content": "H"}]), False, id="a run without a font"),
     pytest.param(text_runs([{"content": "H", "font": "a", "colour": 1}]), False, id="a run with an unknown key"),
