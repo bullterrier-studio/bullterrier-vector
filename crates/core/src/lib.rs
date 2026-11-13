@@ -30,7 +30,7 @@ pub use expr::{Expr, Random, Stagger, by_index, by_order};
 pub use geometry::{Point, Rect, Scale};
 pub use json::{Inputs, drawing_schema};
 pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
-pub use output::{Mesh, Size};
+pub use output::{Mesh, Size, Window};
 pub use param::{Param, Unit};
 pub use path::Path;
 pub use registry::verbs;

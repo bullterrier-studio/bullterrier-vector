@@ -6,6 +6,7 @@ use super::outline::{bez_path, dots, stroke_outline, within_device};
 use super::ramp::Ramp;
 use super::screen::{Screen, charged, screen};
 use super::view::View;
+use super::window::{Cells, Window};
 use super::{Size, in_shape};
 use crate::limits::Work;
 use crate::path::{FLATNESS, Polyline};
@@ -21,6 +22,11 @@ use vello_cpu::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::peniko::color::DynamicColor;
 use vello_cpu::peniko::{BlendMode, ColorStop, Compose, Fill, Gradient, ImageAlphaType, InterpolationAlphaSpace, Mix};
 use vello_cpu::{Level, Mask, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources};
+
+/// The widest half of the rasteriser's blur kernel, in pixels of its coarsest grid.
+const KERNEL_RADIUS: f64 = 6.0; // constant: `MAX_KERNEL_SIZE` 13 of `vello_common`, half of it
+/// How far the filter of one halving of the picture reads, in pixels of the grid it halves.
+const HALVING_FILTER: f64 = 2.0; // constant: its [1, 3, 3, 1] taps reach two pixels
 
 /// The largest deviation of a shadow's blur, in output pixels.
 // constant: measured on this machine in release builds, one layer at a deviation of 1000 takes 0.3 s and one of 3000
@@ -45,18 +51,86 @@ impl Drawing {
     /// beyond 10 million device pixels at this size; otherwise as [`Drawing::to_svg`].
     pub fn to_rgba(&self, size: Size, values: &Values) -> Result<Vec<u8>, Error> {
         let (width, height) = size.checked_pixels()?;
+        self.to_rgba_window(size, Window::px(0.0, 0.0, f64::from(width), f64::from(height)), values)
+    }
+
+    /// The pixels of `window`, a rectangle of the output `size`, as [`Drawing::to_rgba`] returns them: the rows and
+    /// columns of the whole picture that the window covers, so that a large picture can be drawn in bands without ever
+    /// holding it. `size` is the whole output, from which the design frame is placed; the result is
+    /// `window.width * window.height * 4` bytes.
+    ///
+    /// The sides of `size` may be up to 100,000, the limit of a design frame; the window holds the limits of
+    /// `to_rgba` (65,000 a side, 2^27 pixels). A blurred shadow is drawn from a region a little larger than the
+    /// window, which holds those limits too.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 100,000,
+    /// or `window` if it is not whole pixels inside `size`, has a side past 65,000 or more than 2^27 pixels, or needs
+    /// a region past those limits for the reach of its shadows; otherwise as [`Drawing::to_rgba`].
+    pub fn to_rgba_window(&self, size: Size, window: Window, values: &Values) -> Result<Vec<u8>, Error> {
+        let canvas = size.checked()?;
+        let window = window.checked(canvas)?;
         let shapes = self.shapes(values)?;
-        let view = View::fit(self.size(), (f64::from(width), f64::from(height)));
-        rgba(&shapes, &view, width, height)
+        let view = View::fit(self.size(), canvas);
+        rgba(&shapes, &view, canvas, window)
     }
 }
 
-/// The picture of `shapes` seen through `view`, `width` by `height` pixels.
-fn rgba(shapes: &[Shape], view: &View, width: u16, height: u16) -> Result<Vec<u8>, Error> {
-    let pixmap = picture(shapes, view, (width, height), &Work::new())?;
-    let mut bytes = pixmap.take_rgba8(ImageAlphaType::AlphaPremultiplied);
+/// The picture of `shapes` seen through `view` in an output of `canvas` pixels, cut to `window`.
+fn rgba(shapes: &[Shape], view: &View, canvas: (f64, f64), window: Cells) -> Result<Vec<u8>, Error> {
+    let (margin, align) = blur_reach(shapes, view);
+    let region = window.region(margin, align, Cells::canvas(canvas))?;
+    let view = view.shifted(f64::from(region.x), f64::from(region.y));
+    // the region is within the limits of a pixel output, so its sides are at most 65,000
+    #[expect(clippy::cast_possible_truncation, reason = "at most 65,000")]
+    let pixmap = picture(shapes, &view, (region.width as u16, region.height as u16), &Work::new())?;
+    let mut bytes = window.cut(region, &pixmap.take_rgba8(ImageAlphaType::AlphaPremultiplied));
     unpremultiply(&mut bytes);
     Ok(bytes)
+}
+
+/// How far a window's pixels depend on pixels around it, in output pixels, and the grid the blurs' decimation needs
+/// the region's top left to lie on: what the blurred shadows of `shapes` (and of the shapes of their masks) ask for.
+/// Every other effect is placed by its coordinates alone and asks for nothing.
+fn blur_reach(shapes: &[Shape], view: &View) -> (u32, u32) {
+    let (mut margin, mut align) = (0.0_f64, 1_u32);
+    let masks = shapes
+        .iter()
+        .filter_map(|shape| shape.style().shared_mask())
+        .flat_map(|mask| mask.iter());
+    for shape in shapes.iter().chain(masks) {
+        // a shadow that `paint` refuses is refused there, in the order of the draw
+        let Some((style, rgba)) = cast(shape.style()) else {
+            continue;
+        };
+        let Ok(shadow) = Shadow::new(style, rgba, view) else {
+            continue;
+        };
+        if shadow.sigma > 0.0 {
+            margin = margin.max(shadow.dependence());
+            align = align.max(1 << decimations(shadow.sigma));
+        }
+    }
+    // a margin past 2^32 pixels is past any canvas, and the region is cut to the canvas
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a whole number, saturating"
+    )]
+    (margin.ceil() as u32, align)
+}
+
+/// How many times the rasteriser halves the picture to blur with a deviation of `sigma` pixels: it removes a variance
+/// of 1.5 a level and leaves one of at most 4 for a direct convolution (`vello_common`'s `plan_decimated_blur`).
+fn decimations(sigma: f64) -> u32 {
+    #[expect(clippy::cast_possible_truncation, reason = "the rasteriser computes in f32")]
+    let mut variance = (sigma * sigma) as f32;
+    let mut levels = 0;
+    while variance > 4.0 {
+        variance = (variance - 1.5) * 0.25;
+        levels += 1;
+    }
+    levels
 }
 
 /// `shapes` painted in order into a new pixmap of `canvas` pixels, premultiplied.
@@ -617,6 +691,14 @@ impl Shadow {
     /// the Gaussian is under 0.2%.
     fn reach(&self) -> f64 {
         self.dx.abs().max(self.dy.abs()) + 3.0 * self.sigma
+    }
+
+    /// How far the pixels of a window must reach around it for this blurred shadow to come out as in the whole
+    /// picture: the offset, and what the blur reads: a kernel of at most 6 pixels and a filter of 2 at each of its
+    /// halvings, either way twice, on the grid of the coarsest of them.
+    fn dependence(&self) -> f64 {
+        let grid = f64::from(1_u32 << decimations(self.sigma));
+        self.dx.abs().max(self.dy.abs()) + (KERNEL_RADIUS + 2.0 * HALVING_FILTER) * grid
     }
 
     /// The filter that keeps the alpha of what is drawn into its layer, moves and blurs it and gives it the colour.

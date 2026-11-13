@@ -42,6 +42,15 @@ impl View {
         }
     }
 
+    /// The same view of a picture whose top left is `x` columns and `y` rows into this one's output.
+    pub(crate) fn shifted(self, x: f64, y: f64) -> Self {
+        Self {
+            x: self.x - x,
+            y: self.y - y,
+            ..self
+        }
+    }
+
     /// A length in design pixels, in output pixels.
     ///
     /// # Errors

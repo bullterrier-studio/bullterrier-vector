@@ -9,10 +9,12 @@ mod raster;
 mod screen;
 mod svg;
 mod view;
+mod window;
 
 use crate::node::stack::MAX_FRAME;
 use crate::{Error, ShadowStyle, Shape, Style};
 pub use mesh::Mesh;
+pub use window::Window;
 
 /// The longest side of a pixel output, in whole pixels.
 // constant: the rasteriser's canvas is addressed by 16 bits and it panics when a row is padded past 65,535, which a

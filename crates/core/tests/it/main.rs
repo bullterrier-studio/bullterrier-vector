@@ -65,6 +65,7 @@ mod raster_boundary;
 mod raster_composite;
 mod raster_fill;
 mod raster_stroke;
+mod raster_window;
 mod registry;
 mod shape;
 mod style_gradient;

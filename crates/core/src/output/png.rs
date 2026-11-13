@@ -1,7 +1,7 @@
 //! `Drawing::to_png`: the pixels of `to_rgba` as a PNG file. The only module that uses the `png` crate; nothing of it
 //! reaches the API.
 
-use super::Size;
+use super::{Size, Window};
 use crate::{Drawing, Error, Values};
 use png::{BitDepth, ColorType, Compression, Encoder, Filter};
 
@@ -31,6 +31,21 @@ impl Drawing {
         let (width, height) = size.checked_pixels()?;
         let pixels = self.to_rgba(size, values)?;
         encode(&pixels, width, height)
+    }
+}
+
+impl Drawing {
+    /// The PNG file of `window`, a rectangle of the output `size`: the pixels of [`Drawing::to_rgba_window`] as
+    /// [`Drawing::to_png`] writes them, so that a window's file decodes to the rows and columns of the whole picture.
+    ///
+    /// # Errors
+    /// As [`Drawing::to_rgba_window`].
+    pub fn to_png_window(&self, size: Size, window: Window, values: &Values) -> Result<Vec<u8>, Error> {
+        let cells = window.checked(size.checked()?)?;
+        let pixels = self.to_rgba_window(size, window, values)?;
+        // checked: whole pixels, at most 65,000 a side
+        #[expect(clippy::cast_possible_truncation, reason = "at most 65,000")]
+        encode(&pixels, cells.width as u16, cells.height as u16)
     }
 }
 
