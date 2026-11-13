@@ -38,11 +38,12 @@ function differences(expected, actual, width) {
   return { count, largest, first };
 }
 
-/** Assert that two RGBA images look the same, naming the count and the first differing pixel if they do not. */
-export function assertLookTheSame(expected, actual, width, label) {
+/** Assert that two RGBA images look the same, naming the count and the first differing pixel if they do not. The count
+ *  allowed is a fraction of `of` channel values: the images' own, or those of the whole picture that they are a window of. */
+export function assertLookTheSame(expected, actual, width, label, of = expected.length) {
   assert.equal(actual.length, expected.length, `${label}: the length of the pixels`);
   const { count, largest, first } = differences(expected, actual, width);
-  const allowed = Math.floor(expected.length * MAX_FRACTION);
+  const allowed = Math.floor(of * MAX_FRACTION);
   assert.ok(
     count <= allowed && largest <= MAX_LEVEL,
     `${label}: ${count} of ${expected.length} channel values differ (${allowed} allowed), by up to ${largest}; ` +

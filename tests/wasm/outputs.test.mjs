@@ -122,6 +122,18 @@ for (const { name, json, inputs, draws } of native.corpus) {
     })();
   });
 
+  test(`${name}: a window looks the native one and the png of it holds its pixels`, () => {
+    each((draw, label) => {
+      const [x, y, width, height] = draw.window;
+      const window = { x, y, width, height };
+      const rgba = drawing.toRgba(draw.width, draw.height, draw.values, window);
+      assertLookTheSame(nativePixels(draw.window_rgba_file), rgba, width, `${label}: window pixels`, draw.width * draw.height * 4);
+      const decoded = decodePng(drawing.toPng(draw.width, draw.height, draw.values, window), label);
+      assert.deepEqual(decoded.header, { width, height, depth: 8, colour: 6, interlace: 0 }, `${label}: window png header`);
+      assert.ok(Buffer.from(decoded.pixels).equals(rgba), `${label}: window png pixels`);
+    })();
+  });
+
   test(`${name}: the png holds the pixels of toRgba`, () => {
     each((draw, label) => {
       const png = drawing.toPng(draw.width, draw.height, draw.values);
@@ -272,3 +284,22 @@ for (const call of ["toRgba", "toPng", "toMesh"]) {
     assert.ok(Drawing.fromJson(star.json)[call](400, 400));
   });
 }
+
+test("a window is the rows and columns of the whole render, and a bad one throws a ParameterError naming window", () => {
+  const drawing = Drawing.fromJson(star.json);
+  const whole = drawing.toRgba(120, 90);
+  const at = { x: 7, y: 5, width: 60, height: 40 };
+  const part = drawing.toRgba(120, 90, undefined, at);
+  assert.equal(part.length, 60 * 40 * 4);
+  // the star is drawn with edges that are the same in a window as in the whole, to the level the rasteriser keeps
+  // (docs/design-decisions.md, "Render a window (V10e)"): the rows are compared as a whole by `assertLookTheSame`
+  const rows = Buffer.concat(
+    Array.from({ length: 40 }, (_, row) => Buffer.from(whole.subarray(((5 + row) * 120 + 7) * 4, ((5 + row) * 120 + 67) * 4))),
+  );
+  assertLookTheSame(rows, part, 60, "window of the star");
+  for (const bad of [{ x: 100, y: 0, width: 30, height: 10 }, { x: -1, y: 0, width: 5, height: 5 }, { x: 0.5, y: 0, width: 5, height: 5 }]) {
+    assert.throws(() => drawing.toRgba(120, 90, undefined, bad), (error) => error.name === "ParameterError" && /window/.test(error.message));
+  }
+  assert.throws(() => drawing.toRgba(120, 90, undefined, { x: 0, y: 0, width: "5", height: 5 }), TypeError);
+  assert.throws(() => drawing.toRgba(120, 90, undefined, 5), TypeError);
+});

@@ -33,12 +33,25 @@ fn fade() -> Result<Gradient, Error> {
     )
 }
 
+type Row = (&'static str, u8, Drawing);
+
+fn paper() -> Result<Drawing, Error> {
+    solid(rect(0.0, 0.0, 200.0, 150.0)?, "#e8a060")
+}
+
 /// The drawings: (what it exercises, the most a window's pixel may differ from the whole's, drawing), each in a frame of
 /// 200 by 150 design pixels. The tolerances are what 400 random windows over each showed (`docs/design-decisions.md`,
 /// "Render a window (V10e)"): a level or two where the edge of a shape is placed from f32 coordinates a window moves.
-fn corpus() -> Result<Vec<(&'static str, u8, Drawing)>, Error> {
-    let font = fraunces()?;
-    let paper = || solid(rect(0.0, 0.0, 200.0, 150.0)?, "#e8a060");
+fn corpus() -> Result<Vec<Row>, Error> {
+    let rows = [shadows()?, cuts()?, paints()?].concat();
+    Ok(rows
+        .into_iter()
+        .map(|(name, tolerance, drawing)| (name, tolerance, drawing.with_size(200.0, 150.0)))
+        .collect())
+}
+
+/// Fills, strokes and the shadows of shapes.
+fn shadows() -> Result<Vec<Row>, Error> {
     let rows = vec![
         (
             "fill and stroke",
@@ -89,6 +102,13 @@ fn corpus() -> Result<Vec<(&'static str, u8, Drawing)>, Error> {
                     .shadow(Shadow::new().dx(0.0).dy(9.0).blur(18.0).color(color("#000000")?)),
             ]),
         ),
+    ];
+    Ok(rows)
+}
+
+/// Masks and clips.
+fn cuts() -> Result<Vec<Row>, Error> {
+    let rows = vec![
         (
             "mask",
             1,
@@ -119,6 +139,14 @@ fn corpus() -> Result<Vec<(&'static str, u8, Drawing)>, Error> {
                     .clip(Path::circle((80.0, 60.0), 45.0)?),
             ]),
         ),
+    ];
+    Ok(rows)
+}
+
+/// Gradients, blends, knockouts, halftones and text.
+fn paints() -> Result<Vec<Row>, Error> {
+    let font = fraunces()?;
+    let rows = vec![
         (
             "gradients",
             1,
@@ -175,10 +203,7 @@ fn corpus() -> Result<Vec<(&'static str, u8, Drawing)>, Error> {
             ]),
         ),
     ];
-    Ok(rows
-        .into_iter()
-        .map(|(name, tolerance, drawing)| (name, tolerance, drawing.with_size(200.0, 150.0)))
-        .collect())
+    Ok(rows)
 }
 
 fn size() -> Size {
@@ -207,9 +232,30 @@ fn cut(bytes: &[u8], (x, y, width, height): (usize, usize, usize, usize)) -> Vec
         .collect()
 }
 
+/// The most two pixels differ by, in levels of `premultiplied`.
+fn levels_apart(a: [u8; 4], b: [u8; 4]) -> u8 {
+    premultiplied(a)
+        .iter()
+        .zip(premultiplied(b))
+        .map(|(x, y)| x.abs_diff(y))
+        .max()
+        .unwrap_or(0)
+}
+
+/// The most any pixel of two same-sized pictures differs by, in levels of `premultiplied`.
+fn worst_level(a: &[u8], b: &[u8]) -> u8 {
+    a.as_chunks::<4>()
+        .0
+        .iter()
+        .zip(b.as_chunks::<4>().0)
+        .map(|(x, y)| levels_apart(*x, *y))
+        .max()
+        .unwrap_or(0)
+}
+
 /// `[red, green, blue, alpha]` as the product of each colour with the alpha, as a faint pixel's colour is only known
 /// to within what its alpha leaves of it (a straight colour moves by several levels for one level of the product).
-fn premultiplied(pixel: &[u8]) -> [u8; 4] {
+fn premultiplied(pixel: [u8; 4]) -> [u8; 4] {
     let alpha = u16::from(pixel[3]);
     #[expect(clippy::cast_possible_truncation, reason = "at most 255")]
     let times = |channel: u8| ((u16::from(channel) * alpha + 127) / 255) as u8;
@@ -235,13 +281,14 @@ fn difference(
     let mut count = 0;
     let mut most = 0;
     let mut first = None;
-    for (index, (a, b)) in got.chunks_exact(4).zip(expected.chunks_exact(4)).enumerate() {
-        let off = premultiplied(a)
-            .iter()
-            .zip(premultiplied(b))
-            .map(|(x, y)| x.abs_diff(y))
-            .max()
-            .unwrap_or(0);
+    for (index, (a, b)) in got
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(expected.as_chunks::<4>().0)
+        .enumerate()
+    {
+        let off = levels_apart(*a, *b);
         if off > tolerance {
             count += 1;
             most = most.max(off);
@@ -276,7 +323,6 @@ fn windows() -> Vec<(usize, usize, usize, usize)> {
         state = state
             .wrapping_mul(6_364_136_223_846_793_005)
             .wrapping_add(1_442_695_040_888_963_407);
-        #[expect(clippy::cast_possible_truncation, reason = "the top bits of a 64-bit state")]
         let high = (state >> 33) as usize;
         high % below
     };
@@ -325,12 +371,12 @@ fn a_grid_of_four_by_three_windows_stitches_into_the_whole_render() -> Outcome {
             }
         }
         let whole = whole(&drawing)?;
-        let first = stitched.chunks_exact(4).zip(whole.chunks_exact(4)).position(|(a, b)| {
-            premultiplied(a)
-                .iter()
-                .zip(premultiplied(b))
-                .any(|(x, y)| x.abs_diff(y) > tolerance)
-        });
+        let first = stitched
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(whole.as_chunks::<4>().0)
+            .position(|(a, b)| levels_apart(*a, *b) > tolerance);
         assert_eq!(
             first, None,
             "{name}: the stitched grid differs from the whole at this pixel"
@@ -407,26 +453,15 @@ fn a_small_window_of_the_largest_canvas_is_the_picture_translated_to_the_origin(
     let small = far_corner(-99_000.0)?.with_size(1000.0, 1000.0);
     let near = small.to_rgba(Size::px(1000.0, 1000.0), &Values::new())?;
     assert!(
-        near.chunks_exact(4).any(|pixel| pixel[3] > 0),
+        near.as_chunks::<4>().0.iter().any(|pixel| pixel[3] > 0),
         "the drawing is not blank"
     );
     let window = Window::px(99_000.0, 99_000.0, 1000.0, 1000.0);
     let far = big.to_rgba_window(Size::px(100_000.0, 100_000.0), window, &Values::new())?;
     assert_eq!(far.len(), near.len());
-    let worst = far
-        .chunks_exact(4)
-        .zip(near.chunks_exact(4))
-        .map(|(a, b)| {
-            premultiplied(a)
-                .iter()
-                .zip(premultiplied(b))
-                .map(|(x, y)| x.abs_diff(y))
-                .max()
-                .unwrap_or(0)
-        })
-        .max();
+    let worst = worst_level(&far, &near);
     assert!(
-        worst <= Some(2),
+        worst <= 2,
         "the window differs from the translated picture by {worst:?} levels"
     );
     Ok(())

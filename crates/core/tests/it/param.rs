@@ -60,6 +60,12 @@ fn a_param_is_refused_naming_the_argument_and_the_value() -> Outcome {
             "name",
             "pen_mm",
         ),
+        (
+            "the window of a pixel output",
+            Param::new("window", 0.0, 0.0, 1.0),
+            "name",
+            "window",
+        ),
         ("min equals max", Param::new("a", 1.0, 1.0, 1.0), "min", "1"),
         ("min above max", Param::new("a", 0.0, 2.0, 1.0), "min", "2"),
         ("default below min", Param::new("a", -0.5, 0.0, 1.0), "default", "-0.5"),

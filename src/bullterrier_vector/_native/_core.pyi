@@ -317,8 +317,24 @@ class Drawing:
     def shapes(self, **given: _Values) -> list[Shape]: ...
     def bounds(self, **given: _Values) -> Rect: ...
     def to_svg(self, width: float, height: float, /, **given: _Values) -> str: ...
-    def to_rgba(self, width: float, height: float, /, **given: _Values) -> bytes: ...
-    def to_png(self, width: float, height: float, /, **given: _Values) -> bytes: ...
+    def to_rgba(
+        self,
+        width: float,
+        height: float,
+        /,
+        *,
+        window: tuple[float, float, float, float] | None = None,
+        **given: _Values,
+    ) -> bytes: ...
+    def to_png(
+        self,
+        width: float,
+        height: float,
+        /,
+        *,
+        window: tuple[float, float, float, float] | None = None,
+        **given: _Values,
+    ) -> bytes: ...
     def to_mesh(self, width: float, height: float, /, *, into: Mesh | None = None, **given: _Values) -> Mesh: ...
 
 @final

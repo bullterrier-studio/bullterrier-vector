@@ -522,32 +522,41 @@ impl PyDrawing {
     }
 
     /// The drawing as straight-alpha RGBA bytes of `width` by `height` pixels, rows from the top, with each Param at the
-    /// value given by name.
-    #[pyo3(signature = (width, height, /, **given))]
+    /// value given by name. With a `window` `(x, y, width, height)` of whole pixels inside the output, only that
+    /// rectangle: its rows and columns of the whole render, where `width` and `height` may be up to 100,000.
+    #[pyo3(signature = (width, height, /, *, window=None, **given))]
     fn to_rgba<'py>(
         &self,
         py: Python<'py>,
         width: f64,
         height: f64,
+        window: Option<(f64, f64, f64, f64)>,
         given: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        let values = values(given)?;
-        let bytes = raised(py.detach(|| self.0.to_rgba(vector::Size::px(width, height), &values)))?;
+        let (size, values) = (vector::Size::px(width, height), values(given)?);
+        let bytes = raised(py.detach(|| match window {
+            Some((x, y, w, h)) => self.0.to_rgba_window(size, vector::Window::px(x, y, w, h), &values),
+            None => self.0.to_rgba(size, &values),
+        }))?;
         Ok(PyBytes::new(py, &bytes))
     }
 
     /// The drawing as a PNG file of `width` by `height` pixels (8-bit RGBA: the pixels of `to_rgba`), with each Param at
-    /// the value given by name.
-    #[pyo3(signature = (width, height, /, **given))]
+    /// the value given by name; of the `window` `(x, y, width, height)` only, when there is one.
+    #[pyo3(signature = (width, height, /, *, window=None, **given))]
     fn to_png<'py>(
         &self,
         py: Python<'py>,
         width: f64,
         height: f64,
+        window: Option<(f64, f64, f64, f64)>,
         given: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        let values = values(given)?;
-        let bytes = raised(py.detach(|| self.0.to_png(vector::Size::px(width, height), &values)))?;
+        let (size, values) = (vector::Size::px(width, height), values(given)?);
+        let bytes = raised(py.detach(|| match window {
+            Some((x, y, w, h)) => self.0.to_png_window(size, vector::Window::px(x, y, w, h), &values),
+            None => self.0.to_png(size, &values),
+        }))?;
         Ok(PyBytes::new(py, &bytes))
     }
 

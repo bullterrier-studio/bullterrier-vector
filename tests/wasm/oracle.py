@@ -778,11 +778,20 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def window_of(width: float, height: float) -> tuple[int, int, int, int]:
+    """A window inside a `width` by `height` output that no tile or blur grid lines up with: (x, y, width, height)."""
+    x, y = int(width) // 3, int(height) // 4
+    return x, y, max(1, min(int(width) // 2, int(width) - x)), max(1, min(int(height) // 3, int(height) - y))
+
+
 def compared(drawing: btvec.Drawing, name: str, index: int, draw: Draw, pixels: Path) -> dict[str, Any]:
     """What the native extension makes of one draw of the corpus: hashes of the exact outputs, pixels in a file."""
     width, height, values = draw
     file = f"{name}-{index}.rgba"
     (pixels / file).write_bytes(drawing.to_rgba(width, height, **values))
+    window = window_of(width, height)
+    window_file = f"{name}-{index}.window.rgba"
+    (pixels / window_file).write_bytes(drawing.to_rgba(width, height, window=window, **values))
     return {
         "width": width,
         "height": height,
@@ -792,6 +801,8 @@ def compared(drawing: btvec.Drawing, name: str, index: int, draw: Draw, pixels: 
         if name in MESH_REFUSED
         else described(drawing.to_mesh(width, height, **values)),
         "rgba_file": file,
+        "window": list(window),
+        "window_rgba_file": window_file,
     }
 
 

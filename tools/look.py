@@ -17,6 +17,7 @@ import re
 import runpy
 import sys
 from pathlib import Path
+from typing import Any
 
 import bullterrier_vector as btvec
 from bullterrier_vector.errors import BullterrierVectorError
@@ -58,9 +59,9 @@ def parse_size(text: str) -> tuple[float, float]:
     return int(found[1]), int(found[2])
 
 
-def parse_values(texts: list[str]) -> dict[str, float]:
+def parse_values(texts: list[str]) -> dict[str, Any]:  # Any: a name may be an output option, which is not a number
     """The Param values written `NAME=VALUE`."""
-    values: dict[str, float] = {}
+    values: dict[str, Any] = {}
     for text in texts:
         name, _, value = text.partition("=")
         try:

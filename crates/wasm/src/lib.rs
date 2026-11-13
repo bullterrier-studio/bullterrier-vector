@@ -25,6 +25,10 @@ extern "C" {
     #[wasm_bindgen(typescript_type = "Record<string, number | number[]>")]
     pub type Values;
 
+    /// The rectangle of an output a caller wants drawn: whole pixels, `x` and `y` from the top left.
+    #[wasm_bindgen(typescript_type = "{ x: number; y: number; width: number; height: number }")]
+    pub type Window;
+
     /// What a caller gives a document for its inputs (its fonts): an object of their names to the bytes of each.
     #[wasm_bindgen(typescript_type = "Record<string, Uint8Array>")]
     pub type Inputs;
@@ -124,6 +128,28 @@ fn read_values(given: Option<Values>) -> Result<vector::Values, JsValue> {
     Ok(values)
 }
 
+/// The window an object gives, or `None` for the whole output.
+fn read_window(given: Option<Window>) -> Result<Option<vector::Window>, JsValue> {
+    let Some(given) = given else {
+        return Ok(None);
+    };
+    let given: &JsValue = given.as_ref();
+    if !given.is_object() {
+        return Err(refuse("window", "an object with x, y, width and height", given));
+    }
+    let side = |name: &str| {
+        member(given, name)
+            .as_f64()
+            .ok_or_else(|| refuse(name, "a number", &member(given, name)))
+    };
+    Ok(Some(vector::Window::px(
+        side("x")?,
+        side("y")?,
+        side("width")?,
+        side("height")?,
+    )))
+}
+
 /// The bytes an object gives the inputs of a document by name: each a `Uint8Array` (a Node `Buffer` is one).
 fn read_inputs(given: Option<Inputs>) -> Result<vector::Inputs, JsValue> {
     let mut inputs = vector::Inputs::new();
@@ -212,22 +238,46 @@ impl Drawing {
     }
 
     /// The drawing as straight-alpha RGBA bytes of `width` by `height` pixels, rows from the top, with each Param at
-    /// the value given by name (as `toSvg`).
+    /// the value given by name (as `toSvg`). With a `window` (`{ x, y, width, height }`, whole pixels inside the
+    /// output), only that rectangle of the picture: its rows and columns of the whole render, `window.width *
+    /// window.height * 4` bytes, where `width` and `height` may be up to 100,000.
     ///
     /// # Errors
-    /// As `toSvg`; the sides are whole numbers from 1 to 65,000, at most 2^27 pixels in all.
+    /// As `toSvg`; the sides are whole numbers from 1 to 65,000, at most 2^27 pixels in all (those of the window, when
+    /// there is one).
     #[wasm_bindgen(js_name = toRgba)]
-    pub fn to_rgba(&self, width: f64, height: f64, values: Option<Values>) -> Result<Vec<u8>, JsValue> {
-        raised(self.0.to_rgba(vector::Size::px(width, height), &read_values(values)?))
+    pub fn to_rgba(
+        &self,
+        width: f64,
+        height: f64,
+        values: Option<Values>,
+        window: Option<Window>,
+    ) -> Result<Vec<u8>, JsValue> {
+        let (size, values) = (vector::Size::px(width, height), read_values(values)?);
+        match read_window(window)? {
+            Some(window) => raised(self.0.to_rgba_window(size, window, &values)),
+            None => raised(self.0.to_rgba(size, &values)),
+        }
     }
 
-    /// The drawing as a PNG file of `width` by `height` pixels: the pixels of `toRgba`, 8 bits a channel.
+    /// The drawing as a PNG file of `width` by `height` pixels: the pixels of `toRgba`, 8 bits a channel, of the
+    /// `window` when there is one.
     ///
     /// # Errors
     /// As `toRgba`.
     #[wasm_bindgen(js_name = toPng)]
-    pub fn to_png(&self, width: f64, height: f64, values: Option<Values>) -> Result<Vec<u8>, JsValue> {
-        raised(self.0.to_png(vector::Size::px(width, height), &read_values(values)?))
+    pub fn to_png(
+        &self,
+        width: f64,
+        height: f64,
+        values: Option<Values>,
+        window: Option<Window>,
+    ) -> Result<Vec<u8>, JsValue> {
+        let (size, values) = (vector::Size::px(width, height), read_values(values)?);
+        match read_window(window)? {
+            Some(window) => raised(self.0.to_png_window(size, window, &values)),
+            None => raised(self.0.to_png(size, &values)),
+        }
     }
 
     /// The triangles of the drawing at `width` by `height` pixels, in a new `Mesh`.

@@ -101,7 +101,7 @@ def test_a_value_for_no_param_raises_a_parameter_error_naming_it():
         btvec.Drawing(LINE).to_svg(10, 10, shift=1)
 
 
-@pytest.mark.parametrize("name", ["into", "pen_mm"])
+@pytest.mark.parametrize("name", ["into", "pen_mm", "window"])
 def test_the_names_of_output_options_are_not_params_so_a_value_for_them_raises(name: str):
     with pytest.raises(btvec.ParameterError, match=name):
         btvec.Drawing(LINE).to_svg(10, 10, **{name: 1})
@@ -452,3 +452,53 @@ def test_a_mesh_has_the_triangles_of_what_is_left_of_the_shape_below():
     # a square with a square hole in it, and the hole is not blue: no vertex of the mesh has a blue channel
     assert len(mesh.indices) > 12
     assert all(mesh.vertices[at + 4] == 0.0 for at in range(0, len(mesh.vertices), 8))
+
+
+# A window ------------------------------------------------------------------------------------------------------------
+
+WINDOWED = btvec.Drawing(
+    btvec.Path.rect(20, 14, 50, 30).fill("#3070c0").shadow(dx=6, dy=9, blur=20, color="#000000b0"),
+    size=(120, 90),
+)
+
+
+def rows_of(image: bytes, width: int, x: int, y: int, w: int, h: int) -> bytes:
+    """The rows `y..y + h` and columns `x..x + w` of the straight-alpha RGBA image `image` that is `width` across."""
+    return b"".join(image[(row * width + x) * 4 : (row * width + x + w) * 4] for row in range(y, y + h))
+
+
+@pytest.mark.parametrize("window", [(7, 5, 60, 40), (0, 0, 1, 1), (119, 89, 1, 1), (33, 0, 41, 90), (0, 0, 120, 90)])
+def test_a_window_is_the_rows_and_columns_of_the_whole_render(window: tuple[int, int, int, int]):
+    whole = WINDOWED.to_rgba(120, 90)
+    assert WINDOWED.to_rgba(120, 90, window=window) == rows_of(whole, 120, *window)
+
+
+def test_a_png_window_decodes_to_the_pixels_of_the_rgba_window(decode_png):
+    window = (7, 5, 60, 40)
+    png = WINDOWED.to_png(120, 90, window=window)
+    assert decode_png(png) == (60, 40, WINDOWED.to_rgba(120, 90, window=window))
+
+
+def test_a_window_may_lie_in_a_canvas_past_the_limits_of_a_whole_render():
+    drawing = btvec.Drawing(btvec.Path.rect(99_990, 99_990, 8, 8).fill("#ff0000"), size=(100_000, 100_000))
+    image = drawing.to_rgba(100_000, 100_000, window=(99_988, 99_988, 12, 12))
+    assert pixel(image, 12, 2, 2) == (255, 0, 0, 255)
+    assert pixel(image, 12, 1, 1) == (0, 0, 0, 0)
+    with pytest.raises(btvec.ParameterError, match="width"):
+        drawing.to_rgba(100_000, 100_000)
+
+
+@pytest.mark.parametrize("output", ["to_rgba", "to_png"])
+@pytest.mark.parametrize(
+    "window",
+    [
+        pytest.param((100, 0, 30, 10), id="past the right edge"),
+        pytest.param((-1, 0, 5, 5), id="negative"),
+        pytest.param((0, 0, 0, 5), id="no width"),
+        pytest.param((0.5, 0, 5, 5), id="half a pixel"),
+        pytest.param((0, 0, 65_001, 1), id="past the side limit"),
+    ],
+)
+def test_a_window_outside_the_output_or_not_whole_raises_naming_window(output: str, window: tuple[float, ...]):
+    with pytest.raises(btvec.ParameterError, match="window"):
+        getattr(btvec.Drawing(LINE), output)(120, 90, window=window)

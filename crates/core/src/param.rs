@@ -5,8 +5,9 @@ use crate::geometry::finite;
 use crate::key::{Key, Keyed};
 
 /// The names a Param may not take: in Python an output option of the same name sits beside the Param values.
-// constant: the output options of api.md "Outputs" (`to_mesh`'s `into`, `to_plotter_svg`'s `pen_mm`)
-const RESERVED_NAMES: [&str; 2] = ["into", "pen_mm"];
+// constant: the output options of api.md "Outputs" (`to_mesh`'s `into`, `to_plotter_svg`'s `pen_mm`, the pixel outputs'
+// `window`)
+const RESERVED_NAMES: [&str; 3] = ["into", "pen_mm", "window"];
 
 /// The span of one turn in degrees.
 // constant: a full turn
