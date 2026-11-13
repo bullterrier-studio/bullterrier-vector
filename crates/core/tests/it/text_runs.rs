@@ -284,6 +284,20 @@ fn an_axis_list_belongs_to_its_run_and_counts_that_runs_characters() -> Outcome 
 }
 
 #[test]
+fn only_a_text_of_several_runs_names_the_run_in_an_axis_error() -> Outcome {
+    let font = fraunces()?;
+    let weight = Param::new("weight", 400.0, 300.0, 700.0)?;
+    let wrong = Values::new().set("weight", vec![300.0, 700.0, 400.0]);
+    let plain = text("HH", Text::new(&font).axes([("wght", &weight)]));
+    let (_, message) = parameter_refusal(plain.shapes(&wrong))?;
+    assert!(!message.contains("run"), "{message}");
+    let one = text([Run::new("HH", &font).axes([("wght", &weight)])], Text::default());
+    let (_, message) = parameter_refusal(one.shapes(&wrong))?;
+    assert!(!message.contains("run 0"), "{message}");
+    Ok(())
+}
+
+#[test]
 fn what_cannot_be_made_of_runs_is_refused() -> Outcome {
     let font = fraunces()?;
     let many: Vec<Run> = (0..1001).map(|_| Run::new("H", &font)).collect();
@@ -430,6 +444,29 @@ mod document {
             plain.contains(r#""content":"Hi","font":"serif""#) && !plain.contains("runs"),
             "{plain}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn the_run_attribute_survives_a_saved_shape_and_a_selection_by_it() -> Outcome {
+        let font = fraunces()?.named("serif")?;
+        let narrow = narrowing()?.named("narrow")?;
+        let runs = shapes(
+            [Run::new("H", &font), Run::new("A", &narrow), Run::new("H", &font)],
+            Text::default().size(EM),
+        )?;
+        let saved = Drawing::new(runs.iter().cloned().map(Drawing::from)).to_json()?;
+        let loaded = Drawing::from_json(&saved, &Inputs::new())?.shapes(&Values::new())?;
+        assert_eq!(
+            loaded.iter().map(|shape| shape.attributes().run()).collect::<Vec<_>>(),
+            [0, 1, 2].map(Some)
+        );
+        let chosen = text(
+            [Run::new("H", &font), Run::new("A", &narrow), Run::new("H", &font)],
+            Text::default().size(EM),
+        )
+        .only(bullterrier_vector::Select::new().attribute("run", 2u32));
+        assert_eq!(chosen.shapes(&Values::new())?.len(), 1);
         Ok(())
     }
 

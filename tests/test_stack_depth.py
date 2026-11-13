@@ -269,6 +269,33 @@ def run():
         every_output(loaded, params=False)
         step("drop")
         del drawing, loaded, font
+    elif scenario == "text_of_runs_with_the_deepest_axis_expression":
+        step("fonts")
+        serif, sans = btvec.Font.bundled("fraunces"), btvec.Font.bundled("bricolage_grotesque")
+        for levels in range(126, 0, -2):  # an even number of negations is the weight itself
+            deepest = serif.axes["wght"]
+            for _ in range(levels):
+                deepest = -deepest
+            runs = [btvec.run("Hi", font=serif, axes={"wght": deepest}), btvec.run("A", font=sans, size=50)]
+            drawing = btvec.text(runs, size=60)
+            try:
+                document = drawing.to_json()
+            except btvec.BullterrierVectorError:
+                continue
+            break
+        else:
+            raise AssertionError("no depth is saved")
+        every_output(drawing, params=False)
+        step("from_json")
+        loaded = btvec.Drawing.from_json(document)
+        every_output(loaded, params=False)
+        step("nested")
+        nest = drawing
+        for _ in range(126):
+            nest = btvec.Drawing(nest, other)
+        every_output(nest, params=False)
+        step("drop")
+        del drawing, loaded, nest
     elif scenario == "a_probe_that_dies":  # known-bad input for this test's own runner
         step("about to die")
         os._exit(7)
@@ -328,6 +355,9 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
         pytest.param("hostile_documents", id="documents-nested-100000-levels"),
         pytest.param("svg_documents", id="svg-128-levels-and-100000-levels"),
         pytest.param("text_in_the_deepest_composite_glyph", id="text-of-a-glyph-of-64-nested-composites"),
+        pytest.param(
+            "text_of_runs_with_the_deepest_axis_expression", id="text-of-runs-with-a-127-level-axis-expression"
+        ),
     ],
 )
 def test_the_deepest_structures_work_on_the_smallest_supported_thread_stack(scenario):
