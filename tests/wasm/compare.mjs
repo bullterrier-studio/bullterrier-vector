@@ -15,7 +15,7 @@ const MAX_FRACTION = 0.0002; // ...and only this fraction of the channel values 
 
 /** The channel values of two RGBA images that differ, as premultiplied colour and alpha (the values drawn): how many,
  *  the largest difference in levels, and the first pixel. */
-function differences(expected, actual, width) {
+export function differences(expected, actual, width) {
   const premultiplied = (image, at) => [
     ...[0, 1, 2].map((c) => Math.round((image[at + c] * image[at + 3]) / 255)),
     image[at + 3],
@@ -38,6 +38,12 @@ function differences(expected, actual, width) {
   return { count, largest, first };
 }
 
+// Windows (docs/design-decisions.md, "Render a window (V10e)"): over the 148 draws, each with one window, the WebAssembly window
+// differs from the native one in at most 2 values, 1 level each: 0.005% of the values of the whole picture but 0.03% of the
+// window's own, past MAX_FRACTION, so a window's allowed count is taken on the whole picture's values, the count
+// the same picture is allowed. The native window against the whole's rows and columns: at most 1 level, 218 values in
+// the worst draw.
+
 /** Assert that two RGBA images look the same, naming the count and the first differing pixel if they do not. The count
  *  allowed is a fraction of `of` channel values: the images' own, or those of the whole picture that they are a window of. */
 export function assertLookTheSame(expected, actual, width, label, of = expected.length) {
@@ -49,4 +55,13 @@ export function assertLookTheSame(expected, actual, width, label, of = expected.
     `${label}: ${count} of ${expected.length} channel values differ (${allowed} allowed), by up to ${largest}; ` +
       `first at ${JSON.stringify(first)}`,
   );
+}
+
+/** The rows and columns `[x, y, width, height]` of an RGBA image `across` pixels wide. */
+export function windowOf(image, across, [x, y, width, height]) {
+  const rows = [];
+  for (let row = y; row < y + height; row += 1) {
+    rows.push(image.subarray((row * across + x) * 4, (row * across + x + width) * 4));
+  }
+  return Buffer.concat(rows);
 }

@@ -534,3 +534,25 @@ fn the_size_of_a_whole_render_keeps_its_limits() -> Outcome {
     assert_eq!(parameter, "width");
     Ok(())
 }
+
+#[test]
+fn a_whole_render_of_the_largest_sides_with_a_blurred_shadow_keeps_its_limits() -> Outcome {
+    // the region of a blur is cut to the canvas, or a whole render of the limit (the window that is the canvas) would
+    // be refused for the margin it asks beyond it
+    let drawing = |width: f64, height: f64| -> Result<Drawing, Error> {
+        Ok(solid(rect(0.0, 0.0, width / 2.0, height / 2.0)?, "#3070c0")?
+            .shadow(Shadow::new().dx(1.0).dy(1.0).blur(20.0).color(color("#000000")?))
+            .with_size(width, height))
+    };
+    for (width, height) in [(65_000.0, 1.0), (1.0, 65_000.0)] {
+        let pixels = drawing(width, height)?.to_rgba(Size::px(width, height), &Values::new())?;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "whole test sizes"
+        )]
+        let expected = width as usize * height as usize * 4;
+        assert_eq!(pixels.len(), expected, "{width} by {height}");
+    }
+    Ok(())
+}

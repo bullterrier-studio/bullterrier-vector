@@ -43,7 +43,8 @@ pub struct Size {
 impl Size {
     /// An output `width` by `height` pixels. The sides are checked where the output is drawn: each must be a whole
     /// number from 1 to 100,000 for SVG, or from 1 to 65,000 (and at most 2^27 pixels in all) for pixels, or the
-    /// drawing raises [`Error::Parameter`] naming `width` or `height`.
+    /// drawing raises [`Error::Parameter`] naming `width` or `height`. A window of a pixel output ([`Window`]) may be
+    /// of a size up to 100,000 a side, as SVG.
     #[must_use]
     pub const fn px(width: f64, height: f64) -> Self {
         Self { width, height }

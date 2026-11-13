@@ -999,13 +999,16 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   (400 on the first 13 drawings, 40 on the three added after, as in the committed test): blurred shadows, hard shadows, clips of them, knockouts and text are byte-exact; fills
   and strokes, masks, gradients, halftones and a stroke under opacity differ by at most 1 level and blends by at most 2, compared as
   alpha and as each colour times its alpha (a straight colour of a faint pixel moves by several levels for one level of the
-  product). The cause is that the rasteriser holds coordinates as f32, and the nearest f32 of a shifted coordinate is not
-  the shift of the nearest, so an anti-aliased edge pixel can land a level away; it is not worked around (CLAUDE.md, rule 2).
-  The tests state those per-drawing tolerances, none looser than measured. The WebAssembly pixels of a window look the native
-  ones within the tolerance of the whole picture (`compare.mjs`, the fraction counted on the whole).
+  product). The cause was not isolated; the rasteriser's f32 coordinates (the nearest f32 of a shifted coordinate is not the shift of
+  the nearest) would explain an edge pixel a level away. It is not worked around (CLAUDE.md, rule 2).
+  The tests state those per-drawing tolerances, none looser than measured. Over the 148 draws of the differential corpus (one window each) the native window is at most 1 level from the whole's
+  rows and columns (218 values in the worst draw), and the WebAssembly window at most 1 level and 2 values from the native
+  one: 0.005% of the whole picture's values, 0.03% of the window's own, which is past the fraction allowed for a picture, so
+  a window is counted against the whole picture's values (`compare.mjs`).
 - **A shadow's offset is part of the margin.** The test of a shadow offset up and left (its source below and right of the
   region) fails without it, by up to 95 levels; one offset down and right passed without it. Cutting the region to the
-  canvas changed no pixel in the tests (a shape running off the canvas included), so it is there for size only.
+  canvas changed no pixel in the tests (a shape running off the canvas included); it keeps a whole render, which is the
+  window that is the canvas, within the limits of `to_rgba` whatever its blur asks beyond the canvas.
 
 ## Engineering
 

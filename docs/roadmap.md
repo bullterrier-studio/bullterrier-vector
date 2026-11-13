@@ -72,7 +72,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. Next: V11, V12, V13, then the kinetic type piece (M3) as the first public demo; V15's distance fields
+unbuilt batches. V10e (render a window) is done; next: V10f, then V11, V12, V13, then the kinetic type piece (M3) as the first public demo; V15's distance fields
 (see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
 Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d and V10e are done; V10f follows, then V11.

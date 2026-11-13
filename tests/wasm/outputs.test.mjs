@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 import { inflateSync } from "node:zlib";
-import { assertLookTheSame } from "./compare.mjs";
+import { assertLookTheSame, differences, windowOf } from "./compare.mjs";
 
 const require = createRequire(import.meta.url);
 const { Drawing, Mesh, wasmMemory: memory } = require("../../pkg/bullterrier_vector_wasm.js");
@@ -128,6 +128,10 @@ for (const { name, json, inputs, draws } of native.corpus) {
       const window = { x, y, width, height };
       const rgba = drawing.toRgba(draw.width, draw.height, draw.values, window);
       assertLookTheSame(nativePixels(draw.window_rgba_file), rgba, width, `${label}: window pixels`, draw.width * draw.height * 4);
+      // the window is the rows and columns of the whole render, at most 1 level apart over this corpus (design-decisions.md)
+      const cut = windowOf(nativePixels(draw.rgba_file), draw.width, draw.window);
+      const apart = differences(cut, nativePixels(draw.window_rgba_file), width);
+      assert.ok(apart.largest <= 1, `${label}: the native window is ${apart.largest} levels from the whole's rows and columns`);
       const decoded = decodePng(drawing.toPng(draw.width, draw.height, draw.values, window), label);
       assert.deepEqual(decoded.header, { width, height, depth: 8, colour: 6, interlace: 0 }, `${label}: window png header`);
       assert.ok(Buffer.from(decoded.pixels).equals(rgba), `${label}: window png pixels`);
