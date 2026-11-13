@@ -61,6 +61,8 @@ pub(crate) enum Given {
     Axes(Vec<(String, Expr)>),
     /// OpenType feature values by four-character tag, in tag order.
     Features(Vec<(String, u32)>),
+    /// The runs of a `text`: the arguments of one `run` call each.
+    Runs(Vec<Args>),
     /// Left out.
     Unset,
 }
@@ -85,7 +87,7 @@ pub(crate) struct ParamsRead {
 }
 
 /// The values of a call, in declaration order, defaults applied.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Args {
     verb: &'static Verb,
     values: Vec<Given>,
@@ -234,6 +236,17 @@ impl Args {
                     key.word(14);
                     key.of(paint);
                 }
+                Given::Runs(runs) => {
+                    key.word(15);
+                    key.count(runs.len());
+                    for run in runs {
+                        let run = run.key();
+                        key.count(run.len());
+                        for word in run {
+                            key.word(word);
+                        }
+                    }
+                }
                 Given::Drawing(_) => key.word(13),
                 Given::Unset => key.word(9),
             }
@@ -247,16 +260,17 @@ impl Args {
     }
 
     /// Every expression the call gives, in declaration order, with its argument.
-    pub(crate) fn expressions(&self) -> impl Iterator<Item = (&'static Arg, &Expr)> {
-        self.declared().flat_map(|(arg, given)| {
-            let found: Vec<&Expr> = match given {
-                Given::Number(only) => vec![only],
-                Given::Pair(first, second) => vec![first, second],
-                Given::Axes(axes) => axes.iter().map(|(_, expr)| expr).collect(),
+    pub(crate) fn expressions(&self) -> Box<dyn Iterator<Item = (&'static Arg, &Expr)> + '_> {
+        Box::new(self.declared().flat_map(|(arg, given)| {
+            let found: Vec<(&'static Arg, &Expr)> = match given {
+                Given::Number(only) => vec![(arg, only)],
+                Given::Pair(first, second) => vec![(arg, first), (arg, second)],
+                Given::Axes(axes) => axes.iter().map(|(_, expr)| (arg, expr)).collect(),
+                Given::Runs(runs) => runs.iter().flat_map(Args::expressions).collect(),
                 _ => Vec::new(),
             };
-            found.into_iter().map(move |expr| (arg, expr))
-        })
+            found.into_iter()
+        }))
     }
 
     /// The drawings the call takes, in order.
@@ -306,6 +320,13 @@ impl Args {
                     for (_, expr) in axes {
                         expr.collect_params(&mut reads.all);
                         expr.collect_params(&mut reads.free);
+                    }
+                }
+                Given::Runs(runs) => {
+                    for run in runs {
+                        let read = run.reads()?;
+                        reads.all.extend(read.all);
+                        reads.free.extend(read.free);
                     }
                 }
                 _ => {}
@@ -360,6 +381,18 @@ impl Args {
                         deepest + 1
                     ),
                 ));
+            }
+        }
+        for (arg, given) in self.declared() {
+            if let Given::Runs(runs) = given {
+                for (at, run) in runs.iter().enumerate() {
+                    run.validate().map_err(|error| match error {
+                        Error::Parameter { parameter, message } => {
+                            Error::parameter(arg.name, format!("run {at}: {parameter}: {message}"))
+                        }
+                        other => other,
+                    })?;
+                }
             }
         }
         self.verb.check.map_or(Ok(()), |check| check(self))
@@ -575,6 +608,15 @@ impl Args {
             (_, Given::Unset) => Ok(&[]),
             (_, Given::Axes(axes)) => Ok(axes),
             _ => Err(self.misread(name, "axis values")),
+        }
+    }
+
+    /// The arguments of each run of `name`, in order; none if the call left the argument out.
+    pub(crate) fn runs(&self, name: &str) -> Result<&[Args], Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(&[]),
+            (_, Given::Runs(runs)) => Ok(runs),
+            _ => Err(self.misread(name, "runs")),
         }
     }
 

@@ -38,5 +38,5 @@ pub use shape::{
     Attributes, Blend, Cap, Color, Gradient, GradientKind, HalftoneStyle, Join, Paint, ShadowStyle, Shape, StrokeStyle,
     Style,
 };
-pub use r#type::{Align, Font, Text, text};
+pub use r#type::{Align, Content, Font, Run, Text, text};
 pub use values::{Value, Values};

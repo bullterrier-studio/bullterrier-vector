@@ -7,7 +7,7 @@
 use super::bare;
 use super::parse::parse;
 use super::value::Json;
-use crate::limits::MAX_PARAMS;
+use crate::limits::{MAX_PARAMS, MAX_RUNS};
 use crate::shape::{Holds, SELECTABLE};
 use crate::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
 
@@ -32,6 +32,12 @@ pub(super) fn generate<'a>(verbs: impl Iterator<Item = &'a Verb>) -> String {
 #[expect(clippy::cast_precision_loss, reason = "the limit is far below 2^53")]
 fn max_params() -> f64 {
     MAX_PARAMS as f64
+}
+
+/// `MAX_RUNS` as a JSON number.
+#[expect(clippy::cast_precision_loss, reason = "the limit is far below 2^53")]
+fn max_runs() -> f64 {
+    MAX_RUNS as f64
 }
 
 /// Sets the member at `path` of the object `json`, whose parents must exist; a path that leads nowhere changes nothing.
@@ -167,6 +173,18 @@ fn argument(arg: &Arg) -> Json {
         Kind::Font => reference("name"),
         Kind::Axes => tagged(value(arg)),
         Kind::Features => tagged(whole()),
+        Kind::Runs => with(
+            with(
+                Json::object([
+                    ("type", Json::text("array")),
+                    ("items", verb_schema(&crate::node::text::RUN)),
+                ]),
+                "minItems",
+                number(1.0),
+            ),
+            "maxItems",
+            number(max_runs()),
+        ),
         Kind::Values => Json::object([
             ("type", Json::text("object")),
             ("propertyNames", reference("param_name")),

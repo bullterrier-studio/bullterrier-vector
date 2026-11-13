@@ -161,6 +161,17 @@ impl<'a> Builder<'a> {
                     .map(|feature| (feature.tag.clone(), feature.value))
                     .collect(),
             ),
+            Value::Runs(runs) => Given::Runs(
+                runs.iter()
+                    .map(|run| {
+                        let given = run
+                            .iter()
+                            .map(|(name, value)| Ok((*name, self.given(value)?)))
+                            .collect::<Result<Vec<_>, Error>>()?;
+                        Ok(Args::new(&crate::node::text::RUN, given))
+                    })
+                    .collect::<Result<_, Error>>()?,
+            ),
             Value::Values(fixed) => Given::Values(fixed.iter().fold(Values::new(), |values, one| {
                 values.set(one.name.clone(), one.value.clone())
             })),

@@ -13,6 +13,6 @@ mod unpack;
 
 pub use font::Font;
 pub(crate) use font::is_tag;
-pub(crate) use layout::{Settings, typeset};
+pub(crate) use layout::{RunSettings, Settings, typeset};
 pub(crate) use lines::{Boundary, Fit, Wrap};
-pub use text::{Align, Text, text};
+pub use text::{Align, Content, Run, Text, text};

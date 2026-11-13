@@ -12,6 +12,7 @@ pub struct Attributes {
     pub(crate) char: Option<char>,
     pub(crate) word: Option<u32>,
     pub(crate) line: Option<u32>,
+    pub(crate) run: Option<u32>,
     pub(crate) part: Option<u32>,
     pub(crate) copy: Option<u32>,
     pub(crate) level: Option<f64>,
@@ -58,14 +59,15 @@ pub(crate) enum Holds {
     Text,
 }
 
-/// The attributes a selection can ask about, by name: the shape's `index`, the nine a generator writes and
+/// The attributes a selection can ask about, by name: the shape's `index`, the ten a generator writes and
 /// the three an SVG import writes.
-pub(crate) const SELECTABLE: [(&str, Holds); 13] = [
+pub(crate) const SELECTABLE: [(&str, Holds); 14] = [
     ("index", Holds::Whole),
     ("glyph", Holds::Whole),
     ("char", Holds::Char),
     ("word", Holds::Whole),
     ("line", Holds::Whole),
+    ("run", Holds::Whole),
     ("part", Holds::Whole),
     ("copy", Holds::Whole),
     ("level", Holds::Real),
@@ -97,6 +99,7 @@ impl Attributes {
             "char" => self.char.map(Single::Char),
             "word" => self.word.map(|n| Single::Number(f64::from(n))),
             "line" => self.line.map(|n| Single::Number(f64::from(n))),
+            "run" => self.run.map(|n| Single::Number(f64::from(n))),
             "part" => self.part.map(|n| Single::Number(f64::from(n))),
             "copy" => self.copy.map(|n| Single::Number(f64::from(n))),
             "level" => self.level.map(Single::Number),
@@ -131,6 +134,12 @@ impl Attributes {
     #[must_use]
     pub fn line(&self) -> Option<u32> {
         self.line
+    }
+
+    /// The run of a text of runs it is in, from 0 (a plain text is one run).
+    #[must_use]
+    pub fn run(&self) -> Option<u32> {
+        self.run
     }
 
     /// The part of a split shape it is, from 0.
@@ -208,7 +217,7 @@ impl Keyed for Single {
 
 impl Keyed for Attributes {
     fn write_key(&self, key: &mut Key) {
-        for whole in [self.glyph, self.word, self.line, self.part, self.copy] {
+        for whole in [self.glyph, self.word, self.line, self.run, self.part, self.copy] {
             key.of(&whole.map(u64::from));
         }
         key.of(&self.char.map(u32::from).map(u64::from));

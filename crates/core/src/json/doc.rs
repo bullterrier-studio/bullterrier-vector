@@ -90,6 +90,16 @@ pub(super) enum Value {
     Axes(Vec<Setting<Ex>>),
     /// Feature values by tag, in tag order.
     Features(Vec<Setting<u32>>),
+    /// The runs of a `text`: the arguments of each, as a call's are.
+    Runs(Vec<Vec<(&'static str, Value)>>),
+}
+
+/// Every argument of a call, those of each of its runs too, in the order the walk of formats.md meets them.
+pub(super) fn flat<'a>(args: &'a [(&'static str, Value)]) -> impl Iterator<Item = &'a (&'static str, Value)> {
+    args.iter().flat_map(|arg| match &arg.1 {
+        Value::Runs(runs) => runs.iter().flatten().collect::<Vec<_>>(),
+        _ => vec![arg],
+    })
 }
 
 impl Value {

@@ -91,6 +91,10 @@ pub(crate) const MAX_FONT_BYTES: usize = 32 * 1024 * 1024;
 // charged to `MAX_OUTLINE_SEGMENTS` and the shapes to `MAX_SHAPES`
 pub(crate) const MAX_GLYPHS: usize = 100_000;
 
+/// Runs one `text` call is made of.
+// constant: formats.md "Limits and security" sets MAX_RUNS to 1,000; each run shapes and builds its font at its own location
+pub(crate) const MAX_RUNS: usize = 1_000;
+
 /// The most axes, and the most features, one `text` call gives.
 // constant: the fonts that exist have under 20 axes (Roboto Flex 13) and a few dozen features; an axis costs memory in
 // every run of a text and a feature time in every shaping, so a call may not name thousands

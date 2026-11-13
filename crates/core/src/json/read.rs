@@ -411,6 +411,7 @@ impl Reader {
                 })
                 .collect::<Result<_, Error>>()
                 .map(Value::Features),
+            Kind::Runs => self.runs(pointer, json),
             Kind::Font => match json {
                 Json::String(name) if is_name(name) => Ok(Value::Font {
                     name: name.clone(),
@@ -422,6 +423,22 @@ impl Reader {
                 )),
             },
         }
+    }
+
+    /// The runs of a `text`, written as an array of objects, each the arguments of a `run`.
+    fn runs(&mut self, pointer: &str, json: &Json) -> Result<Value, Error> {
+        let Json::Array(items) = json else {
+            return Err(refuse(
+                pointer,
+                format!("must be an array of runs, not {}", json.describe()),
+            ));
+        };
+        items
+            .iter()
+            .enumerate()
+            .map(|(at, item)| self.arguments(&crate::node::text::RUN, &format!("{pointer}/{at}"), item))
+            .collect::<Result<_, _>>()
+            .map(Value::Runs)
     }
 
     /// The two numbers of an argument written `[a, b]`.

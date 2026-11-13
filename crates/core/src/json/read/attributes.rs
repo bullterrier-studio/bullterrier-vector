@@ -26,6 +26,7 @@ pub(super) fn attributes(pointer: &str, json: &Json) -> Result<Attributes, Error
             "glyph" => written.glyph = Some(whole()?),
             "word" => written.word = Some(whole()?),
             "line" => written.line = Some(whole()?),
+            "run" => written.run = Some(whole()?),
             "part" => written.part = Some(whole()?),
             "copy" => written.copy = Some(whole()?),
             "char" => written.char = Some(one_character(&here, json)?),
@@ -38,7 +39,7 @@ pub(super) fn attributes(pointer: &str, json: &Json) -> Result<Attributes, Error
             _ => {
                 return Err(refuse(
                     &here,
-                    "is not an attribute a shape carries (glyph, char, word, line, part, copy, level, order, origin, id, class, group)",
+                    "is not an attribute a shape carries (glyph, char, word, line, run, part, copy, level, order, origin, id, class, group)",
                 ));
             }
         }

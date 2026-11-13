@@ -1,7 +1,8 @@
 //! `text`: the drawing of a string in a font, and the options that shape it.
 
 use super::font::Font;
-use crate::node::{Given, text::TextNode};
+use crate::node::text::{RUN, TextNode};
+use crate::node::{Args, Given};
 use crate::shape::refused;
 use crate::{Drawing, Error, Expr, Path, Point};
 use std::collections::BTreeMap;
@@ -57,9 +58,11 @@ impl Align {
 }
 
 /// The options of [`text`]: the font, and what is not the default of the rest. A [`Font`] alone converts into one.
-#[derive(Debug, Clone)]
+///
+/// [`Text::default`] has no font: the text is made of [`Run`]s, each with its own.
+#[derive(Debug, Clone, Default)]
 pub struct Text {
-    font: Font,
+    font: Option<Font>,
     size: Option<Expr>,
     tracking: Option<Expr>,
     leading: Option<Expr>,
@@ -78,7 +81,7 @@ impl Text {
     #[must_use]
     pub fn new(font: &Font) -> Self {
         Self {
-            font: font.clone(),
+            font: Some(font.clone()),
             size: None,
             tracking: None,
             leading: None,
@@ -213,32 +216,152 @@ impl Text {
     }
 }
 
+/// One run of a text made of runs: a stretch of characters with a font of its own, shaped apart from its neighbours (so
+/// kerning, ligatures and joins do not reach across the boundary between two runs; a word that spans runs is still one
+/// word to wrapping, and `fit`, `align`, `inside` and `along` work on the whole text).
+///
+/// A run takes the `size` and `tracking` of the [`Text`] it is in unless it gives its own; `axes` and `features` are
+/// the font's, so a run never takes them from the text.
+#[derive(Debug, Clone)]
+pub struct Run {
+    content: String,
+    font: Font,
+    size: Option<Expr>,
+    tracking: Option<Expr>,
+    axes: BTreeMap<String, Expr>,
+    features: BTreeMap<String, u32>,
+}
+
+impl Run {
+    /// A run of `content` in `font`, at the size and tracking of its text.
+    #[must_use]
+    pub fn new(content: impl Into<String>, font: &Font) -> Self {
+        Self {
+            content: content.into(),
+            font: font.clone(),
+            size: None,
+            tracking: None,
+            axes: BTreeMap::new(),
+            features: BTreeMap::new(),
+        }
+    }
+
+    /// This run `size` pixels to the em, above 0, as [`Text::size`] reads it.
+    #[must_use]
+    pub fn size(mut self, size: impl Into<Expr>) -> Self {
+        self.size = Some(size.into());
+        self
+    }
+
+    /// This run with `tracking` thousandths of an em between glyphs, as [`Text::tracking`].
+    #[must_use]
+    pub fn tracking(mut self, tracking: impl Into<Expr>) -> Self {
+        self.tracking = Some(tracking.into());
+        self
+    }
+
+    /// This run with the axes of its font given, as [`Text::axes`]: a `Param` given a list gives character `i` of
+    /// the run entry `i`, counting from the run's first character.
+    #[must_use]
+    pub fn axes<T: Into<String>, V: Into<Expr>>(mut self, axes: impl IntoIterator<Item = (T, V)>) -> Self {
+        self.axes = axes
+            .into_iter()
+            .map(|(tag, value)| (tag.into(), value.into()))
+            .collect();
+        self
+    }
+
+    /// This run with the OpenType features given, as [`Text::features`].
+    #[must_use]
+    pub fn features<T: Into<String>>(mut self, features: impl IntoIterator<Item = (T, u32)>) -> Self {
+        self.features = features.into_iter().map(|(tag, value)| (tag.into(), value)).collect();
+        self
+    }
+
+    /// The call the run is: what the document writes and the text reads.
+    fn args(self) -> Args {
+        let mut given = vec![("content", Given::Text(self.content)), ("font", Given::Font(self.font))];
+        for (name, number) in [("size", self.size), ("tracking", self.tracking)] {
+            if let Some(number) = number {
+                given.push((name, Given::Number(number)));
+            }
+        }
+        if !self.axes.is_empty() {
+            given.push(("axes", Given::Axes(self.axes.into_iter().collect())));
+        }
+        if !self.features.is_empty() {
+            given.push(("features", Given::Features(self.features.into_iter().collect())));
+        }
+        Args::new(&RUN, given)
+    }
+}
+
+/// What [`text`] sets: one string in the font of its [`Text`], or [`Run`]s that each bring their font.
+#[derive(Debug, Clone)]
+pub enum Content {
+    /// A string, in the font of the options.
+    Plain(String),
+    /// Runs, which the options have no font for.
+    Runs(Vec<Run>),
+}
+
+impl From<&str> for Content {
+    fn from(content: &str) -> Self {
+        Self::Plain(content.to_owned())
+    }
+}
+
+impl From<String> for Content {
+    fn from(content: String) -> Self {
+        Self::Plain(content)
+    }
+}
+
+impl From<Vec<Run>> for Content {
+    fn from(runs: Vec<Run>) -> Self {
+        Self::Runs(runs)
+    }
+}
+
+impl<const N: usize> From<[Run; N]> for Content {
+    fn from(runs: [Run; N]) -> Self {
+        Self::Runs(runs.into())
+    }
+}
+
 impl From<&Font> for Text {
     fn from(font: &Font) -> Self {
         Self::new(font)
     }
 }
 
-/// A drawing of `content` in the font of `options`: one shape for every glyph that has an outline (a space or a line
-/// break has none), shaped with the font's kerning, ligatures and the rules of the script of each line, and written
-/// with the attributes `glyph`, `char`, `word`, `line`, `order` and `origin`. A `"\n"` in `content` breaks a line. The
-/// outlines keep the font's own contours, which may overlap; they fill as the font draws them, and
-/// [`Drawing::resolve`] unites them.
+/// A drawing of `content` in the font of `options`, or of the runs of `content`, each in its own: one shape for every glyph
+/// that has an outline (a space or a line break has none), shaped with the font's kerning, ligatures and the rules of the
+/// script of each line, and written with the attributes `glyph`, `char`, `word`, `line`, `run`, `order` and `origin`. A
+/// `"\n"` in `content` breaks a line. The outlines keep the font's own contours, which may overlap; they fill as the font
+/// draws them, and [`Drawing::resolve`] unites them.
 ///
 /// The text is drawn at the size, tracking, leading, alignment, anchor, axes and features of `options`. A line is
-/// shaped as one run in the script and direction of its first strong character (a line that mixes directions is not
-/// reordered), or as several where the axis values change between characters ([`Text::axes`]).
+/// shaped as one stretch in the script and direction of its first strong character (a line that mixes directions is not
+/// reordered), or as several where the axis values change between characters ([`Text::axes`]) or the run changes
+/// ([`Run`]). A text of runs has the leading of the largest run on each line, wraps and fits across runs as one string,
+/// and numbers `glyph`, `word` and `line` through all of them; `run` is the index of the glyph's run (0 for a plain text).
 ///
 /// A text with more than 100,000 characters, a size not above 0, a number that is not finite, an anchor or a
 /// coordinate beyond ±1e100 leaves the drawing with an [`error`](Drawing::error), or, for numbers that read a Param,
-/// is refused when the drawing is drawn.
+/// is refused when the drawing is drawn. So does a text of runs whose options give a font, `axes` or `features`, a
+/// text of no runs or of more than 1,000, and a plain text with no font.
 #[must_use]
-pub fn text(content: impl Into<String>, options: impl Into<Text>) -> Drawing {
+pub fn text(content: impl Into<Content>, options: impl Into<Text>) -> Drawing {
     let options = options.into();
-    let mut given = vec![
-        ("content", Given::Text(content.into())),
-        ("font", Given::Font(options.font)),
-    ];
+    let mut given = Vec::new();
+    match content.into() {
+        Content::Plain(content) => given.push(("content", Given::Text(content))),
+        Content::Runs(runs) => given.push(("runs", Given::Runs(runs.into_iter().map(Run::args).collect()))),
+    }
+    if let Some(font) = options.font {
+        given.push(("font", Given::Font(font)));
+    }
     for (name, number) in [
         ("size", options.size),
         ("tracking", options.tracking),

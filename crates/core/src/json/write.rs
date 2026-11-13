@@ -179,13 +179,7 @@ impl<'a> Writer<'a> {
     /// the arguments take, in order.
     fn call(&self, verb: &'static Verb, args: &Args, taken: &mut impl Iterator<Item = usize>) -> Result<Json, Error> {
         self.calls.set(self.calls.get() + 1);
-        let mut members = Vec::new();
-        for (arg, given) in args.declared() {
-            if at_default(arg, given) {
-                continue;
-            }
-            members.push((arg.name, self.value(arg, given, taken)?));
-        }
+        let mut members = self.members(args, taken)?;
         if bare(verb) {
             // the call's value is its one argument's: `{"path": "M0 0"}`
             let value = members
@@ -194,6 +188,22 @@ impl<'a> Writer<'a> {
             return Ok(Json::object([(verb.name, value)]));
         }
         Ok(Json::object([(verb.name, Json::object(members))]))
+    }
+
+    /// Every argument that is not at its default, with its value.
+    fn members(
+        &self,
+        args: &Args,
+        taken: &mut impl Iterator<Item = usize>,
+    ) -> Result<Vec<(&'static str, Json)>, Error> {
+        let mut members = Vec::new();
+        for (arg, given) in args.declared() {
+            if at_default(arg, given) {
+                continue;
+            }
+            members.push((arg.name, self.value(arg, given, taken)?));
+        }
+        Ok(members)
     }
 
     fn value(&self, arg: &Arg, given: &Given, taken: &mut impl Iterator<Item = usize>) -> Result<Json, Error> {
@@ -244,6 +254,11 @@ impl<'a> Writer<'a> {
                     .map(|(tag, value)| (tag.clone(), Json::Number(f64::from(*value))))
                     .collect(),
             ),
+            Given::Runs(runs) => Json::Array(
+                runs.iter()
+                    .map(|run| Ok(Json::object(self.members(run, &mut std::iter::empty())?)))
+                    .collect::<Result<_, Error>>()?,
+            ),
             Given::Unset => Json::Null,
         })
     }
@@ -293,7 +308,11 @@ fn font_names(graph: &Graph) -> Result<Vec<(String, String)>, Error> {
     // the fonts by digest in walk order, each with the name it was given
     let mut found: Vec<(String, Option<String>)> = Vec::new();
     for node in &graph.nodes {
-        for (_, given) in node.args().declared() {
+        let runs = node.args().declared().flat_map(|(_, given)| match given {
+            Given::Runs(runs) => runs.iter().flat_map(Args::declared).collect::<Vec<_>>(),
+            _ => Vec::new(),
+        });
+        for (_, given) in node.args().declared().chain(runs) {
             let Given::Font(font) = given else { continue };
             let digest = font.sha256();
             match found.iter_mut().find(|(known, _)| *known == digest) {

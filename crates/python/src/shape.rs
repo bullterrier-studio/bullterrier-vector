@@ -454,6 +454,9 @@ impl PyShape {
         if let Some(line) = attributes.line() {
             found.set_item("line", line)?;
         }
+        if let Some(run) = attributes.run() {
+            found.set_item("run", run)?;
+        }
         if let Some(part) = attributes.part() {
             found.set_item("part", part)?;
         }

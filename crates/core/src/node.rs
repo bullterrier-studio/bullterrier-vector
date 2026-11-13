@@ -38,6 +38,7 @@
 //! | font ([`Kind::Font`]) | a [`Font`](crate::Font), by its bytes: a document names it and the caller supplies the bytes |
 //! | axes ([`Kind::Axes`]) | tags to expressions, read per item where the items are the characters of the text: `text`'s `axes`. A Param given a list gives character `i` entry `i` |
 //! | features ([`Kind::Features`]) | tags to whole numbers, constants: `text`'s `features` |
+//! | runs ([`Kind::Runs`]) | a list of `run` records, each checked as a call of its own arguments: `text`'s `runs` |
 //! | drawing ([`Kind::Drawing`]) | one drawing, evaluated with the caller's Param values and handed over as the node's `taken`: the `other` of a boolean |
 //!
 //! Two more kinds of argument are declared by the first node that needs them, not before, so that no variant exists
@@ -216,6 +217,9 @@ pub enum Kind {
     /// OpenType feature values: four-character tags, each with a whole number from 0 to 4,294,967,295, never an
     /// expression.
     Features,
+    /// The runs of a `text`: a list of records, each with the arguments of `run` (its own content, font, size, axes,
+    /// features and tracking), each read and checked as a call's arguments are.
+    Runs,
 }
 
 /// How an argument's value is read.

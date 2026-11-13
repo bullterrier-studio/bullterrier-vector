@@ -3,7 +3,7 @@
 //! `with-values` and `call-checks` while the drawing is built: see `build.rs`.)
 
 use super::depth;
-use super::doc::{Call, Doc, Ex, InputKind, Value, What};
+use super::doc::{Call, Doc, Ex, InputKind, Value, What, flat};
 use super::read::reason;
 use super::value::{Json, pointer_token};
 use crate::limits::MAX_DEPTH;
@@ -58,7 +58,7 @@ fn each_call_of<'a>(doc: &'a Doc, mut visit: impl FnMut(&'a Call) -> Result<(), 
 fn params_of(call: &Call) -> Vec<(&str, &str)> {
     let mut found = Vec::new();
     if let What::Verb(verb) = &call.what {
-        for (_, value) in &verb.args {
+        for (_, value) in flat(&verb.args) {
             match value {
                 Value::Number(ex) => ex.params(&mut found),
                 Value::Pair(first, second) => {
@@ -255,7 +255,7 @@ fn first_reads<'a>(
                 }
             }
             What::Verb(verb) => {
-                for (_, value) in &verb.args {
+                for (_, value) in flat(&verb.args) {
                     let mut found = Vec::new();
                     match value {
                         Value::Number(ex) => ex.params(&mut found),
@@ -285,7 +285,7 @@ fn inputs(doc: &Doc) -> Result<(), Error> {
     let mut read = BTreeSet::new();
     each_call_of(doc, |call| {
         let What::Verb(verb) = &call.what else { return Ok(()) };
-        for (_, value) in &verb.args {
+        for (_, value) in flat(&verb.args) {
             if let Value::Font { name, pointer } = value {
                 match doc.inputs.iter().find(|input| &input.name == name) {
                     None => return Err(refuse(pointer, format!("{name:?} is not an entry of `inputs`"))),
@@ -314,42 +314,49 @@ fn inputs(doc: &Doc) -> Result<(), Error> {
 pub(super) fn fonts(doc: &Doc, fonts: &BTreeMap<String, Font>) -> Result<(), Error> {
     each_call_of(doc, |call| {
         let What::Verb(verb) = &call.what else { return Ok(()) };
-        let Some((name, font)) = verb.args.iter().find_map(|(_, value)| match value {
-            Value::Font { name, .. } => fonts.get(name).map(|font| (name, font)),
+        // the call's own arguments, then each run's: each has its own font
+        let runs = verb.args.iter().filter_map(|(_, value)| match value {
+            Value::Runs(runs) => Some(runs),
             _ => None,
-        }) else {
-            return Ok(());
-        };
-        let wrong = |error: Error, pointer: &str| match error {
-            Error::Parameter { message, .. } => Error::parameter(
-                &format!("inputs.{name}"),
-                format!("{message}; the document uses it at {pointer}"),
-            ),
-            other => other,
-        };
-        for (argument, value) in &verb.args {
-            match value {
-                Value::Text(fit) if *argument == "fit" && fit != "size" => {
-                    font.axis_range(fit, "fit")
-                        .map_err(|error| wrong(error, &format!("{}/{}/fit", call.pointer, verb.verb.name)))?;
-                }
-                Value::Axes(axes) => {
-                    for axis in axes {
-                        let number = match axis.value {
-                            Ex::Number(number) => Some(number),
-                            _ => None,
-                        };
-                        font.check_axis(&axis.tag, number)
-                            .map_err(|error| wrong(error, &axis.pointer))?;
+        });
+        for group in std::iter::once(&verb.args).chain(runs.flatten()) {
+            let Some((name, font)) = group.iter().find_map(|(_, value)| match value {
+                Value::Font { name, .. } => fonts.get(name).map(|font| (name, font)),
+                _ => None,
+            }) else {
+                continue;
+            };
+            let wrong = |error: Error, pointer: &str| match error {
+                Error::Parameter { message, .. } => Error::parameter(
+                    &format!("inputs.{name}"),
+                    format!("{message}; the document uses it at {pointer}"),
+                ),
+                other => other,
+            };
+            for (argument, value) in group {
+                match value {
+                    Value::Text(fit) if *argument == "fit" && fit != "size" => {
+                        font.axis_range(fit, "fit")
+                            .map_err(|error| wrong(error, &format!("{}/{}/fit", call.pointer, verb.verb.name)))?;
                     }
-                }
-                Value::Features(features) => {
-                    for feature in features {
-                        font.check_feature(&feature.tag)
-                            .map_err(|error| wrong(error, &feature.pointer))?;
+                    Value::Axes(axes) => {
+                        for axis in axes {
+                            let number = match axis.value {
+                                Ex::Number(number) => Some(number),
+                                _ => None,
+                            };
+                            font.check_axis(&axis.tag, number)
+                                .map_err(|error| wrong(error, &axis.pointer))?;
+                        }
                     }
+                    Value::Features(features) => {
+                        for feature in features {
+                            font.check_feature(&feature.tag)
+                                .map_err(|error| wrong(error, &feature.pointer))?;
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
         }
         Ok(())

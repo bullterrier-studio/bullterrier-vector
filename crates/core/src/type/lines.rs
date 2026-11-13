@@ -1,14 +1,12 @@
 //! The lines a text is set in: which part of the content each shows.
 
-use super::font::Font;
-use super::layout::{Em, LEADING, Measured, Places, Settings, feature_tags, shapers};
+use super::layout::{Em, LEADING, Measured, Places, Settings, shapers, with_axis};
 use super::shaping::Shaper;
 use super::text::Align;
 use crate::limits::MAX_GLYPHS;
 use crate::node::Context;
 use crate::path::Region;
 use crate::{Error, Point};
-use read_fonts::types::Tag;
 use std::ops::Range;
 
 /// What each line is made to do to reach the width.
@@ -41,9 +39,9 @@ pub(super) struct Line {
     pub(super) bytes: Range<usize>,
     /// The characters of the content the line shows, counted from 0 (a line break is one).
     pub(super) characters: Range<usize>,
-    /// Pixels to the em the plan fixed for the line, or `None` for the size of the text.
-    pub(super) size: Option<f64>,
-    /// The value of the axis `fit` names that the plan fixed for the line.
+    /// The factor the plan fixed for the sizes of the runs on the line, or `None` for their own.
+    pub(super) factor: Option<f64>,
+    /// How far along the axis `fit` names (0 to 1 of each font's range) the plan set the line.
     pub(super) axis: Option<f64>,
     /// Where the plan put the line: the left end, middle or right end (by `align`) of its baseline, or `None` for the
     /// anchor of the text and its leading.
@@ -56,7 +54,7 @@ impl Line {
         Self {
             bytes,
             characters,
-            size: None,
+            factor: None,
             axis: None,
             at: None,
         }
@@ -66,40 +64,43 @@ impl Line {
 /// The lines `content` is set in: its `"\n"`-separated parts, wrapped to `wrap`'s width or set in its region if it has one.
 ///
 /// A part breaks at whitespace, except no-break spaces, greedily: a line takes words while it stays within the width, the whitespace at a break
-/// is dropped, and so is the whitespace a line ends in. A word wider than the width stands alone. A part is measured
-/// shaped whole, at the pose of `wrap`, so a kern across a break is counted though the line is shaped again alone.
+/// is dropped, and so is the whitespace a line ends in. A word wider than the width stands alone, and a word that spans
+/// runs is one word. A part is measured shaped whole, at the pose of `wrap`, so a kern across a break is counted though
+/// the line is shaped again alone.
 ///
 /// # Errors
 /// [`Error::Parameter`] naming `content` if a part cannot be shaped, and the errors of [`Fitting::fit`] and [`inside`].
-pub(super) fn plan(font: &Font, content: &str, wrap: Option<&Wrap>, cx: &Context<'_>) -> Result<Vec<Line>, Error> {
+pub(super) fn plan(content: &str, wrap: Option<&Wrap>, cx: &Context<'_>) -> Result<Vec<Line>, Error> {
     let parts = parts(content);
     let Some(wrap) = wrap else { return Ok(parts) };
     let pose = &wrap.pose;
-    let em = Em::new(font, pose.size, pose.tracking)?;
-    let features = feature_tags(pose)?;
-    let places = Places::new(font, &pose.axes, content.chars().count())?;
-    let shapers = shapers(&places, &features);
+    let places = Places::new(&pose.runs)?;
+    let sizes: Vec<f64> = pose.runs.iter().map(|run| run.size).collect();
+    let ems = Em::of_places(&pose.runs, &places, &sizes)?;
+    let shapers = shapers(&places, &pose.runs)?;
     let measure = |part: &Line| {
         Measured::of(
             &content[part.bytes.clone()],
             &places.of_character[part.characters.clone()],
             &shapers,
-            em.scale,
-            em.gap,
+            &ems,
         )
     };
     let (width, fit) = match &wrap.boundary {
         Boundary::Width { width, fit } => (*width, fit.as_ref()),
-        Boundary::Inside(region) => return inside(region, parts, content, pose, &em, measure, cx),
+        Boundary::Inside(region) => {
+            let cap_height = pose.runs.iter().try_fold(0.0, |most, run| {
+                Em::new(&run.font, run.size, run.tracking).map(|em| f64::max(most, em.cap_height))
+            })?;
+            return inside(region, parts, content, pose, cap_height, measure, cx);
+        }
     };
     let fitting = Fitting {
-        font,
         content,
         pose,
         width,
         fit,
-        em: &em,
-        features: &features,
+        ems: &ems,
         places: &places,
         shapers: &shapers,
     };
@@ -118,13 +119,11 @@ pub(super) fn plan(font: &Font, content: &str, wrap: Option<&Wrap>, cx: &Context
 
 /// What fitting a line to the width needs: the text and the way it is shaped at the reference pose.
 struct Fitting<'a, 'b> {
-    font: &'a Font,
     content: &'a str,
     pose: &'a Settings,
     width: f64,
     fit: Option<&'a Fit>,
-    em: &'a Em,
-    features: &'a [(Tag, u32)],
+    ems: &'a [Em],
     places: &'a Places,
     shapers: &'a [Shaper<'b>],
 }
@@ -136,7 +135,6 @@ impl Fitting<'_, '_> {
     /// [`Error::Parameter`] naming `fit` if the line cannot be made that wide.
     fn fit(&self, line: &mut Line, number: usize) -> Result<(), Error> {
         let text = &self.content[line.bytes.clone()];
-        let pose = self.pose;
         match self.fit {
             None => {}
             Some(Fit::Size) => {
@@ -144,30 +142,25 @@ impl Fitting<'_, '_> {
                     text,
                     &self.places.of_character[line.characters.clone()],
                     self.shapers,
-                    self.em.scale,
-                    self.em.gap,
+                    self.ems,
                 )?;
-                line.size = Some(sized(&alone, pose.size, self.width, number)?);
+                line.factor = Some(sized(&alone, self.width, number)?);
             }
             Some(Fit::Axis(tag)) => {
-                let (min, _, max) = self.font.axis_range(tag, "fit")?;
-                let count = line.characters.len();
-                let others: Vec<(String, Vec<f64>)> = pose
-                    .axes
-                    .iter()
-                    .map(|(own, values)| (own.clone(), values[line.characters.clone()].to_vec()))
-                    .collect();
-                // the line shaped alone with the axis at `value`
-                let width_at = |value: f64| {
-                    let mut axes = others.clone();
-                    axes.push((tag.clone(), vec![value; count]));
-                    let places = Places::new(self.font, &axes, count)?;
-                    let shapers = shapers(&places, self.features);
-                    Ok(Measured::of(text, &places.of_character, &shapers, self.em.scale, self.em.gap)?.width)
+                let own = self.pose.sliced(&line.characters);
+                let sizes: Vec<f64> = own.iter().map(|run| run.size).collect();
+                // the line shaped alone with every run's axis at the fraction `along` of its range
+                let width_at = |along: f64| {
+                    let runs = with_axis(&own, tag, |_| along)?;
+                    let places = Places::new(&runs)?;
+                    let shapers = shapers(&places, &runs)?;
+                    let ems = Em::of_places(&runs, &places, &sizes)?;
+                    Ok(Measured::of(text, &places.of_character, &shapers, &ems)?.width)
                 };
+                let range = own.iter().find_map(|run| run.font.axis_range(tag, "fit").ok());
                 line.axis = Some(solved(
                     width_at,
-                    (f64::from(min), f64::from(max)),
+                    range.map(|(min, _, max)| (f64::from(min), f64::from(max))),
                     self.width,
                     tag,
                     number,
@@ -183,35 +176,37 @@ impl Fitting<'_, '_> {
 // constant: 2^-32 of the widest axis range (65535) is below 2^-16, far below the unit an advance is rounded to
 const FIT_STEPS: u32 = 32;
 
-/// The value of an axis in `range` at which `width_at` first reaches `target`, going from the end of the range where the
+/// How far along its axis (0 to 1 of the range of each font) a line first reaches `target`, going from the end of the range where the
 /// width is least to the end where it is most (a width may rise or fall along an axis, and is taken to move one way). The
-/// line is the least width at the value, or a unit of an advance above it. `number` is the line's place, `tag` the axis.
+/// line is the least width at the fraction, or a unit of an advance above it. `number` is the line's place, `tag` the axis.
 ///
 /// # Errors
 /// [`Error::Parameter`] naming `fit` if `target` is outside the widths at the two ends of the range, and `width_at`'s
 /// errors.
 fn solved(
     mut width_at: impl FnMut(f64) -> Result<f64, Error>,
-    (min, max): (f64, f64),
+    range: Option<(f64, f64)>,
     target: f64,
     tag: &str,
     number: usize,
 ) -> Result<f64, Error> {
-    let (at_min, at_max) = (width_at(min)?, width_at(max)?);
+    let (at_min, at_max) = (width_at(0.0)?, width_at(1.0)?);
     let rising = at_max >= at_min;
     let (least, most) = if rising { (at_min, at_max) } else { (at_max, at_min) };
     if target < least || target > most {
         let (nearest, at) = match (target < least, rising) {
-            (true, true) | (false, false) => (at_min, min),
-            (true, false) | (false, true) => (at_max, max),
+            (true, true) | (false, false) => (at_min, 0.0),
+            (true, false) | (false, true) => (at_max, 1.0),
         };
+        // the value is the first font's with the axis; fonts of other ranges are at the same end of theirs
+        let value = range.map_or(at, |(min, max)| min + (max - min) * at);
         return Err(Error::parameter(
             "fit",
-            format!("cannot make line {number} {target} wide: the nearest {tag:?} reaches is {nearest}, at {at}"),
+            format!("cannot make line {number} {target} wide: the nearest {tag:?} reaches is {nearest}, at {value}"),
         ));
     }
     let reached = |width: f64| if rising { width >= target } else { width <= target };
-    let (mut low, mut high) = (min, max);
+    let (mut low, mut high) = (0.0, 1.0);
     for _ in 0..FIT_STEPS {
         let middle = low + (high - low) / 2.0;
         if reached(width_at(middle)?) {
@@ -223,14 +218,14 @@ fn solved(
     Ok(high)
 }
 
-/// The size at which `line`, measured at `size`, is `width` wide: a line's width grows in proportion to its size, the
-/// tracking between glyphs being part of the size too. `number` is the line's place, for the error.
+/// The factor of the sizes at which `line`, measured at the sizes of its runs, is `width` wide: a line's width grows in
+/// proportion to its sizes, the tracking between glyphs being part of the size too. `number` is the line's place, for the error.
 ///
 /// # Errors
 /// [`Error::Parameter`] naming `fit` if the line has no width.
-fn sized(line: &Measured, size: f64, width: f64, number: usize) -> Result<f64, Error> {
+fn sized(line: &Measured, width: f64, number: usize) -> Result<f64, Error> {
     if line.width > 0.0 {
-        Ok(width * size / line.width)
+        Ok(width / line.width)
     } else {
         Err(Error::parameter(
             "fit",
@@ -380,7 +375,7 @@ fn outlasts(word: &str, number: usize) -> Error {
 /// The lines of `parts` (the `"\n"`-separated parts of `content`) set in the stretches of `region`, at the reference
 /// `pose`. `measure` shapes a part.
 ///
-/// Each line takes a baseline: the first is a capital's height (`em`'s) below the top of the region, and each is a leading
+/// Each line takes a baseline: the first is a capital's height (the tallest of any run's) below the top of the region, and each is a leading
 /// below the one before. The chord of a baseline is the widest stretch of the region that holds both the baseline and the
 /// top of a capital over it (the leftmost of equals); the line takes words, greedily, while they fit it, and `pose.align`
 /// places it against the chord. A baseline whose chord does not hold the next word is skipped and gets no line, and an
@@ -398,14 +393,14 @@ fn inside(
     parts: Vec<Line>,
     content: &str,
     pose: &Settings,
-    em: &Em,
+    cap_height: f64,
     measure: impl Fn(&Line) -> Result<Measured, Error>,
     cx: &Context<'_>,
 ) -> Result<Vec<Line>, Error> {
     let Some((top, bottom)) = region.extent() else {
         return Err(Error::parameter("inside", "the shape has no outline to hold text in"));
     };
-    let leading = pose.leading.unwrap_or(LEADING * pose.size);
+    let leading = pose.leading.unwrap_or(LEADING * pose.largest());
     if leading <= 0.0 {
         return Err(Error::parameter(
             "leading",
@@ -426,7 +421,7 @@ fn inside(
         }
         let capitals = top + tried as f64 * leading;
         tried += 1;
-        Ok((capitals, capitals + em.cap_height))
+        Ok((capitals, capitals + cap_height))
     };
     let mut lines = Vec::new();
     for part in parts {
