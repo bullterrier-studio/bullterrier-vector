@@ -270,9 +270,62 @@ def text_drawings() -> list[Entry]:
         "text_bundled_fraunces": sized(
             at_90("Hamburg fi", font=BUNDLED_FRAUNCES, axes={"wght": 600, "SOFT": 100, "WONK": 0, "opsz": 72}).fill(RED)
         ),
+        # runs: three fonts, sizes and axes in one line, wrapped, fitted, set inside a shape, an axis read from a Param
+        "text_runs_mixed_wrapped": sized(
+            btvec.text(
+                [
+                    btvec.run("AV fi", font=FRAUNCES, size=60, axes={"wght": 700}),
+                    btvec.run("Hamb", font=BRICOLAGE, size=44, axes={"wght": 800, "wdth": 75}),
+                    btvec.run(" CB", font=SYNTHETIC, size=50),
+                ],
+                width=300,
+                leading=56,
+                align="center",
+                anchor=(200, 56),
+            ).fill(INK)
+        ),
+        "text_runs_fit_size": sized(
+            btvec.text(
+                [btvec.run("Hi", font=FRAUNCES, size=40), btvec.run("Ham", font=BRICOLAGE, size=70)],
+                width=380,
+                fit="size",
+                anchor=(10, 70),
+            ).fill(RED)
+        ),
+        "text_runs_fit_axis": sized(
+            btvec.text(
+                [
+                    btvec.run("Hif", font=FRAUNCES),
+                    btvec.run("CB", font=SYNTHETIC, size=60),
+                    btvec.run("Ho", font=BRICOLAGE),
+                ],
+                size=90,
+                width=300,
+                fit="wght",
+                anchor=(10, 110),
+            ).fill(BLUE)
+        ),
+        "text_runs_inside_circle": sized(
+            btvec.text(
+                [btvec.run("Hif To Hif", font=FRAUNCES, size=22), btvec.run(" Hi AV", font=BRICOLAGE, size=26)],
+                align="center",
+                inside=btvec.Path.circle((200, 80), 76),
+            ).fill(INK)
+        ),
+        "text_runs_param_axis": sized(
+            btvec.text(
+                [
+                    btvec.run("HiHi", font=FRAUNCES, axes={"wght": weight}),
+                    btvec.run("fi", font=BRICOLAGE, tracking=40, axes={"wght": weight + 100}),
+                ],
+                size=80,
+                anchor=(12, 110),
+            ).fill(GOLD)
+        ),
     }
     draws: dict[str, list[Draw]] = {
         "text_param_axis": [(400, 160, {}), (400, 160, {"wght": 700}), (200, 80, {"wght": [300, 700, 300, 700]})],
+        "text_runs_param_axis": [(400, 160, {}), (400, 160, {"wght": 700}), (200, 80, {"wght": 450})],
     }
     return [(name, drawing, draws.get(name, [(400, 160, {}), (200, 80, {})])) for name, drawing in drawings.items()]
 
