@@ -326,6 +326,25 @@ fn what_cannot_be_made_of_runs_is_refused() -> Outcome {
 }
 
 #[test]
+fn a_number_of_a_run_the_domain_refuses_names_the_run_not_the_text() -> Outcome {
+    let font = fraunces()?;
+    let rows: [(&str, Run, &str); 2] = [
+        ("size", Run::new("H", &font).size(0.0), "size"),
+        ("tracking", Run::new("H", &font).tracking(f64::INFINITY), "tracking"),
+    ];
+    for (rule, bad, argument) in rows {
+        let drawing = text([Run::new("H", &font), bad], Text::default());
+        let (parameter, message) = parameter_refusal(Err::<(), _>(drawing.error().cloned().ok_or("no error")?))?;
+        assert!(parameter.contains("runs"), "{rule}: {parameter}");
+        assert!(
+            message.contains("run 1") && message.contains(argument),
+            "{rule}: {message}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn inside_and_alignment_work_on_the_whole_text_of_runs() -> Outcome {
     let (serif, narrow) = (fraunces()?, narrowing()?);
     let centred = shapes(

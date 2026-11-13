@@ -259,18 +259,17 @@ impl Args {
         self.verb.args.iter().zip(&self.values)
     }
 
-    /// Every expression the call gives, in declaration order, with its argument.
-    pub(crate) fn expressions(&self) -> Box<dyn Iterator<Item = (&'static Arg, &Expr)> + '_> {
-        Box::new(self.declared().flat_map(|(arg, given)| {
-            let found: Vec<(&'static Arg, &Expr)> = match given {
-                Given::Number(only) => vec![(arg, only)],
-                Given::Pair(first, second) => vec![(arg, first), (arg, second)],
-                Given::Axes(axes) => axes.iter().map(|(_, expr)| (arg, expr)).collect(),
-                Given::Runs(runs) => runs.iter().flat_map(Args::expressions).collect(),
+    /// Every expression the call gives, in declaration order, with its argument; a run's are its own.
+    pub(crate) fn expressions(&self) -> impl Iterator<Item = (&'static Arg, &Expr)> {
+        self.declared().flat_map(|(arg, given)| {
+            let found: Vec<&Expr> = match given {
+                Given::Number(only) => vec![only],
+                Given::Pair(first, second) => vec![first, second],
+                Given::Axes(axes) => axes.iter().map(|(_, expr)| expr).collect(),
                 _ => Vec::new(),
             };
-            found.into_iter()
-        }))
+            found.into_iter().map(move |expr| (arg, expr))
+        })
     }
 
     /// The drawings the call takes, in order.
