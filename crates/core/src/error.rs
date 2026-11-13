@@ -47,6 +47,18 @@ impl Error {
         }
     }
 
+    /// This error with the run of a text it came from named, if it is a [`Error::Parameter`].
+    #[must_use]
+    pub(crate) fn in_run(self, run: usize) -> Self {
+        match self {
+            Self::Parameter { parameter, message } => Self::Parameter {
+                parameter,
+                message: format!("run {run}: {message}"),
+            },
+            other => other,
+        }
+    }
+
     /// An [`Error::Geometry`] from `verb`.
     pub(crate) fn geometry(verb: &str, message: impl Into<String>) -> Self {
         Self::Geometry {

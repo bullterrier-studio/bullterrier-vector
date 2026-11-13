@@ -104,12 +104,7 @@ impl Settings {
 
 /// `error` with the run it came from named, when the text has several.
 fn in_run(error: Error, run: usize, runs: usize) -> Error {
-    match error {
-        Error::Parameter { parameter, message } if runs > 1 => {
-            Error::parameter(&parameter, format!("run {run}: {message}"))
-        }
-        other => other,
-    }
+    if runs > 1 { error.in_run(run) } else { error }
 }
 
 /// `position`, or the error naming `argument`, whose value is `value`, unless it is within the coordinates a path holds.

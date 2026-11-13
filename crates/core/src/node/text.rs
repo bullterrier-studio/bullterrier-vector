@@ -300,7 +300,9 @@ fn settings(args: &Args, cx: &Context<'_>) -> Result<(String, Settings), Error> 
     let tracking = args.once_number(cx, "tracking")?;
     let mut content = String::new();
     let mut runs = Vec::new();
-    for (number, face) in faces(args)?.into_iter().enumerate() {
+    let faces = faces(args)?;
+    let several = faces.len() > 1;
+    for (number, face) in faces.into_iter().enumerate() {
         let text = face.text("content")?;
         let start = runs.last().map_or(0, |run: &RunSettings| run.characters.end);
         let characters = text.chars().count();
@@ -312,7 +314,7 @@ fn settings(args: &Args, cx: &Context<'_>) -> Result<(String, Settings), Error> 
             tracking: face.once_number_opt(cx, "tracking")?.unwrap_or(tracking),
             axes: face
                 .axes(cx, "axes", characters)
-                .map_err(|error| in_run(error, number))?,
+                .map_err(|error| if several { error.in_run(number) } else { error })?,
             features: face.features("features")?.to_vec(),
         });
     }
@@ -325,14 +327,6 @@ fn settings(args: &Args, cx: &Context<'_>) -> Result<(String, Settings), Error> 
             anchor: args.once_point(cx, "anchor")?.unwrap_or(Point::new(0.0, 0.0)),
         },
     ))
-}
-
-/// `error` with the run it came from named, if the call has runs.
-fn in_run(error: Error, run: usize) -> Error {
-    match error {
-        Error::Parameter { parameter, message } => Error::parameter(&parameter, format!("run {run}: {message}")),
-        other => other,
-    }
 }
 
 /// The wrapping the call asks for, or `None` if it gives no `width`: the width as drawn, and everything else the lines
