@@ -150,8 +150,8 @@ OFFENCES = {
     ),
     "the PNG replaced by the pixels": (
         GLUE,
-        "self.0.to_png(vector::Size::px(width, height)",
-        "self.0.to_rgba(vector::Size::px(width, height)",
+        "None => raised(self.0.to_png(size, &values))",
+        "None => raised(self.0.to_rgba(size, &values))",
         ["✖ star: the png holds the pixels of toRgba", "star 400x400: png"],
     ),
     "the pixels of the native side reversed": (
