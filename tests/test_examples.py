@@ -387,3 +387,29 @@ def test_svg_logo_picks_the_ring_by_its_id_and_the_mark_by_its_group(run):
     assert [shape.attributes["id"] for shape in found["mark"].shapes()] == ["spark", "dot"]
     assert [shape.attributes["id"] for shape in found["accent"].shapes()] == ["dot"]
     assert found["logo"].size == (400, 400)
+
+
+def test_ransom_note_sets_every_letter_in_its_own_font_wrapped_and_fitted_to_the_measure(run):
+    found = run("ransom_note")
+    note = found["note"].shapes()
+    # one shape per letter, each its own run, the spaces make none
+    assert "".join(shape.attributes["char"] for shape in note) == "SEETHECATNOMORE"
+    assert [shape.attributes["run"] for shape in note] == [at for at, c in enumerate(found["HEADLINE"]) if c != " "]
+    # every line is the measure wide: the wrap is at whole words, so a word is never split between lines
+    lines = sorted({shape.attributes["line"] for shape in note})
+    assert len(lines) > 1
+    for line in lines:
+        shapes = [shape for shape in note if shape.attributes["line"] == line]
+        left = min(shape.path.bounds.x for shape in shapes)
+        right = max(shape.path.bounds.x + shape.path.bounds.width for shape in shapes)
+        # the advances fill the measure exactly; the ink is the measure less the first and last side bearings
+        assert 0.85 * found["MEASURE"] < right - left <= found["MEASURE"]
+        assert abs((left + right) / 2 - 540) < 40
+    words: dict[object, set[object]] = {}
+    for shape in note:
+        words.setdefault(shape.attributes["word"], set()).add(shape.attributes["line"])
+    assert all(len(on) == 1 for on in words.values())
+    # the bent line keeps its letters and stays inside the frame
+    bent = found["bent"].shapes()
+    assert len(bent) == 7
+    assert all(shape.path.bounds.x >= 0 and shape.path.bounds.x + shape.path.bounds.width <= 1080 for shape in bent)

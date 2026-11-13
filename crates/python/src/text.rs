@@ -101,17 +101,104 @@ fn feature(tag: &str, value: &Bound<'_, PyAny>) -> PyResult<u32> {
     })
 }
 
-/// A drawing of `content` in `font`: one shape for every glyph that has an outline (a space or a line break has none),
-/// shaped with kerning, ligatures and the rules of the script. `"\n"` breaks a line. What is left out takes the
-/// defaults of the core: `size` 100, `tracking` 0, `leading` 1.2 times the size, `align` `"left"`, `anchor` `(0, 0)`, lines
-/// as long as the text breaks them. `width` wraps the lines to it, and `fit` (`"size"` or an axis tag) makes each exactly
-/// that wide. `inside` sets the text in the region a `Path` fills instead (no `width`, `fit` or `anchor` then).
+/// The axes of a mapping of tags to numbers, Params or expressions.
+fn axes_of(axes: &Bound<'_, PyMapping>) -> PyResult<Vec<(String, vector::Expr)>> {
+    entries(axes)?
+        .into_iter()
+        .map(|(tag, value)| Ok((tag.extract::<String>()?, value.extract::<Num>()?.0)))
+        .collect()
+}
+
+/// The features of a mapping of tags to whole numbers.
+fn features_of(features: &Bound<'_, PyMapping>) -> PyResult<Vec<(String, u32)>> {
+    entries(features)?
+        .into_iter()
+        .map(|(tag, value)| {
+            let tag = tag.extract::<String>()?;
+            let value = feature(&tag, &value)?;
+            Ok((tag, value))
+        })
+        .collect()
+}
+
+/// A `str` as UTF-8: one holding a lone surrogate has none, which is a problem in the argument, so a `ParameterError`.
+fn utf8<'a>(content: &'a Bound<'_, PyString>) -> PyResult<&'a str> {
+    content
+        .to_str()
+        .map_err(|_| ParameterError::new_err("content: the text is not valid UTF-8 (it holds a lone surrogate)"))
+}
+
+/// The runs of a list.
+fn runs_of(content: &Bound<'_, PyAny>) -> PyResult<Vec<vector::Run>> {
+    let wrong = || {
+        PyTypeError::new_err(format!(
+            "content: expected a str or a list of Run, got {}",
+            content
+                .repr()
+                .map_or_else(|_| String::from("?"), |text| text.to_string())
+        ))
+    };
+    let mut runs = Vec::new();
+    for one in content.try_iter().map_err(|_| wrong())? {
+        runs.push(one?.cast::<PyRun>().map_err(|_| wrong())?.get().0.clone());
+    }
+    Ok(runs)
+}
+
+/// A stretch of a text with a font of its own: what `run` returns and a list of them is the `content` of `text`.
+#[pyclass(name = "Run", module = "bullterrier_vector", frozen)]
+#[derive(Clone)]
+pub(crate) struct PyRun(vector::Run);
+
+#[pymethods]
+impl PyRun {
+    fn __repr__(&self) -> String {
+        format!("{:?}", self.0)
+    }
+}
+
+/// A run of `content` in `font`, for `text` to set after and before other runs, each in its own font. It is shaped apart
+/// from its neighbours (no kerning or ligature across the boundary), at the `size` and `tracking` of the text unless it
+/// gives its own; `axes` and `features` are the font's.
 #[pyfunction]
-#[pyo3(signature = (content, *, font, size=None, axes=None, features=None, tracking=None, leading=None, align=None, anchor=None, width=None, fit=None, inside=None))]
-#[expect(clippy::too_many_arguments, reason = "the arguments of the Python call, one for one")]
-pub(crate) fn text(
+#[pyo3(signature = (content, *, font, size=None, axes=None, features=None, tracking=None))]
+pub(crate) fn run(
     content: &Bound<'_, PyString>,
     font: &Bound<'_, PyFont>,
+    size: Option<Num>,
+    axes: Option<&Bound<'_, PyMapping>>,
+    features: Option<&Bound<'_, PyMapping>>,
+    tracking: Option<Num>,
+) -> PyResult<PyRun> {
+    let mut run = vector::Run::new(utf8(content)?, &font.get().0);
+    if let Some(size) = size {
+        run = run.size(size.0);
+    }
+    if let Some(tracking) = tracking {
+        run = run.tracking(tracking.0);
+    }
+    if let Some(axes) = axes {
+        run = run.axes(axes_of(axes)?);
+    }
+    if let Some(features) = features {
+        run = run.features(features_of(features)?);
+    }
+    Ok(PyRun(run))
+}
+
+/// A drawing of `content` in `font`, or of the `run`s that `content` is a list of, each in its own font: one shape for
+/// every glyph that has an outline (a space or a line break has none), shaped with kerning, ligatures and the rules of
+/// the script. `"\n"` breaks a line. What is left out takes the defaults of the core: `size` 100, `tracking` 0, `leading`
+/// 1.2 times the size (of the largest run on the line), `align` `"left"`, `anchor` `(0, 0)`, lines as long as the text
+/// breaks them. `width` wraps the lines to it, and `fit` (`"size"` or an axis tag) makes each exactly that wide.
+/// `inside` sets the text in the region a `Path` fills instead (no `width`, `fit` or `anchor` then). With runs, `font`,
+/// `axes` and `features` belong to the runs, and `size` and `tracking` are theirs unless they give their own.
+#[pyfunction]
+#[pyo3(signature = (content, *, font=None, size=None, axes=None, features=None, tracking=None, leading=None, align=None, anchor=None, width=None, fit=None, inside=None))]
+#[expect(clippy::too_many_arguments, reason = "the arguments of the Python call, one for one")]
+pub(crate) fn text(
+    content: &Bound<'_, PyAny>,
+    font: Option<&Bound<'_, PyFont>>,
     size: Option<Num>,
     axes: Option<&Bound<'_, PyMapping>>,
     features: Option<&Bound<'_, PyMapping>>,
@@ -123,11 +210,11 @@ pub(crate) fn text(
     fit: Option<&str>,
     inside: Option<&Bound<'_, PyPath>>,
 ) -> PyResult<PyDrawing> {
-    // a `str` holding a lone surrogate has no UTF-8 form: that is a problem in the argument, so a `ParameterError`
-    let content = content
-        .to_str()
-        .map_err(|_| ParameterError::new_err("content: the text is not valid UTF-8 (it holds a lone surrogate)"))?;
-    let mut options = vector::Text::new(&font.get().0);
+    let content: vector::Content = match content.cast::<PyString>() {
+        Ok(string) => utf8(string)?.into(),
+        Err(_) => runs_of(content)?.into(),
+    };
+    let mut options = font.map_or_else(vector::Text::default, |font| vector::Text::new(&font.get().0));
     if let Some(size) = size {
         options = options.size(size.0);
     }
@@ -160,22 +247,10 @@ pub(crate) fn text(
         options = options.inside(&inside.get().0);
     }
     if let Some(axes) = axes {
-        let axes = entries(axes)?
-            .into_iter()
-            .map(|(tag, value)| Ok((tag.extract::<String>()?, value.extract::<Num>()?.0)))
-            .collect::<PyResult<Vec<_>>>()?;
-        options = options.axes(axes);
+        options = options.axes(axes_of(axes)?);
     }
     if let Some(features) = features {
-        let features = entries(features)?
-            .into_iter()
-            .map(|(tag, value)| {
-                let tag = tag.extract::<String>()?;
-                let value = feature(&tag, &value)?;
-                Ok((tag, value))
-            })
-            .collect::<PyResult<Vec<_>>>()?;
-        options = options.features(features);
+        options = options.features(features_of(features)?);
     }
     checked(vector::text(content, options))
 }

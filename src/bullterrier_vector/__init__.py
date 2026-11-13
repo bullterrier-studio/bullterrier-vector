@@ -1,6 +1,6 @@
 """A typography-first vector graphics scripting library: pictures written as code, drawn as SVG or pixels.
 
-For now the package holds the geometry value `Path` (with `Point` and `Rect`), type (`Font`, `text`), drawings
+For now the package holds the geometry value `Path` (with `Point` and `Rect`), type (`Font`, `text`, `run`), drawings
 (`Drawing`, `Shape`, `Style`, `Shadow`, `Halftone`, `Gradient`, `Param`, `Expr`, the per-item numbers `by_index`,
 `by_order`, `random` and `stagger`), their JSON (`Drawing.to_json`, `Drawing.from_json`, `drawing_schema`),
 `frames` (a function of time to a PNG sequence or a clip) and the exceptions.
@@ -17,6 +17,7 @@ from bullterrier_vector._native._core import (
     Path,
     Point,
     Rect,
+    Run,
     Shadow,
     Shape,
     Style,
@@ -26,6 +27,7 @@ from bullterrier_vector._native._core import (
     linear_gradient,
     radial_gradient,
     random,
+    run,
     stagger,
     text,
 )
@@ -47,6 +49,7 @@ __all__ = [
     "Path",
     "Point",
     "Rect",
+    "Run",
     "Shadow",
     "Shape",
     "Style",
@@ -57,6 +60,7 @@ __all__ = [
     "linear_gradient",
     "radial_gradient",
     "random",
+    "run",
     "stagger",
     "text",
 ]

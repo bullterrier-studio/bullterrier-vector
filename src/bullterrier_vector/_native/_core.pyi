@@ -363,10 +363,22 @@ class Font:
     @property
     def features(self) -> list[str]: ...
 
-def text(
+@final
+class Run: ...
+
+def run(
     content: str,
     *,
     font: Font,
+    size: _Num | None = None,
+    axes: Mapping[str, _Num] | None = None,
+    features: Mapping[str, int] | None = None,
+    tracking: _Num | None = None,
+) -> Run: ...
+def text(
+    content: str | Sequence[Run],
+    *,
+    font: Font | None = None,
     size: _Num | None = None,
     axes: Mapping[str, _Num] | None = None,
     features: Mapping[str, int] | None = None,

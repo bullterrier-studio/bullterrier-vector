@@ -391,6 +391,32 @@
           "properties": {
             "content": { "type": "string" },
             "font": { "$ref": "#/$defs/name" },
+            "runs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1000,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "content": { "type": "string" },
+                  "font": { "$ref": "#/$defs/name" },
+                  "size": { "$ref": "#/$defs/once_positive" },
+                  "axes": {
+                    "type": "object",
+                    "propertyNames": { "$ref": "#/$defs/tag" },
+                    "additionalProperties": { "$ref": "#/$defs/number" }
+                  },
+                  "features": {
+                    "type": "object",
+                    "propertyNames": { "$ref": "#/$defs/tag" },
+                    "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+                  },
+                  "tracking": { "$ref": "#/$defs/once" }
+                },
+                "required": ["content", "font"]
+              }
+            },
             "size": { "$ref": "#/$defs/once_positive" },
             "axes": {
               "type": "object",
@@ -409,8 +435,7 @@
             "width": { "$ref": "#/$defs/once_positive" },
             "fit": { "$ref": "#/$defs/tag", "$comment": "an axis tag, or \"size\"" },
             "inside": { "$ref": "#/$defs/path_data" }
-          },
-          "required": ["content", "font"]
+          }
         },
         "trace": {
           "type": "object",

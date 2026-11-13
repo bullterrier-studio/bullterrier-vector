@@ -73,6 +73,15 @@ def text_with(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def text_runs(runs: Any, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+    """A document whose root is one `text` of `runs`, in the font inputs `a` and `b`, with `arguments` added."""
+    return {
+        "version": 1,
+        "inputs": {"a": {"kind": "font"}, "b": {"kind": "font"}},
+        "root": [{"text": {"runs": runs, **(arguments or {})}}],
+    }
+
+
 def test_the_schema_is_a_valid_draft_2020_12_schema() -> None:
     Draft202012Validator.check_schema(SCHEMA)
 
@@ -645,6 +654,24 @@ AGREED = [
         id="exactly MAX_PARAMS Params",
     ),
     pytest.param(with_param({"opacity": {"alpha": {"neg": {"param": "x"}}}}), True, id="an alpha read from a Param"),
+    pytest.param(
+        text_runs([{"content": "HI", "font": "a", "size": 90, "axes": {"wght": 700}, "features": {"liga": 0}}]),
+        True,
+        id="a text of one run with every option",
+    ),
+    pytest.param(
+        text_runs([{"content": "H", "font": "a"}, {"content": "I", "font": "b", "tracking": 10}], {"width": 400}),
+        True,
+        id="a text of runs in two fonts, wrapped",
+    ),
+    pytest.param(text_runs([]), False, id="a text of no runs"),
+    pytest.param(text_runs([{"content": "H"}]), False, id="a run without a font"),
+    pytest.param(text_runs([{"content": "H", "font": "a", "colour": 1}]), False, id="a run with an unknown key"),
+    pytest.param(text_runs([{"content": "H", "font": "a", "size": 0}]), False, id="a run of size 0"),
+    pytest.param(text_runs([{"content": "H", "font": "a", "axes": {"wg": 1}}]), False, id="a run axis of two letters"),
+    pytest.param(text_runs({"content": "H", "font": "a"}), False, id="runs that are one object"),
+    pytest.param(text_runs([{"content": "H", "font": "a"}] * 1000), True, id="exactly MAX_RUNS runs"),
+    pytest.param(text_runs([{"content": "H", "font": "a"}] * 1001), False, id="one run past MAX_RUNS"),
     pytest.param(text_with({"axes": {"wght": 700, "wdth": -1e300}}), True, id="axis values"),
     pytest.param(text_with({"axes": {}}), True, id="no axes"),
     pytest.param(text_with({"axes": {"wght": "bold"}}), False, id="an axis value that is a string"),

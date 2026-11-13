@@ -812,3 +812,87 @@ def test_text_carried_along_a_circle_has_its_glyphs_at_the_distances_their_pens_
         middle = after.path.bounds
         centre = (middle.x + middle.width / 2, middle.y + middle.height / 2)
         assert centre == pytest.approx((reach * math.sin(angle), -reach * math.cos(angle)), abs=1.5)
+
+
+# --- runs ----------------------------------------------------------------------------------------------------------
+
+SYNTHETIC = btvec.Font(SYNTHETIC_BYTES, name="synthetic")
+SYNTHETIC_REFERENCE = TTFont(FONTS / "synthetic.ttf")
+
+
+def test_a_run_starts_where_the_advances_of_the_runs_before_it_end_and_its_size_is_its_own() -> None:
+    drawing = btvec.text(
+        [
+            btvec.run("H", font=FRAUNCES),
+            btvec.run("C", font=SYNTHETIC, size=1000),
+            btvec.run("H", font=FRAUNCES, size=1000),
+        ],
+        size=UPEM,
+    )
+    first, second, third = drawing.shapes()
+    # H of 2000 to the em is its advance in pixels; C of 1000 to the em (fontTools: 500 units) is 500 pixels at 1000
+    h_advance = advance("H")
+    c_advance = float(SYNTHETIC_REFERENCE["hmtx"]["C"][0])
+    assert origin_x(first) == pytest.approx(h_advance / 2)
+    assert origin_x(second) == pytest.approx(h_advance + c_advance / 2)
+    assert origin_x(third) == pytest.approx(h_advance + c_advance + advance("H") / 2 * 1000 / UPEM)
+    assert [shape.attributes["run"] for shape in (first, second, third)] == [0, 1, 2]
+    # glyph, word and line count through the whole text
+    assert [shape.attributes["glyph"] for shape in (first, second, third)] == [0, 1, 2]
+    assert {shape.attributes["word"] for shape in (first, second, third)} == {0}
+
+
+def test_a_plain_text_is_one_run_and_equals_a_text_of_one_run() -> None:
+    plain = btvec.text("Hi To", font=FRAUNCES, size=UPEM, axes={"wght": 600})
+    runs = btvec.text([btvec.run("Hi To", font=FRAUNCES, axes={"wght": 600})], size=UPEM)
+    assert [shape.path.to_svg_path() for shape in runs.shapes()] == [
+        shape.path.to_svg_path() for shape in plain.shapes()
+    ]
+    assert {shape.attributes["run"] for shape in plain.shapes()} == {0}
+
+
+def test_runs_with_two_fonts_save_with_both_inputs_and_digests_and_load_to_the_same_shapes() -> None:
+    drawing = btvec.text(
+        [
+            btvec.run("H", font=FRAUNCES, axes={"wght": 700}, features={"liga": 0}),
+            btvec.run("C", font=SYNTHETIC, tracking=50),
+        ],
+        width=600,
+        fit="size",
+    )
+    text = drawing.to_json()
+    for sha256 in (hashlib.sha256(FRAUNCES_BYTES).hexdigest(), hashlib.sha256(SYNTHETIC_BYTES).hexdigest()):
+        assert sha256 in text
+    inputs = {"fraunces": FRAUNCES_BYTES, "synthetic": SYNTHETIC_BYTES}
+    loaded = btvec.Drawing.from_json(text, inputs=inputs)
+    assert loaded.to_json() == text
+    assert [shape.path.to_svg_path() for shape in loaded.shapes()] == [
+        shape.path.to_svg_path() for shape in drawing.shapes()
+    ]
+
+
+@pytest.mark.parametrize(
+    ("make", "error", "named"),
+    [
+        pytest.param(lambda: btvec.text([], size=10), btvec.ParameterError, "runs", id="no runs"),
+        pytest.param(
+            lambda: btvec.text([btvec.run("H", font=FRAUNCES)], font=FRAUNCES),
+            btvec.ParameterError,
+            "font",
+            id="font with runs",
+        ),
+        pytest.param(lambda: btvec.text("H"), btvec.ParameterError, "font", id="plain text without a font"),
+        pytest.param(
+            lambda: btvec.text(["H"], size=10),  # type: ignore[list-item]
+            TypeError,
+            "content",
+            id="a list of strings",
+        ),
+        pytest.param(lambda: btvec.text(5), TypeError, "content", id="a number"),  # type: ignore[arg-type]
+    ],
+)
+def test_what_is_not_a_text_of_runs_is_refused_naming_the_argument(
+    make: Any, error: type[Exception], named: str
+) -> None:
+    with pytest.raises(error, match=named):
+        make().shapes()

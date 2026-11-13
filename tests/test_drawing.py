@@ -1032,7 +1032,8 @@ def registered_verbs() -> set[str]:
     found: set[str] = set()
     for source in (ROOT / "crates" / "core" / "src" / "node").glob("*.rs"):
         found |= set(re.findall(r'static \w+: Verb = Verb \{\s*name: "(\w+)"', source.read_text(encoding="utf-8")))
-    return found
+    # `run` declares the arguments of one record of `text`'s `runs`: it is no call, so it is never registered
+    return found - {"run"}
 
 
 def summary(

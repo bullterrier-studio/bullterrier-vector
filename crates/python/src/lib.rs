@@ -34,7 +34,7 @@ mod _core {
     #[pymodule_export]
     use super::shape::{PyGradient, PyHalftone, PyShadow, PyShape, PyStyle, linear_gradient, radial_gradient};
     #[pymodule_export]
-    use super::text::{PyFont, text};
+    use super::text::{PyFont, PyRun, run, text};
     #[pymodule_export]
     use super::{PyPath, PyPoint, PyRect, drawing_schema};
 }
