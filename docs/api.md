@@ -673,6 +673,17 @@ turn, can lose a sliver of the stroke on the inside of the turn.
 alpha, no interlacing, and no chunks but the header, the data and the end (no colour space: read it as sRGB). The same
 call gives the same bytes; the bytes may change when the encoder crate is updated, what they decode to does not.
 
+A window renders one rectangle of a large output: `to_rgba(width, height, /, *, window=(x, y, w, h), **values)` and `to_png`
+likewise (Rust `to_rgba_window(Size::px(width, height), Window::px(x, y, w, h), &values)` and `to_png_window`; JavaScript
+`toRgba(width, height, values, { x, y, width, height })`, `toPng` the same). `width` and `height` are the whole output, the
+one the design frame is placed in, up to 100,000 a side; the window is whole pixels inside it, and obeys the limits of a pixel
+output (65,000 a side, 2^27 pixels), so a canvas the whole render refuses can be drawn in bands. The result is the window's
+pixels only (`w × h × 4` bytes), those of the same rows and columns of the whole render: exactly in the tests for blurred shadows, otherwise within 2 levels of alpha and of each colour times its alpha (an anti-aliased edge a
+level away; measured, [design-decisions.md](design-decisions.md), "Render a window (V10e)"). A blurred shadow is drawn from a region a
+little larger than the window (its offset and the reach of its blur), which obeys the same limits: a window too near the limits
+with a wide blur raises `ParameterError` naming `window`, as does a window that is not whole pixels inside the output. A Param may not be
+named `window` (as `into`, it is an output option).
+
 To look at a drawing, `uv run poe look FILE [--size WxH] [name=value ...]` draws a `.json` document, or a `.py` program
 that leaves a `drawing` (as `examples/star.py` does), to `dist/look/<name>.png` and `<name>.svg` and prints the two
 paths. The size is the drawing's own frame, else 800x600; `name=value` sets a Param. Exit code 1 and one line on stderr
@@ -682,8 +693,8 @@ opens nothing.
 | Method | Signature | Promise |
 |---|---|---|
 | `to_svg` | `to_svg(width, height, /, **values)` | an SVG document of that size; shadows, halftone, knockouts, clips, masks and blends kept, so it shows what the pixels show |
-| `to_png` | `to_png(width, height, /, **values)` | PNG bytes, 8-bit RGBA, transparent where nothing is drawn |
-| `to_rgba` | `to_rgba(width, height, /, **values)` | `width × height × 4` bytes, rows top to bottom, straight alpha |
+| `to_png` | `to_png(width, height, /, *, window=None, **values)` | PNG bytes, 8-bit RGBA, transparent where nothing is drawn; of the window, if given |
+| `to_rgba` | `to_rgba(width, height, /, *, window=None, **values)` | `width × height × 4` bytes (a window's `w × h × 4`), rows top to bottom, straight alpha |
 | `to_plotter_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
 | `to_mesh` | `to_mesh(width, height, /, *, into=None, **values)` | triangles for the picture (below) |
 | `to_json` | `to_json()` | the drawing as JSON: the same tree written down |
@@ -692,7 +703,7 @@ opens nothing.
 
 In JavaScript (the package built from `crates/wasm`) a document loads with `Drawing.fromJson(text, inputs?)` (`inputs` an object of names to `Uint8Array`s, none for a document without fonts); a drawing has
 `toJson()`, `parameters()` (plain objects `{ name, default, min, max, unit, meaning }`; `unit` is `""` for none), `size`
-(`[w, h]` or `undefined`) and the outputs, each `(width, height, values?)` with `values` an object of Param names to a
+(`[w, h]` or `undefined`) and the outputs, each `(width, height, values?)` (`toRgba` and `toPng` also `window?`) with `values` an object of Param names to a
 number or an array of numbers: `toSvg` (a string), `toRgba` and `toPng` (a `Uint8Array`, a copy), `toMesh` (a new
 `Mesh`) and `toMeshInto(mesh, width, height, values?)` (refills `mesh`, below). Errors are as in Python, thrown as
 `Error`s named by kind. The same drawing gives the same SVG text and mesh buffers in WebAssembly as natively, exactly;

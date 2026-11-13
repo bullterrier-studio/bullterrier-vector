@@ -976,6 +976,37 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **`gradient_map` and `posterize` stay unregistered** (docs only): they recolour fills and strokes, and there is nothing
   to recolour yet. When they are added they must map the stops of a gradient, not skip it.
 
+## Render a window (V10e)
+
+- **A window is a view shift, not a clip** (2026-11-13). `Drawing::to_rgba_window(size, Window::px(x, y, w, h), values)`
+  places the design frame in the whole `size`, moves the view by the region's top left and draws a canvas of the region's
+  size: no geometry is culled for the window except by the tests that already cull for the canvas. Halftone lattices,
+  gradients and text stay anchored in design space because only the output offset of the `View` changes. `to_rgba` is the
+  window that is the whole canvas, so there is one path. A Param named `window` is refused as `into` is, because in Python
+  the option sits beside the Params.
+- **Limits** apply to the window (65,000 a side, 2^27 pixels), not to the canvas, which keeps the design frame's 100,000. *Reason:*
+  the property is rendering in bands what a whole render refuses.
+- **One owner of the margin.** `output/window.rs` holds the window, its checks and the region; `raster.rs` tells it what the
+  blurred shadows need (`blur_reach`: the offset, and a kernel of 6 pixels plus a filter of 2 per halving, on the grid of
+  `2^halvings`), and no effect sizes anything of its own. The region is the window grown by that margin, its top left on the
+  decimation grid (the rasteriser halves the layer from its corner, so another corner gives another blur), cut to the canvas.
+  Masks, clips and every layer are made of the region's size, so `MAX_FILTER_PIXELS` charges the region, not the canvas. A
+  region past the pixel limits raises `ParameterError` naming `window`. The decimation plan is repeated from `vello_common`
+  (not exported); a test of a blur whose grid is ignored fails.
+- **Exactness, measured.** The oracle is the whole render cut by hand, over 16 drawings (paths and strokes, blurred shadows at
+  and past the canvas edge and at far offsets, hard shadow, mask with a shadow in it, clip, gradients, blends, knockout, halftone,
+  text), 1-pixel windows, windows on each edge, offsets that are no multiple of a tile or of the blur's grid, and random windows
+  (400 on the first 13 drawings, 40 on the three added after, as in the committed test): blurred shadows, hard shadows, clips of them, knockouts and text are byte-exact; fills
+  and strokes, masks, gradients, halftones and a stroke under opacity differ by at most 1 level and blends by at most 2, compared as
+  alpha and as each colour times its alpha (a straight colour of a faint pixel moves by several levels for one level of the
+  product). The cause is that the rasteriser holds coordinates as f32, and the nearest f32 of a shifted coordinate is not
+  the shift of the nearest, so an anti-aliased edge pixel can land a level away; it is not worked around (CLAUDE.md, rule 2).
+  The tests state those per-drawing tolerances, none looser than measured. The WebAssembly pixels of a window look the native
+  ones within the tolerance of the whole picture (`compare.mjs`, the fraction counted on the whole).
+- **A shadow's offset is part of the margin.** The test of a shadow offset up and left (its source below and right of the
+  region) fails without it, by up to 95 levels; one offset down and right passed without it. Cutting the region to the
+  canvas changed no pixel in the tests (a shape running off the canvas included), so it is there for size only.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin
