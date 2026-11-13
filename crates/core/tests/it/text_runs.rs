@@ -66,6 +66,42 @@ fn a_run_stands_where_the_advances_of_the_runs_before_it_end_in_its_own_font_and
 }
 
 #[test]
+fn no_kerning_reaches_across_the_boundary_between_two_runs() -> Outcome {
+    let font = fraunces()?;
+    // fraunces-subset.ttf, HarfBuzz: A is 1424 wide and V follows it at 1334 when kerned. One run kerns; two do not
+    let kerned = shapes("AV", Text::new(&font).size(EM))?;
+    let apart = shapes([Run::new("A", &font), Run::new("V", &font)], Text::default().size(EM))?;
+    assert_eq!(kerned[1].path(), &glyph("V", &font, EM, 1334.0)?);
+    assert_eq!(apart[1].path(), &glyph("V", &font, EM, 1424.0)?);
+    Ok(())
+}
+
+#[test]
+fn tracking_is_the_texts_unless_a_run_gives_its_own_and_counts_after_the_glyphs_of_its_own_run() -> Outcome {
+    let font = fraunces()?;
+    // H of 1000 to the em is 828 wide and 100 thousandths of an em is 100 pixels; no tracking after the last glyph
+    let pen = |runs: [Run; 3], options: Text| -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+        shapes(runs, options)?
+            .iter()
+            .map(|shape| Ok(shape.attributes().origin().ok_or("no origin")?.x - 414.0))
+            .collect()
+    };
+    let three = || [Run::new("H", &font), Run::new("H", &font), Run::new("H", &font)];
+    let own = pen(
+        [
+            Run::new("H", &font).tracking(0.0),
+            Run::new("H", &font).tracking(200.0),
+            Run::new("H", &font),
+        ],
+        Text::default().size(1000.0),
+    )?;
+    assert_eq!(own, [0.0, 828.0, 1856.0]);
+    let inherited = pen(three(), Text::default().size(1000.0).tracking(100.0))?;
+    assert_eq!(inherited, [0.0, 928.0, 1856.0]);
+    Ok(())
+}
+
+#[test]
 fn the_line_height_is_that_of_the_tallest_run_on_the_line() -> Outcome {
     let font = fraunces()?;
     // line 1 holds runs of 1000 and 2000: it stands 1.2 * 2000 below line 0; line 2 holds only 1000: 1.2 * 1000 below
@@ -148,6 +184,58 @@ fn fit_on_an_axis_sets_the_runs_whose_font_has_it_and_leaves_the_others_as_they_
         drawn[1].path().bounds()?.width,
         glyph("A", &narrow, 2000.0, 0.0)?.bounds()?.width
     );
+    Ok(())
+}
+
+#[test]
+fn fit_on_an_axis_sets_every_run_that_has_it() -> Outcome {
+    let font = fraunces()?;
+    // H at wght 500 is 1680 wide, and two of them are 3360: both runs are set to 500, not the first alone
+    let drawn = shapes(
+        [Run::new("H", &font), Run::new("H", &font)],
+        Text::default().size(EM).width(3360.0).fit("wght"),
+    )?;
+    let origins: Vec<f64> = drawn
+        .iter()
+        .map(|shape| Ok(shape.attributes().origin().ok_or("no origin")?.x))
+        .collect::<Result<_, Box<dyn std::error::Error>>>()?;
+    assert!(
+        (origins[0] - 840.0).abs() <= 1.0 && (origins[1] - (1680.0 + 840.0)).abs() <= 1.0,
+        "{origins:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_wrapped_line_is_fitted_with_the_axis_values_of_its_own_characters() -> Outcome {
+    // bricolage-grotesque has opsz, wght and wdth: wdth runs from 75 to 80 along the five characters of "HH HH", so the
+    // characters of its two lines are at 75, 76.25 and at 78.75, 80. Each line is the text of its own two characters
+    // with those values, fitted alike: 82 wide on wght, the second one a leading (120) below the first
+    let font = Font::bundled("bricolage_grotesque")?;
+    let line = |wdth: (f64, f64), y: f64| {
+        shapes(
+            "HH",
+            Text::new(&font)
+                .size(100.0)
+                .axes([("wdth", bullterrier_vector::by_index(wdth.0, wdth.1))])
+                .width(82.0)
+                .fit("wght")
+                .anchor((0.0, y)),
+        )
+    };
+    let wrapped = shapes(
+        "HH HH",
+        Text::new(&font)
+            .size(100.0)
+            .axes([("wdth", bullterrier_vector::by_index(75.0, 80.0))])
+            .width(82.0)
+            .fit("wght"),
+    )?;
+    let (first, second) = (line((75.0, 76.25), 0.0)?, line((78.75, 80.0), 120.0)?);
+    assert_eq!(wrapped.len(), 4);
+    for (found, wanted) in wrapped.iter().zip(first.iter().chain(&second)) {
+        assert_eq!(found.path(), wanted.path());
+    }
     Ok(())
 }
 
