@@ -573,6 +573,12 @@ lettering) need a call per letter placed by hand.
 State: done 2026-11-13, in Rust, Python and WebAssembly (`design-decisions.md`, "Text runs (V10f)"): `run(content, *, font,
 size, axes, features, tracking)` and `text([run, ..], ...)`, the `run` attribute, `examples/ransom_note.py`.
 
+Carried to later (review, minor):
+- A `fit` axis that no font of a one-run text has is a `FormatError` in a document and a `ParameterError` from a plain text.
+- A `fit` on an axis names no line when a line holds only runs whose font lacks the axis.
+- `inside` plans its lines with the largest run size and tallest capital, an empty run included.
+- The unoptimised 256 KB stack overflows on a plain text with a 126-level axis expression or 127 nested texts (not from runs).
+
 ## V11 Path modifiers
 
 Dash with a moving phase, place shapes along a path, simplify, resample to even spacing. Resample comes first inside this
