@@ -1037,5 +1037,5 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   striking to show without them. So the order is V11 (resample), V12, V13, M3, then V15 before V14.
 - **Depth and light stay out of vector.** Lit, chrome and glass type exists in image (`relight`, `liquid_metal`, planned `glass`)
   and is joined by scene (C5, an effect on a drawing layer). *Reason:* vector never links a raster library. Vector's part is the
-  distance field of a shape as a grayscale map (V15). Whether `relight` can take a given map as its field is an open question for
-  image, not settled here.
+  distance field of a shape as a grayscale map (V15). Settled with the scene agent: the first version needs no map (`relight` with
+  `field="light"` on a light fill); the distance field is a later refinement.

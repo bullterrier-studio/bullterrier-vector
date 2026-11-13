@@ -622,7 +622,7 @@ With V9 this is the cut-paper piece.
 
 Distance fields have a second job: a signed, normalised distance field of letters or shapes is the relief that
 image's `relight`, and later `glass`, light. Written out as a grayscale map (bytes; the call is not designed yet, and `Field.map` only reads maps in), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link
-between image and vector. Done when a chrome-type example exists in scene's roadmap (C5), using this map.
+between image and vector. Chrome type already works without it: scene's C5 example lights the headline's own brightness (`relight` with `field="light"`, a light fill). The distance field is a later refinement, and gives a bevel that also reaches outside the letters only if image lets a look change alpha.
 
 Placement that stays stable as values change (design.md, D7) is needed before hatching is animated; the poster is a
 still.
