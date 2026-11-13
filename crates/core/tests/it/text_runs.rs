@@ -272,3 +272,161 @@ fn equal_runs_share_a_cache_entry_and_a_run_that_differs_in_anything_does_not() 
     assert_eq!(features.stats().reused, 0, "other features");
     Ok(())
 }
+
+// In a document ------------------------------------------------------------------------------------------------------
+
+mod document {
+    use super::*;
+    use crate::common::fonts::{FRAUNCES, NARROWING};
+    use bullterrier_vector::{Error, Inputs};
+
+    fn inputs() -> Inputs {
+        Inputs::new().set("serif", FRAUNCES).set("narrow", NARROWING)
+    }
+
+    /// A document of a text of runs whose runs are `runs` (JSON), with the two fonts declared.
+    fn document(runs: &str, extra: &str) -> String {
+        format!(
+            r#"{{"version":1,"inputs":{{"serif":{{"kind":"font"}},"narrow":{{"kind":"font"}}}},"root":[{{"text":{{"runs":{runs}{extra}}}}}]}}"#
+        )
+    }
+
+    /// The pointer and message of the `Error::Format` loading `text` gave.
+    fn refusal(text: &str) -> Result<(String, String), Box<dyn std::error::Error>> {
+        // a document that declares no input is given none
+        let given = if text.contains("inputs") {
+            inputs()
+        } else {
+            Inputs::new()
+        };
+        match Drawing::from_json(text, &given) {
+            Err(Error::Format { pointer, message }) => Ok((pointer, message)),
+            Err(other) => Err(format!("expected a format error, got {other}").into()),
+            Ok(_) => Err("expected a format error, but it loaded".into()),
+        }
+    }
+
+    #[test]
+    fn a_text_of_two_fonts_writes_both_inputs_with_their_digest_and_reads_back_the_same() -> Outcome {
+        let (serif, narrow) = (fraunces()?.named("serif")?, narrowing()?.named("narrow")?);
+        let weight = serif.axes().remove(0);
+        let drawing = text(
+            [
+                Run::new("Hi", &serif)
+                    .size(120.0)
+                    .axes([("wght", &weight)])
+                    .features([("liga", 0)]),
+                Run::new("A", &narrow).tracking(20.0),
+            ],
+            Text::default().size(100.0).width(900.0).fit("size"),
+        );
+        let written = drawing.to_json()?;
+        for expected in [
+            r#""inputs":{"narrow":{"kind":"font","sha256":""#,
+            r#""serif":{"kind":"font","sha256":""#,
+            r#""runs":[{"axes":{"wght":{"param":"wght"}},"content":"Hi","features":{"liga":0},"font":"serif","size":120},"#,
+            r#"{"content":"A","font":"narrow","tracking":20}]"#,
+        ] {
+            assert!(written.contains(expected), "{expected} is not in {written}");
+        }
+        assert_eq!(written.matches("sha256").count(), 2);
+        let loaded = Drawing::from_json(&written, &inputs())?;
+        assert_eq!(loaded.to_json()?, written);
+        let values = Values::new().set("wght", 600.0);
+        let (made, read) = (drawing.shapes(&values)?, loaded.shapes(&values)?);
+        assert_eq!(made.len(), read.len());
+        assert!(made.iter().zip(&read).all(|(a, b)| a.path() == b.path()));
+        // the plain text still writes content and font, as before runs
+        let plain = text("Hi", Text::new(&serif).size(120.0)).to_json()?;
+        assert!(
+            plain.contains(r#""content":"Hi","font":"serif""#) && !plain.contains("runs"),
+            "{plain}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn the_loader_refuses_a_run_it_cannot_read_naming_its_pointer() -> Outcome {
+        let rows = [
+            (
+                "an unknown key of a run",
+                document(
+                    r#"[{"content":"H","font":"serif"},{"content":"H","font":"serif","colour":1}]"#,
+                    "",
+                ),
+                "/root/0/text/runs/1/colour",
+            ),
+            (
+                "a run without a font",
+                document(r#"[{"content":"H"}]"#, ""),
+                "/root/0/text/runs/0",
+            ),
+            (
+                "runs that are not an array",
+                document(r#"{"content":"H","font":"serif"}"#, ""),
+                "/root/0/text/runs",
+            ),
+            (
+                "a size that is not above 0",
+                document(r#"[{"content":"H","font":"serif","size":0}]"#, ""),
+                "/root/0/text/runs/0/size",
+            ),
+            (
+                "an input a run names that is not declared",
+                document(r#"[{"content":"H","font":"nowhere"}]"#, ""),
+                "/root/0/text/runs/0/font",
+            ),
+            (
+                "a tag that is not four characters",
+                document(r#"[{"content":"H","font":"serif","axes":{"wg":500}}]"#, ""),
+                "/root/0/text/runs/0/axes",
+            ),
+        ];
+        for (rule, document, pointer) in rows {
+            let (found, _) = refusal(&document)?;
+            assert!(found.starts_with(pointer), "{rule}: {found}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn what_a_text_of_runs_may_not_carry_is_a_call_check_naming_the_call() -> Outcome {
+        let both = r#"[{"content":"H","font":"serif"},{"content":"A","font":"narrow"}]"#;
+        let rows = [
+            ("content with runs", document(both, r#","content":"H""#)),
+            ("a font with runs", document(both, r#","font":"serif""#)),
+            ("no runs", r#"{"version":1,"root":[{"text":{"runs":[]}}]}"#.to_owned()),
+            (
+                "a fit on an axis no run's font has",
+                document(both, r#","width":100,"fit":"opsz""#),
+            ),
+        ];
+        for (rule, document) in rows {
+            let (pointer, _) = refusal(&document).map_err(|error| format!("{rule}: {error}"))?;
+            assert!(pointer.starts_with("/root/0"), "{rule}: {pointer}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn the_axes_and_features_of_a_run_are_checked_against_its_own_font() -> Outcome {
+        // wght is the serif's, nrrw the narrow's: each run's font is the one that must have what the run names
+        let good = document(
+            r#"[{"content":"H","font":"serif","axes":{"wght":500}},{"content":"A","font":"narrow","axes":{"nrrw":500}}]"#,
+            "",
+        );
+        assert_eq!(Drawing::from_json(&good, &inputs())?.error(), None);
+        let swapped = document(
+            r#"[{"content":"H","font":"serif","axes":{"wght":500}},{"content":"A","font":"narrow","axes":{"wght":500}}]"#,
+            "",
+        );
+        match Drawing::from_json(&swapped, &inputs()) {
+            Err(Error::Parameter { parameter, message }) => {
+                assert_eq!(parameter, "inputs.narrow");
+                assert!(message.contains("/root/0/text/runs/1/axes/wght"), "{message}");
+            }
+            other => return Err(format!("expected the font-checks refusal, got {other:?}").into()),
+        }
+        Ok(())
+    }
+}
