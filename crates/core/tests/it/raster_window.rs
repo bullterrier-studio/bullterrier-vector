@@ -375,3 +375,100 @@ fn a_window_outside_the_canvas_or_not_whole_is_refused_naming_window() -> Outcom
     }
     Ok(())
 }
+
+// Limits ------------------------------------------------------------------------------------------------------------
+
+/// A drawing near the bottom right of a frame of 100,000 design pixels: a blurred shadow, a mask and a clip, each
+/// inside the 1,000 pixel square that starts at (99,000, 99,000), moved by `by` design pixels.
+fn far_corner(by: f64) -> Result<Drawing, Error> {
+    let at = |x: f64, y: f64| (99_000.0 + x + by, 99_000.0 + y + by);
+    let (x, y) = at(300.0, 300.0);
+    let (mx, my) = at(600.0, 500.0);
+    let (cx, cy) = at(250.0, 600.0);
+    Ok(Drawing::new([
+        solid(rect(x, y, 200.0, 150.0)?, "#3070c0")?
+            .shadow(Shadow::new().dx(20.0).dy(30.0).blur(80.0).color(color("#000000b0")?)),
+        solid(Path::circle((mx, my), 120.0)?, "#c07030")?.mask(Drawing::from(Path::circle((mx, my), 100.0)?).fill(
+            Gradient::linear(
+                (mx - 100.0, my),
+                (mx + 100.0, my),
+                [(0.0, color("#000000")?), (1.0, color("#ffffff")?)],
+            )?,
+        )),
+        solid(rect(cx, cy, 200.0, 200.0)?, "#30c070")?.clip(Path::circle((cx + 100.0, cy + 100.0), 90.0)?),
+    ]))
+}
+
+#[test]
+fn a_small_window_of_the_largest_canvas_is_the_picture_translated_to_the_origin() -> Outcome {
+    // the same drawing moved to the top left of a canvas of 1,000 pixels at the same scale is drawn whole: the oracle
+    // for a canvas that is 10^10 pixels, which no whole render could be
+    let big = far_corner(0.0)?.with_size(100_000.0, 100_000.0);
+    let small = far_corner(-99_000.0)?.with_size(1000.0, 1000.0);
+    let near = small.to_rgba(Size::px(1000.0, 1000.0), &Values::new())?;
+    assert!(
+        near.chunks_exact(4).any(|pixel| pixel[3] > 0),
+        "the drawing is not blank"
+    );
+    let window = Window::px(99_000.0, 99_000.0, 1000.0, 1000.0);
+    let far = big.to_rgba_window(Size::px(100_000.0, 100_000.0), window, &Values::new())?;
+    assert_eq!(far.len(), near.len());
+    let worst = far
+        .chunks_exact(4)
+        .zip(near.chunks_exact(4))
+        .map(|(a, b)| {
+            premultiplied(a)
+                .iter()
+                .zip(premultiplied(b))
+                .map(|(x, y)| x.abs_diff(y))
+                .max()
+                .unwrap_or(0)
+        })
+        .max();
+    assert!(
+        worst <= Some(2),
+        "the window differs from the translated picture by {worst:?} levels"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_window_past_the_limits_of_a_pixel_output_is_refused_naming_window() -> Outcome {
+    let drawing = Drawing::from(Path::circle((100.0, 75.0), 40.0)?).with_size(200.0, 150.0);
+    let big = Size::px(100_000.0, 100_000.0);
+    // (case, width, height)
+    let rows = [
+        ("one past the side limit wide", 65_001.0, 10.0),
+        ("one past the side limit high", 10.0, 65_001.0),
+        ("one column past 2^27 pixels", 16_385.0, 8192.0),
+    ];
+    for (case, width, height) in rows {
+        let (parameter, _) =
+            parameter_refusal(drawing.to_rgba_window(big, Window::px(0.0, 0.0, width, height), &Values::new()))?;
+        assert_eq!(parameter, "window", "{case}");
+    }
+    Ok(())
+}
+
+#[test]
+fn a_window_whose_shadows_reach_past_the_limits_is_refused_naming_window() -> Outcome {
+    // a window of 10,000 pixels square (10^8 pixels, within the limit) with a blur that reaches 2,000 pixels around it
+    let drawing = solid(rect(0.0, 0.0, 50_000.0, 50_000.0)?, "#000000")?
+        .shadow(Shadow::new().blur(2000.0).color(color("#000000")?))
+        .with_size(100_000.0, 100_000.0);
+    let (parameter, _) = parameter_refusal(drawing.to_rgba_window(
+        Size::px(100_000.0, 100_000.0),
+        Window::px(20_000.0, 20_000.0, 10_000.0, 10_000.0),
+        &Values::new(),
+    ))?;
+    assert_eq!(parameter, "window");
+    Ok(())
+}
+
+#[test]
+fn the_size_of_a_whole_render_keeps_its_limits() -> Outcome {
+    let drawing = Drawing::from(Path::circle((100.0, 75.0), 40.0)?).with_size(200.0, 150.0);
+    let (parameter, _) = parameter_refusal(drawing.to_rgba(Size::px(65_001.0, 10.0), &Values::new()))?;
+    assert_eq!(parameter, "width");
+    Ok(())
+}
