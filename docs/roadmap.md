@@ -708,3 +708,25 @@ Also:
   find real problems; `// constant:` stays a reviewed rule (no tool tells a tunable from a harmless literal).
 - Wrapping tests for right-to-left text, ligatures across a break and combining marks, and right-to-left text inside a
   shape: when a test font for them exists or a piece needs them.
+
+## From scene and the future directions (2026-11-14)
+
+Asked by `bullterrier-scene` while building real pieces, and by the three directions in the design repository's `future.md`
+(animated posters, websites, an editor).
+
+- **`Path.dash` (V11).** Listed in `api.md` ("Verbs on Path and Drawing") and `formats.md` but not built: the source has no `dash`, and
+  `design-decisions.md` ("Wow gaps") says so. *Why:* stitching, dashed outlines and the marching dash. *Evidence:* the Conan poster
+  drew stitching as many `slice` pieces (`dashes()` in its `poster.py`, four lines; `bullterrier-demos/feedback/scene-conan.md`, 1).
+  Build it, or take the row out of `api.md` until it exists.
+- **A gradient fill for text, reachable from scene.** Vector already fills text with a gradient (`examples/gradient_type.py`), and a
+  gradient is plain data in a document (`formats.md`, the `fill` and `stroke` rows). The gap is in scene: `Layer.text` takes a flat colour
+  only, so the composed-world piece (M2) called `btvec.text` directly. *Check first:* whether scene can pass the paint as the plain
+  data vector already reads, with no vector change. *Evidence:* scene's `docs/future.md`, polish item 6.
+- **An exact-fit raster option.** A frame is drawn at one uniform scale, `min(width / frame width, height / frame height)`,
+  centred, in a raster whose short side is rounded up, which leaves a quarter to a half pixel of slack and cannot draw a frame
+  at two scales. *Why:* scene wraps the document in a frame that is exactly the raster to work around it. *Wanted:* a frame
+  drawn to the raster exactly, non-uniform scale allowed. *Evidence:* scene's `docs/api.md`, "Drawings" (a translucent border of
+  alpha 0.749 at 1,920 by 1,080 drawn at 1,000).
+- **Window render (V10e) exists** (done 2026-11-13, Rust, Python and WebAssembly): scene B1 (bands) can use it. Nothing to build.
+- **WebAssembly builds already.** A scene editor or a web export (direction 2) may draw vector in the page. Nothing to build
+  until a page needs it.
