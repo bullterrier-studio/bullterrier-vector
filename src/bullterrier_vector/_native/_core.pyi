@@ -32,7 +32,7 @@ __all__ = [
     "text",
 ]
 
-type _PointLike = Point | tuple[float, float]
+type _PointLike = Point | Iterable[float]  # exactly two numbers: a tuple, a list, a row of a numpy array
 type _Num = float | Expr
 type _NumPair = Point | tuple[_Num, _Num]
 type _Wanted = float | str | Point | Sequence[float | str | Point]

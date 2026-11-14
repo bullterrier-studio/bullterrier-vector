@@ -74,7 +74,7 @@ point) and a `Flow` (a direction at every point).
 
 ## Path
 
-Points are pairs: `(x, y)` tuples or `Point`s go in, `Point`s come out (`p.x`, `p.y`; `+` and `-` between points, `*` by
+Points are pairs: `Point`s, `(x, y)` tuples and any other pair of numbers (a list, a row of a numpy array: `Path.polyline(array)` takes an `(n, 2)` array) go in, `Point`s come out (`p.x`, `p.y`; `+` and `-` between points, `*` by
 a number). `y` points down. Positions along a path are fractions 0..1 of its length (by arc length, not the curve
 parameter). A path with several sub-paths is measured through them in order. A closed sub-path is measured from its
 topmost point (the leftmost of a tie), in its own direction, so the start does not move when the outline changes. The

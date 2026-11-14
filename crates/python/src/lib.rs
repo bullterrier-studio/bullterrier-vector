@@ -73,7 +73,14 @@ pub(crate) struct PyPoint {
     pub(crate) y: f64,
 }
 
-/// A point as the caller gave it: a `Point` or a tuple of two numbers.
+/// The two items of anything that iterates (a tuple, a list, a row of a numpy array), `None` unless there are exactly two.
+pub(crate) fn two_items<'py>(object: &Bound<'py, PyAny>) -> Option<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
+    let mut items = object.try_iter().ok()?;
+    let pair = (items.next()?.ok()?, items.next()?.ok()?);
+    items.next().is_none().then_some(pair)
+}
+
+/// A point as the caller gave it: a `Point` or a sequence of two numbers.
 #[derive(Clone, Copy)]
 struct Pt(vector::Point);
 
@@ -85,8 +92,10 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Pt {
             let PyPoint { x, y } = *point.get();
             return Ok(Self(vector::Point::new(x, y)));
         }
-        if let Ok(pair) = object.extract::<(f64, f64)>() {
-            return Ok(Self(pair.into()));
+        if let Some((x, y)) = two_items(&object)
+            && let (Ok(x), Ok(y)) = (x.extract::<f64>(), y.extract::<f64>())
+        {
+            return Ok(Self(vector::Point::new(x, y)));
         }
         refuse_expr_in_pair(&object)?;
         Err(PyTypeError::new_err(format!(

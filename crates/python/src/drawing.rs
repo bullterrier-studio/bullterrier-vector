@@ -4,7 +4,7 @@ use crate::expr::{Num, PyExpr, PyParam};
 use crate::mesh::PyMesh;
 use crate::shape::{PaintArg, PyShape};
 use crate::text::{bytes_of, entries};
-use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, PyPath, PyPoint, PyRect, exception, raised};
+use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, PyPath, PyPoint, PyRect, exception, raised, two_items};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -58,13 +58,15 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Pair {
             let PyPoint { x, y } = *point.get();
             return Ok(Self(x.into(), y.into()));
         }
-        match object.extract::<(Num, Num)>() {
-            Ok((x, y)) => Ok(Self(x.0, y.0)),
-            Err(_) => Err(PyTypeError::new_err(format!(
-                "expected a Point or an (x, y) tuple of numbers, got {}",
-                object.repr()?
-            ))),
+        if let Some((x, y)) = two_items(&object)
+            && let (Ok(x), Ok(y)) = (x.extract::<Num>(), y.extract::<Num>())
+        {
+            return Ok(Self(x.0, y.0));
         }
+        Err(PyTypeError::new_err(format!(
+            "expected a Point or an (x, y) tuple of numbers, got {}",
+            object.repr()?
+        )))
     }
 }
 

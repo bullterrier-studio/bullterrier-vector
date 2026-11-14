@@ -4,6 +4,7 @@ the error classes with the values they name, and closed-form oracles written wit
 import math
 from collections.abc import Callable
 
+import numpy as np
 import pytest
 
 import bullterrier_vector as btvec
@@ -66,6 +67,20 @@ def test_a_builder_returns_a_new_path_and_leaves_the_old_one_alone():
             Path.polyline([(0, 0), (10, 0), (10, 10)], closed=True), "M0 0 L10 0 L10 10 Z", id="polyline closed"
         ),
         pytest.param(Path.polyline(iter([(0, 0), (1, 0)])), "M0 0 L1 0", id="polyline takes any iterable of points"),
+        pytest.param(
+            Path.polyline(np.array([(0, 0), (10, 0), (10, 10)], dtype=np.float32)),
+            "M0 0 L10 0 L10 10",
+            id="polyline takes float32 rows",
+        ),
+        pytest.param(
+            Path.polyline(np.array([(0, 0), (10, 0), (10, 10)], dtype=np.int64), closed=True),
+            "M0 0 L10 0 L10 10 Z",
+            id="polyline takes int rows",
+        ),
+        pytest.param(
+            Path.polyline([np.array([0.5, 0.0]), [10, 0]]), "M0.5 0 L10 0", id="polyline takes a list of mixed rows"
+        ),
+        pytest.param(Path().move_to(np.array([1.0, 2.0])).line_to([3, 4]), "M1 2 L3 4", id="a point is any pair"),
         pytest.param(Path.rect(0, 0, 10, 10), SQUARE, id="rect starts at the left end of the top edge"),
         pytest.param(Path.rect(5, 6, 10, 20), "M5 6 L15 6 L15 26 L5 26 Z", id="rect not at the origin"),
     ],
@@ -600,6 +615,21 @@ def test_map_points_rejects_a_function_that_returns_a_non_finite_point_naming_fn
             id="infinite point",
         ),
         pytest.param(lambda: Path.polyline([(0, 0)]), btvec.ParameterError, ["points", "1"], id="one point"),
+        pytest.param(
+            lambda: Path.polyline(np.array([(0.0, 0.0), (1.0, math.nan)])),
+            btvec.ParameterError,
+            ["point", "nan"],
+            id="NaN in a numpy row",
+        ),
+        pytest.param(
+            lambda: Path.polyline(np.zeros((3, 3))), TypeError, ["expected a Point", "0."], id="three numbers in a row"
+        ),
+        pytest.param(
+            lambda: Path.polyline(np.zeros((3, 1))), TypeError, ["expected a Point", "0."], id="one number in a row"
+        ),
+        pytest.param(
+            lambda: Path.polyline(np.zeros(4)), TypeError, ["expected a Point", "0."], id="a flat array is not points"
+        ),
         pytest.param(lambda: Path.rect(0, 0, -3, 5), btvec.ParameterError, ["width", "-3"], id="negative width"),
         pytest.param(
             lambda: Path.rect(0, 0, 10, 10, radius=6), btvec.ParameterError, ["radius", "6"], id="radius over half"
@@ -758,7 +788,7 @@ def test_an_empty_path_has_no_length_and_transforms_return_it_unchanged():
 @pytest.mark.parametrize(
     "call",
     [
-        pytest.param(lambda: Path().move_to((1, 2, 3)), id="a triple"),  # type: ignore[arg-type]  # the misuse under test
+        pytest.param(lambda: Path().move_to((1, 2, 3)), id="a triple"),  # the misuse under test
         pytest.param(lambda: Path().move_to("ab"), id="a string"),  # type: ignore[arg-type]  # the misuse under test
         pytest.param(lambda: Path().move_to((1, "a")), id="a pair that is not numbers"),  # type: ignore[arg-type]  # the misuse under test
         pytest.param(lambda: Path().move_to(5), id="a number"),  # type: ignore[arg-type]  # the misuse under test
@@ -849,7 +879,7 @@ def test_points_add_and_subtract_and_scale_by_a_number():
         pytest.param(lambda: Point(1, 2) * "a", id="point times a string"),  # type: ignore[operator]  # the misuse under test
         pytest.param(lambda: Point(1, 2) + 1, id="point plus a number"),  # type: ignore[operator]  # the misuse under test
         pytest.param(
-            lambda: Point(1, 2) + (1, 2, 3),  # type: ignore[operator]  # noqa: RUF005  the misuse under test: a Point is not a tuple
+            lambda: Point(1, 2) + (1, 2, 3),  # noqa: RUF005  the misuse under test: a Point is not a tuple
             id="point plus a triple",
         ),
     ],

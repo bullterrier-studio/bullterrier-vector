@@ -9,6 +9,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path as FilePath
 from typing import Any
 
+import numpy as np
 import pytest
 
 import bullterrier_vector as btvec
@@ -98,6 +99,9 @@ def test_a_drawing_drawn_twice_gives_equal_shapes():
         ),
         pytest.param(lambda d: d.scale(2), "M-5 -5 L15 -5 L15 15 L-5 15 Z", id="scale about the middle"),
         pytest.param(lambda d: d.scale((2, 1)), "M-5 0 L15 0 L15 10 L-5 10 Z", id="scale by a pair"),
+        pytest.param(
+            lambda d: d.rotate(90, about=np.array([0.0, 0.0])), "M0 0 L0 10 L-10 10 L-10 0 Z", id="about a numpy row"
+        ),
         pytest.param(lambda d: d.scale(2, about=(0, 0)), "M0 0 L20 0 L20 20 L0 20 Z", id="scale about a point"),
         pytest.param(lambda d: d.scale(-1, about=(0, 0)), "M0 0 L-10 0 L-10 -10 L0 -10 Z", id="a negative mirrors"),
     ],
