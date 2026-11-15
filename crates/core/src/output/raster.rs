@@ -5,7 +5,7 @@ use super::cast;
 use super::outline::{bez_path, dots, stroke_outline, within_device};
 use super::ramp::Ramp;
 use super::screen::{Screen, charged, screen};
-use super::view::View;
+use super::view::{View, on_grid};
 use super::window::{Cells, Window};
 use super::{Size, in_shape};
 use crate::limits::Work;
@@ -14,7 +14,7 @@ use crate::shape::same_cut;
 use crate::{
     Blend, Cap, Drawing, Error, GradientKind, Join, Paint, Path, Point, ShadowStyle, Shape, StrokeStyle, Style, Values,
 };
-use kurbo::{Affine, BezPath, Rect, Shape as _};
+use kurbo::{Affine, BezPath, PathEl, Rect, Shape as _};
 use std::f64::consts::SQRT_2;
 use std::sync::Arc;
 use vello_cpu::color::AlphaColor;
@@ -78,9 +78,24 @@ impl Drawing {
 
 /// The picture of `shapes` seen through `view` in an output of `canvas` pixels, cut to `window`.
 fn rgba(shapes: &[Shape], view: &View, canvas: (f64, f64), window: Cells) -> Result<Vec<u8>, Error> {
-    let (margin, align) = blur_reach(shapes, view);
-    let region = window.region(margin, align, Cells::canvas(canvas))?;
-    let view = view.shifted(f64::from(region.x), f64::from(region.y));
+    let (margin, align, blurs) = blur_reach(shapes, view);
+    let canvas = Cells::canvas(canvas);
+    let mut region = window.region(margin, align, canvas)?;
+    // the rasteriser halves a shadow's layer from the corner of what is drawn into it: the region holds the corner of
+    // every blurred shape that its pixels depend on, or it would halve from another one than the whole picture does
+    loop {
+        let wider = blurs
+            .iter()
+            .filter(|blur| blur.touches(region))
+            .try_fold(region, |wider, blur| {
+                wider.reaching((blur.content.x0, blur.content.y0), align, margin)
+            })?;
+        if wider == region {
+            break;
+        }
+        region = wider;
+    }
+    let view = view.pixels(f64::from(region.x), f64::from(region.y));
     // the region is within the limits of a pixel output, so its sides are at most 65,000
     #[expect(clippy::cast_possible_truncation, reason = "at most 65,000")]
     let pixmap = picture(shapes, &view, (region.width as u16, region.height as u16), &Work::new())?;
@@ -89,11 +104,29 @@ fn rgba(shapes: &[Shape], view: &View, canvas: (f64, f64), window: Cells) -> Res
     Ok(bytes)
 }
 
-/// How far a window's pixels depend on pixels around it, in output pixels, and the grid the blurs' decimation needs
-/// the region's top left to lie on: what the blurred shadows of `shapes` (and of the shapes of their masks) ask for.
-/// Every other effect is placed by its coordinates alone and asks for nothing.
-fn blur_reach(shapes: &[Shape], view: &View) -> (u32, u32) {
+/// A shape with a blurred shadow: the box its fill and stroke can touch in the whole picture's pixels, and how far its
+/// shadow reaches beyond that.
+struct Blur {
+    content: Rect,
+    reach: f64,
+}
+
+impl Blur {
+    /// Whether this shape's shadow can reach the pixels of `region`.
+    fn touches(&self, region: Cells) -> bool {
+        let (x, y) = (f64::from(region.x), f64::from(region.y));
+        let (right, bottom) = (x + f64::from(region.width), y + f64::from(region.height));
+        let near = grown(&self.content, self.reach);
+        near.x0 < right && near.x1 > x && near.y0 < bottom && near.y1 > y
+    }
+}
+
+/// How far a window's pixels depend on pixels around it, in output pixels, the grid the blurs' decimation needs the
+/// region's top left to lie on, and the shapes with a blurred shadow: what the blurred shadows of `shapes` (and of the
+/// shapes of their masks) ask for. Every other effect is placed by its coordinates alone and asks for nothing.
+fn blur_reach(shapes: &[Shape], view: &View) -> (u32, u32, Vec<Blur>) {
     let (mut margin, mut align) = (0.0_f64, 1_u32);
+    let mut blurs = Vec::new();
     let masks = shapes
         .iter()
         .filter_map(|shape| shape.style().shared_mask())
@@ -109,6 +142,12 @@ fn blur_reach(shapes: &[Shape], view: &View) -> (u32, u32) {
         if shadow.sigma > 0.0 {
             margin = margin.max(shadow.dependence());
             align = align.max(1 << decimations(shadow.sigma));
+            if let Some(content) = content(shape, view) {
+                blurs.push(Blur {
+                    content,
+                    reach: shadow.reach(),
+                });
+            }
         }
     }
     // a margin past 2^32 pixels is past any canvas, and the region is cut to the canvas
@@ -117,7 +156,25 @@ fn blur_reach(shapes: &[Shape], view: &View) -> (u32, u32) {
         clippy::cast_sign_loss,
         reason = "a whole number, saturating"
     )]
-    (margin.ceil() as u32, align)
+    (margin.ceil() as u32, align, blurs)
+}
+
+/// The box that the fill and stroke of `shape` can touch, a pixel more on each side, in the pixels of `view`; `None`
+/// for a shape that draws nothing or whose stroke is refused (`paint` refuses it, in the order of the draw).
+fn content(shape: &Shape, view: &View) -> Option<Rect> {
+    let bounds = shape.path().bounds().ok()?;
+    let (from, to) = (
+        view.point(Point::new(bounds.x, bounds.y)),
+        view.point(Point::new(bounds.x + bounds.width, bounds.y + bounds.height)),
+    );
+    let reach = match shape.style().stroke() {
+        Some(stroke) => stroke_reach(stroke, view.length(stroke.width()).ok()?),
+        None => 0.0,
+    };
+    Some(grown(
+        &Rect::new(from.x.min(to.x), from.y.min(to.y), from.x.max(to.x), from.y.max(to.y)),
+        reach + 1.0,
+    ))
 }
 
 /// How many times the rasteriser halves the picture to blur with a deviation of `sigma` pixels: it removes a variance
@@ -456,18 +513,21 @@ fn paint(
                 .map_err(|error| in_shape(shape, "gradient ", error))?
             {
                 Some(paint) => {
-                    // the outline has arcs for the round joins and ends; the rasteriser must be given lines only
+                    // the outline has arcs for the round joins and ends; the rasteriser must be given lines only. It is made
+                    // in the coordinates of the whole picture, as every window of it makes it, and placed after
+                    let whole = unplaced(&device, view);
                     let lines = stroke_outline(
-                        &bez_path(&device),
+                        &bez_path(&whole),
                         stroke,
                         (stroke.join(), stroke.cap()),
                         width,
                         FLATNESS * view.scale(),
                         &name,
                     )?;
-                    let dots = dots(&device, stroke.cap(), width, &mut charge)?
+                    let lines = placed(&lines, view);
+                    let dots = dots(&whole, stroke.cap(), width, &mut charge)?
                         .iter()
-                        .map(|dot| bez_path(dot))
+                        .map(|dot| placed(&bez_path(dot), view))
                         .collect();
                     Some(StrokeBody {
                         lines,
@@ -679,7 +739,8 @@ impl Shadow {
         if layered {
             context.push_layer(Some(bounds), None, Some(f32::from(alpha) / 255.0), None, None);
         }
-        context.set_transform(Affine::translate((self.dx, self.dy)));
+        // on the grid, so that the moved shape is the same in every window
+        context.set_transform(Affine::translate((on_grid(self.dx), on_grid(self.dy))));
         body.draw(context, Some([red, green, blue]));
         context.reset_transform();
         if layered {
@@ -694,11 +755,12 @@ impl Shadow {
     }
 
     /// How far the pixels of a window must reach around it for this blurred shadow to come out as in the whole
-    /// picture: the offset, and what the blur reads: a kernel of at most 6 pixels and a filter of 2 at each of its
-    /// halvings, either way twice, on the grid of the coarsest of them.
+    /// picture: the offset, and what the blur reads, on the grid of the coarsest of its halvings: the kernel of at most
+    /// 6 pixels and the filters of the halvings and their upscales. Ten grids were measured to fall short by a level on
+    /// a picture of 700 pixels, eleven to hold; twelve are taken.
     fn dependence(&self) -> f64 {
         let grid = f64::from(1_u32 << decimations(self.sigma));
-        self.dx.abs().max(self.dy.abs()) + (KERNEL_RADIUS + 2.0 * HALVING_FILTER) * grid
+        self.dx.abs().max(self.dy.abs()) + (KERNEL_RADIUS + 3.0 * HALVING_FILTER) * grid
     }
 
     /// The filter that keeps the alpha of what is drawn into its layer, moves and blurs it and gives it the colour.
@@ -804,6 +866,36 @@ fn moved(polylines: &[Polyline], view: &View) -> Result<Vec<Polyline>, Error> {
         });
     }
     Ok(device)
+}
+
+/// `polylines`, as `moved` placed them for the region of `view`, in the coordinates of the whole picture.
+fn unplaced(polylines: &[Polyline], view: &View) -> Vec<Polyline> {
+    polylines
+        .iter()
+        .map(|polyline| Polyline {
+            points: polyline.points.iter().map(|point| view.unplace(*point)).collect(),
+            closed: polyline.closed,
+            drawn: polyline.drawn,
+        })
+        .collect()
+}
+
+/// `path` of the whole picture, placed for the region of `view`.
+fn placed(path: &BezPath, view: &View) -> BezPath {
+    let at = |point: kurbo::Point| {
+        let placed = view.place(Point::new(point.x, point.y));
+        kurbo::Point::new(placed.x, placed.y)
+    };
+    BezPath::from_vec(
+        path.elements()
+            .iter()
+            .map(|element| match *element {
+                PathEl::MoveTo(point) => PathEl::MoveTo(at(point)),
+                PathEl::LineTo(point) => PathEl::LineTo(at(point)),
+                other => other,
+            })
+            .collect(),
+    )
 }
 
 /// `STRAIGHT[alpha][colour]` is `colour * 255 / alpha` rounded to the nearest whole number (halves up), 0 for alpha 0.

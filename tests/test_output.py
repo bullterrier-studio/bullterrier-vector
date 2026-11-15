@@ -473,6 +473,27 @@ def test_a_window_is_the_rows_and_columns_of_the_whole_render(window: tuple[int,
     assert WINDOWED.to_rgba(120, 90, window=window) == rows_of(whole, 120, *window)
 
 
+BUSY = btvec.Drawing(
+    btvec.Path.rect(0, 0, 200, 150).fill("#e8a060"),
+    btvec.Path.star((100, 75), outer=60, inner=25, points=5)
+    .fill(btvec.linear_gradient([(0, "#000000"), (1, "#ffffff")], start=(20, 0), end=(180, 0)))
+    .stroke("#102040c0", width=9, join="miter")
+    .opacity(0.7)
+    .shadow(dx=3, dy=8, blur=24, color="#000000b0"),
+    size=(200, 150),
+)
+
+
+@pytest.mark.parametrize(
+    "window", [(0, 299, 700, 1), (253, 3, 9, 9), (255, 0, 2, 300), (301, 119, 77, 61), (699, 149, 1, 1)]
+)
+def test_a_window_of_a_busy_drawing_is_the_same_bytes_as_the_rows_and_columns_of_the_whole(
+    window: tuple[int, int, int, int],
+):
+    whole = BUSY.to_rgba(700, 300)
+    assert BUSY.to_rgba(700, 300, window=window) == rows_of(whole, 700, *window)
+
+
 def test_a_png_window_decodes_to_the_pixels_of_the_rgba_window(decode_png):
     window = (7, 5, 60, 40)
     png = WINDOWED.to_png(120, 90, window=window)

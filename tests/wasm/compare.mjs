@@ -41,8 +41,7 @@ export function differences(expected, actual, width) {
 // Windows (docs/design-decisions.md, "Render a window (V10e)"): over the 148 draws, each with one window, the WebAssembly window
 // differs from the native one in at most 2 values, 1 level each: 0.005% of the values of the whole picture but 0.03% of the
 // window's own, past MAX_FRACTION, so a window's allowed count is taken on the whole picture's values, the count
-// the same picture is allowed. The native window against the whole's rows and columns: at most 1 level, 218 values in
-// the worst draw.
+// the same picture is allowed. The native window against the whole's rows and columns: the same bytes.
 
 /** Assert that two RGBA images look the same, naming the count and the first differing pixel if they do not. The count
  *  allowed is a fraction of `of` channel values: the images' own, or those of the whole picture that they are a window of. */

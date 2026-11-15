@@ -11,6 +11,8 @@ pub(crate) struct View {
     scale: f64,
     x: f64,
     y: f64,
+    /// For pixels: the whole picture's column and row of the region drawn, whose top left is placed at (0, 0).
+    region: Option<(f64, f64)>,
 }
 
 impl View {
@@ -21,6 +23,7 @@ impl View {
                 scale: 1.0,
                 x: 0.0,
                 y: 0.0,
+                region: None,
             };
         };
         let (across, down) = (output.0 / design_width, output.1 / design_height);
@@ -29,6 +32,7 @@ impl View {
         // it out would leave a rounding residue (1e-15) in every coordinate
         Self {
             scale,
+            region: None,
             x: if across > down {
                 (output.0 - design_width * scale) / 2.0
             } else {
@@ -42,11 +46,13 @@ impl View {
         }
     }
 
-    /// The same view of a picture whose top left is `x` columns and `y` rows into this one's output.
-    pub(crate) fn shifted(self, x: f64, y: f64) -> Self {
+    /// This view for the pixels of the region whose top left is `x` columns and `y` rows into the output (whole
+    /// numbers): every point is placed on the grid of [`GRID`] to a pixel, in the whole picture, and then moved by
+    /// the region's corner, which is exact. A window of a picture is then the same shapes as the whole, to the bit,
+    /// where moving the picture by the corner would round each coordinate again.
+    pub(crate) fn pixels(self, x: f64, y: f64) -> Self {
         Self {
-            x: self.x - x,
-            y: self.y - y,
+            region: Some((x, y)),
             ..self
         }
     }
@@ -61,7 +67,25 @@ impl View {
 
     /// The place of the point `design` in output pixels.
     pub(crate) fn point(&self, design: Point) -> Point {
-        Point::new(design.x * self.scale + self.x, design.y * self.scale + self.y)
+        self.place(Point::new(
+            design.x * self.scale + self.x,
+            design.y * self.scale + self.y,
+        ))
+    }
+
+    /// The point `whole`, of the whole picture, as the pixels of the region have it: on the grid, from the region's
+    /// corner. A view of the whole output leaves it as it is.
+    pub(crate) fn place(&self, whole: Point) -> Point {
+        match self.region {
+            None => whole,
+            Some((x, y)) => Point::new(on_grid(whole.x) - x, on_grid(whole.y) - y),
+        }
+    }
+
+    /// The point `placed` of the region as a point of the whole picture, which `place` has put on the grid.
+    pub(crate) fn unplace(&self, placed: Point) -> Point {
+        let (x, y) = self.region.unwrap_or((0.0, 0.0));
+        Point::new(placed.x + x, placed.y + y)
     }
 
     /// How many output pixels a design pixel is.
@@ -77,4 +101,14 @@ impl View {
         path.scale(self.scale, Some(Point::new(0.0, 0.0)))?
             .translate(self.x, self.y)
     }
+}
+
+/// How many places a pixel has on a pixel output: the rasteriser holds a coordinate in an `f32`, which keeps a whole
+/// number of such places exactly up to 2^16 pixels (24 bits in all), so that moving a coordinate by a whole number of
+/// pixels moves its `f32` by exactly as much.
+const GRID: f64 = 256.0; // constant: 2^8 places leave 16 bits for the pixels, past the 65,000 of a canvas; an edge moves by 1/512 pixel at most
+
+/// `value` rounded to the grid, halves up (so that it is the same for a value moved by a whole number of pixels).
+pub(super) fn on_grid(value: f64) -> f64 {
+    (value * GRID + 0.5).floor() / GRID
 }

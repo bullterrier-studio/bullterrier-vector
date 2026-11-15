@@ -128,10 +128,10 @@ for (const { name, json, inputs, draws } of native.corpus) {
       const window = { x, y, width, height };
       const rgba = drawing.toRgba(draw.width, draw.height, draw.values, window);
       assertLookTheSame(nativePixels(draw.window_rgba_file), rgba, width, `${label}: window pixels`, draw.width * draw.height * 4);
-      // the window is the rows and columns of the whole render, at most 1 level apart over this corpus (design-decisions.md)
+      // the window is the rows and columns of the whole render, to the byte (design-decisions.md)
       const cut = windowOf(nativePixels(draw.rgba_file), draw.width, draw.window);
       const apart = differences(cut, nativePixels(draw.window_rgba_file), width);
-      assert.ok(apart.largest <= 1, `${label}: the native window is ${apart.largest} levels from the whole's rows and columns`);
+      assert.equal(apart.count, 0, `${label}: the native window differs from the whole's rows and columns by up to ${apart.largest} levels`);
       const decoded = decodePng(drawing.toPng(draw.width, draw.height, draw.values, window), label);
       assert.deepEqual(decoded.header, { width, height, depth: 8, colour: 6, interlace: 0 }, `${label}: window png header`);
       assert.ok(Buffer.from(decoded.pixels).equals(rgba), `${label}: window png pixels`);

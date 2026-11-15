@@ -2,6 +2,16 @@
 //! must work in to draw it exactly. The one place that knows how far a pixel's colour depends on its neighbours.
 
 use super::{MAX_PIXEL_SIDE, MAX_PIXELS};
+
+/// The side of a tile of the rasteriser (`vello_common`'s `Tile`), in pixels.
+const TILE: u32 = 4; // constant: the rasteriser's, measured as the alignment a window's rows need
+
+/// How wide the rasteriser's wide tiles are, in pixels, in which it composites layers; a region starts at a multiple.
+const WIDE_TILE: u32 = 256; // constant: the rasteriser's; a multiple of a tile, and of any decimation grid below it
+
+/// The pixels around a window that the rasteriser draws too: a pixel within a tile of the edge of the picture it is
+/// given is composited in a layer with a rounding of its own, so no pixel of a window is that near.
+const EDGE: u32 = 2 * TILE; // constant: measured, a tile (4) is enough in the tests and this is twice that
 use crate::Error;
 
 /// A rectangle of the output, in whole pixels from its top left: what [`Drawing::to_rgba_window`] and
@@ -100,15 +110,18 @@ impl Cells {
     }
 
     /// The region the rasteriser works in to draw this window exactly: the window grown by `margin` pixels on every
-    /// side, its top left moved up and left to a multiple of `align` (which a blur's decimation grid needs to be
-    /// the same as in the whole picture), and kept inside the `canvas`, past which no pixel is wanted. Of the same
-    /// size as the window when `margin` is 0.
+    /// side, and by [`EDGE`] at least, its top left moved up and left to a multiple of `align` (which a blur's
+    /// decimation grid needs to be the same as in the whole picture) and of the rasteriser's tiles, and kept inside
+    /// the `canvas`, past which no pixel is wanted. A region is the whole picture's pixels at the same places in
+    /// those tiles, with no pixel of the window at its edge, or at the canvas's own edge.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `window` if the region is past the limits of a pixel output.
     pub(crate) fn region(self, margin: u32, align: u32, canvas: Self) -> Result<Self, Error> {
-        let left = self.x.saturating_sub(margin) / align * align;
-        let top = self.y.saturating_sub(margin) / align * align;
+        let margin = margin.max(EDGE);
+        let (across, down) = Self::tiles(align);
+        let left = self.x.saturating_sub(margin) / across * across;
+        let top = self.y.saturating_sub(margin) / down * down;
         let right = self
             .x
             .saturating_add(self.width)
@@ -119,20 +132,51 @@ impl Cells {
             .saturating_add(self.height)
             .saturating_add(margin)
             .min(canvas.height);
-        let region = Self {
+        Self {
             x: left,
             y: top,
             width: right - left,
             height: bottom - top,
-        };
-        region.within_limits().map_err(|error| match error {
+        }
+        .within_region_limits(margin)
+    }
+
+    /// This region, with its top left moved up and left to the grid line at or before `corner`, if that is further.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `window` if the region is past the limits of a pixel output.
+    pub(crate) fn reaching(self, corner: (f64, f64), align: u32, margin: u32) -> Result<Self, Error> {
+        let (across, down) = Self::tiles(align);
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a whole number from 0 to the canvas, saturating"
+        )]
+        let (x, y) = (corner.0.max(0.0).floor() as u32, corner.1.max(0.0).floor() as u32);
+        let (left, top) = (self.x.min(x / across * across), self.y.min(y / down * down));
+        Self {
+            x: left,
+            y: top,
+            width: self.x + self.width - left,
+            height: self.y + self.height - top,
+        }
+        .within_region_limits(margin.max(EDGE))
+    }
+
+    /// The tiles a region starts on, across and down, when the blurs ask for the grid `align`.
+    fn tiles(align: u32) -> (u32, u32) {
+        (align.max(WIDE_TILE), align.max(TILE))
+    }
+
+    fn within_region_limits(self, margin: u32) -> Result<Self, Error> {
+        self.within_limits().map_err(|error| match error {
             Error::Parameter { message, .. } => Error::parameter(
                 "window",
-                format!("with the {margin} pixels that its shadows reach, the work region is {message}"),
+                format!("with the {margin} pixels it is drawn from around it, the work region is {message}"),
             ),
             other => other,
         })?;
-        Ok(region)
+        Ok(self)
     }
 
     /// The rows and columns of `pixels`, the RGBA of `region` (which holds this window), that are this window's.
