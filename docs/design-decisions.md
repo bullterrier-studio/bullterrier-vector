@@ -985,26 +985,46 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   window that is the whole canvas, so there is one path. A Param named `window` is refused as `into` is, because in Python
   the option sits beside the Params.
 - **Limits** apply to the window (65,000 a side, 2^27 pixels), not to the canvas, which keeps the design frame's 100,000. *Reason:*
-  the property is rendering in bands what a whole render refuses.
+  the property is rendering in bands what a whole render refuses. They apply to the region too (below), so a window of 64,700
+  pixels or more across a canvas past the limit is refused.
 - **One owner of the margin.** `output/window.rs` holds the window, its checks and the region; `raster.rs` tells it what the
-  blurred shadows need (`blur_reach`: the offset, and a kernel of 6 pixels plus a filter of 2 per halving, on the grid of
-  `2^halvings`), and no effect sizes anything of its own. The region is the window grown by that margin, its top left on the
+  blurred shadows need (`blur_reach`: the offset, and twelve times the grid of `2^halvings`), and no effect sizes anything of its own. The region is the window grown by that margin, its top left on the
   decimation grid (the rasteriser halves the layer from its corner, so another corner gives another blur), cut to the canvas.
   Masks, clips and every layer are made of the region's size, so `MAX_FILTER_PIXELS` charges the region, not the canvas. A
   region past the pixel limits raises `ParameterError` naming `window`. The decimation plan is repeated from `vello_common`
   (not exported); a test of a blur whose grid is ignored fails.
-- **Exactness, measured.** The oracle is the whole render cut by hand, over 16 drawings (paths and strokes, blurred shadows at
-  and past the canvas edge and at far offsets, hard shadow, mask with a shadow in it, clip, gradients, blends, knockout, halftone,
-  text), 1-pixel windows, windows on each edge, offsets that are no multiple of a tile or of the blur's grid, and random windows
-  (400 on the first 13 drawings, 40 on the three added after, as in the committed test): blurred shadows, hard shadows, clips of them, knockouts and text are byte-exact; fills
-  and strokes, masks, gradients, halftones and a stroke under opacity differ by at most 1 level and blends by at most 2, compared as
-  alpha and as each colour times its alpha (a straight colour of a faint pixel moves by several levels for one level of the
-  product). The cause was not isolated; the rasteriser's f32 coordinates (the nearest f32 of a shifted coordinate is not the shift of
-  the nearest) would explain an edge pixel a level away. It is not worked around (CLAUDE.md, rule 2).
-  The tests state those per-drawing tolerances, none looser than measured. Over the 148 draws of the differential corpus (one window each) the native window is at most 1 level from the whole's
-  rows and columns (218 values in the worst draw), and the WebAssembly window at most 1 level and 2 values from the native
-  one: 0.005% of the whole picture's values, 0.03% of the window's own, which is past the fraction allowed for a picture, so
-  a window is counted against the whole picture's values (`compare.mjs`).
+- **A window is the bytes of the crop** (2026-11-15). The oracle is the whole render cut by hand, over 32 drawings (fills; strokes
+  of each join and end; booleans; opacity groups; blurred shadows at and past the canvas edge, at far offsets and of shapes whose
+  corners lie off every grid; hard shadows; masks; clips; gradients; blends; knockouts; halftones; text), on two canvases (331 by
+  251 and 700 by 300 pixels), over 1-pixel windows, windows on each edge, offsets no multiple of a tile, a wide tile or a blur's
+  grid, and 80 random windows (700 once, by hand, with none different); every one is the same bytes, and a 4 by 3 grid of
+  windows stitches into the whole. It was not before (a level at some edge pixels of fills, strokes, masks, gradients,
+  halftones, groups under opacity and blends; two on the 700 pixel canvas for blurred shadows). Four causes, each found by
+  making it fail on its own:
+  - *The `f32` of a shifted coordinate.* The rasteriser holds coordinates in `f32`, and the nearest `f32` of a coordinate
+    moved by a whole number of pixels is not the move of the nearest. Every coordinate is now rounded once to a grid of 1/256
+    pixel in the coordinates of the whole picture (`View::place`; a pixel of 2^16 and 8 places hold 24 bits), and then
+    moved by the region's corner, which is exact. An edge moves by at most 1/512 pixel, from the whole render as before. A
+    stroke's outline and the dots of its ends are made in the whole picture's coordinates, as every window makes them, and
+    placed after; so is the offset of a hard shadow. The grid is the pixel output's: SVG and mesh coordinates are unchanged.
+  - *The tiles.* The rasteriser composites a layer (opacity, blend, mask, clip) in wide tiles of 256 pixels across and 4 down,
+    and a pixel within a tile of the edge of what it is given gets a rounding of its own. A region starts on a multiple of
+    256 across and of 4 down (of the blur's grid if that is more) and holds 8 pixels more than the window on each side; the
+    canvas's own edge is the whole picture's edge. Without either, windows differed by a level (the 1-pixel ones included).
+  - *The reach of a blur.* Ten grids of the blur's coarsest halving fell short by a level on the 700 pixel canvas where it had
+    held on the 331 pixel one; eleven held; twelve are taken (`Shadow::dependence`).
+  - *The corner of a shadow's layer.* The rasteriser halves a blur's layer from the corner of the tight box of what is drawn
+    into it, rounded to a tile, so a window that cut a shape's corner off halved from another corner than the whole picture
+    did. The region reaches back to the corner of every blurred shape whose shadow it touches (`Blur`, `Cells::reaching`,
+    repeated until no more shapes are touched); a shape too large for the limits then raises `ParameterError` naming
+    `window`, where an unexact one would have been drawn. A shape the canvas's own edge cuts needs nothing.
+  The cost is a region up to 263 pixels wider on the left and 16 on the other sides than the window, and a larger one around a
+  blurred shadow's shape.
+  Rule 2 of CLAUDE.md asks to loosen a test rather than add a special path for a difference nobody can see; here the caller
+  (scene) bands only what is bit-exact, so the difference is visible to it, and the fix is one grid, one margin and one corner,
+  no special path. The WebAssembly window is the native window's bytes up to the differential's tolerance as the whole render
+  is (`compare.mjs`); the native window is exactly the whole's crop in the Node tests too. Python and WebAssembly share the
+  core: one drawing is tested through each.
 - **A shadow's offset is part of the margin.** The test of a shadow offset up and left (its source below and right of the
   region) fails without it, by up to 95 levels; one offset down and right passed without it. Cutting the region to the
   canvas changed no pixel in the tests (a shape running off the canvas included); it keeps a whole render, which is the

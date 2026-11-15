@@ -733,6 +733,6 @@ Asked by `bullterrier-scene` while building real pieces, and by the three direct
   at two scales. *Why:* scene wraps the document in a frame that is exactly the raster to work around it. *Wanted:* a frame
   drawn to the raster exactly, non-uniform scale allowed. *Evidence:* scene's `docs/api.md`, "Drawings" (a translucent border of
   alpha 0.749 at 1,920 by 1,080 drawn at 1,000).
-- **Window render (V10e) exists** (done 2026-11-13, Rust, Python and WebAssembly): scene B1 (bands) can use it. Nothing to build.
+- **Window render (V10e) exists** (done 2026-11-13, Rust, Python and WebAssembly): scene B1 (bands) can use it, for every drawing, the same bytes as the whole render's rows and columns (2026-11-15). Nothing to build.
 - **WebAssembly builds already.** A scene editor or a web export (direction 2) may draw vector in the page. Nothing to build
   until a page needs it.

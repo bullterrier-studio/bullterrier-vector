@@ -700,10 +700,13 @@ likewise (Rust `to_rgba_window(Size::px(width, height), Window::px(x, y, w, h), 
 `toRgba(width, height, values, { x, y, width, height })`, `toPng` the same). `width` and `height` are the whole output, the
 one the design frame is placed in, up to 100,000 a side; the window is whole pixels inside it, and obeys the limits of a pixel
 output (65,000 a side, 2^27 pixels), so a canvas the whole render refuses can be drawn in bands. The result is the window's
-pixels only (`w × h × 4` bytes), those of the same rows and columns of the whole render: exactly in the tests for blurred shadows, otherwise within 2 levels of alpha and of each colour times its alpha (an anti-aliased edge a
-level away; measured, [design-decisions.md](design-decisions.md), "Render a window (V10e)"). A blurred shadow is drawn from a region a
-little larger than the window (its offset and the reach of its blur), which obeys the same limits: a window too near the limits
-with a wide blur raises `ParameterError` naming `window`, as does a window that is not whole pixels inside the output. A Param may not be
+pixels only (`w × h × 4` bytes), **the same bytes** as the same rows and columns of the whole render, for every drawing
+(`tests/it/raster_window.rs`; [design-decisions.md](design-decisions.md), "Render a window (V10e)"). The rasteriser draws a
+region larger than the window: 8 pixels on every side, its top left on a multiple of 256 across (its wide tile) and of 4
+down, and, for a blurred shadow, the offset and the reach of its blur, and back to the corner of the shadow's shape. That
+region obeys the limits of a pixel output too: a window within 300 pixels of 65,000 a side, one near them with a wide blur,
+or one that cuts a blurred shape too large to hold raises `ParameterError` naming `window`, as does a window that is not
+whole pixels inside the output; a window never differs from the whole, it is drawn or refused. A Param may not be
 named `window` (as `into`, it is an output option).
 
 To look at a drawing, `uv run poe look FILE [--size WxH] [name=value ...]` draws a `.json` document, or a `.py` program
