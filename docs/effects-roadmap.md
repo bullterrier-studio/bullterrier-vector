@@ -16,7 +16,7 @@ with a gallery piece"). The primitive comes from its batch; the effect adds the 
 | Glitch slice-and-shift | shapes cut into bands, the bands shifted sideways | V8 |
 | Duotone and gradient maps | fill and stroke colours mapped by lightness onto two colours or a gradient | V2 |
 | Posterize | fill and stroke colours reduced to a few levels | V2 |
-| Halftone dots | a tone drawn as a dot screen | V10 (built: `halftone`) |
+| Halftone dots | a tone drawn as a dot screen; planned: dot shapes and screen geometry ([dither-and-print.md](dither-and-print.md)) | V10 (built: `halftone`) |
 | Scramble and flip letters | letters cycling through other glyphs, or flipping, before they settle | V5, V7 |
 | Die-cut sticker outlines with shadows | a thick, rounded outline cut around a shape, lifted by a drop shadow | V9, V10 (both built) |
 | Ink-bleed edges | edges roughened like ink spreading into paper; taken up after V12 | V9, V12 |

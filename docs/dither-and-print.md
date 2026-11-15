@@ -1,0 +1,15 @@
+# Dither, halftone and print looks
+
+Planned 2026-11-15, not scheduled. The vector side of looks that dither and halftone tools in common use draw in pixels:
+here they are paths, so they print at any size, plot with a pen and stay editable as SVG. Vector never links a raster
+library: a photo arrives as a map of plain numbers (the map input of V14), and a caller joins it with bullterrier-image.
+The ecosystem view is the design repository's `dither-and-print.md`.
+
+| Item | What it is | Batch |
+|---|---|---|
+| Tracing a dithered label map | A palette index per pixel, in square cells of a known size, traced exactly into straight-edged regions, one group per colour, a cap on colours: dither and posterize to SVG. Curve fitting would round the cells. | V14 (row added) |
+| Tone-driven line families | Rows displaced by tone (ridgelines, waveforms; hidden lines removed), lines whose width carries tone along waves, rings, a spiral or rays, hatching and crosshatching by tone levels, stippled dots. Plotter output applies. | V15 (row added) |
+| Halftone dot shapes | The `halftone` style draws round dots on a lattice. Add square, ellipse, diamond and a caller's path as the dot. | effects track |
+| Halftone screen geometry | The lattice laid along waves, rings, a spiral or rays, as image's `halftone` will be: the same names and meanings, so a look reads the same in both (design.md, "Colour effects" keeps colour effects consistent the same way). | effects track |
+| Character grids as text | A grid of characters from a caller (image's `ascii` gives one) set as real SVG text. Needs a monospaced bundled font: the bundled fonts are proportional. Check whether `text` with lines already lays out a grid; the font may be the only gap. | effects track |
+| Overlay marks | Boxes with corner brackets, crosshairs, labels and leader lines from a caller's list of boxes and points (a detector's or a tracker's answer): the look of a heads-up display. Generators, like the repeaters. | effects track |

@@ -612,6 +612,9 @@ piece. With V12 this is the transforming-type capability and the headline of the
 - A grayscale map in (width, height, bytes), outlines at chosen levels out; each level a shape with its level as an
   attribute.
 - Multi-colour trace: a map of quantised colour labels to one set of outlines per colour.
+- A dithered label map (a palette index per pixel, square cells of a known size) traced exactly: cells of one colour
+  merged into straight-edged regions, no curve fitting, one group per colour, a cap on the number of colours: dither and
+  posterize to SVG ([dither-and-print.md](dither-and-print.md)).
 - Curves fitted through the traced edge (a raw polyline looks digital); edge padding, so a subject cut by the map's
   edge gets no false closed edge.
 - Per-layer shrink and grow (open, close) in output units; dropping parts and filling holes below an area.
@@ -628,6 +631,9 @@ With V9 this is the cut-paper piece.
   space so a direction and its opposite agree) and distance fields of shapes (signed, and normalised for letters with
   counters).
 - Hatching clipped to shapes; contour lines of a field or a map.
+- Line families driven by a tone map: rows displaced by tone (ridgelines, waveforms, with hidden lines removed), lines
+  whose width carries tone along waves, rings, a spiral or rays, hatching and crosshatching by tone levels, stippled dots
+  ([dither-and-print.md](dither-and-print.md)).
 - Plotter output: stroke only, ordered to reduce pen travel (nearest neighbour, ends flipped), simplified, solids as
   pen-width hatching, one layer per pen.
 
