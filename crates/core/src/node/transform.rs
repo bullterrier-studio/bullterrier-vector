@@ -287,3 +287,35 @@ impl Node for Dash {
         })
     }
 }
+
+/// Replaces every shape by the fewest smooth curves within a tolerance of it.
+#[derive(Debug)]
+pub(crate) struct Simplify;
+
+pub(crate) static SIMPLIFY: Verb = Verb {
+    name: "simplify",
+    role: Role::Step,
+    summary: "replaces every shape by the fewest smooth curves (sharp corners kept, a turn past 45 degrees) within tolerance design pixels of it, so a dense polyline becomes a few smooth curves",
+    args: &[per_shape(
+        "tolerance",
+        Kind::Number,
+        Some(Literal::Number(0.5)),
+        Domain::PositiveUpTo(MAX_COORDINATE),
+    )],
+    check: None,
+};
+
+impl Node for Simplify {
+    fn verb(&self) -> &'static Verb {
+        &SIMPLIFY
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        each_shape(inputs.previous, cx, |shape, item| {
+            let tolerance = args.number(cx, "tolerance", item)?;
+            Ok(shape.with_path(shape.path().simplify_charged(tolerance, &mut charge)?))
+        })
+    }
+}

@@ -427,6 +427,36 @@ fn rows() -> Vec<Row> {
             }),
         },
         Row {
+            verb: "simplify",
+            sample: || Ok(square()?.simplify(0.5)),
+            with: Some(|argument, value| match argument {
+                "tolerance" => Ok(square()?.simplify(value)),
+                _ => Err(unknown("simplify", argument)),
+            }),
+            ranges: &[
+                ("tolerance", 0.5, true),
+                ("tolerance", 1e-3, true),
+                ("tolerance", 1e100, true),
+                ("tolerance", 0.0, false),
+                ("tolerance", -1.0, false),
+                ("tolerance", 1.000_000_1e100, false),
+                ("tolerance", f64::NAN, false),
+                ("tolerance", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, _| {
+                    let tolerance = 0.1 + a.abs() % 10.0;
+                    Ok(vec![(
+                        "a tolerance",
+                        Drawing::from(path.clone()).simplify(tolerance),
+                        path.simplify(tolerance),
+                    )])
+                },
+                // three points on a line, within the tolerance of their chord
+                by_hand: &[("M0 0 L5 0 L10 0", |d| Ok(d.simplify(0.5)), "M0 0 L10 0")],
+            }),
+        },
+        Row {
             verb: "dash",
             sample: || Ok(square()?.dash([4.0, 2.0], 0.25)),
             with: Some(|argument, value| match argument {

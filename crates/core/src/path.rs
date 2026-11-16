@@ -19,6 +19,7 @@ mod read;
 mod region;
 mod resample;
 mod shapes;
+mod simplify;
 mod slice;
 mod transform;
 mod walk;

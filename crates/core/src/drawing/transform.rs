@@ -239,6 +239,22 @@ impl Drawing {
         self.then(&transform::Resample, vec![("spacing", Given::Number(spacing.into()))])
     }
 
+    /// This drawing with every shape replaced by the fewest smooth curves within `tolerance` design pixels of it, as
+    /// [`Path::simplify`](crate::Path::simplify) does: a dense polyline becomes a few Beziers, sharp corners kept.
+    /// `tolerance` is a number for each shape (a number, a `Param`, or a list of them). Each shape keeps its style
+    /// and attributes, its `origin` included.
+    ///
+    /// A `tolerance` not above 0 and within 1e100 leaves the drawing with an [`error`](Drawing::error) naming the
+    /// step (`step 2 (simplify).tolerance`), or, when it reads a Param, is refused when the drawing is drawn; so is
+    /// a draw that would flatten more than `MAX_SEGMENTS` edges.
+    #[must_use]
+    pub fn simplify(&self, tolerance: impl Into<Expr>) -> Self {
+        self.then(
+            &transform::Simplify,
+            vec![("tolerance", Given::Number(tolerance.into()))],
+        )
+    }
+
     /// This drawing with every shape cut into the pieces a dash `pattern` (`[on, off, ...]` in design pixels) leaves, as
     /// [`Path::dash`](crate::Path::dash) does. Each number of `pattern` and the `phase` (in cycles of the pattern, which
     /// moves the dashes forward along the shape) is a number, a `Param` or an expression, read for each shape:
