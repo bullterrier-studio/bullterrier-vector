@@ -1115,11 +1115,16 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   argument (api.md fixes `simplify(*, tolerance=0.5)` and no example needs it) — a jittery trace that turns sharply at
   every point keeps its jitter as corners and is returned nearly as it was; cost if wrong: add `corner_angle` as a
   literal argument later (a new optional key, nothing saved breaks).*
-  *Ruling: the error is measured at every point and also at a quarter, half and three quarters of each edge, and a run
-  whose points all lie within `tolerance` of its chord is one line (exact for collinear points, so a dense square is
-  four `L`) — Schneider measures at the points only, and a smooth cubic through the 12 corners of a circle of radius
-  100 bulges 3.4 pixels off the edges, so the output would leave the input; cost: about four times the evaluations of
-  a fit, and a short flat run next to a curve is a line with a tangent kink up to the tolerance in size.*
+  *Ruling: a cubic is accepted only when it is proven within `tolerance` of the run along its whole length: exact at
+  every point, and between them by a speed bound (a cubic moves at most 3 times its longest control leg per unit of
+  parameter) — an interval of an edge's parameter span is proven when the distance of its middle from the edge plus
+  the reach of that bound is within the tolerance, else it is halved; a run whose points all lie within `tolerance`
+  of its chord is one line (exact for collinear points, so a dense square is four `L`) — Schneider measures at the
+  points only, and a smooth cubic through the 12 corners of a circle of radius 100 bulges 3.4 pixels off the edges;
+  sampling fixed shares between points (the first version: quarter, half, three quarters) still let a cubic overshoot
+  by 2 to 9%, caught by the property test; cost: a fit that needs more than 256 interval checks per point (just
+  inside the tolerance, or long edges at a small tolerance) is split instead, down to the input's own segments, and a
+  short flat run next to a curve is a line with a tangent kink up to the tolerance in size.*
   *Ruling: a split falls in the middle half of its run (at the worst point where that is inside it) — splitting at the
   worst point alone can peel one point at a time and is quadratic in the points; the middle half
   bounds the work to O(n log n) and the stack of an explicit loop to about log n jobs, so no recursion and no stack

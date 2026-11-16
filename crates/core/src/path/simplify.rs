@@ -17,6 +17,10 @@ const CORNER_COS: f64 = FRAC_1_SQRT_2;
 /// How many times a fit is reparametrised by Newton's method before the run is split instead.
 // constant: Schneider's own limit; each round roughly halves the error, so four is enough to rescue a near fit
 const NEWTON_ROUNDS: usize = 4;
+/// The most interval checks between points, per point of a run, before a fit is given up for a split.
+// constant: a fit that is only just inside the tolerance needs checks in proportion to its length over its slack; 256
+// per point keeps one fit linear and a fit that close to the limit is better split
+const COVER_CHECKS: usize = 256;
 /// A fit within this many tolerances is worth reparametrising; a worse one is split at once.
 // constant: Schneider's heuristic (his `iterationError`): beyond it Newton's method rarely rescues a fit
 const RESCUE: f64 = 4.0;
@@ -29,8 +33,9 @@ impl Path {
     /// within 0.01 pixel, as drawing does, and cut where the direction turns by more than 45 degrees (a corner,
     /// kept exactly as a point). Each run between corners is fitted by cubic Beziers, joined smoothly, or by one
     /// straight segment where all its points lie within `tolerance` of the chord: every input point is then within
-    /// `tolerance` of the result, and the result within `tolerance` of the input at its points and at the middle of
-    /// each of its edges (a hair more in between: also checked at a quarter and three quarters). The ends of an open sub-path and the start of a closed one are
+    /// `tolerance` of the result, and every point of the result within `tolerance` of the input (a cubic is accepted
+    /// only when a bound on its speed proves it, so a fit that cannot be proven is split, down to the input's own
+    /// segments). The ends of an open sub-path and the start of a closed one are
     /// exact; a closed sub-path stays closed, and one with no corner is fitted as a smooth loop from its start.
     ///
     /// A sub-path never gets more segments than it had (it is kept as it was when the fit would have more), and a
@@ -243,12 +248,12 @@ enum Fit {
 }
 
 /// The cubic from the first point to the last with the given end tangents that follows `points` best, within
-/// `tolerance` at every point and at the middle of every edge, or where it fails the worst point.
+/// `tolerance` everywhere along it (`max_error` bounds it between points too), or where it fails the worst point.
 fn fit_cubic(points: &[Point], left: Point, right: Point, tolerance: f64) -> Fit {
     let mut parameters = chord_lengths(points);
     for round in 0..=NEWTON_ROUNDS {
         let bezier = generate(points, &parameters, left, right);
-        let (error, worst) = max_error(points, &parameters, &bezier);
+        let (error, worst) = max_error(points, &parameters, &bezier, tolerance);
         if error <= tolerance {
             return Fit::Within(bezier[1], bezier[2]);
         }
@@ -337,27 +342,64 @@ fn generate(points: &[Point], parameters: &[f64], left: Point, right: Point) -> 
     ]
 }
 
-/// The furthest the cubic is from the run, and the index of the point to split at: from each point at its own
-/// parameter, and from a quarter, a half and three quarters of each edge at the same share of its two parameters.
-fn max_error(points: &[Point], parameters: &[f64], bezier: &[Point; 4]) -> (f64, usize) {
-    let (mut worst, mut index) = (0.0_f64, points.len() / 2);
-    let mut consider = |distance: f64, at: usize| {
+/// The largest distance seen and the index it belongs to.
+struct Worst(f64, usize);
+
+impl Worst {
+    fn consider(&mut self, distance: f64, at: usize) {
         // a NaN distance is the worst of all
-        if distance.is_nan() || distance > worst {
-            worst = distance;
-            index = at;
+        if distance.is_nan() || distance > self.0 {
+            *self = Self(distance, at);
         }
-    };
+    }
+
+    fn beyond(&self, tolerance: f64) -> bool {
+        self.0.is_nan() || self.0 > tolerance
+    }
+}
+
+/// An upper bound on how far the cubic is from the run, and the index of the point to split at.
+///
+/// First the exact distance from each point at its own parameter. If those are within `tolerance`, the rest of the
+/// curve is covered by a speed bound: a cubic moves at most `3 * (its longest control leg)` per unit of parameter,
+/// so every point of a parameter interval is within `speed * width / 2` of the curve at its middle. An interval of
+/// an edge's parameter span is proven when the distance of that middle from the edge plus this reach is within
+/// `tolerance`, and is halved when it is not, so a curve well inside the tolerance costs a few checks and one near
+/// it more. A fit that needs more than `COVER_CHECKS` checks per point is reported unbounded (and so split), which
+/// keeps one fit linear in the points of its run.
+fn max_error(points: &[Point], parameters: &[f64], bezier: &[Point; 4], tolerance: f64) -> (f64, usize) {
+    let mut worst = Worst(0.0, points.len() / 2);
     for (at_index, (&point, &u)) in points.iter().zip(parameters).enumerate() {
-        consider(length(minus(at(bezier, u), point)), at_index);
+        worst.consider(length(minus(at(bezier, u), point)), at_index);
     }
+    if worst.beyond(tolerance) {
+        return (worst.0, worst.1);
+    }
+    let speed = 3.0
+        * (1..4)
+            .map(|leg| length(minus(bezier[leg], bezier[leg - 1])))
+            .fold(0.0, f64::max);
+    let mut budget = COVER_CHECKS * points.len();
+    let mut open = Vec::new();
     for (edge, pair) in points.windows(2).enumerate() {
-        for share in [0.25, 0.5, 0.75] {
-            let u = parameters[edge] + share * (parameters[edge + 1] - parameters[edge]);
-            consider(to_segment(at(bezier, u), pair[0], pair[1]), edge + 1);
+        open.push((parameters[edge], parameters[edge + 1]));
+        while let Some((from, to)) = open.pop() {
+            let distance = to_segment(at(bezier, f64::midpoint(from, to)), pair[0], pair[1]);
+            worst.consider(distance, edge + 1);
+            if worst.beyond(tolerance) {
+                return (worst.0, worst.1);
+            }
+            if distance + speed * (to - from) / 2.0 > tolerance {
+                budget = budget.saturating_sub(1);
+                if budget == 0 {
+                    return (f64::INFINITY, edge + 1);
+                }
+                let middle = f64::midpoint(from, to);
+                open.extend([(from, middle), (middle, to)]);
+            }
         }
     }
-    (worst, index)
+    (worst.0, worst.1)
 }
 
 /// The parameters moved one step of Newton's method towards the nearest point of the cubic to each point, or `None`
