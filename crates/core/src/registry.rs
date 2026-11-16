@@ -24,6 +24,7 @@ const NODES: &[&dyn Node] = &[
     &transform::Scale,
     &transform::Along,
     &transform::Slice,
+    &transform::Resample,
     &style::Fill,
     &style::Stroke,
     &style::Opacity,

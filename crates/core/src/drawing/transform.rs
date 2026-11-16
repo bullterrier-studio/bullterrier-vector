@@ -226,6 +226,19 @@ impl Drawing {
         )
     }
 
+    /// This drawing with every shape replaced by straight segments with corners `spacing` design pixels apart along
+    /// it, as [`Path::resample`](crate::Path::resample) does: the corners are where dots, or the points a deformer
+    /// moves, go. `spacing` is a number for each shape (a number, a `Param`, or a list of them). Each shape keeps its
+    /// style and attributes, its `origin` included.
+    ///
+    /// A `spacing` not above 0 and within 1e100 leaves the drawing with an [`error`](Drawing::error) naming the
+    /// step (`step 2 (resample).spacing`), or, when it reads a Param, is refused when the drawing is drawn; so is a
+    /// draw that would make more than `MAX_SEGMENTS` corners.
+    #[must_use]
+    pub fn resample(&self, spacing: impl Into<Expr>) -> Self {
+        self.then(&transform::Resample, vec![("spacing", Given::Number(spacing.into()))])
+    }
+
     /// This drawing sliced as [`Drawing::slice`] does, with a closed outline measured from its point nearest `near`
     /// instead of its top.
     #[must_use]

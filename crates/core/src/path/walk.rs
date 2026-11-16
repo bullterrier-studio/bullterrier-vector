@@ -64,7 +64,7 @@ impl Path {
 }
 
 impl<'a> Run<'a> {
-    fn new(subpath: &'a SubPath, offset: f64, near: Option<Point>) -> Self {
+    pub(super) fn new(subpath: &'a SubPath, offset: f64, near: Option<Point>) -> Self {
         let curves = subpath.curves();
         let mut flats = flatten(&curves);
         if subpath.closed {
@@ -149,6 +149,12 @@ impl<'a> Run<'a> {
             segments: curves.iter().map(|curve| curve.segment()).collect(),
             closed: false,
         }
+    }
+
+    /// The point of the run a distance `local` along it, on its curves.
+    pub(super) fn at(&self, local: f64) -> Point {
+        let (edge, along) = self.place(local);
+        self.point(edge, along)
     }
 
     /// The point of the run's curves `along` (0 to 1) the edge number `edge`.

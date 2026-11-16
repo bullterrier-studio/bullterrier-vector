@@ -14,6 +14,7 @@ mod measure;
 mod offset;
 mod polyline;
 mod read;
+mod resample;
 mod region;
 mod shapes;
 mod slice;

@@ -397,6 +397,36 @@ fn rows() -> Vec<Row> {
             }),
         },
         Row {
+            verb: "resample",
+            sample: || Ok(square()?.resample(4.0)),
+            with: Some(|argument, value| match argument {
+                "spacing" => Ok(square()?.resample(value)),
+                _ => Err(unknown("resample", argument)),
+            }),
+            ranges: &[
+                ("spacing", 4.0, true),
+                ("spacing", 1e-3, true),
+                ("spacing", 1e100, true),
+                ("spacing", 0.0, false),
+                ("spacing", -1.0, false),
+                ("spacing", 1.000_000_1e100, false),
+                ("spacing", f64::NAN, false),
+                ("spacing", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, _| {
+                    let spacing = 1.0 + a.abs() % 100.0;
+                    Ok(vec![(
+                        "a spacing",
+                        Drawing::from(path.clone()).resample(spacing),
+                        path.resample(spacing),
+                    )])
+                },
+                // a line 10 long, a corner every 4 and the end
+                by_hand: &[("M0 0 L10 0", |d| Ok(d.resample(4.0)), "M0 0 L4 0 L8 0 L10 0")],
+            }),
+        },
+        Row {
             verb: "fill",
             sample: || Ok(square()?.fill(fade()?)),
             with: None,

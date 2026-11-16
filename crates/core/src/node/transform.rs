@@ -1,7 +1,8 @@
-//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`. Each applies the `Path` verb of the same name to every
+//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`, `resample`. Each applies the `Path` verb of the same name to every
 //! shape.
 
 use super::{Args, Context, Inputs, Node, each_shape};
+use crate::geometry::MAX_COORDINATE;
 use crate::path::{Guide, rotate_point, scale_point};
 use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
 
@@ -205,6 +206,38 @@ impl Node for Slice {
             }
             cx.work.made_segments(weight, &place)?;
             Ok(shape.with_path(shape.path().slice(start, end, near)?))
+        })
+    }
+}
+
+/// Replaces every shape by straight segments with corners a fixed distance apart along it.
+#[derive(Debug)]
+pub(crate) struct Resample;
+
+pub(crate) static RESAMPLE: Verb = Verb {
+    name: "resample",
+    role: Role::Step,
+    summary: "replaces every shape by straight segments with corners spacing design pixels apart along it, from the start of each sub-path (a closed one stays closed, an open one keeps its end), so dots placed on the corners are evenly spaced",
+    args: &[per_shape(
+        "spacing",
+        Kind::Number,
+        None,
+        Domain::PositiveUpTo(MAX_COORDINATE),
+    )],
+    check: None,
+};
+
+impl Node for Resample {
+    fn verb(&self) -> &'static Verb {
+        &RESAMPLE
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        each_shape(inputs.previous, cx, |shape, item| {
+            let spacing = args.number(cx, "spacing", item)?;
+            Ok(shape.with_path(shape.path().resample_charged(spacing, &mut charge)?))
         })
     }
 }
