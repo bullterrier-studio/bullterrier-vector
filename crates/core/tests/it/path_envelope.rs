@@ -332,7 +332,14 @@ fn an_arch_lifts_the_middle_of_the_band_by_the_bend_times_the_width() -> Outcome
     // a bend of 0.2 on a frame 100 wide: the middle of the top and of the bottom edge rise 20 and the corners stay
     let rect = Path::rect(0.0, 0.0, 100.0, 100.0, 0.0)?;
     let found = lines(&rect.arch(0.2, Some(FRAME))?)?;
-    for vertex in [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0), (50.0, -20.0), (50.0, 80.0)] {
+    for vertex in [
+        (0.0, 0.0),
+        (100.0, 0.0),
+        (100.0, 100.0),
+        (0.0, 100.0),
+        (50.0, -20.0),
+        (50.0, 80.0),
+    ] {
         assert!(has_vertex(&found, vertex), "no vertex at {vertex:?}");
     }
     assert!(found.iter().all(|line| line.1));
@@ -356,7 +363,10 @@ fn an_arch_keeps_the_height_of_the_frame_and_a_negative_bend_mirrors_a_positive_
         height: 150.0,
     };
     let rect = Path::rect(0.0, 0.0, 365.0, 150.0, 0.0)?;
-    let (up, down) = (lines(&rect.arch(0.3, Some(frame))?)?, lines(&rect.arch(-0.3, Some(frame))?)?);
+    let (up, down) = (
+        lines(&rect.arch(0.3, Some(frame))?)?,
+        lines(&rect.arch(-0.3, Some(frame))?)?,
+    );
     for vertex in [(182.5, -109.5), (182.5, 40.5)] {
         assert!(has_vertex(&up, vertex), "no vertex at {vertex:?}: {up:?}");
     }
