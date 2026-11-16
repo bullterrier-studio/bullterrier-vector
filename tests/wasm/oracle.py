@@ -8,6 +8,7 @@ difference is a defect in the glue, the target or the build. Usage: `python test
 import base64
 import hashlib
 import json
+import math
 import runpy
 import subprocess
 import sys
@@ -753,6 +754,30 @@ def resamples() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def simplifies() -> list[Entry]:
+    """`simplify` on dense polylines: a circle of points, a wave, a half disc with two corners, a per-item tolerance
+    and a Param tolerance."""
+    ring = btvec.Path.polyline(
+        [(50 + 30 * math.cos(math.tau * i / 200), 50 + 30 * math.sin(math.tau * i / 200)) for i in range(200)],
+        closed=True,
+    )
+    wave = btvec.Path.polyline([(10 + 80 * i / 120, 50 + 25 * math.sin(i / 12)) for i in range(121)])
+    arc = [(50 + 35 * math.cos(math.pi * i / 60), 70 - 35 * math.sin(math.pi * i / 60)) for i in range(61)]
+    disc = btvec.Path.polyline(arc + [(15 + 70 * i / 30, 70) for i in range(1, 30)], closed=True)
+    tolerance = btvec.Param("tolerance", default=0.5, min=0.1, max=8, unit="px", meaning="how far a curve may stray")
+    drawings = {
+        "simplify_circle": framed(ring.fill(BLUE)).simplify(tolerance=0.5),
+        "simplify_wave": framed(wave.stroke(INK, width=2)).simplify(tolerance=1),
+        "simplify_corners": framed(disc.fill(RED)).simplify(tolerance=0.5),
+        "simplify_per_item": framed(btvec.Drawing(ring, ring.scale(0.5)).fill(GOLD)).simplify(
+            tolerance=btvec.by_index(4, 0.2)
+        ),
+        "simplify_param": framed(wave.stroke(INK, width=2)).simplify(tolerance=tolerance),
+    }
+    draws: dict[str, list[Draw]] = {"simplify_param": [(100, 100, {}), (200, 200, {"tolerance": 6})]}
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 def dashes() -> list[Entry]:
     """`dash` on shapes: an open line, a closed outline from its top and from `near`, a curve, an odd pattern and a
     Param phase (marching ants)."""
@@ -808,6 +833,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     offsets,
     resamples,
     dashes,
+    simplifies,
     placements,
     shadows,
     knockouts,
