@@ -38,6 +38,10 @@ fn bulge_pieces(amount: f64) -> f64 {
 // constant: 16/11, from the slope of `r -> r'` at its lowest, `1 - amount * 11/16` at s = 3/4 (see `Path::bulge`)
 pub(crate) const STRONGEST_BULGE: f64 = 16.0 / 11.0;
 
+/// The words that refuse an `amount` outside its range, on a `Path` and on a `Drawing` alike.
+// constant: the bound is written once, as a fraction and rounded, with the reason it is the bound
+pub(crate) const STRONGEST_BULGE_RULE: &str = "above -1 and below 16/11 (1.4545), so that the shape does not fold over";
+
 /// The weight of the effect at distance `r` from the centre: 1 at the centre, falling smoothly (slope 0 at both ends)
 /// to 0 at `radius` and beyond.
 fn falloff(r: f64, radius: f64) -> f64 {
@@ -58,7 +62,8 @@ impl Path {
     ///
     /// The path is flattened and each edge cut into equal pieces of at most `radius / n`, `n` growing with the angle
     /// (`7.5 sqrt(a^2 + 14 a / 3)` for `a` radians), so that every point of the result is within a hundredth of the
-    /// radius of the image it stands for (the bound is worked in the code); every vertex of the flattening is kept, so
+    /// radius of the image it stands for and within 0.05 design pixels of it (a shorter step where a hundredth of the radius
+    /// is more; the bound is worked in the code); every vertex of the flattening is kept, so
     /// corners stay corners. The result is made of straight lines; each sub-path keeps its closedness, a sub-path of a
     /// single point stays one (moved), an empty path stays empty.
     ///
@@ -117,7 +122,7 @@ impl Path {
     ///
     /// `about` and `radius` default as for [`Path::twist`]. The path is flattened and each edge cut into equal pieces
     /// of at most `radius / (15 sqrt(|amount|))`, so that every point of the result is within a hundredth of the radius
-    /// of the image it stands for; every vertex of the flattening is kept, so corners stay corners. The result is made
+    /// of the image it stands for and within 0.05 design pixels of it (a shorter step where that is more); every vertex of the flattening is kept, so corners stay corners. The result is made
     /// of straight lines; each sub-path keeps its closedness, a sub-path of a single point stays one, an empty path
     /// stays empty.
     ///
@@ -142,9 +147,7 @@ impl Path {
         if !(amount > -1.0 && amount < STRONGEST_BULGE) {
             return Err(Error::parameter(
                 "amount",
-                format!(
-                    "must be a number above -1 and below 16/11 (1.4545...), so that the shape does not fold over, got {amount}"
-                ),
+                format!("must be {STRONGEST_BULGE_RULE}, got {amount}"),
             ));
         }
         let Some((about, radius)) = self.frame(radius, about)? else {
@@ -159,7 +162,13 @@ impl Path {
             let factor = 1.0 + amount * falloff(r, radius);
             Point::new(about.x + dx * factor, about.y + dy * factor)
         };
-        self.warp("amount", radius / bulge_pieces(amount), CHORD_ERROR * radius, &map, charge)
+        self.warp(
+            "amount",
+            radius / bulge_pieces(amount),
+            CHORD_ERROR * radius,
+            &map,
+            charge,
+        )
     }
 
     /// The centre and the radius of a radial deformer: `about` (the middle of the bounds if not given) and `radius`

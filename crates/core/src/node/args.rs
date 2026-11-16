@@ -132,7 +132,7 @@ impl Domain {
                     Self::Positive => value > 0.0,
                     Self::AtLeast(least) => value >= least,
                     Self::PositiveUpTo(most) => value > 0.0 && value <= most,
-                    Self::Between(low, high) => value > low && value < high,
+                    Self::Between(low, high, _) => value > low && value < high,
                     _ => true,
                 };
                 if accepted {
@@ -151,7 +151,7 @@ impl Domain {
             Self::Positive => String::from("above 0"),
             Self::AtLeast(least) => format!("at least {least}"),
             Self::PositiveUpTo(most) => format!("above 0 and at most {most}"),
-            Self::Between(low, high) => format!("above {low} and below {high}"),
+            Self::Between(_, _, words) => String::from(words),
             Self::Any | Self::Finite | Self::Coordinate | Self::Fraction | Self::Choice(_) | Self::Painting => {
                 String::from("accepted")
             }

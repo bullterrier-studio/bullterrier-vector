@@ -234,7 +234,9 @@ fn an_amount_that_would_fold_the_shape_is_refused_at_draw_time_naming_the_step()
     for amount in [-1.0, 16.0 / 11.0, 5.0] {
         let (place, message) = parameter_refusal(Drawing::from(square()?).bulge(amount).shapes(&Values::new()))?;
         assert!(
-            place.contains("step 1 (bulge)") && place.contains("amount") && message.contains("above -1 and below 1.45"),
+            place.contains("step 1 (bulge)")
+                && place.contains("amount")
+                && message.contains("above -1 and below 16/11 (1.4545), so that the shape does not fold over"),
             "{place}: {message}"
         );
     }

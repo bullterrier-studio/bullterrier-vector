@@ -105,6 +105,17 @@ def test_an_amount_that_would_fold_the_shape_is_refused_naming_it(amount: float)
         btvec.Drawing(line).bulge(amount).shapes()
 
 
+def test_a_bulge_amount_is_refused_in_the_same_words_on_a_path_and_a_drawing() -> None:
+    line = btvec.Path.line((0, 0), (10, 0))
+    rule = "must be above -1 and below 16/11 (1.4545), so that the shape does not fold over, got 1.5"
+    with pytest.raises(btvec.ParameterError) as on_path:
+        line.bulge(1.5)
+    with pytest.raises(btvec.ParameterError) as on_drawing:
+        btvec.Drawing(line).bulge(1.5).shapes()
+    assert rule in str(on_path.value)
+    assert rule in str(on_drawing.value)
+
+
 @pytest.mark.parametrize("radius", [0, -1, float("nan"), float("inf"), 1.1e100])
 def test_a_radius_not_above_zero_is_refused_naming_it(radius: float) -> None:
     line = btvec.Path.line((0, 0), (10, 0))

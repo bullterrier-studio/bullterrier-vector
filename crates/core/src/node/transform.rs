@@ -4,7 +4,7 @@
 use super::{Args, Context, Inputs, Item, Node, each_shape};
 use crate::geometry::MAX_COORDINATE;
 use crate::limits::MAX_DASH_PATTERN;
-use crate::path::{Guide, STRONGEST_BULGE, rotate_point, scale_point};
+use crate::path::{Guide, STRONGEST_BULGE, STRONGEST_BULGE_RULE, rotate_point, scale_point};
 use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Rect, Role, Shape, Verb};
 
 /// A number read for each shape, within `domain`.
@@ -485,7 +485,7 @@ pub(crate) static BULGE: Verb = Verb {
             "amount",
             Kind::Number,
             Some(Literal::Number(0.5)),
-            Domain::Between(-1.0, STRONGEST_BULGE),
+            Domain::Between(-1.0, STRONGEST_BULGE, STRONGEST_BULGE_RULE),
         ),
         per_shape(
             "radius",

@@ -253,7 +253,7 @@ fn value(arg: &Arg) -> Json {
         Domain::AtLeast(least) => vec![("minimum", number(least))],
         Domain::Fraction => vec![("minimum", number(0.0)), ("maximum", number(1.0))],
         Domain::PositiveUpTo(most) => vec![("exclusiveMinimum", number(0.0)), ("maximum", number(most))],
-        Domain::Between(low, high) => vec![("exclusiveMinimum", number(low)), ("exclusiveMaximum", number(high))],
+        Domain::Between(low, high, _) => vec![("exclusiveMinimum", number(low)), ("exclusiveMaximum", number(high))],
     };
     let literal = bounds
         .into_iter()
