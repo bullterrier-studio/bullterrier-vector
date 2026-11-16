@@ -572,6 +572,28 @@ AGREED = [
     ),
     pytest.param(square_with({"outline": {"width": 4, "profile": []}}), False, id="an outline with an empty profile"),
     pytest.param(square_with({"outline": {"width": 4, "profile": [0, 1]}}), False, id="a profile of numbers"),
+    pytest.param(square_with({"resample": {"spacing": 1e100}}), True, id="a resample spacing of 1e100"),
+    pytest.param(square_with({"resample": {"spacing": 1.1e100}}), False, id="a resample spacing past 1e100"),
+    pytest.param(square_with({"dash": {"pattern": [1e100, 1]}}), True, id="a dash length of 1e100"),
+    pytest.param(square_with({"dash": {"pattern": [4, 1.1e100]}}), False, id="a dash length past 1e100"),
+    pytest.param(square_with({"dash": {"pattern": [4], "near": [1.1e100, 0]}}), False, id="a dash near past 1e100"),
+    pytest.param(square_with({"dash": {"pattern": [1] * 1001}}), False, id="a dash pattern of 1001 lengths"),
+    pytest.param(square_with({"simplify": {"tolerance": 1.1e100}}), False, id="a simplify tolerance past 1e100"),
+    pytest.param(square_with({"simplify": {}}), True, id="a simplify with its default"),
+    pytest.param(square_with({"reverse": {}}), True, id="a reverse"),
+    pytest.param(square_with({"reverse": {"x": 1}}), False, id="a reverse with an argument"),
+    pytest.param(square_with({"outline": {"width": 1.1e100}}), False, id="an outline width past 1e100"),
+    pytest.param(square_with({"outline": {"width": 4, "tolerance": 0.1}}), True, id="an outline tolerance"),
+    pytest.param(
+        square_with({"outline": {"width": 4, "tolerance": 1.1e100}}), False, id="an outline tolerance past 1e100"
+    ),
+    pytest.param(
+        square_with({"stroke": {"color": "#000000", "profile": [[0, 0], [1, 1]]}}), True, id="a stroke with a profile"
+    ),
+    pytest.param(square_with({"stroke": {"color": "#000000", "profile": []}}), False, id="a stroke with no stops"),
+    pytest.param(
+        square_with({"outline": {"width": 4, "profile": [[0, 1]] * 1001}}), False, id="a profile of 1001 stops"
+    ),
     pytest.param(square_with({"dash": {"pattern": []}}), False, id="a dash with an empty pattern"),
     pytest.param(square_with({"dash": {"pattern": [4, 0]}}), False, id="a dash length of 0"),
     pytest.param(square_with({"dash": {"pattern": 4}}), False, id="a dash pattern that is a number"),

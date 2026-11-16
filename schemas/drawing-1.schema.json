@@ -89,6 +89,11 @@
       "items": false
     },
     "positive": { "anyOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "$ref": "#/$defs/expression" }] },
+    "capped_positive": {
+      "anyOf": [{ "type": "number", "exclusiveMinimum": 0, "maximum": 1e100 }, { "$ref": "#/$defs/expression" }],
+      "$comment": "a length or a width past 1e100 is refused by the loader"
+    },
+    "profile": { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 1, "maxItems": 1000 },
     "non_negative": { "anyOf": [{ "type": "number", "minimum": 0 }, { "$ref": "#/$defs/expression" }] },
     "fraction": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "$ref": "#/$defs/expression" }] },
     "nonzero": { "anyOf": [{ "type": "number", "not": { "const": 0 } }, { "$ref": "#/$defs/expression" }] },
@@ -560,11 +565,12 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "width": { "$ref": "#/$defs/positive" },
+            "width": { "$ref": "#/$defs/capped_positive" },
             "join": { "$ref": "#/$defs/join" },
             "cap": { "$ref": "#/$defs/cap" },
             "miter_limit": { "$ref": "#/$defs/miter_limit" },
-            "profile": { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 1, "maxItems": 1000 }
+            "tolerance": { "type": "number", "exclusiveMinimum": 0, "maximum": 1e100 },
+            "profile": { "$ref": "#/$defs/profile" }
           },
           "required": ["width"]
         },
@@ -595,22 +601,22 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "pattern": { "type": "array", "items": { "$ref": "#/$defs/positive" }, "minItems": 1, "maxItems": 1000 },
+            "pattern": { "type": "array", "items": { "$ref": "#/$defs/capped_positive" }, "minItems": 1, "maxItems": 1000 },
             "phase": { "$ref": "#/$defs/number" },
-            "near": { "$ref": "#/$defs/point" }
+            "near": { "$ref": "#/$defs/coordinate_point" }
           },
           "required": ["pattern"]
         },
         "resample": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "spacing": { "$ref": "#/$defs/positive" } },
+          "properties": { "spacing": { "$ref": "#/$defs/capped_positive" } },
           "required": ["spacing"]
         },
         "simplify": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "tolerance": { "$ref": "#/$defs/positive" } }
+          "properties": { "tolerance": { "$ref": "#/$defs/capped_positive" } }
         },
         "along": {
           "type": "object",
@@ -725,7 +731,8 @@
             "width": { "$ref": "#/$defs/positive" },
             "join": { "$ref": "#/$defs/join" },
             "cap": { "$ref": "#/$defs/cap" },
-            "miter_limit": { "$ref": "#/$defs/miter_limit" }
+            "miter_limit": { "$ref": "#/$defs/miter_limit" },
+            "profile": { "$ref": "#/$defs/profile" }
           },
           "required": ["color"]
         },
