@@ -452,3 +452,16 @@ def test_ransom_note_sets_every_letter_in_its_own_font_wrapped_and_fitted_to_the
     bent = found["bent"].shapes()
     assert len(bent) == 7
     assert all(shape.path.bounds.x >= 0 and shape.path.bounds.x + shape.path.bounds.width <= 1080 for shape in bent)
+
+
+def test_brush_taper_draws_on_from_nothing_and_each_tip_is_a_point(run):
+    drawing = run("brush_taper")["drawing"]
+
+    def ink(progress: float) -> int:
+        return sum(drawing.to_rgba(1080, 600, progress=progress)[3::4])
+
+    assert ink(0) == 0
+    assert 0 < ink(0.5) < ink(1)
+    # the stroke is 36 wide at its fullest and a point at its first end, (120, 380): only the faint shadow is there
+    pixels = drawing.to_rgba(1080, 600, progress=1)
+    assert pixels[(380 * 1080 + 120) * 4 + 3] < 10

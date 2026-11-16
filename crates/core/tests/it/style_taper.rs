@@ -15,6 +15,7 @@ const BLACK: Color = Color::hex(0);
 const RED: Color = Color::hex(0xff_00_00);
 /// The tolerance every output draws a tapered stroke's round parts to, in design pixels.
 const TOLERANCE: f64 = 0.01;
+type Stops = Vec<(f64, f64)>;
 const TAPER: [(f64, f64); 3] = [(0.0, 0.0), (0.5, 1.0), (1.0, 0.0)];
 
 fn line() -> Result<Path, bullterrier_vector::Error> {
@@ -44,7 +45,11 @@ fn the_pixels_cover_the_tapered_region_and_a_zero_factor_tip_is_background() -> 
     assert_eq!(plain.alpha(15, 45), 255);
     // the coverage is the area of the region
     let wanted = net_area(&rings(&region()?)?);
-    assert!((image.covered_area() - wanted).abs() < 0.01 * wanted, "{} {wanted}", image.covered_area());
+    assert!(
+        (image.covered_area() - wanted).abs() < 0.01 * wanted,
+        "{} {wanted}",
+        image.covered_area()
+    );
     Ok(())
 }
 
@@ -70,8 +75,15 @@ fn the_fill_is_below_the_stroke_and_a_hole_of_a_letter_stays_open() -> Outcome {
     assert!(off * 100 < tapered.bytes.len(), "{off} differing bytes");
     // the middle of the O is neither filled nor stroked
     let middle = letter.bounds(&Values::new())?;
-    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a pixel inside the canvas")]
-    let (x, y) = ((middle.x + middle.width / 2.0) as usize, (middle.y + middle.height / 2.0) as usize);
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a pixel inside the canvas"
+    )]
+    let (x, y) = (
+        (middle.x + middle.width / 2.0) as usize,
+        (middle.y + middle.height / 2.0) as usize,
+    );
     assert_eq!(tapered.alpha(x, y), 0);
     assert!(plain.alpha(x, y) == 0 && tapered.covered_area() > 500.0);
     Ok(())
@@ -82,7 +94,7 @@ fn a_sliced_path_tapers_at_the_cut_whichever_step_comes_first() -> Outcome {
     let before = Drawing::from(line()?.slice(0.0, 0.5, None)?).stroke(Stroke::new(BLACK).width(20.0).profile(TAPER));
     let after = brush()?.slice(0.0, 0.5);
     let (a, b) = (render(&before, 100, 100)?, render(&after, 100, 100)?);
-    assert!(a.bytes == b.bytes);
+    assert_eq!(a.bytes, b.bytes);
     // the tip is where the path now ends, at x = 50; the unsliced stroke is widest there
     assert_eq!(a.alpha(48, 45), 0);
     assert_eq!(render(&brush()?, 100, 100)?.alpha(48, 45), 255);
@@ -98,9 +110,9 @@ fn a_profile_stroke_is_a_filled_path_of_the_region_and_a_fill_is_written_below_i
         body(&brush()?, 100.0)?,
         vec![element("path", &[("d", &outline), ("fill", "#000000")], vec![])]
     );
-    let both = Drawing::from(Path::rect(10.0, 40.0, 80.0, 20.0, 0.0)?).fill(RED).stroke(
-        Stroke::new(BLACK).width(10.0).profile([(0.0, 1.0)]),
-    );
+    let both = Drawing::from(Path::rect(10.0, 40.0, 80.0, 20.0, 0.0)?)
+        .fill(RED)
+        .stroke(Stroke::new(BLACK).width(10.0).profile([(0.0, 1.0)]));
     let written = body(&both, 100.0)?;
     assert_eq!(written.len(), 2);
     assert_eq!(written[0].attributes.get("fill").map(String::as_str), Some("#ff0000"));
@@ -142,7 +154,8 @@ fn the_svg_draws_what_the_pixels_draw_through_every_effect() -> Outcome {
     let blob = || Path::rect(20.0, 40.0, 80.0, 30.0, 0.0);
     let half = Color::parse("#0000ff80")?;
     let stroke = |paint: Color| Stroke::new(paint).width(16.0).profile(TAPER);
-    let ramp = bullterrier_vector::Gradient::linear((20.0, 0.0), (100.0, 0.0), [(0.0, RED), (1.0, Color::hex(0x00_00_ff))])?;
+    let ramp =
+        bullterrier_vector::Gradient::linear((20.0, 0.0), (100.0, 0.0), [(0.0, RED), (1.0, Color::hex(0x00_00_ff))])?;
     let rows = [
         ("stroke alone", Drawing::from(line()?).stroke(stroke(BLACK))),
         (
@@ -161,12 +174,20 @@ fn the_svg_draws_what_the_pixels_draw_through_every_effect() -> Outcome {
                 .shadow(Shadow::new().dx(6.0).dy(6.0).blur(0.0))
                 .opacity(0.6),
         ),
-        ("gradient stroke", Drawing::from(blob()?).fill(Color::NONE).stroke(Stroke::new(ramp).width(16.0).profile(TAPER))),
+        (
+            "gradient stroke",
+            Drawing::from(blob()?)
+                .fill(Color::NONE)
+                .stroke(Stroke::new(ramp).width(16.0).profile(TAPER)),
+        ),
         (
             "knockout",
             Drawing::new([
                 Drawing::from(Path::rect(0.0, 0.0, 120.0, 120.0, 0.0)?).fill(RED),
-                Drawing::from(blob()?).fill(Color::NONE).stroke(stroke(BLACK)).knockout(),
+                Drawing::from(blob()?)
+                    .fill(Color::NONE)
+                    .stroke(stroke(BLACK))
+                    .knockout(),
             ]),
         ),
     ];
@@ -214,7 +235,10 @@ fn a_miter_join_or_square_cap_with_a_profile_is_refused_in_the_step() -> Outcome
     let stops = vec![(0.5, 1.0); 1001];
     assert!(base.stroke(Stroke::new(BLACK).profile(stops)).error().is_some());
     // a position the kernel refuses is refused as the stroke is read, naming the step
-    let (place, _) = parameter_refusal(base.stroke(Stroke::new(BLACK).profile([(2.0, 1.0)])).shapes(&Values::new()))?;
+    let (place, _) = parameter_refusal(
+        base.stroke(Stroke::new(BLACK).profile([(2.0, 1.0)]))
+            .shapes(&Values::new()),
+    )?;
     assert!(place.contains("profile"), "{place}");
     Ok(())
 }
@@ -223,7 +247,10 @@ fn a_miter_join_or_square_cap_with_a_profile_is_refused_in_the_step() -> Outcome
 fn an_outline_past_the_limit_is_refused_by_every_output_naming_the_shape() -> Outcome {
     let drawing = Drawing::from(line()?).stroke(Stroke::new(BLACK).width(1e14).profile([(0.0, 1.0)]));
     let (place, message) = parameter_refusal(drawing.to_svg(Size::px(100.0, 100.0), &Values::new()))?;
-    assert!(place.contains("shape 0") && message.contains("MAX_SEGMENTS"), "{place}: {message}");
+    assert!(
+        place.contains("shape 0") && message.contains("MAX_SEGMENTS"),
+        "{place}: {message}"
+    );
     assert!(drawing.to_rgba(Size::px(100.0, 100.0), &Values::new()).is_err());
     assert!(mesh_of(&drawing, 100.0, 100.0).is_err());
     Ok(())
@@ -237,7 +264,7 @@ fn a_profile_reads_a_param_and_saves_and_loads_with_the_stroke() -> Outcome {
             .width(20.0)
             .profile([(Expr::from(0.0), Expr::from(0.0)), (Expr::from(1.0), Expr::from(&peak))]),
     );
-    let at = |value: f64| -> Result<Option<Vec<(f64, f64)>>, Box<dyn std::error::Error>> {
+    let at = |value: f64| -> Result<Option<Stops>, Box<dyn std::error::Error>> {
         Ok(drawing.shapes(&Values::new().set("peak", value))?[0]
             .style()
             .stroke()
@@ -249,7 +276,10 @@ fn a_profile_reads_a_param_and_saves_and_loads_with_the_stroke() -> Outcome {
     let again = Drawing::from_json(&json, &Inputs::new())?;
     assert_eq!(again.to_json()?, json);
     assert_eq!(again.shapes(&Values::new())?, brush()?.shapes(&Values::new())?);
-    let bad = json.replace(r#""profile":[[0,0],[0.5,1],[1,0]]"#, r#""profile":[[0,1]],"join":"miter""#);
+    let bad = json.replace(
+        r#""profile":[[0,0],[0.5,1],[1,0]]"#,
+        r#""profile":[[0,1]],"join":"miter""#,
+    );
     let (pointer, _) = format_refusal(Drawing::from_json(&bad, &Inputs::new()))?;
     assert!(pointer.contains("join"), "{pointer}");
     Ok(())
@@ -262,6 +292,6 @@ fn a_drawing_made_from_a_shape_keeps_its_profile_and_the_cache_tells_profiles_ap
     assert_eq!(again.style(), shape.style());
     let other = Drawing::from(line()?).stroke(Stroke::new(BLACK).width(20.0).profile([(0.0, 1.0)]));
     let (a, b) = (render(&brush()?, 100, 100)?, render(&other, 100, 100)?);
-    assert!(a.bytes != b.bytes);
+    assert_ne!(a.bytes, b.bytes);
     Ok(())
 }

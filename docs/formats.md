@@ -151,7 +151,7 @@ default paint, and draws as it did.
 | `only`, `without` | attribute names to a value or a list of values: `{"only": {"char": "O"}}` |
 | `repeat` | `count` (whole number), `translate` (point), `rotate`, `scale` (pair), `about` (point) |
 | `fill` | `color` (colour, `"none"` or gradient) |
-| `stroke` | `color` (colour or gradient), `width`, `join`, `cap`, `miter_limit` |
+| `stroke` | `color` (colour or gradient), `width`, `join`, `cap`, `miter_limit`, `profile` (as `outline`'s: pairs `[position, factor]`, each a per-item number; `join` and `cap` must be `"round"`) |
 | `halftone` | `color` (colour), `tone` (number or field), `pitch`, `angle` |
 | `opacity` | `alpha` |
 | `clip` | `region` (drawing: an array of calls, as the `other` of a boolean; all its shapes united once) |
@@ -499,7 +499,7 @@ counter, its limit and the step:
 | `MAX_SETTINGS` | 64 | axes, and features, one `text` call, or one run of one, gives |
 | `MAX_RUNS` | 1,000 | runs one `text` call is made of |
 | `MAX_DASH_PATTERN` | 1,000 | lengths of one `dash` pattern |
-| `MAX_PROFILE_STOPS` | 1,000 | stops of one width `profile` of `outline` |
+| `MAX_PROFILE_STOPS` | 1,000 | stops of one width `profile` of `outline` or `stroke` |
 | `MAX_SVG_ELEMENTS` | 20,000 | elements `Drawing.from_svg` reads, the root included (a drawing read from SVG then fits `MAX_CALLS` when saved) |
 | `MAX_SVG_NODES` | 80,000 | nodes (elements, and the text and comments between them) the XML parser builds for `Drawing.from_svg`, four for each element allowed; a document past it is refused before its tree is allocated |
 | `MAX_SVG_DEPTH` | 128 | levels of elements `Drawing.from_svg` reads, the root being 1 |

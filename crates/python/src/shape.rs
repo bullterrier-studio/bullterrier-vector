@@ -310,6 +310,13 @@ impl PyStyle {
         self.stroke_part(vector::StrokeStyle::miter_limit)
     }
 
+    /// The `(position, factor)` stops the stroke's width follows along each sub-path, or `None` for a stroke of one
+    /// width (or none).
+    #[getter]
+    fn profile(&self) -> Option<Vec<(f64, f64)>> {
+        self.0.stroke().and_then(|stroke| stroke.profile().map(<[_]>::to_vec))
+    }
+
     /// The opacity, 0 to 1.
     #[getter]
     fn opacity(&self) -> f64 {

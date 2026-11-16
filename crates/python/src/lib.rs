@@ -13,7 +13,7 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
 
-use crate::drawing::{Item, PyDrawing, refuse_expr, refuse_expr_in_pair};
+use crate::drawing::{Item, Pair, PyDrawing, refuse_expr, refuse_expr_in_pair};
 use crate::expr::Num;
 use crate::shape::PaintArg;
 
@@ -565,8 +565,8 @@ impl PyPath {
     }
 
     /// A drawing of this path stroked with `color` or a `Gradient`; what is left out takes the defaults (2 pixels, round,
-    /// round, 4).
-    #[pyo3(signature = (color, *, width=None, join=None, cap=None, miter_limit=None))]
+    /// round, 4). `profile` is a list of `(position, factor)` pairs, as for `Drawing.stroke`.
+    #[pyo3(signature = (color, *, width=None, join=None, cap=None, miter_limit=None, profile=None))]
     fn stroke(
         &self,
         color: PaintArg,
@@ -574,8 +574,9 @@ impl PyPath {
         join: Option<&str>,
         cap: Option<&str>,
         miter_limit: Option<Num>,
+        profile: Option<Vec<Pair>>,
     ) -> PyResult<PyDrawing> {
-        PyDrawing::of(self).stroke(color, width, join, cap, miter_limit)
+        PyDrawing::of(self).stroke(color, width, join, cap, miter_limit, profile)
     }
 
     /// A drawing of this path with its opacity multiplied by `alpha`, from 0 to 1.

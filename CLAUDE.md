@@ -38,7 +38,7 @@ which draws a `.json` or `.py` drawing to `dist/look/` as PNG and SVG. Mesh (V3d
 `Drawing.to_mesh(width, height, /, *, into=None, **values)` in Python, triangles from `lyon_tessellation`. WebAssembly (V3e, V3f): the package built from `crates/wasm` loads a
 document and writes `toSvg`, `toRgba`, `toPng`, `toMesh` and `toMeshInto` (also `toJson`, `parameters`, `size`, the `Mesh` class
 and `wasmMemory()`) in Node: the SVG text and the mesh buffers equal the native ones, the pixels look the same within a
-measured tolerance (`poe wasm-test`, 162 drawings: 44 paths, 22 texts, 2 bends, 9 per-item, 16 booleans, 20 offsets, 24 style effects, 5 placements and the gradient, blend, clip and mask rows); `uv run poe bench` times the outputs (`docs/benchmarks.md`). V3 is
+measured tolerance (`poe wasm-test`, 167 drawings: 44 paths, 22 texts, 2 bends, 9 per-item, 16 booleans, 25 offsets and strokes, 24 style effects, 5 placements and the gradient, blend, clip and mask rows); `uv run poe bench` times the outputs (`docs/benchmarks.md`). V3 is
 done and M1 (a star everywhere: `examples/star.py`, `crates/core/examples/star.rs`, `crates/wasm/examples/star.mjs`) is reached.
 Frame export (V4): `btvec.frames(scene, *, width, height, fps=30, seconds, out)` in Python only, a PNG sequence or a
 ProRes 4444 or VP9 clip with alpha through ffmpeg (`examples/badge_frames.py`). Fonts (V5a to V5c): `Font::new(bytes)` / `btvec.Font(data, *, name=None)` with `axes` (a `Param` each) and `features`,

@@ -44,6 +44,7 @@ Draw = tuple[int, int, dict[str, Any]]
 Entry = tuple[str, btvec.Drawing, list[Draw]]
 
 GOLD = "#ffcc33"
+TAPER = [(0, 0), (0.15, 1), (0.85, 1), (1, 0)]
 INK = "#1a1a1a"
 RED = "#e2412e"
 BLUE = "#336699"
@@ -513,10 +514,30 @@ def offsets() -> list[Entry]:
             10, profile=[(0, 0), (1, peak)]
         ),
         "outline_text": sized(at_90("Hif", font=BRICOLAGE).fill(BLUE).outline(2, join="miter")),
+        "stroke_taper_alone": framed(
+            btvec.Path.from_svg_path("M10 50 C 30 10 70 90 90 50").stroke(INK, width=13, profile=TAPER)
+        ),
+        "stroke_taper_with_fill": framed(
+            btvec.Path.circle((50, 50), 30).fill(GOLD).stroke(INK, width=12, profile=[(0, 0.2), (0.5, 1), (1, 0.2)])
+        ),
+        "stroke_taper_shadow_blend": framed(
+            btvec.Path.line((10, 50), (90, 50))
+            .fill(RED)
+            .stroke("#2040c080", width=16, profile=[(0, 0), (0.5, 1), (1, 0)])
+            .shadow(dx=5, dy=5, blur=0, color="#00000080")
+            .blend("multiply")
+        ),
+        "stroke_taper_sliced": framed(
+            btvec.Path.line((10, 50), (90, 50)).stroke(INK, width=16, profile=TAPER).slice(0, 0.6)
+        ),
+        "stroke_taper_param": framed(
+            btvec.Path.line((10, 50), (90, 50)).stroke(BLUE, width=12, profile=[(0, 0), (1, peak)])
+        ),
     }
     draws: dict[str, list[Draw]] = {
         "offset_param": [(100, 100, {}), (200, 200, {"grow": 7})],
         "outline_taper_param": [(100, 100, {}), (200, 200, {"peak": 0.4})],
+        "stroke_taper_param": [(100, 100, {}), (200, 200, {"peak": 0.4})],
     }
     return [
         (

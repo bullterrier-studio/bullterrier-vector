@@ -67,7 +67,12 @@ impl Stroke {
     /// `slice` thins the tip where it now ends.
     #[must_use]
     pub fn profile<E: Into<Expr>>(mut self, profile: impl IntoIterator<Item = (E, E)>) -> Self {
-        self.profile = Some(profile.into_iter().map(|(at, factor)| (at.into(), factor.into())).collect());
+        self.profile = Some(
+            profile
+                .into_iter()
+                .map(|(at, factor)| (at.into(), factor.into()))
+                .collect(),
+        );
         self
     }
 }

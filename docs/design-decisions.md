@@ -1164,6 +1164,28 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   tolerance)) are charged to `MAX_SEGMENTS` before any is built, so a huge `width` at a fine `tolerance` is a
   `ParameterError` naming `width`.
 
+- **Tapered stroke (2026-11-16).** `stroke(..., profile=)` stores the stops on the `Stroke` style; the path stays the centre
+  line. Rulings:
+  *Ruling: the outline is made at draw time from the shape's current path, once per shape and output, in one function
+  (`tapered_region` in `output/outline.rs`) that SVG, pixels and mesh all call, to a fixed 0.01 design pixels — not at the
+  step (selection, bounds, `slice` and `dash` after the stroke keep seeing the centre line, and `slice(0, progress)` thins
+  the tip where the path now ends) and not scaled by the output (the SVG at twice the size has numbers exactly twice as
+  large, and the three outputs draw one polygon); cost if wrong: a very large output shows the facets of 0.01 design pixel
+  discs, and an outline is rebuilt on every draw (a cache of it needs the key of path and profile).*
+  *Ruling: a profiled stroke is a filled region in every output, with the stroke's paint; in SVG a shape with a fill and a
+  profiled stroke is two `<path>`s, fill first, and written inside a `<g>` carrying opacity, blend, clip and mask when it has
+  any, so they apply once to both, and a shadow's tinted copy is dimmed by one group; the mesh fills it as it fills a shape, so
+  nothing it refused before is newly refused; cost if wrong: none seen, the SVG has two elements where a plain stroke has one.*
+  *Ruling: `join` and `cap` other than `"round"` with a profile, a profile of no or over `MAX_PROFILE_STOPS` stops and a
+  position or factor the kernel refuses are refused in the step (the verb's check, and per shape where the numbers are read),
+  naming it; an outline over `MAX_SEGMENTS` is refused when drawn, naming the shape; cost if wrong: a Param-driven profile
+  is refused when its value is read, not when the drawing is written.*
+  *Ruling: a shadow follows the stroke's region as a plain stroke's shadow follows its outline, and a stroke whose
+  reach is measured (the pixel margin of a blur) is half the width times the largest factor.*
+  *Measured: against `resvg` a half-transparent tapered stroke differs by up to 10 levels in pixels that are not edges (the
+  tip is thinner than a pixel and covered by under 24 levels), so the oracle rows of `style_taper.rs` allow 10 where the
+  other effects allow 4; a missing or doubled translucent stroke is 128.*
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

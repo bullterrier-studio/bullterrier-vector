@@ -166,9 +166,7 @@ fn cut(
 fn knocked(shape: &Shape, view: &Frame<'_>, work: &Work) -> Result<Option<String>, Error> {
     let style = shape.style();
     let painted = fills(style) || style.stroke().is_some_and(|stroke| stroke.paint().paints());
-    let device = view
-        .path(shape.path())
-        .map_err(|error| in_shape(shape, "", error))?;
+    let device = view.path(shape.path()).map_err(|error| in_shape(shape, "", error))?;
     if !painted || device.to_svg_path().is_empty() {
         return Ok(None);
     }
@@ -267,7 +265,10 @@ fn element(
         let moved = |path: &Path| path.translate(dx, dy).map_err(in_shape("shadow "));
         let copy = Data {
             path: moved(&device)?.to_svg_path(),
-            region: region.as_ref().map(|region| moved(region).map(|path| path.to_svg_path())).transpose()?,
+            region: region
+                .as_ref()
+                .map(|region| moved(region).map(|path| path.to_svg_path()))
+                .transpose()?,
         };
         drawn(svg, (shape, view), &copy, &fill, Ink::Tint(tint), None)?;
     } else {
@@ -714,17 +715,16 @@ fn region_of(shape: &Shape, view: &Frame<'_>, work: &Work) -> Result<Option<Path
 
 /// Appends the path of the region of a stroke with a profile, filled with the stroke's paint as `ink` says; `dim` writes
 /// the opacity of a shadow's tint on it, where it is not in a group that has it.
-fn region_path(
-    svg: &mut String,
-    region: &str,
-    (shape, view): (&Shape, &Frame<'_>),
-    (ink, dim): (Ink, bool),
-) {
+fn region_path(svg: &mut String, region: &str, (shape, view): (&Shape, &Frame<'_>), (ink, dim): (Ink, bool)) {
     let Some(stroke) = shape.style().stroke().filter(|_| !region.is_empty()) else {
         return;
     };
     let _ = write!(svg, "<path d=\"{region}\"");
-    attribute(svg, "fill", &ink.coat(stroke.paint(), "stroke", (view.scope, shape.index())));
+    attribute(
+        svg,
+        "fill",
+        &ink.coat(stroke.paint(), "stroke", (view.scope, shape.index())),
+    );
     if let Some(alpha) = ink.dimmed().filter(|_| dim) {
         let _ = write!(svg, " opacity=\"{}\"", number(f64::from(alpha) / OPAQUE));
     }

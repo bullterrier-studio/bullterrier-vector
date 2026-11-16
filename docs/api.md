@@ -4,7 +4,7 @@ Status: V1a, designed from the example programs in [examples/](examples/); waiti
 in Rust and Python: `Path`, `Point`, `Rect`, `Path.map_points` and the errors (V2a); `Param`, `Expr`, `Shape`, `Style` and
 `Drawing` with `translate`, `rotate`, `scale`, `fill`, `stroke`, `opacity`, `blend`, `only`, `without`, `with_values`,
 `parameters()`, `shapes()` and `size`, and the style verbs on a `Path` (V2b). A `Shape`'s `style` has `fill`, `stroke`,
-`stroke_width`, `join`, `cap`, `miter_limit`, `halftone`, `opacity`, `blend`, `shadow`, `knockout`, `clip` and `mask` (V10, V10d); the rest of the members below arrive
+`stroke_width`, `join`, `cap`, `miter_limit`, `profile`, `halftone`, `opacity`, `blend`, `shadow`, `knockout`, `clip` and `mask` (V10, V10d); the rest of the members below arrive
 with their steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6), and `along` (V6) on `Path` and `Drawing`, all in Rust
 and Python, and `text` and `along` in a document; and the per-item numbers `by_index`, `by_order`, `random` and
 `stagger`, and the steps `split`, `merge` and `slice` (V7), and the booleans `union`, `subtract`, `intersect`, `exclude`
@@ -270,8 +270,14 @@ width steps from the last factor to the first (equal end factors make a seamless
 The stroke is the sweep of a round disc, so joins and caps are round, a factor of 0 at a free end closes the outline to a
 point, and a sub-path of no length paints nothing. On a `Drawing`, `profile` is `[[position, factor], ...]` in a
 document and each number is a per-item number (a Param allowed). Rust: `path.tapered_outline(width, &profile, 0.01)?`,
-`drawing.tapered_outline(width, profile, 0.01)`. Known limits: the centre line is measured as `length` measures it
-(flattened to 0.01 pixels, whatever `tolerance` is; `tolerance` bounds the round parts); `stroke(profile=)` is not built.
+`drawing.tapered_outline(width, profile, 0.01)`. `stroke(color, width=24, profile=taper)` is the same region as a stroke: the stroke call takes the same pair list, each output
+fills what `tapered_outline` returns for the shape's path as it is when drawn (so `slice(0, progress)` after or before it
+thins the tip where the path now ends, and `dash`, selection, bounds and `slice` still see the centre line), fill first and
+the stroke over it, with the stroke's paint (colour, translucency, gradient); the shadow, blend, opacity, clip, mask and knockout of
+the shape apply once to fill and stroke together. A tapered stroke is drawn to `0.01` design pixels whatever the size of the
+output, so the SVG at twice the size has numbers exactly twice as large. Known limits: the centre line is measured as `length` measures it
+(flattened to 0.01 pixels, whatever `tolerance` is; `tolerance` bounds the round parts); a `profile` stroke has no miter or
+square ends (refused)
 
 ### hatch
 
@@ -368,7 +374,7 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | Step | Signature | Promise | Errors |
 |---|---|---|---|
 | `fill` | `fill(paint)` | fills each shape with a colour or a gradient; `"none"` for no fill | an unreadable colour |
-| `stroke` | `stroke(paint, *, width=2, join="round", cap="round", miter_limit=4)` | strokes each outline with a colour or a gradient | as `fill`; a paint of `"none"`; `width` not above 0; `miter_limit` below 1 |
+| `stroke` | `stroke(paint, *, width=2, join="round", cap="round", miter_limit=4, profile=None)` | strokes each outline with a colour or a gradient; with a `profile` (a list of `[position, factor]` pairs as `outline` takes, "Tapered strokes" above) the width follows it along each sub-path and the stroke is drawn as a filled region by SVG, pixels and mesh, `width` and each number of the profile per-item numbers (Rust: `Stroke::new(c).width(24).profile([(0, 0), (0.15, 1), (0.85, 1), (1, 0)])`; `Style.profile` gives it back) | as `fill`; a paint of `"none"`; `width` not above 0; `miter_limit` below 1; with a `profile`: as `outline`'s (at the step: `join` or `cap` not `"round"`, no stops or over `MAX_PROFILE_STOPS`, a position outside 0..1 or going back, a factor outside 0..1e100), and when drawn a region over `MAX_SEGMENTS` |
 | `linear_gradient` | `linear_gradient(stops, *, start, end)` | a paint for `fill` and `stroke`: `stops` are `(offset, color)`, the colour along the line from `start` to `end`, held at the end colours beyond it | fewer than 2 stops; an offset outside 0..1 or below the one before; a stop colour of `"none"`; `start` equal to `end`; a coordinate beyond ±1e100 |
 | `radial_gradient` | `radial_gradient(stops, *, center, radius)` | a paint: offset 0 at `center`, offset 1 at `radius`, held beyond | as `linear_gradient`; `radius` not above 0 |
 | `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` asks (a number; a `Field` arrives in V15; 0 solid, 1 none) | `color` of `"none"`; `tone` outside 0..1; `pitch` not above 0; `angle` not finite; the limit below |
@@ -1009,7 +1015,7 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 | 8 | One picture to both pixels and SVG, every effect kept | `to_svg`, `to_png`, `to_rgba` |
 | 9 | A fast halftone fill | `halftone` |
 | 10 | Plotter export: stroke only, ordered, simplified, solids hatched, a layer per pen | `to_plotter_svg` |
-| 11 | A variable-width stroke, tapered at free ends | `outline(width, profile=)` as a filled outline; `stroke(profile=)` follows |
+| 11 | A variable-width stroke, tapered at free ends | `outline(width, profile=)` as a filled outline, and `stroke(profile=)` drawn the same way by every output |
 | 12 | Partial path by length from a stable start | `slice(0, progress)`: every outline the library makes in one orientation and order, closed ones measured from the topmost point, or from the point nearest `near=` where the top jumps |
 | 13 | Fitting text to a box by a variable axis, with a clear signal when the axis runs out | `text(width=, fit=)`; `ParameterError` naming the line and the width reached |
 

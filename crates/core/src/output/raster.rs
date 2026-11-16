@@ -513,34 +513,7 @@ fn paint(
                 .map_err(|error| in_shape(shape, "gradient ", error))?
             {
                 Some(paint) => {
-                    // the outline has arcs for the round joins and ends; the rasteriser must be given lines only. It is made
-                    // in the coordinates of the whole picture, as every window of it makes it, and placed after
-                    let (lines, dots) = match tapered_region(shape.path(), stroke, &mut charge)
-                        .map_err(|error| in_shape(shape, "stroke ", error))?
-                    {
-                        // the region of a profile is a fill of straight edges, as the mesh has it, and has no dots
-                        Some(region) => {
-                            let region = moved(&region.flattened(&mut charge)?, view)
-                                .map_err(|error| in_shape(shape, "", error))?;
-                            (bez_path(&region), Vec::new())
-                        }
-                        None => {
-                            let whole = unplaced(&device, view);
-                            let lines = stroke_outline(
-                                &bez_path(&whole),
-                                stroke,
-                                (stroke.join(), stroke.cap()),
-                                width,
-                                FLATNESS * view.scale(),
-                                &name,
-                            )?;
-                            let dots = dots(&whole, stroke.cap(), width, &mut charge)?
-                                .iter()
-                                .map(|dot| placed(&bez_path(dot), view))
-                                .collect();
-                            (placed(&lines, view), dots)
-                        }
-                    };
+                    let (lines, dots) = stroke_lines(shape, (stroke, width), (&device, view), &mut charge)?;
                     Some(StrokeBody {
                         lines,
                         dots,
@@ -560,6 +533,43 @@ fn paint(
     };
     composite(context, style, shadow.as_ref(), &body, (&bounds, &Cut { clip, mask }));
     Ok(())
+}
+
+/// The lines the rasteriser fills for the stroke of `shape` `width` wide, and the dots of its round and square ends, in
+/// the pixels of `view`; `device` is the path of the shape in them. The outline of a plain stroke has arcs for the round
+/// joins and ends and the rasteriser must be given lines only: it is made in the coordinates of the whole picture, as
+/// every window of it makes it, and placed after. The region of a profile is a fill of straight edges, as the mesh has it,
+/// and has no dots.
+///
+/// # Errors
+/// [`Error::Parameter`] if the outline would pass `MAX_SEGMENTS` or lie beyond [`MAX_DEVICE`] device pixels.
+fn stroke_lines(
+    shape: &Shape,
+    (stroke, width): (&StrokeStyle, f64),
+    (device, view): (&[Polyline], &View),
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+) -> Result<(BezPath, Vec<BezPath>), Error> {
+    if let Some(region) =
+        tapered_region(shape.path(), stroke, charge).map_err(|error| in_shape(shape, "stroke ", error))?
+    {
+        let region = moved(&region.flattened(charge)?, view).map_err(|error| in_shape(shape, "", error))?;
+        return Ok((bez_path(&region), Vec::new()));
+    }
+    let name = format!("shape {}", shape.index());
+    let whole = unplaced(device, view);
+    let lines = stroke_outline(
+        &bez_path(&whole),
+        stroke,
+        (stroke.join(), stroke.cap()),
+        width,
+        FLATNESS * view.scale(),
+        &name,
+    )?;
+    let dots = dots(&whole, stroke.cap(), width, charge)?
+        .iter()
+        .map(|dot| placed(&bez_path(dot), view))
+        .collect();
+    Ok((placed(&lines, view), dots))
 }
 
 /// The paint of a stroke seen through `view`; `None` if it paints nothing. A knockout takes the area covered, whatever the

@@ -304,3 +304,44 @@ def test_a_profile_the_rules_refuse_is_a_parameter_error_on_a_path_and_a_drawing
         LINE.outline(2, **kwargs)
     with pytest.raises(ParameterError, match=match):
         Drawing(LINE).outline(2, **kwargs).to_svg(20, 20)
+
+
+def test_a_stroke_with_a_profile_is_a_filled_taper_in_the_svg_and_the_pixels_and_the_style_gives_it_back():
+    line = btvec.Path.line((10, 50), (90, 50))
+    brush = Drawing(line).stroke("#000000", width=20, profile=[(0, 0), (0.5, 1), (1, 0)])
+    assert brush.shapes()[0].style.profile == [(0, 0), (0.5, 1), (1, 0)]
+    assert line.stroke("#000000").shapes()[0].style.profile is None
+    svg = brush.to_svg(100, 100)
+    assert "stroke-width" not in svg
+    assert 'fill="#000000"' in svg
+    pixels = brush.to_rgba(100, 100)
+    plain = Drawing(line).stroke("#000000", width=20).to_rgba(100, 100)
+    alpha = lambda image, x, y: image[(y * 100 + x) * 4 + 3]  # noqa: E731  (a row of one pixel reads)
+    assert alpha(pixels, 50, 50) == 255
+    assert alpha(pixels, 15, 45) == 0
+    assert alpha(plain, 15, 45) == 255
+
+
+def test_a_stroke_profile_draws_on_with_a_slice_and_saves_and_loads():
+    progress = btvec.Param("progress", default=0.5, min=0, max=1)
+    line = btvec.Path.line((10, 50), (90, 50))
+    drawing = Drawing(line).stroke("#000000", width=20, profile=[(0, 0), (0.5, 1), (1, 0)]).slice(0, progress)
+    again = Drawing.from_json(drawing.to_json())
+    assert again.to_svg(100, 100, progress=0.5) == drawing.to_svg(100, 100, progress=0.5)
+    assert drawing.to_svg(100, 100, progress=0.5) != drawing.to_svg(100, 100, progress=1)
+    assert json.loads(drawing.to_json())["root"][1]["stroke"]["profile"] == [[0, 0], [0.5, 1], [1, 0]]
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        pytest.param({"join": "miter"}, "join", id="miter"),
+        pytest.param({"cap": "square"}, "cap", id="square"),
+        pytest.param({"profile": []}, "profile", id="no stops"),
+        pytest.param({"profile": [(2, 1)]}, "profile", id="position past 1"),
+    ],
+)
+def test_a_stroke_profile_the_rules_refuse_is_a_parameter_error(kwargs, match):
+    options = {"profile": [(0, 1)], **kwargs}
+    with pytest.raises(ParameterError, match=match):
+        Drawing(LINE).stroke("#000000", **options).to_svg(20, 20)

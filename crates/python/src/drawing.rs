@@ -48,7 +48,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Item {
 }
 
 /// A pair of numbers: a `Point`, or an `(x, y)` tuple of numbers, Params or expressions.
-struct Pair(vector::Expr, vector::Expr);
+pub(crate) struct Pair(pub(crate) vector::Expr, pub(crate) vector::Expr);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for Pair {
     type Error = PyErr;
@@ -100,6 +100,7 @@ fn stroke_of(
     join: Option<&str>,
     cap: Option<&str>,
     miter_limit: Option<Num>,
+    profile: Option<Vec<Pair>>,
 ) -> PyResult<vector::Stroke> {
     let mut stroke = vector::Stroke::new(paint.0);
     if let Some(width) = width {
@@ -113,6 +114,9 @@ fn stroke_of(
     }
     if let Some(limit) = miter_limit {
         stroke = stroke.miter_limit(limit.0);
+    }
+    if let Some(profile) = profile {
+        stroke = stroke.profile(profile.into_iter().map(|Pair(at, factor)| (at, factor)));
     }
     Ok(stroke)
 }
@@ -397,8 +401,10 @@ impl PyDrawing {
     }
 
     /// Every outline stroked with `color` (`"#rgb"`, `"#rrggbb"`, `"#rrggbbaa"`) or a `Gradient`; what is left out takes the
-    /// defaults (2 pixels, round, round, 4).
-    #[pyo3(signature = (color, *, width=None, join=None, cap=None, miter_limit=None))]
+    /// defaults (2 pixels, round, round, 4). `profile`, a list of `(position, factor)` pairs (numbers, Params or
+    /// expressions), makes the width `width` times the factor at each place along each sub-path, drawn as a filled
+    /// outline with round joins and ends: a taper is `[(0, 0), (0.15, 1), (0.85, 1), (1, 0)]`.
+    #[pyo3(signature = (color, *, width=None, join=None, cap=None, miter_limit=None, profile=None))]
     pub(crate) fn stroke(
         &self,
         color: PaintArg,
@@ -406,8 +412,9 @@ impl PyDrawing {
         join: Option<&str>,
         cap: Option<&str>,
         miter_limit: Option<Num>,
+        profile: Option<Vec<Pair>>,
     ) -> PyResult<Self> {
-        checked(self.0.stroke(stroke_of(color, width, join, cap, miter_limit)?))
+        checked(self.0.stroke(stroke_of(color, width, join, cap, miter_limit, profile)?))
     }
 
     /// The opacity of every shape multiplied by `alpha`, from 0 to 1.
