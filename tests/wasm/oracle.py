@@ -831,6 +831,28 @@ def wobbles() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def radials() -> list[Entry]:
+    """`twist` and `bulge` on shapes: a glyph-like outline twisted at two angles, a circle bulged out and pinched in,
+    and Params driving the angle and the amount."""
+    glyph = btvec.Path.from_svg_path("M20 80 L20 20 L55 20 Q80 20 80 40 Q80 60 55 60 L40 60 L40 80 Z")
+    circle = btvec.Path.circle((50, 50), 30)
+    progress = btvec.Param("progress", default=0, min=0, max=1, unit="", meaning="how far the twist has turned")
+    amount = btvec.Param("amount", default=0, min=-0.9, max=1.4, unit="", meaning="how far the middle is pushed out")
+    drawings = {
+        "twist_glyph_90": framed(glyph.fill(RED)).twist(90),
+        "twist_glyph_minus_200_radius": framed(glyph.fill(RED)).twist(-200, radius=45, about=(50, 50)),
+        "bulge_circle_out": framed(circle.stroke(INK, width=2)).bulge(1.2, radius=45),
+        "bulge_circle_pinched": framed(circle.stroke(INK, width=2)).bulge(-0.7, radius=45),
+        "twist_param_angle": framed(glyph.fill(BLUE)).twist(progress * 180),
+        "bulge_param_amount": framed(btvec.text("Hi", font=FRAUNCES, size=60, anchor=(8, 70)).fill(GOLD)).bulge(amount),
+    }
+    draws: dict[str, list[Draw]] = {
+        "twist_param_angle": [(100, 100, {}), (200, 200, {"progress": 0.6})],
+        "bulge_param_amount": [(100, 100, {}), (200, 200, {"amount": -0.5})],
+    }
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 def reverses() -> list[Entry]:
     """`reverse` on shapes: an open line, a closed outline, a curve, and the draw-on the other way round."""
     line = btvec.Path.from_svg_path("M15 70 L50 25 L85 70")
@@ -925,6 +947,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     offsets,
     resamples,
     waves,
+    radials,
     wobbles,
     dashes,
     simplifies,

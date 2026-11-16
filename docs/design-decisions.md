@@ -1232,6 +1232,57 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   amplitude of a 400th-of-a-wavelength resampling of the same line, and 3 pieces fail). A fractional seed is refused at the
   draw, not when the call is made, as it is a plain number (a `random` seed is also checked early only as a constant).*
 
+- **`twist` and `bulge`: radial deformers (2026-11-16, V12 task 3).** Designed from three usage sketches before any
+  signature: `text("O", ...).twist(90)` (the middle of the letter turns a quarter, the rim holds still, so the strokes
+  curl); `circle.bulge(0.8, radius=60)` and `circle.bulge(-0.5)` (a fish-eye, a pinch); `text(...).twist(progress * 180)`
+  with a Param. They settled the form `twist(angle=90, *, radius=None, about=None)` and `bulge(amount=0.5, *, radius=None,
+  about=None)`: the one thing a person gives is the strength; the radius and the pivot have a reasonable default (the shape
+  itself) and are named when wanted. `about` and the default pivot are those of `rotate` and `scale` (the shape's `origin`,
+  else the middle of its bounds), unlike `wave` and `wobble`, whose field is anchored in the design frame: a twist is a
+  property of one shape's own centre.
+  *Ruling: `twist` turns a point at distance `r` from `about` by `angle * falloff(r)` degrees with `falloff(r) = 1 - s^2 (3
+  - 2s)`, `s = min(r / radius, 1)`, clockwise on the screen like `rotate` (the same rotation matrix, `y` down); a point at
+  or beyond `radius` is returned as it was, to the bit. The smoothstep is 1 at the centre, 0 at `radius` and has slope 0 at
+  both, so the twist has no kink at the centre or at the rim; a linear falloff would show a crease at `radius`. The turn
+  of a point depends on its distance only, so a twist keeps every distance to `about` (tested on rays from the pivot, to
+  1e-9 relative). Cost if wrong: a saved drawing's twist is another shape (the falloff is part of the file's meaning).*
+  *Ruling: `bulge` moves a point to `r * (1 + amount * falloff(r))` along its ray, the same falloff. The slope of `r -> r'` is
+  `1 + amount h(s)`, `h(s) = 1 - 9 s^2 + 8 s^3`; `h` is 1 at `s = 0`, 0 at `s = 1`, and has its minimum -11/16 at `s = 3/4`
+  (`h' = 6 s (4 s - 3)`), so the map is strictly increasing, and nothing folds over, exactly for `-1 < amount < 16/11`.
+  `amount` outside that is a `ParameterError` naming `amount`; a literal is refused at the call through a new domain,
+  `Domain::Between(low, high)` (above both bounds, below the second: written to the generated schema as
+  `exclusiveMinimum`/`exclusiveMaximum`, and by hand in the committed one). Cost if wrong: the smoothstep falloff cannot
+  push a middle further than 1.45 times (a fish-eye of more is a later falloff, not a larger amount); the refusal of a
+  valid fold-over that a person wants (self-overlap as an effect) is deliberate, as `along` refuses nothing and folds are
+  not reachable by accident here.*
+  *Ruling: `radius` defaults to the distance from `about` to the farthest corner of the shape's bounds (the whole shape
+  twists, its far corner stays); 1 if that is 0 (a point at `about`), so the default never refuses. A `radius` of 0, negative,
+  NaN, infinite or past 1e100 names `radius`. The default is derived per shape, so on a `Drawing` the letters of a word
+  twist each about its own middle and far corner, not as one. Cost if wrong: a word twisted as one body needs `about` and
+  `radius` given (a number for each shape).*
+  *Ruling: the step is `radius / n`, not a design number: the kernel needs a length and the map's own scale is the radius. A
+  chord over a step `h` strays from the image of its edge by at most `h^2 / 8` times the largest second derivative of the
+  image along the line. Twist, `a` the angle in radians, `phi = a f(r)`: `|f'| <= 1.5 / radius`, `|f''| <= 6 / radius^2`, so
+  `|image''| <= |phi''| |d| + phi'^2 |d| + 2 |phi'| <= (10.5 a + 2.25 a^2) / radius` and the chord error is within `0.005 *
+  radius` for `n = 7.5 sqrt(a^2 + 14 a / 3)` (22 at 90 degrees, 60 at a turn): the pieces grow with the angle, as a map
+  that turns more bends more. Bulge: `|image''| <= 9 |amount| / radius`, `n = 15 sqrt(|amount|)`. The error budget is half of
+  the hundredth of the radius the tests hold the output to (`0.01 * radius + 0.01` for the flattening of curves, against
+  the exact images of a dense sampling); checked: `0.04` instead of `0.005` fails the twist closed-form tests, so the bound
+  is exercised (it is loose for bulge, whose real error is a fraction of the bound). `// constant: CHORD_ERROR`. Cost if
+  wrong: pieces go as `1 / sqrt(error)`, so a bound 8 times looser makes 2.8 times fewer points; a hair of speed.*
+  *Ruling: a count past `MAX_SEGMENTS` names `radius` (the argument that sets the step), a turn so large that not even one
+  radius can be cut into `MAX_SEGMENTS` pieces names `angle` (it alone sets the step then), a point beyond ±1e100 names
+  `amount` for a bulge and `angle` for a twist. A long edge far outside the radius is cut into pieces of the same length
+  although nothing moves there (the kernel cuts every edge alike); a huge shape with a small `radius` is refused rather
+  than cut short, and the message is the same `MAX_SEGMENTS` one. Cost if wrong: a refusal where a smarter cut would
+  have succeeded; the fix is in the kernel (cut only within the radius), not in the verbs.*
+  *Ruling: neither verb moves the `origin` attribute (about the origin it is the fixed point of the map; about another
+  `about` the attribute stays where it was all the same, as for `wave`);
+  `rotate` and `scale`, which are rigid or affine maps, move it with the shape. Cost if wrong: a later turn about the
+  origin of a bulged shape is about the old origin.*
+  *Housekeeping: the loader's test of an unknown call named `wobble`, which the wobble batch registered (a test that
+  failed at that commit, found by this batch's run); it names `morph` (V13) now.*
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

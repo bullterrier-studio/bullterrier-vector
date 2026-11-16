@@ -426,6 +426,44 @@ impl PyDrawing {
         )
     }
 
+    /// Every shape with its points turned about a centre, less the farther out they are (each argument a number, a Param
+    /// or an expression, read per shape); as `Path.twist`. The centre is `about`, else each shape's origin, else the middle
+    /// of its bounds.
+    #[pyo3(
+        signature = (angle=None, *, radius=None, about=None),
+        text_signature = "($self, angle=90, *, radius=None, about=None)"
+    )]
+    fn twist(&self, angle: Option<Num>, radius: Option<Num>, about: Option<Pair>) -> PyResult<Self> {
+        let mut twist = vector::Twist::new(vector::Deg(
+            angle.map_or_else(|| vector::Expr::from(90.0), |Num(angle)| angle),
+        ));
+        if let Some(Num(radius)) = radius {
+            twist = twist.radius(radius);
+        }
+        if let Some(Pair(x, y)) = about {
+            twist = twist.about((x, y));
+        }
+        checked(self.0.twist(twist))
+    }
+
+    /// Every shape with its points pushed out from, or in towards, a centre, less the farther out they are (each
+    /// argument a number, a Param or an expression, read per shape); as `Path.bulge`. The centre is `about`, else each
+    /// shape's origin, else the middle of its bounds.
+    #[pyo3(
+        signature = (amount=None, *, radius=None, about=None),
+        text_signature = "($self, amount=0.5, *, radius=None, about=None)"
+    )]
+    fn bulge(&self, amount: Option<Num>, radius: Option<Num>, about: Option<Pair>) -> PyResult<Self> {
+        let mut bulge = vector::Bulge::new(amount.map_or_else(|| vector::Expr::from(0.5), |Num(amount)| amount));
+        if let Some(Num(radius)) = radius {
+            bulge = bulge.radius(radius);
+        }
+        if let Some(Pair(x, y)) = about {
+            bulge = bulge.about((x, y));
+        }
+        checked(self.0.bulge(bulge))
+    }
+
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the
     /// other end. Style, attributes and `origin` are kept.
     fn reverse(&self) -> PyResult<Self> {

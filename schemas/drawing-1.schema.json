@@ -485,6 +485,8 @@
           "along",
           "place_along",
           "wobble",
+          "twist",
+          "bulge",
           "wave",
           "morph",
           "hatch",
@@ -650,6 +652,30 @@
             "wavelength": { "$ref": "#/$defs/capped_positive" },
             "phase": { "$ref": "#/$defs/number" },
             "seed": { "$ref": "#/$defs/number" }
+          }
+        },
+        "twist": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "angle": { "$ref": "#/$defs/number" },
+            "radius": { "$ref": "#/$defs/capped_positive" },
+            "about": { "$ref": "#/$defs/coordinate_point" }
+          }
+        },
+        "bulge": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                { "type": "number", "exclusiveMinimum": -1, "exclusiveMaximum": 1.4545454545454546 },
+                { "$ref": "#/$defs/expression" }
+              ],
+              "$comment": "above -1 and below 16/11: the radial map stays strictly increasing, so the shape does not fold over"
+            },
+            "radius": { "$ref": "#/$defs/capped_positive" },
+            "about": { "$ref": "#/$defs/coordinate_point" }
           }
         },
         "wave": {

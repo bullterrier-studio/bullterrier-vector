@@ -448,6 +448,26 @@ impl PyPath {
         Self::of(self.0.wobble(amplitude, wavelength, phase, seed))
     }
 
+    /// The path with every point turned about `about` (the middle of the bounds by default) by `angle` degrees clockwise
+    /// at the centre, less and less further out and not at all from `radius` on (the farthest corner of the bounds by
+    /// default): the turn at distance `r` is `angle * (1 - s^2 (3 - 2s))`, `s = r / radius`. Points keep their distance
+    /// to `about`. Edges are cut into pieces so that the result stays within a hundredth of the radius of the true
+    /// twist, every vertex kept, so the result is made of straight lines.
+    #[pyo3(signature = (angle=90.0, *, radius=None, about=None))]
+    fn twist(&self, angle: f64, radius: Option<f64>, about: Option<Pt>) -> PyResult<Self> {
+        Self::of(self.0.twist(angle, radius, about.map(|about| about.0)))
+    }
+
+    /// The path with every point moved along its ray from `about` (the middle of the bounds by default) from distance
+    /// `r` to `r * (1 + amount * (1 - s^2 (3 - 2s)))`, `s = r / radius` (`radius`: the farthest corner of the bounds by
+    /// default): a positive `amount` bulges the middle outward, a negative one pinches it in, and nothing at `radius` or
+    /// beyond moves. `amount` must be above -1 and below 16/11, so that the shape does not fold over. The result is made
+    /// of straight lines, every vertex kept.
+    #[pyo3(signature = (amount=0.5, *, radius=None, about=None))]
+    fn bulge(&self, amount: f64, radius: Option<f64>, about: Option<Pt>) -> PyResult<Self> {
+        Self::of(self.0.bulge(amount, radius, about.map(|about| about.0)))
+    }
+
     /// Few smooth curves within `tolerance` pixels of the path, sharp corners (turns past 45 degrees) kept.
     #[pyo3(signature = (*, tolerance=0.5))]
     fn simplify(&self, tolerance: f64) -> PyResult<Self> {
