@@ -15,6 +15,7 @@ mod measure;
 mod offset;
 mod place;
 mod polyline;
+mod radial;
 mod read;
 mod region;
 mod resample;

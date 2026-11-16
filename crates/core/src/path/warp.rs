@@ -173,7 +173,7 @@ impl Path {
 }
 
 /// A count of the edges of a path that fails with `parameter` past `MAX_SEGMENTS`, over all it is told.
-fn segment_budget(parameter: &'static str) -> impl FnMut(usize) -> Result<(), Error> {
+pub(super) fn segment_budget(parameter: &'static str) -> impl FnMut(usize) -> Result<(), Error> {
     let mut used = 0_usize;
     move |count| {
         used = used.saturating_add(count);
