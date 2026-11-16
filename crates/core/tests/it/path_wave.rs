@@ -256,6 +256,19 @@ fn a_wavelength_that_would_make_more_than_ten_million_pieces_is_refused_at_once(
     Ok(())
 }
 
+#[test]
+fn a_cut_made_finer_by_a_big_amplitude_is_counted_too() -> Outcome {
+    // 4e6 long at a wavelength of 10 is 24 * 4e5 = 9.6e6 pieces, within the 1e7; an amplitude of 100 makes the chords
+    // stray by 0.86, over the 0.05 pixel budget, so the cut is sqrt(0.86 / 0.05) = 4.1 times finer: 4e7 pieces
+    let line = Path::line((0.0, 0.0), (4_000_000.0, 0.0))?;
+    let (name, message) = parameter_refusal(line.wave(100.0, 10.0, 0.0, 0.0))?;
+    assert_eq!(name, "wavelength");
+    assert!(message.contains("MAX_SEGMENTS"), "{message}");
+    // the same line with a small amplitude keeps the cut it asked for and is made
+    assert!(line.wave(1.0, 10.0, 0.0, 0.0).is_ok());
+    Ok(())
+}
+
 // An absolute budget ------------------------------------------------------------------------------------------------
 
 /// A deformer's chord error never exceeds 0.05 design pixels, whatever the size of the shape (`DEFORM_ERROR_PX`): at 8x

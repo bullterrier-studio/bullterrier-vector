@@ -35,6 +35,14 @@ fn a_negative_sweep_runs_counter_clockwise_on_the_screen() -> Outcome {
     let (start, end) = ends(&arc)?;
     assert!(near(start, (15.0, 20.0)), "{start:?}");
     assert!(near(end, (10.0, 15.0)), "{end:?}");
+    // and it passes through the point at -45 degrees, up the screen, not the one at +45 below it (half the arc's
+    // length is its middle; a cubic quarter arc is within 3e-4 of the radius of the circle)
+    let middle = arc.point_at(0.5, None)?;
+    let half_diagonal = 5.0 * std::f64::consts::FRAC_1_SQRT_2;
+    assert!(
+        (middle.x - (10.0 + half_diagonal)).abs() < 5e-3 && (middle.y - (20.0 - half_diagonal)).abs() < 5e-3,
+        "{middle:?}"
+    );
     // a start that is not 0: 180 to 270 is from the left of the centre up to its top
     let (start, end) = ends(&Path::arc((0.0, 0.0), 2.0, 180.0, 270.0)?)?;
     assert!(near(start, (-2.0, 0.0)) && near(end, (0.0, -2.0)), "{start:?} {end:?}");
