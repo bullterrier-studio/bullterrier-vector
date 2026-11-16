@@ -1,8 +1,9 @@
 //! Constructors: the shapes a person asks for by name.
 
+use super::arc::ellipse_cubics;
 use super::{Path, Segment, SubPath};
 use crate::Error;
-use crate::geometry::{MAX_COORDINATE, Point, coordinate, coordinate_point, is_coordinate};
+use crate::geometry::{MAX_COORDINATE, Point, coordinate, coordinate_point, finite, is_coordinate};
 use crate::math::sin_cos_deg;
 
 /// The most corners a polygon or a star may have.
@@ -163,6 +164,50 @@ impl Path {
             closed: false,
         };
         Self::of(sub.closed()).within_limit("radius")
+    }
+
+    /// An open circular arc about `center`, from the angle `start` to the angle `end`, both in degrees clockwise on the
+    /// screen from the +x axis (`y` down, as for [`Path::rotate`]): 0 is the right of the centre, 90 below it. `end`
+    /// may be below `start`, and then the arc runs counter-clockwise on the screen. Cubics, one per quarter turn at
+    /// most; the path starts at the point of `start` and ends at that of `end`.
+    ///
+    /// A sweep (`end - start`) of 360 or -360 is a full circle that is still open: it ends where it starts, with no
+    /// close, so a stroke has two caps there and a fill closes it implicitly. [`Path::circle`] makes a closed one.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `center` if it is NaN, infinite or beyond ±1e100; `radius` if it is not a number
+    /// above 0 and within ±1e100, or the arc would reach beyond ±1e100; `start` if it is NaN or infinite; `end` if it
+    /// is NaN or infinite, equal to `start`, or more than 360 degrees from it.
+    pub fn arc(center: impl Into<Point>, radius: f64, start: f64, end: f64) -> Result<Self, Error> {
+        let center = coordinate_point("center", center)?;
+        let radius = positive("radius", radius)?;
+        let (start, end) = (finite("start", start)?, finite("end", end)?);
+        let sweep = end - start;
+        // a full turn is the most one arc covers
+        if !(sweep != 0.0 && sweep.abs() <= 360.0) {
+            return Err(Error::parameter(
+                "end",
+                format!("must differ from start by more than 0 and at most 360 degrees, got {start} to {end}"),
+            ));
+        }
+        let at = |degrees: f64| {
+            let (sin, cos) = sin_cos_deg(degrees);
+            Point::new(center.x + radius * cos, center.y + radius * sin)
+        };
+        let (first, last) = (at(start), at(end));
+        let segments = ellipse_cubics(
+            center,
+            (radius, radius),
+            (0.0, 1.0),
+            (start.to_radians(), sweep.to_radians()),
+            last,
+        );
+        let sub = SubPath {
+            start: first,
+            segments,
+            closed: false,
+        };
+        Self::of(sub).within_limit("radius")
     }
 
     /// A closed regular polygon of `sides` corners on a circle of `radius` round `center`: the first corner at the

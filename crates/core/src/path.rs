@@ -11,6 +11,7 @@ mod bounds;
 mod build;
 mod curve;
 mod dash;
+mod envelope;
 mod measure;
 mod offset;
 mod place;

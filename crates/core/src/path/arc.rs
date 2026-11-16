@@ -70,6 +70,19 @@ pub(super) fn arc_segments(
     } else if sweep && sweep_angle < 0.0 {
         sweep_angle += TAU;
     }
+    ellipse_cubics(centre, (rx, ry), (sin_phi, cos_phi), (start, sweep_angle), to)
+}
+
+/// The cubics of the ellipse about `centre` with radii `rx` and `ry` turned by the angle whose sine and cosine are
+/// `(sin_phi, cos_phi)`, from the angle `start` (radians, in the ellipse's own axes) through `sweep_angle` (radians, positive
+/// clockwise on the screen): one cubic per quarter turn at most, the last ending exactly on `to`.
+pub(super) fn ellipse_cubics(
+    centre: Point,
+    (rx, ry): (f64, f64),
+    (sin_phi, cos_phi): (f64, f64),
+    (start, sweep_angle): (f64, f64),
+    to: Point,
+) -> Vec<Segment> {
     let pieces = (1..=MAX_PIECES)
         .find(|pieces| sweep_angle.abs() <= f64::from(*pieces) * FRAC_PI_2 * (1.0 + QUARTER_SLACK))
         .unwrap_or(MAX_PIECES);
