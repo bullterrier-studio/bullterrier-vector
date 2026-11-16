@@ -142,11 +142,13 @@ impl Path {
         )
     }
 
-    /// This path with an arch put in it: the frame's top edge raised into a parabola through its two top corners whose
-    /// middle is `bend * width` above the corners (`bend` negative: below them, a sag; 0: no change), the bottom edge
-    /// staying straight, the rest following by the map of [`Path::envelope`]: a point `(x, y)` goes to `(x, (1 - v)
-    /// (y0 - 4 bend width u (1 - u)) + v (y0 + height))`, `u` and `v` its shares of the `frame` (the bounds of this path
-    /// if left out). `y` is down, so a positive `bend` lifts the middle up the screen.
+    /// This path with an arch put in it: the whole band of the frame lifted by a parabola through the frame's two
+    /// corners whose middle is `bend * width` above them (`bend` negative: below them, a sag; 0: no change), the top and
+    /// the bottom edge by the same lift, so the frame's height is kept at every column and `-bend` is the mirror of `bend`.
+    /// A point `(x, y)` goes to `(x, y - 4 bend width u (1 - u))`, `u` its share of the `frame` (the bounds of this path if
+    /// left out); it is the map of [`Path::envelope`] between a parabola and the same parabola lower by the frame's height.
+    /// `y` is down, so a positive `bend` lifts the middle up the screen. A flat baseline under a curved top is
+    /// [`Path::envelope`] with a `top` alone.
     ///
     /// The parabola is given in closed form, so no arc length is walked: `u` follows `x` (the horizontal spacing of the
     /// letters of a word is kept, which a curve walked by arc length does not give). Cut and bounded as for
@@ -171,11 +173,12 @@ impl Path {
         let Some(frame) = self.frame_of(frame)? else {
             return Ok(self.clone());
         };
-        let above = |u: f64| {
-            let corner = frame.straight(u, 0.0);
+        let lifted = |u: f64, down: f64| {
+            let corner = frame.straight(u, down);
             Point::new(corner.x, corner.y - 4.0 * bend * frame.width * u * (1.0 - u))
         };
-        let below = |u: f64| frame.straight(u, 1.0);
+        let above = |u: f64| lifted(u, 0.0);
+        let below = |u: f64| lifted(u, 1.0);
         self.warp(
             "bend",
             frame.width / PIECES,

@@ -475,7 +475,7 @@ def test_bent_type_is_the_plain_line_at_progress_0_and_arches_ripples_and_twists
     bounds = [shape.path.bounds for shape in line]
     # no bend: the letters stand on one baseline (the bottoms of N and O agree to a pixel; O overshoots a little)
     assert max(b.y + b.height for b in bounds) - min(b.y + b.height for b in bounds) < 12
-    # bent: the S in the middle rises (the arch lifts it by 270 at most, the twist turns it back some)
+    # bent: the S in the middle rises (the arch lifts it by 150 at most, the twist turns it back some)
     bent = [shape.path.bounds for shape in drawing.shapes(progress=1, phase=0.25)[1:]]
     assert bent[2].y < bounds[2].y - 30
     # and the line is no longer level: the bottoms of the N and the last P now differ by 40 pixels or more

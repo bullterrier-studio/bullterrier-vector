@@ -521,9 +521,9 @@ impl PyPath {
         ))
     }
 
-    /// The path arched: the top edge of the frame (a `Rect` or `(x, y, width, height)`; the bounds of the path by default)
-    /// becomes a parabola through its top corners, its middle `bend` times the frame's width above them (below if
-    /// negative), the bottom edge staying straight; columns stay vertical and `x` is kept.
+    /// The path arched: the whole band of the frame (a `Rect` or `(x, y, width, height)`; the bounds of the path by default)
+    /// lifted by a parabola, its middle `bend` times the frame's width above the corners (below if negative), top and
+    /// bottom edge alike, so the height is kept; columns stay vertical and `x` is kept.
     #[pyo3(signature = (bend, *, frame=None))]
     fn arch(&self, bend: f64, frame: Option<Frame>) -> PyResult<Self> {
         Self::of(self.0.arch(bend, frame.map(|frame| frame.0)))

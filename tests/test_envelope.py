@@ -43,12 +43,23 @@ def test_the_amount_and_the_bottom_blend_between_the_straight_edge_and_the_curve
     assert has(half, (50, 110))
 
 
-def test_an_arch_lifts_the_middle_by_the_bend_times_the_width() -> None:
+def test_an_arch_lifts_the_whole_band_by_the_bend_times_the_width() -> None:
     arched = SQUARE.arch(0.2)
     assert has(arched, (50, -20))
+    assert has(arched, (50, 80))
     assert has(arched, (25, -15))
+    assert has(arched, (25, 85))
     assert has(arched, (100, 100))
     assert has(SQUARE.arch(-0.2), (50, 20))
+    assert has(SQUARE.arch(-0.2), (50, 120))
+
+
+def test_an_arch_keeps_the_height_of_the_frame_and_a_negative_bend_mirrors_a_positive_one() -> None:
+    word = btvec.Path.rect(0, 0, 365, 150)  # 0.3 * 365 = 109.5
+    assert has(word.arch(0.3), (182.5, -109.5))
+    assert has(word.arch(0.3), (182.5, 40.5))
+    assert has(word.arch(-0.3), (182.5, 109.5))
+    assert has(word.arch(-0.3), (182.5, 259.5))
 
 
 def test_a_frame_with_no_area_is_refused_naming_it() -> None:
@@ -71,7 +82,7 @@ def test_the_drawing_shares_one_frame_between_its_shapes() -> None:
     bars = btvec.Drawing(btvec.Path.rect(0, 0, 100, 10), btvec.Path.rect(0, 50, 100, 10))
     first, second = (shape.path for shape in bars.arch(0.2).shapes())
     assert has(first, (50, -20))  # the frame is (0, 0, 100, 60): the first bar's top edge is the frame's
-    assert any(math.dist(vertex, (50, 140 / 3)) < 1e-6 for vertex in vertices(second))
+    assert has(second, (50, 30))  # lifted by the same 20 at every height
     (alone,) = (shape.path for shape in bars.only(index=1).arch(0.2).shapes())
     assert has(alone, (50, 30))  # a frame of its own, its top edge at 50: lifted 20, as the frame argument gives
     _, framed = (shape.path for shape in bars.arch(0.2, frame=(0, 50, 100, 10)).shapes())

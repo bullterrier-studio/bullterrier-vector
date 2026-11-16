@@ -311,32 +311,54 @@ fn the_default_frame_is_the_bounds_of_the_path() -> Outcome {
 // Arch -----------------------------------------------------------------------------------------------------------------
 
 #[test]
-fn an_arch_lifts_the_middle_of_the_top_by_the_bend_times_the_width() -> Outcome {
-    // a bend of 0.2 on a frame 100 wide: the middle of the top edge rises 20 and the corners stay; the bottom stays
+fn an_arch_lifts_the_middle_of_the_band_by_the_bend_times_the_width() -> Outcome {
+    // a bend of 0.2 on a frame 100 wide: the middle of the top and of the bottom edge rise 20 and the corners stay
     let rect = Path::rect(0.0, 0.0, 100.0, 100.0, 0.0)?;
     let found = lines(&rect.arch(0.2, Some(FRAME))?)?;
-    for vertex in [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0), (50.0, -20.0)] {
+    for vertex in [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0), (50.0, -20.0), (50.0, 80.0)] {
         assert!(has_vertex(&found, vertex), "no vertex at {vertex:?}");
     }
     assert!(found.iter().all(|line| line.1));
-    // a quarter of the way along, 4 * 0.2 * 100 * 0.25 * 0.75 = 15 up
+    // a quarter of the way along, 4 * 0.2 * 100 * 0.25 * 0.75 = 15 up, both edges
     assert!(has_vertex(&found, (25.0, -15.0)), "{found:?}");
-    // a negative bend sags
+    assert!(has_vertex(&found, (25.0, 85.0)), "{found:?}");
+    // a negative bend sags the same
     let found = lines(&rect.arch(-0.2, Some(FRAME))?)?;
     assert!(has_vertex(&found, (50.0, 20.0)), "{found:?}");
+    assert!(has_vertex(&found, (50.0, 120.0)), "{found:?}");
+    Ok(())
+}
+
+#[test]
+fn an_arch_keeps_the_height_of_the_frame_and_a_negative_bend_mirrors_a_positive_one() -> Outcome {
+    // a word's frame, 365 by 150: a bend of 0.3 moves the middle 0.3 * 365 = 109.5, and +0.3 and -0.3 keep its 150 height
+    let frame = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: 365.0,
+        height: 150.0,
+    };
+    let rect = Path::rect(0.0, 0.0, 365.0, 150.0, 0.0)?;
+    let (up, down) = (lines(&rect.arch(0.3, Some(frame))?)?, lines(&rect.arch(-0.3, Some(frame))?)?);
+    for vertex in [(182.5, -109.5), (182.5, 40.5)] {
+        assert!(has_vertex(&up, vertex), "no vertex at {vertex:?}: {up:?}");
+    }
+    for vertex in [(182.5, 109.5), (182.5, 259.5)] {
+        assert!(has_vertex(&down, vertex), "no vertex at {vertex:?}: {down:?}");
+    }
     Ok(())
 }
 
 #[test]
 fn an_arch_follows_the_formula_at_every_height() -> Outcome {
-    // x stays; y = (1 - v) (y0 - 4 bend W u (1 - u)) + v y1
+    // x stays; y = y - 4 bend W u (1 - u), the same lift at every height
     let shape = glyph()?;
     let bend = 0.35;
     let found = lines(&shape.arch(bend, Some(FRAME))?)?;
     for index in 0..=400 {
         let (x, y) = at(&shape, f64::from(index) / 400.0)?;
-        let (u, v) = (x / 100.0, y / 100.0);
-        let image = (x, (1.0 - v) * (-4.0 * bend * 100.0 * u * (1.0 - u)) + v * 100.0);
+        let u = x / 100.0;
+        let image = (x, y - 4.0 * bend * 100.0 * u * (1.0 - u));
         assert!(to_lines(image, &found) <= 0.05, "sample {index}: {image:?}");
     }
     Ok(())

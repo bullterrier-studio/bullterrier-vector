@@ -33,9 +33,9 @@ fn every_shape_of_the_drawing_shares_one_frame_and_an_explicit_frame_overrides_i
     let shapes = bars.arch(0.2).shapes(&Values::new())?;
     // the first bar's top edge is the frame's: its middle rises 4 * 0.2 * 100 * 0.25 = 20
     assert!(has_vertex(&lines(shapes[0].path())?, (50.0, -20.0)));
-    // the second is at v = 50 / 60: (1 - 5/6) * (-20) + 5/6 * 60 = 46.667 at its top edge's middle
+    // the second is lifted by the same 20 at every height: its top edge's middle, at 50, goes to 30
     let second = lines(shapes[1].path())?;
-    assert!(to_lines((50.0, 140.0 / 3.0), &second) < 1e-6, "{second:?}");
+    assert!(to_lines((50.0, 30.0), &second) < 1e-6, "{second:?}");
     // a frame of the second bar alone makes its top edge the arch
     let alone = bars
         .arch(Arch::new(0.2).frame(Rect {

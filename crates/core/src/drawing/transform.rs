@@ -248,7 +248,7 @@ pub struct Arch {
 }
 
 impl Arch {
-    /// An arch lifting the middle of the top of the bounds of the drawing by `bend` times their width.
+    /// An arch lifting the middle of the bounds of the drawing, top and bottom edge alike, by `bend` times their width.
     #[must_use]
     pub fn new(bend: impl Into<Expr>) -> Self {
         Self {
@@ -530,7 +530,7 @@ impl Drawing {
     }
 
     /// This drawing arched, as [`Path::arch`](crate::Path::arch) does: a number alone (positive lifts the middle of the
-    /// top of the frame up the screen by that share of the frame's width, negative sags it), or an [`Arch`] with a
+    /// band of the frame up the screen by that share of the frame's width, negative sags it, the height kept), or an [`Arch`] with a
     /// frame. The frame is the bounds of all the shapes of the drawing, shared by every shape; `bend` is a number for each
     /// shape. Each shape keeps its style and attributes, its `origin` included (it is not moved).
     ///

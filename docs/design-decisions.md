@@ -1320,8 +1320,16 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   caller and animates on one number, and because its closed form lets `u` follow `x`, so the spacing of the letters is
   kept, which an `envelope` with an arc cannot do (it spaces by arc length: the letters near a steep part of the arc crowd
   together). The two share one map (`lattice` in `path/envelope.rs`: the logic of `u`, `v` and the blend is in one place)
-  and differ in the edge functions only. The bottom edge stays straight; an arch whose bottom bends too is `envelope`
-  with two curves. Cost if wrong: a circular arch (a constant curvature) is `envelope` with `Path.arc`.*
+  and differ in the edge functions only. Cost if wrong: a circular arch (a constant curvature) is `envelope` with
+  `Path.arc`.*
+  *Ruling: `arch` bends the whole band: the top and the bottom edge follow the same parabola, so the frame's height is kept
+  at every column and `-bend` is the exact mirror of `+bend` (the displacement of every point reverses); `arch(0)` is the
+  identity. The first definition lifted the top only and kept the bottom flat: a bend of -0.3 on a 365 by 150 word left a
+  column 40.5 tall in the middle (the top sank 109.5 toward the bottom) where +0.3 made it 259.5 (measured on the demo's
+  frame; the contact sheet showed a word squashed to a sliver). Implemented by changing the bottom edge function of the
+  shared `lattice` map only. Cost: the flat-baseline look is no longer one call (it is `envelope(top=<curve>)`, with an arc
+  or a parabola path); a saved drawing that used `arch` changes shape; the vertical stretch of the middle of the old look
+  is gone, so an arched word is no longer taller in the middle.*
   *Ruling: the step is a 256th of the frame's width, not a length of the map's own. The error of an edge comes from the
   curvature of the curves (a chord over `h` of a curve of length `L` strays by at most `curvature (L / 256)^2 / 8`), and for
   a slanted edge of a wide frame from the product of the change of the slope of the edge between the curves and the share it

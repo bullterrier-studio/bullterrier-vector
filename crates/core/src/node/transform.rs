@@ -645,7 +645,7 @@ pub(crate) struct Arch;
 pub(crate) static ARCH: Verb = Verb {
     name: "arch",
     role: Role::Step,
-    summary: "bends a frame rectangle (default: the bounds of the whole drawing, so every shape shares one frame; or frame = [x, y, width, height]) into an arch: its top edge becomes a parabola through its top corners whose middle is bend times the frame's width above them (negative: below, a sag), its bottom edge stays straight, and the points between follow, so columns stay vertical and the horizontal spacing of x is kept; the edges are cut so the result is smooth, corners kept",
+    summary: "bends a frame rectangle (default: the bounds of the whole drawing, so every shape shares one frame; or frame = [x, y, width, height]) into an arch: the whole band is lifted by a parabola through the frame's corners whose middle is bend times the frame's width above them (negative: below, a sag), top and bottom edge by the same lift, so the frame's height is kept and a negative bend mirrors a positive one; columns stay vertical and the horizontal spacing of x is kept; the edges are cut so the result is smooth, corners kept",
     args: &[per_shape("bend", Kind::Number, None, Domain::Finite), FRAME],
     check: Some(frame_has_four_numbers),
 };

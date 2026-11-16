@@ -493,8 +493,8 @@ impl PyDrawing {
     }
 
     /// Every shape arched by one frame (a `Rect` or `(x, y, width, height)`; the bounds of all the shapes by default): the
-    /// frame's top edge becomes a parabola whose middle is `bend` times the frame's width above its corners (below if
-    /// negative); as `Path.arch`. `bend` is a number, a Param or an expression, read per shape.
+    /// frame's whole band is lifted by a parabola whose middle is `bend` times the frame's width above its corners (below if
+    /// negative), top and bottom alike; as `Path.arch`. `bend` is a number, a Param or an expression, read per shape.
     #[pyo3(signature = (bend, *, frame=None))]
     fn arch(&self, bend: Num, frame: Option<Frame>) -> PyResult<Self> {
         let mut arch = vector::Arch::new(bend.0);
