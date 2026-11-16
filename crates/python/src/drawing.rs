@@ -504,6 +504,15 @@ impl PyDrawing {
         checked(self.0.arch(arch))
     }
 
+    /// Every shape morphed `fraction` (a number, a Param or an expression, read per shape) of the way to the shape at the
+    /// same index of `target` (a Drawing, a Path or a Shape): 0 is the source, 1 the target, any other number the lerp
+    /// (outside 0 to 1 it extrapolates); as `Path.morph` for each pair, so the result is made of straight lines. A pair
+    /// keeps the source's style and attributes; a surplus source shape shrinks to its own centre and a surplus target shape
+    /// grows from its own centre, each keeping its own style.
+    fn morph(&self, target: Item, fraction: Num) -> PyResult<Self> {
+        checked(self.0.morph(target.0, fraction.0))
+    }
+
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the
     /// other end. Style, attributes and `origin` are kept.
     fn reverse(&self) -> PyResult<Self> {

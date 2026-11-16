@@ -529,6 +529,14 @@ impl PyPath {
         Self::of(self.0.arch(bend, frame.map(|frame| frame.0)))
     }
 
+    /// The outline `fraction` of the way from this path to `target`: 0 is this path, 1 is `target`, any other finite number
+    /// is the straight lerp (outside 0 to 1 it extrapolates). Closed contours pair by role (outer or hole) and place, each
+    /// pair aligned at its start; a contour with no partner shrinks to, or grows from, a point, and a hole with no partner
+    /// is subtracted, never wound. The result is made of straight lines; open sub-paths stay open.
+    fn morph(&self, target: &Bound<'_, Self>, fraction: f64) -> PyResult<Self> {
+        Self::of(self.0.morph(&target.get().0, fraction))
+    }
+
     /// Few smooth curves within `tolerance` pixels of the path, sharp corners (turns past 45 degrees) kept.
     #[pyo3(signature = (*, tolerance=0.5))]
     fn simplify(&self, tolerance: f64) -> PyResult<Self> {
