@@ -596,6 +596,51 @@ fn rows() -> Vec<Row> {
             }),
         },
         Row {
+            verb: "wobble",
+            sample: || Ok(square()?.wobble(4.0, 80.0, 0.25, 3.0)),
+            with: Some(|argument, value| match argument {
+                "amplitude" => Ok(square()?.wobble(value, 80.0, 0.0, 0.0)),
+                "wavelength" => Ok(square()?.wobble(4.0, value, 0.0, 0.0)),
+                "phase" => Ok(square()?.wobble(4.0, 80.0, value, 0.0)),
+                "seed" => Ok(square()?.wobble(4.0, 80.0, 0.0, value)),
+                _ => Err(unknown("wobble", argument)),
+            }),
+            ranges: &[
+                ("amplitude", 4.0, true),
+                ("amplitude", -3.0, true),
+                ("amplitude", f64::NAN, false),
+                ("amplitude", f64::INFINITY, false),
+                ("wavelength", 80.0, true),
+                ("wavelength", 0.5, true),
+                ("wavelength", 1e100, true),
+                ("wavelength", 0.0, false),
+                ("wavelength", -1.0, false),
+                ("wavelength", 1.000_000_1e100, false),
+                ("wavelength", f64::NAN, false),
+                ("wavelength", f64::INFINITY, false),
+                ("phase", 0.25, true),
+                ("phase", -3.5, true),
+                ("phase", 1e300, true),
+                ("phase", f64::NAN, false),
+                ("phase", f64::INFINITY, false),
+                ("seed", 7.0, true),
+                ("seed", -7.0, true),
+                ("seed", f64::NAN, false),
+                ("seed", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let (amplitude, wavelength) = (a % 20.0, 10.0 + b.abs() % 100.0);
+                    Ok(vec![(
+                        "an amplitude, a wavelength, a phase and a seed",
+                        Drawing::from(path.clone()).wobble(amplitude, wavelength, b, 5.0),
+                        path.wobble(amplitude, wavelength, b, 5.0),
+                    )])
+                },
+                by_hand: &[],
+            }),
+        },
+        Row {
             verb: "fill",
             sample: || Ok(square()?.fill(fade()?)),
             with: None,

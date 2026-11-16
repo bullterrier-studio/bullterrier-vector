@@ -268,6 +268,36 @@ impl Drawing {
         )
     }
 
+    /// This drawing with the points of every shape displaced by smooth seeded noise, as [`Path::wobble`](crate::Path::wobble)
+    /// does: at most `amplitude` design pixels along each axis, the noise one `wavelength` per lattice cell, `phase` in
+    /// cycles (a `Param` going 0 to 1 moves it round a whole cycle) and `seed` a whole number choosing the noise. Each
+    /// is a number for each shape (a number, a `Param`, an expression or a list of them). The noise is anchored in the
+    /// design frame: the letters of one word wobbled in one step share one field. Each shape keeps its style and
+    /// attributes, its `origin` included.
+    ///
+    /// A `wavelength` not above 0 and within 1e100, a `seed` that is not a whole number within ±(2^53 - 1), or a
+    /// number that is NaN or infinite, leaves the drawing with an [`error`](Drawing::error) naming the step (`step 2
+    /// (wobble).wavelength`), or, when it reads a Param, is refused when the drawing is drawn; so is a draw that would
+    /// make more than `MAX_SEGMENTS` points.
+    #[must_use]
+    pub fn wobble(
+        &self,
+        amplitude: impl Into<Expr>,
+        wavelength: impl Into<Expr>,
+        phase: impl Into<Expr>,
+        seed: impl Into<Expr>,
+    ) -> Self {
+        self.then(
+            &transform::Wobble,
+            vec![
+                ("amplitude", Given::Number(amplitude.into())),
+                ("wavelength", Given::Number(wavelength.into())),
+                ("phase", Given::Number(phase.into())),
+                ("seed", Given::Number(seed.into())),
+            ],
+        )
+    }
+
     /// This drawing with every shape run the other way, as [`Path::reverse`](crate::Path::reverse) does: `text(..)
     /// .reverse().slice(0, progress)` draws on from the other end, and a stroke's direction decides where a `dash` or
     /// a taper begins. Each shape keeps its style and attributes, its `origin` included. Takes no arguments, so it
