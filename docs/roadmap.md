@@ -619,7 +619,7 @@ piece. With V12 this is the transforming-type capability and the headline of the
 
 State: done 2026-11-16, in Rust, Python and WebAssembly (`design-decisions.md`, "Morph (V13)"): `Path.morph(target,
 fraction)` and the `Drawing` step (shapes pair by index, contours by role and place, unmatched ones shrink or grow, an
-unmatched hole is subtracted), `examples/glyph_morph.py`, `.rs` and `.mjs` (a letter into a circle and CAT into HORSE on
+unmatched hole only cuts the body and never paints outside it), `examples/glyph_morph.py`, `.rs` and `.mjs` (a letter into a circle and CAT into HORSE on
 one `progress`; "and back" is `progress` going 1 to 0).
 
 ## V14 Trace

@@ -1389,11 +1389,11 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   a matched contour) and *subtracted* (lerped, then cut from the rest). Start alignment of a closed pair with and without a
   search over the reversed contour. What the PNGs showed: a wound unmatched hole is a proven defect, its reversed winding
   paints black where it leaves the moving body (`O` to `L` at 0.9 and 0.95, `B` to `L`, `O` to `C`: dark specks outside the
-  letter, or in the counter); subtracting it cannot paint outside, so no frame shows a speck. Start alignment is by shift alone: a
+  letter, or in the counter); cutting the result to the body cannot paint outside, so no frame shows a speck (plain subtraction erased an outer inside the hole, found by review; the ruling below is the final form). Start alignment is by shift alone: a
   search that may reverse one contour would turn a hole into a fill. An unresolved glyph (`A` with a crossbar of its own) morphs as it is:
   the crossbar is an unmatched outer that shrinks, and `A` to `O` grows the counter from a point.
-- *Ruling: unmatched holes are subtracted, never wound; the closed part is the intersection of (the body with the holes
-  wound in) and the body, so a hole cuts what the nonzero rule says and an outer inside it stays (an `@`'s inner letter;
+- *Ruling: unmatched holes are wound in the other way and the result is cut to the body (the intersection of the body
+  with the holes wound in, and the body), so a hole cuts what the nonzero rule says and an outer inside it stays (an `@`'s inner letter;
   cutting the hole out of the body erased it, found by review) and nothing is painted outside the body; cost if wrong: a
   boolean per frame whenever a hole has no partner (the result is then canonical, the ends keep the fill but not the vertex
   list).*

@@ -521,18 +521,19 @@ impl PyPath {
         ))
     }
 
-    /// The path arched: the whole band of the frame (a `Rect` or `(x, y, width, height)`; the bounds of the path by default)
-    /// lifted by a parabola, its middle `bend` times the frame's width above the corners (below if negative), top and
-    /// bottom edge alike, so the height is kept; columns stay vertical and `x` is kept.
+    /// The path arched: the whole band of the frame (a `Rect` or `(x, y, width, height)`; the bounds of the path by
+    /// default) lifted by a parabola, its middle `bend` times the frame's width above the corners (below if negative),
+    /// top and bottom edge alike, so the height is kept; columns stay vertical and `x` is kept.
     #[pyo3(signature = (bend, *, frame=None))]
     fn arch(&self, bend: f64, frame: Option<Frame>) -> PyResult<Self> {
         Self::of(self.0.arch(bend, frame.map(|frame| frame.0)))
     }
 
-    /// The outline `fraction` of the way from this path to `target`: 0 is this path, 1 is `target`, any other finite number
-    /// is the straight lerp (outside 0 to 1 it extrapolates). Closed contours pair by role (outer or hole) and place, each
-    /// pair aligned at its start; a contour with no partner shrinks to, or grows from, a point, and a hole with no partner
-    /// is subtracted, never wound. The result is made of straight lines; open sub-paths stay open.
+    /// The outline `fraction` of the way from this path to `target`: 0 is this path, 1 is `target`, any other finite
+    /// number is the straight lerp (outside 0 to 1 it extrapolates). Closed contours pair by role (outer or hole) and
+    /// place, each pair aligned at its start; a contour with no partner shrinks to, or grows from, a point, and a hole
+    /// with no partner only takes away what the nonzero rule says and never paints outside the body. The result is made
+    /// of straight lines; open sub-paths stay open.
     fn morph(&self, target: &Bound<'_, Self>, fraction: f64) -> PyResult<Self> {
         Self::of(self.0.morph(&target.get().0, fraction))
     }

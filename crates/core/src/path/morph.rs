@@ -1,7 +1,8 @@
 //! Morphing: one outline carried to another. [`Path::morph`] flattens both paths, pairs their contours (by role and by
 //! where they are), aligns each pair's start, and moves every point of one to the point of the other that stands at
 //! the same share of the way round. A contour with no partner shrinks to, or grows from, a single point; a hole with no
-//! partner is subtracted from the rest, never wound (a reversed contour leaving the moving body would paint outside it).
+//! partner is wound into the rest the other way and the result cut to the rest, so it takes away what the nonzero rule
+//! says and never paints outside the moving body (a hole alone would, where it leaves the body).
 
 use super::curve::lerp_number;
 use super::polyline::Polyline;
@@ -20,38 +21,37 @@ use std::collections::BTreeSet;
 const ALIGN_SAMPLES: u32 = 128;
 
 impl Path {
-    /// The outline `fraction` of the way from this path to `target`: with `fraction` 0 it fills what this path fills, with
-    /// 1 what `target` fills, and any finite number between or beyond is the straight lerp of the two (outside 0 to 1 it
-    /// extrapolates, so an overshooting ease leaves the hull of the two shapes). The result is made of straight lines;
-    /// each closed sub-path stays closed and each open one stays open.
+    /// The outline `fraction` of the way from this path to `target`: with `fraction` 0 it fills what this path fills,
+    /// with 1 what `target` fills, and any finite number between or beyond is the straight lerp of the two (outside 0
+    /// to 1 it extrapolates, so an overshooting ease leaves the hull of the two shapes). The result is made of straight
+    /// lines; each closed sub-path stays closed and each open one stays open.
     ///
     /// Both paths are flattened as for drawing. A closed contour is an outer or a hole by the sign of its area (a
     /// contour with no area is an outer), after the whole path is reversed once if its largest contour runs the other
     /// way (never one contour alone, which would turn a hole into a fill). Closed contours pair with closed ones of the
-    /// same role, open with open, nearest first: by the distance between the contours' centres (the mean of their points),
-    /// each taken in the box of its own path, scaled to 0 to 1; ties go to the lower indices, so morphing back from the
-    /// other end pairs alike. A closed pair starts where its two outlines lie nearest (128 equal steps of length compared
-    /// by summed squared distance; the first start wins a tie); an open pair is joined end to end or end to start,
-    /// whichever is nearer. The points of a pair are the vertices of both outlines, each placed at its share of the
-    /// length, so at 0 and 1 the result is the flattening of this path and of `target`. A contour with no length is its
-    /// point.
+    /// same role, open with open, nearest first: by the distance between the contours' centres (the mean of their
+    /// points), each taken in the box of its own path, scaled to 0 to 1; ties go to the lower indices, so morphing back
+    /// from the other end pairs alike. A closed pair starts where its two outlines lie nearest (128 equal steps of
+    /// length compared by summed squared distance; the first start wins a tie); an open pair is joined end to end or
+    /// end to start, whichever is nearer. The points of a pair are the vertices of both outlines, each placed at its
+    /// share of the length, so at 0 and 1 the result is the flattening of this path and of `target`. A contour with no
+    /// length is its point.
     ///
     /// A contour with no partner, because the other path has fewer of its kind, shrinks to (or grows from) one point:
     /// the point in the other path's box that has the same place there as the contour's centre has in its own box (the
     /// contour's own centre if the other path is empty). Past 1 (a growing one: before 0) it stays that point, never
-    /// coming back through it, where a matched contour goes on along its line. A hole without a partner is not wound:
-    /// it is subtracted, and an outer inside it stays, as the nonzero rule fills it. When there is one, every closed
-    /// contour of the result goes through the boolean engine (as in [`Path::subtract`]): the
-    /// closed part is canonical, overlapping outers are merged and a closed contour of fewer than 3 points is dropped;
+    /// coming back through it, where a matched contour goes on along its line. A hole without a partner is wound the
+    /// other way into the rest and the result cut to the rest, so it takes away what the nonzero rule says (an outer
+    /// inside it stays) and never paints outside the moving body. When there is one, every closed contour of the result
+    /// goes through the boolean engine (as in [`Path::subtract`]): the closed part is canonical, overlapping outers are merged and a closed contour of fewer than 3 points is dropped;
     /// open contours are kept as they are. Without one the result is the lerp as it stands. An empty path on one side
     /// makes every contour of the other unpartnered. Sub-paths come out grouped by role, in the order they were paired,
     /// not in the order they were written.
     ///
-    /// # Errors
-    /// [`Error::Parameter`] naming `fraction` if it is NaN or infinite, if a point of the result would be beyond
-    /// ±1e100, or if the points of the flattening, the pairs to rank and the points of the result, over all the
-    /// contours, are more than `MAX_SEGMENTS` (10,000,000), counted before any is made (a subtraction counts its own edge pairs
-    /// and vertices against the same total).
+    /// # Errors [`Error::Parameter`] naming `fraction` if it is NaN or infinite, if a point of the result would be
+    /// beyond ±1e100, or if the points of the flattening, the pairs to rank and the points of the result, over all the
+    /// contours, are more than `MAX_SEGMENTS` (10,000,000), counted before any is made (a subtraction counts its own
+    /// edge pairs and vertices against the same total).
     pub fn morph(&self, target: &Self, fraction: f64) -> Result<Self, Error> {
         self.morph_charged(target, fraction, &mut segment_budget("fraction"))
     }
@@ -341,7 +341,8 @@ impl Side {
         let Some((low, high)) = self.bounds else {
             return (0.0, 0.0);
         };
-        // constant: a box with no width or height counts as 1 across, so a line or a point is at 0 there, not a division by zero
+        // constant: a box with no width or height counts as 1 across, so a line or a point is at 0 there, not a
+        // division by zero
         let (centre, span) = (contour.centre(), |size: f64| if size > 0.0 { size } else { 1.0 });
         (
             (centre.x - low.x) / span(high.x - low.x),
@@ -398,7 +399,8 @@ impl Plan<'_> {
             Self::Matched(from, to) => (from.closed, from.drawn || to.drawn),
             Self::Leaving(contour, _) | Self::Arriving(contour, _) => (contour.closed, contour.drawn),
         };
-        // a contour with no partner is its own size times a share that stops at 0: it never comes back through its point
+        // a contour with no partner is its own size times a share that stops at 0: it never comes back through its
+        // point
         let fraction = match self {
             Self::Matched(..) => fraction,
             Self::Leaving(..) => fraction.min(1.0),
