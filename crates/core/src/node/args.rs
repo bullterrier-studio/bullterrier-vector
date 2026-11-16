@@ -37,6 +37,8 @@ pub(crate) enum Given {
     Number(Expr),
     /// Two numbers: a point, a pair, a scale factor.
     Pair(Expr, Expr),
+    /// A list of numbers.
+    Numbers(Vec<Expr>),
     /// A word.
     Text(String),
     /// A colour.
@@ -184,6 +186,13 @@ impl Args {
                     key.of(first);
                     key.of(second);
                 }
+                Given::Numbers(items) => {
+                    key.word(16);
+                    key.count(items.len());
+                    for expr in items {
+                        key.of(expr);
+                    }
+                }
                 Given::Text(text) => {
                     key.word(2);
                     key.text(text);
@@ -265,6 +274,7 @@ impl Args {
             let found: Vec<&Expr> = match given {
                 Given::Number(only) => vec![only],
                 Given::Pair(first, second) => vec![first, second],
+                Given::Numbers(items) => items.iter().collect(),
                 Given::Axes(axes) => axes.iter().map(|(_, expr)| expr).collect(),
                 _ => Vec::new(),
             };
@@ -311,6 +321,12 @@ impl Args {
                 }
                 Given::Pair(first, second) => {
                     for expr in [first, second] {
+                        expr.collect_params(&mut reads.all);
+                        expr.collect_params(&mut reads.free);
+                    }
+                }
+                Given::Numbers(items) => {
+                    for expr in items {
                         expr.collect_params(&mut reads.all);
                         expr.collect_params(&mut reads.free);
                     }
@@ -417,6 +433,28 @@ impl Args {
                 arg.domain.number(name, value)
             }
             _ => Err(self.misread(name, "a number")),
+        }
+    }
+
+    /// How many numbers the list `name` holds.
+    pub(crate) fn count(&self, name: &str) -> Result<usize, Error> {
+        match self.find(name)? {
+            (_, Given::Numbers(items)) => Ok(items.len()),
+            _ => Err(self.misread(name, "a list of numbers")),
+        }
+    }
+
+    /// The numbers of `name` for the shape `item`, each within the argument's domain.
+    pub(crate) fn numbers(&self, cx: &Context<'_>, name: &str, item: Item) -> Result<Vec<f64>, Error> {
+        match self.find(name)? {
+            (arg, Given::Numbers(items)) => items
+                .iter()
+                .map(|expr| {
+                    let value = expr.value_at(cx.env, item).map_err(|error| relabel(error, name))?;
+                    arg.domain.number(name, value)
+                })
+                .collect(),
+            _ => Err(self.misread(name, "a list of numbers")),
         }
     }
 

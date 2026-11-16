@@ -65,6 +65,7 @@ pub(super) struct VerbCall {
 pub(super) enum Value {
     Number(Ex),
     Pair(Ex, Ex),
+    Numbers(Vec<Ex>),
     Text(String),
     Color(Color),
     Paint(Paint),

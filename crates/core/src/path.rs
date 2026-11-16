@@ -10,6 +10,7 @@ mod boolean;
 mod bounds;
 mod build;
 mod curve;
+mod dash;
 mod measure;
 mod offset;
 mod polyline;

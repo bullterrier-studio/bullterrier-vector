@@ -95,6 +95,11 @@ pub(crate) const MAX_GLYPHS: usize = 100_000;
 // constant: formats.md "Limits and security" sets MAX_RUNS to 1,000; each run shapes and builds its font at its own location
 pub(crate) const MAX_RUNS: usize = 1_000;
 
+/// The most lengths one `dash` pattern has.
+// constant: formats.md "Limits and security" sets MAX_DASH_PATTERN to 1,000; a pattern drawn by hand has two to eight
+// lengths, and each entry multiplies the pieces a cycle makes
+pub(crate) const MAX_DASH_PATTERN: usize = 1_000;
+
 /// The most axes, and the most features, one `text` call gives.
 // constant: the fonts that exist have under 20 axes (Roboto Flex 13) and a few dozen features; an axis costs memory in
 // every run of a text and a feature time in every shaping, so a call may not name thousands

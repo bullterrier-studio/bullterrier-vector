@@ -427,6 +427,41 @@ fn rows() -> Vec<Row> {
             }),
         },
         Row {
+            verb: "dash",
+            sample: || Ok(square()?.dash([4.0, 2.0], 0.25)),
+            with: Some(|argument, value| match argument {
+                "pattern" => Ok(square()?.dash([value], 0.0)),
+                "phase" => Ok(square()?.dash([4.0, 2.0], value)),
+                _ => Err(unknown("dash", argument)),
+            }),
+            ranges: &[
+                ("pattern", 4.0, true),
+                ("pattern", 1e100, true),
+                ("pattern", 0.0, false),
+                ("pattern", -1.0, false),
+                ("pattern", 1.000_000_1e100, false),
+                ("pattern", f64::NAN, false),
+                ("pattern", f64::INFINITY, false),
+                ("phase", 0.25, true),
+                ("phase", -3.5, true),
+                ("phase", f64::NAN, false),
+                ("phase", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let pattern = [1.0 + a.abs() % 50.0, 1.0 + b.abs() % 50.0];
+                    let phase = (a + b) % 3.0;
+                    Ok(vec![(
+                        "a pattern and a phase",
+                        Drawing::from(path.clone()).dash(pattern, phase),
+                        path.dash(&pattern, phase, None),
+                    )])
+                },
+                // a line 16 long, dashes 4 long every 8
+                by_hand: &[("M0 0 L16 0", |d| Ok(d.dash([4.0, 4.0], 0.0)), "M0 0 L4 0 M8 0 L12 0")],
+            }),
+        },
+        Row {
             verb: "fill",
             sample: || Ok(square()?.fill(fade()?)),
             with: None,

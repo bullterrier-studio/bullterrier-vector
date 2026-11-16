@@ -7,7 +7,7 @@
 use super::bare;
 use super::parse::parse;
 use super::value::Json;
-use crate::limits::{MAX_PARAMS, MAX_RUNS};
+use crate::limits::{MAX_DASH_PATTERN, MAX_PARAMS, MAX_RUNS};
 use crate::shape::{Holds, SELECTABLE};
 use crate::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
 
@@ -38,6 +38,12 @@ fn max_params() -> f64 {
 #[expect(clippy::cast_precision_loss, reason = "the limit is far below 2^53")]
 fn max_runs() -> f64 {
     MAX_RUNS as f64
+}
+
+/// `MAX_DASH_PATTERN` as a JSON number.
+#[expect(clippy::cast_precision_loss, reason = "the limit is far below 2^53")]
+fn max_pattern() -> f64 {
+    MAX_DASH_PATTERN as f64
 }
 
 /// Sets the member at `path` of the object `json`, whose parents must exist; a path that leads nowhere changes nothing.
@@ -146,6 +152,15 @@ fn argument(arg: &Arg) -> Json {
     let schema = match arg.kind {
         Kind::Number => value(arg),
         Kind::Point | Kind::Pair => pair(value(arg), value(arg)),
+        Kind::Numbers => with(
+            with(
+                Json::object([("type", Json::text("array")), ("items", value(arg))]),
+                "minItems",
+                number(1.0),
+            ),
+            "maxItems",
+            number(max_pattern()),
+        ),
         Kind::Factor => any_of(vec![value(arg), pair(value(arg), value(arg))]),
         Kind::Color => match arg.domain {
             Domain::Painting => reference("color"),

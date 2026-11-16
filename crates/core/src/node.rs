@@ -37,6 +37,7 @@
 //! | read once ([`Reads::Once`]) | an `Expr` read once for the whole call: a Param that is given a list is refused. `text`'s `size`, `tracking`, `leading` and `anchor` |
 //! | font ([`Kind::Font`]) | a [`Font`](crate::Font), by its bytes: a document names it and the caller supplies the bytes |
 //! | axes ([`Kind::Axes`]) | tags to expressions, read per item where the items are the characters of the text: `text`'s `axes`. A Param given a list gives character `i` entry `i` |
+//! | numbers ([`Kind::Numbers`]) | a list of expressions, each read as one number would be: `dash`'s `pattern` |
 //! | features ([`Kind::Features`]) | tags to whole numbers, constants: `text`'s `features` |
 //! | runs ([`Kind::Runs`]) | a list of `run` records, each checked as a call of its own arguments: `text`'s `runs` |
 //! | drawing ([`Kind::Drawing`]) | one drawing, evaluated with the caller's Param values and handed over as the node's `taken`: the `other` of a boolean |
@@ -189,6 +190,8 @@ pub enum Kind {
     Point,
     /// A pair of numbers.
     Pair,
+    /// A list of numbers, each a number or an expression (`dash`'s `pattern`).
+    Numbers,
     /// A colour: `"#rgb"`, `"#rrggbb"`, `"#rrggbbaa"` or `"none"`.
     Color,
     /// A colour as `Color` has it, or a gradient: `{"gradient": "linear", "stops": [[0, "#ff0066"], [1, "#ffcc00"]],

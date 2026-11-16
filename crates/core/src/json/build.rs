@@ -121,6 +121,7 @@ impl<'a> Builder<'a> {
         Ok(match value {
             Value::Number(ex) => Given::Number(self.expr(ex)?),
             Value::Pair(first, second) => Given::Pair(self.expr(first)?, self.expr(second)?),
+            Value::Numbers(items) => Given::Numbers(items.iter().map(|ex| self.expr(ex)).collect::<Result<_, _>>()?),
             Value::Text(text) => Given::Text(text.clone()),
             Value::Color(color) => Given::Color(*color),
             Value::Paint(paint) => Given::Paint(paint.clone()),

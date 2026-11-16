@@ -1,9 +1,10 @@
-//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`, `resample`. Each applies the `Path` verb of the same name to every
+//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`, `resample`, `dash`. Each applies the `Path` verb of the same name to every
 //! shape.
 
 use super::{Args, Context, Inputs, Node, each_shape};
 use crate::geometry::MAX_COORDINATE;
 use crate::path::{Guide, rotate_point, scale_point};
+use crate::limits::MAX_DASH_PATTERN;
 use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
 
 /// A number read for each shape, within `domain`.
@@ -238,6 +239,51 @@ impl Node for Resample {
         each_shape(inputs.previous, cx, |shape, item| {
             let spacing = args.number(cx, "spacing", item)?;
             Ok(shape.with_path(shape.path().resample_charged(spacing, &mut charge)?))
+        })
+    }
+}
+
+/// Cuts every shape into the pieces a dash pattern leaves.
+#[derive(Debug)]
+pub(crate) struct Dash;
+
+pub(crate) static DASH: Verb = Verb {
+    name: "dash",
+    role: Role::Step,
+    summary: "cuts every shape into the pieces a dash pattern [on, off, ...] (design pixels, each above 0; an odd list repeats itself) leaves, from the start of each sub-path (a closed one from its top, or the point nearest near); phase, in cycles of the whole pattern, moves the dashes forward along the path and wraps; the pieces are open, a closed outline wholly inside one dash stays closed",
+    args: &[
+        per_shape("pattern", Kind::Numbers, None, Domain::PositiveUpTo(MAX_COORDINATE)),
+        per_shape("phase", Kind::Number, Some(Literal::Number(0.0)), Domain::Finite),
+        per_shape("near", Kind::Point, Some(Literal::Unset), Domain::Coordinate),
+    ],
+    check: Some(pattern_has_lengths),
+};
+
+/// The `pattern` has from 1 to `MAX_DASH_PATTERN` lengths.
+fn pattern_has_lengths(args: &Args) -> Result<(), Error> {
+    let count = args.count("pattern")?;
+    if count == 0 || count > MAX_DASH_PATTERN {
+        return Err(Error::parameter(
+            "pattern",
+            format!("must have from 1 to {MAX_DASH_PATTERN} lengths, got {count}"),
+        ));
+    }
+    Ok(())
+}
+
+impl Node for Dash {
+    fn verb(&self) -> &'static Verb {
+        &DASH
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        each_shape(inputs.previous, cx, |shape, item| {
+            let pattern = args.numbers(cx, "pattern", item)?;
+            let phase = args.number(cx, "phase", item)?;
+            let near = args.point(cx, "near", item)?;
+            Ok(shape.with_path(shape.path().dash_charged(&pattern, phase, near, &mut charge)?))
         })
     }
 }

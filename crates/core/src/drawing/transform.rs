@@ -239,6 +239,45 @@ impl Drawing {
         self.then(&transform::Resample, vec![("spacing", Given::Number(spacing.into()))])
     }
 
+    /// This drawing with every shape cut into the pieces a dash `pattern` (`[on, off, ...]` in design pixels) leaves, as
+    /// [`Path::dash`](crate::Path::dash) does. Each number of `pattern` and the `phase` (in cycles of the pattern, which
+    /// moves the dashes forward along the shape) is a number, a `Param` or an expression, read for each shape:
+    /// marching ants are `drawing.dash([10.0, 6.0], &phase)`. A closed outline is measured from its top. Each shape
+    /// keeps its style and attributes.
+    ///
+    /// A pattern that is empty, has more than 1,000 lengths or a length not above 0 and within 1e100 leaves the
+    /// drawing with an [`error`](Drawing::error) naming the step (`step 2 (dash).pattern`), or, when it reads a Param, is
+    /// refused when the drawing is drawn; so is a draw that would make more than `MAX_SEGMENTS` pieces.
+    #[must_use]
+    pub fn dash<E: Into<Expr>>(&self, pattern: impl IntoIterator<Item = E>, phase: impl Into<Expr>) -> Self {
+        self.then(
+            &transform::Dash,
+            vec![
+                ("pattern", Given::Numbers(pattern.into_iter().map(Into::into).collect())),
+                ("phase", Given::Number(phase.into())),
+            ],
+        )
+    }
+
+    /// This drawing dashed as [`Drawing::dash`] does, with a closed outline measured from its point nearest `near`
+    /// instead of its top.
+    #[must_use]
+    pub fn dash_near<E: Into<Expr>>(
+        &self,
+        pattern: impl IntoIterator<Item = E>,
+        phase: impl Into<Expr>,
+        near: impl Into<Pivot>,
+    ) -> Self {
+        self.then(
+            &transform::Dash,
+            vec![
+                ("pattern", Given::Numbers(pattern.into_iter().map(Into::into).collect())),
+                ("phase", Given::Number(phase.into())),
+                ("near", Pivot::given(Some(near.into()))),
+            ],
+        )
+    }
+
     /// This drawing sliced as [`Drawing::slice`] does, with a closed outline measured from its point nearest `near`
     /// instead of its top.
     #[must_use]

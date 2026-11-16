@@ -329,6 +329,18 @@ impl Reader {
                 let [first, second] = self.two(arg, pointer, json)?;
                 Ok(Value::Pair(first, second))
             }
+            Kind::Numbers => match json {
+                Json::Array(items) => items
+                    .iter()
+                    .enumerate()
+                    .map(|(at, item)| self.number(arg, &format!("{pointer}/{at}"), item))
+                    .collect::<Result<_, _>>()
+                    .map(Value::Numbers),
+                other => Err(refuse(
+                    pointer,
+                    format!("must be an array of numbers, not {}", other.describe()),
+                )),
+            },
             Kind::Factor => match json {
                 Json::Array(_) => {
                     let [first, second] = self.two(arg, pointer, json)?;
