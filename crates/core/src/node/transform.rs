@@ -159,13 +159,13 @@ impl Node for Along {
             let start = args.number(cx, "start", item)?;
             let near = args.point(cx, "near", item)?;
             if near.is_none() && from_start.is_none() {
-                from_start = Some(Guide::new(path, None, &mut charge)?);
+                from_start = Some(Guide::new("along", path, None, &mut charge)?);
             }
             let own;
             let guide = match (near, &from_start) {
                 (None, Some(guide)) => guide,
                 (near, _) => {
-                    own = Guide::new(path, near, &mut charge)?;
+                    own = Guide::new("along", path, near, &mut charge)?;
                     &own
                 }
             };

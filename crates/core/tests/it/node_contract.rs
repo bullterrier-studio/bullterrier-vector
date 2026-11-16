@@ -12,8 +12,8 @@
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, build, log_uniform, parameter_refusal, step};
 use bullterrier_vector::{
-    Along, Blend, Cap, Color, Deg, Drawing, Error, Expr, Gradient, Halftone, Join, Kind, Param, Path, Point, Reads,
-    Role, Rotate, Scale, ScaleBy, Select, Shadow, Shape, Stroke, Text, Values, text, verbs,
+    Along, Blend, Cap, Color, Deg, Drawing, Error, Expr, Gradient, Halftone, Join, Kind, Param, Path, PlaceAlong,
+    Point, Reads, Role, Rotate, Scale, ScaleBy, Select, Shadow, Shape, Spacing, Stroke, Text, Values, text, verbs,
 };
 use proptest::prelude::*;
 use std::collections::BTreeSet;
@@ -460,6 +460,45 @@ fn rows() -> Vec<Row> {
                 // a line 16 long, dashes 4 long every 8
                 by_hand: &[("M0 0 L16 0", |d| Ok(d.dash([4.0, 4.0], 0.0)), "M0 0 L4 0 M8 0 L12 0")],
             }),
+        },
+        Row {
+            verb: "place_along",
+            sample: || Ok(square()?.place_along(&ring()?, Spacing::Count(4), PlaceAlong::new().start(0.1))),
+            with: Some(|argument, value| match argument {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "a row's whole number"
+                )]
+                "count" => Ok(square()?.place_along(
+                    &ring()?,
+                    Spacing::Count(literal(argument, &value)? as usize),
+                    PlaceAlong::new(),
+                )),
+                "spacing" => {
+                    Ok(square()?.place_along(&ring()?, Spacing::Every(literal(argument, &value)?), PlaceAlong::new()))
+                }
+                "start" => Ok(square()?.place_along(&ring()?, Spacing::Count(3), PlaceAlong::new().start(value))),
+                _ => Err(unknown("place_along", argument)),
+            }),
+            ranges: &[
+                ("count", 1.0, true),
+                ("count", 12.0, true),
+                ("count", 0.0, false),
+                ("spacing", 40.0, true),
+                ("spacing", 1e100, true),
+                ("spacing", 0.0, false),
+                ("spacing", -1.0, false),
+                ("spacing", 1.000_000_1e100, false),
+                ("spacing", f64::NAN, false),
+                ("spacing", f64::INFINITY, false),
+                ("start", 0.0, true),
+                ("start", -2.5, true),
+                ("start", f64::NAN, false),
+                ("start", f64::INFINITY, false),
+            ],
+            // copies of a drawing are not a `Path` method: no Path result to equal
+            geometry: None,
         },
         Row {
             verb: "fill",

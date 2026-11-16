@@ -35,7 +35,7 @@ impl<X: Into<Expr>, Y: Into<Expr>> From<(X, Y)> for Pivot {
 }
 
 impl Pivot {
-    fn given(pivot: Option<Self>) -> Given {
+    pub(super) fn given(pivot: Option<Self>) -> Given {
         pivot.map_or(Given::Unset, |pivot| Given::Pair(pivot.x, pivot.y))
     }
 }

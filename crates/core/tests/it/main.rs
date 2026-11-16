@@ -14,6 +14,7 @@ mod drawing_dash;
 mod drawing_items;
 mod drawing_offset;
 mod drawing_per_item;
+mod drawing_place_along;
 mod drawing_resample;
 mod drawing_select;
 mod drawing_slice;

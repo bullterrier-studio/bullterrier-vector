@@ -7,6 +7,7 @@ mod eval;
 mod graph;
 mod items;
 mod offset;
+mod place;
 mod select;
 mod style;
 mod transform;
@@ -14,6 +15,7 @@ mod values;
 
 pub use cache::Stats;
 pub(crate) use graph::Graph;
+pub use place::PlaceAlong;
 pub use select::{Select, Wanted};
 pub use style::{Halftone, Shadow, Stroke};
 pub use transform::{Along, Deg, Pivot, Rotate, ScaleBy};

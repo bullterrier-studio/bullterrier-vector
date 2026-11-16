@@ -37,7 +37,9 @@ impl Path {
     /// would be beyond ±1e100 (naming `start`); [`Error::Geometry`] if the guide is empty or has no length, and so
     /// no direction.
     pub fn along(&self, guide: &Self, start: f64, near: Option<Point>) -> Result<Self, Error> {
-        self.bent(&Guide::new(guide, near, &mut |_| Ok(()))?, start, &mut |_| Ok(()))
+        self.bent(&Guide::new("along", guide, near, &mut |_| Ok(()))?, start, &mut |_| {
+            Ok(())
+        })
     }
 
     /// As [`Path::along`] on a guide already walked, calling `charge` with the number of edges before it makes them,
@@ -74,9 +76,9 @@ struct GuideEdge {
 /// number of shapes along.
 pub(crate) struct Guide {
     edges: Vec<GuideEdge>,
-    length: f64,
+    pub(super) length: f64,
     /// Whether every sub-path with a length is closed: then the guide wraps instead of going on straight.
-    closed: bool,
+    pub(super) closed: bool,
 }
 
 impl Guide {
@@ -87,16 +89,17 @@ impl Guide {
     /// [`Error::Parameter`] if `near` is NaN, infinite or beyond ±1e100, and what `charge` returns; [`Error::Geometry`]
     /// if the path is empty or has no length, and so no direction.
     pub(crate) fn new(
+        verb: &'static str,
         path: &Path,
         near: Option<Point>,
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<Self, Error> {
-        let guide = Self::of(&path.nonempty_walk("along", near)?)?;
+        let guide = Self::of(verb, &path.nonempty_walk(verb, near)?)?;
         charge(guide.edges.len())?;
         Ok(guide)
     }
 
-    fn of(walk: &Walk<'_>) -> Result<Self, Error> {
+    fn of(verb: &str, walk: &Walk<'_>) -> Result<Self, Error> {
         let mut edges = Vec::new();
         let mut closed = true;
         for run in &walk.runs {
@@ -117,7 +120,7 @@ impl Guide {
             closed &= edges.len() == before || run.subpath.closed;
         }
         if edges.is_empty() {
-            return Err(Error::geometry("along", "the guide has no length, so no direction"));
+            return Err(Error::geometry(verb, "the guide has no length, so no direction"));
         }
         Ok(Self {
             edges,
@@ -142,7 +145,7 @@ impl Guide {
     }
 
     /// The place `distance` along the guide and the unit direction there, wrapping or going on straight past the ends.
-    fn frame(&self, distance: f64) -> (Point, Point) {
+    pub(super) fn frame(&self, distance: f64) -> (Point, Point) {
         let last = self.edges.len() - 1;
         let distance = if self.closed {
             distance.rem_euclid(self.length)
