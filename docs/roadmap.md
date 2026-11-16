@@ -710,6 +710,7 @@ Also:
 
 ## Later, with a trigger
 
+- Mesh fills of self-crossing outlines can emit overlapping triangles (`lyon_tessellation`, nonzero fill, f32): about 1 failing case in 70,000 of the `mesh_fill` property test, e.g. polygons `[(81,5),(63,18),(33,49)]`, `[(26,41),(45,75),(40,53),(0,44)]`, `[(30,54),(61,51),(55,0),(47,24)]` cover the point (40.77, 49.52) three times where the nonzero rule says once. Resolving crossing outlines before tessellating (`Path::resolve`) fixed the first case but costs time (3.4 times on stroked scenes, see design-decisions "Open") and changes every fill's triangulation: its own batch, perhaps resolving only outlines that cross themselves. Until then the test fails about once in 700 runs; its regression seed is committed with the fix.
 - `frame="reference"` for `envelope` and `arch`: calm-pose bounds, so an animated weight does not make the arch breathe.
 - A per-line frame helper: regroup a text's shapes by `line` so each line can take its own `frame=` (the demo split the
   text per line by hand).
