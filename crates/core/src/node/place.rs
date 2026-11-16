@@ -133,8 +133,9 @@ impl Node for PlaceAlong {
         let mut charge = |count| cx.work.made_segments(count, &place);
         let guide = Guide::new("place_along", args.path("path")?, near, &mut charge).map_err(placed)?;
         let stops = guide.stops(spacing).map_err(placed)?;
-        // charged before any copy exists: the shapes, and the segments they hold, once for every stop
-        cx.work.made_shapes(stops.saturating_mul(previous.len()), &cx.place)?;
+        // charged before any copy exists: the shapes, and the segments they hold, once for every stop (a stop of an
+        // empty stamp counts as one, so a huge count cannot make the loop below spin on nothing)
+        cx.work.made_shapes(stops.saturating_mul(previous.len().max(1)), &cx.place)?;
         let weight: usize = previous.iter().map(|shape| shape.path().weight()).sum();
         cx.work.made_segments(stops.saturating_mul(weight), &place)?;
         let anchor = anchor(previous);

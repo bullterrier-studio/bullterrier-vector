@@ -413,3 +413,16 @@ fn too_many_copies_are_refused_before_any_is_made() -> Outcome {
     }
     Ok(())
 }
+
+#[test]
+fn a_huge_count_of_an_empty_drawing_returns_at_once() -> Outcome {
+    let guide = Path::line((0.0, 0.0), (1.0e6, 0.0))?;
+    let empty = Drawing::new(Vec::<Path>::new());
+    for spacing in [Spacing::Count(usize::MAX), Spacing::Every(1.0e-9)] {
+        // refused or an empty result: either is fine, hanging is not
+        if let Ok(shapes) = empty.place_along(&guide, spacing, PlaceAlong::new()).shapes(&Values::new()) {
+            assert!(shapes.is_empty());
+        }
+    }
+    Ok(())
+}
