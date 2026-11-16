@@ -465,3 +465,49 @@ def test_brush_taper_draws_on_from_nothing_and_each_tip_is_a_point(run):
     # the stroke is 36 wide at its fullest and a point at its first end, (120, 380): only the faint shadow is there
     pixels = drawing.to_rgba(1080, 600, progress=1)
     assert pixels[(380 * 1080 + 120) * 4 + 3] < 10
+
+
+def test_bent_type_is_the_plain_line_at_progress_0_and_arches_ripples_and_twists_as_it_grows(run):
+    found = run("bent_type")
+    drawing, calm_svg = found["drawing"], found["frames"]["calm"]
+    line = drawing.shapes()[1:]  # the first shape is the paper
+    assert [shape.attributes["char"] for shape in line] == list("NOSLEEP")  # no shape for the space
+    bounds = [shape.path.bounds for shape in line]
+    # no bend: the letters stand on one baseline (the bottoms of N and O agree to a pixel; O overshoots a little)
+    assert max(b.y + b.height for b in bounds) - min(b.y + b.height for b in bounds) < 12
+    # bent: the S in the middle rises (the arch lifts it by 270 at most, the twist turns it back some)
+    bent = [shape.path.bounds for shape in drawing.shapes(progress=1, phase=0.25)[1:]]
+    assert bent[2].y < bounds[2].y - 30
+    # and the line is no longer level: the bottoms of the N and the last P now differ by 40 pixels or more
+    assert abs((bent[0].y + bent[0].height) - (bent[6].y + bent[6].height)) > 40
+    assert found["frames"]["bent"] != calm_svg
+    # a loop of `phase` 0 to 1 repeats exactly; a quarter of a cycle on, the ripple has moved
+    at = lambda phase: drawing.to_svg(1080, 560, progress=1, phase=phase)  # noqa: E731
+    assert at(1) == at(0)
+    assert at(0.25) != at(0)
+    # progress 0 does not look at the phase
+    assert drawing.to_svg(1080, 560, progress=0, phase=0.4) == calm_svg
+    # every frame keeps the whole line inside the canvas
+    for p in (0.5, 1):
+        for shape in drawing.shapes(progress=p, phase=0.25)[1:]:
+            b = shape.path.bounds
+            assert b.x >= 0
+            assert b.x + b.width <= 1080
+            assert b.y >= 0
+            assert b.y + b.height <= 560
+
+
+def test_wobble_outline_moves_with_phase_and_a_cycle_comes_back_to_where_it_began(run):
+    found = run("wobble_outline")
+    drawing = found["drawing"]
+    shapes = lambda phase: [s.path.to_svg_path() for s in drawing.shapes(wght=400, phase=phase)]  # noqa: E731
+    assert len(shapes(0)) == 5
+    assert shapes(1) == shapes(0)
+    assert shapes(0.3) != shapes(0)
+    assert len(found["frames"]) == 3
+
+
+def test_the_node_example_of_bent_type_carries_the_document_of_the_python_drawing(run):
+    drawing = run("bent_type")["drawing"]
+    document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "bent_type.json"
+    assert document.read_text(encoding="utf-8") == drawing.to_json()

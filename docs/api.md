@@ -36,7 +36,8 @@ import bullterrier_vector as btvec
 | [marching_dashes.py](../examples/marching_dashes.py) | a dash pattern with a moving phase |
 | [beads_on_a_path.py](../examples/beads_on_a_path.py) | petals stamped round a ring, moving round it, sized per copy |
 | [brush_taper.py](../examples/brush_taper.py) | a brush stroke that thins at its ends, drawn on |
-| [wobble_outline.py](examples/wobble_outline.py) | a small noise wobble; a font axis as a described parameter |
+| [wobble_outline.py](../examples/wobble_outline.py) | a small noise wobble; a font axis as a described parameter |
+| [bent_type.py](../examples/bent_type.py), [.rs](../crates/core/examples/bent_type.rs), [.mjs](../crates/wasm/examples/bent_type.mjs) | the deformer half of piece 1, in all three languages: a line that arches, ripples, twists and wobbles on `progress` and `phase` |
 | [glyph_scatter.py](../examples/glyph_scatter.py) | letters split into parts, scattered by seeded random numbers |
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
 | [halftone.py](examples/halftone.py) | halftone dots from a tone map (a `Field` tone, V15) |
@@ -1035,8 +1036,7 @@ node if a piece needs one).
 
 Verbs no example uses yet, and what needs them: `merge` (words and lines as units), `reverse` (V11: a draw-on the other way round), `locate`
 (hit-testing for an editor), `Flow.contour` and
-`flow.mix` (V15: the findings' line fields, noise mixed with a glyph's contour), `wave` (V12; the effects track's
-deformers), `morph` (V13; glyph-to-shape morph on the effects track), `resample` (V11; dots spaced evenly along a path
+`flow.mix` (V15: the findings' line fields, noise mixed with a glyph's contour), `morph` (V13; glyph-to-shape morph on the effects track), `resample` (V11; dots spaced evenly along a path
 on the effects track), `map_points` (a caller's own deformation of a glyph, computed at once: every glyph an editable
 path).
 

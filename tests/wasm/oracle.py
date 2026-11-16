@@ -1174,6 +1174,19 @@ def star_everywhere(pixels: Path) -> dict[str, Any]:
     }
 
 
+def bent_type_everywhere() -> dict[str, Any]:
+    """examples/bent_type.py's frames as SVG text from Python and from the Rust example."""
+    frames = runpy.run_path(str(ROOT / "examples" / "bent_type.py"))["frames"]
+    command = ["cargo", "run", "--quiet", "--locked", "-p", "bullterrier-vector", "--example", "bent_type", "--"]
+    return {
+        "python": frames,
+        "rust": {
+            name: subprocess.run([*command, name], cwd=ROOT, capture_output=True, check=True).stdout.decode("utf-8")
+            for name in frames
+        },
+    }
+
+
 def main(output: Path) -> None:
     """Write the answers to `output`, and the native pixels of the corpus to a folder beside it."""
     star_json = star_drawing().to_json()
@@ -1195,6 +1208,7 @@ def main(output: Path) -> None:
         },
         "corpus": compared_corpus(output.parent / "oracle-pixels"),
         "star": star_everywhere(output.parent / "oracle-pixels"),
+        "bent_type": bent_type_everywhere(),
         "refusals": [
             refused("fromJson", "not a document"),
             refused("fromJson", '{"version": 1, "drawings": {"a": [{"nope": 1}]}}'),
