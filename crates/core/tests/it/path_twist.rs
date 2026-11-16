@@ -78,6 +78,19 @@ fn points_at_or_beyond_the_radius_do_not_move_and_the_centre_stays() -> Outcome 
 }
 
 #[test]
+fn a_point_beyond_the_radius_is_returned_whole_though_adding_back_its_offset_would_round_it() -> Outcome {
+    // 8.8 + (51.9 - 8.8) is 51.89999999999999, not 51.9: a point turned by nothing is not a point left alone
+    let path = Path::from_svg_path("M51.9 20.3 L60.7 22.1")?;
+    let twisted = lines(&path.twist(90.0, Some(10.0), Some(Point::new(8.8, 3.1)))?)?;
+    assert!(
+        twisted[0].0.contains(&(51.9, 20.3)) && twisted[0].0.contains(&(60.7, 22.1)),
+        "{:?}",
+        twisted[0].0
+    );
+    Ok(())
+}
+
+#[test]
 fn the_default_pivot_is_the_middle_of_the_bounds_and_the_radius_reaches_the_far_corner() -> Outcome {
     // a 100 x 60 rectangle: the middle (60, 50), the corners 58.31 away, so they do not move at all
     let rect = Path::rect(10.0, 20.0, 100.0, 60.0, 0.0)?;

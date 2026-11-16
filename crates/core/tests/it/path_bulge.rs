@@ -71,6 +71,19 @@ fn points_at_or_beyond_the_radius_do_not_move_to_the_bit_and_the_centre_stays() 
 }
 
 #[test]
+fn a_point_beyond_the_radius_is_returned_whole_though_adding_back_its_offset_would_round_it() -> Outcome {
+    // 8.8 + (51.9 - 8.8) is 51.89999999999999, not 51.9: a point moved by a factor of 1 is not a point left alone
+    let path = Path::from_svg_path("M51.9 20.3 L60.7 22.1")?;
+    let bulged = lines(&path.bulge(1.2, Some(10.0), Some(Point::new(8.8, 3.1)))?)?;
+    assert!(
+        bulged[0].0.contains(&(51.9, 20.3)) && bulged[0].0.contains(&(60.7, 22.1)),
+        "{:?}",
+        bulged[0].0
+    );
+    Ok(())
+}
+
+#[test]
 fn points_move_along_their_ray_and_an_amount_of_zero_is_the_outline_flattened() -> Outcome {
     let star = Path::from_svg_path("M0 0 L80 0 M0 0 L30 40")?;
     let bulged = lines(&star.bulge(0.9, Some(100.0), Some(Point::new(0.0, 0.0)))?)?;
