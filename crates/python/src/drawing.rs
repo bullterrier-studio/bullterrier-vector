@@ -387,7 +387,7 @@ impl PyDrawing {
         checked(self.0.reverse())
     }
 
-    /// Every shape as the fewest smooth curves within `tolerance` pixels of it (a number, a Param or an expression, read
+    /// Every shape as few smooth curves within `tolerance` pixels of it (a number, a Param or an expression, read
     /// per shape); as `Path.simplify`.
     #[pyo3(signature = (*, tolerance=None))]
     fn simplify(&self, tolerance: Option<Num>) -> PyResult<Self> {

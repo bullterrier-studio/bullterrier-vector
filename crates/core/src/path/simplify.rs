@@ -1,4 +1,4 @@
-//! Simplifying: a path replaced by the fewest smooth curves that stay within a tolerance of it. Each sub-path is
+//! Simplifying: a path replaced by few smooth curves that stay within a tolerance of it. Each sub-path is
 //! flattened (as drawing flattens it), split at its sharp corners, and every run between corners is fitted with cubic
 //! Beziers by Schneider's method ("An Algorithm for Automatically Fitting Digitized Curves", Graphics Gems, 1990):
 //! chord-length parameters, a least-squares fit with the end tangents fixed, Newton reparametrisation, and a split
@@ -29,7 +29,7 @@ const RESCUE: f64 = 4.0;
 const DEGENERATE: f64 = 1e-6;
 
 impl Path {
-    /// The path as the fewest smooth curves within `tolerance` design pixels of it. Each sub-path is flattened to
+    /// The path as few smooth curves as the fit finds within `tolerance` design pixels of it. Each sub-path is flattened to
     /// within 0.01 pixel, as drawing does, and cut where the direction turns by more than 45 degrees (a corner,
     /// kept exactly as a point). Each run between corners is fitted by cubic Beziers, joined smoothly, or by one
     /// straight segment where all its points lie within `tolerance` of the chord: every input point is then within
@@ -140,7 +140,7 @@ fn is_corner(before: Point, at: Point, after: Point) -> bool {
     dot(unit(minus(at, before)), unit(minus(after, at))) < CORNER_COS
 }
 
-/// The sub-path through `points` (consecutive equal points dropped) as the fewest curves within `tolerance`; `None`
+/// The sub-path through `points` (consecutive equal points dropped) as few curves as the fit finds within `tolerance`; `None`
 /// where there is no length to fit.
 fn fit_subpath(mut points: Vec<Point>, closed: bool, tolerance: f64) -> Option<SubPath> {
     points.dedup();

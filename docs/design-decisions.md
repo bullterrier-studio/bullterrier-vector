@@ -1074,7 +1074,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   whole cycle is the same picture. Pieces are open; a closed sub-path wholly inside one dash stays closed (as `slice`
   keeps a whole closed outline). A closed sub-path's last and first dash are not joined (a known limit, in api.md).
   The pattern is the first list-of-numbers argument (`Kind::Numbers`), each entry an expression as formats.md allows.
-  The pieces are charged to `MAX_SEGMENTS` from the bound (cycles crossed + 1) x dashes per cycle before any is made,
+  The limit is a bound on the pieces, not the pieces left: (cycles crossed + 1) x dashes per cycle is charged to `MAX_SEGMENTS` before any is made,
   and a pattern has at most `MAX_DASH_PATTERN` (1,000) lengths. *Cost if wrong:* the direction or the closed-start
   rule changes pictures of a saved drawing, so decide before a release.
 
@@ -1110,7 +1110,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   Python says `turn=False`.*
   Copies times shapes is charged to `MAX_SHAPES` and `MAX_SEGMENTS` before any copy is made.
 
-- **`simplify` (2026-11-16).** Schneider's fit (Graphics Gems, 1990) per run between corners, in `path/simplify.rs`.
+- **`simplify` (2026-11-16).** Schneider's fit (Graphics Gems, 1990) per run between corners, in `path/simplify.rs`. The fit is greedy (a run is split where the fit fails), so the result has
+  few curves, not the fewest.
   *Ruling: a corner is a turn of more than 45 degrees between neighbouring edges, an internal `// constant:`, not an
   argument (api.md fixes `simplify(*, tolerance=0.5)` and no example needs it) — a jittery trace that turns sharply at
   every point keeps its jitter as corners and is returned nearly as it was; cost if wrong: add `corner_angle` as a

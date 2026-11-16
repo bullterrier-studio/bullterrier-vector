@@ -57,7 +57,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V10d | Paint and compositing style: gradient fills and strokes, the full separable blend set, clip groups and soft masks | M | Done 2026-11-09 |
 | V10e | Render a window: draw any rectangle of a drawing at the final scale | S | Done 2026-11-13 |
 | V10f | Text runs: one line of text from runs that each have their own font, size and axes | M | Done 2026-11-13 |
-| V11 | Path modifiers: dash march, place shapes along a path, simplify, resample; a width profile along a stroke (tapered strokes) | M | |
+| V11 | Path modifiers: dash march, place shapes along a path, simplify, resample; a width profile along a stroke (tapered strokes) | M | Done 2026-11-16 |
 | V12 | Deformers: wobble, wave, twist, bulge; arch and envelope warps for type | M | **M3 kinetic type piece** |
 | V13 | Morph, any shape to any shape | M | |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
@@ -72,10 +72,10 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window) and V10f (text runs) are done; next: V11, then V12, V13, then the kinetic type piece (M3) as the first public demo; V15's distance fields
+unbuilt batches. V10e (render a window), V10f (text runs) and V11 (path modifiers) are done; next: V12, V13, then the kinetic type piece (M3) as the first public demo; V15's distance fields
 (see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e and V10f are done; V11 follows.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f and V11 are done; V12 follows.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -589,6 +589,10 @@ and stays here. Draw-on (partial path by length from a canonical start point and
 A width profile along a stroke (tapered strokes: a width that varies along the length, thinning at free ends) is added
 here; it needs a stroke the rasteriser and the mesh can draw as a filled outline.
 
+State: done 2026-11-16, in Rust, Python and WebAssembly (`design-decisions.md`, "Path modifiers (V11)"): `resample`, `dash`,
+`simplify`, `reverse`, `place_along` (`Drawing` only), `outline(profile=)` and `stroke(profile=)`, `examples/marching_dashes.py`,
+`examples/beads_on_a_path.py`, `examples/brush_taper.py`.
+
 ## V12 Deformers
 
 Wobble (seeded noise displacement, moving by `phase`), wave, twist, bulge. Paths are resampled first so deformation is
@@ -700,6 +704,12 @@ Also:
 
 ## Later, with a trigger
 
+- `simplify(corner_angle=)`: if noisy hand-drawn lines keep their kinks (found by the V11 demo).
+- A `Path.points()` or corners accessor: the V11 demo parsed `to_svg_path()` to dot the corners.
+- A clearer error when `place_along` is called on a `Path`: say it takes the stamp as a `Drawing` and hint to wrap the shape.
+- `outline` and `stroke` with a `profile` and miter or butt joins and caps (today round only).
+- Dash: merge a closed sub-path's last and first dash into one piece.
+- Dash: zero-length entries, for dotted lines with round caps.
 - GPU rendering: when the CPU path is too slow for a live preview.
 - Text-editing support (cursor, selection, hit testing within text): when an editor is started.
 - Multi-threaded rendering: when batch rendering needs it.

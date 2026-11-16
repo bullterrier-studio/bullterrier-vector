@@ -25,8 +25,8 @@ impl Path {
     /// # Errors
     /// [`Error::Parameter`] naming `pattern` if it is empty, has more than 1,000 entries, or an entry is not a number
     /// above 0 and at most 1e100; naming `phase` if it is NaN or infinite; naming `near` if it is beyond ±1e100; or
-    /// naming `pattern` if the pieces it would leave, over all the sub-paths, are more than `MAX_SEGMENTS`
-    /// (10,000,000), which is checked before any is made.
+    /// naming `pattern` if a bound on the pieces, over all the sub-paths (cycles crossed + 1, times
+    /// dashes per cycle), is more than `MAX_SEGMENTS` (10,000,000), which is checked before any is made.
     pub fn dash(&self, pattern: &[f64], phase: f64, near: Option<Point>) -> Result<Self, Error> {
         self.dash_charged(pattern, phase, near, &mut |count| {
             if count > MAX_SEGMENTS {

@@ -248,7 +248,7 @@ impl Drawing {
         self.then(&transform::Reverse, Vec::new())
     }
 
-    /// This drawing with every shape replaced by the fewest smooth curves within `tolerance` design pixels of it, as
+    /// This drawing with every shape replaced by few smooth curves within `tolerance` design pixels of it, as
     /// [`Path::simplify`](crate::Path::simplify) does: a dense polyline becomes a few Beziers, sharp corners kept.
     /// `tolerance` is a number for each shape (a number, a `Param`, or a list of them). Each shape keeps its style
     /// and attributes, its `origin` included.
