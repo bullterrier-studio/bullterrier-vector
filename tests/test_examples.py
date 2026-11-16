@@ -215,6 +215,29 @@ def test_kinetic_type_prints_pink_from_4_s_and_a_kick_thickens_the_letters_it_ha
     assert 1 < grown[3] < grown[4] < grown[5] < grown[6]
 
 
+# t -> (bend, phase and turn at that second, worked by hand from the timeline; whether a kick is on)
+BEATS = {
+    4.0: ({"bend": 0, "phase": 0, "turn": 0}, True),  # the drop, on the beat
+    4.5: ({"bend": 0, "phase": 0.125, "turn": 0}, True),  # the next beat
+    7.0: ({"bend": 1, "phase": 0.75, "turn": 0}, True),
+    7.5: ({"bend": 1, "phase": 0.875, "turn": 0}, True),  # the last beat before the turn
+    8.0: ({"bend": 0.5, "phase": 0, "turn": 0}, False),  # a beat, and the turn begins: no kick
+    8.5: ({"bend": 0, "phase": 0.125, "turn": 7 / 27}, False),
+}
+
+
+@pytest.mark.parametrize("t", BEATS)
+def test_kinetic_type_kicks_on_every_beat_from_the_drop_at_4_s_until_the_turn_at_8_s(run, t):
+    found = run("kinetic_type")
+    given, kicking = BEATS[t]
+    _, _, hit, _ = kinetic_layers(found["at_time"](t))
+    _, _, still, _ = kinetic_layers(found["piece"], rise=1, ink=1, weight=300, burst=0, pulse=[0] * 8, **given)
+    if kicking:  # the N, first in the stagger, is at its fattest
+        assert hit[0].path.bounds.width > still[0].path.bounds.width + 100
+    else:
+        assert_same_bounds(hit, still)
+
+
 def test_kinetic_type_turns_into_the_second_headline_one_letter_after_the_other(run):
     found = run("kinetic_type")
     at_time, first, second = found["at_time"], found["first"], found["second"]
@@ -261,6 +284,14 @@ def test_kinetic_type_thins_to_hairlines_at_the_floor_weight_with_no_cut_at_the_
     assert pink[0].style.opacity < 0.01
     assert near[0].style.opacity > 0.99
     assert_same_bounds(near, hairlines, tolerance=0.01)
+
+
+def test_kinetic_type_keeps_the_print_until_11_5_s_and_fades_it_over_the_last_half_second(run):
+    at_time = run("kinetic_type")["at_time"]
+    for t, printed in ((11.4, 1.0), (11.75, 0.5)):
+        _, _, pink, hairlines = kinetic_layers(at_time(t))
+        assert [shape.style.opacity for shape in pink] == [pytest.approx(printed)] * 7, t
+        assert [shape.style.opacity for shape in hairlines] == [pytest.approx(1 - printed)] * 7, t
 
 
 def test_kinetic_type_frames_are_deterministic_and_the_whole_timeline_draws(run):
