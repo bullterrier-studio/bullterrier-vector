@@ -309,6 +309,19 @@ impl PyDrawing {
         })
     }
 
+    /// Every shape cut into the pieces a dash `pattern` leaves (a list of numbers, Params or expressions, read per shape);
+    /// `phase` in cycles of the pattern moves the dashes forward: marching ants are `dash([8, 4], phase=march)`. As
+    /// `Path.dash`; a closed outline is measured from its top, or from the point nearest `near`.
+    #[pyo3(signature = (pattern, *, phase=None, near=None))]
+    fn dash(&self, pattern: Vec<Num>, phase: Option<Num>, near: Option<Pair>) -> PyResult<Self> {
+        let pattern = pattern.into_iter().map(|Num(length)| length);
+        let phase = phase.map_or_else(|| vector::Expr::from(0.0), |Num(phase)| phase);
+        checked(match near {
+            Some(Pair(x, y)) => self.0.dash_near(pattern, phase, (x, y)),
+            None => self.0.dash(pattern, phase),
+        })
+    }
+
     /// Every shape as straight segments with corners `spacing` apart along it (a number, a Param or an expression, read
     /// per shape); as `Path.resample`.
     fn resample(&self, spacing: Num) -> PyResult<Self> {

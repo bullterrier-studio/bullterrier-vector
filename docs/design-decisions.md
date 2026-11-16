@@ -1065,6 +1065,19 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **The `run` attribute** (the run's index, from 0; a plain text is run 0) is selectable like `line` (`only(run=2)`,
   `merge(by="run")`); `glyph`, `word` and `line` count through all runs.
 
+## Path modifiers (V11)
+
+- **`dash` (2026-11-16).** `[on, off, ...]`; an odd list repeats itself (SVG `stroke-dasharray`). Every length must be above
+  0 (api.md: "a length not above 0" is an error), so a zero-length dash or gap is refused rather than meaning a dot or no
+  gap. `phase` is in cycles of the whole even pattern and moves the dashes **forward** along the path (SVG's
+  `stroke-dashoffset` moves them back): an animated phase 0 to 1 is marching ants in the direction of the path, and a
+  whole cycle is the same picture. Pieces are open; a closed sub-path wholly inside one dash stays closed (as `slice`
+  keeps a whole closed outline). A closed sub-path's last and first dash are not joined (a known limit, in api.md).
+  The pattern is the first list-of-numbers argument (`Kind::Numbers`), each entry an expression as formats.md allows.
+  The pieces are charged to `MAX_SEGMENTS` from the bound (cycles crossed + 1) x dashes per cycle before any is made,
+  and a pattern has at most `MAX_DASH_PATTERN` (1,000) lengths. *Cost if wrong:* the direction or the closed-start
+  rule changes pictures of a saved drawing, so decide before a release.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

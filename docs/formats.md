@@ -138,7 +138,7 @@ default paint, and draws as it did.
 | `drop_parts`, `fill_holes` | `smaller_than` |
 | `slice` | `start`, `end` (fractions 0..1, per-item numbers allowed), `near` (point; each coordinate within ±1e100) |
 | `reverse`, `split`, `knockout` | none: `{"reverse": {}}` |
-| `dash` | `pattern` (numbers), `phase`, `near` (point) |
+| `dash` | `pattern` (an array of 1 to `MAX_DASH_PATTERN` per-item numbers, each above 0 and at most 1e100), `phase` (per-item number, any finite value), `near` (point; each coordinate within ±1e100) |
 | `resample` | `spacing` (per-item number above 0, at most 1e100) |
 | `simplify` | `tolerance` |
 | `along` | `path` (path data), `start` (a fraction of the path's length; any finite number, a closed path wraps), `near` (point; each coordinate within ±1e100) |
@@ -497,6 +497,7 @@ counter, its limit and the step:
 | `MAX_GLYPHS` | 100,000 | glyphs shaped by `text` |
 | `MAX_SETTINGS` | 64 | axes, and features, one `text` call, or one run of one, gives |
 | `MAX_RUNS` | 1,000 | runs one `text` call is made of |
+| `MAX_DASH_PATTERN` | 1,000 | lengths of one `dash` pattern |
 | `MAX_SVG_ELEMENTS` | 20,000 | elements `Drawing.from_svg` reads, the root included (a drawing read from SVG then fits `MAX_CALLS` when saved) |
 | `MAX_SVG_NODES` | 80,000 | nodes (elements, and the text and comments between them) the XML parser builds for `Drawing.from_svg`, four for each element allowed; a document past it is refused before its tree is allocated |
 | `MAX_SVG_DEPTH` | 128 | levels of elements `Drawing.from_svg` reads, the root being 1 |

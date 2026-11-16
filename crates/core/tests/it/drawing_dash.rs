@@ -33,9 +33,15 @@ fn each_shape_reads_its_own_pattern_and_phase_and_keeps_its_style_and_attributes
         Path::line((0.0, 5.0), (16.0, 5.0))?,
     ])
     .fill(Color::hex(0xff_00_00));
-    let found = drawn(&lines.dash([by_index(4.0, 8.0), by_index(4.0, 8.0)], 0.0), &Values::new())?;
+    let found = drawn(
+        &lines.dash([by_index(4.0, 8.0), by_index(4.0, 8.0)], 0.0),
+        &Values::new(),
+    )?;
     assert_eq!(found, ["M0 0 L4 0 M8 0 L12 0", "M0 5 L8 5"]);
-    let (before, after) = (lines.shapes(&Values::new())?, lines.dash([4.0, 4.0], 0.0).shapes(&Values::new())?);
+    let (before, after) = (
+        lines.shapes(&Values::new())?,
+        lines.dash([4.0, 4.0], 0.0).shapes(&Values::new())?,
+    );
     assert_eq!(before[0].style(), after[0].style());
     assert_eq!(before[0].attributes(), after[0].attributes());
     Ok(())
@@ -46,10 +52,16 @@ fn a_pattern_length_can_be_a_param_and_near_picks_the_start_of_a_closed_outline(
     let on = Param::new("on", 4.0, 1.0, 16.0)?;
     let line = Drawing::from(Path::line((0.0, 0.0), (16.0, 0.0))?).dash([Expr::from(&on), Expr::from(4.0)], 0.0);
     assert_eq!(drawn(&line, &Values::new())?, ["M0 0 L4 0 M8 0 L12 0"]);
-    assert_eq!(drawn(&line, &Values::new().set("on", 2.0))?, ["M0 0 L2 0 M6 0 L8 0 M12 0 L14 0"]);
+    assert_eq!(
+        drawn(&line, &Values::new().set("on", 2.0))?,
+        ["M0 0 L2 0 M6 0 L8 0 M12 0 L14 0"]
+    );
     let square = Drawing::from(Path::from_svg_path("M0 0 L10 0 L10 10 L0 10 Z")?);
     let from_corner = square.dash_near([15.0, 5.0], 0.0, Point::new(10.0, 10.0));
-    assert_eq!(drawn(&from_corner, &Values::new())?, ["M10 10 L0 10 L0 5 M0 0 L10 0 L10 5"]);
+    assert_eq!(
+        drawn(&from_corner, &Values::new())?,
+        ["M10 10 L0 10 L0 5 M0 0 L10 0 L10 5"]
+    );
     Ok(())
 }
 
@@ -58,7 +70,10 @@ fn the_step_saves_and_loads_the_same_drawing() -> Outcome {
     let phase = Param::new("march", 0.0, 0.0, 1.0)?;
     let drawing = Drawing::from(Path::line((0.0, 0.0), (64.0, 0.0))?).dash([4.0, 12.0], &phase);
     let json = drawing.to_json()?;
-    assert!(json.contains(r#"{"dash":{"pattern":[4,12],"phase":{"param":"march"}}}"#), "{json}");
+    assert!(
+        json.contains(r#"{"dash":{"pattern":[4,12],"phase":{"param":"march"}}}"#),
+        "{json}"
+    );
     let again = Drawing::from_json(&json, &Inputs::new())?;
     assert_eq!(again.to_json()?, json);
     let values = Values::new().set("march", 0.25);
@@ -69,7 +84,11 @@ fn the_step_saves_and_loads_the_same_drawing() -> Outcome {
 #[test]
 fn a_pattern_that_cannot_dash_names_the_step_and_a_tiny_one_is_charged_to_max_segments() -> Outcome {
     let line = Drawing::from(Path::line((0.0, 0.0), (1.0e6, 0.0))?);
-    for bad in [line.dash(Vec::<f64>::new(), 0.0), line.dash([4.0, 0.0], 0.0), line.dash([-1.0], 0.0)] {
+    for bad in [
+        line.dash(Vec::<f64>::new(), 0.0),
+        line.dash([4.0, 0.0], 0.0),
+        line.dash([-1.0], 0.0),
+    ] {
         let error = bad.error().map(ToString::to_string).ok_or("no error")?;
         assert!(error.contains("pattern"), "{error}");
     }

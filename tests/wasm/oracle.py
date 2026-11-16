@@ -753,6 +753,23 @@ def resamples() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def dashes() -> list[Entry]:
+    """`dash` on shapes: an open line, a closed outline from its top and from `near`, a curve, an odd pattern and a
+    Param phase (marching ants)."""
+    line = btvec.Path.from_svg_path("M15 70 L50 25 L85 70")
+    circle = btvec.Path.circle((50, 50), 30)
+    march = btvec.Param("march", default=0.25, min=0, max=1, unit="cycle", meaning="how far the dashes have moved")
+    drawings = {
+        "dash_open": framed(line.stroke(INK, width=2)).dash([10, 6]),
+        "dash_closed": framed(btvec.Path.rect(20, 20, 60, 60).stroke(RED, width=2)).dash([14, 5], phase=0.3),
+        "dash_near": framed(btvec.Path.rect(20, 20, 60, 60).stroke(RED, width=2)).dash([14, 5], near=(80, 80)),
+        "dash_curve": framed(circle.stroke(BLUE, width=2)).dash([9]),
+        "dash_param": framed(line.stroke(INK, width=2)).dash([10, 6], phase=march),
+    }
+    draws: dict[str, list[Draw]] = {"dash_param": [(100, 100, {}), (200, 200, {"march": 0.5})]}
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -764,6 +781,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     booleans,
     offsets,
     resamples,
+    dashes,
     shadows,
     knockouts,
     halftones,

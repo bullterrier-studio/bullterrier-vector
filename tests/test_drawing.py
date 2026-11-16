@@ -1102,6 +1102,7 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
         [row("M0 -1 L10 -1 L10 1 L0 1 Z")],
     ),
     "slice": (lambda: Drawing(LINE).slice(0.25, 0.75), {}, [row("M2.5 0 L7.5 0", None, BLACK)]),
+    "dash": (lambda: Drawing(LINE).dash([4, 2]), {}, [row("M0 0 L4 0 M6 0 L10 0", None, BLACK)]),
     "resample": (lambda: Drawing(LINE).resample(4), {}, [row("M0 0 L4 0 L8 0 L10 0", None, BLACK)]),
     "fill": (lambda: Drawing(SQUARE).fill("#0000ff"), {}, [row(RECT, "#0000ffff")]),
     "stroke": (lambda: Drawing(SQUARE).stroke("#00ff00"), {}, [row(RECT, None, "#00ff00ff")]),

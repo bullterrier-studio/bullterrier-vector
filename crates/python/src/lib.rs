@@ -417,6 +417,16 @@ impl PyPath {
         Self::of(self.0.slice(start, end, near.map(|near| near.0)))
     }
 
+    /// The pieces a dash `pattern` (`[on, off, ...]`, an odd one repeated) leaves; `phase` in cycles moves the dashes forward.
+    #[pyo3(signature = (pattern, *, phase=0.0, near=None))]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "a Python list is extracted into an owned Vec"
+    )]
+    fn dash(&self, pattern: Vec<f64>, phase: f64, near: Option<Pt>) -> PyResult<Self> {
+        Self::of(self.0.dash(&pattern, phase, near.map(|near| near.0)))
+    }
+
     /// Straight segments with corners `spacing` apart along the path, its ends kept.
     fn resample(&self, spacing: f64) -> PyResult<Self> {
         Self::of(self.0.resample(spacing))

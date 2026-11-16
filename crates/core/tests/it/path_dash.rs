@@ -18,7 +18,11 @@ fn is(path: &Path, expected: &str) -> Outcome {
         && found.iter().zip(&wanted).all(|((a, xs), (b, ys))| {
             a == b && xs.len() == ys.len() && xs.iter().zip(ys).all(|(x, y)| (x - y).abs() <= 1e-9)
         });
-    if same { Ok(()) } else { Err(format!("{} is not {expected}", path.to_svg_path()).into()) }
+    if same {
+        Ok(())
+    } else {
+        Err(format!("{} is not {expected}", path.to_svg_path()).into())
+    }
 }
 
 // By hand --------------------------------------------------------------------------------------------------------------
@@ -26,9 +30,15 @@ fn is(path: &Path, expected: &str) -> Outcome {
 #[test]
 fn a_line_is_cut_into_its_dashes_and_the_pattern_runs_to_the_end() -> Outcome {
     // on 4, off 6: dashes at 0, 10, 20; a dash that would start at the end is not there
-    is(&line(30.0)?.dash(&[4.0, 6.0], 0.0, None)?, "M0 0 L4 0 M10 0 L14 0 M20 0 L24 0")?;
+    is(
+        &line(30.0)?.dash(&[4.0, 6.0], 0.0, None)?,
+        "M0 0 L4 0 M10 0 L14 0 M20 0 L24 0",
+    )?;
     // a dash cut short by the end
-    is(&line(22.0)?.dash(&[4.0, 6.0], 0.0, None)?, "M0 0 L4 0 M10 0 L14 0 M20 0 L22 0")?;
+    is(
+        &line(22.0)?.dash(&[4.0, 6.0], 0.0, None)?,
+        "M0 0 L4 0 M10 0 L14 0 M20 0 L22 0",
+    )?;
     Ok(())
 }
 
@@ -36,9 +46,15 @@ fn a_line_is_cut_into_its_dashes_and_the_pattern_runs_to_the_end() -> Outcome {
 fn the_phase_moves_the_dashes_forward_by_that_share_of_a_cycle() -> Outcome {
     let path = line(30.0)?;
     // a cycle is 10: a quarter is 2.5 further along, and the gap before the first dash is the end of the last one
-    is(&path.dash(&[4.0, 6.0], 0.25, None)?, "M2.5 0 L6.5 0 M12.5 0 L16.5 0 M22.5 0 L26.5 0")?;
+    is(
+        &path.dash(&[4.0, 6.0], 0.25, None)?,
+        "M2.5 0 L6.5 0 M12.5 0 L16.5 0 M22.5 0 L26.5 0",
+    )?;
     // three quarters: the first dash is cut by the start (it began 7.5 before it, 1.5 of it is left)
-    is(&path.dash(&[4.0, 6.0], 0.75, None)?, "M0 0 L1.5 0 M7.5 0 L11.5 0 M17.5 0 L21.5 0 M27.5 0 L30 0")?;
+    is(
+        &path.dash(&[4.0, 6.0], 0.75, None)?,
+        "M0 0 L1.5 0 M7.5 0 L11.5 0 M17.5 0 L21.5 0 M27.5 0 L30 0",
+    )?;
     Ok(())
 }
 
@@ -53,24 +69,24 @@ fn the_phase_wraps_so_a_whole_cycle_more_or_less_changes_nothing() -> Outcome {
         path.dash(&[4.0, 6.0], -0.25, None)?,
         path.dash(&[4.0, 6.0], 0.75, None)?
     );
-    assert_eq!(
-        path.dash(&[4.0, 6.0], 1.25, None)?,
-        path.dash(&[4.0, 6.0], 0.25, None)?
-    );
+    assert_eq!(path.dash(&[4.0, 6.0], 1.25, None)?, path.dash(&[4.0, 6.0], 0.25, None)?);
     Ok(())
 }
 
 #[test]
 fn an_odd_pattern_repeats_itself_to_make_an_even_one() -> Outcome {
     let path = line(20.0)?;
-    assert_eq!(
-        path.dash(&[3.0], 0.0, None)?,
-        path.dash(&[3.0, 3.0], 0.0, None)?
-    );
+    assert_eq!(path.dash(&[3.0], 0.0, None)?, path.dash(&[3.0, 3.0], 0.0, None)?);
     // [2, 1, 3] is [2, 1, 3, 2, 1, 3]: on 0-2, 3-6, 8-9, then again from 12: 12-14, 15-18
-    is(&path.dash(&[2.0, 1.0, 3.0], 0.0, None)?, "M0 0 L2 0 M3 0 L6 0 M8 0 L9 0 M12 0 L14 0 M15 0 L18 0")?;
+    is(
+        &path.dash(&[2.0, 1.0, 3.0], 0.0, None)?,
+        "M0 0 L2 0 M3 0 L6 0 M8 0 L9 0 M12 0 L14 0 M15 0 L18 0",
+    )?;
     // the phase is in cycles of the whole even pattern (12 here): a quarter is 3: every dash is 3 further on
-    is(&path.dash(&[2.0, 1.0, 3.0], 0.25, None)?, "M3 0 L5 0 M6 0 L9 0 M11 0 L12 0 M15 0 L17 0 M18 0 L20 0")?;
+    is(
+        &path.dash(&[2.0, 1.0, 3.0], 0.25, None)?,
+        "M3 0 L5 0 M6 0 L9 0 M11 0 L12 0 M15 0 L17 0 M18 0 L20 0",
+    )?;
     Ok(())
 }
 
@@ -87,7 +103,10 @@ fn a_dash_goes_round_a_corner_and_each_sub_path_starts_the_pattern_again() -> Ou
 fn a_closed_path_is_measured_from_its_top_or_the_point_nearest_near() -> Outcome {
     let square = Path::from_svg_path("M0 0 L10 0 L10 10 L0 10 Z")?;
     // 40 round: on 15 from the top-left corner, off 5, on 15, off 5
-    is(&square.dash(&[15.0, 5.0], 0.0, None)?, "M0 0 L10 0 L10 5 M10 10 L0 10 L0 5")?;
+    is(
+        &square.dash(&[15.0, 5.0], 0.0, None)?,
+        "M0 0 L10 0 L10 5 M10 10 L0 10 L0 5",
+    )?;
     let from_corner = square.dash(&[15.0, 5.0], 0.0, Some(Point::new(10.0, 10.0)))?;
     is(&from_corner, "M10 10 L0 10 L0 5 M0 0 L10 0 L10 5")?;
     Ok(())

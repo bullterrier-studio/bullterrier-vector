@@ -3,8 +3,8 @@
 
 use super::{Args, Context, Inputs, Node, each_shape};
 use crate::geometry::MAX_COORDINATE;
-use crate::path::{Guide, rotate_point, scale_point};
 use crate::limits::MAX_DASH_PATTERN;
+use crate::path::{Guide, rotate_point, scale_point};
 use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
 
 /// A number read for each shape, within `domain`.

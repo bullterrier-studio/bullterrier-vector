@@ -227,6 +227,22 @@ def test_draw_on_draws_no_ink_at_progress_0_the_letters_one_after_another_and_th
     assert ink_in_pixels(1)
 
 
+def test_marching_dashes_move_one_pattern_length_on_over_a_phase_of_1_and_a_loop_is_seamless(run):
+    drawing = run("marching_dashes")["drawing"]
+
+    def starts(march: float) -> list[float]:
+        (shape,) = drawing.shapes(march=march)
+        return [piece.point_at(0).x for piece in shape.path.split()]
+
+    # the line runs from x = 140 for 800 pixels: dashes 28 long every 44, the first at the start
+    assert starts(0)[:3] == pytest.approx([140, 184, 228])
+    assert starts(0)[-1] == pytest.approx(140 + 44 * 18)
+    # a quarter of the 44-pixel cycle on: every dash 11 further along, a dash cut by the start included
+    assert starts(0.25)[:2] == pytest.approx([140 + 11, 184 + 11])
+    # a whole cycle is the same picture
+    assert drawing.shapes(march=1)[0].path == drawing.shapes(march=0)[0].path
+
+
 def test_glyph_scatter_stands_as_set_at_0_and_scatters_the_same_way_every_time_above_0(run):
     found = run("glyph_scatter")
     drawing, font = found["drawing"], found["font"]

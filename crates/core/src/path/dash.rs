@@ -52,10 +52,7 @@ impl Path {
         if pattern.is_empty() || pattern.len() > MAX_DASH_PATTERN {
             return Err(Error::parameter(
                 "pattern",
-                format!(
-                    "must have from 1 to {MAX_DASH_PATTERN} lengths, got {}",
-                    pattern.len()
-                ),
+                format!("must have from 1 to {MAX_DASH_PATTERN} lengths, got {}", pattern.len()),
             ));
         }
         for &length in pattern {
@@ -76,6 +73,7 @@ impl Path {
             .map(|subpath| Run::new(subpath, 0.0, near))
             .collect();
         // the most pieces of each run: the dashes of the cycles it crosses (one more for the part cycle at each end)
+        #[expect(clippy::cast_precision_loss, reason = "at most 2,000")]
         let dashes = (pattern.entries() / 2) as f64;
         let wanted: f64 = runs
             .iter()
@@ -116,7 +114,8 @@ struct Pattern<'a> {
 impl<'a> Pattern<'a> {
     fn new(lengths: &'a [f64], phase: f64) -> Self {
         let entries = lengths.len() * (1 + lengths.len() % 2);
-        let cycle = lengths.iter().sum::<f64>() * (entries / lengths.len()) as f64;
+        let repeats = if lengths.len() % 2 == 1 { 2.0 } else { 1.0 };
+        let cycle = lengths.iter().sum::<f64>() * repeats;
         // dashes move forward with the phase, so the start of the path is the earlier in the cycle
         let wrapped = (-phase).rem_euclid(1.0) * cycle;
         // rem_euclid can round up to a whole cycle

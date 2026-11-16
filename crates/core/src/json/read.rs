@@ -329,28 +329,8 @@ impl Reader {
                 let [first, second] = self.two(arg, pointer, json)?;
                 Ok(Value::Pair(first, second))
             }
-            Kind::Numbers => match json {
-                Json::Array(items) => items
-                    .iter()
-                    .enumerate()
-                    .map(|(at, item)| self.number(arg, &format!("{pointer}/{at}"), item))
-                    .collect::<Result<_, _>>()
-                    .map(Value::Numbers),
-                other => Err(refuse(
-                    pointer,
-                    format!("must be an array of numbers, not {}", other.describe()),
-                )),
-            },
-            Kind::Factor => match json {
-                Json::Array(_) => {
-                    let [first, second] = self.two(arg, pointer, json)?;
-                    Ok(Value::Pair(first, second))
-                }
-                single => {
-                    let both = self.number(arg, pointer, single)?;
-                    Ok(Value::Pair(both.clone(), both))
-                }
-            },
+            Kind::Numbers => self.numbers(arg, pointer, json),
+            Kind::Factor => self.factor(arg, pointer, json),
             Kind::Color => {
                 let text = string(pointer, json)?;
                 Color::parse(text)
@@ -451,6 +431,36 @@ impl Reader {
             .map(|(at, item)| self.arguments(&crate::node::text::RUN, &format!("{pointer}/{at}"), item))
             .collect::<Result<_, _>>()
             .map(Value::Runs)
+    }
+
+    /// A scale factor: one number for both directions, or `[x, y]`.
+    fn factor(&mut self, arg: &'static Arg, pointer: &str, json: &Json) -> Result<Value, Error> {
+        match json {
+            Json::Array(_) => {
+                let [first, second] = self.two(arg, pointer, json)?;
+                Ok(Value::Pair(first, second))
+            }
+            single => {
+                let both = self.number(arg, pointer, single)?;
+                Ok(Value::Pair(both.clone(), both))
+            }
+        }
+    }
+
+    /// The numbers of an argument written `[a, b, ...]`.
+    fn numbers(&mut self, arg: &'static Arg, pointer: &str, json: &Json) -> Result<Value, Error> {
+        match json {
+            Json::Array(items) => items
+                .iter()
+                .enumerate()
+                .map(|(at, item)| self.number(arg, &format!("{pointer}/{at}"), item))
+                .collect::<Result<_, _>>()
+                .map(Value::Numbers),
+            other => Err(refuse(
+                pointer,
+                format!("must be an array of numbers, not {}", other.describe()),
+            )),
+        }
     }
 
     /// The two numbers of an argument written `[a, b]`.

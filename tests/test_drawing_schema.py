@@ -557,6 +557,18 @@ AGREED = [
         square_with({"slice": {"start": 0, "end": 1, "near": [1, 2]}}), True, id="a slice with every argument"
     ),
     pytest.param(square_with({"slice": {"start": 0.25, "end": 0.25}}), True, id="a slice to a point"),
+    pytest.param(
+        square_with({"dash": {"pattern": [4, 2], "phase": 0.5, "near": [1, 2]}}), True, id="a dash with every argument"
+    ),
+    pytest.param(
+        with_param({"dash": {"pattern": [{"param": "x"}, 2], "phase": {"param": "x"}}}),
+        True,
+        id="a dash pattern and phase from a Param",
+    ),
+    pytest.param(square_with({"dash": {"pattern": []}}), False, id="a dash with an empty pattern"),
+    pytest.param(square_with({"dash": {"pattern": [4, 0]}}), False, id="a dash length of 0"),
+    pytest.param(square_with({"dash": {"pattern": 4}}), False, id="a dash pattern that is a number"),
+    pytest.param(square_with({"dash": {"phase": 0.5}}), False, id="a dash without a pattern"),
     pytest.param(square_with({"slice": {"start": 0}}), False, id="a slice without an end"),
     pytest.param(square_with({"slice": {"start": 0, "end": 1.1}}), False, id="a slice end past 1"),
     pytest.param(square_with({"slice": {"start": -0.1, "end": 1}}), False, id="a slice start below 0"),
@@ -718,6 +730,7 @@ REGISTERED = {
     "along",
     "slice",
     "resample",
+    "dash",
     "fill",
     "stroke",
     "opacity",

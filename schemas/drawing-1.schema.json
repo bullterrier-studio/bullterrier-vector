@@ -593,7 +593,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "pattern": { "type": "array", "items": { "$ref": "#/$defs/positive" }, "minItems": 1 },
+            "pattern": { "type": "array", "items": { "$ref": "#/$defs/positive" }, "minItems": 1, "maxItems": 1000 },
             "phase": { "$ref": "#/$defs/number" },
             "near": { "$ref": "#/$defs/point" }
           },
