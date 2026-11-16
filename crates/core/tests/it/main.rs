@@ -16,6 +16,7 @@ mod drawing_offset;
 mod drawing_per_item;
 mod drawing_place_along;
 mod drawing_resample;
+mod drawing_reverse;
 mod drawing_select;
 mod drawing_simplify;
 mod drawing_slice;

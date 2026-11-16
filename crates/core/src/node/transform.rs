@@ -319,3 +319,25 @@ impl Node for Simplify {
         })
     }
 }
+
+/// Runs every shape the other way.
+#[derive(Debug)]
+pub(crate) struct Reverse;
+
+pub(crate) static REVERSE: Verb = Verb {
+    name: "reverse",
+    role: Role::Step,
+    summary: "runs every shape the other way: its sub-paths in the opposite order, each travelled backwards, so a draw-on starts at the other end; style, attributes and origin are kept",
+    args: &[],
+    check: None,
+};
+
+impl Node for Reverse {
+    fn verb(&self) -> &'static Verb {
+        &REVERSE
+    }
+
+    fn evaluate(&self, _: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        each_shape(inputs.previous, cx, |shape, _| Ok(shape.with_path(shape.path().reverse())))
+    }
+}

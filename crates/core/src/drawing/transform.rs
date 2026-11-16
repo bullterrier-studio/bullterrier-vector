@@ -239,6 +239,15 @@ impl Drawing {
         self.then(&transform::Resample, vec![("spacing", Given::Number(spacing.into()))])
     }
 
+    /// This drawing with every shape run the other way, as [`Path::reverse`](crate::Path::reverse) does: `text(..)
+    /// .reverse().slice(0, progress)` draws on from the other end, and a stroke's direction decides where a `dash` or
+    /// a taper begins. Each shape keeps its style and attributes, its `origin` included. Takes no arguments, so it
+    /// cannot fail.
+    #[must_use]
+    pub fn reverse(&self) -> Self {
+        self.then(&transform::Reverse, Vec::new())
+    }
+
     /// This drawing with every shape replaced by the fewest smooth curves within `tolerance` design pixels of it, as
     /// [`Path::simplify`](crate::Path::simplify) does: a dense polyline becomes a few Beziers, sharp corners kept.
     /// `tolerance` is a number for each shape (a number, a `Param`, or a list of them). Each shape keeps its style

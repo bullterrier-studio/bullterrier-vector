@@ -457,6 +457,22 @@ fn rows() -> Vec<Row> {
             }),
         },
         Row {
+            verb: "reverse",
+            sample: || Ok(square()?.reverse()),
+            with: None,
+            ranges: &[],
+            geometry: Some(Geometry {
+                cases: |path, _, _| {
+                    Ok(vec![(
+                        "no argument",
+                        Drawing::from(path.clone()).reverse(),
+                        Ok(path.reverse()),
+                    )])
+                },
+                by_hand: &[("M0 0 L10 0 L10 5", |d| Ok(d.reverse()), "M10 5 L10 0 L0 0")],
+            }),
+        },
+        Row {
             verb: "dash",
             sample: || Ok(square()?.dash([4.0, 2.0], 0.25)),
             with: Some(|argument, value| match argument {
