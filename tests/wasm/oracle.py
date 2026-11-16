@@ -1254,6 +1254,7 @@ def main(output: Path) -> None:
         "star": star_everywhere(output.parent / "oracle-pixels"),
         "bent_type": example_everywhere("bent_type"),
         "glyph_morph": example_everywhere("glyph_morph"),
+        "kinetic_type": example_everywhere("kinetic_type"),
         "refusals": [
             refused("fromJson", "not a document"),
             refused("fromJson", '{"version": 1, "drawings": {"a": [{"nope": 1}]}}'),
