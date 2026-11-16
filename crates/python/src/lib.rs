@@ -432,6 +432,12 @@ impl PyPath {
         Self::of(self.0.resample(spacing))
     }
 
+    /// The fewest smooth curves within `tolerance` pixels of the path, sharp corners (turns past 45 degrees) kept.
+    #[pyo3(signature = (*, tolerance=0.5))]
+    fn simplify(&self, tolerance: f64) -> PyResult<Self> {
+        Self::of(self.0.simplify(tolerance))
+    }
+
     /// The same outline travelled the other way.
     fn reverse(&self) -> Self {
         Self(self.0.reverse())

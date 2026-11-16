@@ -363,6 +363,14 @@ impl PyDrawing {
         checked(self.0.resample(spacing.0))
     }
 
+    /// Every shape as the fewest smooth curves within `tolerance` pixels of it (a number, a Param or an expression, read
+    /// per shape); as `Path.simplify`.
+    #[pyo3(signature = (*, tolerance=None))]
+    fn simplify(&self, tolerance: Option<Num>) -> PyResult<Self> {
+        let tolerance = tolerance.map_or_else(|| vector::Expr::from(0.5), |Num(tolerance)| tolerance);
+        checked(self.0.simplify(tolerance))
+    }
+
     /// Every shape filled with `color` (`"#rgb"`, `"#rrggbb"`, `"#rrggbbaa"` or `"none"`) or a `Gradient`.
     pub(crate) fn fill(&self, color: PaintArg) -> PyResult<Self> {
         checked(self.0.fill(color.0))
