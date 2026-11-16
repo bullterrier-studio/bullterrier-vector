@@ -1139,7 +1139,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   `MAX_SEGMENTS` as `along` charges them, and the output never has more segments than that.
 
 - **Tapered outline (2026-11-16).** `Path::tapered_outline(width, &profile, tolerance)` in `path/taper.rs`, the kernel
-  `stroke(profile=)` will call; `outline(profile=)` is its Path and Drawing form. Built from the centre line the measured
+  `stroke(profile=)` calls; `outline(profile=)` is its Path and Drawing form. Built from the centre line the measured
   walk gives, cut at the profile's stops so the radius is linear on each straight piece, and the union (one `i_overlay`
   run, via `offset.rs`) of the convex hulls of consecutive end discs, whose corners are on the circles: exactly the sweep
   of a disc of linearly changing radius, so the oracle is a brute-force distance to sampled discs.

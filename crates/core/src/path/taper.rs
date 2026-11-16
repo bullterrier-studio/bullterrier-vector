@@ -86,6 +86,7 @@ impl Path {
             .map(|run| (run.edges.len() + profile.stops.len()) as f64)
             .sum();
         let wanted = pieces * (corners(reach, tolerance) + 4.0);
+        // constant: above this the count is past any limit and would not fit the cast below
         if wanted > 1e15 {
             charge(MAX_SEGMENTS + 1)?;
         } else {
@@ -188,6 +189,7 @@ impl<'a> Profile<'a> {
 /// at most an eighth of a turn.
 fn arc_step(radius: f64, tolerance: f64) -> f64 {
     // a chord of step s is radius * (1 - cos(s / 2)) from the arc; 1 - cos(h) = 2 sin(h / 2)^2 keeps small ratios exact
+    // constant: at most an eighth of a turn, so a disc has at least 8 sides however coarse the tolerance
     (4.0 * math::asin(((tolerance / radius).min(1.0) / 2.0).sqrt())).min(PI / 4.0)
 }
 
