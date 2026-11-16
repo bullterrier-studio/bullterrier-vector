@@ -8,7 +8,11 @@ import { test } from "node:test";
 
 const native = JSON.parse(readFileSync(new URL("../../pkg/oracle.json", import.meta.url), "utf-8"));
 // each example with the frames it names, in the words its Node program prints when it refuses another
-const EXAMPLES = { bent_type: "calm, half or bent", glyph_morph: "start, half or end" };
+const EXAMPLES = {
+  bent_type: "calm, half or bent",
+  glyph_morph: "start, half or end",
+  kinetic_type: "hairlines, kick, bend or morph",
+};
 
 for (const [name, frames] of Object.entries(EXAMPLES)) {
   const found = native[name];

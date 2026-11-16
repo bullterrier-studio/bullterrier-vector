@@ -665,3 +665,9 @@ def test_the_node_example_of_glyph_morph_carries_the_document_of_the_python_draw
     drawing = run("glyph_morph")["drawing"]
     document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "glyph_morph.json"
     assert document.read_text(encoding="utf-8") == drawing.to_json()
+
+
+def test_the_node_example_of_kinetic_type_carries_the_document_of_the_python_drawing(run):
+    piece = run("kinetic_type")["piece"]
+    document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "kinetic_type.json"
+    assert document.read_text(encoding="utf-8") == piece.to_json()
