@@ -2,13 +2,13 @@
 //! Expected paths are written by hand from the definition (corners at 0, s, 2s, ... along each sub-path, the end kept);
 //! the properties compare the result with the path it came from.
 
-use crate::common::{Outcome, build, commands, distance, log_uniform, parameter_refusal, step};
+use crate::common::{Corners, Outcome, build, commands, distance, log_uniform, parameter_refusal, step};
 use bullterrier_vector::{Error, Path};
 use proptest::prelude::*;
 
 /// The corners of `path`'s sub-paths, each as its list of points, from the canonical path data.
-fn corners(path: &Path) -> Result<Vec<Vec<(f64, f64)>>, Box<dyn std::error::Error>> {
-    let mut found: Vec<Vec<(f64, f64)>> = Vec::new();
+fn corners(path: &Path) -> Result<Vec<Corners>, Box<dyn std::error::Error>> {
+    let mut found: Vec<Corners> = Vec::new();
     for (letter, numbers) in commands(&path.to_svg_path())? {
         match (letter, numbers.as_slice()) {
             ('M', [x, y]) => found.push(vec![(*x, *y)]),
@@ -37,10 +37,7 @@ fn corners_fall_every_spacing_along_a_line_and_the_end_is_kept() -> Outcome {
 fn the_distance_runs_round_a_corner_so_a_gap_is_measured_along_the_path() -> Outcome {
     let bend = Path::from_svg_path("M0 0 L10 0 L10 10")?;
     // 12 along is 2 down the second leg; 8 is 8 along the first
-    assert_eq!(
-        bend.resample(4.0)?.to_svg_path(),
-        "M0 0 L4 0 L8 0 L10 2 L10 6 L10 10"
-    );
+    assert_eq!(bend.resample(4.0)?.to_svg_path(), "M0 0 L4 0 L8 0 L10 2 L10 6 L10 10");
     Ok(())
 }
 
@@ -58,10 +55,7 @@ fn a_closed_path_stays_closed_from_its_written_start_and_its_last_gap_wraps() ->
 #[test]
 fn each_sub_path_is_measured_from_its_own_start() -> Outcome {
     let two = Path::from_svg_path("M0 0 L10 0 M0 5 L6 5")?;
-    assert_eq!(
-        two.resample(4.0)?.to_svg_path(),
-        "M0 0 L4 0 L8 0 L10 0 M0 5 L4 5 L6 5"
-    );
+    assert_eq!(two.resample(4.0)?.to_svg_path(), "M0 0 L4 0 L8 0 L10 0 M0 5 L4 5 L6 5");
     Ok(())
 }
 
@@ -82,7 +76,7 @@ fn a_circle_is_cut_into_equal_arcs_whose_corners_lie_on_it() -> Outcome {
     let ring = &found[0];
     assert_eq!(ring.len(), 8, "{ring:?}");
     // a regular octagon: every corner on the circle, every side 2 r sin(pi / 8)
-    let side = 20.0 * (std::f64::consts::PI / 8.0).sin();
+    let side = 20.0 * libm::sin(std::f64::consts::PI / 8.0);
     for (index, corner) in ring.iter().enumerate() {
         let radius = distance(*corner, (50.0, 50.0));
         assert!((radius - 10.0).abs() < 0.02, "corner {index} at radius {radius}");
@@ -114,7 +108,7 @@ fn a_spacing_that_would_make_more_than_ten_million_corners_is_refused_before_any
     // exactly at the limit is allowed by the count: 1e6 / 0.1 = 1e7 gaps, 10,000,001 corners is past it, so use 0.2
     assert!(line.resample(0.2).is_ok());
     // the counts add up over sub-paths
-    let many = Path::from_svg_path(&"M0 0 L1000000 0 M0 1 L1000000 1")?;
+    let many = Path::from_svg_path("M0 0 L1000000 0 M0 1 L1000000 1")?;
     assert!(parameter_refusal(many.resample(0.15)).is_ok());
     Ok(())
 }
@@ -131,6 +125,7 @@ fn sized_path() -> impl Strategy<Value = Path> {
         .prop_filter_map("the steps build a path", |(start, steps)| build(start, &steps).ok())
 }
 
+#[expect(clippy::needless_pass_by_value, reason = "used as the function of map_err")]
 fn fail(error: impl ToString) -> TestCaseError {
     TestCaseError::fail(error.to_string())
 }
@@ -187,6 +182,7 @@ proptest! {
         prop_assume!(length > 0.0);
         let sampled = path.resample(spacing).map_err(fail)?;
         let found = corners(&sampled).map_err(fail)?;
+        #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a small positive count")]
         let wanted = (length / spacing).ceil() as usize + 1;
         // a corner that falls within rounding of the end counts once or twice
         prop_assert!(found[0].len().abs_diff(wanted) <= 1, "{} corners, {} wanted", found[0].len(), wanted);
@@ -200,7 +196,8 @@ proptest! {
         spacing in 0.05f64..20.0,
     ) {
         let path = Path::polyline(points, false).map_err(fail)?;
-        let turns = (path.to_svg_path().matches('L').count()) as f64;
+        #[expect(clippy::cast_precision_loss, reason = "a handful of segments")]
+        let turns = path.to_svg_path().matches('L').count() as f64;
         let sampled = path.resample(spacing).map_err(fail)?;
         prop_assert!(path.length() - sampled.length() <= 2.0 * spacing * turns + 1e-9, "{} against {}", sampled.length(), path.length());
     }

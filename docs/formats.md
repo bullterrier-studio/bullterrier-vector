@@ -139,7 +139,7 @@ default paint, and draws as it did.
 | `slice` | `start`, `end` (fractions 0..1, per-item numbers allowed), `near` (point; each coordinate within ±1e100) |
 | `reverse`, `split`, `knockout` | none: `{"reverse": {}}` |
 | `dash` | `pattern` (numbers), `phase`, `near` (point) |
-| `resample` | `spacing` |
+| `resample` | `spacing` (per-item number above 0, at most 1e100) |
 | `simplify` | `tolerance` |
 | `along` | `path` (path data), `start` (a fraction of the path's length; any finite number, a closed path wraps), `near` (point; each coordinate within ±1e100) |
 | `wobble` | `amplitude`, `wavelength`, `phase`, `seed` (whole number) |

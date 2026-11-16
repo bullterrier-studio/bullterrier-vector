@@ -19,7 +19,10 @@ impl Path {
     pub fn resample(&self, spacing: f64) -> Result<Self, Error> {
         self.resample_charged(spacing, &mut |count| {
             if count > MAX_SEGMENTS {
-                Err(Error::parameter("spacing", format!("MAX_SEGMENTS {MAX_SEGMENTS} passed")))
+                Err(Error::parameter(
+                    "spacing",
+                    format!("MAX_SEGMENTS {MAX_SEGMENTS} passed"),
+                ))
             } else {
                 Ok(())
             }
@@ -48,11 +51,17 @@ impl Path {
             .collect();
         // the most corners of each run: those at 0, s, 2s, ... below its length, and the end
         let wanted: f64 = runs.iter().map(|run| (run.length / spacing).ceil() + 1.0).sum();
-        if wanted > MAX_SEGMENTS as f64 {
+        #[expect(clippy::cast_precision_loss, reason = "10 million is exact in f64")]
+        let past = wanted > MAX_SEGMENTS as f64;
+        if past {
             // the exact count is not needed to refuse it; any count past the limit is refused by the charge
             charge(MAX_SEGMENTS + 1)?;
         } else {
-            #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "0 to MAX_SEGMENTS")]
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "0 to MAX_SEGMENTS"
+            )]
             charge(wanted as usize)?;
         }
         Ok(Self {

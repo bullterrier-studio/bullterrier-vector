@@ -717,6 +717,7 @@ REGISTERED = {
     "scale",
     "along",
     "slice",
+    "resample",
     "fill",
     "stroke",
     "opacity",

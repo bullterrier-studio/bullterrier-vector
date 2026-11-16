@@ -24,7 +24,10 @@ fn a_line_resampled_to_twelve_pixels_has_a_corner_every_twelve() -> Outcome {
 
 #[test]
 fn each_shape_reads_its_own_spacing_and_keeps_its_style_and_attributes() -> Outcome {
-    let lines = Drawing::new([Path::line((0.0, 0.0), (20.0, 0.0))?, Path::line((0.0, 5.0), (20.0, 5.0))?]);
+    let lines = Drawing::new([
+        Path::line((0.0, 0.0), (20.0, 0.0))?,
+        Path::line((0.0, 5.0), (20.0, 5.0))?,
+    ]);
     let found = drawn(&lines.resample(by_index(10.0, 20.0)), &Values::new())?;
     assert_eq!(found, ["M0 0 L10 0 L20 0", "M0 5 L20 5"]);
     let word = text("Hi", &fraunces()?).fill(Color::hex(0xff_00_00));
@@ -50,7 +53,10 @@ fn a_param_spacing_is_read_when_drawn() -> Outcome {
 fn the_step_saves_and_loads_the_same_drawing() -> Outcome {
     let drawing = Drawing::from(Path::line((0.0, 0.0), (30.0, 0.0))?).resample(by_index(5.0, 10.0));
     let json = drawing.to_json()?;
-    assert!(json.contains(r#"{"resample":{"spacing":{"by_index":{"first":5,"last":10}}}}"#), "{json}");
+    assert!(
+        json.contains(r#"{"resample":{"spacing":{"by_index":{"first":5,"last":10}}}}"#),
+        "{json}"
+    );
     let again = Drawing::from_json(&json, &Inputs::new())?;
     assert_eq!(again.to_json()?, json);
     assert_eq!(again.shapes(&Values::new())?, drawing.shapes(&Values::new())?);
@@ -60,14 +66,18 @@ fn the_step_saves_and_loads_the_same_drawing() -> Outcome {
 #[test]
 fn a_spacing_not_above_zero_names_the_step_and_a_tiny_one_is_charged_to_max_segments() -> Outcome {
     let line = Drawing::from(Path::line((0.0, 0.0), (1.0e6, 0.0))?);
-    let (place, _) = parameter_refusal(line.resample(0.0).shapes(&Values::new()))
-        .or_else(|_| -> Result<_, Box<dyn std::error::Error>> {
+    let (place, _) = parameter_refusal(line.resample(0.0).shapes(&Values::new())).or_else(
+        |_| -> Result<_, Box<dyn std::error::Error>> {
             // refused at the call: the drawing holds the error
             let error = line.resample(0.0).error().map(ToString::to_string).ok_or("no error")?;
             Ok((error, String::new()))
-        })?;
+        },
+    )?;
     assert!(place.contains("spacing"), "{place}");
     let (place, message) = parameter_refusal(line.resample(1.0e-3).shapes(&Values::new()))?;
-    assert!(place.contains("step 1 (resample)") && message.contains("MAX_SEGMENTS"), "{place}: {message}");
+    assert!(
+        place.contains("step 1 (resample)") && message.contains("MAX_SEGMENTS"),
+        "{place}: {message}"
+    );
     Ok(())
 }

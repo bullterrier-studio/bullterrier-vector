@@ -417,6 +417,11 @@ impl PyPath {
         Self::of(self.0.slice(start, end, near.map(|near| near.0)))
     }
 
+    /// Straight segments with corners `spacing` apart along the path, its ends kept.
+    fn resample(&self, spacing: f64) -> PyResult<Self> {
+        Self::of(self.0.resample(spacing))
+    }
+
     /// The same outline travelled the other way.
     fn reverse(&self) -> Self {
         Self(self.0.reverse())

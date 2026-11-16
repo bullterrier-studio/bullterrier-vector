@@ -309,6 +309,12 @@ impl PyDrawing {
         })
     }
 
+    /// Every shape as straight segments with corners `spacing` apart along it (a number, a Param or an expression, read
+    /// per shape); as `Path.resample`.
+    fn resample(&self, spacing: Num) -> PyResult<Self> {
+        checked(self.0.resample(spacing.0))
+    }
+
     /// Every shape filled with `color` (`"#rgb"`, `"#rrggbb"`, `"#rrggbbaa"` or `"none"`) or a `Gradient`.
     pub(crate) fn fill(&self, color: PaintArg) -> PyResult<Self> {
         checked(self.0.fill(color.0))

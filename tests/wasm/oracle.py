@@ -735,6 +735,24 @@ def cuts() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def resamples() -> list[Entry]:
+    """`resample` on shapes: an open and a closed outline, a curve, a per-item spacing and a Param spacing."""
+    line = btvec.Path.from_svg_path("M15 70 L50 25 L85 70")
+    circle = btvec.Path.circle((50, 50), 30)
+    gap = btvec.Param("gap", default=9, min=3, max=60, unit="px", meaning="the distance between corners")
+    drawings = {
+        "resample_open": framed(line.stroke(INK, width=2)).resample(12),
+        "resample_closed": framed(btvec.Path.rect(20, 20, 60, 60).fill(RED)).resample(25),
+        "resample_curve": framed(circle.fill(BLUE)).resample(20),
+        "resample_per_item": framed(btvec.Drawing(circle, circle.scale(0.5)).fill(GOLD)).resample(
+            btvec.by_index(30, 12)
+        ),
+        "resample_param": framed(line.stroke(INK, width=2)).resample(gap),
+    }
+    draws: dict[str, list[Draw]] = {"resample_param": [(100, 100, {}), (200, 200, {"gap": 40})]}
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -745,6 +763,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     per_item,
     booleans,
     offsets,
+    resamples,
     shadows,
     knockouts,
     halftones,
