@@ -16,7 +16,7 @@ const MEASURE: f64 = 980.0; // the width each line is stretched to fill
 const BEAT: f64 = 0.5; // seconds: 120 bpm
 const CHARACTERS: u32 = 8; // "NO\nSLEEP": `pulse` has an entry for each, the line break too
 /// The frames, as (name, seconds): the same four as the Python and JavaScript programs.
-const FRAMES: [(&str, f64); 4] = [("hairlines", 1.0), ("kick", 4.4), ("bend", 6.5), ("morph", 8.8)];
+const FRAMES: [(&str, f64); 4] = [("hairlines", 1.0), ("kick", 4.14), ("bend", 6.5), ("morph", 8.8)];
 
 /// A Param from 0 to 1, a fraction, that is 0 unless a frame says otherwise.
 fn fraction(name: &str, meaning: &str) -> Result<Param, Error> {

@@ -93,7 +93,8 @@ def smooth(x: float) -> float:
 
 def kick(t: float) -> float:
     """1 on a beat, falling to 0 within 0.3 s, and again on every beat."""
-    return max(0.0, 1 - (t % BEAT) / 0.3) ** 3
+    falling = max(0.0, 1 - (t % BEAT) / 0.3)
+    return falling * falling * falling  # not `** 3`: pow can differ by a bit from the product
 
 
 def at_time(t: float) -> btvec.Drawing:
@@ -115,5 +116,5 @@ def at_time(t: float) -> btvec.Drawing:
 drawing = at_time(6.5)  # one frame, for `uv run poe look examples/kinetic_type.py`
 
 # Four frames of the piece, in seconds: the hairlines, a kick, the bend and the turn half way.
-FRAMES = {"hairlines": 1, "kick": 4.4, "bend": 6.5, "morph": 8.8}
+FRAMES = {"hairlines": 1, "kick": 4.14, "bend": 6.5, "morph": 8.8}
 frames = {name: at_time(t).to_svg(WIDTH, HEIGHT) for name, t in FRAMES.items()}

@@ -17,7 +17,7 @@ const HEIGHT = 1350;
 const BEAT = 0.5; // seconds: 120 bpm
 const CHARACTERS = 8; // "NO\nSLEEP": `pulse` has an entry for each, the line break too
 // the frames, in seconds: the same four as the Python and Rust programs
-const FRAMES = { hairlines: 1, kick: 4.4, bend: 6.5, morph: 8.8 };
+const FRAMES = { hairlines: 1, kick: 4.14, bend: 6.5, morph: 8.8 };
 
 const read = (path) => readFileSync(new URL(path, import.meta.url));
 const font = new Uint8Array(read("../../../examples/fonts/anybody-subset.ttf"));
