@@ -174,10 +174,10 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   removes the differences between languages and between hand-written and saved files.
 - **Defaults left out of saved documents** (question 4 in formats.md). *Reason:* short files, and the code API's callers
   already rely on defaults. *Consequence:* after the first release a default changes only with a new version.
-- **Limits:** 16 MiB of text, depth 128 counted through references, 100,000 calls; schema bounds on the literals that
+- **Limits:** 16 MiB of text, depth 40 counted through references, 100,000 calls; schema bounds on the literals that
   set work; counters checked while drawing (shapes, segments, field samples, copies, glyphs). *Reason:* a document may
-  come from anyone; depth through references bounds the evaluator's recursion (small in WebAssembly), and 128 is the
-  default of common JSON parsers (serde_json's among them); work cannot be estimated beforehand (a shared drawing
+  come from anyone; depth through references bounds the evaluator's recursion (small in WebAssembly), and 40 is what
+  the loader reads on a 256 KB stack in an unoptimised build ("Bounded depth"); work cannot be estimated beforehand (a shared drawing
   stacked twice, sixty times over), so it is counted as it is done.
 - **Versioning by an integer major.** A version only grows (new calls, new optional arguments, new values); anything
   else is a new version; a reader refuses versions and names it does not document, naming them. *Reason:* one number
@@ -391,12 +391,12 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   second guard.
 - **Counters charge creation** (2026-10-31). A source charges the shapes it makes and a stack its whole list (a drawing
   used twice is charged twice), against `MAX_SHAPES` (1,000,000); steps that change or drop shapes charge nothing. The
-  charge comes before the allocation. Drawings nested more than `MAX_DEPTH` (128, the document limit, also the limit of
+  charge comes before the allocation. Drawings nested more than `MAX_DEPTH` (16, also the limit of
   an expression) deep hold an error, and a chain of steps costs no depth: it is walked in a loop and dropped in one. The
   other four counters arrive with the first step that produces what they count. *Reason:* the counters bound memory
   blow-up (a stack of itself 60 times), not the length of a chain, and the cache (V2b-2) serves repeats without
   charging. An expression is capped at `MAX_EXPR_NODES` (10,000, a shared part counted each time it is used, as
-  evaluation reaches it) beside its `MAX_DEPTH`, checked at the call without evaluating: `e = e + e` 28 times is 2^29
+  evaluation reaches it) beside its `MAX_DEPTH`, checked at the call without evaluating: `e = e + e` 15 times is 2^16 - 1
   nodes. formats.md names no such limit yet.
 - **Order of a stack** (2026-10-31). A stack writes `order` on the shapes that carry none, spread 0..1 over those shapes
   in list order (one shape: 0); a path or shape source writes none, so `Drawing(path)` equals the path. *Reason:*
@@ -451,7 +451,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **A small strict parser in the crate, no JSON dependency** (2026-10-31). `json/parse.rs` reads the text into a tree
   of its own and refuses what I-JSON refuses: a duplicate key, a lone surrogate, a number beyond a 64-bit float,
   a leading zero, `NaN`, `Infinity`, a trailing comma, bytes after the value. It counts nesting as it reads and stops at
-  `MAX_DEPTH`, so no hostile document recurses past it, and the byte limit is checked before the first byte is read.
+  `MAX_DOCUMENT_DEPTH`, so no hostile document recurses past it, and the byte limit is checked before the first byte is read.
   *Reason:* `serde_json` keeps the last of two equal keys unless a visitor is written for it, parses floats to within
   one ulp unless a feature is on (the same text must give the same bits on every target), and brings `serde`,
   `itoa`, `ryu` and `memchr` into a core that must stay small and bit-exact. The parser is about 250 lines, and the
@@ -459,7 +459,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   reader hands the digits to `f64::from_str`, which is correctly rounded on every target, and the writer lays out the
   shortest digits of `{:e}` by the rules of RFC 8785.
 - **Where the loader's checks run** (2026-10-31). `from_json` refuses a text over `MAX_DOCUMENT_BYTES` before reading
-  a byte, counts calls while it reads (`MAX_CALLS`), and the parser stops at `MAX_DEPTH` levels of text, so a deeper
+  a byte, counts calls while it reads (`MAX_CALLS`), and the parser stops at `MAX_DOCUMENT_DEPTH` levels of text, so a deeper
   text is reported as the nesting limit even when a reference check would have failed first. What the schema states
   value by value (version, names, types, arguments, the range of a literal, the rules of an expression) is found
   while reading, before `drawing-declared`; the listed checks then run in their order. `with-values` needs the calls
@@ -473,7 +473,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **Depth through references** (2026-10-31). A `{"drawing": name}` call counts as the array it names, so each level of
   reference adds that array's level; each shared drawing is measured once. A document written canonically (shared
   drawings only where two calls use them) can nest more or less than a hand-written spelling of it, so `to_json` can
-  refuse a drawing that `from_json` read, with `ParameterError` naming `MAX_DEPTH`.
+  refuse a drawing that `from_json` read, with `ParameterError` naming `MAX_DOCUMENT_DEPTH`.
 - **Shared names follow the walk** (2026-10-31). `d1`, `d2`... are given in the order the walk completes a shared
   drawing: a call is reached after the drawings it builds on and takes. In formats.md's example (`a` and `b = a.rotate`)
   this is `a`, then `b`.
@@ -1396,17 +1396,30 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   of the 256 KB. They are a binary of their own that `poe rust-test` runs a second time with `--profile stack` (`inherits =
   "dev"`: unoptimised, the worst case), and a 120 KB local added under the glyph reader fails there and passes optimised. The
   recursion tests (a million-level expression, a hundred-thousand-step chain) fail on a recursive walk at either level.
-- **Bounded depth, not a bigger stack** (2026-11-01). Whatever a caller can build has its depth limited where it is
-  built, so no walk recurses over unbounded depth: drawings nested past `MAX_DEPTH` (128) are refused when built, the
-  parser refuses a document nested past it before the loader recurses, and an expression past 128 levels becomes a node
-  without operands (operators never fail, so a loop can build one; the call that uses it is refused). The smallest
-  supported thread stack is **256 KB** (a Python thread gets 512 KB on macOS); measured need in a release build: 128
-  nested drawings about 52 KB, the deepest document `from_json` reads 96 to 128 KB. In WebAssembly the engine throws a
-  catchable `RangeError` below about 0.25 MB. *Reason:* an overflow is a segfault in the caller's process. A growing
-  stack (`stacker`) was rejected: it cannot grow the WebAssembly engine's stack, loses CPython's overflow guard on 3.14
-  and later, adds `unsafe` and a C compiler to the sdist build, and trades a bounded stack for unbounded memory.
-  *Consequence:* `tests/test_stack_depth.py` and `crates/core/tests/stack.rs` run the deepest structures on the minimum
-  stack; a new node or reader adds its structure to them.
+- **Bounded depth, not a bigger stack** (2026-11-01, limits measured 2026-11-16). Whatever a caller can build has its
+  depth limited where it is built, so no walk recurses over unbounded depth: drawings nested past `MAX_DEPTH` (16) are
+  refused when built, an expression past 16 levels becomes a node without operands (operators never fail, so a loop can
+  build one; the call that uses it is refused), and the parser refuses a document nested past `MAX_DOCUMENT_DEPTH` (40)
+  before the loader recurses. The smallest supported thread stack is **256 KB** (a Python thread gets 512 KB on macOS),
+  and the promise holds for every build: the stack tests run unoptimised (`[profile.stack]`), whose frames are the
+  largest. In WebAssembly the engine throws a catchable `RangeError` below about 0.25 MB. *Reason:* an overflow is a
+  segfault in the caller's process. A growing stack (`stacker`) was rejected: it cannot grow the WebAssembly engine's
+  stack, loses CPython's overflow guard on 3.14 and later, adds `unsafe` and a C compiler to the sdist build, and trades a
+  bounded stack for unbounded memory.
+  *Measured* (macOS arm64, `stack.rs` on a thread of N KB, N in steps of 16 up to 256; the smallest N that passes):
+  at the first limit of 128 the nested rows needed 1 MB (768 KB failed), 128 nested drawings over a 128-level
+  expression 2 MB, and a document of 128 JSON levels (30 nested stacks) 512 KB (448 KB failed), so the promise held in
+  release builds only (52 KB and 96 to 128 KB there). At `MAX_DEPTH` 16 and `MAX_DOCUMENT_DEPTH` 40: drawings nested
+  through stacks, booleans or clips 128 KB, through masks 112 KB, over the deepest expression 160 KB, over the deepest
+  glyph (the glyph alone needs 128 KB) 176 KB, the deepest document 144 KB and over the deepest expression 160 KB; the
+  worst case is 176 KB of 256, a margin of 30 per cent for another platform's frames. A depth of 20 left 224 KB (13 per
+  cent), so 16. The frames cost about 6 KB a level of nesting in drawing evaluation (`drawing/eval.rs`), 4 KB a level of
+  a document (`json/parse.rs`, `read.rs`, `checks.rs`) and more in an expression's value.
+  *Rejected:* walks over nested drawings made iterative (an explicit stack in `eval.rs` and `graph.rs`) while keeping 128:
+  the loader's three modules and the expression walk overflow too, well past one module of work. *Consequence:*
+  `tests/test_stack_depth.py` and `crates/core/tests/stack.rs` run the deepest structures on the minimum stack; a new
+  node or reader adds its structure to them, and a limit raised or a frame grown is measured again in the same way (a
+  `KB` sweep of those rows). A document holds about ten nested drawings, an example such as `hatched_poster` fits.
 
 The template's decisions (the gate tiers, the pass record, the memory cap, the test layout, the platforms) are in
 [template-decisions.md](template-decisions.md).

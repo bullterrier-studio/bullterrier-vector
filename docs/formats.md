@@ -478,7 +478,8 @@ path or URL, or reads anything but the bytes the caller supplies. An input's nam
 | Limit | Value | Counts |
 |---|---|---|
 | `MAX_DOCUMENT_BYTES` | 16 MiB | the document's UTF-8 text |
-| `MAX_DEPTH` | 128 | nesting of arrays and objects, the top-level value being 1, counted through references: a `{"drawing": name}` call counts as the array it names, as if each shared drawing were written in place |
+| `MAX_DEPTH` | 16 | drawings nested in drawings, a lone drawing being 1, and the levels of an expression; a drawing or expression past it is refused when built or used, in a document too |
+| `MAX_DOCUMENT_DEPTH` | 40 | nesting of arrays and objects, the top-level value being 1, counted through references: a `{"drawing": name}` call counts as the array it names, as if each shared drawing were written in place |
 | `MAX_CALLS` | 100,000 | call objects in the document: sources, steps, fields, flows and expressions |
 | `MAX_PARAMS` | 1,000 | entries of `params`; in code, the Params of different names a drawing reads, raising `ParameterError` at the call that passes it |
 
@@ -523,7 +524,7 @@ registered, with a test named after it; every later call brings its own checks a
 | `limits` | the text passes `MAX_DOCUMENT_BYTES`, the calls pass `MAX_CALLS` or `params` passes `MAX_PARAMS` (the pointer is the first entry past it) |
 | `drawing-declared` | a `drawing` source names no entry of `drawings` |
 | `drawing-acyclic` | a shared drawing reaches itself through references |
-| `depth` | the nesting passes `MAX_DEPTH`; it runs after the two reference checks, so a cycle is reported by `drawing-acyclic` |
+| `depth` | the nesting passes `MAX_DOCUMENT_DEPTH`; it runs after the two reference checks, so a cycle is reported by `drawing-acyclic` |
 | `param-range` | `min` is not below `max`, the default lies outside `min..max`, or a cyclic Param's range is not one turn |
 | `param-unique` | two entries of `params` share a name |
 | `param-declared` | a `param` expression or a `with_values` key names no entry of `params` |
@@ -538,7 +539,7 @@ registered, with a test named after it; every later call brings its own checks a
 | `font-checks` | with the font supplied (each run's own font for the axes and features of the run): an axis or feature the font lacks, the axis a `fit` names if the font lacks it (`fit` `"size"` is not an axis), an axis value outside its range (`ParameterError`: the caller supplied the wrong font) |
 | `inputs-supplied` | an input the document declares that `inputs` does not give, a name in `inputs` the document does not declare, two names with equal bytes, bytes that do not match `sha256`, a font the library cannot read, a map whose bytes are not `width × height` (a checked multiply: an overflow is a mismatch; `ParameterError`) |
 
-As built (V2c). `json-text` and `limits` run while the text is read: the parser stops at `MAX_DEPTH` levels of text, so a
+As built (V2c). `json-text` and `limits` run while the text is read: the parser stops at `MAX_DOCUMENT_DEPTH` levels of text, so a
 deeper text is reported as the nesting limit even where a reference check would have failed first, and the byte limit is
 checked before the first byte is read. What the schema states value by value (version, names, types, arguments, the
 range of a literal, the rules of an expression) is found while reading, before `drawing-declared`; the listed checks

@@ -485,7 +485,7 @@ proptest! {
 
 #[test]
 fn text_nested_far_past_the_limit_is_refused_not_recursed_into() {
-    for levels in [129, 1000, 100_000] {
+    for levels in [41, 1000, 100_000] {
         for (open, close) in [("[", "]"), ("{\"a\":", "}")] {
             let text = format!("{}1{}", open.repeat(levels), close.repeat(levels));
             assert!(

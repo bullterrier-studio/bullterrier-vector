@@ -256,7 +256,7 @@ fn an_expression_with_no_param_is_a_constant_and_one_with_a_param_is_not() -> Ou
 }
 
 #[test]
-fn an_expression_deeper_than_128_levels_is_refused() -> Outcome {
+fn an_expression_deeper_than_16_levels_is_refused() -> Outcome {
     // 1 + 1 + ... : each addition is one level deeper than the one before
     let deep = |levels: usize| {
         let mut expression = Expr::from(1.0);
@@ -266,37 +266,37 @@ fn an_expression_deeper_than_128_levels_is_refused() -> Outcome {
         expression
     };
     assert_eq!(value(&deep(1))?, 1.0);
-    assert_eq!(value(&deep(128))?, 128.0);
-    let (_, message) = parameter_refusal(value(&deep(129)))?;
-    assert!(message.contains("128") && message.contains("129"), "{message}");
+    assert_eq!(value(&deep(16))?, 16.0);
+    let (_, message) = parameter_refusal(value(&deep(17)))?;
+    assert!(message.contains("16") && message.contains("17"), "{message}");
     parameter_refusal(value(&deep(200)))?;
     // the same through negation and through the right operand
     let mut negated = Expr::from(1.0);
-    for _ in 1..129 {
+    for _ in 1..17 {
         negated = -negated;
     }
     parameter_refusal(value(&negated))?;
     let mut right = Expr::from(1.0);
-    for _ in 1..129 {
+    for _ in 1..17 {
         right = 1.0 + right;
     }
     parameter_refusal(value(&right))?;
-    // 128 levels through the right operand is accepted; 1 - (1 - (... 1)) with 127 subtractions is 0
+    // 16 levels through the right operand is accepted; 1 - (1 - (... 1)) with 15 subtractions is 0
     let mut ok = Expr::from(1.0);
-    for _ in 1..128 {
+    for _ in 1..16 {
         ok = 1.0 - ok;
     }
     assert_eq!(value(&ok)?, 0.0);
     Ok(())
 }
 
-/// An expression of exactly `nodes` nodes (a number, a Param or an operator is one) that is shallow: an odd count is
-/// an operator over two halves, an even one a negation, the only operator with one operand.
+/// An expression of exactly `nodes` nodes (a number, a Param or an operator is one) that is shallow: an operator over two
+/// halves, or for two nodes a negation, the only operator with one operand.
 fn with_nodes(nodes: usize) -> Expr {
     if nodes <= 1 {
         Expr::from(1.0)
-    } else if nodes.is_multiple_of(2) {
-        -with_nodes(nodes - 1)
+    } else if nodes == 2 {
+        -with_nodes(1)
     } else {
         let left = (nodes - 1) / 2;
         with_nodes(left) + with_nodes(nodes - 1 - left)
@@ -311,10 +311,10 @@ fn an_expression_of_more_than_10000_nodes_is_refused_counting_shared_nodes_each_
         message.contains("MAX_EXPR_NODES") && message.contains("10000"),
         "{message}"
     );
-    // `e + e` shares its operand but is worked out twice: 28 doublings are 2^29 - 1 nodes and 19 s of work
+    // `e + e` shares its operand but is worked out twice: 15 doublings are 2^16 - 1 nodes
     let x = param("x", 1.0)?;
     let mut shared = Expr::from(&x);
-    for _ in 0..28 {
+    for _ in 0..15 {
         shared = &shared + &shared;
     }
     let (_, message) = parameter_refusal(value(&shared))?;
@@ -342,7 +342,7 @@ fn an_expression_a_million_levels_deep_is_refused_and_dropped_without_a_crash() 
 }
 
 #[test]
-fn a_per_item_expression_is_deep_enough_at_128_levels_and_too_deep_at_129() -> Outcome {
+fn a_per_item_expression_is_deep_enough_at_16_levels_and_too_deep_at_17() -> Outcome {
     // a Param is 1 level and each per-item number over it one more
     let x = param("x", 1.0)?;
     let nest = |levels: usize| {
@@ -352,8 +352,8 @@ fn a_per_item_expression_is_deep_enough_at_128_levels_and_too_deep_at_129() -> O
         }
         deepest
     };
-    assert!(!nest(128).to_string().starts_with("(an expression"));
-    assert!(nest(129).to_string().starts_with("(an expression 129"));
+    assert!(!nest(16).to_string().starts_with("(an expression"));
+    assert!(nest(17).to_string().starts_with("(an expression 17"));
     Ok(())
 }
 

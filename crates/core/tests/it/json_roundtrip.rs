@@ -397,6 +397,10 @@ proptest! {
             Ok(text) => text,
             // a divisor that is a literal 0 has no spelling in a document
             Err(Error::Parameter { parameter, .. }) if parameter == "expression" => return Err(TestCaseError::reject("a zero divisor")),
+            // a document is at most `MAX_DOCUMENT_DEPTH` levels deep, and a random tree can nest past it
+            Err(Error::Parameter { parameter, message }) if parameter == "to_json" && message.contains("MAX_DOCUMENT_DEPTH") => {
+                return Err(TestCaseError::reject("nests past MAX_DOCUMENT_DEPTH"));
+            }
             Err(other) => return Err(TestCaseError::fail(format!("to_json: {other}"))),
         };
         let loaded = Drawing::from_json(&text, &Inputs::new()).map_err(|error| TestCaseError::fail(format!("{error}\n{text}")))?;

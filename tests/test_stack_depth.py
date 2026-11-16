@@ -37,17 +37,17 @@ def step(name):
 
 
 def nested(leaf_expression):
-    """128 drawings nested (a drawing holding two items per level, so the nesting is real), over a leaf that reads x."""
+    """16 drawings nested (a drawing holding two items per level, so the nesting is real), over a leaf that reads x."""
     drawing = btvec.Path.circle((5, 5), 2).fill("#112233").translate(leaf_expression, 0)
-    for _ in range(127):
+    for _ in range(15):
         drawing = btvec.Drawing(drawing, other)
     return drawing
 
 
 def nested_through_other(leaf_expression):
-    """128 drawings nested through the `other` of a boolean step (union, subtract, intersect, exclude in turn)."""
+    """16 drawings nested through the `other` of a boolean step (union, subtract, intersect, exclude in turn)."""
     drawing = btvec.Path.circle((5, 5), 2).fill("#112233").translate(leaf_expression, 0)
-    for level in range(127):
+    for level in range(15):
         step = ("union", "subtract", "intersect", "exclude")[level % 4]
         drawing = getattr(btvec.Path.circle((5, 5), 4).fill("#445566"), step)(drawing)
     return drawing
@@ -68,7 +68,7 @@ def nested_through(step_name, levels):
 
 def deepest_cut_document(step_name):
     """The deepest nesting through `step_name` that `to_json` accepts, saved, loaded, drawn and dropped."""
-    for levels in range(127, 0, -1):
+    for levels in range(15, 0, -1):
         drawing = nested_through(step_name, levels // 2 if step_name == "mask" else levels)
         try:
             text = drawing.to_json()
@@ -109,7 +109,7 @@ def every_output_refusing(drawing):
 def deepest_json_drawing():
     """The deepest nesting `to_json` accepts, as a document."""
     x = btvec.Param("x", default=1, min=0, max=10)
-    for levels in range(128, 0, -1):
+    for levels in range(16, 0, -1):
         try:
             drawing = btvec.Path.circle((5, 5), 2).fill("#112233").translate(x, 0)
             for _ in range(levels - 1):
@@ -154,7 +154,7 @@ def run():
         del drawing
     elif scenario in ("nested_through_clip", "nested_through_mask"):
         name = scenario.removeprefix("nested_through_")
-        drawing = nested_through(name, 63 if name == "mask" else 127)
+        drawing = nested_through(name, 7 if name == "mask" else 15)
         every_output_refusing(drawing)
         step("drop")
         del drawing
@@ -162,7 +162,7 @@ def run():
         deepest_cut_document(scenario.removeprefix("cut_document_"))
     elif scenario == "nested_with_the_deepest_expression":
         deepest = x
-        for _ in range(127):
+        for _ in range(15):
             deepest = deepest + 1
         drawing = nested(deepest)
         every_output(drawing)
@@ -192,7 +192,7 @@ def run():
         del a, b
     elif scenario == "nested_with_the_deepest_per_item_expression":
         deepest = btvec.by_index(x, 1)
-        for level in range(126):
+        for level in range(14):
             deepest = (btvec.by_order(0, deepest), btvec.random(0, deepest), btvec.stagger(deepest))[level % 3]
         drawing = nested(deepest)
         every_output(drawing)
@@ -272,7 +272,7 @@ def run():
     elif scenario == "text_of_runs_with_the_deepest_axis_expression":
         step("fonts")
         serif, sans = btvec.Font.bundled("fraunces"), btvec.Font.bundled("bricolage_grotesque")
-        for levels in range(126, 0, -2):  # an even number of negations is the weight itself
+        for levels in range(14, 0, -2):  # an even number of negations is the weight itself
             deepest = serif.axes["wght"]
             for _ in range(levels):
                 deepest = -deepest
@@ -291,7 +291,7 @@ def run():
         every_output(loaded, params=False)
         step("nested")
         nest = drawing
-        for _ in range(126):
+        for _ in range(14):
             nest = btvec.Drawing(nest, other)
         every_output(nest, params=False)
         step("drop")
@@ -338,17 +338,17 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
 @pytest.mark.parametrize(
     "scenario",
     [
-        pytest.param("nested", id="128-drawings-nested"),
-        pytest.param("nested_through_other", id="128-drawings-nested-through-the-other-of-booleans"),
-        pytest.param("nested_through_clip", id="128-drawings-nested-through-the-region-of-clips"),
-        pytest.param("nested_through_mask", id="128-drawings-nested-through-the-source-of-masks"),
+        pytest.param("nested", id="16-drawings-nested"),
+        pytest.param("nested_through_other", id="16-drawings-nested-through-the-other-of-booleans"),
+        pytest.param("nested_through_clip", id="16-drawings-nested-through-the-region-of-clips"),
+        pytest.param("nested_through_mask", id="16-drawings-nested-through-the-source-of-masks"),
         pytest.param("cut_document_clip", id="deepest-document-of-clips-to_json-accepts"),
         pytest.param("cut_document_mask", id="deepest-document-of-masks-to_json-accepts"),
-        pytest.param("nested_with_the_deepest_expression", id="128-drawings-nested-over-a-128-level-expression"),
+        pytest.param("nested_with_the_deepest_expression", id="16-drawings-nested-over-a-16-level-expression"),
         pytest.param("expression_a_loop_builds", id="expression-100000-levels-built-by-a-loop"),
         pytest.param(
             "nested_with_the_deepest_per_item_expression",
-            id="128-drawings-nested-over-a-128-level-per-item-expression",
+            id="16-drawings-nested-over-a-16-level-per-item-expression",
         ),
         pytest.param("per_item_expression_a_loop_builds", id="per-item-expression-100000-levels-built-by-a-loop"),
         pytest.param("deepest_document", id="deepest-document-to_json-accepts"),
@@ -356,7 +356,7 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
         pytest.param("svg_documents", id="svg-128-levels-and-100000-levels"),
         pytest.param("text_in_the_deepest_composite_glyph", id="text-of-a-glyph-of-64-nested-composites"),
         pytest.param(
-            "text_of_runs_with_the_deepest_axis_expression", id="text-of-runs-with-a-127-level-axis-expression"
+            "text_of_runs_with_the_deepest_axis_expression", id="text-of-runs-with-a-15-level-axis-expression"
         ),
     ],
 )

@@ -49,7 +49,7 @@ impl Drawing {
     ///
     /// # Errors
     /// [`Error::Format`] with the JSON Pointer of the offending value if `text` is not a document this library reads:
-    /// not UTF-8 I-JSON, past a limit (`MAX_DOCUMENT_BYTES`, `MAX_CALLS`, `MAX_DEPTH`), against the format's schema,
+    /// not UTF-8 I-JSON, past a limit (`MAX_DOCUMENT_BYTES`, `MAX_CALLS`, `MAX_DOCUMENT_DEPTH`), against the format's schema,
     /// or a check that relates values across the document fails. A value a call refuses keeps the call's message.
     /// [`Error::Parameter`] naming `inputs.` and the name of an input if `inputs` is not what the document declares:
     /// an input missing or not declared, two names with equal bytes, bytes that do not match the `sha256` of their

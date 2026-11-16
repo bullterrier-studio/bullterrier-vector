@@ -176,8 +176,8 @@ def test_a_bad_document_is_a_format_error_whose_message_starts_with_the_pointer(
     assert not isinstance(refused.value, btvec.ParameterError)
 
 
-def test_nesting_past_max_depth_is_a_format_error_at_the_value_that_passes_it() -> None:
-    with pytest.raises(btvec.FormatError, match=r"^/root/0/0/[0-9/]+: .*MAX_DEPTH 128"):
+def test_nesting_past_max_document_depth_is_a_format_error_at_the_value_that_passes_it() -> None:
+    with pytest.raises(btvec.FormatError, match=r"^/root/0/0/[0-9/]+: .*MAX_DOCUMENT_DEPTH 40"):
         btvec.Drawing.from_json('{"version":1,"root":' + "[" * 200 + "]" * 200 + "}")
 
 

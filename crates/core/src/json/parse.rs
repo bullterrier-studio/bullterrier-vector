@@ -2,18 +2,18 @@
 //!
 //! It refuses what the format refuses: a duplicate key, a lone surrogate, a number beyond a 64-bit float, a leading
 //! zero, `NaN`, `Infinity`, a trailing comma, a control character in a string, bytes after the value. It never
-//! recurses past `MAX_DEPTH` levels. An error carries the JSON Pointer of the value being read.
+//! recurses past `MAX_DOCUMENT_DEPTH` levels. An error carries the JSON Pointer of the value being read.
 
 use super::value::{Json, pointer_token};
 use crate::Error;
-use crate::limits::MAX_DEPTH;
+use crate::limits::MAX_DOCUMENT_DEPTH;
 use std::collections::BTreeMap;
 
 /// The JSON value `text` is.
 ///
 /// # Errors
 /// [`Error::Format`] at the pointer of the value being read, if `text` is not UTF-8 I-JSON, or nests deeper than
-/// `MAX_DEPTH` levels.
+/// `MAX_DOCUMENT_DEPTH` levels.
 pub(crate) fn parse(text: &str) -> Result<Json, Error> {
     let mut parser = Parser {
         bytes: text.as_bytes(),
@@ -107,8 +107,8 @@ impl Parser<'_> {
     }
 
     fn too_deep(depth: usize) -> Option<Failure> {
-        (depth > MAX_DEPTH).then(|| Failure {
-            message: format!("the nesting passes MAX_DEPTH {MAX_DEPTH}"),
+        (depth > MAX_DOCUMENT_DEPTH).then(|| Failure {
+            message: format!("the nesting passes MAX_DOCUMENT_DEPTH {MAX_DOCUMENT_DEPTH}"),
             tokens: Vec::new(),
         })
     }

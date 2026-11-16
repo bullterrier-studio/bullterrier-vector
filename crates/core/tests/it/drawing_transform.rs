@@ -184,15 +184,15 @@ fn an_expression_deeper_than_the_limit_is_refused_at_the_call_even_with_a_param_
     let p = Param::new("p", 0.0, -1.0, 1.0)?;
     let line = Drawing::from(Path::line((0.0, 0.0), (2.0, 1.0))?);
     let mut deep = Expr::from(&p);
-    for _ in 0..127 {
+    for _ in 0..15 {
         deep = deep + 1.0;
     }
-    // 128 levels are accepted, 129 are not
+    // 16 levels are accepted, 17 are not
     assert_eq!(line.translate(deep.clone(), 0.0).error(), None);
     let drawing = line.translate(deep + 1.0, 0.0);
     let (name, message) = parameter_refusal(Err::<(), _>(held(&drawing)?))?;
     assert_eq!(name, "step 1 (translate).dx");
-    assert!(message.contains("129 levels") && message.contains("128"), "{message}");
+    assert!(message.contains("17 levels") && message.contains("16"), "{message}");
     Ok(())
 }
 

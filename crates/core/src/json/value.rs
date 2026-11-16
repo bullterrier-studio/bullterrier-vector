@@ -50,7 +50,7 @@ impl Json {
     }
 
     /// Appends the canonical text. The recursion is as deep as the tree, which the reader and the writer keep within
-    /// `MAX_DEPTH` levels of nesting plus one expression's depth.
+    /// `MAX_DOCUMENT_DEPTH` levels of nesting plus one expression's depth.
     fn write_to(&self, into: &mut String) {
         match self {
             Self::Null => into.push_str("null"),

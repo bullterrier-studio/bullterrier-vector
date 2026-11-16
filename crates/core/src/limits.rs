@@ -13,12 +13,18 @@ pub(crate) const MAX_SHAPES: usize = 1_000_000;
 
 /// The deepest nesting of drawings inside drawings a call accepts, a lone drawing counting as 1; also the deepest
 /// expression. It bounds the recursion that draws and prints them. A long chain of steps costs no depth.
-// constant: formats.md "Limits and security" sets MAX_DEPTH to 128 for documents; expressions written in code follow
-// it. A stack takes about four JSON levels, so a code drawing nested over about 31 stacks builds but `to_json` refuses it
-pub(crate) const MAX_DEPTH: usize = 128;
+// constant: measured, the deepest nesting that draws on the smallest supported stack (256 KB) in an unoptimised build
+// with a margin: docs/design-decisions.md, "Bounded depth". A stack takes about four JSON levels, so a code drawing
+// nested over about ten stacks builds but `to_json` refuses it
+pub(crate) const MAX_DEPTH: usize = 16;
+
+/// The deepest nesting of arrays and objects a JSON document may have, counted through references. A document holds
+/// every expression and drawing `MAX_DEPTH` allows: an expression takes two levels for each of its own.
+// constant: measured as `MAX_DEPTH` is, on the loader and the writer (docs/design-decisions.md, "Bounded depth")
+pub(crate) const MAX_DOCUMENT_DEPTH: usize = 40;
 
 /// The most nodes an expression may have, a shared part counted each time it is used, as evaluation visits it. It
-/// bounds the work of one number: an expression that adds itself to itself 28 times is 2^29 nodes.
+/// bounds the work of one number: an expression that adds itself to itself 15 times is 2^16 - 1 nodes.
 // constant: neither formats.md nor api.md names a limit on expressions; 10,000 nodes is far beyond any expression
 // written by hand and evaluates in microseconds
 pub(crate) const MAX_EXPR_NODES: usize = 10_000;
@@ -71,7 +77,7 @@ pub(crate) const MAX_SVG_ELEMENTS: usize = 20_000;
 pub(crate) const MAX_SVG_NODES: u32 = (MAX_SVG_ELEMENTS * 4) as u32;
 
 /// The deepest nesting of elements `Drawing::from_svg` reads, the root counting as 1.
-// constant: the depth of `MAX_DEPTH`, which bounds a document `from_json` reads; libxml2 refuses 256 levels
+// constant: libxml2 refuses 256 levels; the reader of the deepest SVG needs under 32 KB of stack (stack.rs)
 pub(crate) const MAX_SVG_DEPTH: usize = 128;
 
 /// The most distinct Params a drawing may read, those a `with_values` fixed included, and the most entries of a

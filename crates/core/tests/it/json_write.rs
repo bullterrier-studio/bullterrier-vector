@@ -657,7 +657,7 @@ fn a_drawing_past_max_calls_is_refused() -> Outcome {
 }
 
 #[test]
-fn a_drawing_nested_past_max_depth_is_refused() -> Outcome {
+fn a_drawing_nested_past_max_document_depth_is_refused() -> Outcome {
     let nested = |levels: usize| -> Result<Drawing, Error> {
         let mut drawing = square()?;
         for _ in 0..levels {
@@ -665,9 +665,9 @@ fn a_drawing_nested_past_max_depth_is_refused() -> Outcome {
         }
         Ok(drawing)
     };
-    assert!(nested(20)?.to_json().is_ok());
-    let (parameter, message) = parameter_refusal(nested(40)?.to_json())?;
+    assert!(nested(2)?.to_json().is_ok());
+    let (parameter, message) = parameter_refusal(nested(12)?.to_json())?;
     assert_eq!(parameter, "to_json");
-    assert!(message.contains("MAX_DEPTH 128"), "{message}");
+    assert!(message.contains("MAX_DOCUMENT_DEPTH 40"), "{message}");
     Ok(())
 }

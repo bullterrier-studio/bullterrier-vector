@@ -223,7 +223,7 @@ impl Expr {
     /// # Errors
     /// [`Error::Parameter`] naming the Param if a value given for it is not accepted, or if it was given a list (a
     /// list has an entry per shape, so it is read where there are shapes); naming the expression if it is deeper than
-    /// 128 levels or has more than 10,000 nodes (a shared part counted each time), if it divides by zero, or if any step of it is NaN or infinite.
+    /// 16 levels or has more than 10,000 nodes (a shared part counted each time), if it divides by zero, or if any step of it is NaN or infinite.
     pub fn value(&self, values: &Values) -> Result<f64, Error> {
         self.check_limits()?;
         self.evaluate(values, None)

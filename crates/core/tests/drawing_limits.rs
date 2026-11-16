@@ -131,17 +131,18 @@ fn a_shape_put_back_into_a_drawing_is_charged_like_a_path() -> Outcome {
 
 #[test]
 fn a_stack_of_a_drawing_with_itself_is_charged_each_time_and_stops() -> Outcome {
-    let doubled = |times: usize| {
+    // four copies of the drawing a level: nesting is bounded, so the count comes from width
+    let quadrupled = |times: usize| {
         let mut drawing = nothing();
         for _ in 0..times {
-            drawing = Drawing::new([drawing.clone(), drawing]);
+            drawing = Drawing::new([drawing.clone(), drawing.clone(), drawing.clone(), drawing]);
         }
         drawing
     };
-    // 2^15 shapes, made 16 x 2^15 times over by the sources and the stacks: well under the limit
-    assert_eq!(drawn(&doubled(15))?, 32_768);
-    // 2^20 shapes in the list: the draw is refused, and the refusal names where
-    let (name, message) = parameter_refusal(doubled(20).shapes(&Values::new()))?;
+    // 4^7 shapes, made 8 x 4^7 times over by the sources and the stacks: well under the limit
+    assert_eq!(drawn(&quadrupled(7))?, 16_384);
+    // 4^10 shapes in the list: the draw is refused, and the refusal names where
+    let (name, message) = parameter_refusal(quadrupled(10).shapes(&Values::new()))?;
     assert!(name.contains("(stack)"), "{name}");
     assert!(
         message.contains("MAX_SHAPES") && message.contains("1000000"),
@@ -172,15 +173,15 @@ fn nest(depth: usize) -> Drawing {
 }
 
 #[test]
-fn drawings_nested_128_deep_are_accepted_and_129_are_not() -> Outcome {
-    let accepted = nest(128);
+fn drawings_nested_16_deep_are_accepted_and_17_are_not() -> Outcome {
+    let accepted = nest(16);
     assert_eq!(accepted.error(), None);
-    assert_eq!(drawn(&accepted)?, 128);
-    let refused = nest(129);
+    assert_eq!(drawn(&accepted)?, 16);
+    let refused = nest(17);
     let (name, message) = parameter_refusal(Err::<(), _>(refused.error().cloned().ok_or("no error held")?))?;
     assert_eq!(name, "source (stack).items");
     assert!(
-        message.contains("129") && message.contains("MAX_DEPTH") && message.contains("128"),
+        message.contains("17") && message.contains("MAX_DEPTH") && message.contains("16"),
         "{message}"
     );
     // the drawing keeps the error through a step and returns it when drawn
@@ -200,15 +201,15 @@ fn nest_other(depth: usize) -> Drawing {
 }
 
 #[test]
-fn drawings_nested_128_deep_through_other_are_accepted_and_129_are_not() -> Outcome {
-    let accepted = nest_other(128);
+fn drawings_nested_16_deep_through_other_are_accepted_and_17_are_not() -> Outcome {
+    let accepted = nest_other(16);
     assert_eq!(accepted.error(), None);
     assert_eq!(drawn(&accepted)?, 1);
-    let refused = nest_other(129);
+    let refused = nest_other(17);
     let (name, message) = parameter_refusal(Err::<(), _>(refused.error().cloned().ok_or("no error held")?))?;
     assert_eq!(name, "step 1 (union).other");
     assert!(
-        message.contains("129") && message.contains("MAX_DEPTH") && message.contains("128"),
+        message.contains("17") && message.contains("MAX_DEPTH") && message.contains("16"),
         "{message}"
     );
     Ok(())
@@ -217,10 +218,10 @@ fn drawings_nested_128_deep_through_other_are_accepted_and_129_are_not() -> Outc
 #[test]
 fn a_frame_adds_a_level_unless_the_drawing_is_a_stack_it_can_resize() {
     // a stack is given the size, with no nesting
-    assert_eq!(nest(128).with_size(10.0, 10.0).error(), None);
+    assert_eq!(nest(16).with_size(10.0, 10.0).error(), None);
     // any other drawing is stacked alone in the frame: one level more
-    assert_eq!(nest(127).translate(1.0, 0.0).with_size(10.0, 10.0).error(), None);
-    assert_ne!(nest(128).translate(1.0, 0.0).with_size(10.0, 10.0).error(), None);
+    assert_eq!(nest(15).translate(1.0, 0.0).with_size(10.0, 10.0).error(), None);
+    assert_ne!(nest(16).translate(1.0, 0.0).with_size(10.0, 10.0).error(), None);
 }
 
 #[test]
@@ -250,10 +251,10 @@ fn a_chain_of_a_hundred_thousand_steps_prints_without_overflowing_the_stack() {
 
 #[test]
 fn an_expression_that_shares_itself_is_refused_at_the_call_without_being_worked_out() -> Outcome {
-    // each doubling shares the expression and reads it twice: 2^29 - 1 nodes, 19 s of evaluation
+    // each doubling shares the expression and reads it twice: 2^16 - 1 nodes after 15 of them, past MAX_EXPR_NODES
     let x = Param::new("x", 1.0, 0.0, 10.0)?;
     let mut shared = bullterrier_vector::Expr::from(&x);
-    for _ in 0..28 {
+    for _ in 0..15 {
         shared = &shared + &shared;
     }
     let drawing = nothing().translate(&shared, 0.0);

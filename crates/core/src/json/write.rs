@@ -4,7 +4,7 @@ use super::value::Json;
 use super::{bare, depth};
 use crate::drawing::Graph;
 use crate::expr::{Op, View};
-use crate::limits::{MAX_CALLS, MAX_DEPTH, MAX_DOCUMENT_BYTES};
+use crate::limits::{MAX_CALLS, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_DEPTH};
 use crate::node::{Args, Given};
 use crate::shape::{SELECTABLE, Single};
 use crate::{Arg, Color, Drawing, Error, Expr, GradientKind, Kind, Literal, Paint, Select, Shape, Value, Values, Verb};
@@ -19,15 +19,17 @@ impl Drawing {
     ///
     /// # Errors
     /// The first error of the chain that built the drawing; [`Error::Parameter`] naming `to_json` if the document
-    /// would pass `MAX_DOCUMENT_BYTES`, `MAX_CALLS` or `MAX_DEPTH`, which `from_json` would refuse; naming
+    /// would pass `MAX_DOCUMENT_BYTES`, `MAX_CALLS` or `MAX_DOCUMENT_DEPTH`, which `from_json` would refuse; naming
     /// `expression` if a part of an expression that reads no Param has no value (a division by zero).
     pub fn to_json(&self) -> Result<String, Error> {
         let document = Writer::new(self)?.document()?;
         let nesting = depth::of(&document.json);
-        if nesting > MAX_DEPTH {
+        if nesting > MAX_DOCUMENT_DEPTH {
             return Err(Error::parameter(
                 "to_json",
-                format!("the document nests {nesting} levels deep, but MAX_DEPTH {MAX_DEPTH} is the most accepted"),
+                format!(
+                    "the document nests {nesting} levels deep, but MAX_DOCUMENT_DEPTH {MAX_DOCUMENT_DEPTH} is the most accepted"
+                ),
             ));
         }
         if document.calls > MAX_CALLS {

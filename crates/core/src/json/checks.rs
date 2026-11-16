@@ -6,7 +6,7 @@ use super::depth;
 use super::doc::{Call, Doc, Ex, InputKind, Value, What, flat};
 use super::read::reason;
 use super::value::{Json, pointer_token};
-use crate::limits::MAX_DEPTH;
+use crate::limits::MAX_DOCUMENT_DEPTH;
 use crate::{Error, Font, Param, Path};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -158,11 +158,11 @@ fn drawings(doc: &Doc, top: &Json) -> Result<Vec<usize>, Error> {
     }
     // depth
     let nesting = depth::of(top);
-    if nesting > MAX_DEPTH {
+    if nesting > MAX_DOCUMENT_DEPTH {
         return Err(refuse(
             "",
             format!(
-                "the document nests {nesting} levels deep through its references, but MAX_DEPTH {MAX_DEPTH} is the most accepted"
+                "the document nests {nesting} levels deep through its references, but MAX_DOCUMENT_DEPTH {MAX_DOCUMENT_DEPTH} is the most accepted"
             ),
         ));
     }
