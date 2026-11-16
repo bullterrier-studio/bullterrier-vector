@@ -43,6 +43,18 @@ def test_the_amount_and_the_bottom_blend_between_the_straight_edge_and_the_curve
     assert has(half, (50, 110))
 
 
+def test_swapping_top_and_bottom_mirrors_the_result() -> None:
+    # v = 0 lies on `top`: a `bottom` above `top` turns the frame over
+    # (the column x = 50 runs from T = (50, 10) to B = (50, 120))
+    top, bottom = SLOPE, btvec.Path.line((0, 100), (100, 140))
+    column = btvec.Path.line((50, 0), (50, 100))
+    upright = column.envelope(top, bottom, frame=(0, 0, 100, 100))
+    flipped = column.envelope(bottom, top, frame=(0, 0, 100, 100))
+    for y in (10, 37.5, 92.5, 120):  # heights 0, 25, 75, 100: 10 + 110 v, and 120 - 110 v flipped
+        assert has(upright, (50, y))
+        assert has(flipped, (50, 130 - y))
+
+
 def test_an_arch_lifts_the_whole_band_by_the_bend_times_the_width() -> None:
     arched = SQUARE.arch(0.2)
     assert has(arched, (50, -20))

@@ -308,6 +308,23 @@ fn the_default_frame_is_the_bounds_of_the_path() -> Outcome {
     Ok(())
 }
 
+#[test]
+fn swapping_top_and_bottom_mirrors_the_result() -> Outcome {
+    // v = 0 lies on `top`: a `bottom` curve above `top` turns the frame over, each point of the swapped call being the
+    // original's with v replaced by 1 - v. Top (0,0)-(100,20), bottom (0,100)-(100,140), column x = 50: T = (50, 10), B = (50, 120)
+    let top = Path::line((0.0, 0.0), (100.0, 20.0))?;
+    let bottom = Path::line((0.0, 100.0), (100.0, 140.0))?;
+    let column = Path::line((50.0, 0.0), (50.0, 100.0))?;
+    let upright = lines(&column.envelope(&top, Some(&bottom), Some(FRAME), 1.0)?)?;
+    let flipped = lines(&column.envelope(&bottom, Some(&top), Some(FRAME), 1.0)?)?;
+    // heights 0, 25, 75, 100 of the column go to 10 + 110 v for the upright call and to 120 - 110 v for the flipped one
+    for (height, y) in [(0.0, 10.0), (25.0, 37.5), (75.0, 92.5), (100.0, 120.0)] {
+        assert!(has_vertex(&upright, (50.0, y)), "upright {height}: {upright:?}");
+        assert!(has_vertex(&flipped, (50.0, 130.0 - y)), "flipped {height}: {flipped:?}");
+    }
+    Ok(())
+}
+
 // Arch -----------------------------------------------------------------------------------------------------------------
 
 #[test]

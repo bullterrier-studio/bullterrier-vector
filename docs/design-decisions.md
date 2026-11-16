@@ -1322,6 +1322,11 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   together). The two share one map (`lattice` in `path/envelope.rs`: the logic of `u`, `v` and the blend is in one place)
   and differ in the edge functions only. Cost if wrong: a circular arch (a constant curvature) is `envelope` with
   `Path.arc`.*
+  *Ruling: the orientation of an envelope is the order of its curves: v interpolates from `top` (0) to `bottom` (1), so
+  `bottom` lying above `top` turns the word upside down (swapping the two mirrors the result: each point goes to the
+  original's with v replaced by 1 - v), and curves that cross fold it. Documented, not refused: a flipped banner is a
+  look a caller may want, and "above" has no meaning for curves that cross or for closed ones. Cost: a flip is silent,
+  a caller who gives the curves in the wrong order sees an upside-down word and no error.*
   *Ruling: `arch` bends the whole band: the top and the bottom edge follow the same parabola, so the frame's height is kept
   at every column and `-bend` is the exact mirror of `+bend` (the displacement of every point reverses); `arch(0)` is the
   identity. The first definition lifted the top only and kept the bottom flat: a bend of -0.3 on a 365 by 150 word left a
