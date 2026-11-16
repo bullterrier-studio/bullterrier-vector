@@ -365,7 +365,7 @@ impl PyDrawing {
     /// Every shape cut into the pieces a dash `pattern` leaves (a list of numbers, Params or expressions, read per shape);
     /// `phase` in cycles of the pattern moves the dashes forward: marching ants are `dash([8, 4], phase=march)`. As
     /// `Path.dash`; a closed outline is measured from its top, or from the point nearest `near`.
-    #[pyo3(signature = (pattern, *, phase=None, near=None))]
+    #[pyo3(signature = (pattern, *, phase=None, near=None), text_signature = "($self, pattern, *, phase=0, near=None)")]
     fn dash(&self, pattern: Vec<Num>, phase: Option<Num>, near: Option<Pair>) -> PyResult<Self> {
         let pattern = pattern.into_iter().map(|Num(length)| length);
         let phase = phase.map_or_else(|| vector::Expr::from(0.0), |Num(phase)| phase);
@@ -389,7 +389,7 @@ impl PyDrawing {
 
     /// Every shape as few smooth curves within `tolerance` pixels of it (a number, a Param or an expression, read
     /// per shape); as `Path.simplify`.
-    #[pyo3(signature = (*, tolerance=None))]
+    #[pyo3(signature = (*, tolerance=None), text_signature = "($self, *, tolerance=0.5)")]
     fn simplify(&self, tolerance: Option<Num>) -> PyResult<Self> {
         let tolerance = tolerance.map_or_else(|| vector::Expr::from(0.5), |Num(tolerance)| tolerance);
         checked(self.0.simplify(tolerance))
