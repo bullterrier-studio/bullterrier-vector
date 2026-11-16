@@ -248,7 +248,7 @@ fn a_sloped_profile_holds_its_end_values_outside_the_range_and_does_not_extend_t
     // By hand: three hulls of two discs (stadium r 1 over 25, the slanted hull of discs 1 and 5 a distance 50 apart with
     // tangent t = sqrt(50^2 - 4^2) and half-angle a = asin(4 / 50), stadium r 5 over 25) less the two discs they share.
     let outline = line(100.0)?.tapered_outline(10.0, &[(0.25, 0.2), (0.75, 1.0)], TOLERANCE)?;
-    let a = (4.0_f64 / 50.0).asin();
+    let a = libm::asin(4.0 / 50.0);
     let t = (50.0_f64 * 50.0 - 16.0).sqrt();
     let pi = std::f64::consts::PI;
     let first = 25.0 * 2.0 + pi;
