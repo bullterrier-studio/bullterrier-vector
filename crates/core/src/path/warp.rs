@@ -22,14 +22,15 @@ const WAVE_PIECES: f64 = 24.0;
 const WAVE_ERROR: f64 = 0.0086;
 
 /// The pieces of a wavelength a wobble's edges are cut into at most.
-// constant: the noise changes by at most 3.75 amplitudes per wavelength per axis and bends by at most 17.9 amplitudes per
-// wavelength squared along a line, so a chord over a step h strays by at most sqrt(2) 17.9 (h / wavelength)^2 / 8 of the
-// amplitude: 0.55% for a 24th of the wavelength, under the hundredth (the bound is loose; 16 pieces would give 1.2%)
+// constant: the noise changes by at most 3.75 amplitudes per wavelength per axis and bends by at most 25.6 amplitudes per
+// wavelength squared along a line (2 * 5.77 for the fade's second derivative, 10 sqrt(3) / 3, plus the mixed term 4 (15/8)^2),
+// two fields at most sqrt(2) times that, so a chord over a step h strays by at most sqrt(2) 25.6 (h / wavelength)^2 / 8 of
+// the amplitude: 0.79% for a 24th of the wavelength, under the hundredth (the bound is loose; 16 pieces would give 1.8%)
 const WOBBLE_PIECES: f64 = 24.0;
 
 /// The chord error of a wobble cut into `WOBBLE_PIECES`, as a share of the amplitude.
-// constant: the bound worked out above (the real error measured is a quarter of it)
-const WOBBLE_ERROR: f64 = 0.0055;
+// constant: the bound worked out above (the real error measured is far under it)
+const WOBBLE_ERROR: f64 = 0.0079;
 
 /// The most a chord of any deformer's result may stray from the map it stands for, in design pixels.
 // constant: a relative error (a share of the amplitude, radius or width) is a bigger absolute one on a big shape, and a
@@ -121,7 +122,7 @@ impl Path {
     /// The field is anchored in the design frame, the point's own coordinates (as for [`Path::wave`]): the letters of
     /// a word wobbled in one step share one field. The path is flattened and each edge cut into equal pieces no longer
     /// than a 24th of the wavelength, every vertex kept (corners stay corners); a chord strays from the displaced
-    /// edge by at most 0.6% of `amplitude` and by at most 0.05 design pixels (a shorter step where that is more). The result is made of straight lines, each sub-path keeping its
+    /// edge by at most 0.79% of `amplitude` and by at most 0.05 design pixels (a shorter step where that is more). The result is made of straight lines, each sub-path keeping its
     /// closedness.
     ///
     /// # Errors

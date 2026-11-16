@@ -1224,11 +1224,12 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   lattice values and never leaves [-1, 1], and the field has continuous slope and curvature. `amplitude` means: each of `dx` and
   `dy` is at most `amplitude` (a displacement at most `amplitude * sqrt(2)`); the tests check the bound over a dense sample.
   Constants (derived in `tests/it/path_wobble.rs`): slope at most 3.75 per cell per axis, 15 per cycle of phase; second
-  derivative along a line at most 17.9 per cell squared. Cost if wrong: a saved drawing's noise changes (the hash or the
+  derivative along a line at most 25.6 per field per cell squared (twice the fade's own maximum 10 sqrt(3) / 3 = 5.77, at
+  u = 0.2113, plus the mixed term 4 (15/8)^2), at most 36.2 for a displacement of two fields. Cost if wrong: a saved drawing's noise changes (the hash or the
   cell layout is part of the file's meaning), so a later flow field that shares the module shares this field.*
   *Ruling: `wobble` displaces by two fields, streams 0 (`dx`) and 1 (`dy`) of the one seed (`splitmix(seed, stream)`), so one
-  seed is one wobble; step = wavelength / 24: a chord over a step `h` strays from the curve by at most `sqrt(2) * 17.9 / 8 *
-  (h / wavelength)^2` of the amplitude, 0.55% at 24 (the bound is loose; the tests hold the cut line within 1% of the
+  seed is one wobble; step = wavelength / 24: a chord over a step `h` strays from the curve by at most `sqrt(2) * 25.6 / 8 *
+  (h / wavelength)^2` of the amplitude, 0.79% at 24 (the bound is loose; the tests hold the cut line within 1% of the
   amplitude of a 400th-of-a-wavelength resampling of the same line, and 3 pieces fail). A fractional seed is refused at the
   draw, not when the call is made, as it is a plain number (a `random` seed is also checked early only as a constant).*
 
@@ -1340,7 +1341,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 
 - **One absolute error budget for every deformer (2026-11-16, V12 task 6).** The demo found that "smooth at any size" was
   false: each deformer cut edges so a chord's error was a *share* of its own scale (0.005 of the radius for `twist` and
-  `bulge`, about 0.9% and 0.55% of the amplitude for `wave` and `wobble`, `PIECES` of the frame for `envelope` and
+  `bulge`, about 0.9% and 0.8% of the amplitude for `wave` and `wobble`, `PIECES` of the frame for `envelope` and
   `arch`), which on a big shape is 1 to 7 design pixels: `rect(120, 90, 360, 120).twist(60)` has a radius near 190 and a
   chord error near 0.95 px, and a 4x zoom shows the facets. The rule is now one: the chord error of any deformer is at
   most `DEFORM_ERROR_PX = 0.05` design pixels (0.4 device pixels at 8x zoom, below what shows). It lives in one place,

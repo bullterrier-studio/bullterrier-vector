@@ -10,9 +10,9 @@ use proptest::prelude::*;
 
 // The smoothness constants. The noise is a lattice of hashed values in [-1, 1], one cell a wavelength (and a quarter
 // cycle of phase) wide, blended by the quintic fade s(u) = 6u^5 - 15u^4 + 10u^3, whose slope is at most 15/8 and whose
-// second derivative at most 10 sqrt(3) / 9 = 1.93. A value of the blend differs between two ends of a cell by at most 2.
+// second derivative at most 10 sqrt(3) / 3 = 5.77 (at u = 0.2113). A value of the blend differs between two ends of a cell by at most 2.
 //   slope along one axis:                 2 * 15/8 = 3.75 per cell
-//   second derivative along one axis:     2 * 1.93 = 3.85 per cell^2
+//   second derivative along one axis:     2 * 5.77 = 11.5 per cell^2
 //   mixed second derivative (x and y):    4 * (15/8)^2 = 14.1 per cell^2
 // A displacement has two fields, so its length is at most sqrt(2) times one field's change.
 /// The most a displacement changes, in amplitudes, over a distance of one wavelength.
@@ -20,8 +20,8 @@ const SPACE: f64 = 3.75 * 2.0; // 2 sqrt(2) * 3.75 = 10.6 along a diagonal, 7.5 
 /// The most it changes over a whole cycle of phase (four cells of it).
 const PHASE: f64 = 3.75 * 4.0 * 1.5;
 /// Its second difference along a straight line over a step `ds`, in amplitudes times `ds^2 / wavelength^2`:
-/// (3.85 + 14.1) * sqrt 2.
-const SECOND: f64 = 26.0;
+/// (11.5 + 14.1) * sqrt 2 = 36.2.
+const SECOND: f64 = 36.3;
 
 /// How far each point moves.
 fn shifts(
@@ -317,5 +317,19 @@ fn a_big_wobble_is_within_a_twentieth_of_a_pixel_of_the_curve() -> Outcome {
         .map(|point| to_lines(*point, &cut))
         .fold(0.0_f64, f64::max);
     assert!(worst <= 0.05, "the curve is {worst} pixels from the output");
+    Ok(())
+}
+
+#[test]
+fn a_big_wobble_is_cut_by_the_sound_chord_bound_of_the_noise() -> Outcome {
+    // by hand: the second derivative of one noise field along a line is at most 2 * 5.77 + 4 * (15/8)^2 = 25.6
+    // amplitudes per cell squared, a displacement (two fields) at most sqrt 2 times that, so a chord over a step h
+    // strays by at most 36.2 / 8 * (h / wavelength)^2 = 0.79% of the amplitude at a 24th of the wavelength. At
+    // amplitude 100 that is 0.79 px, over the twentieth-of-a-pixel budget: the step is shortened by sqrt(0.05 / 0.79).
+    let (amplitude, wavelength, length) = (100.0, 80.0, 1000.0);
+    let cut = lines(&Path::line((0.0, 0.0), (length, 0.0))?.wobble(amplitude, wavelength, 0.0, 0.0)?)?;
+    let step = wavelength / 24.0 * (0.05 / (0.0079 * amplitude)).sqrt();
+    let pieces = (length / step).ceil() as usize;
+    assert_eq!(cut[0].0.len(), pieces + 1);
     Ok(())
 }
