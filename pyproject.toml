@@ -200,6 +200,8 @@ project-triggers = [
     "examples/star.py",
     "examples/bent_type.py",
     "examples/glyph_morph.py",
+    "examples/kinetic_type.py",
+    "examples/fonts/*",
     "crates/core/examples/star.rs",
     "crates/wasm/examples/star.mjs",
     "crates/wasm/src/lib.rs",
