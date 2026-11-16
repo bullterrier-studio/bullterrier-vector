@@ -326,6 +326,22 @@ fn both_arguments_are_required() {
     assert_eq!(required, vec![("target", None), ("fraction", None)]);
 }
 
+#[test]
+fn a_step_is_charged_for_the_edges_it_flattens_before_it_makes_them() -> Outcome {
+    // a circle of radius 1e6 flattens to about 22,000 edges within 0.01 of the curve; 600 of them pass 10,000,000
+    let circles = (0..600)
+        .map(|number| Ok(Path::circle((f64::from(number), 0.0), 1.0e6)?.to_svg_path()))
+        .collect::<Result<Vec<_>, Error>>()?;
+    let heavy = Path::from_svg_path(&circles.join(" "))?;
+    let drawing = Drawing::from(heavy).morph(rect(0.0, 0.0, 4.0, 4.0)?, 0.5);
+    let (name, message) = parameter_refusal(drawn(&drawing))?;
+    assert!(
+        name.contains("step 1 (morph)") && message.contains("MAX_SEGMENTS"),
+        "{name}: {message}"
+    );
+    Ok(())
+}
+
 // The cache and the depth ----------------------------------------------------------------------------------------------
 
 #[test]

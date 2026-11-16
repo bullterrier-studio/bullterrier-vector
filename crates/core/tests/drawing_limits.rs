@@ -95,6 +95,21 @@ fn a_split_is_charged_for_the_parts_it_makes_and_refused_past_a_million() -> Out
 }
 
 #[test]
+fn a_morph_is_charged_for_the_shapes_that_grow_and_refused_past_a_million() -> Outcome {
+    let _alone = one_million_at_a_time();
+    // the target's 400,000 sources and its stack make 800,000 shapes and the source one; the 399,999 shapes that have
+    // no partner and grow in the result are made by the step, which passes a million
+    let (name, message) = parameter_refusal(nothing().morph(flat(0, 400_000)?, 0.5).shapes(&Values::new()))?;
+    assert!(
+        name == "step 1 (morph)" && message.contains("MAX_SHAPES") && message.contains("1000000"),
+        "{name}: {message}"
+    );
+    // known good: the same step with a quarter of the shapes
+    assert_eq!(drawn(&nothing().morph(flat(0, 100_000)?, 0.5))?, 100_000);
+    Ok(())
+}
+
+#[test]
 fn slices_are_charged_for_the_geometry_they_cut_and_refused_past_ten_million_segments() -> Outcome {
     // a line of 100,000 segments, cut 101 times at different ends: 101 steps of 100,001 each, more than 10,000,000
     let line: String = std::iter::once("M0 0".to_owned())
