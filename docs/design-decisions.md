@@ -1283,6 +1283,61 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   *Housekeeping: the loader's test of an unknown call named `wobble`, which the wobble batch registered (a test that
   failed at that commit, found by this batch's run); it names `morph` (V13) now.*
 
+- **`envelope`, `arch` and `Path.arc` (2026-11-16, V12 task 4).** Designed from a look at a word on a contact sheet (a
+  design spike, discarded) before any signature. Three forms were tried for bending a word: `along` an arc (letters fanned
+  round the curve), a frame mapped between a curve and a flat bottom, and between a curve and the same curve lower. The
+  fan (`along`) turns every letter to the arc's direction and can wrap past half a circle; it is for text on a path. The
+  frame map keeps the columns of the word straight (a letter is sheared and stretched, never turned) and its height under
+  control: it is the banner, the flag, the arch of a logo. Use `along` for a word that follows a curve, `envelope` or
+  `arch` for a word that is shaped by one. The forms settled as `envelope(top, bottom=None, *, frame=None, amount=1)`,
+  `arch(bend, *, frame=None)` and the constructor `Path.arc(center, radius, start, end)` that the curve needs (`from_svg_path`
+  was the only way to an arc, and a circle is closed).
+  *Ruling: the map is `lerp(T(u), B(u), v)`, `u` and `v` the shares of the frame, `T` and `B` the points of `top` and
+  `bottom` at that share of their lengths, walked by `along`'s guide (straight past an open end, wrapping a closed curve
+  with its seam at its start). A column stays straight; `bottom` left out is the frame's straight bottom edge, the flat
+  baseline of the classic arch. Cost if wrong: a saved drawing's bend is another shape.*
+  *Ruling: `amount` blends each edge between the frame's straight edge and the curve, `lerp(straight(u), T(u), amount)`, any
+  finite number. `top` and `bottom` are literal paths in a document (a `Kind::Path`, as for `along`), so without `amount` a
+  bend could not animate; with it `amount * progress` does, and a negative amount bends the other way. Cost if wrong: one
+  more number on a verb that could have done without; 1 is the default and costs nothing to ignore.*
+  *Ruling: the default frame is the bounds of the whole drawing (all shapes, read when the step is drawn), shared by every
+  shape; on a `Path` its own bounds. A frame per shape collapses a line of a word into a block (each letter fills the
+  frame's height: the sheet showed it), while one frame keeps the lines, the x-height and the spaces where they were.
+  `frame=(x, y, width, height)` overrides it, one for every shape; a bend per shape is made by drawing the shapes apart. A
+  frame with no width or height (a single horizontal line has no height of its own) is a `ParameterError` naming `frame`,
+  not a silent block. The frame is four numbers, read per item, as `Kind::Numbers` with a count check in the loader: no
+  rectangle kind exists, and the schema cannot state "exactly four" for it (as for `place_along`'s count and spacing).*
+  *Ruling: live bounds. `fit` (V6) reads its layout at the reference pose (every Param at its default) so that an animated
+  weight does not make the line breathe; the frame here is read from the shapes the step receives, at the live values, so
+  a word whose weight is animated changes its width and the arch's frame changes with it. The evaluator hands a node its
+  input shapes only; reading the reference pose of the input needs the previous steps evaluated a second time at the
+  defaults, which is a change to the evaluation machinery (the cache keys by what a step reads), not to this verb. Cost if
+  wrong: an arch over a breathing word breathes by the same amount; a fix is a frame given (`frame=`), or later a
+  `frame="reference"` that evaluates the input at the calm pose.*
+  *Ruling: `arch` is a parabola; `bend` is the lift of the middle of the top edge as a fraction of the frame's width,
+  positive up the screen. A second verb exists because the most asked-for shape (a word on an arch) needs no geometry from the
+  caller and animates on one number, and because its closed form lets `u` follow `x`, so the spacing of the letters is
+  kept, which an `envelope` with an arc cannot do (it spaces by arc length: the letters near a steep part of the arc crowd
+  together). The two share one map (`lattice` in `path/envelope.rs`: the logic of `u`, `v` and the blend is in one place)
+  and differ in the edge functions only. The bottom edge stays straight; an arch whose bottom bends too is `envelope`
+  with two curves. Cost if wrong: a circular arch (a constant curvature) is `envelope` with `Path.arc`.*
+  *Ruling: the step is a 256th of the frame's width, not a length of the map's own. The error of an edge comes from the
+  curvature of the curves (a chord over `h` of a curve of length `L` strays by at most `curvature (L / 256)^2 / 8`), and for
+  a slanted edge of a wide frame from the product of the change of the slope of the edge between the curves and the share it
+  crosses (`slope W^2 / (4 * 256^2 H)`: 0.04 pixel for a frame 1000 by 100); the curves themselves are walked by the guide
+  (flattened within 0.01 pixel). 128 pieces put a curve's chord 0.01 pixel off its curve, which the test of the top edge
+  refuses (checked), so 256 is exercised. A tall vertical edge is cut as a long one although the map is linear along it (the
+  kernel cuts every edge alike). Cost if wrong: pieces go as the root of the error; a frame much taller than wide is cut finer
+  than it needs.*
+  *Ruling: a count past `MAX_SEGMENTS` names `frame` (the argument that sets the step); `amount` and `bend` name a point beyond
+  ±1e100; `top` or `bottom` empty or of no length is a `GeometryError` of `envelope`, as `along` has it, naming neither (the
+  message is the guide's). The curves of a `Drawing` step are walked once for all shapes.*
+  *Ruling: `Path.arc` takes degrees clockwise on the screen from +x (like `rotate`, `y` down) and a sweep `end - start` from
+  -360 to 360 other than 0: 360 gives a full circle that is open and ends where it starts (no close; a stroke shows two caps), so
+  that the sweep is exactly what is asked and no angle means "closed"; `Path.circle` is the closed one. It reuses the cubic
+  cutter of `from_svg_path`'s arcs (one cubic a quarter turn at most, last end exact). Cost if wrong: a 0 sweep that someone
+  wants as a point is refused naming `end`.*
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

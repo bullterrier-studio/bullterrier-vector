@@ -105,6 +105,30 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Pt {
     }
 }
 
+/// A frame as the caller gave it: a `Rect`, or a sequence of four numbers `x, y, width, height`.
+#[derive(Clone, Copy)]
+pub(crate) struct Frame(pub(crate) vector::Rect);
+
+impl<'a, 'py> FromPyObject<'a, 'py> for Frame {
+    type Error = PyErr;
+
+    fn extract(object: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(rect) = object.cast::<PyRect>() {
+            let PyRect { x, y, width, height } = *rect.get();
+            return Ok(Self(vector::Rect { x, y, width, height }));
+        }
+        if let Ok(numbers) = object.extract::<Vec<f64>>()
+            && let [x, y, width, height] = numbers[..]
+        {
+            return Ok(Self(vector::Rect { x, y, width, height }));
+        }
+        Err(PyTypeError::new_err(format!(
+            "expected a Rect or four numbers (x, y, width, height), got {}",
+            object.repr()?
+        )))
+    }
+}
+
 impl From<vector::Point> for PyPoint {
     fn from(point: vector::Point) -> Self {
         Self { x: point.x, y: point.y }
@@ -352,6 +376,14 @@ impl PyPath {
         Self::of(vector::Path::circle(center.0, radius))
     }
 
+    /// An open circular arc about `center` from the angle `start` to `end`, in degrees clockwise on the screen from the
+    /// +x axis (`y` down, as for `rotate`); `end` below `start` runs counter-clockwise. The sweep is at most 360 degrees
+    /// and not 0; 360 is a full circle that is still open (it ends where it starts).
+    #[staticmethod]
+    fn arc(center: Pt, radius: f64, start: f64, end: f64) -> PyResult<Self> {
+        Self::of(vector::Path::arc(center.0, radius, start, end))
+    }
+
     /// A closed regular polygon with a corner at the top, the rest clockwise.
     #[staticmethod]
     fn polygon(center: Pt, radius: f64, sides: i64) -> PyResult<Self> {
@@ -466,6 +498,35 @@ impl PyPath {
     #[pyo3(signature = (amount=0.5, *, radius=None, about=None))]
     fn bulge(&self, amount: f64, radius: Option<f64>, about: Option<Pt>) -> PyResult<Self> {
         Self::of(self.0.bulge(amount, radius, about.map(|about| about.0)))
+    }
+
+    /// The frame (a `Rect` or `(x, y, width, height)`; the bounds of the path by default) mapped onto the region between
+    /// the curves `top` and `bottom` (the frame's straight bottom edge by default): a point goes to the blend, by its share
+    /// of the frame's height, of the points of the curves at its share of the frame's width, read as fractions of their
+    /// lengths. `amount` blends each edge between the frame's own (0) and the curve (1). Edges are cut into pieces of at
+    /// most a 256th of the frame's width, every vertex kept, so the result is made of straight lines.
+    #[pyo3(signature = (top, bottom=None, *, frame=None, amount=1.0))]
+    fn envelope(
+        &self,
+        top: &Bound<'_, Self>,
+        bottom: Option<&Bound<'_, Self>>,
+        frame: Option<Frame>,
+        amount: f64,
+    ) -> PyResult<Self> {
+        Self::of(self.0.envelope(
+            &top.get().0,
+            bottom.map(|bottom| &bottom.get().0),
+            frame.map(|frame| frame.0),
+            amount,
+        ))
+    }
+
+    /// The path arched: the top edge of the frame (a `Rect` or `(x, y, width, height)`; the bounds of the path by default)
+    /// becomes a parabola through its top corners, its middle `bend` times the frame's width above them (below if
+    /// negative), the bottom edge staying straight; columns stay vertical and `x` is kept.
+    #[pyo3(signature = (bend, *, frame=None))]
+    fn arch(&self, bend: f64, frame: Option<Frame>) -> PyResult<Self> {
+        Self::of(self.0.arch(bend, frame.map(|frame| frame.0)))
     }
 
     /// Few smooth curves within `tolerance` pixels of the path, sharp corners (turns past 45 degrees) kept.

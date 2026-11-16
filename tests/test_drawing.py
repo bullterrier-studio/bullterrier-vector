@@ -1117,6 +1117,18 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
     ),
     "twist": (lambda: Drawing(LINE).twist(0), {}, [row("M0 0 L10 0", None, BLACK)]),
     "bulge": (lambda: Drawing(LINE).bulge(0), {}, [row("M0 0 L10 0", None, BLACK)]),
+    "envelope": (
+        lambda: Drawing(btvec.Path.from_svg_path("M5 5")).envelope(
+            btvec.Path.line((0, 0), (10, 2)), frame=(0, 0, 10, 10)
+        ),
+        {},
+        [row("M5 5.5", None, BLACK)],
+    ),
+    "arch": (
+        lambda: Drawing(btvec.Path.from_svg_path("M5 0")).arch(0.2, frame=(0, 0, 10, 10)),
+        {},
+        [row("M5 -2", None, BLACK)],
+    ),
     "reverse": (lambda: Drawing(LINE).reverse(), {}, [row("M10 0 L0 0", None, BLACK)]),
     "simplify": (lambda: Drawing(LINE).simplify(), {}, [row("M0 0 L10 0", None, BLACK)]),
     "fill": (lambda: Drawing(SQUARE).fill("#0000ff"), {}, [row(RECT, "#0000ffff")]),

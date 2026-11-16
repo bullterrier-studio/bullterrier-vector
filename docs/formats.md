@@ -147,6 +147,8 @@ default paint, and draws as it did.
 | `wave` | `amplitude` (per-item number, any finite value; default 8), `wavelength` (per-item number above 0, at most 1e100; default 120), `angle` (degrees, per-item number, any finite value; default 0), `phase` (cycles, per-item number, any finite value; default 0) |
 | `twist` | `angle` (degrees, per-item number, any finite value; default 90), `radius` (per-item number above 0, at most 1e100; default: the farthest corner of the shape's bounds from the pivot), `about` (point, each coordinate within ±1e100; default: the shape's origin, else the middle of its bounds) |
 | `bulge` | `amount` (per-item number above -1 and below 16/11 = 1.4545...; default 0.5; the loader refuses a literal outside, an expression is checked when drawn), `radius` and `about` as for `twist` |
+| `envelope` | `top` (path data), `bottom` (path data; default: the frame's straight bottom edge), `frame` (an array of exactly four numbers `[x, y, width, height]`, each within ±1e100, a number or an expression; default: the bounds of all the shapes; the loader refuses another count and a width or height not above 0 when drawn, which the schema cannot state), `amount` (per-item number, any finite value; default 1) |
+| `arch` | `bend` (per-item number, any finite value; required), `frame` as for `envelope` |
 | `morph` | `target` (drawing), `fraction` |
 | `hatch` | `spacing` (pair), `tone` (number or field), `flow` (flow), `avoid` (drawing) |
 | `merge` | `by` (an attribute name) |

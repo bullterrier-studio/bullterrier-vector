@@ -488,6 +488,8 @@
           "twist",
           "bulge",
           "wave",
+          "envelope",
+          "arch",
           "morph",
           "hatch",
           "split",
@@ -687,6 +689,38 @@
             "angle": { "$ref": "#/$defs/number" },
             "phase": { "$ref": "#/$defs/number" }
           }
+        },
+        "envelope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "top": { "$ref": "#/$defs/path_data" },
+            "bottom": { "$ref": "#/$defs/path_data" },
+            "frame": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/coordinate" },
+              "minItems": 1,
+              "maxItems": 1000,
+              "$comment": "exactly four numbers, x, y, width, height: the loader checks the count, as for place_along's count and spacing"
+            },
+            "amount": { "$ref": "#/$defs/number" }
+          },
+          "required": ["top"]
+        },
+        "arch": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bend": { "$ref": "#/$defs/number" },
+            "frame": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/coordinate" },
+              "minItems": 1,
+              "maxItems": 1000,
+              "$comment": "exactly four numbers, x, y, width, height: the loader checks the count"
+            }
+          },
+          "required": ["bend"]
         },
         "morph": {
           "type": "object",

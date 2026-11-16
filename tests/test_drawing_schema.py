@@ -642,6 +642,43 @@ AGREED = [
         True,
         id="a wobble phase from a Param and a seed per item",
     ),
+    pytest.param(square_with({"envelope": {"top": "M0 0 L10 2"}}), True, id="an envelope with its defaults"),
+    pytest.param(
+        square_with(
+            {
+                "envelope": {
+                    "top": "M0 0 L10 2",
+                    "bottom": "M0 10 L10 12",
+                    "frame": [0, 0, 1e100, -1e100],
+                    "amount": -3,
+                }
+            }
+        ),
+        True,
+        id="an envelope with every argument",
+    ),
+    pytest.param(square_with({"envelope": {}}), False, id="an envelope without its top"),
+    pytest.param(
+        square_with({"envelope": {"top": "M0 0 L10 2", "frame": [0, 0, 1.1e100, 5]}}),
+        False,
+        id="an envelope frame past 1e100",
+    ),
+    pytest.param(square_with({"envelope": {"top": 5}}), False, id="an envelope top that is not path data"),
+    pytest.param(
+        square_with({"envelope": {"top": "M0 0 L10 2", "depth": 1}}), False, id="an envelope with an unknown argument"
+    ),
+    pytest.param(
+        with_param({"envelope": {"top": "M0 0 L10 2", "amount": {"param": "x"}, "frame": [0, 0, {"param": "x"}, 5]}}),
+        True,
+        id="an envelope amount and frame from a Param",
+    ),
+    pytest.param(square_with({"arch": {"bend": 0.3}}), True, id="an arch"),
+    pytest.param(square_with({"arch": {"bend": -2, "frame": [1, 2, 3, 4]}}), True, id="an arch with a frame"),
+    pytest.param(square_with({"arch": {}}), False, id="an arch without its bend"),
+    pytest.param(square_with({"arch": {"bend": 0.3, "frame": [0, 0, 1e101, 4]}}), False, id="an arch frame past 1e100"),
+    pytest.param(
+        with_param({"arch": {"bend": {"by_index": {"first": 0, "last": 0.4}}}}), True, id="an arch bend per item"
+    ),
     pytest.param(square_with({"reverse": {}}), True, id="a reverse"),
     pytest.param(square_with({"reverse": {"x": 1}}), False, id="a reverse with an argument"),
     pytest.param(square_with({"outline": {"width": 1.1e100}}), False, id="an outline width past 1e100"),
@@ -868,6 +905,8 @@ REGISTERED = {
     "wobble",
     "twist",
     "bulge",
+    "envelope",
+    "arch",
     "simplify",
     "reverse",
     "dash",

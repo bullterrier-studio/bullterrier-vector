@@ -5,7 +5,9 @@ use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::Path;
 use std::f64::consts::PI;
 
-fn ends(path: &Path) -> Result<((f64, f64), (f64, f64)), Box<dyn std::error::Error>> {
+type Ends = ((f64, f64), (f64, f64));
+
+fn ends(path: &Path) -> Result<Ends, Box<dyn std::error::Error>> {
     let (start, end) = (path.point_at(0.0, None)?, path.point_at(1.0, None)?);
     Ok(((start.x, start.y), (end.x, end.y)))
 }

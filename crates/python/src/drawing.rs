@@ -4,7 +4,7 @@ use crate::expr::{Num, PyExpr, PyParam};
 use crate::mesh::PyMesh;
 use crate::shape::{PaintArg, PyShape};
 use crate::text::{bytes_of, entries};
-use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, PyPath, PyPoint, PyRect, exception, raised, two_items};
+use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, Frame, PyPath, PyPoint, PyRect, exception, raised, two_items};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -462,6 +462,46 @@ impl PyDrawing {
             bulge = bulge.about((x, y));
         }
         checked(self.0.bulge(bulge))
+    }
+
+    /// Every shape bent by one frame (a `Rect` or `(x, y, width, height)`; the bounds of all the shapes by default, so that
+    /// a line of text keeps its place in the block) mapped onto the region between the curves `top` and `bottom` (the
+    /// frame's straight bottom edge by default); as `Path.envelope`. `amount` is a number, a Param or an expression, read
+    /// per shape.
+    #[pyo3(
+        signature = (top, bottom=None, *, frame=None, amount=None),
+        text_signature = "($self, top, bottom=None, *, frame=None, amount=1)"
+    )]
+    fn envelope(
+        &self,
+        top: &Bound<'_, PyPath>,
+        bottom: Option<&Bound<'_, PyPath>>,
+        frame: Option<Frame>,
+        amount: Option<Num>,
+    ) -> PyResult<Self> {
+        let mut options = vector::Envelope::new();
+        if let Some(bottom) = bottom {
+            options = options.bottom(&bottom.get().0);
+        }
+        if let Some(Frame(frame)) = frame {
+            options = options.frame(frame);
+        }
+        if let Some(Num(amount)) = amount {
+            options = options.amount(amount);
+        }
+        checked(self.0.envelope(&top.get().0, options))
+    }
+
+    /// Every shape arched by one frame (a `Rect` or `(x, y, width, height)`; the bounds of all the shapes by default): the
+    /// frame's top edge becomes a parabola whose middle is `bend` times the frame's width above its corners (below if
+    /// negative); as `Path.arch`. `bend` is a number, a Param or an expression, read per shape.
+    #[pyo3(signature = (bend, *, frame=None))]
+    fn arch(&self, bend: Num, frame: Option<Frame>) -> PyResult<Self> {
+        let mut arch = vector::Arch::new(bend.0);
+        if let Some(Frame(frame)) = frame {
+            arch = arch.frame(frame);
+        }
+        checked(self.0.arch(arch))
     }
 
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the

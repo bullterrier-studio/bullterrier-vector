@@ -853,6 +853,44 @@ def radials() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def envelopes() -> list[Entry]:
+    """`envelope`, `arch` and `Path.arc`: a word between a flat-bottomed arc and between two arcs, down, a flag between
+    two waves, a Param amount and bend, an arc drawn as a stroke, and two lines of text bent by one shared frame."""
+    word = btvec.text("Hif", font=FRAUNCES, size=56, anchor=(8, 66)).fill(INK)
+    up = btvec.Path.arc((50, 110), 90, 235, 305)  # bulges up the screen
+    down = btvec.Path.arc((50, -30), 90, 55, 125)  # bulges down
+    wave = btvec.Path.from_svg_path("M0 40 C30 5 70 75 100 40")
+    amount = btvec.Param("amount", default=0, min=0, max=1, unit="", meaning="how far the word is bent")
+    bend = btvec.Param("bend", default=0, min=-0.5, max=0.5, unit="", meaning="how far the middle is raised")
+    drawings = {
+        "envelope_top_arc_flat_bottom": framed(word).envelope(up),
+        "envelope_band_same_arc": framed(word).envelope(up, up.translate(0, 30)),
+        "envelope_down": framed(word.fill(RED)).envelope(down),
+        "envelope_flag": framed(word.fill(BLUE)).envelope(wave, wave.translate(0, 30)),
+        "envelope_amount_param": framed(word).envelope(up, up.translate(0, 30), amount=amount),
+        "envelope_per_item_amount": framed(btvec.Drawing(word, word.translate(0, 20)).fill(GOLD)).envelope(
+            up, amount=btvec.by_index(0.3, 1)
+        ),
+        "arch_param_bend": framed(word.fill(RED)).arch(bend),
+        "arch_frame_closed_glyph": framed(
+            btvec.Path.from_svg_path("M20 80 L20 20 L55 20 Q80 20 80 40 Q80 60 55 60 L40 60 L40 80 Z").fill(BLUE)
+        ).arch(0.25, frame=(0, 0, 100, 100)),
+        "arc_strokes": framed(
+            btvec.Path.arc((50, 50), 35, -150, 60).stroke(INK, width=4, cap="round"),
+            btvec.Path.arc((50, 50), 20, 100, -200).stroke(RED, width=3),
+            btvec.Path.arc((50, 50), 8, 0, 360).stroke(BLUE, width=2),
+        ),
+        "arch_two_lines_one_frame": framed(
+            btvec.text("Hi\nTo", font=FRAUNCES, size=38, leading=42, anchor=(10, 40)).fill(INK)
+        ).arch(0.3),
+    }
+    draws: dict[str, list[Draw]] = {
+        "envelope_amount_param": [(100, 100, {}), (200, 200, {"amount": 0.6})],
+        "arch_param_bend": [(100, 100, {}), (200, 200, {"bend": -0.3})],
+    }
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 def reverses() -> list[Entry]:
     """`reverse` on shapes: an open line, a closed outline, a curve, and the draw-on the other way round."""
     line = btvec.Path.from_svg_path("M15 70 L50 25 L85 70")
@@ -948,6 +986,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     resamples,
     waves,
     radials,
+    envelopes,
     wobbles,
     dashes,
     simplifies,
