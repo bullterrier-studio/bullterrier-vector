@@ -478,6 +478,7 @@
           "resample",
           "simplify",
           "along",
+          "place_along",
           "wobble",
           "wave",
           "morph",
@@ -619,6 +620,20 @@
             "near": { "$ref": "#/$defs/coordinate_point" }
           },
           "required": ["path"]
+        },
+        "place_along": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": { "$ref": "#/$defs/path_data" },
+            "count": { "type": "number", "minimum": 1 },
+            "spacing": { "type": "number", "exclusiveMinimum": 0, "maximum": 1e100 },
+            "start": { "$ref": "#/$defs/once" },
+            "turn": { "enum": ["along", "none"] },
+            "near": { "$ref": "#/$defs/once_point" }
+          },
+          "required": ["path"],
+          "$comment": "exactly one of count and spacing: the loader checks it, no schema can say it for a registered call"
         },
         "wobble": {
           "type": "object",

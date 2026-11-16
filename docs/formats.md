@@ -142,6 +142,7 @@ default paint, and draws as it did.
 | `resample` | `spacing` (per-item number above 0, at most 1e100) |
 | `simplify` | `tolerance` |
 | `along` | `path` (path data), `start` (a fraction of the path's length; any finite number, a closed path wraps), `near` (point; each coordinate within ±1e100) |
+| `place_along` | `path` (path data), exactly one of `count` (a whole number from 1) and `spacing` (a number above 0, at most 1e100), both plain numbers, no expression; `start` (a number or an expression without per-item numbers, any finite value), `turn` (`"along"`, the default, or `"none"`), `near` (point; each coordinate within ±1e100). The loader refuses a call with both or neither of `count` and `spacing`, which the schema cannot state |
 | `wobble` | `amplitude`, `wavelength`, `phase`, `seed` (whole number) |
 | `wave` | `amplitude`, `wavelength`, `angle`, `phase` |
 | `morph` | `target` (drawing), `fraction` |

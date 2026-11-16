@@ -243,6 +243,41 @@ impl PyDrawing {
         checked(self.0.along(&path.get().0, bend))
     }
 
+    /// A copy of all the shapes at each stop along `path`: `count` stops (both ends of an open path) or one every
+    /// `spacing` pixels (exactly one of the two, whole and plain numbers); `start` (a number, a Param or an expression)
+    /// moves them on by that share of the path; each copy is carried by the middle of its bounds (or the origin its
+    /// shapes share) and, with `turn`, turned so its x axis runs along the path. Not bent: `along` bends.
+    #[pyo3(signature = (path, *, count=None, spacing=None, start=None, turn=true, near=None))]
+    fn place_along(
+        &self,
+        path: &Bound<'_, PyPath>,
+        count: Option<i64>,
+        spacing: Option<f64>,
+        start: Option<Num>,
+        turn: bool,
+        near: Option<Pair>,
+    ) -> PyResult<Self> {
+        let spacing = match (count, spacing) {
+            // a negative count is 0, which the step refuses naming `count`
+            (Some(count), None) => vector::Spacing::Count(usize::try_from(count).unwrap_or(0)),
+            (None, Some(every)) => vector::Spacing::Every(every),
+            _ => {
+                return Err(exception(&vector::Error::Parameter {
+                    parameter: String::from("count"),
+                    message: String::from("exactly one of count and spacing must be given"),
+                }));
+            }
+        };
+        let mut options = vector::PlaceAlong::new().turn(turn);
+        if let Some(Num(start)) = start {
+            options = options.start(start);
+        }
+        if let Some(Pair(x, y)) = near {
+            options = options.near((x, y));
+        }
+        checked(self.0.place_along(&path.get().0, spacing, options))
+    }
+
     /// Every shape with its overlaps removed: the closed polygons it fills by the nonzero rule, in canonical form.
     /// Curves become straight edges within `tolerance` design pixels (a number, not a Param).
     #[pyo3(signature = (*, tolerance=DEFAULT_TOLERANCE), text_signature = "($self, *, tolerance=0.01)")]

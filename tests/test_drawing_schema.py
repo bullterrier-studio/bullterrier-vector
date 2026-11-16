@@ -569,6 +569,42 @@ AGREED = [
     pytest.param(square_with({"dash": {"pattern": [4, 0]}}), False, id="a dash length of 0"),
     pytest.param(square_with({"dash": {"pattern": 4}}), False, id="a dash pattern that is a number"),
     pytest.param(square_with({"dash": {"phase": 0.5}}), False, id="a dash without a pattern"),
+    pytest.param(
+        with_param({"place_along": {"path": "M0 0 L100 0", "count": 12, "start": {"param": "x"}, "turn": "none"}}),
+        True,
+        id="a place_along with a count, a Param start and turn none",
+    ),
+    pytest.param(
+        square_with({"place_along": {"path": "M0 0 L100 0", "spacing": 40, "near": [1, 2]}}),
+        True,
+        id="a place_along with a spacing and near",
+    ),
+    pytest.param(
+        square_with({"place_along": {"path": "M0 0 L100 0", "count": 0}}), False, id="a place_along count of 0"
+    ),
+    pytest.param(
+        square_with({"place_along": {"path": "M0 0 L100 0", "spacing": 0}}), False, id="a place_along spacing of 0"
+    ),
+    pytest.param(
+        square_with({"place_along": {"path": "M0 0 L100 0", "spacing": 1.1e100}}),
+        False,
+        id="a place_along spacing past 1e100",
+    ),
+    pytest.param(
+        with_param({"place_along": {"path": "M0 0 L100 0", "count": {"param": "x"}}}),
+        False,
+        id="a place_along count from a Param",
+    ),
+    pytest.param(
+        square_with({"place_along": {"path": "M0 0 L100 0", "start": {"by_index": {"first": 0, "last": 1}}}}),
+        False,
+        id="a place_along start per item",
+    ),
+    pytest.param(
+        square_with({"place_along": {"path": "M0 0 L100 0", "turn": "yes"}}),
+        False,
+        id="a place_along turn that is no word",
+    ),
     pytest.param(square_with({"slice": {"start": 0}}), False, id="a slice without an end"),
     pytest.param(square_with({"slice": {"start": 0, "end": 1.1}}), False, id="a slice end past 1"),
     pytest.param(square_with({"slice": {"start": -0.1, "end": 1}}), False, id="a slice start below 0"),
@@ -728,6 +764,7 @@ REGISTERED = {
     "rotate",
     "scale",
     "along",
+    "place_along",
     "slice",
     "resample",
     "dash",

@@ -243,6 +243,29 @@ def test_marching_dashes_move_one_pattern_length_on_over_a_phase_of_1_and_a_loop
     assert drawing.shapes(march=1)[0].path == drawing.shapes(march=0)[0].path
 
 
+def test_beads_on_a_path_puts_twelve_petals_on_the_ring_and_a_whole_cycle_is_the_same_picture(run):
+    drawing = run("beads_on_a_path")["drawing"]
+
+    def petals(march: float) -> list[btvec.Shape]:
+        return [shape for shape in drawing.shapes(march=march) if "copy" in shape.attributes]
+
+    first = petals(0)
+    assert [shape.attributes["copy"] for shape in first] == list(range(12))
+    # every petal's middle is on the ring of radius 360 about (540, 540)
+    for shape in first:
+        box = shape.path.bounds
+        x, y = box.x + box.width / 2 - 540, box.y + box.height / 2 - 540
+        assert (x * x + y * y) ** 0.5 == pytest.approx(360, abs=1)
+    # the first petal is at the top, and a quarter cycle moves each one three stops on, so petal 9 is at the top
+    assert first[0].path.bounds.x + first[0].path.bounds.width / 2 == pytest.approx(540, abs=1)
+    moved = petals(0.25)[9].path.bounds
+    assert moved.y + moved.height / 2 == pytest.approx(180, abs=1)
+    assert [shape.path for shape in petals(1)] == [shape.path for shape in first]
+    # by_order sizes the petals: the last copy is larger than the first
+    sizes = [shape.path.bounds.width * shape.path.bounds.height for shape in first]
+    assert sizes[11] > sizes[0]
+
+
 def test_glyph_scatter_stands_as_set_at_0_and_scatters_the_same_way_every_time_above_0(run):
     found = run("glyph_scatter")
     drawing, font = found["drawing"], found["font"]

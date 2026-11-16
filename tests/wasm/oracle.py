@@ -770,6 +770,32 @@ def dashes() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def placements() -> list[Entry]:
+    """`place_along`: petals round a closed circle (a Param moves them, `by_order` sizes each copy), an arrow of two
+    shapes every 40 pixels along an open wave, a word stamped on a circle, a copy that keeps its turn, and copies past
+    both ends of an open path. Placing computes with `sqrt` only, so the SVG text and the mesh are exact."""
+    ring = btvec.Path.circle((100, 100), 70)
+    march = btvec.Param("march", default=0, min=0, max=1, unit="cycle", meaning="how far the copies have gone round")
+    petal = btvec.Path.from_svg_path("M0 -14 C 10 -6 10 6 0 14 C -10 6 -10 -6 0 -14 Z").fill(RED)
+    wave = btvec.Path.from_svg_path("M10 150 C 50 60 90 240 130 150 S 190 90 190 90")
+    arrow = btvec.Drawing(btvec.Path.rect(0, -1, 14, 2).fill(INK), btvec.Path.rect(14, -4, 6, 8).fill(INK))
+    word = btvec.text("Hif", font=FRAUNCES, size=30, anchor=(0, 0)).fill(BLUE)
+    line = btvec.Path.line((20, 100), (180, 100))
+
+    def sized(item: btvec.Drawing) -> btvec.Drawing:
+        return btvec.Drawing(item, size=(200, 200))
+
+    drawings = {
+        "place_petals": sized(petal.place_along(ring, count=12, start=march).scale(btvec.by_order(0.5, 1.2))),
+        "place_arrows": sized(arrow.place_along(wave, spacing=40)),
+        "place_word": sized(word.place_along(ring, count=3, start=0.1)),
+        "place_no_turn": sized(arrow.place_along(wave, count=4, turn=False)),
+        "place_past_ends": sized(petal.place_along(line, count=4, start=0.4)),
+    }
+    draws: dict[str, list[Draw]] = {"place_petals": [(100, 100, {}), (200, 200, {"march": 0.25})]}
+    return [(name, drawing, draws.get(name, [(200, 200, {}), (100, 100, {})])) for name, drawing in drawings.items()]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -782,6 +808,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     offsets,
     resamples,
     dashes,
+    placements,
     shadows,
     knockouts,
     halftones,

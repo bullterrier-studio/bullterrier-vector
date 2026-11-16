@@ -1078,6 +1078,38 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   and a pattern has at most `MAX_DASH_PATTERN` (1,000) lengths. *Cost if wrong:* the direction or the closed-start
   rule changes pictures of a saved drawing, so decide before a release.
 
+- **`place_along` (2026-11-16).** Copies of the whole drawing at stops along a path, carried and turned, never bent
+  (`Drawing` only: it needs attributes and a list that changes length, as `merge` does). Rulings:
+  *Ruling: the stamp is the whole list, placed by one anchor (the origin all shapes share, else the middle of their
+  overall bounds, as `rotate`'s `about`) — per-shape origins would collapse a stamp onto the path point — an arrow of
+  two shapes would lose its layout if wrong.*
+  *Ruling: `count` and `spacing` are plain numbers, never Params — a per-shape Param list is one number for the shape
+  with `index` i at the step that reads it, so a shape count that moves with a value changes what every later list and
+  `by_index` mean; `start` stays animatable (one value, not a list) — animating the count would need a new argument
+  kind and a rule for the lists; cost if wrong: a count cannot be animated, scale copies to 0 instead.*
+  *Ruling: exactly one of `count` and `spacing` — Rust takes `Spacing::Count(n)` or `Spacing::Every(px)` so the bad
+  state cannot be written; the registry and schema have two optional keys, and the loader (the verb's `check`) refuses
+  both or neither; the schema cannot say "exactly one" (the same limit as `Kind::Runs`) and `count` is a `number` with
+  a minimum of 1, so a fraction is refused when drawn, not by the schema — cost: an editor does not flag it.*
+  *Ruling: open path, `count` includes both ends (one copy at the start); `spacing` stops at 0, s, 2s, ... up to the
+  end with a 1e-12 relative slack so a position a rounding error short of the end counts as on it; closed path
+  (every sub-path with a length closed, `along`'s rule), `count` n is i·L/n, `spacing` is floor(L/s) stops, at least
+  one — no two closer than `spacing` (ceil would leave a last gap shorter than it) — a closed path with `spacing`
+  not dividing L has a last gap longer than `spacing`.*
+  *Ruling: positions and direction come from `along`'s walk (`Guide::frame`), the curve's own direction at the place,
+  the leaving direction at a corner; the turn uses the unit direction itself (no angle, no trig), so a horizontal or
+  vertical path turns exactly.*
+  *Ruling: `origin` moves with its shape (it is on the path point when it was the anchor), unlike `along`, which leaves
+  it, because a placed shape is a rigid copy.*
+  *Ruling: `copy` is written as `repeat` will write it; `order` is rewritten to the share of the copy only for a stamp
+  of one shape (a lone shape's `order` carries nothing, and `Drawing(path)` writes 0 on it), else the shapes keep their
+  own — so `by_order` varies per copy for beads and per letter for a stamped word; per-item numbers index shapes, so
+  for a many-shape stamp `merge(by="copy")` or `only(copy=..)` selects per copy; `repeat` (not built) must follow.*
+  *Ruling: `turn` is a boolean in Rust and Python and the word `"along"` or `"none"` in a document — a boolean
+  argument kind would touch the reader, writer, schema and keys for one flag — a document says `"turn": "none"` where
+  Python says `turn=False`.*
+  Copies times shapes is charged to `MAX_SHAPES` and `MAX_SEGMENTS` before any copy is made.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin
