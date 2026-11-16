@@ -341,6 +341,7 @@ impl Side {
         let Some((low, high)) = self.bounds else {
             return (0.0, 0.0);
         };
+        // constant: a box with no width or height counts as 1 across, so a line or a point is at 0 there, not a division by zero
         let (centre, span) = (contour.centre(), |size: f64| if size > 0.0 { size } else { 1.0 });
         (
             (centre.x - low.x) / span(high.x - low.x),
