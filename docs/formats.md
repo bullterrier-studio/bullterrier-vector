@@ -143,7 +143,7 @@ default paint, and draws as it did.
 | `simplify` | `tolerance` (per-item number above 0, at most 1e100; default 0.5) |
 | `along` | `path` (path data), `start` (a fraction of the path's length; any finite number, a closed path wraps), `near` (point; each coordinate within ±1e100) |
 | `place_along` | `path` (path data), exactly one of `count` (a whole number from 1) and `spacing` (a number above 0, at most 1e100), both plain numbers, no expression; `start` (a number or an expression without per-item numbers, any finite value), `turn` (`"along"`, the default, or `"none"`), `near` (point; each coordinate within ±1e100). The loader refuses a call with both or neither of `count` and `spacing`, which the schema cannot state |
-| `wobble` | `amplitude`, `wavelength`, `phase`, `seed` (whole number) |
+| `wobble` | `amplitude` (per-item number, any finite value; default 4), `wavelength` (per-item number above 0, at most 1e100; default 80), `phase` (cycles, per-item number, any finite value; default 0), `seed` (per-item number, default 0; a whole number within ±(2^53 - 1), refused when drawn: the schema cannot state it for an expression) |
 | `wave` | `amplitude` (per-item number, any finite value; default 8), `wavelength` (per-item number above 0, at most 1e100; default 120), `angle` (degrees, per-item number, any finite value; default 0), `phase` (cycles, per-item number, any finite value; default 0) |
 | `morph` | `target` (drawing), `fraction` |
 | `hatch` | `spacing` (pair), `tone` (number or field), `flow` (flow), `avoid` (drawing) |

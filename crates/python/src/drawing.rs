@@ -404,6 +404,28 @@ impl PyDrawing {
         ))
     }
 
+    /// Every shape with its points displaced by smooth seeded noise (each argument a number, a Param or an expression,
+    /// read per shape); as `Path.wobble`. The noise is anchored in the design frame, so the letters of a word share one
+    /// field.
+    #[pyo3(
+        signature = (*, amplitude=None, wavelength=None, phase=None, seed=None),
+        text_signature = "($self, *, amplitude=4, wavelength=80, phase=0, seed=0)"
+    )]
+    fn wobble(
+        &self,
+        amplitude: Option<Num>,
+        wavelength: Option<Num>,
+        phase: Option<Num>,
+        seed: Option<Num>,
+    ) -> PyResult<Self> {
+        let or =
+            |given: Option<Num>, default: f64| given.map_or_else(|| vector::Expr::from(default), |Num(value)| value);
+        checked(
+            self.0
+                .wobble(or(amplitude, 4.0), or(wavelength, 80.0), or(phase, 0.0), or(seed, 0.0)),
+        )
+    }
+
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the
     /// other end. Style, attributes and `origin` are kept.
     fn reverse(&self) -> PyResult<Self> {

@@ -35,27 +35,27 @@ impl Noise {
     /// The field at `(x, y)` (in wavelengths) and `phase` (in cycles, any finite number: reduced to 0 up to 1 before
     /// anything else). A number in [-1, 1]; at most `3.75` per wavelength steeper than that in either direction, and
     /// `15` per cycle of phase.
-    pub(crate) fn value(&self, x: f64, y: f64, phase: f64) -> f64 {
+    pub(crate) fn value(self, x: f64, y: f64, phase: f64) -> f64 {
         let t = phase.rem_euclid(1.0) * f64::from(PHASE_CELLS);
-        let (cx, cy, ct) = (x.floor(), y.floor(), t.floor());
-        let (u, v, w) = (fade(x - cx), fade(y - cy), fade(t - ct));
+        let (floor_x, floor_y, floor_t) = (x.floor(), y.floor(), t.floor());
+        let (along_x, along_y, along_t) = (fade(x - floor_x), fade(y - floor_y), fade(t - floor_t));
         #[expect(
             clippy::cast_possible_truncation,
             reason = "a cell index; beyond i64 it saturates, as is fine"
         )]
-        let (ix, iy, it) = (cx as i64, cy as i64, ct as i64);
+        let (ix, iy, it) = (floor_x as i64, floor_y as i64, floor_t as i64);
         let corner = |dx: i64, dy: i64, dt: i64| self.lattice(ix.wrapping_add(dx), iy.wrapping_add(dy), it + dt);
         let layer = |dt: i64| {
-            let low = lerp(corner(0, 0, dt), corner(1, 0, dt), u);
-            let high = lerp(corner(0, 1, dt), corner(1, 1, dt), u);
-            lerp(low, high, v)
+            let low = lerp(corner(0, 0, dt), corner(1, 0, dt), along_x);
+            let high = lerp(corner(0, 1, dt), corner(1, 1, dt), along_x);
+            lerp(low, high, along_y)
         };
-        lerp(layer(0), layer(1), w)
+        lerp(layer(0), layer(1), along_t)
     }
 
     /// The hashed value of a lattice point, from -1 up to 1; the phase cell wraps round the cycle.
     #[expect(clippy::cast_precision_loss, reason = "53 bits make a float exactly")]
-    fn lattice(&self, ix: i64, iy: i64, it: i64) -> f64 {
+    fn lattice(self, ix: i64, iy: i64, it: i64) -> f64 {
         // constant: 2^-52, so that 53 bits make a number in [0, 2) exactly, then 1 below it
         const SCALE: f64 = 1.0 / 4_503_599_627_370_496.0;
         let mut h = self.key;

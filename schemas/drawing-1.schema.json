@@ -647,9 +647,9 @@
           "additionalProperties": false,
           "properties": {
             "amplitude": { "$ref": "#/$defs/number" },
-            "wavelength": { "$ref": "#/$defs/positive" },
+            "wavelength": { "$ref": "#/$defs/capped_positive" },
             "phase": { "$ref": "#/$defs/number" },
-            "seed": { "$ref": "#/$defs/whole" }
+            "seed": { "$ref": "#/$defs/number" }
           }
         },
         "wave": {

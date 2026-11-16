@@ -811,6 +811,26 @@ def waves() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def wobbles() -> list[Entry]:
+    """`wobble` on shapes: a line, a closed glyph-like outline, text whose noise runs across its letters with a Param
+    phase, and a few seeds."""
+    line = btvec.Path.from_svg_path("M10 50 L90 50")
+    glyph = btvec.Path.from_svg_path("M20 80 L20 20 L55 20 Q80 20 80 40 Q80 60 55 60 L40 60 L40 80 Z")
+    phase = btvec.Param("phase", default=0, min=0, max=2, unit="", meaning="how far the noise has moved")
+    drawings = {
+        "wobble_line": framed(line.stroke(INK, width=2)).wobble(amplitude=6, wavelength=40),
+        "wobble_closed_glyph": framed(glyph.fill(RED)).wobble(amplitude=4, wavelength=45, phase=0.2, seed=11),
+        "wobble_text_param": framed(btvec.text("Hif", font=FRAUNCES, size=60, anchor=(8, 70)).fill(BLUE)).wobble(
+            amplitude=3, wavelength=50, phase=phase, seed=-5
+        ),
+        "wobble_seeds": framed(btvec.Drawing(glyph, glyph.translate(0, 10)).fill(GOLD)).wobble(
+            amplitude=3, wavelength=30, seed=btvec.by_index(1, 2)
+        ),
+    }
+    draws: dict[str, list[Draw]] = {"wobble_text_param": [(100, 100, {}), (200, 200, {"phase": 0.4})]}
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 def reverses() -> list[Entry]:
     """`reverse` on shapes: an open line, a closed outline, a curve, and the draw-on the other way round."""
     line = btvec.Path.from_svg_path("M15 70 L50 25 L85 70")
@@ -905,6 +925,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     offsets,
     resamples,
     waves,
+    wobbles,
     dashes,
     simplifies,
     reverses,

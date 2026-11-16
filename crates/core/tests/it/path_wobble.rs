@@ -31,7 +31,11 @@ fn shifts(
     phase: f64,
     seed: f64,
 ) -> Result<Vec<(f64, f64)>, Box<dyn std::error::Error>> {
-    let data: String = points.iter().map(|p| format!("M{} {} ", p.0, p.1)).collect();
+    let data = points
+        .iter()
+        .map(|p| format!("M{} {}", p.0, p.1))
+        .collect::<Vec<_>>()
+        .join(" ");
     let moved = lines(&Path::from_svg_path(&data)?.wobble(amplitude, wavelength, phase, seed)?)?;
     assert_eq!(moved.len(), points.len(), "a lone point stays one sub-path");
     Ok(moved

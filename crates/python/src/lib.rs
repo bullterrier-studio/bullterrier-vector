@@ -440,6 +440,14 @@ impl PyPath {
         Self::of(self.0.wave(amplitude, wavelength, angle, phase))
     }
 
+    /// The path with its points displaced by smooth seeded noise: `x` and `y` each by at most `amplitude` pixels, the
+    /// noise one `wavelength` per lattice cell; `phase` in cycles moves it, `seed` (a whole number) chooses it. Edges
+    /// are cut into pieces of a 24th of a wavelength at most, every vertex kept, so the result is made of straight lines.
+    #[pyo3(signature = (*, amplitude=4.0, wavelength=80.0, phase=0.0, seed=0.0))]
+    fn wobble(&self, amplitude: f64, wavelength: f64, phase: f64, seed: f64) -> PyResult<Self> {
+        Self::of(self.0.wobble(amplitude, wavelength, phase, seed))
+    }
+
     /// Few smooth curves within `tolerance` pixels of the path, sharp corners (turns past 45 degrees) kept.
     #[pyo3(signature = (*, tolerance=0.5))]
     fn simplify(&self, tolerance: f64) -> PyResult<Self> {

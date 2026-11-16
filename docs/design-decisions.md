@@ -1216,6 +1216,21 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   shape; a wave that follows each shape needs the shape's own frame (move it to the origin, wave, move it back).*
   *Ruling: a coordinate beyond ±1e100 after the displacement names `amplitude` (the only argument that can send a point
   there from a path within range); a count past `MAX_SEGMENTS` names `wavelength`, the argument that sets the step.*
+  *Ruling: noise (`noise.rs`). Value noise on a three-axis lattice: `x` and `y` in wavelengths (one cell a wavelength) and the
+  phase, whose cell index wraps mod 4, so a cycle is four cells and `phase + 1` is `phase` to the bit (the phase is reduced
+  mod 1 before any maths; 0.25 and 0.5 are tested for equality). A lattice value is the top 53 bits of the library's one
+  integer hash (`SplitMix64`, the generator of `random`, now `expr::splitmix`) chained over seed-and-stream, `ix`, `iy` and
+  the phase cell, mapped to [-1, 1); the blend is the quintic fade, trilinear, so a value is a convex combination of
+  lattice values and never leaves [-1, 1], and the field has continuous slope and curvature. `amplitude` means: each of `dx` and
+  `dy` is at most `amplitude` (a displacement at most `amplitude * sqrt(2)`); the tests check the bound over a dense sample.
+  Constants (derived in `tests/it/path_wobble.rs`): slope at most 3.75 per cell per axis, 15 per cycle of phase; second
+  derivative along a line at most 17.9 per cell squared. Cost if wrong: a saved drawing's noise changes (the hash or the
+  cell layout is part of the file's meaning), so a later flow field that shares the module shares this field.*
+  *Ruling: `wobble` displaces by two fields, streams 0 (`dx`) and 1 (`dy`) of the one seed (`splitmix(seed, stream)`), so one
+  seed is one wobble; step = wavelength / 24: a chord over a step `h` strays from the curve by at most `sqrt(2) * 17.9 / 8 *
+  (h / wavelength)^2` of the amplitude, 0.55% at 24 (the bound is loose; the tests hold the cut line within 1% of the
+  amplitude of a 400th-of-a-wavelength resampling of the same line, and 3 pieces fail). A fractional seed is refused at the
+  draw, not when the call is made, as it is a plain number (a `random` seed is also checked early only as a constant).*
 
 ## Engineering
 
