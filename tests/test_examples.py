@@ -119,47 +119,156 @@ def test_poster_overlaps_two_multiply_inks_on_paper_and_keeps_its_stack_of_shape
     assert len(root.findall("{http://www.w3.org/2000/svg}path")) == len(shapes)
 
 
-def test_kinetic_type_draws_a_shape_a_letter_inside_the_frame_and_a_kick_thickens_only_the_letter_it_hits(run):
+def kinetic_layers(drawing: btvec.Drawing, **given: float):
+    """A frame of the kinetic type piece by layer: the paper, the blue plane, 7 pink letters, 7 hairline letters."""
+    paper, plane, *letters = drawing.shapes(**given)
+    assert len(letters) == 14
+    return paper, plane, letters[:7], letters[7:]
+
+
+def widths(shapes) -> list[float]:
+    return [shape.path.bounds.width for shape in shapes]
+
+
+def deep_inside(shape) -> tuple[float, float]:
+    """A point of the letter that stays inside it when moved 4 pixels any way (the plates are 3 out of register)."""
+    box = shape.path.bounds
+    for y in range(int(box.y), int(box.y + box.height), 2):
+        for x in range(int(box.x), int(box.x + box.width), 2):
+            if all(shape.path.contains((x + dx, y + dy)) for dx in (-4, 0, 4) for dy in (-4, 0, 4)):
+                return (x, y)
+    raise AssertionError("no point deep inside the letter")
+
+
+def assert_same_bounds(found, expected, tolerance=1e-6):
+    assert len(found) == len(expected)
+    for got, want in zip(found, expected, strict=True):
+        for name in ("x", "y", "width", "height"):
+            assert getattr(got.path.bounds, name) == pytest.approx(getattr(want.path.bounds, name), abs=tolerance)
+
+
+def test_kinetic_type_sets_both_headlines_a_shape_a_letter_inside_the_frame_filling_the_measure(run):
     found = run("kinetic_type")
-    letters = found["letters"]
-    calm = letters.shapes()
-    assert [shape.attributes["char"] for shape in calm] == list("NOSLEEP")
-    assert [shape.attributes["line"] for shape in calm] == [0, 0, 1, 1, 1, 1, 1]
-    for shape in calm:
-        bounds = shape.path.bounds
-        assert bounds.x >= 0
-        assert bounds.x + bounds.width <= 1080
-        assert bounds.y >= 0
-        assert bounds.y + bounds.height <= 1350
-    # each line is fitted to the 980 pixel measure by the width axis: its letters fill it, centred on the frame
-    for line in (0, 1):
-        edges = [shape.path.bounds for shape in calm if shape.attributes["line"] == line]
-        left, right = min(edge.x for edge in edges), max(edge.x + edge.width for edge in edges)
-        assert 50 <= left < 100, (line, left)
-        assert 980 < right <= 1030, (line, right)
-        assert (left + right) / 2 == pytest.approx(540, abs=30)
+    for headline, chars in (("first", "NOSLEEP"), ("second", "GODREAM")):
+        calm = found[headline].shapes()
+        assert "".join(shape.attributes["char"] for shape in calm) == chars
+        assert [shape.attributes["line"] for shape in calm] == [0, 0, 1, 1, 1, 1, 1]
+        for shape in calm:
+            bounds = shape.path.bounds
+            assert bounds.x >= 0
+            assert bounds.x + bounds.width <= 1080
+            assert bounds.y >= 0
+            assert bounds.y + bounds.height <= 1350
+        # each line is fitted to the 980 pixel measure by the width axis: its letters fill it, centred on the frame
+        for line in (0, 1):
+            edges = [shape.path.bounds for shape in calm if shape.attributes["line"] == line]
+            left, right = min(edge.x for edge in edges), max(edge.x + edge.width for edge in edges)
+            assert 50 <= left < 100, (headline, line, left)
+            assert 980 < right <= 1030, (headline, line, right)
+            assert (left + right) / 2 == pytest.approx(540, abs=30)
 
     # `pulse` has an entry per character of "NO\nSLEEP": 8, the line break included. A kick on the N (entry 0) makes
     # the N wider, and the letters after it follow its advance; the second line is untouched.
-    kicked = letters.shapes(pulse=[1, 0, 0, 0, 0, 0, 0, 0])
+    first = found["first"]
+    calm, kicked = first.shapes(), first.shapes(pulse=[1, 0, 0, 0, 0, 0, 0, 0])
     assert kicked[0].path.bounds.width > calm[0].path.bounds.width
     assert kicked[1].path.bounds.width == pytest.approx(calm[1].path.bounds.width)
     assert [shape.path for shape in kicked[2:]] == [shape.path for shape in calm[2:]]
 
 
-def test_kinetic_type_at_a_time_rises_the_plane_and_swaps_the_hairlines_for_the_print(run):
-    at_time = run("kinetic_type")["at_time"]
-    before, after = at_time(2.0).shapes(), at_time(4.0).shapes()
-    paper, plane, *rest = before
-    assert len(before) == len(after) == 1 + 1 + 7 + 7  # paper, plane, the letters printed, the letters as hairlines
+def test_kinetic_type_starts_as_hairlines_alone_on_the_paper_with_the_plane_below_the_frame(run):
+    paper, plane, pink, hairlines = kinetic_layers(run("kinetic_type")["at_time"](1.0))
     assert paper.path.bounds == btvec.Rect(0, 0, 1080, 1350)
-    # half risen at 2 s (1 s in a rise of 2 s), all the way at 4 s
-    assert plane.path.bounds.y == 1350 / 2
-    assert after[1].path.bounds.y == 0
-    assert [shape.style.opacity for shape in rest] == [0.0] * 7 + [1.0] * 7
-    assert [shape.style.opacity for shape in after[2:]] == [1.0] * 7 + [0.0] * 7
-    # the kick starts on the beat at 4 s with the first letter, the next ones a little behind it
-    assert after[2].path.bounds.width > rest[0].path.bounds.width
+    assert plane.path.bounds.y == 1350
+    assert [shape.style.opacity for shape in pink] == [0.0] * 7
+    assert [shape.style.opacity for shape in hairlines] == [1.0] * 7
+    assert all(shape.style.stroke is not None and shape.style.fill is None for shape in hairlines)
+
+
+def test_kinetic_type_plane_is_half_risen_at_3_s_and_full_at_4_5_s_with_the_letters_knocked_out(run):
+    at_time = run("kinetic_type")["at_time"]
+    _, half, pink, _ = kinetic_layers(at_time(3.0))
+    assert half.path.bounds.y == 675
+    assert half.path.contains((5, 1340))  # blue below the plane's edge...
+    assert not half.path.contains((5, 100))  # ...and none above it
+    s = pink[2]  # the S of SLEEP, which the plane has passed
+    assert s.path.bounds.y > 675
+    assert not half.path.contains(deep_inside(s))  # the plane has a hole where the letter prints
+    _, full, _, _ = kinetic_layers(at_time(4.5))
+    assert full.path.bounds == btvec.Rect(0, 0, 1080, 1350)
+
+
+def test_kinetic_type_prints_pink_from_4_s_and_a_kick_thickens_the_letters_it_has_reached(run):
+    found = run("kinetic_type")
+    at_time, calm = found["at_time"], found["first"].shapes()
+    # at 5 s the print is on and the hairlines are gone
+    _, _, pink, hairlines = kinetic_layers(at_time(5.0))
+    assert [shape.style.opacity for shape in pink] == [1.0] * 7
+    assert [shape.style.opacity for shape in hairlines] == [0.0] * 7
+    # 0.4 s after a beat the kick has left the N and the O (no scatter: the hit is over) and is still in the second
+    # line, 0.045 s later for each letter: the S has hardly felt it, then L, E, E, P are each heavier than the last
+    _, _, pink, _ = kinetic_layers(at_time(4.4))
+    grown = [now - before for now, before in zip(widths(pink), widths(calm), strict=True)]
+    assert grown[0] == pytest.approx(0, abs=0.5)
+    assert grown[1] == pytest.approx(0, abs=0.5)
+    assert grown[2] == pytest.approx(0, abs=0.5)
+    assert 1 < grown[3] < grown[4] < grown[5] < grown[6]
+
+
+def test_kinetic_type_turns_into_the_second_headline_one_letter_after_the_other(run):
+    found = run("kinetic_type")
+    at_time, first, second = found["at_time"], found["first"], found["second"]
+    start, end = first.resolve().shapes(weight=100), second.resolve().shapes()
+    # before the turn (3.5 s, the hairlines at weight 100) it is the first headline
+    assert_same_bounds(kinetic_layers(at_time(3.5))[3], start)
+    # 8.8 s: the first letters have arrived, the last ones have not left, those between are on the way
+    _, _, pink, _ = kinetic_layers(at_time(8.8))
+    assert_same_bounds(pink[:2], end[:2], tolerance=0.01)
+    assert_same_bounds(pink[6:], first.resolve().shapes()[6:], tolerance=0.01)
+    for now, before, after in zip(pink[2:6], first.resolve().shapes()[2:6], end[2:6], strict=True):
+        assert abs(now.path.bounds.width - before.path.bounds.width) > 1
+        assert abs(now.path.bounds.width - after.path.bounds.width) > 1
+    # from 9.5 s (weight 300 still) it is the second headline, each letter the bounds of its own
+    _, _, pink, hairlines = kinetic_layers(at_time(9.5))
+    assert_same_bounds(pink, end)
+    assert_same_bounds(hairlines, end)
+    # and the verb gives the same at its end
+    assert_same_bounds(first.resolve().morph(second.resolve(), 1).shapes(), end)
+
+
+def test_kinetic_type_bend_arches_the_line_up_and_moves_the_letters(run):
+    at_time = run("kinetic_type")["at_time"]
+    # 6.4 s is a whole second after 5.4 s: the same place between beats, before the bend begins (5.5 s)
+    _, _, bent, _ = kinetic_layers(at_time(6.4))
+    _, _, straight, _ = kinetic_layers(at_time(5.4))
+    assert all(
+        abs(a.path.bounds.y - b.path.bounds.y) > 1 or abs(a.path.bounds.x - b.path.bounds.x) > 1
+        for a, b in zip(bent, straight, strict=True)
+    )
+    # the arch lifts the line: the highest letter top is well above the straight line's
+    assert min(shape.path.bounds.y for shape in bent) < min(shape.path.bounds.y for shape in straight) - 50
+
+
+def test_kinetic_type_thins_to_hairlines_at_the_floor_weight_with_no_cut_at_the_end(run):
+    found = run("kinetic_type")
+    at_time, second = found["at_time"], found["second"]
+    _, _, pink, hairlines = kinetic_layers(at_time(12.0))
+    assert [shape.style.opacity for shape in pink] == [0.0] * 7
+    assert [shape.style.opacity for shape in hairlines] == [1.0] * 7
+    assert_same_bounds(hairlines, second.resolve().shapes(weight=100))  # the floor of `weight`
+    # no jump at the end: 0.01 s before it the print has gone and the hairlines are on
+    _, _, pink, near = kinetic_layers(at_time(11.99))
+    assert pink[0].style.opacity < 0.01
+    assert near[0].style.opacity > 0.99
+    assert_same_bounds(near, hairlines, tolerance=0.01)
+
+
+def test_kinetic_type_frames_are_deterministic_and_the_whole_timeline_draws(run):
+    at_time = run("kinetic_type")["at_time"]
+    assert at_time(6.4).to_svg(1080, 1350) == at_time(6.4).to_svg(1080, 1350)
+    for half_seconds in range(25):
+        svg = at_time(half_seconds / 2).to_svg(1080, 1350)
+        assert svg.startswith("<svg")
 
 
 def test_bundled_type_sets_a_line_in_each_bundled_font_with_no_file_read(run):
