@@ -432,6 +432,14 @@ impl PyPath {
         Self::of(self.0.resample(spacing))
     }
 
+    /// The path with its points displaced sideways by a sine of `amplitude` pixels and one `wavelength` long travelling
+    /// towards `angle` degrees (0: towards +x, displacing down the screen); `phase` in cycles. Edges are cut into pieces
+    /// of a 24th of a wavelength at most, every vertex kept, so the result is made of straight lines.
+    #[pyo3(signature = (*, amplitude=8.0, wavelength=120.0, angle=0.0, phase=0.0))]
+    fn wave(&self, amplitude: f64, wavelength: f64, angle: f64, phase: f64) -> PyResult<Self> {
+        Self::of(self.0.wave(amplitude, wavelength, angle, phase))
+    }
+
     /// Few smooth curves within `tolerance` pixels of the path, sharp corners (turns past 45 degrees) kept.
     #[pyo3(signature = (*, tolerance=0.5))]
     fn simplify(&self, tolerance: f64) -> PyResult<Self> {

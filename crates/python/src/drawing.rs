@@ -381,6 +381,29 @@ impl PyDrawing {
         checked(self.0.resample(spacing.0))
     }
 
+    /// Every shape with its points displaced sideways by a sine (each argument a number, a Param or an expression, read
+    /// per shape); as `Path.wave`. The wave is anchored in the design frame, so the letters of a word share one wave.
+    #[pyo3(
+        signature = (*, amplitude=None, wavelength=None, angle=None, phase=None),
+        text_signature = "($self, *, amplitude=8, wavelength=120, angle=0, phase=0)"
+    )]
+    fn wave(
+        &self,
+        amplitude: Option<Num>,
+        wavelength: Option<Num>,
+        angle: Option<Num>,
+        phase: Option<Num>,
+    ) -> PyResult<Self> {
+        let or =
+            |given: Option<Num>, default: f64| given.map_or_else(|| vector::Expr::from(default), |Num(value)| value);
+        checked(self.0.wave(
+            or(amplitude, 8.0),
+            or(wavelength, 120.0),
+            vector::Deg(or(angle, 0.0)),
+            or(phase, 0.0),
+        ))
+    }
+
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the
     /// other end. Style, attributes and `origin` are kept.
     fn reverse(&self) -> PyResult<Self> {

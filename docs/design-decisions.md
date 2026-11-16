@@ -1192,6 +1192,31 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   tip is thinner than a pixel and covered by under 24 levels), so the oracle rows of `style_taper.rs` allow 10 where the
   other effects allow 4; a missing or doubled translucent stroke is 128.*
 
+## Deformers (V12)
+
+- **One warp kernel; `wave` (2026-11-16).** Every deformer is a map of the plane and a step length; one kernel
+  (`path/warp.rs`) flattens the path, cuts each straight edge into `ceil(length / step)` equal pieces keeping every original
+  vertex, maps every point, keeps each sub-path closed or open, keeps and maps a lone point, and refuses a result beyond
+  ±1e100. The pieces of all the sub-paths are counted and charged to `MAX_SEGMENTS` before any is allocated, so a step
+  small next to the path is a `ParameterError`, never an OOM or a hang. *Reason:* resampling first (V11 `resample`) does not keep corners (it chamfers a
+  sharp apex), and a deformer must not move a corner off the outline it deforms. `along` stays as it was: it halves an edge
+  where its own bend is not straight, not into equal pieces, and its bytes are fixed by its tests.
+  *Ruling: `wave` displaces `amplitude * sin(2 pi (d / wavelength - phase))` along the perpendicular of the direction of
+  travel, `d` the distance along it, `y` down like `rotate` (angle 0 displaces down the screen); `phase` is in cycles and
+  reduced mod 1 before any maths, so a whole cycle more is the same bits for a phase that is exact (0.25 and 1.25); a phase
+  such as 0.3 differs from 1.3 by the rounding of the addition; cost if wrong: a saved drawing's wave runs the other way.*
+  *Ruling: step = wavelength / 24, not the 16 first planned. A chord of a sine over a step `h` strays by at most
+  `amplitude (2 pi h / wavelength)^2 / 8`: 1.93% of the amplitude for 16 pieces, 0.86% for 24. The tests hold the exact image
+  of every sampled point within 1% of the amplitude (plus 0.01 pixel of flattening) of the output, which 16 fails (checked: the
+  closed-form test fails with 16); a step is also never above its edge, so a short edge is one piece. Cost if wrong: 1.5 times
+  the points of a 16-piece wave, a hair of speed.*
+  *Ruling: field anchoring. The wave is a function of the point's own design-frame coordinates, not of the shape's origin or
+  bounds, so a wave runs continuously across the letters of a word. Cost: letters that translate swim through the field (a
+  `translate` before the wave changes which part of the wave they are in), and `translate` after the wave moves the wave with the
+  shape; a wave that follows each shape needs the shape's own frame (move it to the origin, wave, move it back).*
+  *Ruling: a coordinate beyond ±1e100 after the displacement names `amplitude` (the only argument that can send a point
+  there from a path within range); a count past `MAX_SEGMENTS` names `wavelength`, the argument that sets the step.*
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

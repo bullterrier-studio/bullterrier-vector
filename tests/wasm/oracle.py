@@ -791,6 +791,26 @@ def resamples() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def waves() -> list[Entry]:
+    """`wave` on shapes: a line, a closed glyph-like outline at an angle, text whose wave runs across its letters with a
+    Param phase, and a per-item amplitude."""
+    line = btvec.Path.from_svg_path("M10 50 L90 50")
+    glyph = btvec.Path.from_svg_path("M20 80 L20 20 L55 20 Q80 20 80 40 Q80 60 55 60 L40 60 L40 80 Z")
+    phase = btvec.Param("phase", default=0, min=0, max=2, unit="", meaning="how far the wave has travelled")
+    drawings = {
+        "wave_line": framed(line.stroke(INK, width=2)).wave(amplitude=8, wavelength=40),
+        "wave_closed_glyph": framed(glyph.fill(RED)).wave(amplitude=5, wavelength=45, angle=30, phase=0.2),
+        "wave_text_param": framed(btvec.text("Hif", font=FRAUNCES, size=60, anchor=(8, 70)).fill(BLUE)).wave(
+            amplitude=4, wavelength=50, phase=phase
+        ),
+        "wave_per_item": framed(btvec.Drawing(glyph, glyph.translate(0, 10)).fill(GOLD)).wave(
+            amplitude=btvec.by_index(2, 9), wavelength=30
+        ),
+    }
+    draws: dict[str, list[Draw]] = {"wave_text_param": [(100, 100, {}), (200, 200, {"phase": 0.4})]}
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 def reverses() -> list[Entry]:
     """`reverse` on shapes: an open line, a closed outline, a curve, and the draw-on the other way round."""
     line = btvec.Path.from_svg_path("M15 70 L50 25 L85 70")
@@ -884,6 +904,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     booleans,
     offsets,
     resamples,
+    waves,
     dashes,
     simplifies,
     reverses,

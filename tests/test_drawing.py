@@ -1109,6 +1109,7 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
     "slice": (lambda: Drawing(LINE).slice(0.25, 0.75), {}, [row("M2.5 0 L7.5 0", None, BLACK)]),
     "dash": (lambda: Drawing(LINE).dash([4, 2]), {}, [row("M0 0 L4 0 M6 0 L10 0", None, BLACK)]),
     "resample": (lambda: Drawing(LINE).resample(4), {}, [row("M0 0 L4 0 L8 0 L10 0", None, BLACK)]),
+    "wave": (lambda: Drawing(LINE).wave(amplitude=0), {}, [row("M0 0 L5 0 L10 0", None, BLACK)]),
     "reverse": (lambda: Drawing(LINE).reverse(), {}, [row("M10 0 L0 0", None, BLACK)]),
     "simplify": (lambda: Drawing(LINE).simplify(), {}, [row("M0 0 L10 0", None, BLACK)]),
     "fill": (lambda: Drawing(SQUARE).fill("#0000ff"), {}, [row(RECT, "#0000ffff")]),
