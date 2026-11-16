@@ -38,6 +38,7 @@
 //! | font ([`Kind::Font`]) | a [`Font`](crate::Font), by its bytes: a document names it and the caller supplies the bytes |
 //! | axes ([`Kind::Axes`]) | tags to expressions, read per item where the items are the characters of the text: `text`'s `axes`. A Param given a list gives character `i` entry `i` |
 //! | numbers ([`Kind::Numbers`]) | a list of expressions, each read as one number would be: `dash`'s `pattern` |
+//! | rect ([`Kind::Rect`]) | four expressions, `x, y, width, height`, each read as one number would be: `envelope`'s `frame` |
 //! | pairs ([`Kind::Pairs`]) | a list of pairs of expressions, each read as one number would be: `outline`'s `profile` |
 //! | features ([`Kind::Features`]) | tags to whole numbers, constants: `text`'s `features` |
 //! | runs ([`Kind::Runs`]) | a list of `run` records, each checked as a call of its own arguments: `text`'s `runs` |
@@ -196,6 +197,9 @@ pub enum Kind {
     Numbers,
     /// A list of pairs of numbers, each a number or an expression (`outline`'s `profile`).
     Pairs,
+    /// Exactly four numbers, each a number or an expression: `x, y, width, height` (`envelope`'s `frame`); read like
+    /// `Numbers`, the count checked by the schema and the step.
+    Rect,
     /// A colour: `"#rgb"`, `"#rrggbb"`, `"#rrggbbaa"` or `"none"`.
     Color,
     /// A colour as `Color` has it, or a gradient: `{"gradient": "linear", "stops": [[0, "#ff0066"], [1, "#ffcc00"]],

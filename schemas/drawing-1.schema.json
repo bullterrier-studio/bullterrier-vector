@@ -699,9 +699,9 @@
             "frame": {
               "type": "array",
               "items": { "$ref": "#/$defs/coordinate" },
-              "minItems": 1,
-              "maxItems": 1000,
-              "$comment": "exactly four numbers, x, y, width, height: the loader checks the count, as for place_along's count and spacing"
+              "minItems": 4,
+              "maxItems": 4,
+              "$comment": "exactly four numbers, x, y, width, height"
             },
             "amount": { "$ref": "#/$defs/number" }
           },
@@ -715,9 +715,9 @@
             "frame": {
               "type": "array",
               "items": { "$ref": "#/$defs/coordinate" },
-              "minItems": 1,
-              "maxItems": 1000,
-              "$comment": "exactly four numbers, x, y, width, height: the loader checks the count"
+              "minItems": 4,
+              "maxItems": 4,
+              "$comment": "exactly four numbers, x, y, width, height"
             }
           },
           "required": ["bend"]

@@ -167,6 +167,15 @@ fn argument(arg: &Arg) -> Json {
             "maxItems",
             number(max_pattern()),
         ),
+        Kind::Rect => with(
+            with(
+                Json::object([("type", Json::text("array")), ("items", value(arg))]),
+                "minItems",
+                number(4.0),
+            ),
+            "maxItems",
+            number(4.0),
+        ),
         Kind::Pairs => with(
             with(
                 Json::object([("type", Json::text("array")), ("items", pair(value(arg), value(arg)))]),

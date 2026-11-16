@@ -329,7 +329,7 @@ impl Reader {
                 let [first, second] = self.two(arg, pointer, json)?;
                 Ok(Value::Pair(first, second))
             }
-            Kind::Numbers => self.numbers(arg, pointer, json),
+            Kind::Numbers | Kind::Rect => self.numbers(arg, pointer, json),
             Kind::Pairs => self.pairs(arg, pointer, json),
             Kind::Factor => self.factor(arg, pointer, json),
             Kind::Color => {

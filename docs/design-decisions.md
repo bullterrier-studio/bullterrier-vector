@@ -1306,8 +1306,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   frame's height: the sheet showed it), while one frame keeps the lines, the x-height and the spaces where they were.
   `frame=(x, y, width, height)` overrides it, one for every shape; a bend per shape is made by drawing the shapes apart. A
   frame with no width or height (a single horizontal line has no height of its own) is a `ParameterError` naming `frame`,
-  not a silent block. The frame is four numbers, read per item, as `Kind::Numbers` with a count check in the loader: no
-  rectangle kind exists, and the schema cannot state "exactly four" for it (as for `place_along`'s count and spacing).*
+  not a silent block. The frame is four numbers, read per item, as `Kind::Rect` (a `Kind::Numbers` of exactly four: the
+  generated and the hand-written schema both say `minItems` and `maxItems` 4, the loader and the step check the count too).*
   *Ruling: live bounds. `fit` (V6) reads its layout at the reference pose (every Param at its default) so that an animated
   weight does not make the line breathe; the frame here is read from the shapes the step receives, at the live values, so
   a word whose weight is animated changes its width and the arch's frame changes with it. The evaluator hands a node its

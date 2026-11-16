@@ -518,7 +518,7 @@ impl Node for Bulge {
 /// The frame argument both envelope steps take: four numbers `x, y, width, height`, or left out.
 const FRAME: Arg = Arg {
     name: "frame",
-    kind: Kind::Numbers,
+    kind: Kind::Rect,
     default: Some(Literal::Unset),
     reads: Reads::PerItem,
     domain: Domain::Coordinate,

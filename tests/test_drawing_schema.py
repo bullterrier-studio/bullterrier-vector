@@ -663,6 +663,14 @@ AGREED = [
         False,
         id="an envelope frame past 1e100",
     ),
+    pytest.param(
+        square_with({"envelope": {"top": "M0 0 L10 2", "frame": [0, 0, 5]}}),
+        False,
+        id="an envelope frame of three numbers",
+    ),
+    pytest.param(
+        square_with({"arch": {"bend": 0.3, "frame": [0, 0, 5, 5, 5]}}), False, id="an arch frame of five numbers"
+    ),
     pytest.param(square_with({"envelope": {"top": 5}}), False, id="an envelope top that is not path data"),
     pytest.param(
         square_with({"envelope": {"top": "M0 0 L10 2", "depth": 1}}), False, id="an envelope with an unknown argument"
