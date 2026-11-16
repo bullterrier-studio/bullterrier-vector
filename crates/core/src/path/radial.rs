@@ -43,9 +43,9 @@ pub(crate) const STRONGEST_BULGE: f64 = 16.0 / 11.0;
 pub(crate) const STRONGEST_BULGE_RULE: &str = "above -1 and below 16/11 (1.4545), so that the shape does not fold over";
 
 /// The weight of the effect at distance `r` from the centre: 1 at the centre, falling smoothly (slope 0 at both ends)
-/// to 0 at `radius` and beyond.
+/// to 0 at `radius`. Called only for `r` under `radius`; a farther point is not moved.
 fn falloff(r: f64, radius: f64) -> f64 {
-    let s = (r / radius).min(1.0);
+    let s = r / radius;
     1.0 - s * s * (3.0 - 2.0 * s)
 }
 
