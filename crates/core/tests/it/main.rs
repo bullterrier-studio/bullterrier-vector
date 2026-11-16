@@ -68,6 +68,7 @@ mod path_simplify;
 mod path_slice;
 mod path_taper;
 mod path_transform;
+mod path_wave;
 mod png;
 mod raster;
 mod raster_boundary;

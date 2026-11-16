@@ -24,6 +24,7 @@ mod slice;
 mod taper;
 mod transform;
 mod walk;
+mod warp;
 mod write;
 
 pub(crate) use bend::Guide;
