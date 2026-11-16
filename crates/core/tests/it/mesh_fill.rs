@@ -24,6 +24,12 @@ fn points() -> impl Strategy<Value = Vec<(f64, f64)>> {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(96))]
 
+    // Known rare failure (about 1 run in 700, 1 case in 70,000): where self-crossing outlines cross at nearly coincident
+    // edges the tessellator (`lyon_tessellation`, nonzero fill, f32) emits overlapping triangles, so a point inside is
+    // covered 3 times, not once ("left: 3, right: 1"). The failure is the library's, not the test's (both oracles are
+    // independent); see "Later, with a trigger" in docs/roadmap.md for a minimal input. Rerun this test alone before
+    // blaming your change: `cargo test -p bullterrier-vector --test it mesh_fill::a_point_is_covered_once`. A shrunk
+    // failure may print "only 0 points were decided": that is the shrinker moving every point to a corner, not a second bug.
     #[test]
     fn a_point_is_covered_once_where_the_nonzero_rule_says_inside_and_never_elsewhere(
         polygons in polygons(),
