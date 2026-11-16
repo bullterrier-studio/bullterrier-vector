@@ -1315,7 +1315,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   defaults, which is a change to the evaluation machinery (the cache keys by what a step reads), not to this verb. Cost if
   wrong: an arch over a breathing word breathes by the same amount; a fix is a frame given (`frame=`), or later a
   `frame="reference"` that evaluates the input at the calm pose.*
-  *Ruling: `arch` is a parabola; `bend` is the lift of the middle of the top edge as a fraction of the frame's width,
+  *Ruling: `arch` is a parabola; `bend` is the lift of the middle of both edges as a fraction of the frame's width,
   positive up the screen. A second verb exists because the most asked-for shape (a word on an arch) needs no geometry from the
   caller and animates on one number, and because its closed form lets `u` follow `x`, so the spacing of the letters is
   kept, which an `envelope` with an arc cannot do (it spaces by arc length: the letters near a steep part of the arc crowd

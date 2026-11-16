@@ -1,6 +1,6 @@
 """`envelope`, `arch` and `Path.arc` through the public package. Expected values are by hand: a point `(x, y)` of
 the frame goes to `lerp(T(u), B(u), v)`, `u` and `v` its shares of the frame's width and height, `T` and `B` the
-points of the curves at that share of their lengths; an arch lifts the middle of the frame's top edge by `bend`
+points of the curves at that share of their lengths; an arch lifts the middle of the frame by `bend`
 times its width."""
 
 import inspect

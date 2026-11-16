@@ -638,7 +638,7 @@ impl Node for Envelope {
     }
 }
 
-/// Raises the top of the frame of the drawing into a parabola.
+/// Lifts the whole frame (top and bottom edge alike) into one parabola.
 #[derive(Debug)]
 pub(crate) struct Arch;
 
