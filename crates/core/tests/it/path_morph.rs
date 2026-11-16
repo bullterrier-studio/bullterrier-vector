@@ -436,6 +436,43 @@ fn the_area_of_an_unmatched_hole_shrinks_as_the_square_of_what_is_left() -> Outc
 }
 
 #[test]
+fn a_contour_without_a_partner_never_comes_back_through_its_point() -> Outcome {
+    // the same outer on both sides, a 20 x 20 hole at the middle on the one: past 1 the hole is gone, not reflected
+    // through its point, and before 0 a hole that only the target has is absent, not reflected
+    let with_hole = svg(&format!(
+        "{} {}",
+        rect(0.0, 0.0, 100.0, 100.0),
+        hole(40.0, 40.0, 20.0, 20.0)
+    ))?;
+    let plain = svg(&rect(0.0, 0.0, 100.0, 100.0))?;
+    for t in [1.0, 1.3, 2.0] {
+        let found = with_hole.morph(&plain, t)?;
+        for probe in [(50.0, 50.0), (45.0, 45.0), (55.0, 55.0)] {
+            assert!(found.contains(probe)?, "source hole at fraction {t}, probe {probe:?}");
+        }
+    }
+    for t in [0.0, -0.3, -1.0] {
+        let found = plain.morph(&with_hole, t)?;
+        for probe in [(50.0, 50.0), (45.0, 45.0), (55.0, 55.0)] {
+            assert!(found.contains(probe)?, "target hole at fraction {t}, probe {probe:?}");
+        }
+    }
+    // an outer that only the source has stays a point past 1, an outer that only the target has before 0
+    let two = svg(&format!(
+        "{} {}",
+        rect(0.0, 0.0, 40.0, 40.0),
+        rect(200.0, 0.0, 20.0, 20.0)
+    ))?;
+    let one = svg(&rect(0.0, 0.0, 40.0, 40.0))?;
+    assert!(!two.morph(&one, 1.5)?.contains((210.0, 10.0))?, "leaving outer past 1");
+    assert!(
+        !one.morph(&two, -0.5)?.contains((210.0, 10.0))?,
+        "arriving outer before 0"
+    );
+    Ok(())
+}
+
+#[test]
 fn a_ring_morphed_to_an_l_leaves_no_speck_outside_the_l_shaped_lerp() -> Outcome {
     // the hole of the ring is at (50, 50), where the L is empty: wound, its reversed contour paints outside the moving
     // body (proven at 0.9 and 0.95); subtracted, it cannot

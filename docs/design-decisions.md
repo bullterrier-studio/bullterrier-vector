@@ -1403,6 +1403,9 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   made of four bars) morph as separate outers, so `resolve` the text first (`examples/glyph_morph.py` does).*
 - *Ruling: `fraction` is any finite number, so an elastic or back ease that overshoots extrapolates the lerp; cost if wrong:
   the result can leave the hull of the two shapes, and a point past ±1e100 is a `ParameterError` naming `fraction`.*
+- *Ruling: a contour with no partner stops at its point (past 1 for one that shrinks, before 0 for one that grows) and
+  never comes back through it; found by the demo (a counter of `R` reappearing at `fraction` 1.15 on the way to a circle);
+  cost if wrong: an unmatched contour does not follow the straight line a matched one does beyond the ends.*
 - *Ruling: no search over the orientation of a contour; cost if wrong: shapes wound in opposite directions are normalised
   only as a whole, so a glyph that comes reversed from a font is fixed, a single hand-reversed contour is not.*
 - *Ruling: points are the union of both outlines' vertex fractions (arc length normalised per contour), so 0 is the source and

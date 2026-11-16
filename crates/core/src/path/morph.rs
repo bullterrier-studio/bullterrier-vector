@@ -38,7 +38,8 @@ impl Path {
     ///
     /// A contour with no partner, because the other path has fewer of its kind, shrinks to (or grows from) one point:
     /// the point in the other path's box that has the same place there as the contour's centre has in its own box (the
-    /// contour's own centre if the other path is empty). A hole without a partner is not wound: it is subtracted. When
+    /// contour's own centre if the other path is empty). Past 1 (a growing one: before 0) it stays that point, never
+    /// coming back through it, where a matched contour goes on along its line. A hole without a partner is not wound: it is subtracted. When
     /// there is one, every closed contour of the result goes through the boolean engine (as in [`Path::subtract`]): the
     /// closed part is canonical, overlapping outers are merged and a closed contour of fewer than 3 points is dropped;
     /// open contours are kept as they are. Without one the result is the lerp as it stands. An empty path on one side
@@ -388,6 +389,12 @@ impl Plan<'_> {
         let (closed, drawn) = match *self {
             Self::Matched(from, to) => (from.closed, from.drawn || to.drawn),
             Self::Leaving(contour, _) | Self::Arriving(contour, _) => (contour.closed, contour.drawn),
+        };
+        // a contour with no partner is its own size times a share that stops at 0: it never comes back through its point
+        let fraction = match self {
+            Self::Matched(..) => fraction,
+            Self::Leaving(..) => fraction.min(1.0),
+            Self::Arriving(..) => fraction.max(0.0),
         };
         let points: Vec<Point> = self
             .pairs()
