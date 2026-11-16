@@ -11,6 +11,7 @@ mod drawing_boolean;
 mod drawing_bounds;
 mod drawing_cache;
 mod drawing_dash;
+mod drawing_envelope;
 mod drawing_items;
 mod drawing_offset;
 mod drawing_per_item;

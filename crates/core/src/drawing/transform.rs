@@ -1,8 +1,8 @@
-//! The geometry steps of a drawing: `translate`, `rotate`, `scale`, `along`, `slice`, `twist`, `bulge`.
+//! The geometry steps of a drawing: `translate`, `rotate`, `scale`, `along`, `slice`, `twist`, `bulge`, `envelope`, `arch`.
 
 use super::Drawing;
 use crate::node::{Given, transform};
-use crate::{Expr, Path, Point};
+use crate::{Expr, Path, Point, Rect};
 
 /// A number of degrees, clockwise on the screen: anything that converts into an [`Expr`] (a number, a `Param`, an
 /// expression) can be an angle.
@@ -199,6 +199,83 @@ impl<T: Into<Expr>> From<T> for Bulge {
     fn from(amount: T) -> Self {
         Self::new(amount)
     }
+}
+
+/// The options of an envelope: the curve the bottom of the frame goes to, the frame, and how much of the bend is applied.
+/// `Envelope::new()` alone bends the frame's top edge to the curve and keeps the bottom straight.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Envelope {
+    bottom: Option<Path>,
+    frame: Option<Rect>,
+    amount: Option<Expr>,
+}
+
+impl Envelope {
+    /// An envelope whose bottom edge is the frame's own, its frame the bounds of the whole drawing, and its amount 1.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// This envelope with its bottom edge following `curve` instead of the frame's straight one.
+    #[must_use]
+    pub fn bottom(mut self, curve: &Path) -> Self {
+        self.bottom = Some(curve.clone());
+        self
+    }
+
+    /// This envelope mapping `frame` (design pixels), the same for every shape, instead of the bounds of the drawing.
+    #[must_use]
+    pub fn frame(mut self, frame: Rect) -> Self {
+        self.frame = Some(frame);
+        self
+    }
+
+    /// This envelope applying `amount` of the bend: a number, a `Param` or an expression, read for each shape. 0 leaves
+    /// the shapes as they are, 1 is the full bend.
+    #[must_use]
+    pub fn amount(mut self, amount: impl Into<Expr>) -> Self {
+        self.amount = Some(amount.into());
+        self
+    }
+}
+
+/// An arch: the bend, and optionally the frame. A number (or a `Param`, or an expression) alone converts into one.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Arch {
+    bend: Expr,
+    frame: Option<Rect>,
+}
+
+impl Arch {
+    /// An arch lifting the middle of the top of the bounds of the drawing by `bend` times their width.
+    #[must_use]
+    pub fn new(bend: impl Into<Expr>) -> Self {
+        Self {
+            bend: bend.into(),
+            frame: None,
+        }
+    }
+
+    /// This arch bending `frame` (design pixels), the same for every shape, instead of the bounds of the drawing.
+    #[must_use]
+    pub fn frame(mut self, frame: Rect) -> Self {
+        self.frame = Some(frame);
+        self
+    }
+}
+
+impl<T: Into<Expr>> From<T> for Arch {
+    fn from(bend: T) -> Self {
+        Self::new(bend)
+    }
+}
+
+/// The frame as the four numbers a call gives.
+fn frame_given(frame: Option<Rect>) -> Given {
+    frame.map_or(Given::Unset, |Rect { x, y, width, height }| {
+        Given::Numbers([x, y, width, height].into_iter().map(Expr::from).collect())
+    })
 }
 
 /// How shapes are carried along a guide: where on it they start, and from which point of a closed guide it is walked.
@@ -424,6 +501,48 @@ impl Drawing {
                 ("radius", radius.map_or(Given::Unset, Given::Number)),
                 ("about", Pivot::given(about)),
             ],
+        )
+    }
+
+    /// This drawing with a frame mapped onto the region between the curve `top` and the curve the options give for the
+    /// bottom (the frame's own straight edge if none), as [`Path::envelope`](crate::Path::envelope) does: a word between
+    /// an arc and the same arc lower is a banner. The frame is the bounds of all the shapes of the drawing, read when the
+    /// step is drawn, so that every shape shares one frame (a frame per shape would make a line of text as tall as a
+    /// block); [`Envelope::frame`] sets one instead. `amount` is a number for each shape. Each shape keeps its style and
+    /// attributes, its `origin` included (it is not moved).
+    ///
+    /// A `top` or bottom curve that is empty or has no length is refused when the drawing is drawn, as are a frame
+    /// with no width or height and an `amount` that is not a finite number; so is a draw that would make more than
+    /// `MAX_SEGMENTS` points. An `amount` or a frame number that is not a number leaves the drawing with an
+    /// [`error`](Drawing::error) naming the step.
+    #[must_use]
+    pub fn envelope(&self, top: &Path, options: Envelope) -> Self {
+        let Envelope { bottom, frame, amount } = options;
+        let mut given = vec![
+            ("top", Given::Path(top.clone())),
+            ("bottom", bottom.map_or(Given::Unset, Given::Path)),
+            ("frame", frame_given(frame)),
+        ];
+        if let Some(amount) = amount {
+            given.push(("amount", Given::Number(amount)));
+        }
+        self.then(&transform::Envelope, given)
+    }
+
+    /// This drawing arched, as [`Path::arch`](crate::Path::arch) does: a number alone (positive lifts the middle of the
+    /// top of the frame up the screen by that share of the frame's width, negative sags it), or an [`Arch`] with a
+    /// frame. The frame is the bounds of all the shapes of the drawing, shared by every shape; `bend` is a number for each
+    /// shape. Each shape keeps its style and attributes, its `origin` included (it is not moved).
+    ///
+    /// A frame with no width or height, or a `bend` that is not a finite number, is refused when the drawing is drawn
+    /// (at the call if it reads no Param, naming the step); so is a draw that would make more than `MAX_SEGMENTS`
+    /// points.
+    #[must_use]
+    pub fn arch(&self, arch: impl Into<Arch>) -> Self {
+        let Arch { bend, frame } = arch.into();
+        self.then(
+            &transform::Arch,
+            vec![("bend", Given::Number(bend)), ("frame", frame_given(frame))],
         )
     }
 

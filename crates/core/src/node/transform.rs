@@ -1,11 +1,11 @@
-//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`, `resample`, `dash`, `wave`, `wobble`, `twist`, `bulge`. Each applies the `Path` verb of the same name to every
+//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`, `resample`, `dash`, `wave`, `wobble`, `twist`, `bulge`, `envelope`, `arch`. Each applies the `Path` verb of the same name to every
 //! shape.
 
-use super::{Args, Context, Inputs, Node, each_shape};
+use super::{Args, Context, Inputs, Item, Node, each_shape};
 use crate::geometry::MAX_COORDINATE;
 use crate::limits::MAX_DASH_PATTERN;
 use crate::path::{Guide, STRONGEST_BULGE, rotate_point, scale_point};
-use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
+use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Rect, Role, Shape, Verb};
 
 /// A number read for each shape, within `domain`.
 const fn per_shape(name: &'static str, kind: Kind, default: Option<Literal>, domain: Domain) -> Arg {
@@ -511,6 +511,158 @@ impl Node for Bulge {
             let radius = args.number_opt(cx, "radius", item)?;
             let about = pivot(shape, args.point(cx, "about", item)?);
             Ok(shape.with_path(shape.path().bulge_charged(amount, radius, about, &mut charge)?))
+        })
+    }
+}
+
+/// The frame argument both envelope steps take: four numbers `x, y, width, height`, or left out.
+const FRAME: Arg = Arg {
+    name: "frame",
+    kind: Kind::Numbers,
+    default: Some(Literal::Unset),
+    reads: Reads::PerItem,
+    domain: Domain::Coordinate,
+};
+
+/// The `frame`, if given, has four numbers.
+fn frame_has_four_numbers(args: &Args) -> Result<(), Error> {
+    if args.given("frame")? {
+        let count = args.count("frame")?;
+        if count != 4 {
+            return Err(Error::parameter(
+                "frame",
+                format!("must be four numbers (x, y, width, height), got {count}"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The frame a shape is mapped by: the `frame` argument read for it, else `shared`, the bounds of the whole drawing.
+fn frame_of(args: &Args, cx: &Context<'_>, item: Item, shared: Option<Rect>) -> Result<Option<Rect>, Error> {
+    if !args.given("frame")? {
+        return Ok(shared);
+    }
+    match args.numbers(cx, "frame", item)?[..] {
+        [x, y, width, height] => Ok(Some(Rect { x, y, width, height })),
+        _ => Err(Error::parameter("frame", "must be four numbers (x, y, width, height)")),
+    }
+}
+
+/// The smallest rectangle round the geometry of every shape that has any, `None` if none has.
+fn union_bounds(shapes: &[Shape]) -> Option<Rect> {
+    shapes
+        .iter()
+        .filter_map(|shape| shape.path().bounds().ok())
+        .reduce(|first, second| {
+            let (left, top) = (first.x.min(second.x), first.y.min(second.y));
+            let (right, bottom) = (
+                (first.x + first.width).max(second.x + second.width),
+                (first.y + first.height).max(second.y + second.height),
+            );
+            Rect {
+                x: left,
+                y: top,
+                width: right - left,
+                height: bottom - top,
+            }
+        })
+}
+
+/// The two curves of an envelope, walked.
+fn walk(args: &Args, charge: &mut dyn FnMut(usize) -> Result<(), Error>) -> Result<(Guide, Option<Guide>), Error> {
+    let top = Guide::new("envelope", args.path("top")?, None, charge)?;
+    let bottom = if args.given("bottom")? {
+        Some(Guide::new("envelope", args.path("bottom")?, None, charge)?)
+    } else {
+        None
+    };
+    Ok((top, bottom))
+}
+
+/// Maps the frame of the drawing onto the region between two curves.
+#[derive(Debug)]
+pub(crate) struct Envelope;
+
+pub(crate) static ENVELOPE: Verb = Verb {
+    name: "envelope",
+    role: Role::Step,
+    summary: "maps a frame rectangle (default: the bounds of the whole drawing, so every shape shares one frame; or frame = [x, y, width, height]) onto the region between the path top and the path bottom (default: the frame's own straight bottom edge): a point goes to the blend, by its share v of the frame's height, of the points T(u) and B(u) at its share u of the frame's width, u read as a fraction of each curve's length (a closed curve wraps from its start, an open one goes on straight past its ends); amount blends each edge between the frame's straight edge (0) and the curve (1) and may be any number; the edges are cut so the result is smooth, corners kept",
+    args: &[
+        Arg {
+            name: "top",
+            kind: Kind::Path,
+            default: None,
+            reads: Reads::Literal,
+            domain: Domain::Any,
+        },
+        Arg {
+            name: "bottom",
+            kind: Kind::Path,
+            default: Some(Literal::Unset),
+            reads: Reads::Literal,
+            domain: Domain::Any,
+        },
+        FRAME,
+        per_shape("amount", Kind::Number, Some(Literal::Number(1.0)), Domain::Finite),
+    ],
+    check: Some(frame_has_four_numbers),
+};
+
+impl Node for Envelope {
+    fn verb(&self) -> &'static Verb {
+        &ENVELOPE
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        let shared = union_bounds(inputs.previous);
+        // the curves are the same for every shape: walk them once
+        let mut walked: Option<(Guide, Option<Guide>)> = None;
+        each_shape(inputs.previous, cx, |shape, item| {
+            if walked.is_none() {
+                walked = Some(walk(args, &mut charge)?);
+            }
+            let Some((top, bottom)) = &walked else {
+                return Ok(shape.clone());
+            };
+            let amount = args.number(cx, "amount", item)?;
+            let frame = frame_of(args, cx, item, shared)?;
+            Ok(shape.with_path(
+                shape
+                    .path()
+                    .enveloped(top, bottom.as_ref(), frame, amount, &mut charge)?,
+            ))
+        })
+    }
+}
+
+/// Raises the top of the frame of the drawing into a parabola.
+#[derive(Debug)]
+pub(crate) struct Arch;
+
+pub(crate) static ARCH: Verb = Verb {
+    name: "arch",
+    role: Role::Step,
+    summary: "bends a frame rectangle (default: the bounds of the whole drawing, so every shape shares one frame; or frame = [x, y, width, height]) into an arch: its top edge becomes a parabola through its top corners whose middle is bend times the frame's width above them (negative: below, a sag), its bottom edge stays straight, and the points between follow, so columns stay vertical and the horizontal spacing of x is kept; the edges are cut so the result is smooth, corners kept",
+    args: &[per_shape("bend", Kind::Number, None, Domain::Finite), FRAME],
+    check: Some(frame_has_four_numbers),
+};
+
+impl Node for Arch {
+    fn verb(&self) -> &'static Verb {
+        &ARCH
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        let shared = union_bounds(inputs.previous);
+        each_shape(inputs.previous, cx, |shape, item| {
+            let bend = args.number(cx, "bend", item)?;
+            let frame = frame_of(args, cx, item, shared)?;
+            Ok(shape.with_path(shape.path().arched(bend, frame, &mut charge)?))
         })
     }
 }

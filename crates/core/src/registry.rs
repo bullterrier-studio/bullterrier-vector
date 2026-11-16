@@ -31,6 +31,8 @@ const NODES: &[&dyn Node] = &[
     &transform::Wobble,
     &transform::Twist,
     &transform::Bulge,
+    &transform::Envelope,
+    &transform::Arch,
     &transform::Simplify,
     &transform::Reverse,
     &transform::Dash,

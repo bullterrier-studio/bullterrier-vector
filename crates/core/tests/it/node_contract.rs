@@ -12,9 +12,9 @@
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, build, log_uniform, parameter_refusal, step};
 use bullterrier_vector::{
-    Along, Blend, Bulge, Cap, Color, Deg, Drawing, Error, Expr, Gradient, Halftone, Join, Kind, Param, Path,
-    PlaceAlong, Point, Reads, Role, Rotate, Scale, ScaleBy, Select, Shadow, Shape, Spacing, Stroke, Text, Twist,
-    Values, text, verbs,
+    Along, Arch, Blend, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Gradient, Halftone, Join, Kind, Param,
+    Path, PlaceAlong, Point, Reads, Rect, Role, Rotate, Scale, ScaleBy, Select, Shadow, Shape, Spacing, Stroke, Text,
+    Twist, Values, text, verbs,
 };
 use proptest::prelude::*;
 use std::collections::BTreeSet;
@@ -67,6 +67,11 @@ fn unknown(verb: &str, argument: &str) -> Error {
 /// The guide the `along` rows bend along: a closed circle, so that every start has a place.
 fn ring() -> Result<Path, Error> {
     Path::circle((0.0, 0.0), 50.0)
+}
+
+/// The top curve of the `envelope` rows: a slanted line.
+fn slope() -> Result<Path, Error> {
+    Path::line((0.0, 0.0), (100.0, 20.0))
 }
 
 /// A gradient across the square: the paint the `fill` and `stroke` rows are made with.
@@ -748,6 +753,112 @@ fn rows() -> Vec<Row> {
                     "M3 4",
                     |d| Ok(d.bulge(Bulge::new(1.0).radius(10.0).about((0.0, 0.0)))),
                     "M4.5 6",
+                )],
+            }),
+        },
+        Row {
+            verb: "envelope",
+            sample: || Ok(square()?.envelope(&slope()?, Envelope::new().amount(0.8))),
+            with: Some(|argument, value| match argument {
+                "amount" => Ok(square()?.envelope(&slope()?, Envelope::new().amount(value))),
+                _ => Err(unknown("envelope", argument)),
+            }),
+            ranges: &[
+                ("amount", 1.0, true),
+                ("amount", -3.0, true),
+                ("amount", 0.0, true),
+                ("amount", f64::NAN, false),
+                ("amount", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let amount = a % 3.0;
+                    let frame = Rect {
+                        x: a % 50.0,
+                        y: b % 50.0,
+                        width: 10.0 + b.abs() % 90.0,
+                        height: 10.0 + a.abs() % 90.0,
+                    };
+                    Ok(vec![
+                        (
+                            "an amount, the bounds as the frame",
+                            Drawing::from(path.clone()).envelope(&slope()?, Envelope::new().amount(amount)),
+                            path.envelope(&slope()?, None, None, amount),
+                        ),
+                        (
+                            "a bottom, a frame and an amount",
+                            Drawing::from(path.clone())
+                                .envelope(&slope()?, Envelope::new().bottom(&ring()?).frame(frame).amount(amount)),
+                            path.envelope(&slope()?, Some(&ring()?), Some(frame), amount),
+                        ),
+                    ])
+                },
+                // the top runs to (10, 2): the point (5, 5) of the frame (0, 0, 10, 10) is half way across and half way
+                // down, between (5, 1) and the straight bottom (5, 10)
+                by_hand: &[(
+                    "M5 5",
+                    |d| {
+                        Ok(d.envelope(
+                            &Path::line((0.0, 0.0), (10.0, 2.0))?,
+                            Envelope::new().frame(Rect {
+                                x: 0.0,
+                                y: 0.0,
+                                width: 10.0,
+                                height: 10.0,
+                            }),
+                        ))
+                    },
+                    "M5 5.5",
+                )],
+            }),
+        },
+        Row {
+            verb: "arch",
+            sample: || Ok(square()?.arch(0.3)),
+            with: Some(|argument, value| match argument {
+                "bend" => Ok(square()?.arch(value)),
+                _ => Err(unknown("arch", argument)),
+            }),
+            ranges: &[
+                ("bend", 0.3, true),
+                ("bend", -2.0, true),
+                ("bend", f64::NAN, false),
+                ("bend", f64::NEG_INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let bend = a % 2.0;
+                    let frame = Rect {
+                        x: a % 50.0,
+                        y: b % 50.0,
+                        width: 10.0 + b.abs() % 90.0,
+                        height: 10.0 + a.abs() % 90.0,
+                    };
+                    Ok(vec![
+                        (
+                            "a bend, the bounds as the frame",
+                            Drawing::from(path.clone()).arch(bend),
+                            path.arch(bend, None),
+                        ),
+                        (
+                            "a bend and a frame",
+                            Drawing::from(path.clone()).arch(Arch::new(bend).frame(frame)),
+                            path.arch(bend, Some(frame)),
+                        ),
+                    ])
+                },
+                // the middle of the top of the frame (0, 0, 10, 10) rises by the bend times the width: 0.2 * 10 = 2
+                by_hand: &[(
+                    "M5 0",
+                    |d| {
+                        Ok(d.arch(Arch::new(0.2).frame(Rect {
+                            x: 0.0,
+                            y: 0.0,
+                            width: 10.0,
+                            height: 10.0,
+                        })))
+                    },
+                    "M5 -2",
                 )],
             }),
         },
