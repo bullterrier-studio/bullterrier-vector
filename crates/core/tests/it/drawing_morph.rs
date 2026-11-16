@@ -51,20 +51,20 @@ fn green() -> Color {
 }
 
 /// Unit squares at x = 0, 10, 20, filled red, blue, red.
-fn small(count: usize) -> Result<Drawing, Error> {
+fn small(count: u8) -> Result<Drawing, Error> {
     let fills = [red(), blue(), red()];
     Ok(Drawing::new(
         (0..count)
-            .map(|at| Ok(rect(10.0 * at as f64, 0.0, 1.0, 1.0)?.fill(fills[at % 3])))
+            .map(|at| Ok(rect(10.0 * f64::from(at), 0.0, 1.0, 1.0)?.fill(fills[usize::from(at) % 3])))
             .collect::<Result<Vec<_>, Error>>()?,
     ))
 }
 
 /// 2 x 2 squares at x = 0, 10, 20, all filled green.
-fn big(count: usize) -> Result<Drawing, Error> {
+fn big(count: u8) -> Result<Drawing, Error> {
     Ok(Drawing::new(
         (0..count)
-            .map(|at| Ok(rect(10.0 * at as f64, 0.0, 2.0, 2.0)?.fill(green())))
+            .map(|at| Ok(rect(10.0 * f64::from(at), 0.0, 2.0, 2.0)?.fill(green())))
             .collect::<Result<Vec<_>, Error>>()?,
     ))
 }
@@ -165,7 +165,7 @@ fn an_empty_drawing_on_either_side_leaves_every_shape_without_a_partner() -> Out
     assert_eq!(shrunk.len(), 2);
     assert_bounds(&shrunk[0], (0.25, 0.25, 0.5, 0.5), "shrunk to nothing")?;
     assert_eq!(shrunk[1].style(), drawn(&small(2)?)?[1].style());
-    assert!(drawn(&nothing().morph(nothing(), 0.5))?.is_empty());
+    assert_eq!(drawn(&nothing().morph(nothing(), 0.5))?.len(), 0);
     Ok(())
 }
 
