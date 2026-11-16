@@ -98,6 +98,7 @@ def test_every_example_drawing_is_valid(path: Path) -> None:
 GOOD = [
     pytest.param(square_with(), id="a path alone"),
     pytest.param(square_with({"fill": {"color": "#FF4F9A80"}}), id="a colour in upper case with alpha"),
+    pytest.param(square_with({"fill": {"color": "#F0a"}}), id="a three-digit colour"),
     pytest.param(with_param({"rotate": {"angle": {"neg": {"param": "x"}}}}), id="negation of a Param"),
     pytest.param(
         with_param({"opacity": {"alpha": {"mul": [{"by_index": {"first": 0, "last": 1}}, {"param": "x"}]}}}),
@@ -257,7 +258,7 @@ BAD = [
     pytest.param(square_with({"path": SQUARE}), "enum", "/root/1", id="a source where a step must be"),
     pytest.param(square_with({"stroke": {"width": 2}}), "required", "/root/1/stroke", id="a required argument missing"),
     pytest.param(square_with({"fill": {"color": "red"}}), "pattern", "/root/1/fill/color", id="a colour by name"),
-    pytest.param(square_with({"fill": {"color": "#f00"}}), "pattern", "/root/1/fill/color", id="a three-digit colour"),
+    pytest.param(square_with({"fill": {"color": "#f00f"}}), "pattern", "/root/1/fill/color", id="a four-digit colour"),
     pytest.param(
         square_with({"translate": {"dx": "10", "dy": 0}}), "type", "/root/1/translate/dx", id="a string number"
     ),
