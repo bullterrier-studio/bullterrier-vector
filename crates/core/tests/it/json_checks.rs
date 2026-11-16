@@ -296,16 +296,21 @@ fn drawing_acyclic_is_reported_for_a_cycle_that_would_also_be_too_deep() -> Outc
     Ok(())
 }
 
-/// A document with `levels` shared drawings, each a stack of the one before it.
-fn tower(levels: usize) -> String {
-    let mut entries = vec![triangle_entry("e0")];
+/// A document with `levels` shared drawings, each a stack of the one before it, over the entry `bottom`.
+fn tower_over(levels: usize, params: &[String], bottom: &str) -> String {
+    let mut entries = vec![bottom.to_string()];
     for level in 1..levels {
         entries.push(format!(
             r#""e{level}":[{{"stack":{{"items":[[{{"drawing":"e{}"}}]]}}}}]"#,
             level - 1
         ));
     }
-    drawing_using(&[], &entries.join(","), &[&format!("e{}", levels - 1)])
+    drawing_using(params, &entries.join(","), &[&format!("e{}", levels - 1)])
+}
+
+/// A document with `levels` shared drawings, each a stack of the one before it, over a triangle.
+fn tower(levels: usize) -> String {
+    tower_over(levels, &[], &triangle_entry("e0"))
 }
 
 #[test]
@@ -319,6 +324,19 @@ fn depth_counts_the_nesting_through_references() -> Outcome {
     assert_eq!(pointer, "");
     assert!(
         message.contains("MAX_DOCUMENT_DEPTH 40") && message.contains("43"),
+        "{message}"
+    );
+    // the limit exactly: a triangle moved by a Param is 4 levels deep and the same moved by its negation 5, which
+    // makes the 7 levels of the tower 40 and 41 deep
+    let bottom = |dx: &str| format!(r#""e0":[{{"path":"{TRIANGLE}"}},{{"translate":{{"dx":{dx},"dy":0}}}}]"#);
+    let params = [plain("p")];
+    let param = r#"{"param":"p"}"#;
+    assert!(Drawing::from_json(&tower_over(7, &params, &bottom(param)), &Inputs::new()).is_ok());
+    let negated = format!(r#"{{"neg":{param}}}"#);
+    let (pointer, message) = refused(&tower_over(7, &params, &bottom(&negated)))?;
+    assert_eq!(pointer, "");
+    assert!(
+        message.contains("MAX_DOCUMENT_DEPTH 40") && message.contains("41"),
         "{message}"
     );
     Ok(())

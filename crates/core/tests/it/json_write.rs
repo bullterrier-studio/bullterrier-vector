@@ -658,16 +658,22 @@ fn a_drawing_past_max_calls_is_refused() -> Outcome {
 
 #[test]
 fn a_drawing_nested_past_max_document_depth_is_refused() -> Outcome {
-    let nested = |levels: usize| -> Result<Drawing, Error> {
-        let mut drawing = square()?;
+    // a stack is 4 levels of the document, and a Param in the leaf's `translate` one more: the same 9 stacks are
+    // exactly 40 levels over a number and 41 over the Param
+    let nested = |levels: usize, dx: Expr| -> Result<Drawing, Error> {
+        let mut drawing = square()?.translate(&dx, 0.0);
         for _ in 0..levels {
             drawing = Drawing::new([drawing, square()?]);
         }
         Ok(drawing)
     };
-    assert!(nested(2)?.to_json().is_ok());
-    let (parameter, message) = parameter_refusal(nested(12)?.to_json())?;
+    assert!(nested(9, Expr::from(1.0))?.to_json().is_ok());
+    let (parameter, message) = parameter_refusal(nested(9, Expr::from(&Param::new("x", 1.0, 0.0, 10.0)?))?.to_json())?;
     assert_eq!(parameter, "to_json");
-    assert!(message.contains("MAX_DOCUMENT_DEPTH 40"), "{message}");
+    assert!(
+        message.contains("MAX_DOCUMENT_DEPTH 40") && message.contains("41"),
+        "{message}"
+    );
+    parameter_refusal(nested(12, Expr::from(1.0))?.to_json())?;
     Ok(())
 }
