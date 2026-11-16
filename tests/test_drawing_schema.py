@@ -565,6 +565,13 @@ AGREED = [
         True,
         id="a dash pattern and phase from a Param",
     ),
+    pytest.param(
+        with_param({"outline": {"width": 4, "profile": [[0, 0], [0.5, {"param": "x"}], [1, 0]]}}),
+        True,
+        id="an outline with a profile",
+    ),
+    pytest.param(square_with({"outline": {"width": 4, "profile": []}}), False, id="an outline with an empty profile"),
+    pytest.param(square_with({"outline": {"width": 4, "profile": [0, 1]}}), False, id="a profile of numbers"),
     pytest.param(square_with({"dash": {"pattern": []}}), False, id="a dash with an empty pattern"),
     pytest.param(square_with({"dash": {"pattern": [4, 0]}}), False, id="a dash length of 0"),
     pytest.param(square_with({"dash": {"pattern": 4}}), False, id="a dash pattern that is a number"),

@@ -322,14 +322,28 @@ impl PyDrawing {
     }
 
     /// Every shape turned into the region a stroke of `width` (a number, a Param or an expression, for each shape)
-    /// along it paints; as `Path.outline`.
+    /// along it paints; as `Path.outline`. `profile` is a list of `(position, factor)` pairs (numbers, Params or
+    /// expressions) that varies the width along each sub-path: a taper is `[(0, 0), (0.15, 1), (0.85, 1), (1, 0)]`.
     #[pyo3(
-        signature = (width, *, join="round", cap="round", miter_limit=DEFAULT_MITER_LIMIT, tolerance=DEFAULT_TOLERANCE),
-        text_signature = "($self, width, *, join='round', cap='round', miter_limit=4, tolerance=0.01)"
+        signature = (width, *, profile=None, join="round", cap="round", miter_limit=DEFAULT_MITER_LIMIT, tolerance=DEFAULT_TOLERANCE),
+        text_signature = "($self, width, *, profile=None, join='round', cap='round', miter_limit=4, tolerance=0.01)"
     )]
-    fn outline(&self, width: Num, join: &str, cap: &str, miter_limit: f64, tolerance: f64) -> PyResult<Self> {
+    fn outline(
+        &self,
+        width: Num,
+        profile: Option<Vec<Pair>>,
+        join: &str,
+        cap: &str,
+        miter_limit: f64,
+        tolerance: f64,
+    ) -> PyResult<Self> {
         let join = raised(vector::Join::parse(join))?;
         let cap = raised(vector::Cap::parse(cap))?;
+        if let Some(profile) = profile {
+            raised(vector::require_round_stroke(join, cap))?;
+            let stops = profile.into_iter().map(|Pair(at, factor)| (at, factor));
+            return checked(self.0.tapered_outline(width.0, stops, tolerance));
+        }
         checked(self.0.outline(width.0, join, cap, miter_limit, tolerance))
     }
 

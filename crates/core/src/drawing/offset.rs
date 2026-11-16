@@ -67,7 +67,12 @@ impl Drawing {
                 ("width", Given::Number(width.into())),
                 (
                     "profile",
-                    Given::Pairs(profile.into_iter().map(|(at, factor)| (at.into(), factor.into())).collect()),
+                    Given::Pairs(
+                        profile
+                            .into_iter()
+                            .map(|(at, factor)| (at.into(), factor.into()))
+                            .collect(),
+                    ),
                 ),
                 ("tolerance", Given::Number(Expr::from(tolerance))),
             ],

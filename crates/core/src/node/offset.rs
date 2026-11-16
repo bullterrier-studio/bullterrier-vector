@@ -6,8 +6,9 @@ use super::boolean::TOLERANCE;
 use super::style::{number, word};
 use super::{Args, Context, Inputs, Node, choice, each_shape};
 use crate::geometry::MAX_COORDINATE;
-use crate::shape::{Cap, DEFAULT_MITER_LIMIT, Join};
 use crate::limits::MAX_PROFILE_STOPS;
+use crate::require_round_stroke;
+use crate::shape::{Cap, DEFAULT_MITER_LIMIT, Join};
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
 
 /// Where a mitred corner is cut flat, SVG's ratio of the length of the point to the half-width.
@@ -73,16 +74,7 @@ fn profile_is_round(args: &Args) -> Result<(), Error> {
             format!("must have from 1 to {MAX_PROFILE_STOPS} stops, got {count}"),
         ));
     }
-    for name in ["join", "cap"] {
-        let word = args.text(name)?;
-        if word != "round" {
-            return Err(Error::parameter(
-                name,
-                format!("must be \"round\" with a profile, got \"{word}\""),
-            ));
-        }
-    }
-    Ok(())
+    require_round_stroke(choice(args, "join", Join::named)?, choice(args, "cap", Cap::named)?)
 }
 
 impl Node for Offset {

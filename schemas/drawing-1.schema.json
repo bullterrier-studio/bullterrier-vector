@@ -563,7 +563,8 @@
             "width": { "$ref": "#/$defs/positive" },
             "join": { "$ref": "#/$defs/join" },
             "cap": { "$ref": "#/$defs/cap" },
-            "miter_limit": { "$ref": "#/$defs/miter_limit" }
+            "miter_limit": { "$ref": "#/$defs/miter_limit" },
+            "profile": { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 1, "maxItems": 1000 }
           },
           "required": ["width"]
         },

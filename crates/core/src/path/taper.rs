@@ -13,6 +13,7 @@ use crate::Error;
 use crate::geometry::{Point, coordinate};
 use crate::limits::{MAX_PROFILE_STOPS, MAX_SEGMENTS};
 use crate::math;
+use crate::shape::{Cap, Join};
 use std::f64::consts::PI;
 
 /// The most a factor of a profile may be.
@@ -31,8 +32,7 @@ impl Path {
     /// The stroke is the sweep of a round disc of radius `width * factor / 2`, so joins and caps are round, and a
     /// factor of 0 at a free end closes the outline to a point. The curve is measured as [`Path::length`] measures it
     /// (flattened to 0.01 design pixels); `tolerance` is how far the round parts stray from true circles. A sub-path
-    /// that is a lone move paints nothing; one with no length (a line to its own start) paints a disc of the factor
-    /// at 0. The result is in canonical form and straight-edged.
+    /// that is a lone move, or has no length (a line to its own start), paints nothing, as in [`Path::outline`]. The result is in canonical form and straight-edged.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `profile` if it is empty, has more than 1,000 stops, a position outside 0 to 1
@@ -73,17 +73,17 @@ impl Path {
             .subpaths
             .iter()
             .map(|subpath| Run::new(subpath, 0.0, Some(subpath.start)))
-            // a lone move has no curves and paints nothing
-            .filter(|run| !run.curves.is_empty())
+            // a lone move, and a line to its own start, paint nothing, as in `outline`
+            .filter(|run| run.length > 0.0)
             .collect();
         if reach <= 0.0 || runs.is_empty() {
             return Ok(Self::new());
         }
-        // the most pieces: each edge, cut at most at every stop; a run with no length is one disc
+        // the most pieces: each edge, cut at most at every stop
         #[expect(clippy::cast_precision_loss, reason = "counts far below 2^53")]
         let pieces: f64 = runs
             .iter()
-            .map(|run| (run.edges.len() + profile.stops.len()) as f64 + 1.0)
+            .map(|run| (run.edges.len() + profile.stops.len()) as f64)
             .sum();
         let wanted = pieces * (corners(reach, tolerance) + 4.0);
         if wanted > 1e15 {
@@ -102,6 +102,27 @@ impl Path {
         }
         united(&polygons, charge)
     }
+}
+
+/// Checks that `join` and `cap` are round: a stroke that varies along its length is the sweep of a round disc, so
+/// [`Path::tapered_outline`] and a drawing's `outline` with a `profile` take no other.
+///
+/// # Errors
+/// [`Error::Parameter`] naming `join` or `cap` if it is not `Round`.
+pub fn require_round_stroke(join: Join, cap: Cap) -> Result<(), Error> {
+    if join != Join::Round {
+        return Err(Error::parameter(
+            "join",
+            format!("must be \"round\" with a profile, got \"{}\"", join.name()),
+        ));
+    }
+    if cap != Cap::Round {
+        return Err(Error::parameter(
+            "cap",
+            format!("must be \"round\" with a profile, got \"{}\"", cap.name()),
+        ));
+    }
+    Ok(())
 }
 
 /// A width profile, checked: `(position, factor)` stops with positions from 0 to 1 that never go back.
@@ -142,7 +163,7 @@ impl<'a> Profile<'a> {
     /// direction (stops, or the ends of the walk): the line of the stop pair the piece lies in, so a step is read
     /// from the side the piece is on.
     fn between(&self, a: f64, b: f64) -> (f64, f64) {
-        let middle = (a + b) / 2.0;
+        let middle = f64::midpoint(a, b);
         let next = self.stops.partition_point(|&(position, _)| position <= middle);
         match (next.checked_sub(1).map(|at| self.stops[at]), self.stops.get(next)) {
             (Some((p0, f0)), Some(&(p1, f1))) => {
@@ -170,15 +191,6 @@ fn corners(radius: f64, tolerance: f64) -> f64 {
 /// The hulls of the discs along `run`, with radius `half * factor`, added to `polygons`.
 fn sweep(run: &Run<'_>, half: f64, profile: &Profile<'_>, tolerance: f64, polygons: &mut Vec<Contour>) {
     let length = run.length;
-    if length <= 0.0 {
-        let (factor, _) = profile.between(0.0, 0.0);
-        if let Some(edge) = run.edges.first() {
-            hull(edge.from, half * factor, edge.from, half * factor, tolerance, polygons);
-        } else {
-            hull(run.subpath.start, half * factor, run.subpath.start, half * factor, tolerance, polygons);
-        }
-        return;
-    }
     let stops: Vec<f64> = profile.stops.iter().map(|&(position, _)| position * length).collect();
     let mut next = 0;
     for edge in &run.edges {
@@ -196,22 +208,19 @@ fn sweep(run: &Run<'_>, half: f64, profile: &Profile<'_>, tolerance: f64, polygo
                 edge.from.y + (edge.to.y - edge.from.y) * share,
             )
         };
-        let mut cursor = edge.start;
+        let (mut cursor, mut at_start) = (edge.start, true);
         loop {
-            let finish = if next < stops.len() && stops[next] < end {
-                next += 1;
-                stops[next - 1]
-            } else {
-                end
-            };
+            let cut = next < stops.len() && stops[next] < end;
+            let finish = if cut { stops[next] } else { end };
+            next += usize::from(cut);
             if finish > cursor {
                 let (r0, r1) = profile.between(cursor / length, finish / length);
-                let (a, b) = if cursor == edge.start { (edge.from, place(finish)) } else { (place(cursor), place(finish)) };
-                let b = if finish == end { edge.to } else { b };
-                hull(a, half * r0, b, half * r1, tolerance, polygons);
-                cursor = finish;
+                let from = if at_start { edge.from } else { place(cursor) };
+                let to = if cut { place(finish) } else { edge.to };
+                hull(from, half * r0, to, half * r1, tolerance, polygons);
+                (cursor, at_start) = (finish, false);
             }
-            if finish == end {
+            if !cut {
                 break;
             }
         }
@@ -236,7 +245,14 @@ fn hull(a: Point, r0: f64, b: Point, r1: f64, tolerance: f64, polygons: &mut Vec
         corners.pop();
     } else {
         let (direction, spread) = (math::atan2(dy, dx), math::acos((r0 - r1) / distance));
-        arc(&mut corners, a, r0, direction + spread, direction + 2.0 * PI - spread, step);
+        arc(
+            &mut corners,
+            a,
+            r0,
+            direction + spread,
+            direction + 2.0 * PI - spread,
+            step,
+        );
         arc(&mut corners, b, r1, direction - spread, direction + spread, step);
     }
     polygons.push(corners);

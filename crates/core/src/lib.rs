@@ -34,7 +34,7 @@ pub use json::{Inputs, drawing_schema};
 pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
 pub use output::{Mesh, Size, Window};
 pub use param::{Param, Unit};
-pub use path::{Path, Spacing};
+pub use path::{Path, Spacing, require_round_stroke};
 pub use registry::verbs;
 pub use shape::{
     Attributes, Blend, Cap, Color, Gradient, GradientKind, HalftoneStyle, Join, Paint, ShadowStyle, Shape, StrokeStyle,

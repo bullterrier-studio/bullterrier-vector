@@ -473,6 +473,7 @@ def offsets() -> list[Entry]:
     sharp = btvec.Path.from_svg_path("M15 80 L50 15 L85 80 Z")
     line = btvec.Path.from_svg_path("M20 70 L50 25 L80 70")
     grow = btvec.Param("grow", default=0, min=-20, max=20, unit="px", meaning="how far the outline is moved")
+    peak = btvec.Param("peak", default=1, min=0, max=1, unit="fraction", meaning="the width at the end of the stroke")
     frame = (400, 160)
 
     def sized(*items: btvec.Drawing) -> btvec.Drawing:
@@ -499,9 +500,24 @@ def offsets() -> list[Entry]:
         "outline_square_bevel": framed(line.fill(BLUE)).outline(14, join="bevel", cap="square"),
         "offset_text_grown": sized(at_90("Hif").fill(INK).offset(3)),
         "offset_text_shrunk": sized(at_90("Hif To", font=BRICOLAGE, axes={"wght": 800}).fill(RED).offset(-2)),
+        "outline_taper_open": framed(btvec.Path.from_svg_path("M10 50 C 30 10 70 90 90 50").fill(INK)).outline(
+            14, profile=[(0, 0), (0.15, 1), (0.85, 1), (1, 0)]
+        ),
+        "outline_taper_closed": framed(btvec.Path.circle((50, 50), 30).fill(RED)).outline(
+            10, profile=[(0, 0.2), (0.5, 1), (1, 0.2)]
+        ),
+        "outline_taper_dashed": framed(btvec.Path.line((10, 50), (90, 50)).fill(BLUE))
+        .dash([30, 10])
+        .outline(12, profile=[(0, 0), (0.5, 1), (1, 0)]),
+        "outline_taper_param": framed(btvec.Path.line((10, 50), (90, 50)).fill(INK)).outline(
+            10, profile=[(0, 0), (1, peak)]
+        ),
         "outline_text": sized(at_90("Hif", font=BRICOLAGE).fill(BLUE).outline(2, join="miter")),
     }
-    draws: dict[str, list[Draw]] = {"offset_param": [(100, 100, {}), (200, 200, {"grow": 7})]}
+    draws: dict[str, list[Draw]] = {
+        "offset_param": [(100, 100, {}), (200, 200, {"grow": 7})],
+        "outline_taper_param": [(100, 100, {}), (200, 200, {"peak": 0.4})],
+    }
     return [
         (
             name,

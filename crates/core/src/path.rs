@@ -33,6 +33,7 @@ pub(crate) use curve::FLATNESS;
 pub use place::Spacing;
 pub(crate) use polyline::Polyline;
 pub(crate) use region::Region;
+pub use taper::require_round_stroke;
 pub(crate) use transform::{rotate_point, scale_point};
 pub(crate) use write::number;
 

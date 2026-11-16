@@ -509,14 +509,29 @@ impl PyPath {
     }
 
     /// The region a stroke of `width` along this path paints, as a closed outline; `cap` is `"butt"`, `"round"` or
-    /// `"square"`; `join` and `miter_limit` as for `offset`.
+    /// `"square"`; `join` and `miter_limit` as for `offset`. `profile`, a list of `(position, factor)` pairs, varies
+    /// the width along each sub-path (position 0 to 1 by arc length, factors multiply `width`, linear between stops,
+    /// the end values held): a taper is `[(0, 0), (0.15, 1), (0.85, 1), (1, 0)]`. Joins and caps are then round.
     #[pyo3(
-        signature = (width, *, join="round", cap="round", miter_limit=Plain(DEFAULT_MITER_LIMIT), tolerance=Plain(DEFAULT_TOLERANCE)),
-        text_signature = "($self, width, *, join='round', cap='round', miter_limit=4, tolerance=0.01)"
+        signature = (width, *, profile=None, join="round", cap="round", miter_limit=Plain(DEFAULT_MITER_LIMIT), tolerance=Plain(DEFAULT_TOLERANCE)),
+        text_signature = "($self, width, *, profile=None, join='round', cap='round', miter_limit=4, tolerance=0.01)"
     )]
-    fn outline(&self, width: Plain, join: &str, cap: &str, miter_limit: Plain, tolerance: Plain) -> PyResult<Self> {
+    fn outline(
+        &self,
+        width: Plain,
+        profile: Option<Vec<Pt>>,
+        join: &str,
+        cap: &str,
+        miter_limit: Plain,
+        tolerance: Plain,
+    ) -> PyResult<Self> {
         let join = raised(vector::Join::parse(join))?;
         let cap = raised(vector::Cap::parse(cap))?;
+        if let Some(profile) = profile {
+            raised(vector::require_round_stroke(join, cap))?;
+            let stops: Vec<(f64, f64)> = profile.iter().map(|stop| (stop.0.x, stop.0.y)).collect();
+            return Self::of(self.0.tapered_outline(width.0, &stops, tolerance.0));
+        }
         Self::of(self.0.outline(width.0, join, cap, miter_limit.0, tolerance.0))
     }
 

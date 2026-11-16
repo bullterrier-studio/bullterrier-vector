@@ -169,10 +169,7 @@ fn argument(arg: &Arg) -> Json {
         ),
         Kind::Pairs => with(
             with(
-                Json::object([
-                    ("type", Json::text("array")),
-                    ("items", pair(value(arg), value(arg))),
-                ]),
+                Json::object([("type", Json::text("array")), ("items", pair(value(arg), value(arg)))]),
                 "minItems",
                 number(1.0),
             ),

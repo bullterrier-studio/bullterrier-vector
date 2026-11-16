@@ -1132,6 +1132,38 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   survives — a rotated start would change what `slice` and `dash` measure from.* The flattened edges are charged to
   `MAX_SEGMENTS` as `along` charges them, and the output never has more segments than that.
 
+- **Tapered outline (2026-11-16).** `Path::tapered_outline(width, &profile, tolerance)` in `path/taper.rs`, the kernel
+  `stroke(profile=)` will call; `outline(profile=)` is its Path and Drawing form. Built from the centre line the measured
+  walk gives, cut at the profile's stops so the radius is linear on each straight piece, and the union (one `i_overlay`
+  run, via `offset.rs`) of the convex hulls of consecutive end discs, whose corners are on the circles: exactly the sweep
+  of a disc of linearly changing radius, so the oracle is a brute-force distance to sampled discs.
+  *Ruling: positions are arc length per sub-path, 0 at its start and 1 at its end — settled from three examples: a
+  brush stroke on one open wave tapers both ends either way; `dash(...).outline(profile=)` must taper each dash (the
+  pencil-stroke look), which a position along the whole path cannot (only the first and last dash would thin); `text`
+  letters and the two contours of an "O" each taper on their own, a global position would taper only the first and last
+  contour — a position along the whole path (draw the profile once over a many-piece path) is not possible; join the
+  pieces first, then outline.*
+  *Ruling: a closed sub-path is walked from its written start (as `resample`), and the profile runs once round it; where
+  the end meets the start the width steps from the last factor to the first (both discs are in the union, so the larger
+  shows) — a taper to 0 on a ring pinches it at its start (a brush stroke closing on itself), equal end factors give a
+  seamless ring; cost if wrong: a ring that should have no seam shows a step unless the profile's ends are equal.*
+  *Ruling: joins and caps are round, so `join` and `cap` other than `"round"` with a profile are a `ParameterError`
+  naming the argument (the verb check, the core's `require_round_stroke` for Python), and `miter_limit` is unused — the
+  width changes the sweep of a disc; a mitre or square end of a changing width has no single definition; cost if wrong:
+  a mitred taper needs a different kernel.*
+  *Ruling: the centre line is the walk of `length` (0.01 flattening), `tolerance` bounds the discs' polygons — one
+  arc-length system, so a position agrees with `dash` and `slice`; cost: a `tolerance` below 0.01 does not refine the
+  curve itself.*
+  *Ruling: a sub-path of no length (a lone move, a line to its own start) paints nothing, as plain `outline` does —
+  one rule for the verb; cost: a dot of a taper needs the plain stroke.*
+  *Ruling: a profile is its own argument kind (`Kind::Pairs`, `[[position, factor], ...]`, each number a per-item
+  expression) and its own limit `MAX_PROFILE_STOPS` (1,000), not `MAX_DASH_PATTERN`; every number is read per shape, the
+  kernel validates the whole profile when drawn (positions and factors, naming `profile`), the loader checks the count
+  and the round join and cap.*
+  The corners of the hulls (pieces times the corners of a disc of the largest radius, which grows as sqrt(radius /
+  tolerance)) are charged to `MAX_SEGMENTS` before any is built, so a huge `width` at a fine `tolerance` is a
+  `ParameterError` naming `width`.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

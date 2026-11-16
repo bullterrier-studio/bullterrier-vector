@@ -250,3 +250,57 @@ def test_the_generated_schema_lists_both_steps():
     schema = btvec.drawing_schema()
     for word in ("offset", "outline", "miter_limit"):
         assert f'"{word}"' in schema
+
+
+TAPER = [(0, 0), (0.15, 1), (0.85, 1), (1, 0)]
+WAVE = btvec.Path.from_svg_path("M0 0 C30 40 70 -40 100 0")
+
+
+def test_a_tapered_outline_is_a_closed_point_at_a_zero_end_and_round_where_the_factor_is_one():
+    line = btvec.Path.line((0, 0), (100, 0))
+    plain = line.outline(10)
+    tapered = line.outline(10, profile=[(0, 1), (1, 1)])
+    assert area(tapered) == pytest.approx(area(plain), rel=0.003)
+    thin = line.outline(10, profile=[(0, 0), (1, 1)])
+    # the kite and sector of a point and a disc of radius 5, 100 apart: r t + r^2 (pi + 2 asin(r / d)) / 2
+    t = math.sqrt(100**2 - 5**2)
+    assert area(thin) == pytest.approx(5 * t + 12.5 * (math.pi + 2 * math.asin(0.05)), abs=0.4)
+    assert edges(thin)[0] == pytest.approx(0, abs=1e-6)
+    assert thin.contains((60, 3))
+    assert not thin.contains((5, 3))
+
+
+def test_a_taper_on_a_curve_and_a_dashed_line_taper_each_sub_path_on_its_own():
+    brush = WAVE.outline(12, profile=TAPER)
+    assert brush.bounds.x > -0.5
+    assert brush.bounds.x + brush.bounds.width < 100.5
+    dashed = btvec.Path.line((0, 0), (100, 0)).dash([30, 10]).outline(10, profile=[(0, 0), (0.5, 1), (1, 0)])
+    assert dashed.contains((55, 4))
+    assert not dashed.contains((40.5, 2))
+
+
+def test_a_drawing_takes_the_same_profile_with_params_and_saves_it_as_pairs():
+    peak = btvec.Param("peak", default=1, min=0, max=1)
+    drawing = Drawing(btvec.Path.line((0, 0), (40, 0))).outline(6, profile=[(0, 0), (1, peak)])
+    steps = json.loads(drawing.to_json())["root"][1:]
+    assert steps == [{"outline": {"width": 6, "profile": [[0, 0], [1, {"param": "peak"}]]}}]
+    half = Drawing.from_json(drawing.to_json()).to_svg(40, 10, peak=0.5)
+    assert half == drawing.to_svg(40, 10, peak=0.5) != drawing.to_svg(40, 10, peak=1)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        pytest.param({"profile": []}, "profile", id="empty"),
+        pytest.param({"profile": [(0, 1), (2, 1)]}, "profile", id="position past 1"),
+        pytest.param({"profile": [(0.5, 1), (0.2, 1)]}, "profile", id="positions going back"),
+        pytest.param({"profile": [(0, -1)]}, "profile", id="negative factor"),
+        pytest.param({"profile": [(0, 1)], "join": "miter"}, "join", id="miter with a profile"),
+        pytest.param({"profile": [(0, 1)], "cap": "butt"}, "cap", id="butt with a profile"),
+    ],
+)
+def test_a_profile_the_rules_refuse_is_a_parameter_error_on_a_path_and_a_drawing(kwargs, match):
+    with pytest.raises(ParameterError, match=match):
+        LINE.outline(2, **kwargs)
+    with pytest.raises(ParameterError, match=match):
+        Drawing(LINE).outline(2, **kwargs).to_svg(20, 20)

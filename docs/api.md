@@ -170,7 +170,7 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | `exclude` | `exclude(other, *, tolerance=0.01)` | the region inside exactly one (the symmetric difference) | as `union` |
 | `resolve` | `resolve(*, tolerance=0.01)` | its own overlaps removed: the region it fills, as closed polygons | as `union` |
 | `offset` | `offset(distance, *, join="round", miter_limit=4, tolerance=0.01)` | the region it fills moved outward by `distance` (inward when negative; past nothing, an empty path); joins `round`, `miter`, `bevel`; a `miter` sharper than `miter_limit` (SVG's ratio) is clipped flat at that length (SVG's `miter-clip`), not bevelled: the engine cannot bevel | `ParameterError`: `distance` not a number within ±1e100, `miter_limit` below 1, `tolerance` (as `union`), a result beyond ±1e100 |
-| `outline` | `outline(width, *, join="round", cap="round", miter_limit=4, tolerance=0.01)` | the region a stroke of `width` paints, as a closed outline; caps `butt`, `round`, `square` | `ParameterError`: `width` not above 0 and within ±1e100, `miter_limit` below 1, `tolerance` and the result as `offset` |
+| `outline` | `outline(width, *, profile=None, join="round", cap="round", miter_limit=4, tolerance=0.01)` | the region a stroke of `width` paints, as a closed outline; caps `butt`, `round`, `square`. With a `profile` the width varies along the stroke ("Tapered strokes" below); `join` and `cap` must then be `"round"` and `miter_limit` is unused | `ParameterError`: `width` not above 0 and within ±1e100, `miter_limit` below 1, `tolerance` and the result as `offset`; with a `profile`: it empty, over `MAX_PROFILE_STOPS` stops, a position outside 0..1 or going back, a factor not from 0 to 1e100, `join` or `cap` not `"round"`, or the discs' corners over `MAX_SEGMENTS` (a huge `width` at a fine `tolerance`; refused before any is made) |
 | `drop_parts` | `drop_parts(*, smaller_than)` | without the parts whose area is below `smaller_than` square pixels | `smaller_than` below 0 |
 | `fill_holes` | `fill_holes(*, smaller_than)` | with the holes whose area is below `smaller_than` filled | `smaller_than` below 0 |
 | `slice` | `slice(start, end, *, near=None)` | the piece between two positions along it (draw-on: `slice(0, progress)`); on a `Drawing` each number is read per shape, so `text("WRITE").slice(0, stagger(progress, spread=0.6))` draws the letters on one after another (Rust: `drawing.slice(start, end)`, `drawing.slice_near(start, end, near)`); with `near`, a closed sub-path is measured from its point nearest `near`, as for every verb that takes it | a position outside 0..1; `start` above `end`; on a `Path`, `GeometryError`: an empty path (on a `Drawing` a shape with nothing in it stays) |
@@ -257,6 +257,21 @@ under 5 degrees is bevelled; a round join or cap of a radius above about 80 time
 the radius; a feature far below the extent of the shape or the offset is lost to rounding, so a `width` far below the
 grid, or a `distance` beyond about 1e19 times the size of the shape, gives an empty path; a one-point sub-path paints
 nothing in `outline` (`stroke` draws a dot).
+
+### Tapered strokes
+
+`outline(width, profile=[(position, factor), ...])` paints a stroke whose width is `width * factor` at each place:
+`[(0, 0), (0.15, 1), (0.85, 1), (1, 0)]` is a brush stroke that thins to a point at both ends. `position` is 0 to 1 by
+arc length along each sub-path on its own (a closed one from its written start, as `resample`), so every open sub-path
+tapers at its own free ends: `dash([30, 10]).outline(8, profile=taper)` tapers each dash, and `text(...)` tapers each
+contour. Factors are linear between stops and hold the end values outside them; two stops at one position make a step.
+A closed sub-path has no free ends, the profile runs once round it from its start, and where its end meets its start the
+width steps from the last factor to the first (equal end factors make a seamless ring; ends at 0 pinch it at the start).
+The stroke is the sweep of a round disc, so joins and caps are round, a factor of 0 at a free end closes the outline to a
+point, and a sub-path of no length paints nothing. On a `Drawing`, `profile` is `[[position, factor], ...]` in a
+document and each number is a per-item number (a Param allowed). Rust: `path.tapered_outline(width, &profile, 0.01)?`,
+`drawing.tapered_outline(width, profile, 0.01)`. Known limits: the centre line is measured as `length` measures it
+(flattened to 0.01 pixels, whatever `tolerance` is; `tolerance` bounds the round parts); `stroke(profile=)` is not built.
 
 ### hatch
 
@@ -994,7 +1009,7 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 | 8 | One picture to both pixels and SVG, every effect kept | `to_svg`, `to_png`, `to_rgba` |
 | 9 | A fast halftone fill | `halftone` |
 | 10 | Plotter export: stroke only, ordered, simplified, solids hatched, a layer per pen | `to_plotter_svg` |
-| 11 | A variable-width stroke, tapered at free ends | gap: an effects-track verb, named with its gallery piece |
+| 11 | A variable-width stroke, tapered at free ends | `outline(width, profile=)` as a filled outline; `stroke(profile=)` follows |
 | 12 | Partial path by length from a stable start | `slice(0, progress)`: every outline the library makes in one orientation and order, closed ones measured from the topmost point, or from the point nearest `near=` where the top jumps |
 | 13 | Fitting text to a box by a variable axis, with a clear signal when the axis runs out | `text(width=, fit=)`; `ParameterError` naming the line and the width reached |
 

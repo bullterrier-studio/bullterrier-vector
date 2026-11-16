@@ -134,7 +134,7 @@ default paint, and draws as it did.
 | `union`, `subtract`, `intersect`, `exclude` | `other` (drawing), `tolerance` (literal, above 0 and at most 1e100; default 0.01) |
 | `resolve` | `tolerance` |
 | `offset` | `distance` (per-item number within ±1e100), `join` (`"round"`, `"miter"`, `"bevel"`; default `"round"`), `miter_limit` (literal, from 1; default 4), `tolerance` (as the booleans) |
-| `outline` | `width` (per-item number above 0, at most 1e100), `join`, `cap` (`"butt"`, `"round"`, `"square"`; default `"round"`), `miter_limit`, `tolerance` |
+| `outline` | `width` (per-item number above 0, at most 1e100), `join`, `cap` (`"butt"`, `"round"`, `"square"`; default `"round"`), `miter_limit`, `tolerance`, `profile` (an array of 1 to `MAX_PROFILE_STOPS` pairs `[position, factor]`, each a per-item number; positions 0..1 not going back, factors 0..1e100; `join` and `cap` must be `"round"`) |
 | `drop_parts`, `fill_holes` | `smaller_than` |
 | `slice` | `start`, `end` (fractions 0..1, per-item numbers allowed), `near` (point; each coordinate within ±1e100) |
 | `reverse`, `split`, `knockout` | none: `{"reverse": {}}` |
@@ -499,6 +499,7 @@ counter, its limit and the step:
 | `MAX_SETTINGS` | 64 | axes, and features, one `text` call, or one run of one, gives |
 | `MAX_RUNS` | 1,000 | runs one `text` call is made of |
 | `MAX_DASH_PATTERN` | 1,000 | lengths of one `dash` pattern |
+| `MAX_PROFILE_STOPS` | 1,000 | stops of one width `profile` of `outline` |
 | `MAX_SVG_ELEMENTS` | 20,000 | elements `Drawing.from_svg` reads, the root included (a drawing read from SVG then fits `MAX_CALLS` when saved) |
 | `MAX_SVG_NODES` | 80,000 | nodes (elements, and the text and comments between them) the XML parser builds for `Drawing.from_svg`, four for each element allowed; a document past it is refused before its tree is allocated |
 | `MAX_SVG_DEPTH` | 128 | levels of elements `Drawing.from_svg` reads, the root being 1 |

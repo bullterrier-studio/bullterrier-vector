@@ -28,6 +28,11 @@ fn factor(profile: &[(f64, f64)], position: f64) -> f64 {
     }
 }
 
+/// The distance between two points.
+fn gap(a: (f64, f64), b: (f64, f64)) -> f64 {
+    ((a.0 - b.0) * (a.0 - b.0) + (a.1 - b.1) * (a.1 - b.1)).sqrt()
+}
+
 /// A centre line as a polyline of many points (a cubic is sampled by de Casteljau) with the radius at each point.
 struct Sweep {
     discs: Vec<(f64, f64, f64)>,
@@ -40,10 +45,7 @@ impl Sweep {
         if closed {
             corners.push(points[0]);
         }
-        let lengths: Vec<f64> = corners
-            .windows(2)
-            .map(|pair| (pair[1].0 - pair[0].0).hypot(pair[1].1 - pair[0].1))
-            .collect();
+        let lengths: Vec<f64> = corners.windows(2).map(|pair| gap(pair[0], pair[1])).collect();
         let total: f64 = lengths.iter().sum();
         let mut discs = Vec::new();
         let mut before = 0.0;
@@ -69,7 +71,7 @@ impl Sweep {
     fn depth(&self, point: (f64, f64)) -> f64 {
         self.discs
             .iter()
-            .map(|&(x, y, r)| r - (point.0 - x).hypot(point.1 - y))
+            .map(|&(x, y, r)| r - gap(point, (x, y)))
             .fold(f64::MIN, f64::max)
     }
 
@@ -96,13 +98,17 @@ impl Sweep {
 }
 
 /// The points of the cubic `p0 p1 p2 p3`, 4000 of them.
-fn cubic(p: [(f64, f64); 4]) -> Vec<(f64, f64)> {
-    let mix = |a: (f64, f64), b: (f64, f64), t: f64| (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t);
+fn cubic(corners: [(f64, f64); 4]) -> Vec<(f64, f64)> {
+    let mix = |from: (f64, f64), to: (f64, f64), t: f64| (from.0 + (to.0 - from.0) * t, from.1 + (to.1 - from.1) * t);
     (0..=4000)
         .map(|i| {
             let t = f64::from(i) / 4000.0;
-            let (a, b, c) = (mix(p[0], p[1], t), mix(p[1], p[2], t), mix(p[2], p[3], t));
-            mix(mix(a, b, t), mix(b, c, t), t)
+            let (ab, bc, cd) = (
+                mix(corners[0], corners[1], t),
+                mix(corners[1], corners[2], t),
+                mix(corners[2], corners[3], t),
+            );
+            mix(mix(ab, bc, t), mix(bc, cd, t), t)
         })
         .collect()
 }
@@ -117,7 +123,12 @@ fn line(length: f64) -> Result<Path, Error> {
 fn example_one_a_brush_stroke_on_an_open_wavy_path_thins_to_points_at_both_ends() -> Outcome {
     let wave = Path::from_svg_path("M0 0 C30 40 70 -40 100 0")?;
     let outline = wave.tapered_outline(12.0, &TAPER, TOLERANCE)?;
-    let sweep = Sweep::along(&cubic([(0.0, 0.0), (30.0, 40.0), (70.0, -40.0), (100.0, 0.0)]), false, 12.0, &TAPER);
+    let sweep = Sweep::along(
+        &cubic([(0.0, 0.0), (30.0, 40.0), (70.0, -40.0), (100.0, 0.0)]),
+        false,
+        12.0,
+        &TAPER,
+    );
     assert!(sweep.agrees(&outline, (-10.0, 110.0), (-30.0, 30.0), 0.7)? > 2000);
     // closed at the tips: nothing sticks out past the ends of the path
     let bounds = outline.bounds()?;
@@ -132,7 +143,10 @@ fn example_two_each_dash_of_a_dashed_line_tapers_at_its_own_ends() -> Outcome {
     let outline = dashed.tapered_outline(10.0, &[(0.0, 0.0), (0.5, 1.0), (1.0, 0.0)], TOLERANCE)?;
     // the second dash is 30 long: 0.5 along it (x = 55) it is full width, 0.5 pixel after its start it is a hair
     assert!(outline.contains((55.0, 4.0))?);
-    assert!(!outline.contains((40.5, 2.0))?, "a taper over the whole line would be 4 wide here");
+    assert!(
+        !outline.contains((40.5, 2.0))?,
+        "a taper over the whole line would be 4 wide here"
+    );
     assert!(!outline.contains((69.5, 2.0))?);
     // the last, shorter dash peaks at its own middle (x = 90), not at the middle of the line
     assert!(outline.contains((90.0, 4.0))?);
@@ -163,7 +177,13 @@ fn example_three_text_o_tapers_each_contour_at_its_own_start() -> Outcome {
     let contours = o.split().len();
     assert!(contours >= 1);
     let tapered = o.tapered_outline(8.0, &TAPER, TOLERANCE)?;
-    let plain = o.outline(8.0, bullterrier_vector::Join::Round, bullterrier_vector::Cap::Round, 4.0, TOLERANCE)?;
+    let plain = o.outline(
+        8.0,
+        bullterrier_vector::Join::Round,
+        bullterrier_vector::Cap::Round,
+        4.0,
+        TOLERANCE,
+    )?;
     // a taper paints less than the full width, and more than nothing
     let (thin, full) = (area(&tapered)?, area(&plain)?);
     assert!(thin > 0.5 * full && thin < 0.98 * full, "{thin} against {full}");
@@ -261,18 +281,25 @@ fn a_step_in_the_profile_is_a_step_in_the_width() -> Outcome {
 fn an_all_zero_profile_leaves_an_empty_path_and_a_lone_point_nothing() -> Outcome {
     assert_eq!(line(10.0)?.tapered_outline(4.0, &[(0.0, 0.0)], TOLERANCE)?, Path::new());
     assert_eq!(Path::new().tapered_outline(4.0, &[(0.0, 1.0)], TOLERANCE)?, Path::new());
-    assert_eq!(Path::from_svg_path("M3 4")?.tapered_outline(4.0, &[(0.0, 1.0)], TOLERANCE)?, Path::new());
+    assert_eq!(
+        Path::from_svg_path("M3 4")?.tapered_outline(4.0, &[(0.0, 1.0)], TOLERANCE)?,
+        Path::new()
+    );
     Ok(())
 }
 
 #[test]
-fn a_line_to_its_own_start_paints_a_dot_of_the_factor_at_its_start() -> Outcome {
-    // as a plain outline with a round cap does
+fn a_line_to_its_own_start_paints_nothing_as_the_plain_outline_does() -> Outcome {
     let dot = Path::line((5.0, 5.0), (5.0, 5.0))?;
-    let found = area(&dot.tapered_outline(6.0, &[(0.0, 1.0), (1.0, 0.0)], TOLERANCE)?)?;
-    // inside the circle by at most tolerance x its circumference (19)
-    assert!((found - std::f64::consts::PI * 9.0).abs() < 0.2, "{found}");
-    assert_eq!(dot.tapered_outline(6.0, &[(0.0, 0.0), (1.0, 1.0)], TOLERANCE)?, Path::new());
+    let plain = dot.outline(
+        6.0,
+        bullterrier_vector::Join::Round,
+        bullterrier_vector::Cap::Round,
+        4.0,
+        TOLERANCE,
+    )?;
+    assert_eq!(plain, Path::new());
+    assert_eq!(dot.tapered_outline(6.0, &[(0.0, 1.0)], TOLERANCE)?, Path::new());
     Ok(())
 }
 

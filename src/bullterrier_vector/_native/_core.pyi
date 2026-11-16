@@ -157,7 +157,14 @@ class Path:
         self, distance: float, *, join: str = "round", miter_limit: float = 4, tolerance: float = 0.01
     ) -> Path: ...
     def outline(
-        self, width: float, *, join: str = "round", cap: str = "round", miter_limit: float = 4, tolerance: float = 0.01
+        self,
+        width: float,
+        *,
+        profile: Sequence[_PointLike] | None = None,
+        join: str = "round",
+        cap: str = "round",
+        miter_limit: float = 4,
+        tolerance: float = 0.01,
     ) -> Path: ...
     def scale(self, by: float | tuple[float, float] | Point, *, about: _PointLike | None = None) -> Path: ...
     def map_points(self, fn: Callable[[Point], _PointLike]) -> Path: ...
@@ -295,7 +302,14 @@ class Drawing:
         self, distance: _Num, *, join: str = "round", miter_limit: float = 4, tolerance: float = 0.01
     ) -> Drawing: ...
     def outline(
-        self, width: _Num, *, join: str = "round", cap: str = "round", miter_limit: float = 4, tolerance: float = 0.01
+        self,
+        width: _Num,
+        *,
+        profile: Sequence[_NumPair] | None = None,
+        join: str = "round",
+        cap: str = "round",
+        miter_limit: float = 4,
+        tolerance: float = 0.01,
     ) -> Drawing: ...
     def slice(self, start: _Num, end: _Num, *, near: _NumPair | None = None) -> Drawing: ...
     def dash(self, pattern: Sequence[_Num], *, phase: _Num = 0, near: _NumPair | None = None) -> Drawing: ...
