@@ -128,3 +128,11 @@ def test_an_arc_runs_clockwise_on_the_screen_from_plus_x() -> None:
 def test_a_bad_arc_is_refused_naming_the_argument(radius: float, start: float, end: float, name: str) -> None:
     with pytest.raises(btvec.ParameterError, match=name):
         btvec.Path.arc((0, 0), radius, start, end)
+
+
+@pytest.mark.parametrize("step", ["envelope", "arch"])
+def test_a_document_frame_without_four_numbers_is_a_format_error_naming_frame(step: str) -> None:
+    arguments = {"top": "M0 0 L10 2"} if step == "envelope" else {"bend": 0.2}
+    text = json.dumps({"version": 1, "root": [{"path": "M0 0 L9 9"}, {step: {**arguments, "frame": [0, 0, 1]}}]})
+    with pytest.raises(btvec.FormatError, match=r"frame: must be four numbers"):
+        btvec.Drawing.from_json(text)
