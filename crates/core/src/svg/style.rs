@@ -218,10 +218,6 @@ fn length(name: &str, value: &str) -> Result<f64, String> {
 
 /// A colour as `#rgb`, `#rrggbb`, `#rrggbbaa` or `none`.
 fn colour(name: &str, value: &str) -> Result<Color, String> {
-    if let Some(digits) = value.strip_prefix('#').filter(|digits| digits.len() == 3) {
-        let doubled: String = digits.chars().flat_map(|digit| [digit, digit]).collect();
-        return Color::parse(&format!("#{doubled}")).map_err(|_| unreadable(name, value));
-    }
     if value.starts_with("url(") {
         return Err(format!(
             "has {name}=\"{value}\": gradients and patterns are not read; paint with one colour"

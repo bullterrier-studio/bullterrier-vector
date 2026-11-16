@@ -8,7 +8,7 @@ use std::fmt;
 // constant: the largest alpha byte, fully opaque
 const OPAQUE: u8 = 0xff;
 
-/// A colour with red, green, blue and alpha, or [`Color::NONE`] for no paint at all. Written as `"#rrggbb"` or
+/// A colour with red, green, blue and alpha, or [`Color::NONE`] for no paint at all. Written as `"#rgb"`, `"#rrggbb"` or
 /// `"#rrggbbaa"` (hex digits in either case), or `"none"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color {
@@ -33,8 +33,8 @@ impl Color {
         Self { rgba: Some(rgba) }
     }
 
-    /// The colour written as `"#rrggbb"` (opaque) or `"#rrggbbaa"`, in either case, or `"none"` for [`Color::NONE`].
-    /// There are no colour names, no three-digit form and no `rgb()`.
+    /// The colour written as `"#rgb"` or `"#rrggbb"` (opaque) or `"#rrggbbaa"`, in either case, or `"none"` for
+    /// [`Color::NONE`]. There are no colour names, no `#rgba` and no `rgb()`.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `color` if `text` is none of these.
@@ -44,18 +44,25 @@ impl Color {
         }
         text.strip_prefix('#')
             .map(str::as_bytes)
-            .filter(|digits| matches!(digits.len(), 6 | 8))
+            .filter(|digits| matches!(digits.len(), 3 | 6 | 8))
             .and_then(|digits| {
                 let mut rgba = [OPAQUE; 4];
-                for (slot, pair) in rgba.iter_mut().zip(digits.chunks(2)) {
-                    *slot = hex_byte(pair)?;
+                if digits.len() == 3 {
+                    // `#rgb` doubles each digit: `#0af` is `#00aaff`
+                    for (slot, digit) in rgba.iter_mut().zip(digits) {
+                        *slot = hex_digit(*digit)? * 17;
+                    }
+                } else {
+                    for (slot, pair) in rgba.iter_mut().zip(digits.chunks(2)) {
+                        *slot = hex_byte(pair)?;
+                    }
                 }
                 Some(Self { rgba: Some(rgba) })
             })
             .ok_or_else(|| {
                 Error::parameter(
                     "color",
-                    format!("must be \"#rrggbb\", \"#rrggbbaa\" or \"none\", got {text:?}"),
+                    format!("must be \"#rgb\", \"#rrggbb\", \"#rrggbbaa\" or \"none\", got {text:?}"),
                 )
             })
     }

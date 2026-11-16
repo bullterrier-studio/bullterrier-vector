@@ -523,7 +523,7 @@ impl PyPath {
         }
     }
 
-    /// A drawing of this path filled with `color` (`"#rrggbb"`, `"#rrggbbaa"` or `"none"`) or a `Gradient`.
+    /// A drawing of this path filled with `color` (`"#rgb"`, `"#rrggbb"`, `"#rrggbbaa"` or `"none"`) or a `Gradient`.
     fn fill(&self, color: PaintArg) -> PyResult<PyDrawing> {
         PyDrawing::of(self).fill(color)
     }

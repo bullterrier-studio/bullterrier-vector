@@ -309,12 +309,12 @@ impl PyDrawing {
         })
     }
 
-    /// Every shape filled with `color` (`"#rrggbb"`, `"#rrggbbaa"` or `"none"`) or a `Gradient`.
+    /// Every shape filled with `color` (`"#rgb"`, `"#rrggbb"`, `"#rrggbbaa"` or `"none"`) or a `Gradient`.
     pub(crate) fn fill(&self, color: PaintArg) -> PyResult<Self> {
         checked(self.0.fill(color.0))
     }
 
-    /// Every outline stroked with `color` (`"#rrggbb"`, `"#rrggbbaa"`) or a `Gradient`; what is left out takes the
+    /// Every outline stroked with `color` (`"#rgb"`, `"#rrggbb"`, `"#rrggbbaa"`) or a `Gradient`; what is left out takes the
     /// defaults (2 pixels, round, round, 4).
     #[pyo3(signature = (color, *, width=None, join=None, cap=None, miter_limit=None))]
     pub(crate) fn stroke(

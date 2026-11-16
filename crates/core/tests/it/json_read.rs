@@ -342,8 +342,8 @@ fn a_literal_outside_the_range_of_its_argument_is_refused_with_the_message_of_th
             "\"normal\", \"multiply\", \"screen\"",
         ),
         (
-            "a colour that is three digits",
-            after_triangle(r##",{"fill":{"color":"#f00"}}"##),
+            "a colour that is four digits",
+            after_triangle(r##",{"fill":{"color":"#f00f"}}"##),
             "/root/1/fill/color",
             "#rrggbb",
         ),

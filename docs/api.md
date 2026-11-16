@@ -364,7 +364,7 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | `gradient_map` | `gradient_map(colors)` | every fill and stroke colour replaced by its lightness read along `colors`, dark to light (two colours: a duotone) | fewer than 2 colours |
 | `posterize` | `posterize(levels)` | every fill and stroke colour reduced to `levels` levels a channel | `levels` below 2 |
 
-Colours are `"#rrggbb"` or `"#rrggbbaa"`. A gradient is a value (Rust `Gradient::linear(start, end, stops)?` and
+Colours are `"#rgb"`, `"#rrggbb"` or `"#rrggbbaa"`. A gradient is a value (Rust `Gradient::linear(start, end, stops)?` and
 `Gradient::radial(center, radius, stops)?`, stops `(f64, Color)`; Python `Gradient`, `Style.fill` and `Style.stroke`
 give back the text or the `Gradient`; Rust `Style::fill()` and `StrokeStyle::paint()` give a `Paint`, a `Color` or a
 `Gradient`). Its numbers are literals (no Param) in design pixels of the frame, not of the shape: a shape moved under a

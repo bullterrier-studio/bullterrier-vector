@@ -141,6 +141,13 @@ def test_fill_none_counts_as_set_and_paints_nothing():
     assert (style.fill, style.stroke) == (None, None)
 
 
+def test_a_short_colour_doubles_each_digit():
+    assert only_shape(Drawing(SQUARE).fill("#0Af")).style.fill == "#00aaffff"
+    assert only_shape(Drawing(SQUARE).stroke("#fa0", width=1)).style.stroke == "#ffaa00ff"
+    with pytest.raises(btvec.ParameterError, match="#ggg"):
+        Drawing(SQUARE).fill("#ggg")
+
+
 def test_a_colour_with_alpha_is_kept():
     assert only_shape(Drawing(SQUARE).fill("#11223344")).style.fill == "#11223344"
 
@@ -826,7 +833,7 @@ def a_param() -> btvec.Param:
     ("call", "names"),
     [
         pytest.param(lambda: Drawing(SQUARE).fill("red"), "color", id="fill: a colour name"),
-        pytest.param(lambda: Drawing(SQUARE).fill("#fff"), "color", id="fill: three digits"),
+        pytest.param(lambda: Drawing(SQUARE).fill("#fffg"), "color", id="fill: four digits"),
         pytest.param(lambda: Drawing(SQUARE).fill(""), "color", id="fill: empty"),
         pytest.param(lambda: Drawing(SQUARE).stroke("#12"), "color", id="stroke: a short colour"),
         pytest.param(lambda: Drawing(SQUARE).stroke("none"), "color", id="stroke: none paints nothing"),

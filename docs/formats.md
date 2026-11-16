@@ -331,8 +331,8 @@ rounded.
   within ±1e100 in design pixels, `from` differs from `to`, `radius` is above 0. An unknown member, or one of the other
   kind, is refused at its pointer. The schema's `gradient` definition has the shape; the loader checks the offsets'
   order and the points.
-- **Colours** are `"#rrggbb"` or `"#rrggbbaa"`, hex digits in either case; `fill` also takes `"none"`. No names, no
-  three-digit form, no `rgb()`.
+- **Colours** are `"#rgb"`, `"#rrggbb"` or `"#rrggbbaa"`, hex digits in either case; `fill` also takes `"none"`. No names, no
+  `#rgba`, no `rgb()`.
 - **Path data** is SVG path data. A `Path` is a list of sub-paths, each a start, its segments (straight, quadratic,
   cubic) and whether it is closed, and its written form is one-to-one with it: each sub-path is `M` and its start, then
   its segments as `L`, `Q` and `C` with absolute coordinates, then `Z` if it is closed. `Z` is the close flag and

@@ -189,7 +189,7 @@ pub enum Kind {
     Point,
     /// A pair of numbers.
     Pair,
-    /// A colour: `"#rrggbb"`, `"#rrggbbaa"` or `"none"`.
+    /// A colour: `"#rgb"`, `"#rrggbb"`, `"#rrggbbaa"` or `"none"`.
     Color,
     /// A colour as `Color` has it, or a gradient: `{"gradient": "linear", "stops": [[0, "#ff0066"], [1, "#ffcc00"]],
     /// "from": [0, 0], "to": [0, 400]}`, or `"radial"` with `"center"` and `"radius"` in place of `"from"` and `"to"`.
@@ -266,6 +266,6 @@ pub enum Domain {
     PositiveUpTo(f64),
     /// One of these words.
     Choice(&'static [&'static str]),
-    /// A colour that paints: `"#rrggbb"` or `"#rrggbbaa"`, not `"none"`.
+    /// A colour that paints: `"#rgb"`, `"#rrggbb"` or `"#rrggbbaa"`, not `"none"`.
     Painting,
 }

@@ -33,6 +33,8 @@ fn a_colour_is_read_from_hex_digits_in_either_case() -> Outcome {
         ("#00000000", [0, 0, 0, 0]),
         ("#012345", [0x01, 0x23, 0x45, 0xff]),
         ("#89abcdef", [0x89, 0xab, 0xcd, 0xef]),
+        ("#0af", [0x00, 0xaa, 0xff, 0xff]), // each digit doubled
+        ("#FfA", [0xff, 0xff, 0xaa, 0xff]),
     ];
     for (text, bytes) in rows {
         let color = Color::parse(text).map_err(|error| format!("{text}: {error}"))?;
@@ -46,7 +48,9 @@ fn a_colour_is_read_from_hex_digits_in_either_case() -> Outcome {
 #[test]
 fn a_colour_that_is_not_hex_is_refused_naming_the_colour_and_the_text() -> Outcome {
     let rows = [
-        "#fff",        // the short form is not accepted
+        "#ggg",        // three digits, not hex
+        "#rg",         // two digits, not hex
+        "#fffg",       // four digits: no #rgba form
         "red",         // names are not accepted
         "#gg0000",     // not hex digits
         "",            // nothing
