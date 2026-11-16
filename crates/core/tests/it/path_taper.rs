@@ -243,6 +243,24 @@ fn the_factors_scale_the_width_and_the_end_values_hold_outside_the_listed_range(
 }
 
 #[test]
+fn a_sloped_profile_holds_its_end_values_outside_the_range_and_does_not_extend_the_slope() -> Outcome {
+    // width 10 on a line of 100, factors 0.2 at 25 and 1 at 75: radius 1 up to x = 25, 1 to 5 over 50, then 5 to the end.
+    // By hand: three hulls of two discs (stadium r 1 over 25, the slanted hull of discs 1 and 5 a distance 50 apart with
+    // tangent t = sqrt(50^2 - 4^2) and half-angle a = asin(4 / 50), stadium r 5 over 25) less the two discs they share.
+    let outline = line(100.0)?.tapered_outline(10.0, &[(0.25, 0.2), (0.75, 1.0)], TOLERANCE)?;
+    let a = (4.0_f64 / 50.0).asin();
+    let t = (50.0_f64 * 50.0 - 16.0).sqrt();
+    let pi = std::f64::consts::PI;
+    let first = 25.0 * 2.0 + pi;
+    let slanted = t * 6.0 + 0.5 * 25.0 * (pi + 2.0 * a) + 0.5 * (pi - 2.0 * a);
+    let last = 25.0 * 10.0 + pi * 25.0;
+    let wanted = first + slanted + last - pi - 25.0 * pi;
+    let found = area(&outline)?;
+    assert!((found - wanted).abs() < 0.3, "{found} is not {wanted}");
+    Ok(())
+}
+
+#[test]
 fn a_symmetric_profile_gives_a_mirror_symmetric_outline() -> Outcome {
     let profile = [(0.0, 0.2), (0.3, 1.0), (0.7, 1.0), (1.0, 0.2)];
     let outline = line(100.0)?.tapered_outline(10.0, &profile, TOLERANCE)?;
