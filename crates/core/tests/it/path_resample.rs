@@ -208,3 +208,10 @@ fn the_error_type_is_the_one_every_verb_returns() {
     // the signature: a plain number in, a path or an error out
     let _: fn(&Path, f64) -> Result<Path, Error> = Path::resample;
 }
+
+#[test]
+fn an_end_within_rounding_of_a_corner_is_stored_once() -> Outcome {
+    let line = Path::line((0.0, 0.0), (0.9, 0.0))?;
+    assert_eq!(line.resample(0.3)?.to_svg_path(), "M0 0 L0.3 0 L0.6 0 L0.9 0");
+    Ok(())
+}

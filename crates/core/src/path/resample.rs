@@ -78,7 +78,9 @@ fn resampled(run: &Run<'_>, spacing: f64) -> SubPath {
     }
     let mut corners = Vec::new();
     let mut index = 0.0_f64;
-    while index * spacing < run.length {
+    // a corner within rounding of the end (or, closed, of the start) is the end's, not a second one beside it
+    let before_end = run.length * (1.0 - 1e-12);
+    while index * spacing < before_end {
         corners.push(run.at(index * spacing));
         index += 1.0;
     }
