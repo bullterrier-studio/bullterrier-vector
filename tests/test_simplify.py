@@ -20,7 +20,7 @@ def test_the_tolerance_defaults_to_half_a_pixel_and_is_keyword_only() -> None:
     assert DENSE.simplify().to_svg_path() == "M0 0 L98 0"
     assert btvec.Drawing(DENSE).simplify().shapes()[0].path.to_svg_path() == "M0 0 L98 0"
     with pytest.raises(TypeError):
-        DENSE.simplify(0.5)  # type: ignore[misc]
+        DENSE.simplify(0.5)  # type: ignore[call-arg]
 
 
 def test_sharp_corners_are_kept_and_a_smooth_run_becomes_a_curve() -> None:

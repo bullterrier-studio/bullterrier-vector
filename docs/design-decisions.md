@@ -1110,6 +1110,28 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   Python says `turn=False`.*
   Copies times shapes is charged to `MAX_SHAPES` and `MAX_SEGMENTS` before any copy is made.
 
+- **`simplify` (2026-11-16).** Schneider's fit (Graphics Gems, 1990) per run between corners, in `path/simplify.rs`.
+  *Ruling: a corner is a turn of more than 45 degrees between neighbouring edges, an internal `// constant:`, not an
+  argument (api.md fixes `simplify(*, tolerance=0.5)` and no example needs it) — a jittery trace that turns sharply at
+  every point keeps its jitter as corners and is returned nearly as it was; cost if wrong: add `corner_angle` as a
+  literal argument later (a new optional key, nothing saved breaks).*
+  *Ruling: the error is measured at every point and also at a quarter, half and three quarters of each edge, and a run
+  whose points all lie within `tolerance` of its chord is one line (exact for collinear points, so a dense square is
+  four `L`) — Schneider measures at the points only, and a smooth cubic through the 12 corners of a circle of radius
+  100 bulges 3.4 pixels off the edges, so the output would leave the input; cost: about four times the evaluations of
+  a fit, and a short flat run next to a curve is a line with a tangent kink up to the tolerance in size.*
+  *Ruling: a split falls in the middle half of its run (at the worst point where that is inside it) — splitting at the
+  worst point alone can peel one point at a time and is quadratic in the points; the middle half
+  bounds the work to O(n log n) and the stack of an explicit loop to about log n jobs, so no recursion and no stack
+  test; cost: sometimes a segment more than the unrestricted fit.*
+  *Ruling: a sub-path never gets more segments than it had, it is kept as it was when the fit would have more (four
+  cubics of a circle stay four) — "simplify" that adds segments would surprise; cost: a fitted sub-path is compared
+  with the stored segment count, so a curve already within tolerance is never re-fitted smoother.*
+  *Ruling: a closed sub-path with no corner is fitted as one loop from its written start with a centred tangent there,
+  and a corner-ful one splits at its written start too (smooth unless the start is itself a corner), so `start`
+  survives — a rotated start would change what `slice` and `dash` measure from.* The flattened edges are charged to
+  `MAX_SEGMENTS` as `along` charges them, and the output never has more segments than that.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin
