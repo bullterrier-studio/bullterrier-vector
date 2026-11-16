@@ -20,12 +20,12 @@ fn line() -> Result<Drawing, bullterrier_vector::Error> {
 
 #[test]
 fn a_waved_line_is_a_sine_in_its_points() -> Outcome {
-    // 120 long, a wavelength of 120: the quarter wave at x = 30 is 8 down, the three quarters at x = 90 is 8 up
-    let found = drawn(&line()?.wave(8.0, 120.0, Deg(0.0), 0.0), &Values::new())?;
+    // 120 long, a wavelength of 120: the quarter wave at x = 30 is 5 down, the three quarters at x = 90 is 5 up
+    let found = drawn(&line()?.wave(5.0, 120.0, Deg(0.0), 0.0), &Values::new())?;
     assert_eq!(found.len(), 1);
     assert!(found[0].starts_with("M0 0 L5 "), "{}", found[0]);
-    assert!(found[0].contains(" L30 8 "), "{}", found[0]);
-    assert!(found[0].contains(" L90 -8 "), "{}", found[0]);
+    assert!(found[0].contains(" L30 5 "), "{}", found[0]);
+    assert!(found[0].contains(" L90 -5 "), "{}", found[0]);
     assert!(
         found[0].ends_with(" L120 0") || found[0].contains(" L120 -0"),
         "{}",
@@ -36,10 +36,10 @@ fn a_waved_line_is_a_sine_in_its_points() -> Outcome {
 
 #[test]
 fn an_angle_turns_the_direction_of_travel() -> Outcome {
-    // travelling down, the quarter wave at y = 30 moves a point of the vertical line 8 to the left
+    // travelling down, the quarter wave at y = 30 moves a point of the vertical line 5 to the left
     let vertical = Drawing::from(Path::line((0.0, 0.0), (0.0, 120.0))?);
-    let found = drawn(&vertical.wave(8.0, 120.0, Deg(90.0), 0.0), &Values::new())?;
-    assert!(found[0].contains(" L-8 30 "), "{}", found[0]);
+    let found = drawn(&vertical.wave(5.0, 120.0, Deg(90.0), 0.0), &Values::new())?;
+    assert!(found[0].contains(" L-5 30 "), "{}", found[0]);
     Ok(())
 }
 
@@ -49,9 +49,9 @@ fn each_shape_reads_its_own_amplitude_and_keeps_its_style_and_attributes() -> Ou
         Path::line((0.0, 0.0), (120.0, 0.0))?,
         Path::line((0.0, 0.0), (120.0, 0.0))?,
     ]);
-    let found = drawn(&lines.wave(by_index(8.0, 16.0), 120.0, Deg(0.0), 0.0), &Values::new())?;
-    assert!(found[0].contains(" L30 8 "), "{}", found[0]);
-    assert!(found[1].contains(" L30 16 "), "{}", found[1]);
+    let found = drawn(&lines.wave(by_index(4.0, 5.0), 120.0, Deg(0.0), 0.0), &Values::new())?;
+    assert!(found[0].contains(" L30 4 "), "{}", found[0]);
+    assert!(found[1].contains(" L30 5 "), "{}", found[1]);
     let word = text("Hi", &fraunces()?).fill(Color::hex(0xff_00_00));
     let (before, after) = (
         word.shapes(&Values::new())?,

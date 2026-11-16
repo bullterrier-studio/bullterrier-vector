@@ -17,11 +17,36 @@ use std::f64::consts::TAU;
 // sine by; fewer pieces (16: 1.9%) show as facets on a large amplitude
 const WAVE_PIECES: f64 = 24.0;
 
+/// The chord error of a wave cut into `WAVE_PIECES`, as a share of the amplitude.
+// constant: A (2 pi / 24)^2 / 8, worked out above
+const WAVE_ERROR: f64 = 0.0086;
+
 /// The pieces of a wavelength a wobble's edges are cut into at most.
 // constant: the noise changes by at most 3.75 amplitudes per wavelength per axis and bends by at most 17.9 amplitudes per
 // wavelength squared along a line, so a chord over a step h strays by at most sqrt(2) 17.9 (h / wavelength)^2 / 8 of the
 // amplitude: 0.55% for a 24th of the wavelength, under the hundredth (the bound is loose; 16 pieces would give 1.2%)
 const WOBBLE_PIECES: f64 = 24.0;
+
+/// The chord error of a wobble cut into `WOBBLE_PIECES`, as a share of the amplitude.
+// constant: the bound worked out above (the real error measured is a quarter of it)
+const WOBBLE_ERROR: f64 = 0.0055;
+
+/// The most a chord of any deformer's result may stray from the map it stands for, in design pixels.
+// constant: a relative error (a share of the amplitude, radius or width) is a bigger absolute one on a big shape, and a
+// zoomed render shows it as facets: 0.5% of a 190 px radius is 0.95 px. A twentieth of a pixel is 0.4 device pixels at
+// 8x zoom, below what shows; a deformer takes the smaller of this and its own relative bound, so a small shape costs
+// what it did and only a big one gets more points
+const DEFORM_ERROR_PX: f64 = 0.05;
+
+/// The step a verb cuts with when its own `step` leaves chords `error` design pixels off the map: `step` where that is
+/// within `DEFORM_ERROR_PX`, else the step shortened so it is (a chord's error goes as the square of the step).
+fn within_budget(step: f64, error: f64) -> f64 {
+    if error > DEFORM_ERROR_PX {
+        step * libm::sqrt(DEFORM_ERROR_PX / error)
+    } else {
+        step
+    }
+}
 
 impl Path {
     /// This path with its points displaced sideways by a sine travelling towards `angle` (degrees, clockwise on the
@@ -77,7 +102,7 @@ impl Path {
             let sideways = amplitude * sin_cos(TAU * (along / wavelength - phase)).0;
             Point::new(point.x - sideways * sin, point.y + sideways * cos)
         };
-        self.warp("amplitude", wavelength / WAVE_PIECES, &map, charge)
+        self.warp("amplitude", wavelength / WAVE_PIECES, WAVE_ERROR * amplitude.abs(), &map, charge)
     }
 
     /// This path with its points displaced by smooth seeded noise: a point `(x, y)` moves by `(dx, dy)`, two independent
@@ -128,7 +153,7 @@ impl Path {
                 point.y + amplitude * down.value(x, y, phase),
             )
         };
-        self.warp("amplitude", wavelength / WOBBLE_PIECES, &map, charge)
+        self.warp("amplitude", wavelength / WOBBLE_PIECES, WOBBLE_ERROR * amplitude.abs(), &map, charge)
     }
 
     /// This path with every point moved by `map`: flattened to straight edges, each edge cut into `ceil(length /
@@ -140,24 +165,52 @@ impl Path {
     /// next to the path is refused, not allocated; `charge` is also told the edges of each curve as it is flattened.
     /// `parameter` is what an error names when `map` carries a point beyond ±1e100 or to a NaN.
     ///
+    /// `step` is the verb's own cut and `error` the most a chord of that cut strays from the map, in design pixels; a
+    /// step whose chords stray by more than `DEFORM_ERROR_PX` is shortened until they do not, so the result of any
+    /// deformer is smooth to a twentieth of a pixel at any size.
+    ///
     /// # Errors
     /// What `charge` returns; [`Error::Parameter`] naming `parameter` for a point out of range.
     pub(crate) fn warp(
         &self,
         parameter: &'static str,
         step: f64,
+        error: f64,
         map: &dyn Fn(Point) -> Point,
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<Self, Error> {
         let polylines = self.flattened(charge)?;
-        let wanted: f64 = polylines
-            .iter()
-            .map(|polyline| 1.0 + edges(polyline).map(|(from, to)| pieces(from, to, step)).sum::<f64>())
-            .sum();
-        // a count that is not a number (a step that is not) is refused with the rest
+        let count = |step: f64| -> f64 {
+            polylines
+                .iter()
+                .map(|polyline| 1.0 + edges(polyline).map(|(from, to)| pieces(from, to, step)).sum::<f64>())
+                .sum()
+        };
+        // a step that is small next to the path is refused first, as the verb's own cut would be (a count that is not
+        // a number, from a step that is not, is refused with the rest)
         #[expect(clippy::cast_precision_loss, reason = "10 million is exact in f64")]
-        let within = wanted <= MAX_SEGMENTS as f64;
-        if within {
+        if !(count(step) <= MAX_SEGMENTS as f64) {
+            charge(MAX_SEGMENTS + 1)?;
+        }
+        // then a map that sends a vertex out of range is refused by name: a huge amplitude would shorten the step to
+        // nothing below, and the count would name the wavelength for it
+        let moved: Vec<Segment> = polylines
+            .iter()
+            .flat_map(|polyline| &polyline.points)
+            .map(|&point| Segment::Line(map(point)))
+            .collect();
+        Self {
+            subpaths: vec![SubPath {
+                start: Point::new(0.0, 0.0),
+                segments: moved,
+                closed: false,
+            }],
+        }
+        .within_limit(parameter)?;
+        let step = within_budget(step, error);
+        let wanted = count(step);
+        #[expect(clippy::cast_precision_loss, reason = "10 million is exact in f64")]
+        if wanted <= MAX_SEGMENTS as f64 {
             #[expect(
                 clippy::cast_possible_truncation,
                 clippy::cast_sign_loss,

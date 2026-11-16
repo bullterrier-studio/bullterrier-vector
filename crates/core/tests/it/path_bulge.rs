@@ -234,3 +234,18 @@ fn a_radius_that_would_make_more_than_ten_million_pieces_is_refused_at_once() ->
     assert_eq!(parameter_refusal(line.bulge(0.5, Some(5e-324), None))?.0, "radius");
     Ok(())
 }
+
+#[test]
+fn a_big_bulge_is_within_a_twentieth_of_a_pixel_of_the_image() -> Outcome {
+    let (radius, about) = (1000.0, (0.0, 0.0));
+    let line = Path::line((-1200.0, 300.0), (1200.0, 300.0))?;
+    let bulged = lines(&line.bulge(1.2, Some(radius), Some(Point::new(0.0, 0.0)))?)?;
+    let worst = (0..=24_000)
+        .map(|index| {
+            let image = exact((-1200.0 + f64::from(index) * 0.1, 300.0), 1.2, radius, about);
+            to_lines(image, &bulged)
+        })
+        .fold(0.0_f64, f64::max);
+    assert!(worst <= 0.05, "the image is {worst} pixels from the output");
+    Ok(())
+}

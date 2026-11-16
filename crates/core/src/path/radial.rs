@@ -103,7 +103,7 @@ impl Path {
             let (sin, cos) = sin_cos_deg(angle * falloff(r, radius));
             Point::new(about.x + dx * cos - dy * sin, about.y + dx * sin + dy * cos)
         };
-        self.warp("angle", radius / pieces, &map, charge)
+        self.warp("angle", radius / pieces, CHORD_ERROR * radius, &map, charge)
     }
 
     /// This path with every point moved along its ray from `about` to `r (1 + amount * falloff(r))`, `r` its distance
@@ -159,7 +159,7 @@ impl Path {
             let factor = 1.0 + amount * falloff(r, radius);
             Point::new(about.x + dx * factor, about.y + dy * factor)
         };
-        self.warp("amount", radius / bulge_pieces(amount), &map, charge)
+        self.warp("amount", radius / bulge_pieces(amount), CHORD_ERROR * radius, &map, charge)
     }
 
     /// The centre and the radius of a radial deformer: `about` (the middle of the bounds if not given) and `radius`

@@ -15,6 +15,11 @@ use crate::geometry::{Point, Rect, coordinate, finite};
 // 1000 by 100; 128 pieces put a curve's chords 0.01 pixel off it, which the test of the top edge refuses
 const PIECES: f64 = 256.0;
 
+/// The most a chord of an edge may stray from a curve, as a share of the frame's width, at the cut of `PIECES`.
+// constant: the 0.9 pixel in 10,000 the comment above works out for a half circle, rounded up to a ten-thousandth; a
+// curve of more curvature than a half circle across the frame is cut by the same rule and shows its facets
+const CURVE_ERROR: f64 = 1e-4;
+
 /// A frame the deformers map: its corner and its size, both above 0 and within ±1e100.
 #[derive(Clone, Copy)]
 struct Frame {
@@ -128,7 +133,7 @@ impl Path {
         };
         let above = |u: f64| frame.edge(Some(top), 0.0, amount, u);
         let below = |u: f64| frame.edge(bottom, 1.0, amount, u);
-        self.warp("amount", frame.width / PIECES, &lattice(frame, &above, &below), charge)
+        self.warp("amount", frame.width / PIECES, frame.width * CURVE_ERROR, &lattice(frame, &above, &below), charge)
     }
 
     /// This path with an arch put in it: the frame's top edge raised into a parabola through its two top corners whose
@@ -165,7 +170,7 @@ impl Path {
             Point::new(corner.x, corner.y - 4.0 * bend * frame.width * u * (1.0 - u))
         };
         let below = |u: f64| frame.straight(u, 1.0);
-        self.warp("bend", frame.width / PIECES, &lattice(frame, &above, &below), charge)
+        self.warp("bend", frame.width / PIECES, bend.abs() * frame.width / PIECES / PIECES, &lattice(frame, &above, &below), charge)
     }
 
     /// The frame a deformer maps by: `frame` checked, else the bounds of this path; `None` for an empty path, which has

@@ -43,14 +43,14 @@ fn assert_waved_matches_the_closed_form(
 
 #[test]
 fn a_line_is_a_sine_by_hand() -> Outcome {
-    // 120 long, one wavelength: pieces of 120 / 24 = 5, so 25 vertices; x = 30 is a quarter wave, y = 8 sin(pi/2)
+    // 120 long, one wavelength: pieces of 120 / 24 = 5, so 25 vertices; x = 30 is a quarter wave, y = 5 sin(pi/2)
     let line = Path::line((0.0, 0.0), (120.0, 0.0))?;
-    let found = lines(&line.wave(8.0, 120.0, 0.0, 0.0)?)?;
+    let found = lines(&line.wave(5.0, 120.0, 0.0, 0.0)?)?;
     assert_eq!(found.len(), 1);
     let (points, closed) = &found[0];
     assert!(!closed);
     assert_eq!(points.len(), 25, "{points:?}");
-    for (at, y) in [(0.0, 0.0), (30.0, 8.0), (60.0, 0.0), (90.0, -8.0), (120.0, 0.0)] {
+    for (at, y) in [(0.0, 0.0), (30.0, 5.0), (60.0, 0.0), (90.0, -5.0), (120.0, 0.0)] {
         let vertex = points
             .iter()
             .find(|v| (v.0 - at).abs() < 1e-9)
@@ -62,30 +62,30 @@ fn a_line_is_a_sine_by_hand() -> Outcome {
 
 #[test]
 fn a_vertical_line_waved_at_90_degrees_moves_along_x() -> Outcome {
-    // travelling down (+y): the perpendicular is -x for angle 90, so the quarter wave at y = 30 moves x by -8
+    // travelling down (+y): the perpendicular is -x for angle 90, so the quarter wave at y = 30 moves x by -5
     let line = Path::line((0.0, 0.0), (0.0, 120.0))?;
-    let found = lines(&line.wave(8.0, 120.0, 90.0, 0.0)?)?;
+    let found = lines(&line.wave(5.0, 120.0, 90.0, 0.0)?)?;
     let vertex = found[0]
         .0
         .iter()
         .find(|v| (v.1 - 30.0).abs() < 1e-9)
         .ok_or("no vertex at 30")?;
-    assert!((vertex.0 + 8.0).abs() < 1e-9, "{vertex:?}");
+    assert!((vertex.0 + 5.0).abs() < 1e-9, "{vertex:?}");
     Ok(())
 }
 
 #[test]
 fn a_horizontal_line_waved_at_90_degrees_is_shifted_along_x_whole() -> Outcome {
     // the distance along the direction of travel is 0 everywhere on the line: phase 0.25 puts it at sin = -1, and the
-    // sideways direction is -x, so every vertex moves by +8 in x and not at all in y
+    // sideways direction is -x, so every vertex moves by +5 in x and not at all in y
     let line = Path::line((0.0, 0.0), (120.0, 0.0))?;
-    let found = lines(&line.wave(8.0, 120.0, 90.0, 0.25)?)?;
+    let found = lines(&line.wave(5.0, 120.0, 90.0, 0.25)?)?;
     let points = &found[0].0;
     assert_eq!(points.len(), 25);
     for (index, point) in (0_i32..).zip(points) {
         let x = 5.0 * f64::from(index);
         assert!(
-            (point.0 - (x + 8.0)).abs() < 1e-9 && point.1.abs() < 1e-9,
+            (point.0 - (x + 5.0)).abs() < 1e-9 && point.1.abs() < 1e-9,
             "{index}: {point:?}"
         );
     }
@@ -253,5 +253,23 @@ fn a_wavelength_that_would_make_more_than_ten_million_pieces_is_refused_at_once(
     // the counts of all the sub-paths add up
     let many = Path::from_svg_path("M0 0 L1000000 0 M0 1 L1000000 1")?;
     assert_eq!(parameter_refusal(many.wave(8.0, 4.0, 0.0, 0.0))?.0, "wavelength");
+    Ok(())
+}
+
+// An absolute budget ------------------------------------------------------------------------------------------------
+
+/// A deformer's chord error never exceeds 0.05 design pixels, whatever the size of the shape (`DEFORM_ERROR_PX`): at 8x
+/// zoom that is under half a device pixel, so facets never show.
+#[test]
+fn a_big_wave_is_within_a_twentieth_of_a_pixel_of_the_sine() -> Outcome {
+    let (amplitude, wavelength) = (100.0, 200.0);
+    let line = Path::line((0.0, 0.0), (2000.0, 0.0))?;
+    let waved = lines(&line.wave(amplitude, wavelength, 0.0, 0.0)?)?;
+    let mut worst = 0.0_f64;
+    for index in 0..=20_000 {
+        let image = exact((f64::from(index) * 0.1, 0.0), amplitude, wavelength, 0.0, 0.0);
+        worst = worst.max(to_lines(image, &waved));
+    }
+    assert!(worst <= 0.05, "the sine is {worst} pixels from the output");
     Ok(())
 }

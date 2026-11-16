@@ -565,7 +565,7 @@ fn rows() -> Vec<Row> {
             ranges: &[
                 ("amplitude", 8.0, true),
                 ("amplitude", -3.0, true),
-                ("amplitude", 1e50, true),
+                ("amplitude", 1e5, true),
                 ("amplitude", f64::NAN, false),
                 ("amplitude", f64::INFINITY, false),
                 ("wavelength", 120.0, true),

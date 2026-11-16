@@ -463,3 +463,43 @@ fn a_cut_into_too_many_pieces_is_refused_before_it_is_made() -> Outcome {
     assert!(name == "frame" && message.contains("MAX_SEGMENTS"), "{name}: {message}");
     Ok(())
 }
+
+// An absolute budget ------------------------------------------------------------------------------------------------
+
+#[test]
+fn a_wide_arch_and_a_wide_envelope_are_within_a_twentieth_of_a_pixel_of_the_map() -> Outcome {
+    let frame = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: 8000.0,
+        height: 100.0,
+    };
+    let top = Path::line((0.0, 0.0), (8000.0, 0.0))?;
+    let found = lines(&top.arch(1.0, Some(frame))?)?;
+    let worst = (0..=8000)
+        .map(|index| {
+            let x = f64::from(index);
+            let u = x / 8000.0;
+            to_lines((x, -4.0 * 8000.0 * u * (1.0 - u)), &found)
+        })
+        .fold(0.0_f64, f64::max);
+    assert!(worst <= 0.05, "the arch is {worst} pixels from the output");
+    let curve = Path::from_svg_path("M0 1800 C900 -1200 2100 -1200 3000 1800")?;
+    let frame = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: 3000.0,
+        height: 100.0,
+    };
+    let edge = Path::line((0.0, 0.0), (3000.0, 0.0))?;
+    let found = lines(&edge.envelope(&curve, None, Some(frame), 1.0)?)?;
+    let mut worst = 0.0_f64;
+    for index in 0..=3000 {
+        let along = f64::from(index) / 3000.0;
+        let image = at(&curve, along)?;
+        worst = worst.max(to_lines(image, &found));
+    }
+    // the guide is flattened within 0.01 pixel
+    assert!(worst <= 0.06, "the envelope is {worst} pixels from the output");
+    Ok(())
+}

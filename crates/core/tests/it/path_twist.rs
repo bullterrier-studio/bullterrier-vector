@@ -242,3 +242,18 @@ fn a_radius_or_an_angle_that_would_make_more_than_ten_million_pieces_is_refused_
     assert_eq!(parameter_refusal(line.twist(1e12, Some(100.0), None))?.0, "angle");
     Ok(())
 }
+
+#[test]
+fn a_big_twist_is_within_a_twentieth_of_a_pixel_of_the_image() -> Outcome {
+    let (radius, about) = (1000.0, (0.0, 0.0));
+    let line = Path::line((-1200.0, 300.0), (1200.0, 300.0))?;
+    let twisted = lines(&line.twist(150.0, Some(radius), Some(Point::new(0.0, 0.0)))?)?;
+    let worst = (0..=24_000)
+        .map(|index| {
+            let image = exact((-1200.0 + f64::from(index) * 0.1, 300.0), 150.0, radius, about);
+            to_lines(image, &twisted)
+        })
+        .fold(0.0_f64, f64::max);
+    assert!(worst <= 0.05, "the image is {worst} pixels from the output");
+    Ok(())
+}
