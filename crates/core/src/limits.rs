@@ -100,6 +100,11 @@ pub(crate) const MAX_RUNS: usize = 1_000;
 // lengths, and each entry multiplies the pieces a cycle makes
 pub(crate) const MAX_DASH_PATTERN: usize = 1_000;
 
+/// The most stops one width `profile` has.
+// constant: a taper is 2 to 6 stops and a hand-drawn pressure curve a few dozen; each stop splits a piece of the stroke,
+// so the pieces a profile adds are bounded by it
+pub(crate) const MAX_PROFILE_STOPS: usize = 1_000;
+
 /// The most axes, and the most features, one `text` call gives.
 // constant: the fonts that exist have under 20 axes (Roboto Flex 13) and a few dozen features; an axis costs memory in
 // every run of a text and a feature time in every shaping, so a call may not name thousands

@@ -127,6 +127,11 @@ impl Path {
     }
 }
 
+/// The union of closed `polygons` that all turn the same way, in canonical form (the taper's hulls).
+pub(super) fn united(polygons: &[Contour], charge: &mut dyn FnMut(usize) -> Result<(), Error>) -> Result<Path, Error> {
+    overlay(polygons, &[], OverlayRule::Subject, charge)
+}
+
 /// `miter_limit`, or the error naming it unless it is a number from 1 up.
 fn checked_miter_limit(miter_limit: f64) -> Result<f64, Error> {
     if miter_limit >= 1.0 && miter_limit.is_finite() {

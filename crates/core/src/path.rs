@@ -21,6 +21,7 @@ mod resample;
 mod shapes;
 mod simplify;
 mod slice;
+mod taper;
 mod transform;
 mod walk;
 mod write;
