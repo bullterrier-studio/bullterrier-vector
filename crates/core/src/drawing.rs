@@ -18,7 +18,7 @@ pub(crate) use graph::Graph;
 pub use place::PlaceAlong;
 pub use select::{Select, Wanted};
 pub use style::{Halftone, Shadow, Stroke};
-pub use transform::{Along, Deg, Pivot, Rotate, ScaleBy};
+pub use transform::{Along, Bulge, Deg, Pivot, Rotate, ScaleBy, Twist};
 
 use self::cache::Shared;
 use crate::limits::MAX_PARAMS;

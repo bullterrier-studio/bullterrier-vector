@@ -120,13 +120,19 @@ impl Domain {
             Self::Fraction => fraction(name, value),
             Self::Choice(_) => Err(Error::parameter(name, "takes one of a set of words, not a number")),
             Self::Painting => Err(Error::parameter(name, "takes a colour, not a number")),
-            Self::Finite | Self::NonZero | Self::Positive | Self::AtLeast(_) | Self::PositiveUpTo(_) => {
+            Self::Finite
+            | Self::NonZero
+            | Self::Positive
+            | Self::AtLeast(_)
+            | Self::PositiveUpTo(_)
+            | Self::Between(..) => {
                 let value = finite(name, value)?;
                 let accepted = match self {
                     Self::NonZero => value != 0.0,
                     Self::Positive => value > 0.0,
                     Self::AtLeast(least) => value >= least,
                     Self::PositiveUpTo(most) => value > 0.0 && value <= most,
+                    Self::Between(low, high) => value > low && value < high,
                     _ => true,
                 };
                 if accepted {
@@ -145,6 +151,7 @@ impl Domain {
             Self::Positive => String::from("above 0"),
             Self::AtLeast(least) => format!("at least {least}"),
             Self::PositiveUpTo(most) => format!("above 0 and at most {most}"),
+            Self::Between(low, high) => format!("above {low} and below {high}"),
             Self::Any | Self::Finite | Self::Coordinate | Self::Fraction | Self::Choice(_) | Self::Painting => {
                 String::from("accepted")
             }
@@ -452,6 +459,14 @@ impl Args {
                 arg.domain.number(name, value)
             }
             _ => Err(self.misread(name, "a number")),
+        }
+    }
+
+    /// As [`Args::number`], or `None` if the call left the argument out.
+    pub(crate) fn number_opt(&self, cx: &Context<'_>, name: &str, item: Item) -> Result<Option<f64>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            _ => self.number(cx, name, item).map(Some),
         }
     }
 

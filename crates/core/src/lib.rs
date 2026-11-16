@@ -26,7 +26,8 @@ mod r#type;
 mod values;
 
 pub use drawing::{
-    Along, Deg, Drawing, Halftone, Pivot, PlaceAlong, Rotate, ScaleBy, Select, Shadow, Stats, Stroke, Wanted,
+    Along, Bulge, Deg, Drawing, Halftone, Pivot, PlaceAlong, Rotate, ScaleBy, Select, Shadow, Stats, Stroke, Twist,
+    Wanted,
 };
 pub use error::Error;
 pub use expr::{Expr, Random, Stagger, by_index, by_order};

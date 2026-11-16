@@ -12,8 +12,9 @@
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, build, log_uniform, parameter_refusal, step};
 use bullterrier_vector::{
-    Along, Blend, Cap, Color, Deg, Drawing, Error, Expr, Gradient, Halftone, Join, Kind, Param, Path, PlaceAlong,
-    Point, Reads, Role, Rotate, Scale, ScaleBy, Select, Shadow, Shape, Spacing, Stroke, Text, Values, text, verbs,
+    Along, Blend, Bulge, Cap, Color, Deg, Drawing, Error, Expr, Gradient, Halftone, Join, Kind, Param, Path,
+    PlaceAlong, Point, Reads, Role, Rotate, Scale, ScaleBy, Select, Shadow, Shape, Spacing, Stroke, Text, Twist,
+    Values, text, verbs,
 };
 use proptest::prelude::*;
 use std::collections::BTreeSet;
@@ -638,6 +639,116 @@ fn rows() -> Vec<Row> {
                     )])
                 },
                 by_hand: &[],
+            }),
+        },
+        Row {
+            verb: "twist",
+            sample: || Ok(square()?.twist(Twist::new(Deg(90.0)).radius(8.0).about((5.0, 5.0)))),
+            with: Some(|argument, value| match argument {
+                "angle" => Ok(square()?.twist(Deg(value))),
+                "radius" => Ok(square()?.twist(Twist::new(Deg(90.0)).radius(value))),
+                _ => Err(unknown("twist", argument)),
+            }),
+            ranges: &[
+                ("angle", 90.0, true),
+                ("angle", -720.5, true),
+                ("angle", 3600.0, true),
+                ("angle", f64::NAN, false),
+                ("angle", f64::INFINITY, false),
+                ("radius", 7.0, true),
+                ("radius", 0.5, true),
+                ("radius", 1e100, true),
+                ("radius", 0.0, false),
+                ("radius", -1.0, false),
+                ("radius", 1.000_000_1e100, false),
+                ("radius", f64::NAN, false),
+                ("radius", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let angle = a % 720.0;
+                    Ok(vec![
+                        (
+                            "an angle about the middle of the bounds",
+                            Drawing::from(path.clone()).twist(Deg(angle)),
+                            path.twist(angle, None, None),
+                        ),
+                        (
+                            "an angle, a radius and a point",
+                            Drawing::from(path.clone()).twist(
+                                Twist::new(Deg(angle))
+                                    .radius(10.0 + b.abs() % 90.0)
+                                    .about((a % 50.0, b % 50.0)),
+                            ),
+                            path.twist(angle, Some(10.0 + b.abs() % 90.0), Some(Point::new(a % 50.0, b % 50.0))),
+                        ),
+                    ])
+                },
+                // (3, 4) is 5 from the point, half of a radius of 10, where the falloff is a half: 180 degrees turn 90,
+                // a quarter turn clockwise on the screen takes (x, y) to (-y, x)
+                by_hand: &[(
+                    "M3 4",
+                    |d| Ok(d.twist(Twist::new(Deg(180.0)).radius(10.0).about((0.0, 0.0)))),
+                    "M-4 3",
+                )],
+            }),
+        },
+        Row {
+            verb: "bulge",
+            sample: || Ok(square()?.bulge(Bulge::new(0.8).radius(8.0).about((5.0, 5.0)))),
+            with: Some(|argument, value| match argument {
+                "amount" => Ok(square()?.bulge(value)),
+                "radius" => Ok(square()?.bulge(Bulge::new(0.5).radius(value))),
+                _ => Err(unknown("bulge", argument)),
+            }),
+            ranges: &[
+                ("amount", 0.5, true),
+                ("amount", -0.99, true),
+                ("amount", 1.45, true),
+                ("amount", -1.0, false),
+                ("amount", 16.0 / 11.0, false),
+                ("amount", f64::NAN, false),
+                ("amount", f64::INFINITY, false),
+                ("radius", 7.0, true),
+                ("radius", 0.5, true),
+                ("radius", 1e100, true),
+                ("radius", 0.0, false),
+                ("radius", -1.0, false),
+                ("radius", 1.000_000_1e100, false),
+                ("radius", f64::NAN, false),
+                ("radius", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let amount = -0.9 + a.abs() % 2.3;
+                    Ok(vec![
+                        (
+                            "an amount about the middle of the bounds",
+                            Drawing::from(path.clone()).bulge(amount),
+                            path.bulge(amount, None, None),
+                        ),
+                        (
+                            "an amount, a radius and a point",
+                            Drawing::from(path.clone()).bulge(
+                                Bulge::new(amount)
+                                    .radius(10.0 + b.abs() % 90.0)
+                                    .about((a % 50.0, b % 50.0)),
+                            ),
+                            path.bulge(
+                                amount,
+                                Some(10.0 + b.abs() % 90.0),
+                                Some(Point::new(a % 50.0, b % 50.0)),
+                            ),
+                        ),
+                    ])
+                },
+                // (3, 4) is 5 from the point, half of a radius of 10, where the falloff is a half: it goes out to 1.5 times
+                // as far along its ray
+                by_hand: &[(
+                    "M3 4",
+                    |d| Ok(d.bulge(Bulge::new(1.0).radius(10.0).about((0.0, 0.0)))),
+                    "M4.5 6",
+                )],
             }),
         },
         Row {

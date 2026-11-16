@@ -1,10 +1,10 @@
-//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`, `resample`, `dash`, `wave`, `wobble`. Each applies the `Path` verb of the same name to every
+//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`, `resample`, `dash`, `wave`, `wobble`, `twist`, `bulge`. Each applies the `Path` verb of the same name to every
 //! shape.
 
 use super::{Args, Context, Inputs, Node, each_shape};
 use crate::geometry::MAX_COORDINATE;
 use crate::limits::MAX_DASH_PATTERN;
-use crate::path::{Guide, rotate_point, scale_point};
+use crate::path::{Guide, STRONGEST_BULGE, rotate_point, scale_point};
 use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
 
 /// A number read for each shape, within `domain`.
@@ -430,6 +430,87 @@ impl Node for Wobble {
                     .path()
                     .wobble_charged(amplitude, wavelength, phase, seed, &mut charge)?,
             ))
+        })
+    }
+}
+
+/// Turns the points of every shape about a centre, less the farther out they are.
+#[derive(Debug)]
+pub(crate) struct Twist;
+
+pub(crate) static TWIST: Verb = Verb {
+    name: "twist",
+    role: Role::Step,
+    summary: "turns the points of every shape about a point (default: its origin, else the middle of its bounds) by angle degrees clockwise on the screen at the centre, less and less further out, none at radius (default: the farthest corner of its bounds) and beyond: the turn at distance r is angle times 1 - s*s*(3 - 2*s), s = r / radius, so the distance to the centre is kept; the edges are cut so the result is smooth, corners kept",
+    args: &[
+        per_shape("angle", Kind::Number, Some(Literal::Number(90.0)), Domain::Finite),
+        per_shape(
+            "radius",
+            Kind::Number,
+            Some(Literal::Unset),
+            Domain::PositiveUpTo(MAX_COORDINATE),
+        ),
+        per_shape("about", Kind::Point, Some(Literal::Unset), Domain::Coordinate),
+    ],
+    check: None,
+};
+
+impl Node for Twist {
+    fn verb(&self) -> &'static Verb {
+        &TWIST
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        each_shape(inputs.previous, cx, |shape, item| {
+            let angle = args.number(cx, "angle", item)?;
+            let radius = args.number_opt(cx, "radius", item)?;
+            let about = pivot(shape, args.point(cx, "about", item)?);
+            Ok(shape.with_path(shape.path().twist_charged(angle, radius, about, &mut charge)?))
+        })
+    }
+}
+
+/// Pushes the points of every shape out from, or in towards, a centre, less the farther out they are.
+#[derive(Debug)]
+pub(crate) struct Bulge;
+
+pub(crate) static BULGE: Verb = Verb {
+    name: "bulge",
+    role: Role::Step,
+    summary: "moves the points of every shape along their ray from a point (default: its origin, else the middle of its bounds) from distance r to r times 1 + amount * (1 - s*s*(3 - 2*s)), s = r / radius (radius default: the farthest corner of its bounds), so that a positive amount bulges the middle outward, a negative one pinches it in, and nothing at radius or beyond moves; amount must be above -1 and below 16/11 so that the shape does not fold over; the edges are cut so the result is smooth, corners kept",
+    args: &[
+        per_shape(
+            "amount",
+            Kind::Number,
+            Some(Literal::Number(0.5)),
+            Domain::Between(-1.0, STRONGEST_BULGE),
+        ),
+        per_shape(
+            "radius",
+            Kind::Number,
+            Some(Literal::Unset),
+            Domain::PositiveUpTo(MAX_COORDINATE),
+        ),
+        per_shape("about", Kind::Point, Some(Literal::Unset), Domain::Coordinate),
+    ],
+    check: None,
+};
+
+impl Node for Bulge {
+    fn verb(&self) -> &'static Verb {
+        &BULGE
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        each_shape(inputs.previous, cx, |shape, item| {
+            let amount = args.number(cx, "amount", item)?;
+            let radius = args.number_opt(cx, "radius", item)?;
+            let about = pivot(shape, args.point(cx, "about", item)?);
+            Ok(shape.with_path(shape.path().bulge_charged(amount, radius, about, &mut charge)?))
         })
     }
 }

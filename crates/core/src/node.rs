@@ -271,6 +271,8 @@ pub enum Domain {
     Fraction,
     /// A finite number above 0 and at or below the limit.
     PositiveUpTo(f64),
+    /// A finite number above the first and below the second.
+    Between(f64, f64),
     /// One of these words.
     Choice(&'static [&'static str]),
     /// A colour that paints: `"#rgb"`, `"#rrggbb"` or `"#rrggbbaa"`, not `"none"`.

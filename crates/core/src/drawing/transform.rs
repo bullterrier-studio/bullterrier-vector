@@ -1,4 +1,4 @@
-//! The geometry steps of a drawing: `translate`, `rotate`, `scale`, `along`, `slice`.
+//! The geometry steps of a drawing: `translate`, `rotate`, `scale`, `along`, `slice`, `twist`, `bulge`.
 
 use super::Drawing;
 use crate::node::{Given, transform};
@@ -113,6 +113,91 @@ impl<X: Into<Expr>, Y: Into<Expr>> From<(X, Y)> for ScaleBy {
             y: y.into(),
             about: None,
         }
+    }
+}
+
+/// A twist: the angle at the centre, and optionally the radius it dies away over and the point to twist about.
+/// `Deg(90.0)` alone converts into one.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Twist {
+    angle: Expr,
+    radius: Option<Expr>,
+    about: Option<Pivot>,
+}
+
+impl Twist {
+    /// A twist of `angle` degrees about each shape's origin (the middle of its bounds if it has none), dying away to
+    /// nothing at the distance to the farthest corner of its bounds.
+    #[must_use]
+    pub fn new<T: Into<Expr>>(angle: Deg<T>) -> Self {
+        Self {
+            angle: angle.0.into(),
+            radius: None,
+            about: None,
+        }
+    }
+
+    /// This twist dying away to nothing at `radius` design pixels from the centre (a number, a `Param` or an
+    /// expression, read for each shape), not at the farthest corner.
+    #[must_use]
+    pub fn radius(mut self, radius: impl Into<Expr>) -> Self {
+        self.radius = Some(radius.into());
+        self
+    }
+
+    /// This twist about `point` instead.
+    #[must_use]
+    pub fn about(mut self, point: impl Into<Pivot>) -> Self {
+        self.about = Some(point.into());
+        self
+    }
+}
+
+impl<T: Into<Expr>> From<Deg<T>> for Twist {
+    fn from(angle: Deg<T>) -> Self {
+        Self::new(angle)
+    }
+}
+
+/// A bulge: the amount, and optionally the radius it dies away over and the point to bulge about. A number (or a
+/// `Param`, or an expression) alone converts into one.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Bulge {
+    amount: Expr,
+    radius: Option<Expr>,
+    about: Option<Pivot>,
+}
+
+impl Bulge {
+    /// A bulge of `amount` about each shape's origin (the middle of its bounds if it has none), dying away to nothing
+    /// at the distance to the farthest corner of its bounds.
+    #[must_use]
+    pub fn new(amount: impl Into<Expr>) -> Self {
+        Self {
+            amount: amount.into(),
+            radius: None,
+            about: None,
+        }
+    }
+
+    /// This bulge dying away to nothing at `radius` design pixels from the centre, not at the farthest corner.
+    #[must_use]
+    pub fn radius(mut self, radius: impl Into<Expr>) -> Self {
+        self.radius = Some(radius.into());
+        self
+    }
+
+    /// This bulge about `point` instead.
+    #[must_use]
+    pub fn about(mut self, point: impl Into<Pivot>) -> Self {
+        self.about = Some(point.into());
+        self
+    }
+}
+
+impl<T: Into<Expr>> From<T> for Bulge {
+    fn from(amount: T) -> Self {
+        Self::new(amount)
     }
 }
 
@@ -294,6 +379,50 @@ impl Drawing {
                 ("wavelength", Given::Number(wavelength.into())),
                 ("phase", Given::Number(phase.into())),
                 ("seed", Given::Number(seed.into())),
+            ],
+        )
+    }
+
+    /// This drawing with the points of every shape turned about a centre, less the farther out they are, as
+    /// [`Path::twist`](crate::Path::twist) does: `Deg(90.0)` about each shape's `origin` attribute (the middle of its
+    /// bounds if it has none), dying away to nothing at the farthest corner of its bounds, or a [`Twist`] with the
+    /// `radius` and the point. Clockwise on the screen as for `rotate`; each argument is a number for each shape (a
+    /// number, a `Param`, an expression or a list of them). Each shape keeps its style and attributes, its `origin`
+    /// included (a twist about the origin leaves it where it is).
+    ///
+    /// A `radius` not above 0 and within 1e100, or a number that is NaN or infinite, leaves the drawing with an
+    /// [`error`](Drawing::error) naming the step (`step 2 (twist).radius`), or, when it reads a Param, is refused when
+    /// the drawing is drawn; so is a draw that would make more than `MAX_SEGMENTS` points.
+    #[must_use]
+    pub fn twist(&self, twist: impl Into<Twist>) -> Self {
+        let Twist { angle, radius, about } = twist.into();
+        self.then(
+            &transform::Twist,
+            vec![
+                ("angle", Given::Number(angle)),
+                ("radius", radius.map_or(Given::Unset, Given::Number)),
+                ("about", Pivot::given(about)),
+            ],
+        )
+    }
+
+    /// This drawing with the points of every shape moved out from, or in towards, a centre, as
+    /// [`Path::bulge`](crate::Path::bulge) does: a number alone bulges (positive) or pinches (negative) about each
+    /// shape's `origin` attribute (the middle of its bounds if it has none), or a [`Bulge`] with the `radius` and the
+    /// point. Each argument is a number for each shape. Each shape keeps its style and attributes, its `origin`
+    /// included.
+    ///
+    /// An `amount` not above -1 and below 16/11 (past which the shape would fold over itself) is refused when the
+    /// drawing is drawn, naming the step (`step 2 (bulge)`) and `amount`; a `radius` as for [`Drawing::twist`].
+    #[must_use]
+    pub fn bulge(&self, bulge: impl Into<Bulge>) -> Self {
+        let Bulge { amount, radius, about } = bulge.into();
+        self.then(
+            &transform::Bulge,
+            vec![
+                ("amount", Given::Number(amount)),
+                ("radius", radius.map_or(Given::Unset, Given::Number)),
+                ("about", Pivot::given(about)),
             ],
         )
     }

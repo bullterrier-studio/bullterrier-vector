@@ -35,6 +35,7 @@ fn fits(domain: &Domain, default: &Literal) -> bool {
                     Domain::AtLeast(least) => number >= *least,
                     Domain::Fraction => (0.0..=1.0).contains(&number),
                     Domain::PositiveUpTo(most) => number > 0.0 && number <= *most,
+                    Domain::Between(low, high) => number > *low && number < *high,
                     _ => false,
                 }
         }
@@ -127,7 +128,7 @@ fn the_default_check_names_an_argument_whose_default_is_outside_its_domain() {
 #[test]
 fn the_domain_oracle_agrees_with_api_md_at_its_boundaries() {
     // (domain, value, accepted)
-    let rows: [(Domain, Literal, bool); 32] = [
+    let rows: [(Domain, Literal, bool); 35] = [
         (Domain::Any, Literal::Number(f64::NAN), true),
         (Domain::Any, Literal::Text("x"), true),
         (Domain::Finite, Literal::Number(-3.5), true),
@@ -156,6 +157,9 @@ fn the_domain_oracle_agrees_with_api_md_at_its_boundaries() {
         ),
         (Domain::PositiveUpTo(100_000.0), Literal::Number(0.0), false),
         (Domain::PositiveUpTo(100_000.0), Literal::Number(100_000.5), false),
+        (Domain::Between(-1.0, 1.5), Literal::Number(0.0), true),
+        (Domain::Between(-1.0, 1.5), Literal::Number(-1.0), false),
+        (Domain::Between(-1.0, 1.5), Literal::Number(1.5), false),
         (Domain::Positive, Literal::Unset, true),
         (Domain::Choice(&["butt", "round"]), Literal::Text("round"), true),
         (Domain::Choice(&["butt", "round"]), Literal::Text("Round"), false),

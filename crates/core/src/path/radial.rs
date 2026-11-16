@@ -34,6 +34,10 @@ fn bulge_pieces(amount: f64) -> f64 {
     libm::sqrt(9.0 * amount.abs() / (8.0 * CHORD_ERROR))
 }
 
+/// The amount a bulge stays below: past it the map `r -> r'` folds over itself.
+// constant: 16/11, from the slope of `r -> r'` at its lowest, `1 - amount * 11/16` at s = 3/4 (see `Path::bulge`)
+pub(crate) const STRONGEST_BULGE: f64 = 16.0 / 11.0;
+
 /// The weight of the effect at distance `r` from the centre: 1 at the centre, falling smoothly (slope 0 at both ends)
 /// to 0 at `radius` and beyond.
 fn falloff(r: f64, radius: f64) -> f64 {
@@ -135,9 +139,7 @@ impl Path {
         about: Option<Point>,
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<Self, Error> {
-        // constant: 16/11, from the slope of r -> r' at its lowest, 1 - amount * 11/16 at s = 3/4 (see `bulge`)
-        const STRONGEST: f64 = 16.0 / 11.0;
-        if !(amount > -1.0 && amount < STRONGEST) {
+        if !(amount > -1.0 && amount < STRONGEST_BULGE) {
             return Err(Error::parameter(
                 "amount",
                 format!(

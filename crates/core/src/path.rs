@@ -34,6 +34,7 @@ pub(crate) use build::Builder;
 pub(crate) use curve::FLATNESS;
 pub use place::Spacing;
 pub(crate) use polyline::Polyline;
+pub(crate) use radial::STRONGEST_BULGE;
 pub(crate) use region::Region;
 pub(crate) use taper::check_profile;
 pub use taper::require_round_stroke;
