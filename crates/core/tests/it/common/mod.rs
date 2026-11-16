@@ -255,3 +255,47 @@ pub(crate) fn has_vertex(found: &[Line], p: (f64, f64)) -> bool {
         .flat_map(|(points, _)| points)
         .any(|v| (v.0 - p.0).abs() < 1e-9 && (v.1 - p.1).abs() < 1e-9)
 }
+
+/// The greatest distance between the points a map sends a straight edge `from -> to` to and the output's chords, read
+/// where the cut makes them: the output's `n + 1` points are the images of the equal cuts of the edge, so a point `t` of
+/// the way along the chord `i` is compared with the image of the point `(i + t) / n` of the way along the edge.
+pub(crate) fn worst_chord_error(
+    from: (f64, f64),
+    to: (f64, f64),
+    output: &[(f64, f64)],
+    image: &dyn Fn((f64, f64)) -> (f64, f64),
+) -> Result<f64, Box<dyn std::error::Error>> {
+    const SAMPLES: u32 = 24;
+    let pieces = f64::from(u32::try_from(output.len().saturating_sub(1))?);
+    let mut worst = 0.0_f64;
+    for (index, pair) in (0_u32..).zip(output.windows(2)) {
+        for sample in 0..=SAMPLES {
+            let t = f64::from(sample) / f64::from(SAMPLES);
+            let along = (f64::from(index) + t) / pieces;
+            let exact = image((from.0 + (to.0 - from.0) * along, from.1 + (to.1 - from.1) * along));
+            let chord = (
+                pair[0].0 + (pair[1].0 - pair[0].0) * t,
+                pair[0].1 + (pair[1].1 - pair[0].1) * t,
+            );
+            worst = worst.max(distance(chord, exact));
+        }
+    }
+    Ok(worst)
+}
+
+/// The edges a radial deformer is held to: straight lines of 2.4 radii through a disc of radius 100 about the origin, at
+/// several distances from its centre and in three directions, so that the chord error is at its worst somewhere on them.
+pub(crate) fn radial_probe_edges() -> Vec<((f64, f64), (f64, f64))> {
+    let mut edges = Vec::new();
+    for offset in [0.0, 0.05, 0.2, 0.4, 0.55, 0.7, 0.85, 0.95] {
+        for angle in [0.0_f64, 0.3, 1.0] {
+            let (dx, dy) = (libm::cos(angle), libm::sin(angle));
+            let (nx, ny) = (-dy, dx);
+            edges.push((
+                (nx * offset * 100.0 - 120.0 * dx, ny * offset * 100.0 - 120.0 * dy),
+                (nx * offset * 100.0 + 120.0 * dx, ny * offset * 100.0 + 120.0 * dy),
+            ));
+        }
+    }
+    edges
+}

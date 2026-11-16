@@ -3,7 +3,7 @@
 //! The oracle is that closed form written out here from the definition, checked against the output polyline by brute
 //! force; the expected vertices are computed by hand.
 
-use crate::common::{Outcome, has_vertex, lines, parameter_refusal, to_lines};
+use crate::common::{Outcome, has_vertex, lines, parameter_refusal, radial_probe_edges, to_lines, worst_chord_error};
 use bullterrier_vector::{Path, Point};
 use proptest::prelude::*;
 
@@ -178,6 +178,27 @@ fn every_vertex_keeps_its_distance_to_the_pivot() -> Outcome {
                 "{index}: {v:?} against {want}"
             );
         }
+    }
+    Ok(())
+}
+
+/// The pieces are chosen so that a chord strays from the image by at most `CHORD_ERROR = 0.005` of the radius (the bound
+/// is worked in `radial.rs`); the extremes of the angle are where it is nearest, so a cut with half the pieces (four
+/// times the error) must fail here, which the hundredth of the tests above does not show.
+#[test]
+fn a_chord_strays_from_the_exact_image_by_at_most_half_a_hundredth_of_the_radius_at_the_extremes() -> Outcome {
+    for value in [1.0_f64, 90.0, 360.0, 3600.0, -720.0] {
+        let mut worst = 0.0_f64;
+        for (from, to) in radial_probe_edges() {
+            let path = Path::line(from, to)?;
+            let output = lines(&path.twist(value, Some(100.0), Some(Point::new(0.0, 0.0)))?)?;
+            let image = |p: (f64, f64)| exact(p, value, 100.0, (0.0, 0.0));
+            worst = worst.max(worst_chord_error(from, to, &output[0].0, &image)?);
+        }
+        assert!(
+            worst <= 0.005 * 100.0,
+            "angle {value}: the chord is {worst} from the image"
+        );
     }
     Ok(())
 }

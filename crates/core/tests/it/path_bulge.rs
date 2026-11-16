@@ -5,7 +5,7 @@
 //! hand-computed extremes are 1 (at s = 0) and -11/16 (at s = 3/4): strictly increasing exactly for
 //! `-1 < amount < 16/11`.
 
-use crate::common::{Outcome, has_vertex, lines, parameter_refusal, to_lines};
+use crate::common::{Outcome, has_vertex, lines, parameter_refusal, radial_probe_edges, to_lines, worst_chord_error};
 use bullterrier_vector::{Path, Point};
 use proptest::prelude::*;
 
@@ -178,6 +178,27 @@ proptest! {
             prop_assert!(has_vertex(&bulged, image), "no vertex at {image:?}");
         }
     }
+}
+
+/// The pieces are chosen so that a chord strays from the image by at most `CHORD_ERROR = 0.005` of the radius (the bound
+/// is worked in `radial.rs`); the extremes of the amount are where it is nearest, so a cut with half the pieces (four
+/// times the error) must fail here, which the hundredth of the tests above does not show.
+#[test]
+fn a_chord_strays_from_the_exact_image_by_at_most_half_a_hundredth_of_the_radius_at_the_extremes() -> Outcome {
+    for value in [1.45_f64, -0.99, 0.5, -0.2] {
+        let mut worst = 0.0_f64;
+        for (from, to) in radial_probe_edges() {
+            let path = Path::line(from, to)?;
+            let output = lines(&path.bulge(value, Some(100.0), Some(Point::new(0.0, 0.0)))?)?;
+            let image = |p: (f64, f64)| exact(p, value, 100.0, (0.0, 0.0));
+            worst = worst.max(worst_chord_error(from, to, &output[0].0, &image)?);
+        }
+        assert!(
+            worst <= 0.005 * 100.0,
+            "amount {value}: the chord is {worst} from the image"
+        );
+    }
+    Ok(())
 }
 
 // Refusals ---------------------------------------------------------------------------------------------------------------
