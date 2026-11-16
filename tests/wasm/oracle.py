@@ -754,6 +754,21 @@ def resamples() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def reverses() -> list[Entry]:
+    """`reverse` on shapes: an open line, a closed outline, a curve, and the draw-on the other way round."""
+    line = btvec.Path.from_svg_path("M15 70 L50 25 L85 70")
+    circle = btvec.Path.circle((50, 50), 30)
+    progress = btvec.Param("progress", default=0.5, min=0, max=1, unit="", meaning="how much is drawn")
+    drawings = {
+        "reverse_open": framed(line.stroke(INK, width=2)).reverse(),
+        "reverse_closed": framed(btvec.Path.rect(20, 20, 60, 60).fill(RED)).reverse(),
+        "reverse_curve": framed(circle.stroke(BLUE, width=3)).reverse(),
+        "reverse_draw_on": framed(line.stroke(INK, width=2)).reverse().slice(0, progress),
+    }
+    draws: dict[str, list[Draw]] = {"reverse_draw_on": [(100, 100, {}), (200, 200, {"progress": 0.8})]}
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 def simplifies() -> list[Entry]:
     """`simplify` on dense polylines: a circle of points, a wave, a half disc with two corners, a per-item tolerance
     and a Param tolerance."""
@@ -834,6 +849,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     resamples,
     dashes,
     simplifies,
+    reverses,
     placements,
     shadows,
     knockouts,

@@ -363,6 +363,12 @@ impl PyDrawing {
         checked(self.0.resample(spacing.0))
     }
 
+    /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the
+    /// other end. Style, attributes and `origin` are kept.
+    fn reverse(&self) -> PyResult<Self> {
+        checked(self.0.reverse())
+    }
+
     /// Every shape as the fewest smooth curves within `tolerance` pixels of it (a number, a Param or an expression, read
     /// per shape); as `Path.simplify`.
     #[pyo3(signature = (*, tolerance=None))]

@@ -338,6 +338,8 @@ impl Node for Reverse {
     }
 
     fn evaluate(&self, _: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
-        each_shape(inputs.previous, cx, |shape, _| Ok(shape.with_path(shape.path().reverse())))
+        each_shape(inputs.previous, cx, |shape, _| {
+            Ok(shape.with_path(shape.path().reverse()))
+        })
     }
 }

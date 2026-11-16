@@ -65,7 +65,10 @@ fn a_position_is_one_minus_that_position_on_the_reversed_shape() -> Outcome {
     for i in 0..=10 {
         let t = f64::from(i) / 10.0;
         let (a, b) = (arch.point_at(t, None)?, reversed[0].path().point_at(1.0 - t, None)?);
-        assert!((a.x - b.x).abs() < 1e-9 && (a.y - b.y).abs() < 1e-9, "t {t}: {a:?} {b:?}");
+        assert!(
+            (a.x - b.x).abs() < 1e-9 && (a.y - b.y).abs() < 1e-9,
+            "t {t}: {a:?} {b:?}"
+        );
     }
     Ok(())
 }
@@ -95,7 +98,8 @@ fn every_shape_is_reversed_with_its_style_and_attributes_kept() -> Outcome {
 
 #[test]
 fn nothing_stays_nothing() -> Outcome {
-    assert!(Drawing::new(Vec::<Path>::new()).reverse().shapes(&Values::new())?.is_empty());
+    let none = Drawing::new(Vec::<Path>::new()).reverse();
+    assert_eq!(none.shapes(&Values::new())?.len(), 0);
     assert_eq!(drawn(&Drawing::from(Path::from_svg_path("")?).reverse())?, [""]);
     Ok(())
 }
