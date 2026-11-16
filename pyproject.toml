@@ -198,6 +198,7 @@ project-triggers = [
     "tests/wasm/*",
     "tests/conftest.py",
     "examples/star.py",
+    "examples/bent_type.py",
     "crates/core/examples/star.rs",
     "crates/wasm/examples/star.mjs",
     "crates/wasm/src/lib.rs",

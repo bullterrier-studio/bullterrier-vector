@@ -52,9 +52,10 @@ def workspace(tmp_path_factory, copy_tree) -> Path:
         shutil.copy(ROOT / name, root)
     copy_tree(ROOT / "crates", root / "crates")
     copy_tree(ROOT / "tests" / "wasm", root / "tests" / "wasm", ignore=shutil.ignore_patterns("__pycache__"))
-    # the oracle reads an example document of the format and the star of examples/star.py
+    # the oracle reads an example document of the format and the examples it draws: the star and the bent type
     (root / "examples").mkdir()
-    shutil.copy(ROOT / "examples" / "star.py", root / "examples" / "star.py")
+    for example in ("star.py", "bent_type.py"):
+        shutil.copy(ROOT / "examples" / example, root / "examples" / example)
     copy_tree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
     return root
 
