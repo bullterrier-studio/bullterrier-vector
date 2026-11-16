@@ -1392,8 +1392,11 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   letter, or in the counter); subtracting it cannot paint outside, so no frame shows a speck. Start alignment is by shift alone: a
   search that may reverse one contour would turn a hole into a fill. An unresolved glyph (`A` with a crossbar of its own) morphs as it is:
   the crossbar is an unmatched outer that shrinks, and `A` to `O` grows the counter from a point.
-- *Ruling: unmatched holes are subtracted, never wound; cost if wrong: a boolean per frame whenever a hole has no partner
-  (the result is then canonical, the ends keep the fill but not the vertex list).*
+- *Ruling: unmatched holes are subtracted, never wound; the closed part is the intersection of (the body with the holes
+  wound in) and the body, so a hole cuts what the nonzero rule says and an outer inside it stays (an `@`'s inner letter;
+  cutting the hole out of the body erased it, found by review) and nothing is painted outside the body; cost if wrong: a
+  boolean per frame whenever a hole has no partner (the result is then canonical, the ends keep the fill but not the vertex
+  list).*
 - *Ruling: shapes pair by index and contours inside a shape by role (the sign of the area, after one reversal of the whole
   path if its largest contour runs the other way) and then by nearest centre in each shape's own box scaled to 0..1, ties to
   the lower indices (so `morph(a, b, t)` fills what `morph(b, a, 1 - t)` fills); cost if wrong: a word of another length pops

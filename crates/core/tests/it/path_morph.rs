@@ -827,3 +827,24 @@ proptest! {
         }
     }
 }
+
+#[test]
+fn an_island_inside_an_unmatched_hole_stays_filled_where_it_is_at_fraction_0() -> Outcome {
+    // a square with a hole that has a smaller square inside it (an outer in a hole, as in an "@"): the hole has no
+    // partner in the plain square, and the island of the source must not be cut away with it
+    let ringed = svg(&format!(
+        "{} {} {}",
+        rect(0.0, 0.0, 100.0, 100.0),
+        hole(20.0, 20.0, 60.0, 60.0),
+        rect(40.0, 40.0, 20.0, 20.0)
+    ))?;
+    let plain = svg(&rect(0.0, 0.0, 100.0, 100.0))?;
+    let found = ringed.morph(&plain, 0.0)?;
+    assert!(found.contains((50.0, 50.0))?, "the island is filled");
+    assert!(!found.contains((30.0, 30.0))?, "the hole is empty");
+    assert!(found.contains((10.0, 10.0))?, "the ring is filled");
+    assert_same_fill(&found, &ringed)?;
+    let found = plain.morph(&ringed, 1.0)?;
+    assert_same_fill(&found, &ringed)?;
+    Ok(())
+}

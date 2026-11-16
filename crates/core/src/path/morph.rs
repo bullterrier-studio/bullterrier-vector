@@ -39,8 +39,9 @@ impl Path {
     /// A contour with no partner, because the other path has fewer of its kind, shrinks to (or grows from) one point:
     /// the point in the other path's box that has the same place there as the contour's centre has in its own box (the
     /// contour's own centre if the other path is empty). Past 1 (a growing one: before 0) it stays that point, never
-    /// coming back through it, where a matched contour goes on along its line. A hole without a partner is not wound: it is subtracted. When
-    /// there is one, every closed contour of the result goes through the boolean engine (as in [`Path::subtract`]): the
+    /// coming back through it, where a matched contour goes on along its line. A hole without a partner is not wound:
+    /// it is subtracted, and an outer inside it stays, as the nonzero rule fills it. When there is one, every closed
+    /// contour of the result goes through the boolean engine (as in [`Path::subtract`]): the
     /// closed part is canonical, overlapping outers are merged and a closed contour of fewer than 3 points is dropped;
     /// open contours are kept as they are. Without one the result is the lerp as it stands. An empty path on one side
     /// makes every contour of the other unpartnered. Sub-paths come out grouped by role, in the order they were paired,
@@ -85,7 +86,13 @@ impl Path {
         let cuts = Self { subpaths: cuts }.within_limit("fraction")?;
         // the engine takes closed outlines only; an open sub-path would be filled as if closed
         let (closed, open): (Vec<SubPath>, Vec<SubPath>) = body.subpaths.into_iter().partition(|sub| sub.closed);
-        let region = Self { subpaths: closed }.combined(&cuts, Combine::Subtract, FLATNESS, charge)?;
+        // the cuts wind the other way, so under the nonzero rule they take away what the closed part fills and leave an
+        // outer inside a cut standing, as the input itself fills it; the intersection keeps them from painting outside
+        let body = Self { subpaths: closed };
+        let whole = Self {
+            subpaths: body.subpaths.iter().chain(&cuts.subpaths).cloned().collect(),
+        };
+        let region = whole.combined(&body, Combine::Intersect, FLATNESS, charge)?;
         Ok(Self {
             subpaths: region.subpaths.into_iter().chain(open).collect(),
         })
