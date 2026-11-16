@@ -317,6 +317,16 @@ fn a_turn_past_forty_five_degrees_is_a_corner_and_a_smaller_one_is_not() -> Outc
 }
 
 #[test]
+fn a_turn_of_exactly_forty_five_degrees_is_not_a_corner() -> Outcome {
+    // edges (100, 0) then (100, 100): a turn of exactly 45 degrees, not past it. Of these edge lengths the unit
+    // vectors' dot product rounds to exactly the cosine of 45 degrees, so only a strict comparison leaves the middle
+    // point free to go: it is 44.7 from the chord, within a tolerance of 50.
+    let turn = Path::polyline([(0.0, 0.0), (100.0, 0.0), (200.0, 100.0)], false)?;
+    assert_eq!(turn.simplify(50.0)?.to_svg_path(), "M0 0 L200 100");
+    Ok(())
+}
+
+#[test]
 fn the_ends_of_an_open_path_are_exact() -> Outcome {
     let points = wave(200);
     let found = Path::polyline(points.clone(), false)?.simplify(0.5)?;
