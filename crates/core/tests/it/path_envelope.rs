@@ -56,6 +56,18 @@ fn exact(
 /// Every exact image of a dense sampling of `path` is near the enveloped outline: 0.05 pixel and 0.2% of how far the
 /// map moved the point.
 fn assert_matches_the_definition(path: &Path, frame: Rect, top: &Path, bottom: Option<&Path>, amount: f64) -> Outcome {
+    assert_within(path, frame, top, bottom, amount, (0.05, 0.002))
+}
+
+/// As [`assert_matches_the_definition`] with the tolerance `(pixels, share of the displacement)` given.
+fn assert_within(
+    path: &Path,
+    frame: Rect,
+    top: &Path,
+    bottom: Option<&Path>,
+    amount: f64,
+    (pixels, share): (f64, f64),
+) -> Outcome {
     let found = lines(&path.envelope(top, bottom, Some(frame), amount)?)?;
     for index in 0..=400 {
         let original = at(path, f64::from(index) / 400.0)?;
@@ -63,7 +75,7 @@ fn assert_matches_the_definition(path: &Path, frame: Rect, top: &Path, bottom: O
         let moved = libm::hypot(image.0 - original.0, image.1 - original.1);
         let off = to_lines(image, &found);
         assert!(
-            off <= 0.05 + 0.002 * moved,
+            off <= pixels + share * moved,
             "sample {index}: the exact image {image:?} of {original:?} is {off} from the output"
         );
     }
@@ -263,6 +275,8 @@ fn a_long_diagonal_edge_and_a_tight_arc_match_the_definition() -> Outcome {
     let diagonal = Path::line((0.0, 0.0), (1000.0, 100.0))?;
     let ring = Path::arc((500.0, 400.0), 380.0, 190.0, 350.0)?;
     assert_matches_the_definition(&diagonal, wide, &ring, None, 1.0)?;
+    // a line has no flattening of its own, so the cut alone is measured, to a tenth of the pixel the rest allows
+    assert_within(&diagonal, wide, &ring, None, 1.0, (0.01, 0.0))?;
     assert_matches_the_definition(&diagonal, wide, &ring, Some(&ring.translate(0.0, 100.0)?), 1.0)?;
     Ok(())
 }
