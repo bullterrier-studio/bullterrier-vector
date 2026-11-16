@@ -704,6 +704,7 @@ Also:
 
 ## Later, with a trigger
 
+- A tapered stroke whose width reads as the profile at steep slopes: the sweep of a disc is wider across than its factor near a short taper (16.4 against 8.7 at 5 px of a 100 px line); a profile that sets the width across the stroke, not the disc radius, would fix it (found by the V11 demo).
 - `simplify(corner_angle=)`: if noisy hand-drawn lines keep their kinks (found by the V11 demo).
 - A `Path.points()` or corners accessor: the V11 demo parsed `to_svg_path()` to dot the corners.
 - A clearer error when `place_along` is called on a `Path`: say it takes the stamp as a `Drawing` and hint to wrap the shape.
