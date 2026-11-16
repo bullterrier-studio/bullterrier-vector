@@ -18,19 +18,19 @@ def vertices(path: btvec.Path) -> list[tuple[float, float]]:
 
 
 def test_a_line_waved_is_a_sine_by_hand() -> None:
-    points = vertices(LINE.wave())  # amplitude 8, wavelength 120: pieces of 5
+    points = vertices(LINE.wave(amplitude=5))  # pieces of 5
     assert len(points) == 25
     at = dict(points)
-    assert at[30.0] == pytest.approx(8, abs=1e-9)
-    assert at[90.0] == pytest.approx(-8, abs=1e-9)
+    assert at[30.0] == pytest.approx(5, abs=1e-9)
+    assert at[90.0] == pytest.approx(-5, abs=1e-9)
     assert at[60.0] == pytest.approx(0, abs=1e-9)
 
 
 def test_the_angle_turns_the_travel_and_the_phase_moves_it() -> None:
-    down = btvec.Path.line((0, 0), (0, 120)).wave(angle=90)
-    assert {y: x for x, y in vertices(down)}[30.0] == pytest.approx(-8, abs=1e-9)
-    shifted = vertices(btvec.Path.line((0, 0), (120, 0)).wave(angle=90, phase=0.25))
-    assert all(x == pytest.approx(i * 5 + 8, abs=1e-9) and y == 0 for i, (x, y) in enumerate(shifted))
+    down = btvec.Path.line((0, 0), (0, 120)).wave(amplitude=5, angle=90)
+    assert {y: x for x, y in vertices(down)}[30.0] == pytest.approx(-5, abs=1e-9)
+    shifted = vertices(btvec.Path.line((0, 0), (120, 0)).wave(amplitude=5, angle=90, phase=0.25))
+    assert all(x == pytest.approx(i * 5 + 5, abs=1e-9) and y == 0 for i, (x, y) in enumerate(shifted))
 
 
 def test_a_whole_cycle_of_phase_is_the_same_bits() -> None:
@@ -45,13 +45,13 @@ def test_a_closed_path_stays_closed_and_its_corners_stay() -> None:
 
 
 def test_the_drawing_step_reads_each_argument_per_shape_and_a_param() -> None:
-    lines = btvec.Drawing(LINE, LINE).wave(amplitude=btvec.by_index(8, 16))
+    lines = btvec.Drawing(LINE, LINE).wave(amplitude=btvec.by_index(4, 5))
     first, second = (dict(vertices(s.path)) for s in lines.shapes())
-    assert first[30.0] == pytest.approx(8, abs=1e-9)
-    assert second[30.0] == pytest.approx(16, abs=1e-9)
+    assert first[30.0] == pytest.approx(4, abs=1e-9)
+    assert second[30.0] == pytest.approx(5, abs=1e-9)
     phase = btvec.Param("phase", default=0, min=0, max=2)
-    (shape,) = btvec.Drawing(LINE).wave(phase=phase).shapes(phase=0.25)
-    assert vertices(shape.path)[0] == pytest.approx((0, -8), abs=1e-9)
+    (shape,) = btvec.Drawing(LINE).wave(amplitude=5, phase=phase).shapes(phase=0.25)
+    assert vertices(shape.path)[0] == pytest.approx((0, -5), abs=1e-9)
 
 
 def test_the_step_is_a_call_in_the_document_and_the_defaults_are_the_documented_ones() -> None:
@@ -59,7 +59,8 @@ def test_the_step_is_a_call_in_the_document_and_the_defaults_are_the_documented_
     assert steps[-1] == {"wave": {"angle": 30}}  # what is left at its default is not written
     loaded = btvec.Drawing.from_json('{"version":1,"root":[{"path":"M0 0 L120 0"},{"wave":{}}]}')
     (shape,) = loaded.shapes()
-    assert dict(vertices(shape.path))[30.0] == pytest.approx(8, abs=1e-9)
+    assert len(vertices(shape.path)) == 30  # the default amplitude 8 is cut to a twentieth of a pixel: 29 pieces
+    assert max(abs(y) for _, y in vertices(shape.path)) == pytest.approx(8, abs=0.05)
 
 
 @pytest.mark.parametrize("wavelength", [0, -1, float("nan"), float("inf"), 1.1e100])

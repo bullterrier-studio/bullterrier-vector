@@ -1205,7 +1205,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   travel, `d` the distance along it, `y` down like `rotate` (angle 0 displaces down the screen); `phase` is in cycles and
   reduced mod 1 before any maths, so a whole cycle more is the same bits for a phase that is exact (0.25 and 1.25); a phase
   such as 0.3 differs from 1.3 by the rounding of the addition; cost if wrong: a saved drawing's wave runs the other way.*
-  *Ruling: step = wavelength / 24, not the 16 first planned. A chord of a sine over a step `h` strays by at most
+  *Ruling: step = wavelength / 24, not the 16 first planned (the relative arm of the error; the absolute budget of "One absolute error budget" below caps it). A chord of a sine over a step `h` strays by at most
   `amplitude (2 pi h / wavelength)^2 / 8`: 1.93% of the amplitude for 16 pieces, 0.86% for 24. The tests hold the exact image
   of every sampled point within 1% of the amplitude (plus 0.01 pixel of flattening) of the output, which 16 fails (checked: the
   closed-form test fails with 16); a step is also never above its edge, so a short edge is one piece. Cost if wrong: 1.5 times
@@ -1260,7 +1260,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   NaN, infinite or past 1e100 names `radius`. The default is derived per shape, so on a `Drawing` the letters of a word
   twist each about its own middle and far corner, not as one. Cost if wrong: a word twisted as one body needs `about` and
   `radius` given (a number for each shape).*
-  *Ruling: the step is `radius / n`, not a design number: the kernel needs a length and the map's own scale is the radius. A
+  *Ruling: the step is `radius / n` (the relative arm; the absolute budget of "One absolute error budget" below caps it), not a design number: the kernel needs a length and the map's own scale is the radius. A
   chord over a step `h` strays from the image of its edge by at most `h^2 / 8` times the largest second derivative of the
   image along the line. Twist, `a` the angle in radians, `phi = a f(r)`: `|f'| <= 1.5 / radius`, `|f''| <= 6 / radius^2`, so
   `|image''| <= |phi''| |d| + phi'^2 |d| + 2 |phi'| <= (10.5 a + 2.25 a^2) / radius` and the chord error is within `0.005 *
@@ -1337,6 +1337,33 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   that the sweep is exactly what is asked and no angle means "closed"; `Path.circle` is the closed one. It reuses the cubic
   cutter of `from_svg_path`'s arcs (one cubic a quarter turn at most, last end exact). Cost if wrong: a 0 sweep that someone
   wants as a point is refused naming `end`.*
+
+- **One absolute error budget for every deformer (2026-11-16, V12 task 6).** The demo found that "smooth at any size" was
+  false: each deformer cut edges so a chord's error was a *share* of its own scale (0.005 of the radius for `twist` and
+  `bulge`, about 0.9% and 0.55% of the amplitude for `wave` and `wobble`, `PIECES` of the frame for `envelope` and
+  `arch`), which on a big shape is 1 to 7 design pixels: `rect(120, 90, 360, 120).twist(60)` has a radius near 190 and a
+  chord error near 0.95 px, and a 4x zoom shows the facets. The rule is now one: the chord error of any deformer is at
+  most `DEFORM_ERROR_PX = 0.05` design pixels (0.4 device pixels at 8x zoom, below what shows). It lives in one place,
+  the warp kernel: a verb passes its step and the chord error that step leaves (`WAVE_ERROR * |amplitude|`, `0.005 *
+  radius`, ...), and the kernel shortens the step by `sqrt(0.05 / error)` where that error is above the budget (error goes
+  as the square of the step). The per-verb relative bounds stay as the other arm of the minimum, so a small shape costs
+  what it did. *Cost: more points on big shapes* (the demo's `rect(120, 90, 360, 120).twist(60)`: 94 to 406 points,
+  `bulge(0.8)`: 70 to 296; a 90-glyph word at 1080p changes by 0% (wobble), 1% (wave), 7% (twist), 6% (bulge) because glyph edges are short; a
+  4000 px square twisted with radius 2000: 148 to 2076), and *a wave of amplitude 8 now has 29 pieces to the wavelength's
+  24* (0.0086 x 8 is above 0.05). A huge amplitude (1e50) is now refused by the limit like a tiny wavelength, naming
+  `wavelength`; a displacement beyond 1e100 is still named (`amplitude`, `angle`, `bend`) because the kernel maps the
+  original vertices and refuses an out-of-range one before it counts pieces, after it has refused a step that is too
+  small by the verb's own cut (a tiny wavelength names `wavelength` as before). `envelope` has no closed form for its
+  curve's error, so its relative bound is taken as 1e-4 of the frame's width (the half-circle figure worked at `PIECES`):
+  frames wider than 500 px are cut finer; `arch` uses its parabola's exact `bend * width / PIECES^2`. A frame much wider than
+  the 4000 px of the demo costs `sqrt(width)` more pieces. *Ruling: 0.05, not 0.1; the demo cases stay in the tens of
+  thousands of points and 12 to 17 ms, and the limit of 10 million is reached only by amplitudes or shapes far past any
+  design; cost if wrong: a looser constant is a one-line change and halves the extra points.*
+  *Ruling: the refusal text of a number outside a `Domain::Between` is one string owned by the rule (`STRONGEST_BULGE_RULE`:
+  "above -1 and below 16/11 (1.4545), so that the shape does not fold over"), carried by the domain and read by `Path::bulge`
+  too, so `Path.bulge(1.5)` and `Drawing.bulge(1.5)` refuse in the same words (a Drawing adds only its step prefix). Other
+  domains still read differently on the two routes (`radius` "must be a number above 0" on a `Path`, "must be above 0 and
+  at most 1e100..." on a `Drawing`); those are not Between and are left as they were. Cost if wrong: none.*
 
 ## Engineering
 

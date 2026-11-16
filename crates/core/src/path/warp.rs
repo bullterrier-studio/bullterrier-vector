@@ -62,7 +62,7 @@ impl Path {
     ///
     /// The path is flattened to straight edges, as for drawing, and each edge is cut into equal pieces no longer than
     /// a 24th of the wavelength, so that every point of the result is within 0.86% of `amplitude` of the sine it
-    /// stands for; every vertex of the flattening is kept, so corners stay corners. The result is made of straight
+    /// stands for and within 0.05 design pixels of it (a shorter step where 0.86% of `amplitude` is more); every vertex of the flattening is kept, so corners stay corners. The result is made of straight
     /// lines; each sub-path keeps its closedness, a sub-path of a single point stays one (moved), an empty path stays
     /// empty.
     ///
@@ -102,7 +102,13 @@ impl Path {
             let sideways = amplitude * sin_cos(TAU * (along / wavelength - phase)).0;
             Point::new(point.x - sideways * sin, point.y + sideways * cos)
         };
-        self.warp("amplitude", wavelength / WAVE_PIECES, WAVE_ERROR * amplitude.abs(), &map, charge)
+        self.warp(
+            "amplitude",
+            wavelength / WAVE_PIECES,
+            WAVE_ERROR * amplitude.abs(),
+            &map,
+            charge,
+        )
     }
 
     /// This path with its points displaced by smooth seeded noise: a point `(x, y)` moves by `(dx, dy)`, two independent
@@ -115,7 +121,7 @@ impl Path {
     /// The field is anchored in the design frame, the point's own coordinates (as for [`Path::wave`]): the letters of
     /// a word wobbled in one step share one field. The path is flattened and each edge cut into equal pieces no longer
     /// than a 24th of the wavelength, every vertex kept (corners stay corners); a chord strays from the displaced
-    /// edge by at most 0.6% of `amplitude`. The result is made of straight lines, each sub-path keeping its
+    /// edge by at most 0.6% of `amplitude` and by at most 0.05 design pixels (a shorter step where that is more). The result is made of straight lines, each sub-path keeping its
     /// closedness.
     ///
     /// # Errors
@@ -153,7 +159,13 @@ impl Path {
                 point.y + amplitude * down.value(x, y, phase),
             )
         };
-        self.warp("amplitude", wavelength / WOBBLE_PIECES, WOBBLE_ERROR * amplitude.abs(), &map, charge)
+        self.warp(
+            "amplitude",
+            wavelength / WOBBLE_PIECES,
+            WOBBLE_ERROR * amplitude.abs(),
+            &map,
+            charge,
+        )
     }
 
     /// This path with every point moved by `map`: flattened to straight edges, each edge cut into `ceil(length /
@@ -189,7 +201,8 @@ impl Path {
         // a step that is small next to the path is refused first, as the verb's own cut would be (a count that is not
         // a number, from a step that is not, is refused with the rest)
         #[expect(clippy::cast_precision_loss, reason = "10 million is exact in f64")]
-        if !(count(step) <= MAX_SEGMENTS as f64) {
+        let fits = |wanted: f64| wanted <= MAX_SEGMENTS as f64;
+        if !fits(count(step)) {
             charge(MAX_SEGMENTS + 1)?;
         }
         // then a map that sends a vertex out of range is refused by name: a huge amplitude would shorten the step to
@@ -209,8 +222,7 @@ impl Path {
         .within_limit(parameter)?;
         let step = within_budget(step, error);
         let wanted = count(step);
-        #[expect(clippy::cast_precision_loss, reason = "10 million is exact in f64")]
-        if wanted <= MAX_SEGMENTS as f64 {
+        if fits(wanted) {
             #[expect(
                 clippy::cast_possible_truncation,
                 clippy::cast_sign_loss,

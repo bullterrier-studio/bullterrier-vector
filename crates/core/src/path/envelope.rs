@@ -99,7 +99,7 @@ impl Path {
     ///
     /// The path is flattened and each edge cut into equal pieces of at most a 256th of the frame's width, every vertex of
     /// the flattening kept (corners stay corners); every point of the result is within 0.05 pixel and 0.2% of how far the
-    /// map moved it of the image it stands for, for the shapes the tests hold it to (bound worked at `PIECES`). The
+    /// map moved it of the image it stands for, for the shapes the tests hold it to (bound worked at `PIECES`), and a frame wide enough for that to be over 0.05 pixel is cut finer so that it is not. The
     /// result is made of straight lines, each sub-path keeping its closedness; a lone point is moved, an empty path stays
     /// empty.
     ///
@@ -133,7 +133,13 @@ impl Path {
         };
         let above = |u: f64| frame.edge(Some(top), 0.0, amount, u);
         let below = |u: f64| frame.edge(bottom, 1.0, amount, u);
-        self.warp("amount", frame.width / PIECES, frame.width * CURVE_ERROR, &lattice(frame, &above, &below), charge)
+        self.warp(
+            "amount",
+            frame.width / PIECES,
+            frame.width * CURVE_ERROR,
+            &lattice(frame, &above, &below),
+            charge,
+        )
     }
 
     /// This path with an arch put in it: the frame's top edge raised into a parabola through its two top corners whose
@@ -170,7 +176,13 @@ impl Path {
             Point::new(corner.x, corner.y - 4.0 * bend * frame.width * u * (1.0 - u))
         };
         let below = |u: f64| frame.straight(u, 1.0);
-        self.warp("bend", frame.width / PIECES, bend.abs() * frame.width / PIECES / PIECES, &lattice(frame, &above, &below), charge)
+        self.warp(
+            "bend",
+            frame.width / PIECES,
+            bend.abs() * frame.width / PIECES / PIECES,
+            &lattice(frame, &above, &below),
+            charge,
+        )
     }
 
     /// The frame a deformer maps by: `frame` checked, else the bounds of this path; `None` for an empty path, which has

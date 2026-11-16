@@ -484,7 +484,7 @@ impl PyPath {
     /// at the centre, less and less further out and not at all from `radius` on (the farthest corner of the bounds by
     /// default): the turn at distance `r` is `angle * (1 - s^2 (3 - 2s))`, `s = r / radius`. Points keep their distance
     /// to `about`. Edges are cut into pieces so that the result stays within a hundredth of the radius of the true
-    /// twist, every vertex kept, so the result is made of straight lines.
+    /// twist (and within 0.05 design pixels of it), every vertex kept, so the result is made of straight lines.
     #[pyo3(signature = (angle=90.0, *, radius=None, about=None))]
     fn twist(&self, angle: f64, radius: Option<f64>, about: Option<Pt>) -> PyResult<Self> {
         Self::of(self.0.twist(angle, radius, about.map(|about| about.0)))

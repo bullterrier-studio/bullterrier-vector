@@ -192,8 +192,12 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | `morph` | `morph(target, fraction)` | the outline `fraction` 0..1 of the way to `target`, points matched when their counts differ; on a `Drawing`, shapes pair by index | on a `Drawing`, different shape counts |
 | `hatch` | `hatch(*, spacing=8, tone=None, flow=None, avoid=None)` | each region filled with evenly spaced open lines (below) | below |
 
-A deformer's result is smooth at any size, however few points the outline had: `wave`, `wobble`, `twist` and `bulge` all cut
-each edge into pieces fine enough for the effect, and charge them to `MAX_SEGMENTS` before making any.
+A deformer's result is smooth at any size, however few points the outline had: `wave`, `wobble`, `twist`, `bulge`,
+`envelope` and `arch` all cut each edge into pieces fine enough for the effect, and charge them to `MAX_SEGMENTS` before
+making any. The bounds in the rows above (a share of the amplitude, radius or frame width) hold for a small shape; for
+every deformer the result is also within 0.05 design pixels of the exact map, however big the shape (0.4 device pixels
+at an 8x zoom), so a big shape gets more points and a very big amplitude or a very small radius against a big shape hits
+`MAX_SEGMENTS` (a `ParameterError`).
 
 Closing and opening are two offsets: `offset(r).offset(-r)` fills gaps and dents narrower than `2r` (a blobby mount);
 `offset(-r).offset(r)` removes spurs thinner than `2r`.

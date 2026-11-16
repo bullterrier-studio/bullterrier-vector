@@ -311,7 +311,11 @@ fn a_big_wobble_is_within_a_twentieth_of_a_pixel_of_the_curve() -> Outcome {
     let line = Path::line((0.0, 0.0), (2000.0, 600.0))?;
     let cut = lines(&line.wobble(amplitude, wavelength, 0.3, 9.0)?)?;
     let fine = lines(&line.resample(1.0)?.wobble(amplitude, wavelength, 0.3, 9.0)?)?;
-    let worst = fine[0].0.iter().map(|point| to_lines(*point, &cut)).fold(0.0_f64, f64::max);
+    let worst = fine[0]
+        .0
+        .iter()
+        .map(|point| to_lines(*point, &cut))
+        .fold(0.0_f64, f64::max);
     assert!(worst <= 0.05, "the curve is {worst} pixels from the output");
     Ok(())
 }
