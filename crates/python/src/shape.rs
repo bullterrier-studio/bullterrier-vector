@@ -102,7 +102,7 @@ impl PyGradient {
 }
 
 /// A linear gradient along the line from `start` (offset 0) to `end` (offset 1), constant across it, with `stops` as
-/// `(offset, color)`: at least 2, offsets 0 to 1 that do not decrease, colours `"#rrggbb"` or `"#rrggbbaa"`. Beyond
+/// `(offset, color)`: at least 2, offsets 0 to 1 that do not decrease, colours `"#rgb"`, `"#rrggbb"` or `"#rrggbbaa"`. Beyond
 /// the line it holds the end colours. Its geometry is in the design frame, so set the paint after the transforms.
 #[pyfunction]
 #[pyo3(signature = (stops, *, start, end))]
@@ -141,7 +141,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for PaintArg {
         match object.extract::<String>() {
             Ok(text) => Ok(Self(raised(vector::Color::parse(&text))?.into())),
             Err(_) => Err(PyTypeError::new_err(format!(
-                "expected a colour text (\"#rrggbb\", \"#rrggbbaa\" or \"none\") or a Gradient, got {}",
+                "expected a colour text (\"#rgb\", \"#rrggbb\", \"#rrggbbaa\" or \"none\") or a Gradient, got {}",
                 object.repr()?
             ))),
         }

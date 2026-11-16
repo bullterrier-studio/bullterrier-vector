@@ -367,7 +367,7 @@ impl Args {
             if unpainted && arg.domain == Domain::Painting {
                 return Err(Error::parameter(
                     arg.name,
-                    "must be \"#rrggbb\" or \"#rrggbbaa\": \"none\" paints nothing here",
+                    "must be \"#rgb\", \"#rrggbb\" or \"#rrggbbaa\": \"none\" paints nothing here",
                 ));
             }
             if let Some(deepest) = given.drawings().iter().map(Drawing::depth).max()
