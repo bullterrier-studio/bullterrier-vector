@@ -16,6 +16,8 @@ and weight axes. Draw a frame with `uv run poe look examples/kinetic_type.py`; w
     btvec.frames(at_time, width=WIDTH, height=HEIGHT, fps=30, seconds=12, out="frames/kinetic-####.png")
 
 (a `.mov` or `.webm` for a clip with alpha: see examples/badge_frames.py).
+The same program in Rust and JavaScript: `crates/core/examples/kinetic_type.rs`,
+`crates/wasm/examples/kinetic_type.mjs`.
 """
 
 from pathlib import Path
@@ -111,3 +113,7 @@ def at_time(t: float) -> btvec.Drawing:
 
 
 drawing = at_time(6.5)  # one frame, for `uv run poe look examples/kinetic_type.py`
+
+# Four frames of the piece, in seconds: the hairlines, a kick, the bend and the turn half way.
+FRAMES = {"hairlines": 1, "kick": 4.4, "bend": 6.5, "morph": 8.8}
+frames = {name: at_time(t).to_svg(WIDTH, HEIGHT) for name, t in FRAMES.items()}
