@@ -939,7 +939,7 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | Frame export | `btvec.frames` | the caller's loop over `to_png` | the caller's loop over `toRgba` or `toMesh` |
 
 The kinetic type piece, an excerpt of the part that builds the drawing, in all three (whole programs, with the bend and the morph:
-[Python](../examples/kinetic_type.py), [Rust](../crates/core/examples/kinetic_type.rs), [JavaScript](../crates/wasm/examples/kinetic_type.mjs)):
+[Python](../examples/kinetic_type.py), [Rust](../crates/core/examples/kinetic_type.rs), [JavaScript](../crates/wasm/examples/kinetic_type.mjs), which loads the document of the Python drawing):
 
 ```python
 letters = (
