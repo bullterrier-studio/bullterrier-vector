@@ -420,8 +420,11 @@ fn a_huge_count_of_an_empty_drawing_returns_at_once() -> Outcome {
     let empty = Drawing::new(Vec::<Path>::new());
     for spacing in [Spacing::Count(usize::MAX), Spacing::Every(1.0e-9)] {
         // refused or an empty result: either is fine, hanging is not
-        if let Ok(shapes) = empty.place_along(&guide, spacing, PlaceAlong::new()).shapes(&Values::new()) {
-            assert!(shapes.is_empty());
+        if let Ok(shapes) = empty
+            .place_along(&guide, spacing, PlaceAlong::new())
+            .shapes(&Values::new())
+        {
+            assert_eq!(shapes.len(), 0);
         }
     }
     Ok(())
