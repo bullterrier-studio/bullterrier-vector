@@ -142,7 +142,11 @@ fn assert_vertex(found: &[Line], at: (f64, f64)) {
 
 /// A square with a square hole.
 fn ring_a() -> Result<Path, Error> {
-    svg(&format!("{} {}", rect(0.0, 0.0, 100.0, 100.0), hole(30.0, 30.0, 40.0, 40.0)))
+    svg(&format!(
+        "{} {}",
+        rect(0.0, 0.0, 100.0, 100.0),
+        hole(30.0, 30.0, 40.0, 40.0)
+    ))
 }
 
 /// A seven-sided polygon with a five-sided hole, elsewhere and bigger.
@@ -192,7 +196,11 @@ fn fraction_0_fills_what_self_fills_and_1_what_the_target_fills() -> Outcome {
         ),
         (
             "an unmatched outer (two squares to one)",
-            svg(&format!("{} {}", rect(0.0, 0.0, 40.0, 40.0), rect(60.0, 0.0, 40.0, 40.0)))?,
+            svg(&format!(
+                "{} {}",
+                rect(0.0, 0.0, 40.0, 40.0),
+                rect(60.0, 0.0, 40.0, 40.0)
+            ))?,
             svg(&rect(10.0, 10.0, 80.0, 80.0))?,
         ),
         (
@@ -242,7 +250,29 @@ fn morphing_a_path_to_itself_fills_what_it_fills_at_every_fraction() -> Outcome 
 // The middle -----------------------------------------------------------------------------------------------------------------
 
 #[test]
-fn every_vertex_between_concentric_circles_is_at_the_lerped_radius() -> Outcome {
+fn every_vertex_between_concentric_regular_polygons_is_at_the_lerped_radius() -> Outcome {
+    // the corners of a regular polygon are on its circle exactly, so the lerped radius holds to 1e-9; the second case
+    // starts the target 8 corners of 64 on, which is 16 alignment steps of 128: a start that is not found leaves the
+    // corners paired with ones a turn of 45 degrees off and the radius short by about 0.7%
+    let centre = (50.0, 60.0);
+    for first in [0, 8] {
+        let (small, big) = (ngon(centre, 20.0, 64, 0)?, ngon(centre, 60.0, 64, first)?);
+        for t in [0.0, 0.25, 1.0, 1.5, -0.5] {
+            let radius = lerp(20.0, 60.0, t);
+            let found = outline(&small.morph(&big, t)?)?;
+            assert_eq!(found.len(), 1);
+            for vertex in &found[0].0 {
+                let off = libm::hypot(vertex.0 - centre.0, vertex.1 - centre.1) - radius;
+                assert!(off.abs() < 1e-9, "start {first}, fraction {t}: radius off by {off}");
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn between_concentric_circles_every_vertex_is_near_the_lerped_radius() -> Outcome {
+    // a looser companion of the exact test above, on `Path::circle`, whose flattening is off its circle
     let centre = (50.0, 60.0);
     let (small, big) = (Path::circle(centre, 20.0)?, Path::circle(centre, 60.0)?);
     for t in [0.0, 0.25, 1.0, 1.5, -0.5] {
@@ -264,15 +294,15 @@ fn every_vertex_between_concentric_circles_is_at_the_lerped_radius() -> Outcome 
 #[test]
 fn rectangles_of_one_shape_morph_to_the_lerped_rectangle() -> Outcome {
     // the same aspect ratio, so the corners of both sit at the same shares of the way round
-    let (a, b) = (svg(&rect(0.0, 0.0, 10.0, 20.0))?, svg(&rect(20.0, 10.0, 30.0, 60.0))?);
-    let t = 0.25;
-    let found = outline(&a.morph(&b, t)?)?;
+    let (small, big) = (svg(&rect(0.0, 0.0, 10.0, 20.0))?, svg(&rect(20.0, 10.0, 30.0, 60.0))?);
+    let at = 0.25;
+    let found = outline(&small.morph(&big, at)?)?;
     assert_eq!(found.len(), 1);
     let (x, y, width, height) = (
-        lerp(0.0, 20.0, t),
-        lerp(0.0, 10.0, t),
-        lerp(10.0, 30.0, t),
-        lerp(20.0, 60.0, t),
+        lerp(0.0, 20.0, at),
+        lerp(0.0, 10.0, at),
+        lerp(10.0, 30.0, at),
+        lerp(20.0, 60.0, at),
     );
     for corner in [(x, y), (x + width, y), (x + width, y + height), (x, y + height)] {
         assert_vertex(&found, corner);
@@ -291,8 +321,16 @@ fn rectangles_of_one_shape_morph_to_the_lerped_rectangle() -> Outcome {
 
 #[test]
 fn contours_pair_by_where_they_are_and_not_by_their_order() -> Outcome {
-    let left_right = svg(&format!("{} {}", rect(0.0, 0.0, 20.0, 20.0), rect(200.0, 0.0, 20.0, 20.0)))?;
-    let right_left = svg(&format!("{} {}", rect(200.0, 0.0, 20.0, 20.0), rect(0.0, 0.0, 20.0, 20.0)))?;
+    let left_right = svg(&format!(
+        "{} {}",
+        rect(0.0, 0.0, 20.0, 20.0),
+        rect(200.0, 0.0, 20.0, 20.0)
+    ))?;
+    let right_left = svg(&format!(
+        "{} {}",
+        rect(200.0, 0.0, 20.0, 20.0),
+        rect(0.0, 0.0, 20.0, 20.0)
+    ))?;
     // each square stays where it is: at the middle there is still a square at each end
     let middle = left_right.morph(&right_left, 0.5)?;
     assert_same_fill(&middle, &left_right)?;
@@ -303,8 +341,16 @@ fn contours_pair_by_where_they_are_and_not_by_their_order() -> Outcome {
 fn an_outer_pairs_with_an_outer_and_a_hole_with_a_hole() -> Outcome {
     // the ring's hole is nearer the other path's outer contour in the box than its hole is, and still pairs with the
     // hole: at the middle the hole is the midway square
-    let a = svg(&format!("{} {}", rect(0.0, 0.0, 100.0, 100.0), hole(40.0, 40.0, 20.0, 20.0)))?;
-    let b = svg(&format!("{} {}", rect(0.0, 0.0, 100.0, 100.0), hole(10.0, 10.0, 60.0, 60.0)))?;
+    let a = svg(&format!(
+        "{} {}",
+        rect(0.0, 0.0, 100.0, 100.0),
+        hole(40.0, 40.0, 20.0, 20.0)
+    ))?;
+    let b = svg(&format!(
+        "{} {}",
+        rect(0.0, 0.0, 100.0, 100.0),
+        hole(10.0, 10.0, 60.0, 60.0)
+    ))?;
     let middle = a.morph(&b, 0.5)?;
     // the hole of the middle is the lerp of the two holes: (25, 25) to (65, 65)
     assert!(!middle.contains((30.0, 30.0))?);
@@ -336,7 +382,10 @@ fn the_start_of_the_target_is_chosen_so_that_the_two_lie_over_each_other() -> Ou
 #[test]
 fn a_circle_drawn_the_other_way_round_morphs_to_a_ring_whose_hole_stays_a_hole() -> Outcome {
     let disc = ngon_reversed((100.0, 100.0), 40.0, 64)?;
-    let ring = together(&[&ngon((100.0, 100.0), 60.0, 64, 0)?, &ngon_reversed((100.0, 100.0), 20.0, 64)?])?;
+    let ring = together(&[
+        &ngon((100.0, 100.0), 60.0, 64, 0)?,
+        &ngon_reversed((100.0, 100.0), 20.0, 64)?,
+    ])?;
     // at the middle the outer is 50 wide and the hole, grown from the point at the middle, 10
     for (from, to, t) in [(&disc, &ring, 0.5), (&ring, &disc, 0.5)] {
         let middle = from.morph(to, t)?;
@@ -352,7 +401,11 @@ fn a_circle_drawn_the_other_way_round_morphs_to_a_ring_whose_hole_stays_a_hole()
 #[test]
 fn the_area_of_an_unmatched_hole_shrinks_as_the_square_of_what_is_left() -> Outcome {
     // the same outer on both sides, a 20 x 20 hole on the one: it shrinks about its centre (50, 50) to nothing
-    let with_hole = svg(&format!("{} {}", rect(0.0, 0.0, 100.0, 100.0), hole(40.0, 40.0, 20.0, 20.0)))?;
+    let with_hole = svg(&format!(
+        "{} {}",
+        rect(0.0, 0.0, 100.0, 100.0),
+        hole(40.0, 40.0, 20.0, 20.0)
+    ))?;
     let plain = svg(&rect(0.0, 0.0, 100.0, 100.0))?;
     for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
         let wanted = 10_000.0 - (1.0 - t) * (1.0 - t) * 400.0;
@@ -361,13 +414,19 @@ fn the_area_of_an_unmatched_hole_shrinks_as_the_square_of_what_is_left() -> Outc
         let mut cells = 0.0;
         for row in 0..200 {
             for column in 0..200 {
-                let centre = ((f64::from(column) + 0.5) * 0.5, (f64::from(row) + 0.5) * 0.5);
+                let centre = (
+                    f64::midpoint(f64::from(column), 0.5),
+                    f64::midpoint(f64::from(row), 0.5),
+                );
                 if found.contains(centre)? {
                     cells += 0.25;
                 }
             }
         }
-        assert!((cells - wanted).abs() < 1e-9, "fraction {t}: {cells} cells, wanted {wanted}");
+        assert!(
+            (cells - wanted).abs() < 1e-9,
+            "fraction {t}: {cells} cells, wanted {wanted}"
+        );
         assert!((net_area(&rings(&found)?) - wanted).abs() < 1e-6, "fraction {t}");
         // and the other way round it grows from nothing
         let back = plain.morph(&with_hole, 1.0 - t)?;
@@ -381,7 +440,11 @@ fn a_ring_morphed_to_an_l_leaves_no_speck_outside_the_l_shaped_lerp() -> Outcome
     // the hole of the ring is at (50, 50), where the L is empty: wound, its reversed contour paints outside the moving
     // body (proven at 0.9 and 0.95); subtracted, it cannot
     let outer = svg(&rect(0.0, 0.0, 100.0, 100.0))?;
-    let ring = svg(&format!("{} {}", rect(0.0, 0.0, 100.0, 100.0), hole(35.0, 35.0, 30.0, 30.0)))?;
+    let ring = svg(&format!(
+        "{} {}",
+        rect(0.0, 0.0, 100.0, 100.0),
+        hole(35.0, 35.0, 30.0, 30.0)
+    ))?;
     let l = svg("M0 0 L40 0 L40 60 L100 60 L100 100 L0 100 Z")?;
     for t in [0.9, 0.95] {
         let found = ring.morph(&l, t)?;
@@ -413,7 +476,10 @@ fn a_ring_morphed_to_an_l_leaves_no_speck_outside_the_l_shaped_lerp() -> Outcome
 fn a_shape_translated_with_its_target_morphs_to_the_same_shape_translated() -> Outcome {
     let (dx, dy) = (137.5, -42.25);
     let a = together(&[&ngon((50.0, 50.0), 40.0, 6, 0)?, &ngon_reversed((50.0, 50.0), 15.0, 4)?])?;
-    let b = svg(&format!("M5 0 L95 10 L80 90 L20 100 L0 40 Z {}", hole(30.0, 30.0, 40.0, 40.0)))?;
+    let b = svg(&format!(
+        "M5 0 L95 10 L80 90 L20 100 L0 40 Z {}",
+        hole(30.0, 30.0, 40.0, 40.0)
+    ))?;
     for t in [0.0, 0.3, 1.0, 1.6] {
         let moved = outline(&a.translate(dx, dy)?.morph(&b.translate(dx, dy)?, t)?)?;
         let plain = outline(&a.morph(&b, t)?)?;
@@ -484,16 +550,27 @@ fn an_open_path_next_to_a_closed_one_stays_open_and_collapses_when_there_is_noth
     let open = found.iter().find(|line| !line.1).ok_or("no open sub-path")?;
     assert_eq!(open.0.len(), 2);
     for (vertex, wanted) in open.0.iter().zip([(15.0, 10.0), (25.0, 10.0)]) {
-        assert!((vertex.0 - wanted.0).abs() < 1e-9 && (vertex.1 - wanted.1).abs() < 1e-9, "{vertex:?}");
+        assert!(
+            (vertex.0 - wanted.0).abs() < 1e-9 && (vertex.1 - wanted.1).abs() < 1e-9,
+            "{vertex:?}"
+        );
     }
     // at 1 it is one point, still an open sub-path
     let end = outline(&with_line.morph(&plain, 1.0)?)?;
     let open = end.iter().find(|line| !line.1).ok_or("no open sub-path")?;
-    assert!(open.0.iter().all(|v| (v.0 - 20.0).abs() < 1e-9 && (v.1 - 10.0).abs() < 1e-9));
+    assert!(
+        open.0
+            .iter()
+            .all(|v| (v.0 - 20.0).abs() < 1e-9 && (v.1 - 10.0).abs() < 1e-9)
+    );
     // and the way back grows it from that point
     let start = outline(&plain.morph(&with_line, 0.0)?)?;
     let open = start.iter().find(|line| !line.1).ok_or("no open sub-path")?;
-    assert!(open.0.iter().all(|v| (v.0 - 20.0).abs() < 1e-9 && (v.1 - 10.0).abs() < 1e-9));
+    assert!(
+        open.0
+            .iter()
+            .all(|v| (v.0 - 20.0).abs() < 1e-9 && (v.1 - 10.0).abs() < 1e-9)
+    );
     Ok(())
 }
 
@@ -523,7 +600,12 @@ fn a_lone_point_moves_to_the_target_and_a_shape_shrinks_to_a_point() -> Outcome 
     let point = svg("M10 10")?;
     let line = svg("M0 0 L10 0 L10 10")?;
     let start = outline(&point.morph(&line, 0.0)?)?;
-    assert!(start[0].0.iter().all(|v| (v.0 - 10.0).abs() < 1e-9 && (v.1 - 10.0).abs() < 1e-9));
+    assert!(
+        start[0]
+            .0
+            .iter()
+            .all(|v| (v.0 - 10.0).abs() < 1e-9 && (v.1 - 10.0).abs() < 1e-9)
+    );
     let end = outline(&point.morph(&line, 1.0)?)?;
     for corner in [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)] {
         assert_vertex(&end, corner);
@@ -531,15 +613,27 @@ fn a_lone_point_moves_to_the_target_and_a_shape_shrinks_to_a_point() -> Outcome 
     // a closed square next to a point: it shrinks to the place in the point's box that it has in its own (the box of a
     // point is the point), and the point, open, collapses to the square's top left corner at its own place
     let square = svg(&rect(0.0, 0.0, 10.0, 10.0))?;
-    let lone = svg("M50 50")?;
-    let found = outline(&square.morph(&lone, 0.5)?)?;
+    let dot = svg("M50 50")?;
+    let found = outline(&square.morph(&dot, 0.5)?)?;
     let closed = found.iter().find(|line| line.1).ok_or("no closed sub-path")?;
-    for (vertex, corner) in closed.0.iter().zip([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]) {
-        let wanted = ((corner.0 + 50.0) / 2.0, (corner.1 + 50.0) / 2.0);
-        assert!((vertex.0 - wanted.0).abs() < 1e-9 && (vertex.1 - wanted.1).abs() < 1e-9, "{vertex:?}");
+    for (vertex, corner) in closed
+        .0
+        .iter()
+        .zip([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])
+    {
+        let wanted = (f64::midpoint(corner.0, 50.0), f64::midpoint(corner.1, 50.0));
+        assert!(
+            (vertex.0 - wanted.0).abs() < 1e-9 && (vertex.1 - wanted.1).abs() < 1e-9,
+            "{vertex:?}"
+        );
     }
     let open = found.iter().find(|line| !line.1).ok_or("no open sub-path")?;
-    assert!(open.0.iter().all(|v| (v.0 - 25.0).abs() < 1e-9 && (v.1 - 25.0).abs() < 1e-9), "{open:?}");
+    assert!(
+        open.0
+            .iter()
+            .all(|v| (v.0 - 25.0).abs() < 1e-9 && (v.1 - 25.0).abs() < 1e-9),
+        "{open:?}"
+    );
     Ok(())
 }
 
@@ -553,6 +647,16 @@ fn a_closed_contour_with_no_area_is_an_outer_that_a_shape_grows_from() -> Outcom
         assert!(!start.contains(probe)?, "{probe:?}");
     }
     assert_same_fill(&flat.morph(&square, 1.0)?, &square)?;
+    // between them it is paired with the square, as an outer (a hole, it would be cut from a square that grows from a
+    // point). By hand: the square's start that lies nearest the flat one's out-and-back run is the middle of its left
+    // edge (7/8 of the way round), so the pairs are (0,0)-(0,5), (2.5,0)-(0,0), (7.5,0)-(10,0), (10,0)-(10,5),
+    // (7.5,0)-(10,10) and (2.5,0)-(0,10), and the outline at the middle is (0,2.5), (1.25,0), (8.75,0), (10,2.5),
+    // (8.75,5), (1.25,5): the square grown from a point at (5,0) would not reach (1,1)
+    let middle = flat.morph(&square, 0.5)?;
+    assert!(middle.contains((1.0, 1.0))?);
+    assert!(middle.contains((5.0, 2.5))?);
+    assert!(!middle.contains((0.5, 0.5))?);
+    assert!(!middle.contains((9.5, 4.5))?);
     let back = square.morph(&flat, 1.0)?;
     for probe in probes((-2.0, -2.0), (12.0, 12.0), 20) {
         assert!(!back.contains(probe)?, "{probe:?}");
@@ -568,7 +672,10 @@ fn a_fraction_that_is_not_a_number_is_refused_by_name() -> Outcome {
     for t in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
         assert_eq!(parameter_refusal(a.morph(&b, t))?.0, "fraction", "{t}");
     }
-    assert_eq!(parameter_refusal(Path::new().morph(&Path::new(), f64::NAN))?.0, "fraction");
+    assert_eq!(
+        parameter_refusal(Path::new().morph(&Path::new(), f64::NAN))?.0,
+        "fraction"
+    );
     Ok(())
 }
 
@@ -593,7 +700,8 @@ fn a_point_that_would_pass_the_limit_is_refused_by_name() -> Outcome {
 fn a_pair_of_paths_with_more_than_ten_million_edges_in_all_is_refused_at_once() -> Outcome {
     // 2.6 million points each: flattening them is 5.2 million edges, within the limit, and the lists the morph would
     // make are as many again: refused by the count before any is made
-    let points = |offset: f64| (0..2_600_000_u32).map(move |k| (f64::from(k), if k % 2 == 0 { offset } else { offset + 1.0 }));
+    let points =
+        |offset: f64| (0..2_600_000_u32).map(move |k| (f64::from(k), if k % 2 == 0 { offset } else { offset + 1.0 }));
     let (a, b) = (Path::polyline(points(0.0), false)?, Path::polyline(points(5.0), false)?);
     let (name, message) = parameter_refusal(a.morph(&b, 0.5))?;
     assert_eq!(name, "fraction");
@@ -609,7 +717,7 @@ fn a_pair_of_paths_with_more_than_ten_million_edges_in_all_is_refused_at_once() 
 
 #[test]
 fn many_contours_are_counted_in_all() -> Outcome {
-    // 1,800 squares each way would be 3.24 million pairs to rank: they count against the same limit
+    // 4,000 squares each way are 16 million pairs to rank: they count against the same limit
     let squares = |count: u32| -> Result<Path, Error> {
         let mut data = String::new();
         for k in 0..count {
@@ -648,6 +756,7 @@ fn convex() -> impl Strategy<Value = Vec<(f64, f64)>> {
         })
 }
 
+#[expect(clippy::needless_pass_by_value, reason = "it is the function of map_err")]
 fn fail(error: impl ToString) -> TestCaseError {
     TestCaseError::fail(error.to_string())
 }

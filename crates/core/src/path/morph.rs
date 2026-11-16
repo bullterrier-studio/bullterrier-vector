@@ -38,14 +38,18 @@ impl Path {
     ///
     /// A contour with no partner, because the other path has fewer of its kind, shrinks to (or grows from) one point:
     /// the point in the other path's box that has the same place there as the contour's centre has in its own box (the
-    /// contour's own centre if the other path is empty). A hole without a partner is not wound: it is subtracted from
-    /// the rest, so the result is canonical where it is cut (as for [`Path::subtract`]) and holds still where it is not.
-    /// An empty path on one side makes every contour of the other unpartnered.
+    /// contour's own centre if the other path is empty). A hole without a partner is not wound: it is subtracted. When
+    /// there is one, every closed contour of the result goes through the boolean engine (as in [`Path::subtract`]): the
+    /// closed part is canonical, overlapping outers are merged and a closed contour of fewer than 3 points is dropped;
+    /// open contours are kept as they are. Without one the result is the lerp as it stands. An empty path on one side
+    /// makes every contour of the other unpartnered. Sub-paths come out grouped by role, in the order they were paired,
+    /// not in the order they were written.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `fraction` if it is NaN or infinite, if a point of the result would be beyond
     /// ±1e100, or if the points of the flattening, the pairs to rank and the points of the result, over all the
-    /// contours, are more than `MAX_SEGMENTS` (10,000,000), counted before any is made.
+    /// contours, are more than `MAX_SEGMENTS` (10,000,000), counted before any is made (a subtraction counts its own edge pairs
+    /// and vertices against the same total).
     pub fn morph(&self, target: &Self, fraction: f64) -> Result<Self, Error> {
         self.morph_charged(target, fraction, &mut segment_budget("fraction"))
     }
@@ -130,7 +134,9 @@ impl Contour {
             _ => 0.0,
         };
         if run > 0.0 {
-            at.iter_mut().for_each(|share| *share /= run);
+            for share in &mut at {
+                *share /= run;
+            }
         } else {
             points.truncate(1);
             at = vec![0.0];
@@ -189,7 +195,11 @@ impl Contour {
             self.at.get(index).copied().unwrap_or(0.0),
             self.at.get(index + 1).copied().unwrap_or(1.0),
         );
-        let along = if end > begin { (share - begin) / (end - begin) } else { 0.0 };
+        let along = if end > begin {
+            (share - begin) / (end - begin)
+        } else {
+            0.0
+        };
         Point::new(lerp_number(from.x, next.x, along), lerp_number(from.y, next.y, along))
     }
 
@@ -272,7 +282,7 @@ fn matched(from: &Contour, to: &Contour) -> Vec<(Point, Point)> {
     shares.extend(from.at.iter().map(|&share| (share, turned(share + start))));
     shares.extend(to.at.iter().map(|&share| (turned(share - start), share)));
     shares.sort_by(|a, b| a.0.total_cmp(&b.0));
-    shares.dedup_by(|later, earlier| later.0 == earlier.0);
+    shares.dedup_by(|later, earlier| later.0.total_cmp(&earlier.0).is_eq());
     shares
         .into_iter()
         .map(|(along, over)| (from.point_at(along), to.point_at(over)))
@@ -294,7 +304,11 @@ impl Side {
             .iter()
             .filter(|contour| contour.closed)
             .fold(0.0_f64, |most, contour| {
-                if contour.area.abs() > most.abs() { contour.area } else { most }
+                if contour.area.abs() > most.abs() {
+                    contour.area
+                } else {
+                    most
+                }
             });
         if largest < 0.0 {
             contours = contours
@@ -305,7 +319,10 @@ impl Side {
         let mut points = contours.iter().flat_map(|contour| &contour.points);
         let bounds = points.next().map(|&first| {
             points.fold((first, first), |(low, high), p| {
-                (Point::new(low.x.min(p.x), low.y.min(p.y)), Point::new(high.x.max(p.x), high.y.max(p.y)))
+                (
+                    Point::new(low.x.min(p.x), low.y.min(p.y)),
+                    Point::new(high.x.max(p.x), high.y.max(p.y)),
+                )
             })
         });
         Ok(Self { contours, bounds })
