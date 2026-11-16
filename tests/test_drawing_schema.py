@@ -687,6 +687,54 @@ AGREED = [
     pytest.param(
         with_param({"arch": {"bend": {"by_index": {"first": 0, "last": 0.4}}}}), True, id="an arch bend per item"
     ),
+    pytest.param(
+        square_with({"morph": {"target": [{"path": "M0 0 L2 0 L2 2 L0 2 Z"}], "fraction": 0.5}}),
+        True,
+        id="a morph",
+    ),
+    pytest.param(
+        square_with({"morph": {"target": [{"path": "M0 0 L2 0 L2 2 L0 2 Z"}], "fraction": -2.5}}),
+        True,
+        id="a morph fraction beyond 0 and 1",
+    ),
+    pytest.param(
+        square_with({"morph": {"target": [{"path": "M0 0 L2 0 L2 2 L0 2 Z"}], "fraction": 1e300}}),
+        True,
+        id="a morph fraction with no bound but finite",
+    ),
+    pytest.param(
+        with_param(
+            {
+                "morph": {
+                    "target": [{"path": "M0 0 L2 0 L2 2 L0 2 Z"}, {"fill": {"color": "#ff0000"}}],
+                    "fraction": {"stagger": {"progress": {"param": "x"}, "spread": 0.5}},
+                }
+            }
+        ),
+        True,
+        id="a morph fraction staggered from a Param, the target styled",
+    ),
+    pytest.param(
+        square_with({"morph": {"target": [{"path": "M0 0 L2 0 L2 2 L0 2 Z"}]}}),
+        False,
+        id="a morph without its fraction",
+    ),
+    pytest.param(square_with({"morph": {"fraction": 0.5}}), False, id="a morph without its target"),
+    pytest.param(
+        square_with({"morph": {"target": "M0 0 L2 0 L2 2 L0 2 Z", "fraction": 0.5}}),
+        False,
+        id="a morph target that is not an array of calls",
+    ),
+    pytest.param(
+        square_with({"morph": {"target": [{"path": "M0 0"}], "fraction": "half"}}),
+        False,
+        id="a morph fraction that is a word",
+    ),
+    pytest.param(
+        square_with({"morph": {"target": [{"path": "M0 0"}], "fraction": 0.5, "tolerance": 1}}),
+        False,
+        id="a morph with an unknown argument",
+    ),
     pytest.param(square_with({"reverse": {}}), True, id="a reverse"),
     pytest.param(square_with({"reverse": {"x": 1}}), False, id="a reverse with an argument"),
     pytest.param(square_with({"outline": {"width": 1.1e100}}), False, id="an outline width past 1e100"),
@@ -915,6 +963,7 @@ REGISTERED = {
     "bulge",
     "envelope",
     "arch",
+    "morph",
     "simplify",
     "reverse",
     "dash",

@@ -725,7 +725,7 @@
         "morph": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "target": { "$ref": "#/$defs/drawing" }, "fraction": { "$ref": "#/$defs/fraction" } },
+          "properties": { "target": { "$ref": "#/$defs/drawing" }, "fraction": { "$ref": "#/$defs/number" } },
           "required": ["target", "fraction"]
         },
         "hatch": {
