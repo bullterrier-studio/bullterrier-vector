@@ -333,3 +333,27 @@ fn a_big_wobble_is_cut_by_the_sound_chord_bound_of_the_noise() -> Outcome {
     assert_eq!(cut[0].0.len(), pieces + 1);
     Ok(())
 }
+
+#[test]
+fn a_chord_of_a_small_wobble_strays_under_four_thousandths_of_the_amplitude() -> Outcome {
+    // 6 px is under the pixel budget (0.79% of it is 0.047 px), so the cut is the 24th of the wavelength alone. Measured over
+    // 40 seeds: 0.22% of the amplitude at 24 pieces to the wavelength, 0.88% at 12, so this fails a cut half as fine.
+    let (amplitude, wavelength) = (6.0, 80.0);
+    for seed in 0..10 {
+        let line = Path::line((3.0, 5.0), (1003.0, 300.0))?;
+        let cut = lines(&line.wobble(amplitude, wavelength, 0.3, f64::from(seed))?)?;
+        let fine = lines(
+            &line
+                .resample(wavelength / 400.0)?
+                .wobble(amplitude, wavelength, 0.3, f64::from(seed))?,
+        )?;
+        for point in &fine[0].0 {
+            let off = to_lines(*point, &cut);
+            assert!(
+                off <= 0.004 * amplitude,
+                "seed {seed}: {point:?} is {off} from the cut line"
+            );
+        }
+    }
+    Ok(())
+}
