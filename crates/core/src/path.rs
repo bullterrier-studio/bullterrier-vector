@@ -13,6 +13,7 @@ mod curve;
 mod dash;
 mod envelope;
 mod measure;
+mod morph;
 mod offset;
 mod place;
 mod polyline;
