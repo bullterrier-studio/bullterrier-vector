@@ -21,6 +21,7 @@ SMALLEST_STACK_KB = 256  # the smallest thread stack supported; design-decisions
 # The program each subprocess runs: a scenario name and a stack size in KB. It prints each step before it starts and
 # `done` at the end, so a crash leaves the step it died in as the last line.
 PROBE = '''
+import json
 import os
 import sys
 import threading
@@ -51,6 +52,26 @@ def nested_through_other(leaf_expression):
         step = ("union", "subtract", "intersect", "exclude")[level % 4]
         drawing = getattr(btvec.Path.circle((5, 5), 4).fill("#445566"), step)(drawing)
     return drawing
+
+
+def morph_target_document(levels):
+    """A document of `levels` morph steps, each taking the whole chain below it as its `target`, over a leaf that
+    reads x (written as a document: the morph step has no Python method yet)."""
+    chain = [{"path": "M4 4 L6 4 L6 6 L4 6 Z"}, {"translate": {"dx": {"param": "x"}, "dy": 0}}]
+    for _ in range(levels):
+        chain = [{"path": "M3 3 L7 3 L7 7 L3 7 Z"}, {"morph": {"target": chain, "fraction": 0.5}}]
+    params = [{"name": "x", "default": 1, "min": 0, "max": 10, "unit": "", "meaning": ""}]
+    return json.dumps({"version": 1, "params": params, "root": chain})
+
+
+def deepest_morph_target_drawing():
+    """The deepest nesting through the `target` of morph steps that a document may hold, loaded."""
+    for levels in range(15, 0, -1):
+        try:
+            return btvec.Drawing.from_json(morph_target_document(levels))
+        except btvec.FormatError:
+            continue
+    raise AssertionError("no nesting is loaded")
 
 
 def nested_through(step_name, levels):
@@ -149,6 +170,12 @@ def run():
         del drawing
     elif scenario == "nested_through_other":
         drawing = nested_through_other(x)
+        every_output(drawing)
+        step("drop")
+        del drawing
+    elif scenario == "nested_through_morph_target":
+        step("from_json")
+        drawing = deepest_morph_target_drawing()
         every_output(drawing)
         step("drop")
         del drawing
@@ -340,6 +367,7 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
     [
         pytest.param("nested", id="16-drawings-nested"),
         pytest.param("nested_through_other", id="16-drawings-nested-through-the-other-of-booleans"),
+        pytest.param("nested_through_morph_target", id="drawings-nested-through-the-target-of-morphs"),
         pytest.param("nested_through_clip", id="16-drawings-nested-through-the-region-of-clips"),
         pytest.param("nested_through_mask", id="16-drawings-nested-through-the-source-of-masks"),
         pytest.param("cut_document_clip", id="deepest-document-of-clips-to_json-accepts"),

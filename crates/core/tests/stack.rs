@@ -233,6 +233,13 @@ fn drawings_nested_through_the_other_of_a_boolean_step_are_drawn_and_dropped_on_
 }
 
 #[test]
+fn drawings_nested_through_the_target_of_a_morph_step_are_drawn_and_dropped_on_the_smallest_stack() -> Outcome {
+    deepest_drawing_on_the_smallest_stack(false, |x| {
+        nested(x, DEEPEST - 1, |_, ink, drawing| Ok(ink.morph(drawing, 0.5)))
+    })
+}
+
+#[test]
 fn clips_nested_through_the_region_are_drawn_and_dropped_on_the_smallest_stack() -> Outcome {
     deepest_drawing_on_the_smallest_stack(true, |x| {
         nested(x, DEEPEST - 1, |_, ink, drawing| Ok(ink.clip(drawing)))
