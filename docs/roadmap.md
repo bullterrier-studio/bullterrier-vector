@@ -59,7 +59,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V10f | Text runs: one line of text from runs that each have their own font, size and axes | M | Done 2026-11-13 |
 | V11 | Path modifiers: dash march, place shapes along a path, simplify, resample; a width profile along a stroke (tapered strokes) | M | Done 2026-11-16 |
 | V12 | Deformers: wobble, wave, twist, bulge; arch and envelope warps for type | M | Done 2026-11-16 |
-| V13 | Morph, any shape to any shape | M | **M3 kinetic type piece** |
+| V13 | Morph, any shape to any shape | M | Done 2026-11-16 (M3, the kinetic type piece, follows) |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
 | V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output | L | **M5 poster piece** |
 | V16 | SVG import (logos) | S | Done 2026-11-11, trimmed |
@@ -72,10 +72,10 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers) and V12 (deformers) are done; next: V13, then the kinetic type piece (M3) as the first public demo; V15's distance fields
+unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers) and V13 (morph) are done; next: the kinetic type piece (M3) as the first public demo; V15's distance fields
 (see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11 and V12 are done; V13 follows.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12 and V13 are done; the kinetic type piece (M3) follows.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -617,6 +617,11 @@ pairing of points looks right; the rest of the batch follows the finding.
 Done when: a letter turns into a shape and back, and one word into another, by a single `progress` value, in a gallery
 piece. With V12 this is the transforming-type capability and the headline of the first demo (M3).
 
+State: done 2026-11-16, in Rust, Python and WebAssembly (`design-decisions.md`, "Morph (V13)"): `Path.morph(target,
+fraction)` and the `Drawing` step (shapes pair by index, contours by role and place, unmatched ones shrink or grow, an
+unmatched hole is subtracted), `examples/glyph_morph.py`, `.rs` and `.mjs` (a letter into a circle and CAT into HORSE on
+one `progress`; "and back" is `progress` going 1 to 0).
+
 ## V14 Trace
 
 - A grayscale map in (width, height, bytes), outlines at chosen levels out; each level a shape with its level as an
@@ -710,6 +715,15 @@ Also:
 
 ## Later, with a trigger
 
+- Morph: the start of a closed pair is the least-distance shift of 128 samples, so it can jump when an animated target
+  changes shape (open decision D7); keep a start across frames only if a piece shows the jump.
+- Morph: style (a colour or a gradient) does not morph with the outline; a shape keeps the source's style.
+- Morph: position-aware pairing of the shapes of two words (today by index, so a longer word grows its last letters in
+  place) and a `resolve` option inside `morph` for glyphs made of overlapping contours (today `resolve` first).
+- Morph: a per-shape `order` that follows the result's list, so `stagger` also staggers a shape that grows (today each
+  shape reads its own `order`, the source's for a pair).
+- Morph: thin hairs where two matched contours cross over on the way (a `C` into an `H` at about 0.5), and a notch where
+  a letter with a counter meets one without (`T` into `R`): a smarter start or vertex pairing would calm them.
 - Mesh fills of self-crossing outlines can emit overlapping triangles (`lyon_tessellation`, nonzero fill, f32): about 1 failing case in 70,000 of the `mesh_fill` property test, e.g. polygons `[(81,5),(63,18),(33,49)]`, `[(26,41),(45,75),(40,53),(0,44)]`, `[(30,54),(61,51),(55,0),(47,24)]` cover the point (40.77, 49.52) three times where the nonzero rule says once. Resolving crossing outlines before tessellating (`Path::resolve`) fixed the first case but costs time (3.4 times on stroked scenes, see design-decisions, "Output") and changes every fill's triangulation: its own batch, perhaps resolving only outlines that cross themselves. Until then the test fails about once in 700 runs; its regression seed is committed with the fix.
 - `frame="reference"` for `envelope` and `arch`: calm-pose bounds, so an animated weight does not make the arch breathe.
 - A per-line frame helper: regroup a text's shapes by `line` so each line can take its own `frame=` (the demo split the
