@@ -1,5 +1,6 @@
 //! `Drawing::to_svg`: the drawing as an SVG document, one `<path>` per shape in paint order.
 
+use super::outline::tapered_region;
 use super::ramp::Ramp;
 use super::screen::{Screen, screen};
 use super::view::View;
@@ -165,16 +166,16 @@ fn cut(
 fn knocked(shape: &Shape, view: &Frame<'_>, work: &Work) -> Result<Option<String>, Error> {
     let style = shape.style();
     let painted = fills(style) || style.stroke().is_some_and(|stroke| stroke.paint().paints());
-    let data = view
+    let device = view
         .path(shape.path())
-        .map_err(|error| in_shape(shape, "", error))?
-        .to_svg_path();
-    if !painted || data.is_empty() {
+        .map_err(|error| in_shape(shape, "", error))?;
+    if !painted || device.to_svg_path().is_empty() {
         return Ok(None);
     }
+    let data = Data::of(&device, region_of(shape, view, work)?.as_ref());
     let fill = Fill::of(shape, view, work)?;
     let mut black = String::new();
-    fill.define(&mut black, &data);
+    fill.define(&mut black, &data.path);
     drawn(&mut black, (shape, view), &data, &fill, Ink::Mask, None)?;
     Ok(Some(black))
 }
@@ -195,10 +196,11 @@ fn element(
 ) -> Result<f64, Error> {
     let in_shape = |what: &'static str| move |error| in_shape(shape, what, error);
     let device = view.path(shape.path()).map_err(in_shape(""))?;
-    let data = device.to_svg_path();
-    if data.is_empty() {
+    if device.to_svg_path().is_empty() {
         return Ok(0.0);
     }
+    let region = region_of(shape, view, work)?;
+    let data = Data::of(&device, region.as_ref());
     let style = shape.style();
     let fill = Fill::of(shape, view, work)?;
     let Some(cuts) = define_cuts(svg, shape, view, (canvas, work, defined))? else {
@@ -215,12 +217,12 @@ fn element(
     };
     let grouped = style.opacity() < 1.0 || style.blend() != Blend::Normal || !cuts.is_empty();
     let Some((shadow, tint)) = cast(style) else {
-        fill.define(svg, &data);
+        fill.define(svg, &data.path);
         define_gradients(svg, shape, view, (Ink::Own, (0.0, 0.0)))?;
-        if let Fill::Plain(_) = fill {
+        if let (Fill::Plain(_), None) = (&fill, &data.region) {
             // one path takes the group's attributes itself
             svg.push_str("<path");
-            body(svg, &data, (shape, view), Ink::Own, fill.plain())?;
+            body(svg, &data.path, (shape, view), Ink::Own, fill.plain())?;
             group(svg);
             svg.push_str("/>\n");
         } else {
@@ -240,7 +242,7 @@ fn element(
         view.length(shadow.dx()).map_err(in_shape("shadow dx "))?,
         view.length(shadow.dy()).map_err(in_shape("shadow dy "))?,
     );
-    fill.define(svg, &data);
+    fill.define(svg, &data.path);
     define_gradients(svg, shape, view, (Ink::Own, (0.0, 0.0)))?;
     if shadow.blur() > 0.0 {
         let sigma = view.length(shadow.blur() / 2.0).map_err(in_shape("shadow blur "))?;
@@ -262,7 +264,11 @@ fn element(
         svg.push_str(">\n");
     }
     if let Fill::Plain(_) = fill {
-        let copy = device.translate(dx, dy).map_err(in_shape("shadow "))?.to_svg_path();
+        let moved = |path: &Path| path.translate(dx, dy).map_err(in_shape("shadow "));
+        let copy = Data {
+            path: moved(&device)?.to_svg_path(),
+            region: region.as_ref().map(|region| moved(region).map(|path| path.to_svg_path())).transpose()?,
+        };
         drawn(svg, (shape, view), &copy, &fill, Ink::Tint(tint), None)?;
     } else {
         drawn(svg, (shape, view), &data, &fill, Ink::Tint(tint), Some((dx, dy)))?;
@@ -562,7 +568,7 @@ impl Ink {
 fn drawn(
     svg: &mut String,
     (shape, view): (&Shape, &Frame<'_>),
-    data: &str,
+    data: &Data,
     fill: &Fill,
     ink: Ink,
     moved: Option<(f64, f64)>,
@@ -573,10 +579,28 @@ fn drawn(
         }
     };
     let Fill::Dots { color, id, dots } = fill else {
-        svg.push_str("<path");
-        body(svg, data, (shape, view), ink, fill.plain())?;
-        dimmed(svg);
-        svg.push_str("/>\n");
+        // a stroke with a profile is a second path, the region it paints, drawn over the fill; both are dimmed as one
+        let two = data.region.as_ref().is_some_and(|region| !region.is_empty()) && fill.plain().paints();
+        let grouped = two && ink.dimmed().is_some();
+        if grouped {
+            svg.push_str("<g");
+            dimmed(svg);
+            svg.push_str(">\n");
+        }
+        if data.region.is_none() || fill.plain().paints() {
+            svg.push_str("<path");
+            body(svg, &data.path, (shape, view), ink, fill.plain())?;
+            if !grouped {
+                dimmed(svg);
+            }
+            svg.push_str("/>\n");
+        }
+        if let Some(region) = &data.region {
+            region_path(svg, region, (shape, view), (ink, !grouped));
+        }
+        if grouped {
+            svg.push_str("</g>\n");
+        }
         return Ok(());
     };
     let wrapped = moved.is_some() || ink.dimmed().is_some();
@@ -591,9 +615,11 @@ fn drawn(
     let _ = write!(svg, "<g clip-path=\"url(#{id})\"><path d=\"{dots}\"");
     attribute(svg, "fill", &Coat::Flat(ink.on(*color)));
     svg.push_str("/></g>\n");
-    if shape.style().stroke().is_some() {
+    if let Some(region) = &data.region {
+        region_path(svg, region, (shape, view), (ink, false));
+    } else if shape.style().stroke().is_some() {
         svg.push_str("<path");
-        body(svg, data, (shape, view), ink, &NO_PAINT)?;
+        body(svg, &data.path, (shape, view), ink, &NO_PAINT)?;
         svg.push_str("/>\n");
     }
     if wrapped {
@@ -614,7 +640,7 @@ fn body(
     let style = shape.style();
     let _ = write!(svg, " d=\"{data}\"");
     attribute(svg, "fill", &ink.coat(fill, "fill", (view.scope, shape.index())));
-    if let Some(stroke) = style.stroke() {
+    if let Some(stroke) = style.stroke().filter(|stroke| stroke.profile().is_none()) {
         attribute(
             svg,
             "stroke",
@@ -652,4 +678,55 @@ fn attribute(svg: &mut String, name: &str, coat: &Coat) {
     if alpha < u8::MAX {
         let _ = write!(svg, " {name}-opacity=\"{}\"", number(f64::from(alpha) / OPAQUE));
     }
+}
+
+/// The path data a shape is written from: its path and, for a stroke with a profile, the region that stroke paints, both
+/// in output pixels. An empty region (nothing to paint) is `Some("")`.
+struct Data {
+    path: String,
+    region: Option<String>,
+}
+
+impl Data {
+    fn of(device: &Path, region: Option<&Path>) -> Self {
+        Self {
+            path: device.to_svg_path(),
+            region: region.map(Path::to_svg_path),
+        }
+    }
+}
+
+/// The region a stroke with a profile paints along `shape`'s path, in output pixels; `None` for any other stroke. It is
+/// made once for the shape and shared by its shadow's copy and every other use.
+///
+/// # Errors
+/// [`Error::Parameter`] naming the shape if the region would pass `MAX_SEGMENTS` or lie beyond ±1e100.
+fn region_of(shape: &Shape, view: &Frame<'_>, work: &Work) -> Result<Option<Path>, Error> {
+    let Some(stroke) = shape.style().stroke() else {
+        return Ok(None);
+    };
+    let name = format!("shape {}", shape.index());
+    let mut charge = |count| work.made_segments(count, &name);
+    tapered_region(shape.path(), stroke, &mut charge)
+        .and_then(|region| region.map(|region| view.path(&region)).transpose())
+        .map_err(|error| in_shape(shape, "stroke ", error))
+}
+
+/// Appends the path of the region of a stroke with a profile, filled with the stroke's paint as `ink` says; `dim` writes
+/// the opacity of a shadow's tint on it, where it is not in a group that has it.
+fn region_path(
+    svg: &mut String,
+    region: &str,
+    (shape, view): (&Shape, &Frame<'_>),
+    (ink, dim): (Ink, bool),
+) {
+    let Some(stroke) = shape.style().stroke().filter(|_| !region.is_empty()) else {
+        return;
+    };
+    let _ = write!(svg, "<path d=\"{region}\"");
+    attribute(svg, "fill", &ink.coat(stroke.paint(), "stroke", (view.scope, shape.index())));
+    if let Some(alpha) = ink.dimmed().filter(|_| dim) {
+        let _ = write!(svg, " opacity=\"{}\"", number(f64::from(alpha) / OPAQUE));
+    }
+    svg.push_str("/>\n");
 }

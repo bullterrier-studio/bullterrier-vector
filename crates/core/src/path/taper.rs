@@ -125,6 +125,14 @@ pub fn require_round_stroke(join: Join, cap: Cap) -> Result<(), Error> {
     Ok(())
 }
 
+/// Checks a stroke's `profile` as [`Path::tapered_outline`] does, so that a step refuses it where it is read.
+///
+/// # Errors
+/// [`Error::Parameter`] naming `profile`, as `tapered_outline` does.
+pub(crate) fn check_profile(stops: &[(f64, f64)]) -> Result<(), Error> {
+    Profile::new(stops).map(|_| ())
+}
+
 /// A width profile, checked: `(position, factor)` stops with positions from 0 to 1 that never go back.
 struct Profile<'a> {
     stops: &'a [(f64, f64)],

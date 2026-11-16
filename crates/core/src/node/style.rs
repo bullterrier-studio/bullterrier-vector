@@ -1,6 +1,8 @@
 //! The style steps: `fill`, `stroke`, `opacity`, `blend`, `shadow`, `knockout`, `halftone`. Each changes the paint of every shape and nothing else.
 
+use super::offset::{PROFILE, profile_is_round};
 use super::{Args, Context, Inputs, Node, choice, each_shape};
+use crate::path::check_profile;
 use crate::shape::{
     Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, HalftoneStyle, Join, ShadowStyle,
     StrokeStyle,
@@ -92,15 +94,16 @@ pub(crate) struct Stroke;
 pub(crate) static STROKE: Verb = Verb {
     name: "stroke",
     role: Role::Step,
-    summary: "strokes every outline with a colour or a gradient; once a fill or stroke is set only what is set is painted",
+    summary: "strokes every outline with a colour or a gradient, `profile` [[position, factor], ...] varying the width along each sub-path as `outline` does (round joins and caps); once a fill or stroke is set only what is set is painted",
     args: &[
         paint(Domain::Painting),
         number("width", Some(DEFAULT_STROKE_WIDTH), Domain::Positive),
         word("join", Some("round"), Join::NAMES),
         word("cap", Some("round"), Cap::NAMES),
         number("miter_limit", Some(DEFAULT_MITER_LIMIT), Domain::AtLeast(1.0)),
+        PROFILE,
     ],
-    check: None,
+    check: Some(profile_is_round),
 };
 
 impl Node for Stroke {
@@ -115,10 +118,16 @@ impl Node for Stroke {
         each_shape(inputs.previous, cx, |shape, item| {
             let width = args.number(cx, "width", item)?;
             let miter_limit = args.number(cx, "miter_limit", item)?;
+            let profile = args.pairs(cx, "profile", item)?;
+            if let Some(stops) = &profile {
+                check_profile(stops)?;
+            }
             let mut shape = shape.clone();
-            shape
-                .style_mut()
-                .set_stroke(StrokeStyle::new(paint.clone()).finished(width, join, cap, miter_limit));
+            shape.style_mut().set_stroke(
+                StrokeStyle::new(paint.clone())
+                    .finished(width, join, cap, miter_limit)
+                    .profiled(profile),
+            );
             Ok(shape)
         })
     }

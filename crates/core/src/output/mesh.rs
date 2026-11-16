@@ -15,7 +15,7 @@
 //! before it (`Path::subtract`, so the cut edge of a stroke is flat), their hard shadows included.
 
 use super::cast;
-use super::outline::{bez_path, dots, stroke_outline, within_device};
+use super::outline::{bez_path, dots, stroke_outline, tapered_region, within_device};
 use super::screen::{Screen, screen};
 use super::view::View;
 use super::{Size, in_shape};
@@ -259,6 +259,13 @@ impl Maker<'_> {
                 .map_err(|error| in_shape(shape, "stroke width ", error))?;
             within_device("the stroke width", device).map_err(|error| in_shape(shape, "", error))?;
             if visible(rgba) {
+                let mut charge = |count| self.work.made_segments(count, name);
+                if let Some(region) = tapered_region(shape.path(), stroke, &mut charge)? {
+                    // the region of a profile is a fill: its rings, as the fill of a shape
+                    let polylines = region.flattened(&mut charge)?;
+                    layers.push((polylines.iter().map(|polyline| ring(&polyline.points)).collect(), rgba));
+                    return Ok(layers);
+                }
                 // kurbo's round joins and ends are arcs on a self-overlapping outline, which the tessellator sometimes covers
                 // three times: the outline is made with bevel joins and butt ends, and discs added where the arcs were
                 let (join, cap) = match (stroke.join(), stroke.cap()) {

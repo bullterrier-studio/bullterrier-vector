@@ -2,7 +2,7 @@
 //! (`vello_cpu` and `kurbo`); nothing of them reaches the API.
 
 use super::cast;
-use super::outline::{bez_path, dots, stroke_outline, within_device};
+use super::outline::{bez_path, dots, stroke_outline, tapered_region, within_device};
 use super::ramp::Ramp;
 use super::screen::{Screen, charged, screen};
 use super::view::{View, on_grid};
@@ -515,20 +515,32 @@ fn paint(
                 Some(paint) => {
                     // the outline has arcs for the round joins and ends; the rasteriser must be given lines only. It is made
                     // in the coordinates of the whole picture, as every window of it makes it, and placed after
-                    let whole = unplaced(&device, view);
-                    let lines = stroke_outline(
-                        &bez_path(&whole),
-                        stroke,
-                        (stroke.join(), stroke.cap()),
-                        width,
-                        FLATNESS * view.scale(),
-                        &name,
-                    )?;
-                    let lines = placed(&lines, view);
-                    let dots = dots(&whole, stroke.cap(), width, &mut charge)?
-                        .iter()
-                        .map(|dot| placed(&bez_path(dot), view))
-                        .collect();
+                    let (lines, dots) = match tapered_region(shape.path(), stroke, &mut charge)
+                        .map_err(|error| in_shape(shape, "stroke ", error))?
+                    {
+                        // the region of a profile is a fill of straight edges, as the mesh has it, and has no dots
+                        Some(region) => {
+                            let region = moved(&region.flattened(&mut charge)?, view)
+                                .map_err(|error| in_shape(shape, "", error))?;
+                            (bez_path(&region), Vec::new())
+                        }
+                        None => {
+                            let whole = unplaced(&device, view);
+                            let lines = stroke_outline(
+                                &bez_path(&whole),
+                                stroke,
+                                (stroke.join(), stroke.cap()),
+                                width,
+                                FLATNESS * view.scale(),
+                                &name,
+                            )?;
+                            let dots = dots(&whole, stroke.cap(), width, &mut charge)?
+                                .iter()
+                                .map(|dot| placed(&bez_path(dot), view))
+                                .collect();
+                            (placed(&lines, view), dots)
+                        }
+                    };
                     Some(StrokeBody {
                         lines,
                         dots,
@@ -780,6 +792,9 @@ impl Shadow {
 /// How far a stroke `width` wide with this join and end reaches from the centreline of the path: a miter to its limit
 /// of half widths, a square end to the corner of its square.
 fn stroke_reach(stroke: &StrokeStyle, width: f64) -> f64 {
+    if let Some(profile) = stroke.profile() {
+        return width / 2.0 * profile.iter().fold(0.0, |peak: f64, &(_, factor)| peak.max(factor));
+    }
     let join = if stroke.join() == Join::Miter {
         stroke.miter_limit()
     } else {

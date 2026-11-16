@@ -81,6 +81,7 @@ mod style_gradient;
 mod style_halftone;
 mod style_knockout;
 mod style_shadow;
+mod style_taper;
 mod svg;
 mod svg_gradient;
 mod svg_halftone;

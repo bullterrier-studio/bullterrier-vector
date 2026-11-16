@@ -208,6 +208,7 @@ pub struct StrokeStyle {
     pub(crate) join: Join,
     pub(crate) cap: Cap,
     pub(crate) miter_limit: f64,
+    pub(crate) profile: Option<Vec<(f64, f64)>>,
 }
 
 impl StrokeStyle {
@@ -219,12 +220,19 @@ impl StrokeStyle {
             join: Join::Round,
             cap: Cap::Round,
             miter_limit: DEFAULT_MITER_LIMIT,
+            profile: None,
         }
     }
 
     /// This stroke with its width, join, cap and miter limit.
     pub(crate) fn finished(mut self, width: f64, join: Join, cap: Cap, miter_limit: f64) -> Self {
         (self.width, self.join, self.cap, self.miter_limit) = (width, join, cap, miter_limit);
+        self
+    }
+
+    /// This stroke with its width following `profile`, `(position, factor)` stops (`None`: one width all along).
+    pub(crate) fn profiled(mut self, profile: Option<Vec<(f64, f64)>>) -> Self {
+        self.profile = profile;
         self
     }
 
@@ -256,6 +264,13 @@ impl StrokeStyle {
     #[must_use]
     pub fn miter_limit(&self) -> f64 {
         self.miter_limit
+    }
+
+    /// The `(position, factor)` stops the width follows along each sub-path (`Path::tapered_outline`), `None` for a
+    /// stroke of one width. The stroke is then drawn as the filled region that function returns, round joins and ends.
+    #[must_use]
+    pub fn profile(&self) -> Option<&[(f64, f64)]> {
+        self.profile.as_deref()
     }
 }
 
@@ -536,6 +551,11 @@ impl Keyed for StrokeStyle {
         key.text(self.join.name());
         key.text(self.cap.name());
         key.number(self.miter_limit);
+        key.word(self.profile.as_ref().map_or(0, |stops| stops.len() as u64 + 1));
+        for &(position, factor) in self.profile.iter().flatten() {
+            key.number(position);
+            key.number(factor);
+        }
     }
 }
 

@@ -51,20 +51,23 @@ pub(crate) static OUTLINE: Verb = Verb {
         word("cap", Some("round"), Cap::NAMES),
         MITER_LIMIT,
         TOLERANCE,
-        Arg {
-            name: "profile",
-            kind: Kind::Pairs,
-            default: Some(Literal::Unset),
-            reads: Reads::PerItem,
-            domain: Domain::Finite,
-        },
+        PROFILE,
     ],
     check: Some(profile_is_round),
 };
 
+/// The `profile` of `outline` and `stroke`: `[position, factor]` pairs, each number read for each shape.
+pub(super) const PROFILE: Arg = Arg {
+    name: "profile",
+    kind: Kind::Pairs,
+    default: Some(Literal::Unset),
+    reads: Reads::PerItem,
+    domain: Domain::Finite,
+};
+
 /// A `profile` has from 1 to `MAX_PROFILE_STOPS` stops and is stroked with round joins and caps: a stroke that varies
 /// along its length is the sweep of a round disc.
-fn profile_is_round(args: &Args) -> Result<(), Error> {
+pub(super) fn profile_is_round(args: &Args) -> Result<(), Error> {
     let Some(count) = args.pair_count("profile")? else {
         return Ok(());
     };

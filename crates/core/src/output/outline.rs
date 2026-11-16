@@ -3,7 +3,7 @@
 //! `mesh` the only users of `kurbo`, nothing of it reaches the API.
 
 use crate::limits::Work;
-use crate::path::Polyline;
+use crate::path::{FLATNESS, Polyline};
 use crate::{Cap, Error, Join, Path, Point, StrokeStyle};
 use kurbo::{BezPath, StrokeOpts};
 use std::cell::Cell;
@@ -71,6 +71,26 @@ pub(super) fn stroke_outline(
         Some(error) => Err(error),
         None => Ok(lines),
     }
+}
+
+/// The region a stroke with a profile paints along `centre` (in design pixels), as straight-edged closed outlines the
+/// outputs fill with the stroke's paint; `None` for a stroke of one width, which the stroker draws. Every output makes it
+/// here, in design pixels and to one tolerance, so they draw the same polygon at any size; its edges are charged to
+/// `charge` as `Path::tapered_outline` charges them.
+///
+/// # Errors
+/// What [`Path::tapered_outline`] raises.
+pub(super) fn tapered_region(
+    centre: &Path,
+    stroke: &StrokeStyle,
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+) -> Result<Option<Path>, Error> {
+    let Some(profile) = stroke.profile() else {
+        return Ok(None);
+    };
+    centre
+        .tapered_outline_charged(stroke.width(), profile, FLATNESS, charge)
+        .map(Some)
 }
 
 /// The shapes that the sub-paths which never leave their start leave under a round or square end of a stroke `width`

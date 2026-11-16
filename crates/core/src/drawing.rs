@@ -413,13 +413,15 @@ impl From<Shape> for Drawing {
             None => drawing.fill(style.fill().clone()),
         };
         if let Some(stroke) = style.stroke() {
-            drawing = drawing.stroke(
-                Stroke::new(stroke.paint().clone())
-                    .width(stroke.width())
-                    .join(stroke.join())
-                    .cap(stroke.cap())
-                    .miter_limit(stroke.miter_limit()),
-            );
+            let mut kept = Stroke::new(stroke.paint().clone())
+                .width(stroke.width())
+                .join(stroke.join())
+                .cap(stroke.cap())
+                .miter_limit(stroke.miter_limit());
+            if let Some(profile) = stroke.profile() {
+                kept = kept.profile(profile.iter().copied());
+            }
+            drawing = drawing.stroke(kept);
         }
         if style.opacity() != 1.0 {
             drawing = drawing.opacity(style.opacity());

@@ -14,6 +14,7 @@ pub struct Stroke {
     join: Option<Join>,
     cap: Option<Cap>,
     miter_limit: Option<Expr>,
+    profile: Option<Vec<(Expr, Expr)>>,
 }
 
 impl Stroke {
@@ -26,6 +27,7 @@ impl Stroke {
             join: None,
             cap: None,
             miter_limit: None,
+            profile: None,
         }
     }
 
@@ -54,6 +56,18 @@ impl Stroke {
     #[must_use]
     pub fn miter_limit(mut self, miter_limit: impl Into<Expr>) -> Self {
         self.miter_limit = Some(miter_limit.into());
+        self
+    }
+
+    /// This stroke with its width `width` times the factor of `profile` at each place, as
+    /// [`Path::tapered_outline`](crate::Path::tapered_outline) has it: `(position, factor)` stops, each number a number,
+    /// a `Param` or an expression read for each shape. The stroke is then drawn as a filled region by every output,
+    /// with round joins and ends (a miter or bevel join or a butt or square cap leaves the drawing with an
+    /// [`error`](Drawing::error)). The outline is made from the path as it is when the drawing is drawn, so a later
+    /// `slice` thins the tip where it now ends.
+    #[must_use]
+    pub fn profile<E: Into<Expr>>(mut self, profile: impl IntoIterator<Item = (E, E)>) -> Self {
+        self.profile = Some(profile.into_iter().map(|(at, factor)| (at.into(), factor.into())).collect());
         self
     }
 }
@@ -178,6 +192,9 @@ impl Drawing {
         }
         if let Some(limit) = stroke.miter_limit {
             given.push(("miter_limit", Given::Number(limit)));
+        }
+        if let Some(profile) = stroke.profile {
+            given.push(("profile", Given::Pairs(profile)));
         }
         self.then(&style::Stroke, given)
     }
