@@ -1,4 +1,4 @@
-//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`, `resample`, `dash`. Each applies the `Path` verb of the same name to every
+//! The geometry steps: `translate`, `rotate`, `scale`, `along`, `slice`, `resample`, `dash`, `wave`. Each applies the `Path` verb of the same name to every
 //! shape.
 
 use super::{Args, Context, Inputs, Node, each_shape};
@@ -340,6 +340,51 @@ impl Node for Reverse {
     fn evaluate(&self, _: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         each_shape(inputs.previous, cx, |shape, _| {
             Ok(shape.with_path(shape.path().reverse()))
+        })
+    }
+}
+
+/// Displaces the points of every shape sideways by a sine.
+#[derive(Debug)]
+pub(crate) struct Wave;
+
+pub(crate) static WAVE: Verb = Verb {
+    name: "wave",
+    role: Role::Step,
+    summary: "displaces the points of every shape sideways by a sine of amplitude design pixels and the given wavelength travelling towards angle degrees (clockwise on the screen, 0 towards +x, so down the screen is the sideways), phase in cycles moving it; the wave is anchored in the design frame, so one wave runs across all the letters of a word, and the edges are cut so the result is smooth, corners kept",
+    args: &[
+        per_shape("amplitude", Kind::Number, Some(Literal::Number(8.0)), Domain::Finite),
+        per_shape(
+            "wavelength",
+            Kind::Number,
+            Some(Literal::Number(120.0)),
+            Domain::PositiveUpTo(MAX_COORDINATE),
+        ),
+        per_shape("angle", Kind::Number, Some(Literal::Number(0.0)), Domain::Finite),
+        per_shape("phase", Kind::Number, Some(Literal::Number(0.0)), Domain::Finite),
+    ],
+    check: None,
+};
+
+impl Node for Wave {
+    fn verb(&self) -> &'static Verb {
+        &WAVE
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        each_shape(inputs.previous, cx, |shape, item| {
+            let (amplitude, wavelength) = (
+                args.number(cx, "amplitude", item)?,
+                args.number(cx, "wavelength", item)?,
+            );
+            let (angle, phase) = (args.number(cx, "angle", item)?, args.number(cx, "phase", item)?);
+            Ok(shape.with_path(
+                shape
+                    .path()
+                    .wave_charged(amplitude, wavelength, angle, phase, &mut charge)?,
+            ))
         })
     }
 }

@@ -239,6 +239,35 @@ impl Drawing {
         self.then(&transform::Resample, vec![("spacing", Given::Number(spacing.into()))])
     }
 
+    /// This drawing with the points of every shape displaced sideways by a sine, as [`Path::wave`](crate::Path::wave)
+    /// does: `amplitude` design pixels, one `wavelength` long, travelling towards `angle` (`Deg(0.0)` is towards +x
+    /// and displaces down the screen), `phase` in cycles (a `Param` going 0 to 1 sets the wave travelling). Each is a
+    /// number for each shape (a number, a `Param`, an expression or a list of them). The wave is anchored in the design
+    /// frame: the letters of one word waved in one step share one wave. Each shape keeps its style and attributes, its
+    /// `origin` included.
+    ///
+    /// A `wavelength` not above 0 and within 1e100, or a number that is NaN or infinite, leaves the drawing with an
+    /// [`error`](Drawing::error) naming the step (`step 2 (wave).wavelength`), or, when it reads a Param, is refused
+    /// when the drawing is drawn; so is a draw that would make more than `MAX_SEGMENTS` points.
+    #[must_use]
+    pub fn wave<A: Into<Expr>>(
+        &self,
+        amplitude: impl Into<Expr>,
+        wavelength: impl Into<Expr>,
+        angle: Deg<A>,
+        phase: impl Into<Expr>,
+    ) -> Self {
+        self.then(
+            &transform::Wave,
+            vec![
+                ("amplitude", Given::Number(amplitude.into())),
+                ("wavelength", Given::Number(wavelength.into())),
+                ("angle", Given::Number(angle.0.into())),
+                ("phase", Given::Number(phase.into())),
+            ],
+        )
+    }
+
     /// This drawing with every shape run the other way, as [`Path::reverse`](crate::Path::reverse) does: `text(..)
     /// .reverse().slice(0, progress)` draws on from the other end, and a stroke's direction decides where a `dash` or
     /// a taper begins. Each shape keeps its style and attributes, its `origin` included. Takes no arguments, so it

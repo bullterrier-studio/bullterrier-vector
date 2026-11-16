@@ -25,6 +25,7 @@ mod drawing_style;
 mod drawing_text_resolve;
 mod drawing_transform;
 mod drawing_values;
+mod drawing_wave;
 mod error;
 mod expr;
 mod font_bundled;

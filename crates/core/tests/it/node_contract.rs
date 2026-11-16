@@ -547,6 +547,55 @@ fn rows() -> Vec<Row> {
             geometry: None,
         },
         Row {
+            verb: "wave",
+            sample: || Ok(square()?.wave(8.0, 120.0, Deg(30.0), 0.25)),
+            with: Some(|argument, value| match argument {
+                "amplitude" => Ok(square()?.wave(value, 120.0, Deg(0.0), 0.0)),
+                "wavelength" => Ok(square()?.wave(8.0, value, Deg(0.0), 0.0)),
+                "angle" => Ok(square()?.wave(8.0, 120.0, Deg(value), 0.0)),
+                "phase" => Ok(square()?.wave(8.0, 120.0, Deg(0.0), value)),
+                _ => Err(unknown("wave", argument)),
+            }),
+            ranges: &[
+                ("amplitude", 8.0, true),
+                ("amplitude", -3.0, true),
+                ("amplitude", 1e50, true),
+                ("amplitude", f64::NAN, false),
+                ("amplitude", f64::INFINITY, false),
+                ("wavelength", 120.0, true),
+                ("wavelength", 0.5, true),
+                ("wavelength", 1e100, true),
+                ("wavelength", 0.0, false),
+                ("wavelength", -1.0, false),
+                ("wavelength", 1.000_000_1e100, false),
+                ("wavelength", f64::NAN, false),
+                ("wavelength", f64::INFINITY, false),
+                ("angle", 0.0, true),
+                ("angle", -720.5, true),
+                ("angle", 1e300, true),
+                ("angle", f64::NAN, false),
+                ("angle", f64::INFINITY, false),
+                ("phase", 0.25, true),
+                ("phase", -3.5, true),
+                ("phase", 1e300, true),
+                ("phase", f64::NAN, false),
+                ("phase", f64::INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let (amplitude, wavelength) = (a % 20.0, 10.0 + b.abs() % 100.0);
+                    Ok(vec![(
+                        "an amplitude, a wavelength, an angle and a phase",
+                        Drawing::from(path.clone()).wave(amplitude, wavelength, Deg(a), b),
+                        path.wave(amplitude, wavelength, a, b),
+                    )])
+                },
+                // a line 10 long waved sideways to a travel straight down: it is all at distance 0, so a phase of a
+                // quarter cycle moves it 2 along x and the one piece (wavelength 240, step 10) stays one
+                by_hand: &[("M0 0 L10 0", |d| Ok(d.wave(2.0, 240.0, Deg(90.0), 0.25)), "M2 0 L12 0")],
+            }),
+        },
+        Row {
             verb: "fill",
             sample: || Ok(square()?.fill(fade()?)),
             with: None,
