@@ -149,7 +149,7 @@ default paint, and draws as it did.
 | `bulge` | `amount` (per-item number above -1 and below 16/11 = 1.4545...; default 0.5; the loader refuses a literal outside, an expression is checked when drawn), `radius` and `about` as for `twist` |
 | `envelope` | `top` (path data), `bottom` (path data; default: the frame's straight bottom edge), `frame` (an array of exactly four numbers `[x, y, width, height]`, each within ±1e100, a number or an expression; default: the bounds of all the shapes; the loader refuses another count and a width or height not above 0 when drawn, which the schema cannot state), `amount` (per-item number, any finite value; default 1) |
 | `arch` | `bend` (per-item number, any finite value; required), `frame` as for `envelope` |
-| `morph` | `target` (drawing), `fraction` |
+| `morph` | `target` (drawing: an array of calls, as the `other` of a boolean; its shapes pair with the drawing's by index and are not united), `fraction` (per-item number, any finite value; required) |
 | `hatch` | `spacing` (pair), `tone` (number or field), `flow` (flow), `avoid` (drawing) |
 | `merge` | `by` (an attribute name) |
 | `only`, `without` | attribute names to a value or a list of values: `{"only": {"char": "O"}}` |

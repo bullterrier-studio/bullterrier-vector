@@ -1379,6 +1379,49 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   domains still read differently on the two routes (`radius` "must be a number above 0" on a `Path`, "must be above 0 and
   at most 1e100..." on a `Drawing`); those are not Between and are left as they were. Cost if wrong: none.*
 
+## Morph (V13)
+
+- **Spike (2026-11-16).** A throwaway script drew letters and words morphed by several designs and the PNGs were looked at
+  (the script and its images are not kept). Compared: *pooling* a word's contours into one shape and pairing contours by
+  position, against *pairing shapes by index* (glyph `i` to glyph `i`): pooling smears letters (`cat` to `horse`, `NO` to
+  `YES`), per-glyph pairing reads letter by letter. A contour with no partner: an outer shrinking to a point is fine; for a
+  hole, four designs: collapse to its own centre, collapse to the mapped point of the other shape's box, *wound* (lerped like
+  a matched contour) and *subtracted* (lerped, then cut from the rest). Start alignment of a closed pair with and without a
+  search over the reversed contour. What the PNGs showed: a wound unmatched hole is a proven defect, its reversed winding
+  paints black where it leaves the moving body (`O` to `L` at 0.9 and 0.95, `B` to `L`, `O` to `C`: dark specks outside the
+  letter, or in the counter); subtracting it cannot paint outside, so no frame shows a speck. Start alignment is by shift alone: a
+  search that may reverse one contour would turn a hole into a fill. An unresolved glyph (`A` with a crossbar of its own) morphs as it is:
+  the crossbar is an unmatched outer that shrinks, and `A` to `O` grows the counter from a point.
+- *Ruling: unmatched holes are subtracted, never wound; cost if wrong: a boolean per frame whenever a hole has no partner
+  (the result is then canonical, the ends keep the fill but not the vertex list).*
+- *Ruling: shapes pair by index and contours inside a shape by role (the sign of the area, after one reversal of the whole
+  path if its largest contour runs the other way) and then by nearest centre in each shape's own box scaled to 0..1, ties to
+  the lower indices (so `morph(a, b, t)` fills what `morph(b, a, 1 - t)` fills); cost if wrong: a word of another length pops
+  letters in and out at their own place (a spare glyph grows from its own centre), and position-aware word pairing is a later
+  item.*
+- *Ruling: unresolved input stays unresolved, no hidden boolean; cost if wrong: overlapping contours of one glyph (an `E`
+  made of four bars) morph as separate outers, so `resolve` the text first (`examples/glyph_morph.py` does).*
+- *Ruling: `fraction` is any finite number, so an elastic or back ease that overshoots extrapolates the lerp; cost if wrong:
+  the result can leave the hull of the two shapes, and a point past ±1e100 is a `ParameterError` naming `fraction`.*
+- *Ruling: no search over the orientation of a contour; cost if wrong: shapes wound in opposite directions are normalised
+  only as a whole, so a glyph that comes reversed from a font is fixed, a single hand-reversed contour is not.*
+- *Ruling: points are the union of both outlines' vertex fractions (arc length normalised per contour), so 0 is the source and
+  1 the target with no resolution to tune; an open pair is joined end to end or end to start, with no cyclic shift; cost if
+  wrong: a pair of very different vertex counts yields as many points as both together.*
+- *Ruling: `ALIGN_SAMPLES` = 128, the equal steps of length that decide where a closed pair starts, a `// constant` in
+  `path/morph.rs`. Measured once over every ordered pair of the closed contours of the glyphs of `ABRSgq&@` in the bundled
+  Bricolage Grotesque and of a circle (380 pairs): the cost of the start it picks (summed squared distance of 1024 samples) is
+  at most 1.0005 times the best of the 1024 starts; a search costs the square of the samples. Cost if wrong: a start off by
+  under a 128th of a perimeter.*
+- *Ruling: limits: the points of the flattening, the pairs ranked and the points of each result contour are charged to
+  `MAX_SEGMENTS` before any is allocated (a subtraction charges as the booleans do); on a `Drawing`, a target shape with no
+  partner is a shape the step makes and counts against `MAX_SHAPES`.*
+- *Ruling: on a `Drawing` the per-item `order` is the `order` attribute a shape carries: a pair keeps the source's, a shape
+  that grows keeps the target's own (so `text("CAT")` and `text("HORSE")` give the glyphs 0, 0.5, 1 and 0.75, 1 under one
+  `stagger`); cost if wrong: letters of the two words start at uneven times; `by_index` reads the index over the result.*
+- *Later: the start of a contour jumps when an animated target changes (D7); style (colour) morph; position-aware word
+  pairing.*
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin
