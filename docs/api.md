@@ -927,7 +927,7 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | | Python | Rust | JavaScript |
 |---|---|---|---|
 | Constructors | `btvec.Drawing(a, b, size=(w, h))`, `btvec.Font(data)`, `btvec.Param("rise", default=0, min=0, max=1)` | `Drawing::new([a, b]).with_size(w, h)`, `Drawing::from(path)`, `Font::new(data)?`, `Param::new("rise", 0.0, 0.0, 1.0)?.unit(Unit::Fraction)?` | `new btvec.Drawing([a, b], { size: [w, h] })`, `new btvec.Font(data)`, `new btvec.Param("rise", { default: 0, min: 0, max: 1 })` |
-| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7.0) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`) | an options object last (`{ width: 1.5 }`) |
+| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7.0)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7.0) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`) | an options object last (`{ width: 1.5 }`) |
 | Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods (`add`, `sub`, `mul`, `div`, `neg`), read in source order: `pulse.mul(0.08).add(1)`; a number that comes first is lifted once with `btvec.expr(n)`: `btvec.expr(1).sub(rise).mul(HEIGHT)` |
 | Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` | an object: `toPng(1080, 1350, { weight: 820 })` |
 | Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })`; a `Mesh` is lent as its own argument: `toMeshInto(mesh, w, h, values)` |
@@ -975,16 +975,16 @@ png = piece.to_png(1080, 1350, rise=1, ink=1, weight=620, burst=0.4, pulse=[0.9,
 ```rust
 let letters = btvec::text(
     "NO\nSLEEP",
-    Text::new(&font).size(560.0).axis("wght", &weight + 120.0 * &pulse).leading(520.0)
+    Text::new(&font).size(560.0).axes([("wght", &weight + 120.0 * &pulse)]).leading(520.0)
         .anchor((WIDTH / 2.0, 600.0)).align(Align::Center).width(980.0).fit("wdth"),
 )
 .rotate(Deg(Random::new(-10.0, 10.0).seed(7.0) * &burst))
 .translate(Random::new(-30.0, 30.0).seed(8.0) * &burst, Random::new(-50.0, 50.0).seed(9.0) * &burst);
-let frame = Path::rect(0.0, 0.0, WIDTH, HEIGHT)?;
+let frame = Path::rect(0.0, 0.0, WIDTH, HEIGHT, 0.0)?;
 let misregistration = 3.0 + 14.0 * &burst;
 let paper = frame.fill(PAPER);
 let blue = Drawing::from(frame).translate(0.0, HEIGHT * (1.0 - &rise))
-    .subtract(&letters.translate(&misregistration, 0.6 * &misregistration))
+    .subtract(letters.translate(&misregistration, 0.6 * &misregistration), 0.01)
     .fill(BLUE).blend(Blend::Multiply);
 let pink = letters.fill(PINK).blend(Blend::Multiply).opacity(&ink);
 let hairlines = letters.stroke(Stroke::new(INK).width(1.5)).opacity(1.0 - &ink);
