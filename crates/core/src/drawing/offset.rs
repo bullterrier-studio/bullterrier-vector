@@ -47,4 +47,30 @@ impl Drawing {
             ],
         )
     }
+
+    /// This drawing with every shape turned into the closed outlines of a stroke whose width is `width` times the
+    /// factor of `profile` at each place, as [`Path::tapered_outline`](crate::Path::tapered_outline) does: `profile`
+    /// is a list of `(position, factor)`, each number a number, a `Param` or an expression, read for each shape.
+    /// `width` is a number for each shape, as for [`Drawing::outline`]; joins and caps are round. A profile of no
+    /// stops or more than 1,000 leaves the drawing with an [`error`](Drawing::error) naming the step
+    /// (`step 2 (outline).profile`); any other refusal of the profile or `width` comes when the drawing is drawn.
+    #[must_use]
+    pub fn tapered_outline<E: Into<Expr>>(
+        &self,
+        width: impl Into<Expr>,
+        profile: impl IntoIterator<Item = (E, E)>,
+        tolerance: f64,
+    ) -> Self {
+        self.then(
+            &offset::Outline,
+            vec![
+                ("width", Given::Number(width.into())),
+                (
+                    "profile",
+                    Given::Pairs(profile.into_iter().map(|(at, factor)| (at.into(), factor.into())).collect()),
+                ),
+                ("tolerance", Given::Number(Expr::from(tolerance))),
+            ],
+        )
+    }
 }

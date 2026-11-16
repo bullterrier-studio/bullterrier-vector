@@ -219,6 +219,12 @@ impl<'a> Writer<'a> {
                     .map(|expr| self.expression(expr))
                     .collect::<Result<_, _>>()?,
             ),
+            Given::Pairs(items) => Json::Array(
+                items
+                    .iter()
+                    .map(|(first, second)| Ok(Json::Array(vec![self.expression(first)?, self.expression(second)?])))
+                    .collect::<Result<_, Error>>()?,
+            ),
             Given::Text(text) => Json::text(text),
             Given::Color(color) => Json::String(color_text(*color)),
             Given::Paint(paint) => paint_json(paint),

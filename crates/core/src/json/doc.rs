@@ -66,6 +66,7 @@ pub(super) enum Value {
     Number(Ex),
     Pair(Ex, Ex),
     Numbers(Vec<Ex>),
+    Pairs(Vec<(Ex, Ex)>),
     Text(String),
     Color(Color),
     Paint(Paint),

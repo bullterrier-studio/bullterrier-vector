@@ -39,6 +39,8 @@ pub(crate) enum Given {
     Pair(Expr, Expr),
     /// A list of numbers.
     Numbers(Vec<Expr>),
+    /// A list of pairs of numbers.
+    Pairs(Vec<(Expr, Expr)>),
     /// A word.
     Text(String),
     /// A colour.
@@ -193,6 +195,14 @@ impl Args {
                         key.of(expr);
                     }
                 }
+                Given::Pairs(items) => {
+                    key.word(17);
+                    key.count(items.len());
+                    for (first, second) in items {
+                        key.of(first);
+                        key.of(second);
+                    }
+                }
                 Given::Text(text) => {
                     key.word(2);
                     key.text(text);
@@ -275,6 +285,7 @@ impl Args {
                 Given::Number(only) => vec![only],
                 Given::Pair(first, second) => vec![first, second],
                 Given::Numbers(items) => items.iter().collect(),
+                Given::Pairs(items) => items.iter().flat_map(|(first, second)| [first, second]).collect(),
                 Given::Axes(axes) => axes.iter().map(|(_, expr)| expr).collect(),
                 _ => Vec::new(),
             };
@@ -329,6 +340,14 @@ impl Args {
                     for expr in items {
                         expr.collect_params(&mut reads.all);
                         expr.collect_params(&mut reads.free);
+                    }
+                }
+                Given::Pairs(items) => {
+                    for (first, second) in items {
+                        for expr in [first, second] {
+                            expr.collect_params(&mut reads.all);
+                            expr.collect_params(&mut reads.free);
+                        }
                     }
                 }
                 Given::Axes(axes) => {
@@ -455,6 +474,34 @@ impl Args {
                 })
                 .collect(),
             _ => Err(self.misread(name, "a list of numbers")),
+        }
+    }
+
+    /// The pairs of `name` for the shape `item`, each number within the argument's domain, or `None` if left out.
+    pub(crate) fn pairs(&self, cx: &Context<'_>, name: &str, item: Item) -> Result<Option<Vec<(f64, f64)>>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            (arg, Given::Pairs(items)) => {
+                let read = |expr: &Expr| {
+                    let value = expr.value_at(cx.env, item).map_err(|error| relabel(error, name))?;
+                    arg.domain.number(name, value)
+                };
+                items
+                    .iter()
+                    .map(|(first, second)| Ok((read(first)?, read(second)?)))
+                    .collect::<Result<_, Error>>()
+                    .map(Some)
+            }
+            _ => Err(self.misread(name, "a list of pairs")),
+        }
+    }
+
+    /// How many pairs the list `name` holds, `None` if it is left out.
+    pub(crate) fn pair_count(&self, name: &str) -> Result<Option<usize>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            (_, Given::Pairs(items)) => Ok(Some(items.len())),
+            _ => Err(self.misread(name, "a list of pairs")),
         }
     }
 

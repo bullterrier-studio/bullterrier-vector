@@ -5,7 +5,7 @@
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, format_refusal, net_area, parameter_refusal, rings};
 use bullterrier_vector::{
-    Cap, Color, Drawing, Error, Inputs, Join, Param, Path, Shape, Size, Stroke, Values, by_index, drawing_schema, text,
+    Cap, Color, Drawing, Error, Expr, Inputs, Join, Param, Path, Shape, Size, Stroke, Values, by_index, drawing_schema, text,
     verbs,
 };
 use std::f64::consts::PI;
@@ -437,5 +437,70 @@ fn the_tolerance_sets_how_many_straight_edges_a_curve_and_a_round_join_become() 
         edges(&disc.outline(5.0, Join::Round, Cap::Round, LIMIT, 1.0))?,
     );
     assert!(fine > 2 * coarse, "outline: {fine} against {coarse}");
+    Ok(())
+}
+
+// Tapered outlines ---------------------------------------------------------------------------------------------------
+
+const TAPER: [(f64, f64); 3] = [(0.0, 0.0), (0.5, 1.0), (1.0, 0.0)];
+
+#[test]
+fn a_tapered_outline_step_is_the_path_verb_on_every_shape_with_a_width_for_each() -> Outcome {
+    let (long, short) = (Path::line((0.0, 0.0), (40.0, 0.0))?, Path::line((0.0, 9.0), (10.0, 9.0))?);
+    let drawing = Drawing::new([long.clone(), short.clone()]).tapered_outline(by_index(6.0, 2.0), TAPER, TOLERANCE);
+    let shapes = drawn(&drawing)?;
+    assert_eq!(shapes.len(), 2);
+    assert_eq!(shapes[0].path(), &long.tapered_outline(6.0, &TAPER, TOLERANCE)?);
+    assert_eq!(shapes[1].path(), &short.tapered_outline(2.0, &TAPER, TOLERANCE)?);
+    Ok(())
+}
+
+#[test]
+fn a_profile_that_reads_a_param_follows_the_value() -> Outcome {
+    let peak = Param::new("peak", 1.0, 0.0, 1.0)?;
+    let line = Path::line((0.0, 0.0), (40.0, 0.0))?;
+    let drawing = Drawing::from(line.clone()).tapered_outline(6.0, [(Expr::from(0.0), Expr::from(0.0)), (Expr::from(1.0), Expr::from(&peak))], TOLERANCE);
+    let at = |value: f64| -> Result<Path, Box<dyn std::error::Error>> {
+        Ok(drawing.shapes(&Values::new().set("peak", value))?[0].path().clone())
+    };
+    assert_eq!(at(0.5)?, line.tapered_outline(6.0, &[(0.0, 0.0), (1.0, 0.5)], TOLERANCE)?);
+    assert_ne!(at(0.5)?, at(1.0)?);
+    Ok(())
+}
+
+#[test]
+fn the_profile_saves_as_pairs_and_loads_the_same_drawing_and_a_bad_one_is_refused_at_the_value() -> Outcome {
+    let drawing = Drawing::from(Path::line((0.0, 0.0), (40.0, 0.0))?).tapered_outline(6.0, TAPER, TOLERANCE);
+    let json = drawing.to_json()?;
+    assert!(
+        json.contains(r#"{"outline":{"profile":[[0,0],[0.5,1],[1,0]],"width":6}}"#),
+        "{json}"
+    );
+    let again = Drawing::from_json(&json, &Inputs::new())?;
+    assert_eq!(again.to_json()?, json);
+    assert_eq!(again.shapes(&Values::new())?, drawing.shapes(&Values::new())?);
+    for (bad, pointer) in [
+        (r#""profile":[]"#, "profile"),
+        (r#""profile":[[0,1,2]]"#, "profile/0"),
+        (r#""profile":5"#, "profile"),
+        (r#""profile":[[0,1]],"join":"miter""#, "join"),
+        (r#""profile":[[0,1]],"cap":"butt""#, "cap"),
+    ] {
+        let text = json.replace(r#""profile":[[0,0],[0.5,1],[1,0]]"#, bad);
+        let (found, _) = format_refusal(Drawing::from_json(&text, &Inputs::new()))?;
+        assert!(found.contains(pointer), "{bad}: {found}");
+    }
+    Ok(())
+}
+
+#[test]
+fn a_profile_with_a_square_join_or_cap_or_too_many_stops_is_refused_in_the_step() -> Outcome {
+    let stops = vec![(0.5, 1.0); 1001];
+    let base = Drawing::from(Path::line((0.0, 0.0), (40.0, 0.0))?);
+    let error = base.tapered_outline(6.0, stops, TOLERANCE).error().map(ToString::to_string);
+    assert!(error.ok_or("no error")?.contains("profile"));
+    // a position the kernel refuses comes when the drawing is drawn, naming the step
+    let (place, _) = parameter_refusal(base.tapered_outline(6.0, [(2.0, 1.0)], TOLERANCE).shapes(&Values::new()))?;
+    assert!(place.contains("profile"), "{place}");
     Ok(())
 }

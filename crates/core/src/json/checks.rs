@@ -66,6 +66,10 @@ fn params_of(call: &Call) -> Vec<(&str, &str)> {
                     second.params(&mut found);
                 }
                 Value::Numbers(items) => items.iter().for_each(|ex| ex.params(&mut found)),
+                Value::Pairs(items) => items.iter().for_each(|(first, second)| {
+                    first.params(&mut found);
+                    second.params(&mut found);
+                }),
                 Value::Axes(axes) => axes.iter().for_each(|axis| axis.value.params(&mut found)),
                 Value::Values(fixed) => found.extend(fixed.iter().map(|one| (one.name.as_str(), one.pointer.as_str()))),
                 _ => {}
@@ -265,6 +269,10 @@ fn first_reads<'a>(
                             second.params(&mut found);
                         }
                         Value::Numbers(items) => items.iter().for_each(|ex| ex.params(&mut found)),
+                        Value::Pairs(items) => items.iter().for_each(|(first, second)| {
+                            first.params(&mut found);
+                            second.params(&mut found);
+                        }),
                         Value::Axes(axes) => axes.iter().for_each(|axis| axis.value.params(&mut found)),
                         _ => {}
                     }

@@ -122,6 +122,12 @@ impl<'a> Builder<'a> {
             Value::Number(ex) => Given::Number(self.expr(ex)?),
             Value::Pair(first, second) => Given::Pair(self.expr(first)?, self.expr(second)?),
             Value::Numbers(items) => Given::Numbers(items.iter().map(|ex| self.expr(ex)).collect::<Result<_, _>>()?),
+            Value::Pairs(items) => Given::Pairs(
+                items
+                    .iter()
+                    .map(|(first, second)| Ok((self.expr(first)?, self.expr(second)?)))
+                    .collect::<Result<_, Error>>()?,
+            ),
             Value::Text(text) => Given::Text(text.clone()),
             Value::Color(color) => Given::Color(*color),
             Value::Paint(paint) => Given::Paint(paint.clone()),

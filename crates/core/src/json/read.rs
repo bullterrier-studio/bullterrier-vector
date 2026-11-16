@@ -330,6 +330,7 @@ impl Reader {
                 Ok(Value::Pair(first, second))
             }
             Kind::Numbers => self.numbers(arg, pointer, json),
+            Kind::Pairs => self.pairs(arg, pointer, json),
             Kind::Factor => self.factor(arg, pointer, json),
             Kind::Color => {
                 let text = string(pointer, json)?;
@@ -459,6 +460,25 @@ impl Reader {
             other => Err(refuse(
                 pointer,
                 format!("must be an array of numbers, not {}", other.describe()),
+            )),
+        }
+    }
+
+    /// The pairs of an argument written `[[a, b], ...]`.
+    fn pairs(&mut self, arg: &'static Arg, pointer: &str, json: &Json) -> Result<Value, Error> {
+        match json {
+            Json::Array(items) => items
+                .iter()
+                .enumerate()
+                .map(|(at, item)| {
+                    let [first, second] = self.two(arg, &format!("{pointer}/{at}"), item)?;
+                    Ok((first, second))
+                })
+                .collect::<Result<_, Error>>()
+                .map(Value::Pairs),
+            other => Err(refuse(
+                pointer,
+                format!("must be an array of pairs of numbers, not {}", other.describe()),
             )),
         }
     }

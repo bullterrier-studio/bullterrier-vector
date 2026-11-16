@@ -7,6 +7,7 @@ use super::style::{number, word};
 use super::{Args, Context, Inputs, Node, choice, each_shape};
 use crate::geometry::MAX_COORDINATE;
 use crate::shape::{Cap, DEFAULT_MITER_LIMIT, Join};
+use crate::limits::MAX_PROFILE_STOPS;
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
 
 /// Where a mitred corner is cut flat, SVG's ratio of the length of the point to the half-width.
@@ -42,16 +43,47 @@ pub(crate) struct Outline;
 pub(crate) static OUTLINE: Verb = Verb {
     name: "outline",
     role: Role::Step,
-    summary: "turns every shape into the closed outlines a stroke `width` design pixels wide along it paints (as Path.outline); `join` and `cap` shape the corners and the ends of open lines, a mitre sharper than `miter_limit` is cut flat; curves become straight edges within `tolerance` design pixels",
+    summary: "turns every shape into the closed outlines a stroke `width` design pixels wide along it paints (as Path.outline); `join` and `cap` shape the corners and the ends of open lines, a mitre sharper than `miter_limit` is cut flat; curves become straight edges within `tolerance` design pixels; `profile` [[position, factor], ...] varies the width along each sub-path (position 0 to 1 by arc length, factors multiply `width`, linear between stops), with round joins and caps",
     args: &[
         number("width", None, Domain::PositiveUpTo(MAX_COORDINATE)),
         word("join", Some("round"), Join::NAMES),
         word("cap", Some("round"), Cap::NAMES),
         MITER_LIMIT,
         TOLERANCE,
+        Arg {
+            name: "profile",
+            kind: Kind::Pairs,
+            default: Some(Literal::Unset),
+            reads: Reads::PerItem,
+            domain: Domain::Finite,
+        },
     ],
-    check: None,
+    check: Some(profile_is_round),
 };
+
+/// A `profile` has from 1 to `MAX_PROFILE_STOPS` stops and is stroked with round joins and caps: a stroke that varies
+/// along its length is the sweep of a round disc.
+fn profile_is_round(args: &Args) -> Result<(), Error> {
+    let Some(count) = args.pair_count("profile")? else {
+        return Ok(());
+    };
+    if count == 0 || count > MAX_PROFILE_STOPS {
+        return Err(Error::parameter(
+            "profile",
+            format!("must have from 1 to {MAX_PROFILE_STOPS} stops, got {count}"),
+        ));
+    }
+    for name in ["join", "cap"] {
+        let word = args.text(name)?;
+        if word != "round" {
+            return Err(Error::parameter(
+                name,
+                format!("must be \"round\" with a profile, got \"{word}\""),
+            ));
+        }
+    }
+    Ok(())
+}
 
 impl Node for Offset {
     fn verb(&self) -> &'static Verb {
@@ -88,9 +120,14 @@ impl Node for Outline {
         let tolerance = args.once_number(cx, "tolerance")?;
         each_shape(inputs.previous, cx, |shape, item| {
             let width = args.number(cx, "width", item)?;
-            let path = shape
-                .path()
-                .outline_charged(width, join, cap, miter_limit, tolerance, &mut charge)?;
+            let path = match args.pairs(cx, "profile", item)? {
+                Some(profile) => shape
+                    .path()
+                    .tapered_outline_charged(width, &profile, tolerance, &mut charge)?,
+                None => shape
+                    .path()
+                    .outline_charged(width, join, cap, miter_limit, tolerance, &mut charge)?,
+            };
             Ok(shape.with_path(path))
         })
     }
