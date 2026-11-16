@@ -3,27 +3,10 @@
 //! `amplitude * sin(2 pi (d / wavelength - phase))` along the perpendicular, `y` down), checked against the output
 //! polyline by brute force; the expected vertices are computed by hand.
 
-use crate::common::{Outcome, commands, parameter_refusal};
+use crate::common::{Outcome, has_vertex, lines, parameter_refusal, to_lines};
 use bullterrier_vector::Path;
 use proptest::prelude::*;
 use std::f64::consts::TAU;
-
-/// One sub-path of a result: its vertices and whether it is closed.
-type Line = (Vec<(f64, f64)>, bool);
-
-/// The sub-paths of a path made of straight lines only.
-fn lines(path: &Path) -> Result<Vec<Line>, Box<dyn std::error::Error>> {
-    let mut found: Vec<Line> = Vec::new();
-    for (letter, numbers) in commands(&path.to_svg_path())? {
-        match (letter, numbers.as_slice()) {
-            ('M', [x, y]) => found.push((vec![(*x, *y)], false)),
-            ('L', [x, y]) => found.last_mut().ok_or("a line before a move")?.0.push((*x, *y)),
-            ('Z', []) => found.last_mut().ok_or("a close before a move")?.1 = true,
-            _ => return Err(format!("{letter} {numbers:?} is not a straight segment").into()),
-        }
-    }
-    Ok(found)
-}
 
 /// Where the closed form sends `(x, y)`.
 fn exact(point: (f64, f64), amplitude: f64, wavelength: f64, angle: f64, phase: f64) -> (f64, f64) {
@@ -31,40 +14,6 @@ fn exact(point: (f64, f64), amplitude: f64, wavelength: f64, angle: f64, phase: 
     let d = point.0 * libm::cos(a) + point.1 * libm::sin(a);
     let s = amplitude * libm::sin(TAU * (d / wavelength - phase));
     (point.0 - s * libm::sin(a), point.1 + s * libm::cos(a))
-}
-
-/// The distance from `p` to the segment `a`-`b`.
-fn to_segment(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
-    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
-    let length_squared = dx * dx + dy * dy;
-    let share = if length_squared == 0.0 {
-        0.0
-    } else {
-        (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / length_squared).clamp(0.0, 1.0)
-    };
-    libm::hypot(p.0 - (a.0 + dx * share), p.1 - (a.1 + dy * share))
-}
-
-/// The distance from `p` to the nearest edge of any sub-path.
-fn to_lines(p: (f64, f64), found: &[Line]) -> f64 {
-    let mut nearest = f64::INFINITY;
-    for (points, closed) in found {
-        for pair in points.windows(2) {
-            nearest = nearest.min(to_segment(p, pair[0], pair[1]));
-        }
-        if *closed && points.len() > 1 {
-            nearest = nearest.min(to_segment(p, points[points.len() - 1], points[0]));
-        }
-    }
-    nearest
-}
-
-/// Whether `found` has a vertex within 1e-9 of `p`.
-fn has_vertex(found: &[Line], p: (f64, f64)) -> bool {
-    found
-        .iter()
-        .flat_map(|(points, _)| points)
-        .any(|v| (v.0 - p.0).abs() < 1e-9 && (v.1 - p.1).abs() < 1e-9)
 }
 
 /// Every exact image of a dense sampling of `path` lies within a hundredth of the amplitude (and a hundredth of a

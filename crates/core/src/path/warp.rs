@@ -8,6 +8,7 @@ use crate::Error;
 use crate::geometry::{Point, coordinate, finite};
 use crate::limits::MAX_SEGMENTS;
 use crate::math::{sin_cos, sin_cos_deg};
+use crate::noise::Noise;
 use std::f64::consts::TAU;
 
 /// The pieces of a wavelength a wave's edges are cut into at most.
@@ -15,6 +16,12 @@ use std::f64::consts::TAU;
 // A (2 pi / 24)^2 / 8 = 0.86% of A, under the hundredth of the amplitude that a hand-drawn wave can be told from a
 // sine by; fewer pieces (16: 1.9%) show as facets on a large amplitude
 const WAVE_PIECES: f64 = 24.0;
+
+/// The pieces of a wavelength a wobble's edges are cut into at most.
+// constant: the noise changes by at most 3.75 amplitudes per wavelength per axis and bends by at most 17.9 amplitudes per
+// wavelength squared along a line, so a chord over a step h strays by at most sqrt(2) 17.9 (h / wavelength)^2 / 8 of the
+// amplitude: 0.55% for a 24th of the wavelength, under the hundredth (the bound is loose; 16 pieces would give 1.2%)
+const WOBBLE_PIECES: f64 = 24.0;
 
 impl Path {
     /// This path with its points displaced sideways by a sine travelling towards `angle` (degrees, clockwise on the
@@ -71,6 +78,57 @@ impl Path {
             Point::new(point.x - sideways * sin, point.y + sideways * cos)
         };
         self.warp("amplitude", wavelength / WAVE_PIECES, &map, charge)
+    }
+
+    /// This path with its points displaced by smooth seeded noise: a point `(x, y)` moves by `(dx, dy)`, two independent
+    /// fields (streams 0 and 1 of `seed`) of value noise whose lattice is `wavelength` wide, each scaled so that
+    /// `|dx|` and `|dy|` are at most `amplitude`. The field is smooth: it changes by at most `3.75` amplitudes per
+    /// wavelength along either axis. `phase` is in cycles, reduced to 0 up to 1 first (`phase + 1` is `phase`, to the
+    /// bit), and moves the noise smoothly, four lattice cells to the cycle. `amplitude` may be 0 or negative; `seed`
+    /// is a whole number within ±(2^53 - 1) as for `random`.
+    ///
+    /// The field is anchored in the design frame, the point's own coordinates (as for [`Path::wave`]): the letters of
+    /// a word wobbled in one step share one field. The path is flattened and each edge cut into equal pieces no longer
+    /// than a 24th of the wavelength, every vertex kept (corners stay corners); a chord strays from the displaced
+    /// edge by at most 0.6% of `amplitude`. The result is made of straight lines, each sub-path keeping its
+    /// closedness.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `wavelength` if it is not a number above 0 and at most 1e100, or if the pieces it
+    /// would make, over all the sub-paths, are more than `MAX_SEGMENTS`, counted before any is made; naming
+    /// `amplitude` or `phase` if it is NaN or infinite, and `amplitude` if a displaced point would be beyond ±1e100;
+    /// naming `seed` unless it is a whole number within ±(2^53 - 1).
+    pub fn wobble(&self, amplitude: f64, wavelength: f64, phase: f64, seed: f64) -> Result<Self, Error> {
+        self.wobble_charged(amplitude, wavelength, phase, seed, &mut segment_budget("wavelength"))
+    }
+
+    /// As [`Path::wobble`], calling `charge` with the number of points the result would have, before any is made.
+    pub(crate) fn wobble_charged(
+        &self,
+        amplitude: f64,
+        wavelength: f64,
+        phase: f64,
+        seed: f64,
+        charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+    ) -> Result<Self, Error> {
+        let amplitude = finite("amplitude", amplitude)?;
+        if wavelength <= 0.0 {
+            return Err(Error::parameter(
+                "wavelength",
+                format!("must be a number above 0, got {wavelength}"),
+            ));
+        }
+        let wavelength = coordinate("wavelength", wavelength)?;
+        let phase = finite("phase", phase)?;
+        let (across, down) = (Noise::new(seed, 0)?, Noise::new(seed, 1)?);
+        let map = |point: Point| {
+            let (x, y) = (point.x / wavelength, point.y / wavelength);
+            Point::new(
+                point.x + amplitude * across.value(x, y, phase),
+                point.y + amplitude * down.value(x, y, phase),
+            )
+        };
+        self.warp("amplitude", wavelength / WOBBLE_PIECES, &map, charge)
     }
 
     /// This path with every point moved by `map`: flattened to straight edges, each edge cut into `ceil(length /

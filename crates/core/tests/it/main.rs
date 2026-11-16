@@ -70,6 +70,7 @@ mod path_slice;
 mod path_taper;
 mod path_transform;
 mod path_wave;
+mod path_wobble;
 mod png;
 mod raster;
 mod raster_boundary;

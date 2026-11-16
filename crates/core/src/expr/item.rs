@@ -183,13 +183,7 @@ fn check_range(low: f64, high: f64) -> Result<(), Error> {
 }
 
 fn check_seed(seed: f64) -> Result<(), Error> {
-    if seed.fract() != 0.0 || seed.abs() > MAX_SEED {
-        return Err(Error::parameter(
-            "seed",
-            format!("must be a whole number within ±{MAX_SEED}, got {seed}"),
-        ));
-    }
-    Ok(())
+    whole_seed(seed).map(drop)
 }
 
 fn check_spread(spread: f64) -> Result<(), Error> {
@@ -202,6 +196,37 @@ fn check_spread(spread: f64) -> Result<(), Error> {
     Ok(())
 }
 
+/// `seed` as the whole number it is.
+///
+/// # Errors
+/// [`Error::Parameter`] naming `seed` unless it is a whole number within ±(2^53 - 1).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the seed is a whole number within ±(2^53 - 1), so it fits an i64 exactly"
+)]
+pub(crate) fn whole_seed(seed: f64) -> Result<i64, Error> {
+    if seed.fract() != 0.0 || seed.abs() > MAX_SEED {
+        return Err(Error::parameter(
+            "seed",
+            format!("must be a whole number within ±{MAX_SEED}, got {seed}"),
+        ));
+    }
+    Ok(seed as i64)
+}
+
+/// The `index + 1`-th output of the `SplitMix64` generator that starts at `seed` (Steele, Lea and Flood 2014): the state
+/// steps by an odd constant and is scrambled to the output. The one integer hash of the library: `random` takes its top
+/// 53 bits, the noise of `wobble` hashes its lattice with it.
+pub(crate) fn splitmix(seed: i64, index: u64) -> u64 {
+    const STEP: u64 = 0x9E37_79B9_7F4A_7C15;
+    let mut z = seed
+        .cast_unsigned()
+        .wrapping_add(STEP.wrapping_mul(index.wrapping_add(1)));
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^ (z >> 31)
+}
+
 /// A number from 0 up to but not including 1, the same for the same `seed` and `index` on every target.
 #[expect(
     clippy::cast_precision_loss,
@@ -209,18 +234,9 @@ fn check_spread(spread: f64) -> Result<(), Error> {
     reason = "the seed is a whole number within ±(2^53 - 1), and the 53 bits kept fit a float exactly"
 )]
 fn unit(seed: f64, index: usize) -> f64 {
-    // SplitMix64 (Steele, Lea and Flood 2014): the state steps by an odd constant and is scrambled to the output
-    const STEP: u64 = 0x9E37_79B9_7F4A_7C15;
     // constant: 2^-53, so that 53 bits make a float exactly
     const SCALE: f64 = 1.0 / 9_007_199_254_740_992.0;
-    let state = (seed as i64)
-        .cast_unsigned()
-        .wrapping_add(STEP.wrapping_mul(index as u64 + 1));
-    let mut z = state;
-    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    z ^= z >> 31;
-    (z >> 11) as f64 * SCALE
+    (splitmix(seed as i64, index as u64) >> 11) as f64 * SCALE
 }
 
 /// A number from `first` on the first shape of the list to `last` on the last, linear between, by the shape's `index`;

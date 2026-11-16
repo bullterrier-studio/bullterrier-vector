@@ -11,7 +11,7 @@ use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
-pub(crate) use item::{FUNCTIONS, Field, share};
+pub(crate) use item::{FUNCTIONS, Field, share, splitmix, whole_seed};
 pub use item::{Random, Stagger, by_index, by_order};
 
 /// The four binary operators.

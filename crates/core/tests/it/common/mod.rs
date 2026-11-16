@@ -204,3 +204,54 @@ pub(crate) fn format_refusal<T>(outcome: Result<T, Error>) -> Result<(String, St
         Ok(_) => Err("expected a format error, but it succeeded".into()),
     }
 }
+
+/// One sub-path of a result: its vertices and whether it is closed.
+pub(crate) type Line = (Vec<(f64, f64)>, bool);
+
+/// The sub-paths of a path made of straight lines only.
+pub(crate) fn lines(path: &Path) -> Result<Vec<Line>, Box<dyn std::error::Error>> {
+    let mut found: Vec<Line> = Vec::new();
+    for (letter, numbers) in commands(&path.to_svg_path())? {
+        match (letter, numbers.as_slice()) {
+            ('M', [x, y]) => found.push((vec![(*x, *y)], false)),
+            ('L', [x, y]) => found.last_mut().ok_or("a line before a move")?.0.push((*x, *y)),
+            ('Z', []) => found.last_mut().ok_or("a close before a move")?.1 = true,
+            _ => return Err(format!("{letter} {numbers:?} is not a straight segment").into()),
+        }
+    }
+    Ok(found)
+}
+
+/// The distance from `p` to the segment `a`-`b`.
+pub(crate) fn to_segment(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
+    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+    let length_squared = dx * dx + dy * dy;
+    let share = if length_squared == 0.0 {
+        0.0
+    } else {
+        (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / length_squared).clamp(0.0, 1.0)
+    };
+    libm::hypot(p.0 - (a.0 + dx * share), p.1 - (a.1 + dy * share))
+}
+
+/// The distance from `p` to the nearest edge of any sub-path.
+pub(crate) fn to_lines(p: (f64, f64), found: &[Line]) -> f64 {
+    let mut nearest = f64::INFINITY;
+    for (points, closed) in found {
+        for pair in points.windows(2) {
+            nearest = nearest.min(to_segment(p, pair[0], pair[1]));
+        }
+        if *closed && points.len() > 1 {
+            nearest = nearest.min(to_segment(p, points[points.len() - 1], points[0]));
+        }
+    }
+    nearest
+}
+
+/// Whether `found` has a vertex within 1e-9 of `p`.
+pub(crate) fn has_vertex(found: &[Line], p: (f64, f64)) -> bool {
+    found
+        .iter()
+        .flat_map(|(points, _)| points)
+        .any(|v| (v.0 - p.0).abs() < 1e-9 && (v.1 - p.1).abs() < 1e-9)
+}

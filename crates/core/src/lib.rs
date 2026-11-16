@@ -15,6 +15,7 @@ mod key;
 mod limits;
 mod math;
 mod node;
+mod noise;
 mod output;
 mod param;
 mod path;
