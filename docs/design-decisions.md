@@ -1428,6 +1428,27 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - *Later: the start of a contour jumps when an animated target changes (D7); style (colour) morph; position-aware word
   pairing.*
 
+## Kinetic type piece (M3)
+
+The piece is `examples/kinetic_type.{py,rs,mjs}` ("NO SLEEP" into "GO DREAM"); the library needed no change. A spike drew
+nine frames before the timeline was fixed; a frame costs 12 to 20 ms at 540x675 and about 25 ms at 1080x1350, so 30 fps
+holds.
+
+- *Ruling: done is the piece running from the shipped examples in Python, Rust and Node with four frames equal as SVG text,
+  and the Python clip; a live canvas page is V20. Cost if wrong: no browser demo yet.*
+- *Ruling: easing (`smooth`, `kick`) is local to each example, no `btvec.ease`: easing and time are the caller's (CLAUDE.md,
+  "State, not time"). Cost: each piece repeats a few lines.*
+- *Ruling: the font is the Anybody subset (`wdth` 50 to 150, `wght` 100 to 900, capitals and digits): `fit="wdth"` fills the
+  measure on both lines, which the bundled Bricolage (`wdth` 75 to 100) cannot. Cost: Rust and Node read a file (the Rust
+  example compiles it in).*
+- *Ruling: the arch's frame is the bounds of the calm pose, passed as `frame=`, so a pulse or a morph does not make the arch
+  breathe. Both headlines are `resolve`d before `morph` and the target "GO DREAM" has the same shape of line (2 + 5
+  letters, O into O, E into E). Cost: the mid-turn frames of `A` and `M` are rough (filed in the roadmap).*
+- *Ruling: `pulse` is one number per character and drives the weight only. A per-character list counts the line break (8)
+  and a per-item number counts shapes (7), so the same list cannot also scale each letter. Cost: no per-letter scale.*
+- Rust needs `seed(7.0)`: `Expr` has no `From` for integers (the sketches that said `seed(7)` were wrong; they were deleted
+  with the rest of `docs/examples/kinetic_type.*`, whose `btvec.ease` never existed; `docs/examples/json` stays).
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

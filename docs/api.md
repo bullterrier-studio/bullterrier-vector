@@ -23,10 +23,9 @@ import bullterrier_vector as btvec
 
 | Program | Shows |
 |---|---|
-| [kinetic_type.py](examples/kinetic_type.py), [.rs](examples/kinetic_type.rs), [.js](examples/kinetic_type.js) | reference piece 1: variable-font axes, per-letter stagger, a caller's signal per letter, riso inks, a clip |
+| [kinetic_type.py](../examples/kinetic_type.py), [.rs](../crates/core/examples/kinetic_type.rs), [.mjs](../crates/wasm/examples/kinetic_type.mjs) | reference piece 1 (M3), the same piece in all three: variable-font axes, a kick running through the letters, riso inks with a plane that knocks the letters out, a bend and a morph, a clip |
 | [cut_paper.py](examples/cut_paper.py) | reference piece 2: a traced mask, offset layers, shadows, a draw-on outline, a sequence of maps |
 | [hatched_poster.py](examples/hatched_poster.py) | reference piece 3: flow-field hatching by tone, rings of a distance field, a plotter file |
-| [kinetic_type.py](../examples/kinetic_type.py) | the headline of piece 1 as far as it is built: a variable-font weight a letter, two multiply inks |
 | [star.py](../examples/star.py) | building and measuring a `Path` |
 | [ring.py](../examples/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
 | [cutout.py](../examples/cutout.py) | `resolve`, `subtract`, `intersect` and `exclude`: a headline cut out of a plate, the lens of two circles |
@@ -928,7 +927,7 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | | Python | Rust | JavaScript |
 |---|---|---|---|
 | Constructors | `btvec.Drawing(a, b, size=(w, h))`, `btvec.Font(data)`, `btvec.Param("rise", default=0, min=0, max=1)` | `Drawing::new([a, b]).with_size(w, h)`, `Drawing::from(path)`, `Font::new(data)?`, `Param::new("rise", 0.0, 0.0, 1.0)?.unit(Unit::Fraction)?` | `new btvec.Drawing([a, b], { size: [w, h] })`, `new btvec.Font(data)`, `new btvec.Param("rise", { default: 0, min: 0, max: 1 })` |
-| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`) | an options object last (`{ width: 1.5 }`) |
+| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7.0) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`) | an options object last (`{ width: 1.5 }`) |
 | Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods (`add`, `sub`, `mul`, `div`, `neg`), read in source order: `pulse.mul(0.08).add(1)`; a number that comes first is lifted once with `btvec.expr(n)`: `btvec.expr(1).sub(rise).mul(HEIGHT)` |
 | Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` | an object: `toPng(1080, 1350, { weight: 820 })` |
 | Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })`; a `Mesh` is lent as its own argument: `toMeshInto(mesh, w, h, values)` |
@@ -939,8 +938,8 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | Bytes in | `bytes` | `Vec<u8>` | `Uint8Array` |
 | Frame export | `btvec.frames` | the caller's loop over `to_png` | the caller's loop over `toRgba` or `toMesh` |
 
-The kinetic type piece, the part that builds the drawing, in all three (whole programs:
-[Python](examples/kinetic_type.py), [Rust](examples/kinetic_type.rs), [JavaScript](examples/kinetic_type.js)):
+The kinetic type piece, an excerpt of the part that builds the drawing, in all three (whole programs, with the bend and the morph:
+[Python](../examples/kinetic_type.py), [Rust](../crates/core/examples/kinetic_type.rs), [JavaScript](../crates/wasm/examples/kinetic_type.mjs)):
 
 ```python
 letters = (
@@ -955,7 +954,6 @@ letters = (
         width=980,
         fit="wdth",
     )
-    .scale(1 + 0.08 * pulse)
     .rotate(btvec.random(-10, 10, seed=7) * burst)
     .translate(btvec.random(-30, 30, seed=8) * burst, btvec.random(-50, 50, seed=9) * burst)
 )
@@ -971,7 +969,7 @@ blue = (
 pink = letters.fill(PINK).blend("multiply").opacity(ink)
 hairlines = letters.stroke(INK, width=1.5).opacity(1 - ink)
 piece = btvec.Drawing(frame.fill(PAPER), blue, pink, hairlines, size=(WIDTH, HEIGHT))
-png = piece.to_png(1080, 1350, rise=1, ink=1, weight=620, burst=0.4, pulse=[0.9, 0.6, 0.3, 0.1, 0, 0, 0])
+png = piece.to_png(1080, 1350, rise=1, ink=1, weight=620, burst=0.4, pulse=[0.9, 0.6, 0.3, 0.1, 0, 0, 0, 0])
 ```
 
 ```rust
@@ -980,9 +978,8 @@ let letters = btvec::text(
     Text::new(&font).size(560.0).axis("wght", &weight + 120.0 * &pulse).leading(520.0)
         .anchor((WIDTH / 2.0, 600.0)).align(Align::Center).width(980.0).fit("wdth"),
 )
-.scale(1.0 + 0.08 * &pulse)
-.rotate(Deg(Random::new(-10.0, 10.0).seed(7) * &burst))
-.translate(Random::new(-30.0, 30.0).seed(8) * &burst, Random::new(-50.0, 50.0).seed(9) * &burst);
+.rotate(Deg(Random::new(-10.0, 10.0).seed(7.0) * &burst))
+.translate(Random::new(-30.0, 30.0).seed(8.0) * &burst, Random::new(-50.0, 50.0).seed(9.0) * &burst);
 let frame = Path::rect(0.0, 0.0, WIDTH, HEIGHT)?;
 let misregistration = 3.0 + 14.0 * &burst;
 let paper = frame.fill(PAPER);
@@ -993,7 +990,7 @@ let pink = letters.fill(PINK).blend(Blend::Multiply).opacity(&ink);
 let hairlines = letters.stroke(Stroke::new(INK).width(1.5)).opacity(1.0 - &ink);
 let piece = Drawing::new([paper, blue, pink, hairlines]).with_size(WIDTH, HEIGHT);
 let values = Values::new().set("rise", 1.0).set("ink", 1.0).set("weight", 620.0).set("burst", 0.4)
-    .set("pulse", vec![0.9, 0.6, 0.3, 0.1, 0.0, 0.0, 0.0]);
+    .set("pulse", vec![0.9, 0.6, 0.3, 0.1, 0.0, 0.0, 0.0, 0.0]);
 let png = piece.to_png(Size::px(WIDTH, HEIGHT), &values)?;
 ```
 
@@ -1001,7 +998,6 @@ let png = piece.to_png(Size::px(WIDTH, HEIGHT), &values)?;
 const letters = btvec
   .text("NO\nSLEEP", { font, size: 560, axes: { wght: weight.add(pulse.mul(120)) }, leading: 520,
                        anchor: [WIDTH / 2, 600], align: "center", width: 980, fit: "wdth" })
-  .scale(pulse.mul(0.08).add(1))
   .rotate(btvec.random(-10, 10, { seed: 7 }).mul(burst))
   .translate(btvec.random(-30, 30, { seed: 8 }).mul(burst), btvec.random(-50, 50, { seed: 9 }).mul(burst));
 const frame = btvec.Path.rect(0, 0, WIDTH, HEIGHT);
@@ -1011,7 +1007,7 @@ const blue = new btvec.Drawing([frame]).translate(0, btvec.expr(1).sub(rise).mul
 const pink = letters.fill(PINK).blend("multiply").opacity(ink);
 const hairlines = letters.stroke(INK, { width: 1.5 }).opacity(btvec.expr(1).sub(ink));
 const piece = new btvec.Drawing([frame.fill(PAPER), blue, pink, hairlines], { size: [WIDTH, HEIGHT] });
-const values = { rise: 1, ink: 1, weight: 620, burst: 0.4, pulse: [0.9, 0.6, 0.3, 0.1, 0, 0, 0] };
+const values = { rise: 1, ink: 1, weight: 620, burst: 0.4, pulse: [0.9, 0.6, 0.3, 0.1, 0, 0, 0, 0] };
 const rgba = piece.toRgba(1080, 1350, values);
 ```
 
@@ -1024,7 +1020,7 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 | 1 | Per-glyph variable-font layout that re-flows; tracking, stacked lines, fitting at a reference pose, outlines cached by axis location | `text(axes=..., tracking=, leading=, width=, fit=)`, per-item numbers in `axes`; caching is internal |
 | 2 | Evenly spaced streamlines with spacing from a tone, region masks, obstacles, closed loops; line fields and distance fields | `hatch(spacing=(a, b), tone=, flow=, avoid=)` inside each shape; `Flow.noise`, `Flow.contour`, `flow.mix`; `Field.distance` |
 | 3 | Steady tracing over a sequence of maps: smoothing and hole persistence | `trace(before=, after=, sigma=)` |
-| 4 | Booleans that hold on overlapping, rotated glyphs; ink layers from them | `union`, `subtract`, `intersect`, `exclude`; glyph overlaps removed by `resolve`; inks as drawings with `blend("multiply")` ([kinetic_type.py](examples/kinetic_type.py)) |
+| 4 | Booleans that hold on overlapping, rotated glyphs; ink layers from them | `union`, `subtract`, `intersect`, `exclude`; glyph overlaps removed by `resolve`; inks as drawings with `blend("multiply")` ([kinetic_type.py](../examples/kinetic_type.py)) |
 | 5 | Shrink and grow per layer; dropping small parts and filling small holes | `offset(r).offset(-r)`, `offset(-r).offset(r)`; `drop_parts`, `fill_holes` |
 | 6 | Per-item transforms about a typographic origin; seeded randomness and stagger by index as one mechanism | `translate`, `rotate`, `scale` about each shape's origin; `by_index`, `by_order`, `random`, `stagger`; lists at draw time |
 | 7 | Curve fitting through dense polylines | `simplify`; `trace(tolerance=)` |

@@ -59,7 +59,8 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V10f | Text runs: one line of text from runs that each have their own font, size and axes | M | Done 2026-11-13 |
 | V11 | Path modifiers: dash march, place shapes along a path, simplify, resample; a width profile along a stroke (tapered strokes) | M | Done 2026-11-16 |
 | V12 | Deformers: wobble, wave, twist, bulge; arch and envelope warps for type | M | Done 2026-11-16 |
-| V13 | Morph, any shape to any shape | M | Done 2026-11-16 (M3, the kinetic type piece, follows) |
+| V13 | Morph, any shape to any shape | M | Done 2026-11-16 |
+| M3 | The kinetic type piece: `examples/kinetic_type.{py,rs,mjs}`, the first public demo | S | **M3 kinetic type piece**, done 2026-11-16 |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
 | V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output | L | **M5 poster piece** |
 | V16 | SVG import (logos) | S | Done 2026-11-11, trimmed |
@@ -72,10 +73,10 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers) and V13 (morph) are done; next: the kinetic type piece (M3) as the first public demo; V15's distance fields
+unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) are done; next: V15's distance fields
 (see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12 and V13 are done; the kinetic type piece (M3) follows.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12, V13 and M3 are done; V15 (before V14) follows.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -622,6 +623,20 @@ fraction)` and the `Drawing` step (shapes pair by index, contours by role and pl
 unmatched hole only cuts the body and never paints outside it), `examples/glyph_morph.py`, `.rs` and `.mjs` (a letter into a circle and CAT into HORSE on
 one `progress`; "and back" is `progress` going 1 to 0).
 
+## M3 The kinetic type piece
+
+The first public demo: "NO SLEEP" in a variable font, as one drawing built once with every number that changes a Param
+and the caller's function of time (`at_time(t)`) giving the values of a frame. Hairlines; a blue plane rises and knocks
+the letters out; the drop prints them in two inks (misregistered more on each hit) with a kick running through the
+letters (weight a letter, scatter); the line arches, ripples and wobbles; NO SLEEP turns into GO DREAM letter by letter;
+the print thins back to hairlines.
+
+Done when: `examples/kinetic_type.py`, `crates/core/examples/kinetic_type.rs` and `crates/wasm/examples/kinetic_type.mjs`
+run, draw four frames that are the same SVG text in all three (`poe wasm-test`), and `btvec.frames` writes the clip
+(Python). A live page is V20, not this.
+
+State: done 2026-11-16 (`design-decisions.md`, "Kinetic type piece (M3)"). A frame costs about 25 ms at 1080x1350.
+
 ## V14 Trace
 
 - A grayscale map in (width, height, bytes), outlines at chosen levels out; each level a shape with its level as an
@@ -715,6 +730,11 @@ Also:
 
 ## Later, with a trigger
 
+- Kinetic type: the mid-turn frames of `A` and `M` (E into A, P into M) are the roughest of the piece; a pairing or a
+  target chosen for shape, or a smarter vertex pairing in `morph`, would calm them.
+- A per-character list (axes) counts the line break while a per-item number counts shapes, so one `pulse` list cannot
+  drive both a weight and a per-letter scale; a way to ask for one shape per character, or a list per shape for axes.
+- Whole-number arguments (a `Random` seed) take an `f64` in Rust (`seed(7.0)`): `Expr` has no `From` for integers.
 - Morph: the start of a closed pair is the least-distance shift of 128 samples, so it can jump when an animated target
   changes shape (open decision D7); keep a start across frames only if a piece shows the jump.
 - Morph: style (a colour or a gradient) does not morph with the outline; a shape keeps the source's style.
