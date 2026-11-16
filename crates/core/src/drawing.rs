@@ -6,6 +6,7 @@ mod clip;
 mod eval;
 mod graph;
 mod items;
+mod morph;
 mod offset;
 mod place;
 mod select;

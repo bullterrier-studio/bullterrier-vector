@@ -863,6 +863,48 @@ fn rows() -> Vec<Row> {
             }),
         },
         Row {
+            verb: "morph",
+            sample: || Ok(square()?.morph(offset_square()?, 0.5)),
+            with: Some(|argument, value| match argument {
+                "fraction" => Ok(square()?.morph(offset_square()?, value)),
+                _ => Err(unknown("morph", argument)),
+            }),
+            // any finite number: the lerp goes on past both ends
+            ranges: &[
+                ("fraction", 0.5, true),
+                ("fraction", -2.0, true),
+                ("fraction", 1e6, true),
+                ("fraction", f64::NAN, false),
+                ("fraction", f64::INFINITY, false),
+                ("fraction", f64::NEG_INFINITY, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let target = Path::circle((a.abs() % 100.0, b.abs() % 100.0), 10.0 + b.abs() % 40.0)?;
+                    let fraction = a % 2.0;
+                    Ok(vec![
+                        (
+                            "a path as the target",
+                            Drawing::from(path.clone()).morph(target.clone(), fraction),
+                            path.morph(&target, fraction),
+                        ),
+                        (
+                            "a longer drawing as the target",
+                            Drawing::from(path.clone())
+                                .morph(Drawing::from(target.clone()).translate(0.0, 0.0), fraction),
+                            path.morph(&target.translate(0.0, 0.0)?, fraction),
+                        ),
+                    ])
+                },
+                // each corner of the square goes half way to the same corner of the square 5 right and down
+                by_hand: &[(
+                    SQUARE,
+                    |d| Ok(d.morph(offset_square()?, 0.5)),
+                    "M2.5 2.5 L12.5 2.5 L12.5 12.5 L2.5 12.5 Z",
+                )],
+            }),
+        },
+        Row {
             verb: "fill",
             sample: || Ok(square()?.fill(fade()?)),
             with: None,

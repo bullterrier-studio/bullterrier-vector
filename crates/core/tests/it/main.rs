@@ -13,6 +13,7 @@ mod drawing_cache;
 mod drawing_dash;
 mod drawing_envelope;
 mod drawing_items;
+mod drawing_morph;
 mod drawing_offset;
 mod drawing_per_item;
 mod drawing_place_along;

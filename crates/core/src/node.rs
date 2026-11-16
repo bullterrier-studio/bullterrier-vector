@@ -52,6 +52,7 @@ mod args;
 pub(crate) mod boolean;
 pub(crate) mod clip;
 pub(crate) mod items;
+pub(crate) mod morph;
 pub(crate) mod offset;
 pub(crate) mod place;
 pub(crate) mod select;
