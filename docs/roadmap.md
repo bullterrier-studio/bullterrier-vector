@@ -58,8 +58,8 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V10e | Render a window: draw any rectangle of a drawing at the final scale | S | Done 2026-11-13 |
 | V10f | Text runs: one line of text from runs that each have their own font, size and axes | M | Done 2026-11-13 |
 | V11 | Path modifiers: dash march, place shapes along a path, simplify, resample; a width profile along a stroke (tapered strokes) | M | Done 2026-11-16 |
-| V12 | Deformers: wobble, wave, twist, bulge; arch and envelope warps for type | M | **M3 kinetic type piece** |
-| V13 | Morph, any shape to any shape | M | |
+| V12 | Deformers: wobble, wave, twist, bulge; arch and envelope warps for type | M | Done 2026-11-16 |
+| V13 | Morph, any shape to any shape | M | **M3 kinetic type piece** |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
 | V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output | L | **M5 poster piece** |
 | V16 | SVG import (logos) | S | Done 2026-11-11, trimmed |
@@ -72,10 +72,10 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window), V10f (text runs) and V11 (path modifiers) are done; next: V12, V13, then the kinetic type piece (M3) as the first public demo; V15's distance fields
+unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers) and V12 (deformers) are done; next: V13, then the kinetic type piece (M3) as the first public demo; V15's distance fields
 (see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f and V11 are done; V12 follows.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11 and V12 are done; V13 follows.
 
 "V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
 
@@ -599,8 +599,14 @@ Wobble (seeded noise displacement, moving by `phase`), wave, twist, bulge. Paths
 smooth at any size.
 Arch and envelope warps for type (a line of text bent on an arch, or fitted into an envelope shape) join them.
 
-Done when: `docs/examples/wobble_outline.py` and the deformer half of `docs/examples/kinetic_type.*` run as shipped
-examples, with a letter line that bends, ripples and twists on `phase` and `progress`.
+Done when: `examples/wobble_outline.py` and `examples/bent_type.{py,rs,mjs}` run as shipped examples, with a letter
+line that bends, ripples, twists and wobbles on `phase` and `progress`. `docs/examples/kinetic_type.*` had no deformer
+calls, so the deformer half of the kinetic piece is the new `bent_type` trio; the riso reference pieces stay in
+`docs/examples`.
+
+State: done 2026-11-16, in Rust, Python and WebAssembly (`design-decisions.md`, "Deformers (V12)"): `wave`, `wobble`,
+`twist`, `bulge`, `envelope`, `arch` and `Path.arc`, one warp kernel with one error budget of 0.05 design pixels,
+`examples/wobble_outline.py`, `examples/bent_type.py`, `.rs` and `.mjs`.
 
 ## V13 Morph
 
@@ -704,6 +710,14 @@ Also:
 
 ## Later, with a trigger
 
+- `frame="reference"` for `envelope` and `arch`: calm-pose bounds, so an animated weight does not make the arch breathe.
+- A per-line frame helper: regroup a text's shapes by `line` so each line can take its own `frame=` (the demo split the
+  text per line by hand).
+- `arch` in pixels of rise: the lift is a share of the frame width, so a long word lifts far.
+- The same wording of refusals on `Path` and `Drawing` for the other `Domain` checks (`radius` and `wavelength` print 1e100 as 101 digits on a `Drawing`).
+- Cut deformer edges by their extent along the map's axis instead of their length: tall thin shapes are cut finer than needed.
+- `Param` in the Python `frame=` argument (JSON accepts it).
+- A warning, beyond the note in `api.md`, on big `wobble` and `twist` amounts that fuse outlines.
 - A tapered stroke whose width reads as the profile at steep slopes: the sweep of a disc is wider across than its factor near a short taper (16.4 against 8.7 at 5 px of a 100 px line); a profile that sets the width across the stroke, not the disc radius, would fix it (found by the V11 demo).
 - `simplify(corner_angle=)`: if noisy hand-drawn lines keep their kinks (found by the V11 demo).
 - A `Path.points()` or corners accessor: the V11 demo parsed `to_svg_path()` to dot the corners.
