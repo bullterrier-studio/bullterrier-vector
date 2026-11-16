@@ -511,3 +511,48 @@ def test_the_node_example_of_bent_type_carries_the_document_of_the_python_drawin
     drawing = run("bent_type")["drawing"]
     document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "bent_type.json"
     assert document.read_text(encoding="utf-8") == drawing.to_json()
+
+
+def box(path: btvec.Path) -> tuple[float, float, float, float]:
+    b = path.bounds
+    return (b.x, b.y, b.width, b.height)
+
+
+def test_glyph_morph_turns_a_letter_into_a_circle_and_cat_into_horse_on_one_progress(run):
+    found = run("glyph_morph")
+    drawing, word = found["drawing"], found["word"]
+    at = lambda progress: drawing.shapes(progress=progress)  # noqa: E731
+    # the first shape is the paper, then the letter, then one shape for each glyph of the longer word
+    assert [len(at(p)) for p in (0, 0.5, 1)] == [7, 7, 7]
+    # the letter is the R with its counter open (about (265, 245)), then the circle of 150 about (270, 285)
+    assert not at(0)[1].path.contains((265, 245))
+    circle = at(1)[1].path.bounds
+    assert (circle.x, circle.y, circle.width, circle.height) == pytest.approx((120, 135, 300, 300), abs=0.1)
+    assert at(1)[1].path.contains((265, 245))
+    assert at(0)[1].path.bounds.width < at(0.5)[1].path.bounds.width < circle.width  # half way it is neither
+    # the word is CAT, grows no glyph at 0 (the two extra ones are points) and is HORSE at 1, glyph for glyph
+    cat, horse = word("CAT").shapes(), word("HORSE").shapes()
+    start, end = at(0)[2:], at(1)[2:]
+    for shape, wanted in zip(start[:3], cat, strict=True):
+        assert box(shape.path) == pytest.approx(box(wanted.path), abs=0.01)
+    assert all(shape.path.bounds.width == 0 for shape in start[3:])
+    for shape, wanted in zip(end, horse, strict=True):
+        assert box(shape.path) == pytest.approx(box(wanted.path), abs=0.01)
+    # the letters go one after the other: half way the first is done and the last has not started
+    middle = at(0.5)[2:]
+    assert box(middle[0].path) == pytest.approx(box(horse[0].path), abs=0.01)
+    assert middle[4].path.bounds.width == 0
+    # the way back is progress going down: the same frame
+    assert drawing.to_svg(1080, 560, progress=0.5) == found["frames"]["half"]
+    assert len({found["frames"][name] for name in found["frames"]}) == 3
+    # every frame keeps everything inside the canvas
+    for p in (0, 0.25, 0.5, 0.75, 1):
+        for shape in at(p):
+            b = shape.path.bounds
+            assert (b.x >= 0, b.y >= 0, b.x + b.width <= 1080, b.y + b.height <= 560) == (True,) * 4
+
+
+def test_the_node_example_of_glyph_morph_carries_the_document_of_the_python_drawing(run):
+    drawing = run("glyph_morph")["drawing"]
+    document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "glyph_morph.json"
+    assert document.read_text(encoding="utf-8") == drawing.to_json()

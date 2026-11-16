@@ -973,6 +973,49 @@ def placements() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(200, 200, {}), (100, 100, {})])) for name, drawing in drawings.items()]
 
 
+def morphs() -> list[Entry]:
+    """`morph`: a letter into a circle at the middle and at both ends, a letter with counters into one without (a
+    hole with no partner, subtracted), a glyph whose crossbar is a contour of its own, a word into a longer and a
+    shorter one (glyph by glyph), a staggered Param, an overshooting fraction, open polylines and surplus shapes with
+    their styles."""
+    circle = btvec.Path.circle((50, 50), 30)
+
+    def letter(content: str) -> btvec.Drawing:
+        return framed(btvec.text(content, font=BRICOLAGE, size=90, anchor=(14, 84), axes={"wght": 700}).fill(INK))
+
+    def word(content: str) -> btvec.Drawing:
+        return btvec.Drawing(btvec.text(content, font=BRICOLAGE, size=90, anchor=(12, 110)).fill(INK), size=(400, 160))
+
+    progress = btvec.Param("progress", default=0.3, min=0, max=1, unit="", meaning="how far the word has turned")
+    polyline = btvec.Path.from_svg_path("M10 20 L40 80 L90 30")
+    other = btvec.Path.from_svg_path("M10 80 L50 20 L90 70 L95 90")
+    drawings = {
+        "morph_letter_to_circle": letter("R").morph(circle, 0.5),
+        "morph_letter_fraction_0": letter("R").morph(circle, 0),
+        "morph_letter_fraction_1": letter("R").morph(circle, 1),
+        "morph_counter_o_to_l": letter("O").morph(letter("l"), 0.9),
+        "morph_counter_a_to_i": letter("a").morph(letter("i"), 0.9),
+        "morph_unresolved_a_to_o": letter("A").morph(letter("O"), 0.6),
+        "morph_overshoot": letter("R").morph(circle, 1.25),
+        "morph_word_to_longer": word("cat").morph(word("horse"), 0.4),
+        "morph_word_to_shorter": word("horse").morph(word("cat"), 0.4),
+        "morph_word_stagger_param": word("cat").morph(word("horse"), btvec.stagger(progress)),
+        "morph_polylines": framed(polyline.stroke(INK, width=3)).morph(other, 0.5),
+        "morph_surplus_styles": framed(circle.fill(RED), btvec.Path.rect(10, 10, 20, 20).fill(BLUE)).morph(
+            btvec.Drawing(btvec.Path.rect(40, 40, 50, 50).fill(GOLD)), 0.5
+        ),
+    }
+    draws: dict[str, list[Draw]] = {"morph_word_stagger_param": [(400, 160, {}), (200, 80, {"progress": 0.8})]}
+    return [
+        (
+            name,
+            drawing,
+            draws.get(name, [(400, 160, {}), (200, 80, {})] if "word" in name else [(100, 100, {}), (50, 50, {})]),
+        )
+        for name, drawing in drawings.items()
+    ]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -987,6 +1030,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     waves,
     radials,
     envelopes,
+    morphs,
     wobbles,
     dashes,
     simplifies,
@@ -1174,15 +1218,15 @@ def star_everywhere(pixels: Path) -> dict[str, Any]:
     }
 
 
-def bent_type_everywhere() -> dict[str, Any]:
-    """examples/bent_type.py's frames as SVG text from Python and from the Rust example."""
-    frames = runpy.run_path(str(ROOT / "examples" / "bent_type.py"))["frames"]
-    command = ["cargo", "run", "--quiet", "--locked", "-p", "bullterrier-vector", "--example", "bent_type", "--"]
+def example_everywhere(name: str) -> dict[str, Any]:
+    """examples/<name>.py's frames as SVG text from Python and from the Rust example of the same name."""
+    frames = runpy.run_path(str(ROOT / "examples" / f"{name}.py"))["frames"]
+    command = ["cargo", "run", "--quiet", "--locked", "-p", "bullterrier-vector", "--example", name, "--"]
     return {
         "python": frames,
         "rust": {
-            name: subprocess.run([*command, name], cwd=ROOT, capture_output=True, check=True).stdout.decode("utf-8")
-            for name in frames
+            frame: subprocess.run([*command, frame], cwd=ROOT, capture_output=True, check=True).stdout.decode("utf-8")
+            for frame in frames
         },
     }
 
@@ -1208,7 +1252,8 @@ def main(output: Path) -> None:
         },
         "corpus": compared_corpus(output.parent / "oracle-pixels"),
         "star": star_everywhere(output.parent / "oracle-pixels"),
-        "bent_type": bent_type_everywhere(),
+        "bent_type": example_everywhere("bent_type"),
+        "glyph_morph": example_everywhere("glyph_morph"),
         "refusals": [
             refused("fromJson", "not a document"),
             refused("fromJson", '{"version": 1, "drawings": {"a": [{"nope": 1}]}}'),
