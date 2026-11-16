@@ -119,7 +119,7 @@ def test_poster_overlaps_two_multiply_inks_on_paper_and_keeps_its_stack_of_shape
     assert len(root.findall("{http://www.w3.org/2000/svg}path")) == len(shapes)
 
 
-def kinetic_layers(drawing: btvec.Drawing, **given: float):
+def kinetic_layers(drawing: btvec.Drawing, **given: float | list[float]):
     """A frame of the kinetic type piece by layer: the paper, the blue plane, 7 pink letters, 7 hairline letters."""
     paper, plane, *letters = drawing.shapes(**given)
     assert len(letters) == 14
@@ -216,7 +216,7 @@ def test_kinetic_type_prints_pink_from_4_s_and_a_kick_thickens_the_letters_it_ha
 
 
 # t -> (bend, phase and turn at that second, worked by hand from the timeline; whether a kick is on)
-BEATS = {
+BEATS: dict[float, tuple[dict[str, float], bool]] = {
     4.0: ({"bend": 0, "phase": 0, "turn": 0}, True),  # the drop, on the beat
     4.5: ({"bend": 0, "phase": 0.125, "turn": 0}, True),  # the next beat
     7.0: ({"bend": 1, "phase": 0.75, "turn": 0}, True),
