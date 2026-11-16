@@ -329,8 +329,9 @@ fn a_big_wobble_is_cut_by_the_sound_chord_bound_of_the_noise() -> Outcome {
     let (amplitude, wavelength, length) = (100.0, 80.0, 1000.0);
     let cut = lines(&Path::line((0.0, 0.0), (length, 0.0))?.wobble(amplitude, wavelength, 0.0, 0.0)?)?;
     let step = wavelength / 24.0 * (0.05 / (0.0079 * amplitude)).sqrt();
-    let pieces = (length / step).ceil() as usize;
-    assert_eq!(cut[0].0.len(), pieces + 1);
+    let points = (length / step).ceil() + 1.0;
+    let found = f64::from(u32::try_from(cut[0].0.len())?);
+    assert!((found - points).abs() < 0.5, "{found} points, expected {points}");
     Ok(())
 }
 
