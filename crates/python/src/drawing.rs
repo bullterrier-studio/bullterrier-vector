@@ -572,19 +572,14 @@ impl PyDrawing {
         checked(self.0.stipple(&stipple_of(spacing, tone, radius, density, seed)?))
     }
 
-    /// A map of grayscale tone traced at `levels` (0 black to 1 white; a number or a list), as filled shapes: one for each
-    /// level the map reaches, in the order given, the region where the map is at or above the level, with the level as
-    /// its `level` attribute and no fill. Stack them from the lowest level and fill each by its level
-    /// (`.only(level=l).fill(...)`) for a posterized, cut-paper picture. `map` is a `Field.map`. A shape that meets the
-    /// map's border goes on past it and closes outside, so no edge lies along the border; the overhang is the larger of
-    /// `open` and `close` plus `tolerance`, plus two map pixels: crop it with `.intersect(Path.rect(...))` for a plotter
-    /// or a cutter. `levels` and each number below is a number, a `Param` or an expression, read once.
-    ///
-    /// `smooth` is the standard deviation, in design pixels, of a Gaussian that blurs the map first; `close` then `open`
-    /// (design pixels) fill and remove what is narrower than twice the radius; `min_hole` fills holes, and `min_area`
-    /// drops parts, below that many square pixels; `tolerance` fits curves within that many design pixels of the traced
-    /// polyline (0 keeps the polyline). A map whose padded lattice would pass 2^25 nodes raises naming `open`, `close`
-    /// or `tolerance`, whichever sets the padding.
+    /// A map of grayscale tone (`map`, a `Field.map`) traced at `levels` (0 black to 1 white; numbers, Params or
+    /// expressions, read once) as filled shapes: one for each level it reaches, in the order given, the region at or
+    /// above the level, with the level as its `level` attribute and no fill (`.only(level=l).fill(...)`). Shapes that
+    /// meet the border go on past it by the larger of `open` and `close` plus `tolerance`, plus two map pixels: crop
+    /// with `.intersect(Path.rect(...))` for a plotter. `smooth` is the blur's standard deviation in design pixels;
+    /// `close` then `open` (design pixels) fill and remove what is narrower than twice the radius; `min_hole` and
+    /// `min_area` (square pixels) fill holes and drop parts; `tolerance` fits curves within that many design pixels
+    /// (0 keeps the polyline). A padded lattice past 2^25 nodes raises naming `open`, `close` or `tolerance`.
     #[staticmethod]
     #[pyo3(
         signature = (map, levels, *, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
@@ -605,15 +600,11 @@ impl PyDrawing {
         checked(vector::Drawing::trace_levels(&map.0, levels.0, &trace))
     }
 
-    /// A map of colour labels traced as filled shapes: one for each byte value the map holds, the region of the pixels
-    /// with that byte, with the byte as its `label` attribute and no fill (fill each from a palette:
-    /// `.only(label=i).fill(palette[i])`). More than `max_colors` labels raises.
-    ///
-    /// The shapes tile the frame and its padding, whatever the tidying: none overlaps another and none leaves a gap, so
-    /// two inks never lie on one spot. The commonest label (the lowest byte of a tie) is first and is whatever the
-    /// others leave; the others follow in order of the byte, each its tidied region without the labels after it. They
-    /// are polylines within 0.01 design pixels of their curves. Cutting more outlines apart than the draw's segment
-    /// budget allows raises naming `max_colors`. The other arguments are those of `trace_levels`.
+    /// A map of colour labels traced as filled shapes, one for each byte it holds (attribute `label`; more than
+    /// `max_colors` raises). They tile the frame and its padding, never overlapping or leaving a gap: the commonest
+    /// label (lowest byte of a tie) is first and is what the others leave, the others follow by byte, each cut by those
+    /// after it (polylines within 0.01 design pixels). Too many outlines to cut raises naming `max_colors`. The other
+    /// arguments are those of `trace_levels`.
     #[staticmethod]
     #[pyo3(
         signature = (map, *, max_colors=None, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
@@ -634,11 +625,9 @@ impl PyDrawing {
         checked(vector::Drawing::trace_labels(&map.0, colors(max_colors)?, &trace))
     }
 
-    /// A map of square cells traced exactly, for a dithered picture: `map` (a `Field.map` whose bytes are palette indexes)
-    /// is read as cells of `cell_size` map pixels each, and every colour becomes one shape (attribute `label` the byte, in
-    /// order of the byte) with straight edges on the cell sides, cells that touch merged and holes kept: nothing is
-    /// fitted, the shapes' areas are the cells' and they neither overlap nor leave a gap. The width and height of the map
-    /// must be multiples of `cell_size`, every cell one byte, and there may be at most `max_colors` colours.
+    /// A map of square cells (`cell_size` map pixels, each one byte, a palette index) traced exactly: one shape for each
+    /// colour (attribute `label` the byte) with straight edges on the cell sides, touching cells merged, holes kept;
+    /// the areas are the cells' and the shapes neither overlap nor leave a gap. At most `max_colors` colours.
     #[staticmethod]
     #[pyo3(signature = (map, cell_size, *, max_colors=None), text_signature = "(map, cell_size, *, max_colors=32)")]
     fn trace_cells(
@@ -646,11 +635,8 @@ impl PyDrawing {
         cell_size: &Bound<'_, PyAny>,
         max_colors: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        checked(vector::Drawing::trace_cells(
-            &map.0,
-            whole("cell_size", cell_size)?,
-            colors(max_colors)?,
-        ))
+        let (cell_size, colors) = (whole("cell_size", cell_size)?, colors(max_colors)?);
+        checked(vector::Drawing::trace_cells(&map.0, cell_size, colors))
     }
 
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the
