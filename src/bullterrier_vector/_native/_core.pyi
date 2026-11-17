@@ -454,24 +454,24 @@ class Drawing:
         map: Field,  # noqa: A002  api.md names the arguments `map` and `open`
         levels: float | Sequence[float],
         *,
-        smooth: _Num = 0.0,
+        smooth: _Num = 0,
         tolerance: _Num = 0.5,
-        open: _Num = 0.0,  # noqa: A002  api.md names the arguments `map` and `open`
-        close: _Num = 0.0,
-        min_area: _Num = 0.0,
-        min_hole: _Num = 0.0,
+        open: _Num = 0,  # noqa: A002  api.md names the arguments `map` and `open`
+        close: _Num = 0,
+        min_area: _Num = 0,
+        min_hole: _Num = 0,
     ) -> Drawing: ...
     @staticmethod
     def trace_labels(
         map: Field,  # noqa: A002  api.md names the arguments `map` and `open`
         *,
         max_colors: int = 32,
-        smooth: _Num = 0.0,
+        smooth: _Num = 0,
         tolerance: _Num = 0.5,
-        open: _Num = 0.0,  # noqa: A002  api.md names the arguments `map` and `open`
-        close: _Num = 0.0,
-        min_area: _Num = 0.0,
-        min_hole: _Num = 0.0,
+        open: _Num = 0,  # noqa: A002  api.md names the arguments `map` and `open`
+        close: _Num = 0,
+        min_area: _Num = 0,
+        min_hole: _Num = 0,
     ) -> Drawing: ...
     @staticmethod
     def trace_cells(
