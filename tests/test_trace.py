@@ -1,9 +1,11 @@
 """`Drawing.trace_levels`, `trace_labels` and `trace_cells` through the public package. Expected values are worked out
 by hand (a ramp's edge, a checkerboard's cells) or counted from the bytes."""
 
+import json
 import re
 
 import pytest
+from jsonschema import Draft202012Validator
 
 import bullterrier_vector as btvec
 
@@ -84,3 +86,15 @@ def test_a_param_feeds_a_tidying_number() -> None:
     drawing = btvec.Drawing.trace_levels(btvec.Field.map(12, 12, cells), [0.5], tolerance=0, close=grow)
     plain, grown = (drawing.shapes(grow=grow)[0].path.to_svg_path() for grow in (0, 1))
     assert plain != grown
+
+
+def test_the_generated_schema_accepts_a_trace_document_and_refuses_a_bad_one() -> None:
+    validator = Draft202012Validator(json.loads(btvec.drawing_schema()))
+    inputs = {"photo": {"kind": "map"}}
+    photo = {"Field.map": {"width": 8, "height": 8, "data": "photo"}}
+    good = {"version": 1, "inputs": inputs, "root": [{"trace_levels": {"map": photo, "levels": [0.3], "open": 1}}]}
+    assert validator.is_valid(good)
+    assert validator.is_valid({**good, "root": [{"trace_cells": {"map": photo, "cell": 2, "max_colors": 8}}]})
+    assert not validator.is_valid({**good, "root": [{"trace_levels": {"map": photo, "levels": "dark"}}]})
+    assert not validator.is_valid({**good, "root": [{"trace_levels": {"map": photo, "levels": [0.3], "smooth": -1}}]})
+    assert not validator.is_valid({**good, "root": [{"trace_labels": {"map": photo, "max_colors": 300}}]})

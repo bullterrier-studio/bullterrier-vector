@@ -1129,6 +1129,29 @@ def line_families() -> list[Entry]:
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
+def traces() -> list[Entry]:
+    """V14a: a map traced at levels (stacked, painted by level), as labels and, exactly, as cells, with a Param."""
+    photo = btvec.Field.map(16, 16, FONTS["tone_map"], box=(0, 0, 100, 100), name="tone_map")
+    open_by = btvec.Param("open_by", default=1, min=0, max=4)
+    grey = ["#dddddd", "#999999", "#444444"]
+    levels = [0.25, 0.5, 0.75]
+    drawings = {
+        "trace_levels": framed(
+            *(
+                btvec.Drawing.trace_levels(photo, level, smooth=0.5, open=open_by, min_area=4).fill(color)
+                for level, color in zip(levels, grey, strict=True)
+            )
+        ),
+        "trace_levels_raw": framed(btvec.Drawing.trace_levels(photo, levels, tolerance=0, close=1).fill("#444444")),
+        "trace_labels": framed(
+            btvec.Drawing.trace_labels(photo, max_colors=256, smooth=0.4, min_hole=3).fill("#336699").opacity(0.5)
+        ),
+        "trace_cells": framed(btvec.Drawing.trace_cells(photo, 1, max_colors=256).fill("#cc2200")),
+    }
+    draws: dict[str, list[Draw]] = {"trace_levels": [(100, 100, {}), (100, 100, {"open_by": 3})]}
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
 def plots() -> list[dict[str, object]]:
     """V15c: the plotter SVG of drawings of strokes, fills and a closed outline, as the native extension writes it."""
     box = btvec.Path.rect(0, 0, 100, 100)
@@ -1187,6 +1210,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     morphs,
     hatches,
     line_families,
+    traces,
     wobbles,
     dashes,
     simplifies,
