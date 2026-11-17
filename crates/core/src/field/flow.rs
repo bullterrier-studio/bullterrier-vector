@@ -1,13 +1,12 @@
 //! `Flow`: a direction without sign at every point.
 
 use super::outline::Outline;
-use super::{length, segment_budget};
-use crate::Error;
-use crate::geometry::{Point, finite};
+use super::{Shapes, length, once, read, segment_budget};
+use crate::geometry::Point;
 use crate::key::{Key, Keyed, key_of};
 use crate::math::{atan2, sin_cos_deg};
 use crate::noise::Noise;
-use crate::path::Path;
+use crate::{Drawing, Error, Expr, Param, Values};
 use std::fmt;
 use std::sync::Arc;
 
@@ -21,31 +20,30 @@ pub(crate) const MAX_LEAVES: usize = 64;
 // one recurses this deep: 16 mixes fit in a document beside the call that holds them
 pub(crate) const MAX_MIX_DEPTH: usize = 16;
 
-/// What a flow is made of, as a document writes it.
-#[derive(Debug)]
+/// What a flow is made of, as a document writes it: the numbers as written (they may read Params) and the drawings
+/// it follows.
+#[derive(Debug, Clone)]
 pub(crate) enum FlowKind {
-    Angle { degrees: f64 },
-    Noise { wavelength: f64, phase: f64, seed: f64 },
-    Contour { path: Path },
-    Mix { flow: Flow, other: Flow, fraction: f64 },
+    Angle { degrees: Expr },
+    Noise { wavelength: Expr, phase: Expr, seed: f64 },
+    Contour { drawing: Drawing },
+    Mix { flow: Flow, other: Flow, fraction: Expr },
 }
 
+/// What reads a flow at a point: the made flow, with its numbers worked out and its drawings drawn.
 #[derive(Debug)]
 enum Node {
     /// The doubled-angle unit vector of an angle, fixed.
     Angle {
-        degrees: f64,
         cos: f64,
         sin: f64,
     },
     Noise {
         wavelength: f64,
         phase: f64,
-        seed: f64,
         noise: Noise,
     },
     Contour {
-        path: Path,
         outline: Outline,
     },
     Mix {
@@ -56,98 +54,179 @@ enum Node {
 }
 
 /// A direction without sign at every point: a line through the point, not an arrow. A direction and its opposite are
-/// the same, so flows mix them without cancelling. A value, built once and cheap to clone; [`Flow::at`] reads it, and
-/// [`Hatch`](crate::Hatch) draws lines along it.
+/// the same, so flows mix them without cancelling. A value, built once and cheap to clone; [`Flow::at`] reads it
+/// with any Param at its default, and [`Hatch`](crate::Hatch) draws lines along it (a `hatch` step reads it again with
+/// the values it draws with).
 #[derive(Debug, Clone)]
 pub struct Flow {
+    kind: Arc<FlowKind>,
     node: Arc<Node>,
     depth: usize,
     leaves: usize,
 }
 
 impl Flow {
-    fn leaf(node: Node) -> Self {
-        Self {
+    /// The flow `kind` says with the Params at their defaults.
+    fn made(kind: FlowKind) -> Result<Self, Error> {
+        Self::build(kind, &Values::new(), &mut Shapes::Defaults)
+    }
+
+    /// The flow `kind` says with the Params at `env` and the drawings from `shapes`.
+    fn build(kind: FlowKind, env: &Values, shapes: &mut Shapes<'_>) -> Result<Self, Error> {
+        let (node, depth, leaves) = match &kind {
+            FlowKind::Angle { degrees } => (Node::angle(read("degrees", degrees, env)?), 0, 1),
+            FlowKind::Noise {
+                wavelength,
+                phase,
+                seed,
+            } => {
+                let wavelength = read("wavelength", wavelength, env)?;
+                if wavelength <= 0.0 {
+                    return Err(Error::parameter(
+                        "wavelength",
+                        format!("must be above 0, got {wavelength}"),
+                    ));
+                }
+                let phase = read("phase", phase, env)?;
+                let noise = Noise::new(*seed, 0)?;
+                (
+                    Node::Noise {
+                        wavelength,
+                        phase,
+                        noise,
+                    },
+                    0,
+                    1,
+                )
+            }
+            FlowKind::Contour { drawing } => {
+                let path = shapes.path_of(drawing)?;
+                let outline = Outline::of(&path, "contour", &mut segment_budget("drawing"))?;
+                (Node::Contour { outline }, 0, 1)
+            }
+            FlowKind::Mix { flow, other, fraction } => {
+                let fraction = crate::geometry::fraction("fraction", read("fraction", fraction, env)?)?;
+                let (flow, other) = (flow.bind(env, shapes)?, other.bind(env, shapes)?);
+                let (depth, leaves) = (flow.depth.max(other.depth) + 1, flow.leaves + other.leaves);
+                (Node::Mix { flow, other, fraction }, depth, leaves)
+            }
+        };
+        Ok(Self {
+            kind: Arc::new(kind),
             node: Arc::new(node),
+            depth,
+            leaves,
+        })
+    }
+
+    /// This flow again with the Params at `env` and the drawings it follows from `shapes`.
+    pub(crate) fn bind(&self, env: &Values, shapes: &mut Shapes<'_>) -> Result<Self, Error> {
+        Self::build((*self.kind).clone(), env, shapes)
+    }
+
+    /// The same direction everywhere: `degrees` clockwise from the right on screen, any finite number, or an
+    /// expression of Params read once with the values of the draw; 30 and 210 are the same.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `degrees` if it is NaN or infinite, or a per-item number.
+    pub fn angle(degrees: impl Into<Expr>) -> Result<Self, Error> {
+        Self::made(FlowKind::Angle {
+            degrees: once("degrees", &degrees.into())?,
+        })
+    }
+
+    /// The angle `degrees`, already known to be finite.
+    pub(crate) fn fixed(degrees: f64) -> Self {
+        Self {
+            kind: Arc::new(FlowKind::Angle {
+                degrees: Expr::from(degrees),
+            }),
+            node: Arc::new(Node::angle(degrees)),
             depth: 0,
             leaves: 1,
         }
     }
 
-    /// The same direction everywhere: `degrees` clockwise from the right on screen (`y` points down), any finite
-    /// number; 30 and 210 are the same.
-    ///
-    /// # Errors
-    /// [`Error::Parameter`] naming `degrees` if it is NaN or infinite.
-    pub fn angle(degrees: f64) -> Result<Self, Error> {
-        Ok(Self::fixed(finite("degrees", degrees)?))
-    }
-
-    /// The angle `degrees`, already known to be finite.
-    pub(crate) fn fixed(degrees: f64) -> Self {
-        let (sin, cos) = sin_cos_deg(2.0 * (degrees % 180.0));
-        Self::leaf(Node::Angle { degrees, cos, sin })
-    }
-
     /// Smooth seeded noise: the direction turns through half a turn each way over a few `wavelength`s (pixels) and
     /// the pattern moves with `phase` (cycles; one cycle on is the same flow). Equal seeds make equal flows.
+    /// `wavelength` and `phase` may be expressions of Params, read once with the values of the draw.
     ///
     /// # Errors
-    /// [`Error::Parameter`] unless `wavelength` is above 0 and finite, `phase` finite and `seed` a whole number within
-    /// ±(2^53 - 1).
-    pub fn noise(wavelength: f64, phase: f64, seed: f64) -> Result<Self, Error> {
-        if !(wavelength.is_finite() && wavelength > 0.0) {
-            return Err(Error::parameter(
-                "wavelength",
-                format!("must be above 0, got {wavelength}"),
-            ));
-        }
-        let phase = finite("phase", phase)?;
-        let noise = Noise::new(seed, 0)?;
-        Ok(Self::leaf(Node::Noise {
-            wavelength,
-            phase,
+    /// [`Error::Parameter`] unless `wavelength` is above 0 and finite, `phase` finite (and neither a per-item number)
+    /// and `seed` a whole number within ±(2^53 - 1).
+    pub fn noise(wavelength: impl Into<Expr>, phase: impl Into<Expr>, seed: f64) -> Result<Self, Error> {
+        Self::made(FlowKind::Noise {
+            wavelength: once("wavelength", &wavelength.into())?,
+            phase: once("phase", &phase.into())?,
             seed,
-            noise,
-        }))
+        })
     }
 
-    /// The direction of the outline of `path` nearest the point.
+    /// The direction of the outline of `drawing` nearest the point: the outlines of all its shapes together, drawn
+    /// with the Params at their defaults for [`Flow::at`] and with the values of the draw in a `hatch` step. A `Path`
+    /// goes where a drawing is asked for. Where two outlines are about as near, as at the middle of a stroke, their
+    /// directions blend, so the direction does not jump there.
     ///
     /// # Errors
-    /// [`Error::Geometry`] if the path has no edge; [`Error::Parameter`] past `MAX_SEGMENTS` edges.
-    pub fn contour(path: &Path) -> Result<Self, Error> {
-        let outline = Outline::of(path, "contour", &mut segment_budget("path"))?;
-        Ok(Self::leaf(Node::Contour {
-            path: path.clone(),
-            outline,
-        }))
+    /// The drawing's own error if it cannot be drawn; [`Error::Geometry`] if it has no edge; [`Error::Parameter`] past
+    /// `MAX_SEGMENTS` edges.
+    pub fn contour(drawing: impl Into<Drawing>) -> Result<Self, Error> {
+        Self::made(FlowKind::Contour {
+            drawing: drawing.into(),
+        })
     }
 
-    /// This flow `fraction` of the way to `other`, 0 to 1, blended in doubled-angle space so a direction and its
-    /// opposite agree. Where the two cancel exactly, this flow's direction stands.
+    /// This flow `fraction` of the way to `other`, 0 to 1 (a number or an expression of Params), blended in
+    /// doubled-angle space so a direction and its opposite agree. Where the two cancel exactly, this flow's direction
+    /// stands.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `fraction` unless it is from 0 to 1; naming `other` if the result would mix more
     /// than 64 flows or nest more than 16 mixes.
-    pub fn mix(&self, other: &Self, fraction: f64) -> Result<Self, Error> {
-        let fraction = crate::geometry::fraction("fraction", fraction)?;
+    pub fn mix(&self, other: &Self, fraction: impl Into<Expr>) -> Result<Self, Error> {
+        let fraction = once("fraction", &fraction.into())?;
         let (depth, leaves) = (self.depth.max(other.depth) + 1, self.leaves + other.leaves);
         if depth > MAX_MIX_DEPTH || leaves > MAX_LEAVES {
             return Err(Error::parameter(
                 "other",
-                format!("a flow mixes at most {MAX_LEAVES} flows and nests at most {MAX_MIX_DEPTH} mixes"),
+                format!("a flow mixes at most {MAX_LEAVES} flows and nest at most {MAX_MIX_DEPTH} mixes"),
             ));
         }
-        Ok(Self {
-            node: Arc::new(Node::Mix {
-                flow: self.clone(),
-                other: other.clone(),
-                fraction,
-            }),
-            depth,
-            leaves,
+        Self::made(FlowKind::Mix {
+            flow: self.clone(),
+            other: other.clone(),
+            fraction,
         })
+    }
+
+    /// The drawings this flow follows, in order.
+    pub(crate) fn drawings(&self) -> Vec<&Drawing> {
+        match &*self.kind {
+            FlowKind::Contour { drawing } => vec![drawing],
+            FlowKind::Mix { flow, other, .. } => {
+                let mut found = flow.drawings();
+                found.extend(other.drawings());
+                found
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// Adds the Params this flow reads to `into`.
+    pub(crate) fn collect_params(&self, into: &mut Vec<Param>) {
+        match &*self.kind {
+            FlowKind::Angle { degrees } => degrees.collect_params(into),
+            FlowKind::Noise { wavelength, phase, .. } => {
+                wavelength.collect_params(into);
+                phase.collect_params(into);
+            }
+            FlowKind::Contour { .. } => {}
+            FlowKind::Mix { flow, other, fraction } => {
+                fraction.collect_params(into);
+                flow.collect_params(into);
+                other.collect_params(into);
+            }
+        }
     }
 
     /// The direction at `point`, in degrees from 0 up to 180, clockwise from the right on screen.
@@ -169,19 +248,18 @@ impl Flow {
 
     fn sum(&self, point: Point) -> (f64, f64) {
         match &*self.node {
-            Node::Angle { cos, sin, .. } => (*cos, *sin),
+            Node::Angle { cos, sin } => (*cos, *sin),
             Node::Noise {
                 wavelength,
                 phase,
                 noise,
-                ..
             } => {
                 let value = noise.value(point.x / wavelength, point.y / wavelength, *phase);
                 // the noise is from -1 to 1: it turns the direction through half a turn each way
                 let (sin, cos) = sin_cos_deg(value * 360.0);
                 (cos, sin)
             }
-            Node::Contour { outline, .. } => {
+            Node::Contour { outline } => {
                 // as a unit vector, so a contour counts as much as an angle
                 let (x, y) = outline.nearest(point).doubled;
                 let size = length(x, y);
@@ -217,54 +295,41 @@ impl Flow {
     }
 
     /// What this flow is made of.
-    pub(crate) fn kind(&self) -> FlowKind {
-        match &*self.node {
-            Node::Angle { degrees, .. } => FlowKind::Angle { degrees: *degrees },
-            Node::Noise {
-                wavelength,
-                phase,
-                seed,
-                ..
-            } => FlowKind::Noise {
-                wavelength: *wavelength,
-                phase: *phase,
-                seed: *seed,
-            },
-            Node::Contour { path, .. } => FlowKind::Contour { path: path.clone() },
-            Node::Mix { flow, other, fraction } => FlowKind::Mix {
-                flow: flow.clone(),
-                other: other.clone(),
-                fraction: *fraction,
-            },
-        }
+    pub(crate) fn kind(&self) -> &FlowKind {
+        &self.kind
+    }
+}
+
+impl Node {
+    /// The node of an angle: its doubled-angle unit vector.
+    fn angle(degrees: f64) -> Self {
+        let (sin, cos) = sin_cos_deg(2.0 * (degrees % 180.0));
+        Self::Angle { cos, sin }
     }
 }
 
 impl Keyed for Flow {
+    /// A drawing is told apart by the call that takes it (the cache and the graph), so the key holds none.
     fn write_key(&self, key: &mut Key) {
-        match &*self.node {
-            Node::Angle { degrees, .. } => {
+        match &*self.kind {
+            FlowKind::Angle { degrees } => {
                 key.word(1);
-                key.number(*degrees);
+                key.of(degrees);
             }
-            Node::Noise {
+            FlowKind::Noise {
                 wavelength,
                 phase,
                 seed,
-                ..
             } => {
                 key.word(2);
-                key.number(*wavelength);
-                key.number(*phase);
+                key.of(wavelength);
+                key.of(phase);
                 key.number(*seed);
             }
-            Node::Contour { path, .. } => {
-                key.word(3);
-                key.of(path);
-            }
-            Node::Mix { flow, other, fraction } => {
+            FlowKind::Contour { .. } => key.word(3),
+            FlowKind::Mix { flow, other, fraction } => {
                 key.word(4);
-                key.number(*fraction);
+                key.of(fraction);
                 key.of(flow);
                 key.of(other);
             }
@@ -273,24 +338,32 @@ impl Keyed for Flow {
 }
 
 impl PartialEq for Flow {
+    /// The same call: equal numbers, and drawings that are the same ([`Drawing::is_same_as`]).
     fn eq(&self, other: &Self) -> bool {
         key_of(self) == key_of(other)
+            && self
+                .drawings()
+                .iter()
+                .zip(other.drawings())
+                .all(|(a, b)| a.is_same_as(b))
     }
 }
 
 /// The flow as the call that makes it reads in the Python package: `Flow.angle(45)`.
 impl fmt::Display for Flow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &*self.node {
-            Node::Angle { degrees, .. } => write!(f, "Flow.angle({degrees})"),
-            Node::Noise {
+        match &*self.kind {
+            FlowKind::Angle { degrees } => write!(f, "Flow.angle({degrees})"),
+            FlowKind::Noise {
                 wavelength,
                 phase,
                 seed,
-                ..
             } => write!(f, "Flow.noise(wavelength={wavelength}, phase={phase}, seed={seed})"),
-            Node::Contour { path, .. } => write!(f, "Flow.contour(Path.from_svg_path('{}'))", path.to_svg_path()),
-            Node::Mix { flow, other, fraction } => write!(f, "{flow}.mix({other}, {fraction})"),
+            FlowKind::Contour { drawing } => match drawing.lone_path() {
+                Some(path) => write!(f, "Flow.contour(Path.from_svg_path('{}'))", path.to_svg_path()),
+                None => write!(f, "Flow.contour({drawing:?})"),
+            },
+            FlowKind::Mix { flow, other, fraction } => write!(f, "{flow}.mix({other}, {fraction})"),
         }
     }
 }

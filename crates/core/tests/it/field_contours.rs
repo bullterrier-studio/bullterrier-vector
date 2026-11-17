@@ -75,7 +75,7 @@ fn a_loop_that_meets_the_frame_is_open_there() -> Outcome {
 #[test]
 fn a_saddle_is_decided_by_the_mean_of_its_corners() -> Outcome {
     // one cell whose corners read 1, 0 / 0, 1: a map of 2 by 2 pixels over the box of its centres
-    let checker = Field::map(2, 2, &[255, 0, 0, 255], Some(frame(-0.5, -0.5, 2.0, 2.0)))?;
+    let checker = Field::map(2, 2, &[255, 0, 0, 255], Some(frame(-0.5, -0.5, 2.0, 2.0)), None)?;
     let cell = frame(0.0, 0.0, 1.0, 1.0);
     // mean 0.5 is above 0.4: the high corners are joined, so each low corner is cut off alone
     let joined = lines(&checker.contours(&[0.4], cell, 1.0)?);

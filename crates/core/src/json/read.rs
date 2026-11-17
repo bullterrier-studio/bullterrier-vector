@@ -88,7 +88,7 @@ pub(super) fn document(top: &Json) -> Result<Doc, Error> {
     })
 }
 
-struct Reader {
+pub(super) struct Reader {
     /// The call objects met so far: sources, steps and expressions.
     calls: usize,
 }
@@ -184,7 +184,7 @@ impl Reader {
     // Drawings and calls ------------------------------------------------------------------------------------------
 
     /// A drawing: a non-empty array of calls, a source and then steps.
-    fn drawing(&mut self, pointer: &str, json: &Json) -> Result<Vec<Call>, Error> {
+    pub(super) fn drawing(&mut self, pointer: &str, json: &Json) -> Result<Vec<Call>, Error> {
         let Json::Array(calls) = json else {
             return Err(refuse(
                 pointer,
@@ -339,8 +339,8 @@ impl Reader {
                     .map_err(|error| refuse(pointer, reason(&error)))
             }
             Kind::Paint => paint(pointer, json).map(Value::Paint),
-            Kind::Field => super::fields::field(pointer, json).map(Value::Field),
-            Kind::Flow => super::fields::flow(pointer, json).map(Value::Flow),
+            Kind::Field => self.field(pointer, json).map(Value::Field),
+            Kind::Flow => self.flow(pointer, json).map(Value::Flow),
             Kind::Text => {
                 let text = string(pointer, json)?;
                 if let Domain::Choice(words) = arg.domain
@@ -514,7 +514,7 @@ impl Reader {
     }
 
     /// A JSON number, or an expression (an object of one key) where `reads` allows one.
-    fn expression(&mut self, pointer: &str, json: &Json, reads: Reads) -> Result<Ex, Error> {
+    pub(super) fn expression(&mut self, pointer: &str, json: &Json, reads: Reads) -> Result<Ex, Error> {
         let literal = reads == Reads::Literal;
         let members = match json {
             Json::Number(number) => return Ok(Ex::Number(*number)),

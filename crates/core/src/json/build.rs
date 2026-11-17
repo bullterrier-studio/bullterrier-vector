@@ -5,12 +5,12 @@
 
 use super::bare;
 use super::checks::Checked;
-use super::doc::{Call, Doc, Ex, Value, VerbCall, What};
+use super::doc::{Call, Doc, Ex, FieldDoc, FieldWhat, FlowDoc, FlowWhat, Value, VerbCall, What};
 use super::read::reason;
 use super::value::pointer_token;
 use crate::expr::Op;
 use crate::node::{Args, Given};
-use crate::{Drawing, Error, Expr, Font, Param, Path, Shape, Values, Verb};
+use crate::{Drawing, Error, Expr, Field, Flow, Font, Param, Path, Shape, Values, Verb};
 use std::collections::BTreeMap;
 
 fn refuse(pointer: &str, message: impl Into<String>) -> Error {
@@ -28,10 +28,16 @@ struct Pending {
 }
 
 /// The drawing the document describes.
-pub(super) fn build(doc: &Doc, checked: &Checked, fonts: &BTreeMap<String, Font>) -> Result<Drawing, Error> {
+pub(super) fn build(
+    doc: &Doc,
+    checked: &Checked,
+    fonts: &BTreeMap<String, Font>,
+    maps: &BTreeMap<String, Vec<u8>>,
+) -> Result<Drawing, Error> {
     let mut builder = Builder {
         params: &checked.params,
         fonts,
+        maps,
         built: BTreeMap::new(),
         pending: Vec::new(),
     };
@@ -48,6 +54,7 @@ pub(super) fn build(doc: &Doc, checked: &Checked, fonts: &BTreeMap<String, Font>
 struct Builder<'a> {
     params: &'a BTreeMap<String, Param>,
     fonts: &'a BTreeMap<String, Font>,
+    maps: &'a BTreeMap<String, Vec<u8>>,
     built: BTreeMap<&'a str, Drawing>,
     pending: Vec<Pending>,
 }
@@ -68,6 +75,37 @@ fn locate(call: &str, verb: &Verb, parameter: &str) -> String {
 /// The argument or name an error of the core is about: the last part of `step 3 (rotate).angle`.
 fn subject(parameter: &str) -> &str {
     parameter.rsplit('.').next().unwrap_or(parameter)
+}
+
+/// `error` of a field's or flow's call at `call` as the error of the document, at the argument it names when the
+/// call has one of that name (`renamed` lists the arguments the document spells otherwise), else at the call.
+fn located(call: &str, error: &Error, renamed: &[(&str, &str)]) -> Error {
+    const ARGUMENTS: [&str; 14] = [
+        "width",
+        "height",
+        "data",
+        "box",
+        "drawing",
+        "start",
+        "end",
+        "angle",
+        "wavelength",
+        "phase",
+        "seed",
+        "flow",
+        "other",
+        "fraction",
+    ];
+    if let Error::Parameter { parameter, message } = error {
+        let name = renamed
+            .iter()
+            .find(|(from, _)| from == parameter)
+            .map_or(parameter.as_str(), |(_, to)| *to);
+        if ARGUMENTS.contains(&name) {
+            return refuse(&format!("{call}/{name}"), message.clone());
+        }
+    }
+    refuse(call, reason(error))
 }
 
 /// `error` of the call at `call` as the error of the document, at the value it is about.
@@ -131,8 +169,8 @@ impl<'a> Builder<'a> {
             Value::Text(text) => Given::Text(text.clone()),
             Value::Color(color) => Given::Color(*color),
             Value::Paint(paint) => Given::Paint(paint.clone()),
-            Value::Field(field) => Given::Field(field.clone()),
-            Value::Flow(flow) => Given::Flow(flow.clone()),
+            Value::Field(field) => Given::Field(self.field(field)?),
+            Value::Flow(flow) => Given::Flow(self.flow(flow)?),
             Value::Path { data, pointer } => {
                 Given::Path(Path::from_svg_path(data).map_err(|error| refuse(pointer, reason(&error)))?)
             }
@@ -185,6 +223,47 @@ impl<'a> Builder<'a> {
                 values.set(one.name.clone(), one.value.clone())
             })),
         })
+    }
+
+    /// The field a document wrote, an error of the call it makes placed at the field.
+    fn field(&mut self, doc: &'a FieldDoc) -> Result<Field, Error> {
+        let made = match &doc.what {
+            FieldWhat::Constant(value) => Field::constant(self.expr(value)?),
+            FieldWhat::Ramp { start, end } => Field::ramp(*start, *end),
+            FieldWhat::Distance { drawing, normalized } => Field::distance(self.chain(drawing)?, *normalized),
+            FieldWhat::Map {
+                name,
+                pointer,
+                width,
+                height,
+                frame,
+            } => {
+                let bytes = self
+                    .maps
+                    .get(name)
+                    .ok_or_else(|| refuse(pointer, format!("{name:?} is not an entry of `inputs`")))?;
+                Field::map(*width, *height, bytes, *frame, Some(name))
+            }
+        };
+        made.map_err(|error| located(&doc.pointer, &error, &[]))
+    }
+
+    /// The flow a document wrote.
+    fn flow(&mut self, doc: &'a FlowDoc) -> Result<Flow, Error> {
+        let made = match &doc.what {
+            FlowWhat::Angle(angle) => Flow::angle(self.expr(angle)?),
+            FlowWhat::Noise {
+                wavelength,
+                phase,
+                seed,
+            } => Flow::noise(self.expr(wavelength)?, self.expr(phase)?, *seed),
+            FlowWhat::Contour(calls) => Flow::contour(self.chain(calls)?),
+            FlowWhat::Mix { flow, other, fraction } => {
+                let (flow, other) = (self.flow(flow)?, self.flow(other)?);
+                flow.mix(&other, self.expr(fraction)?)
+            }
+        };
+        made.map_err(|error| located(&doc.pointer, &error, &[("degrees", "angle")]))
     }
 
     fn expr(&self, ex: &Ex) -> Result<Expr, Error> {

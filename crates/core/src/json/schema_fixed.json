@@ -79,7 +79,7 @@
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
-      "propertyNames": { "enum": ["Field.ramp", "Field.distance"] },
+      "propertyNames": { "enum": ["Field.ramp", "Field.distance", "Field.map"] },
       "properties": {
         "Field.ramp": {
           "type": "object",
@@ -95,9 +95,25 @@
           "additionalProperties": false,
           "properties": { "drawing": { "$ref": "#/$defs/drawing" }, "normalized": { "type": "boolean" } },
           "required": ["drawing"]
+        },
+        "Field.map": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 },
+            "data": { "$ref": "#/$defs/name" },
+            "box": {
+              "type": "array",
+              "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }, { "type": "number" }],
+              "minItems": 4,
+              "items": false
+            }
+          },
+          "required": ["width", "height", "data"]
         }
       },
-      "$comment": "literal numbers; the ramp's points differ, and the drawing is one path, [{\"path\": ...}] (the loader checks both)"
+      "$comment": "a number or an expression of Params is the same value everywhere; the ramp's points are literals and differ; data names an input of kind map holding width times height bytes (the loader checks both); the box has a width and a height above 0"
     },
     "literal_point": {
       "type": "array",
@@ -114,15 +130,15 @@
         "Flow.angle": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "angle": { "type": "number" } },
+          "properties": { "angle": { "$ref": "#/$defs/number" } },
           "required": ["angle"]
         },
         "Flow.noise": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "wavelength": { "type": "number", "exclusiveMinimum": 0 },
-            "phase": { "type": "number" },
+            "wavelength": { "$ref": "#/$defs/number" },
+            "phase": { "$ref": "#/$defs/number" },
             "seed": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
           }
         },
@@ -138,12 +154,12 @@
           "properties": {
             "flow": { "$ref": "#/$defs/flow" },
             "other": { "$ref": "#/$defs/flow" },
-            "fraction": { "type": "number", "minimum": 0, "maximum": 1 }
+            "fraction": { "$ref": "#/$defs/number" }
           },
           "required": ["flow", "other", "fraction"]
         }
       },
-      "$comment": "literal numbers; a mix nests at most 16 deep and holds at most 64 flows, a contour's drawing is one path (the loader checks them)"
+      "$comment": "numbers may be expressions of Params, read once (no per-item number); wavelength is above 0 and a fraction from 0 to 1 when drawn; a mix nests at most 16 deep and holds at most 64 flows (the loader checks them)"
     },
     "path_data": { "type": "string", "pattern": "^(\\s*[Mm][MmZzLlHhVvCcSsQqTtAa0-9eE.,+\\-\\s]*)?$" },
     "number": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/expression" }] },

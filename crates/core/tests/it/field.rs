@@ -78,7 +78,7 @@ fn ramp_projects_onto_the_line_and_holds_beyond_it() -> Outcome {
 #[test]
 fn distance_of_an_empty_path_is_a_geometry_error() {
     assert!(matches!(
-        Field::distance(&Path::new(), false),
+        Field::distance(Path::new(), false),
         Err(Error::Geometry { .. })
     ));
 }

@@ -1,6 +1,7 @@
 //! The `hatch` step: every shape replaced by evenly spaced lines inside the region it fills.
 
 use super::{Args, Context, Inputs, Node, each_shape};
+use crate::field::Shapes;
 use crate::geometry::MAX_COORDINATE;
 use crate::{Arg, Domain, Error, Hatch, Kind, Literal, Path, Reads, Role, Shape, Verb};
 
@@ -76,9 +77,17 @@ impl Node for HatchStep {
         let (zero, one) = args
             .literal_pair("spacing")?
             .ok_or_else(|| Error::parameter("spacing", "is missing"))?;
-        let mut hatch = Hatch::checked((zero, one), args.field("tone")?.cloned())?;
+        // the drawings of the tone and of the flow come first, then `avoid`: the order `Args::taken` lists them
+        let placed = |error: Error| error.at_argument(&cx.place, None);
+        let mut shapes = Shapes::taken(inputs.taken);
+        let tone = args
+            .field("tone")?
+            .map(|tone| tone.bind(cx.env, &mut shapes))
+            .transpose()
+            .map_err(placed)?;
+        let mut hatch = Hatch::checked((zero, one), tone)?;
         if let Some(flow) = args.flow("flow")? {
-            hatch = hatch.flow(flow.clone());
+            hatch = hatch.flow(flow.bind(cx.env, &mut shapes).map_err(placed)?);
         }
         if let Some(level) = args
             .once_number_opt(cx, "below")
@@ -87,7 +96,7 @@ impl Node for HatchStep {
             hatch = hatch.below(level);
         }
         let avoid: Vec<Path> = if args.given("avoid")? {
-            inputs.taken[0].iter().map(|shape| shape.path().clone()).collect()
+            shapes.next_drawn()?.iter().map(|shape| shape.path().clone()).collect()
         } else {
             Vec::new()
         };

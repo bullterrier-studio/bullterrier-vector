@@ -70,8 +70,8 @@ pub(super) enum Value {
     Text(String),
     Color(Color),
     Paint(Paint),
-    Field(crate::Field),
-    Flow(crate::Flow),
+    Field(FieldDoc),
+    Flow(FlowDoc),
     Path {
         data: String,
         pointer: String,
@@ -107,12 +107,127 @@ pub(super) fn flat<'a>(args: &'a [(&'static str, Value)]) -> impl Iterator<Item 
 }
 
 impl Value {
-    /// The drawings this value holds: the items of `Drawings`, the one of `Drawing`, else none.
-    pub(super) fn drawings(&self) -> &[Vec<Call>] {
+    /// The drawings this value holds, in the order the call takes them: the items of `Drawings`, the one of
+    /// `Drawing`, those a field or flow reads, else none.
+    pub(super) fn drawings(&self) -> Vec<&Vec<Call>> {
         match self {
-            Self::Drawings(items) => items,
-            Self::Drawing(one) => std::slice::from_ref(one),
-            _ => &[],
+            Self::Drawings(items) => items.iter().collect(),
+            Self::Drawing(one) => vec![one],
+            Self::Field(field) => field.drawings(),
+            Self::Flow(flow) => flow.drawings(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Each Param the numbers of a field or flow read, left to right, with the pointer of the read.
+    pub(super) fn field_params<'a>(&'a self, into: &mut Vec<(&'a str, &'a str)>) {
+        match self {
+            Self::Field(field) => field.params(into),
+            Self::Flow(flow) => flow.params(into),
+            _ => {}
+        }
+    }
+
+    /// The inputs a field reads: its map, with the pointer of the name.
+    pub(super) fn maps(&self) -> Vec<(&str, &str)> {
+        match self {
+            Self::Field(FieldDoc {
+                what: FieldWhat::Map { name, pointer, .. },
+                ..
+            }) => vec![(name, pointer)],
+            _ => Vec::new(),
+        }
+    }
+}
+
+/// A field as written: where its call is, and what it says.
+pub(super) struct FieldDoc {
+    pub(super) pointer: String,
+    pub(super) what: FieldWhat,
+}
+
+pub(super) enum FieldWhat {
+    Constant(Ex),
+    Ramp {
+        start: crate::Point,
+        end: crate::Point,
+    },
+    Distance {
+        drawing: Vec<Call>,
+        normalized: bool,
+    },
+    /// A map by the name of its input, with the pointer of the name.
+    Map {
+        name: String,
+        pointer: String,
+        width: usize,
+        height: usize,
+        frame: Option<crate::Rect>,
+    },
+}
+
+impl FieldDoc {
+    pub(super) fn drawings(&self) -> Vec<&Vec<Call>> {
+        match &self.what {
+            FieldWhat::Distance { drawing, .. } => vec![drawing],
+            _ => Vec::new(),
+        }
+    }
+
+    pub(super) fn params<'a>(&'a self, into: &mut Vec<(&'a str, &'a str)>) {
+        if let FieldWhat::Constant(ex) = &self.what {
+            ex.params(into);
+        }
+    }
+}
+
+/// A flow as written.
+pub(super) struct FlowDoc {
+    pub(super) pointer: String,
+    pub(super) what: FlowWhat,
+}
+
+pub(super) enum FlowWhat {
+    Angle(Ex),
+    Noise {
+        wavelength: Ex,
+        phase: Ex,
+        seed: f64,
+    },
+    Contour(Vec<Call>),
+    Mix {
+        flow: Box<FlowDoc>,
+        other: Box<FlowDoc>,
+        fraction: Ex,
+    },
+}
+
+impl FlowDoc {
+    pub(super) fn drawings(&self) -> Vec<&Vec<Call>> {
+        match &self.what {
+            FlowWhat::Contour(drawing) => vec![drawing],
+            FlowWhat::Mix { flow, other, .. } => {
+                let mut found = flow.drawings();
+                found.extend(other.drawings());
+                found
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    pub(super) fn params<'a>(&'a self, into: &mut Vec<(&'a str, &'a str)>) {
+        match &self.what {
+            FlowWhat::Angle(ex) => ex.params(into),
+            FlowWhat::Noise { wavelength, phase, .. } => {
+                wavelength.params(into);
+                phase.params(into);
+            }
+            FlowWhat::Contour(_) => {}
+            FlowWhat::Mix { flow, other, fraction } => {
+                fraction.params(into);
+                flow.params(into);
+                other.params(into);
+            }
         }
     }
 }

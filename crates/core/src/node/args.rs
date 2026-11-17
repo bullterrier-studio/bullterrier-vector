@@ -78,12 +78,15 @@ pub(crate) enum Given {
 }
 
 impl Given {
-    /// The drawings this value takes: the items of `Drawings`, the one of `Drawing`, else none.
-    fn drawings(&self) -> &[Drawing] {
+    /// The drawings this value takes, in order: the items of `Drawings`, the one of `Drawing`, those a field or a flow
+    /// reads, else none.
+    fn drawings(&self) -> Vec<&Drawing> {
         match self {
-            Self::Drawings(items) => items,
-            Self::Drawing(one) => std::slice::from_ref(one),
-            _ => &[],
+            Self::Drawings(items) => items.iter().collect(),
+            Self::Drawing(one) => vec![one],
+            Self::Field(field) => field.drawings(),
+            Self::Flow(flow) => flow.drawings(),
+            _ => Vec::new(),
         }
     }
 }
@@ -378,6 +381,14 @@ impl Args {
                         expr.collect_params(&mut reads.free);
                     }
                 }
+                Given::Field(field) => {
+                    field.collect_params(&mut reads.all);
+                    field.collect_params(&mut reads.free);
+                }
+                Given::Flow(flow) => {
+                    flow.collect_params(&mut reads.all);
+                    flow.collect_params(&mut reads.free);
+                }
                 Given::Runs(runs) => {
                     for run in runs {
                         let read = run.reads()?;
@@ -427,7 +438,7 @@ impl Args {
                     "must be \"#rgb\", \"#rrggbb\" or \"#rrggbbaa\": \"none\" paints nothing here",
                 ));
             }
-            if let Some(deepest) = given.drawings().iter().map(Drawing::depth).max()
+            if let Some(deepest) = given.drawings().into_iter().map(Drawing::depth).max()
                 && deepest + 1 > MAX_DEPTH
             {
                 return Err(Error::parameter(

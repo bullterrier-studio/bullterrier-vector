@@ -188,9 +188,6 @@ fn a_document_level_without_a_tone_is_refused() -> Outcome {
     let message = Drawing::from_json(text, &Inputs::new()).err().map(|e| e.to_string());
     assert!(message.is_some_and(|m| m.contains("below")));
     let drawn = Drawing::from(rect(50.0, 50.0)?).hatch(&Hatch::new(5.0).below(0.5), None);
-    assert_eq!(
-        parameter_refusal(drawn.shapes(&Values::new()))?.0.contains("below"),
-        true
-    );
+    assert!(parameter_refusal(drawn.shapes(&Values::new()))?.0.contains("below"));
     Ok(())
 }

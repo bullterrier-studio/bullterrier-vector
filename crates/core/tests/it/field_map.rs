@@ -8,7 +8,7 @@ use bullterrier_vector::{Field, Path, Point, Rect};
 const BYTES: [u8; 6] = [0, 100, 200, 255, 50, 0];
 
 fn grid() -> Result<Field, bullterrier_vector::Error> {
-    Field::map(3, 2, &BYTES, None)
+    Field::map(3, 2, &BYTES, None, None)
 }
 
 fn near(got: f64, want: f64) {
@@ -60,7 +60,7 @@ fn a_box_places_the_map_in_design_units() -> Outcome {
         width: 30.0,
         height: 20.0,
     };
-    let field = Field::map(3, 2, &BYTES, Some(frame))?;
+    let field = Field::map(3, 2, &BYTES, Some(frame), None)?;
     // centre of pixel (2, 1): x = 100 + 2.5 * 10, y = 50 + 1.5 * 10
     near(field.at(Point::new(125.0, 65.0)), 0.0);
     near(field.at(Point::new(105.0, 65.0)), 1.0);
@@ -73,14 +73,14 @@ fn equal_bytes_and_box_make_equal_fields() -> Outcome {
     assert_eq!(grid()?, grid()?);
     let mut other = BYTES;
     other[3] = 254;
-    assert_ne!(grid()?, Field::map(3, 2, &other, None)?);
+    assert_ne!(grid()?, Field::map(3, 2, &other, None, None)?);
     let moved = Rect {
         x: 1.0,
         y: 0.0,
         width: 3.0,
         height: 2.0,
     };
-    assert_ne!(grid()?, Field::map(3, 2, &BYTES, Some(moved))?);
+    assert_ne!(grid()?, Field::map(3, 2, &BYTES, Some(moved), None)?);
     Ok(())
 }
 
@@ -105,13 +105,13 @@ fn a_map_the_library_cannot_read_is_refused_naming_the_argument() -> Outcome {
         height: 1.0,
     };
     for (outcome, parameter) in [
-        (Field::map(3, 2, &BYTES[..5], None), "data"),
-        (Field::map(0, 2, &[], None), "width"),
-        (Field::map(2, 0, &[], None), "width"),
-        (Field::map(1 << 20, 1 << 20, &[], None), "width"),
-        (Field::map(3, 2, &BYTES, Some(nan)), "box"),
-        (Field::map(3, 2, &BYTES, Some(flat)), "box"),
-        (Field::map(3, 2, &BYTES, Some(far)), "box.x"),
+        (Field::map(3, 2, &BYTES[..5], None, None), "data"),
+        (Field::map(0, 2, &[], None, None), "width"),
+        (Field::map(2, 0, &[], None, None), "width"),
+        (Field::map(1 << 20, 1 << 20, &[], None, None), "width"),
+        (Field::map(3, 2, &BYTES, Some(nan), None), "box"),
+        (Field::map(3, 2, &BYTES, Some(flat), None), "box"),
+        (Field::map(3, 2, &BYTES, Some(far), None), "box.x"),
     ] {
         assert_eq!(parameter_refusal(outcome)?.0, parameter);
     }
@@ -131,7 +131,7 @@ fn a_distance_field_written_out_reads_back_within_half_a_level() -> Outcome {
     let (low, high) = (-50.0, 30.0);
     let bytes = distance.to_map(64, 64, Some(frame), low, high)?;
     assert_eq!(bytes.len(), 64 * 64);
-    let back = Field::map(64, 64, &bytes, Some(frame))?;
+    let back = Field::map(64, 64, &bytes, Some(frame), None)?;
     for row in [0, 10, 31, 40, 63] {
         for column in [0, 5, 31, 50, 63] {
             let (x, y) = (
@@ -171,5 +171,102 @@ fn to_map_refuses_what_it_cannot_write() -> Outcome {
     ] {
         assert_eq!(parameter_refusal(outcome)?.0, parameter);
     }
+    Ok(())
+}
+
+// A map in a document: its bytes are an input, named, with their SHA-256 ------------------------------------------
+
+use bullterrier_vector::{Drawing, Hatch, Inputs, Values};
+
+fn hatched(tone: Field) -> Result<Drawing, bullterrier_vector::Error> {
+    Ok(Drawing::from(Path::rect(0.0, 0.0, 3.0, 2.0, 0.0)?).hatch(&Hatch::between(0.5, 0.5, tone).below(0.5), None))
+}
+
+fn svg(drawing: &Drawing) -> Result<String, bullterrier_vector::Error> {
+    Ok(drawing
+        .shapes(&Values::new())?
+        .iter()
+        .map(|shape| shape.path().to_svg_path())
+        .collect::<Vec<_>>()
+        .join("|"))
+}
+
+#[test]
+fn a_map_is_an_input_of_the_document_and_the_caller_supplies_its_bytes() -> Outcome {
+    let drawing = hatched(Field::map(3, 2, &BYTES, None, Some("photo"))?)?;
+    let text = drawing.to_json()?;
+    assert!(
+        text.contains("\"inputs\":{\"photo\":{\"kind\":\"map\",\"sha256\":\""),
+        "{text}"
+    );
+    assert!(
+        text.contains("\"Field.map\":{\"data\":\"photo\",\"height\":2,\"width\":3}"),
+        "{text}"
+    );
+    let inputs = Inputs::new().set("photo", BYTES);
+    let back = Drawing::from_json(&text, &inputs)?;
+    assert_eq!(svg(&back)?, svg(&drawing)?);
+    assert_eq!(back.to_json()?, text, "a loaded input keeps its name");
+    // without a name the input is called map1; a box is written when it is not the default
+    let framed = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: 6.0,
+        height: 4.0,
+    };
+    let text = hatched(Field::map(3, 2, &BYTES, Some(framed), None)?)?.to_json()?;
+    assert!(
+        text.contains("\"map1\":{\"kind\":\"map\"") && text.contains("\"box\":[0,0,6,4]"),
+        "{text}"
+    );
+    Ok(())
+}
+
+#[test]
+fn two_maps_with_equal_bytes_are_one_input() -> Outcome {
+    let a = Field::map(3, 2, &BYTES, None, None)?;
+    let b = Field::map(
+        3,
+        2,
+        &BYTES,
+        Some(Rect {
+            x: 1.0,
+            y: 1.0,
+            width: 3.0,
+            height: 2.0,
+        }),
+        None,
+    )?;
+    let drawing = Drawing::from(Path::rect(0.0, 0.0, 3.0, 2.0, 0.0)?)
+        .hatch(&Hatch::between(0.5, 0.5, a).below(0.5), None)
+        .hatch(&Hatch::between(0.5, 0.5, b).below(0.5), None);
+    let text = drawing.to_json()?;
+    assert_eq!(text.matches("\"kind\":\"map\"").count(), 1, "{text}");
+    Ok(())
+}
+
+#[test]
+fn inputs_that_are_not_what_the_document_declares_are_refused_naming_the_input() -> Outcome {
+    let text = hatched(Field::map(3, 2, &BYTES, None, Some("photo"))?)?.to_json()?;
+    let mut changed = BYTES;
+    changed[0] = 9;
+    for (inputs, name) in [
+        (Inputs::new(), "inputs.photo"),
+        (Inputs::new().set("photo", changed), "inputs.photo"),
+        (Inputs::new().set("photo", BYTES).set("other", [1_u8]), "inputs.other"),
+    ] {
+        let (parameter, _) = parameter_refusal(Drawing::from_json(&text, &inputs))?;
+        assert_eq!(parameter, name);
+    }
+    // wrong length for the declared size: the call refuses it, with the pointer of the field
+    let short = Inputs::new().set("photo", &BYTES[..4]);
+    let sha = text
+        .split("\"sha256\":\"")
+        .nth(1)
+        .and_then(|rest| rest.get(..64))
+        .ok_or("no digest")?;
+    let without_digest = text.replace(sha, "").replace(",\"sha256\":\"\"", "");
+    let error = Drawing::from_json(&without_digest, &short).err().ok_or("loaded")?;
+    assert!(error.to_string().contains("data"), "{error}");
     Ok(())
 }

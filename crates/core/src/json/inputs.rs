@@ -3,6 +3,7 @@
 
 use super::doc::{Doc, InputDecl, InputKind};
 use crate::{Error, Font};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fmt;
 
@@ -40,14 +41,20 @@ impl fmt::Debug for Inputs {
     }
 }
 
-/// `inputs-supplied`: the fonts of `doc`, each read from the bytes supplied under its name, or, for a font whose
+/// What a document's inputs came to: its fonts, read, and the bytes of its maps, by name.
+pub(super) struct Supplied {
+    pub(super) fonts: BTreeMap<String, Font>,
+    pub(super) maps: BTreeMap<String, Vec<u8>>,
+}
+
+/// `inputs-supplied`: the fonts of `doc` and the bytes of its maps, each read from the bytes supplied under its name, or, for a font whose
 /// `sha256` is that of a bundled font and which `supplied` does not give, from the bundled one.
 ///
 /// # Errors
 /// [`Error::Parameter`] naming `inputs` if the document declares an input that neither `supplied` nor the library gives, or
 /// `supplied` gives a name the document does not declare, two names have equal bytes, bytes do not match the `sha256` of their
-/// input, or a font cannot be read.
-pub(super) fn fonts(doc: &Doc, supplied: &Inputs) -> Result<BTreeMap<String, Font>, Error> {
+/// input, or a font cannot be read. (A map's bytes are read where `Field::map` uses them.)
+pub(super) fn read(doc: &Doc, supplied: &Inputs) -> Result<Supplied, Error> {
     let refuse = |name: &str, message: String| Error::parameter(&format!("inputs.{name}"), message);
     let mut given: Vec<(&InputDecl, &[u8])> = Vec::new();
     for declared in &doc.inputs {
@@ -83,6 +90,19 @@ pub(super) fn fonts(doc: &Doc, supplied: &Inputs) -> Result<BTreeMap<String, Fon
             ));
         }
     }
+    let mut maps = BTreeMap::new();
+    for &(declared, bytes) in given.iter().filter(|(declared, _)| declared.kind == InputKind::Map) {
+        let digest = crate::key::hex(&Sha256::digest(bytes));
+        if let Some(expected) = declared.sha256.as_deref()
+            && expected != digest
+        {
+            return Err(refuse(
+                &declared.name,
+                format!("has the SHA-256 {digest}, but the document says {expected}"),
+            ));
+        }
+        maps.insert(declared.name.clone(), bytes.to_vec());
+    }
     let mut fonts = BTreeMap::new();
     for &(declared, bytes) in given.iter().filter(|(declared, _)| declared.kind == InputKind::Font) {
         let font = Font::new(bytes)
@@ -98,5 +118,5 @@ pub(super) fn fonts(doc: &Doc, supplied: &Inputs) -> Result<BTreeMap<String, Fon
         }
         fonts.insert(declared.name.clone(), font);
     }
-    Ok(fonts)
+    Ok(Supplied { fonts, maps })
 }

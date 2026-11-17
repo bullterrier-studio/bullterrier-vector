@@ -1,6 +1,7 @@
 //! `Font`: the bytes of a TrueType or OpenType font, read once.
 
 use super::{bundled, unpack};
+use crate::key::hex;
 use crate::key::{Key, Keyed};
 use crate::limits::MAX_FONT_BYTES;
 use crate::param::is_name;
@@ -11,7 +12,7 @@ use read_fonts::tables::layout::FeatureRecord;
 use read_fonts::types::{NameId, Tag};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
-use std::fmt::{self, Write as _};
+use std::fmt;
 use std::sync::Arc;
 
 /// A TrueType or OpenType font, variable or not, with outlines in `glyf` or `CFF`. It is made from the bytes of the
@@ -390,13 +391,4 @@ impl fmt::Debug for Font {
             .field("sha256", &self.sha256())
             .finish()
     }
-}
-
-/// `bytes` as lower-case hexadecimal.
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().fold(String::new(), |mut text, byte| {
-        // writing to a String cannot fail
-        let _ = write!(text, "{byte:02x}");
-        text
-    })
 }

@@ -41,7 +41,7 @@ fn a_contour_follows_the_tangent_of_the_nearest_outline() -> Outcome {
 fn a_direction_and_its_opposite_give_the_same_flow_when_mixed() -> Outcome {
     // the same outline run the other way has opposite tangents: a naive vector blend would cancel to nothing
     let forward = Flow::contour(&circle()?)?;
-    let backward = Flow::contour(&circle()?.reverse())?;
+    let backward = Flow::contour(circle()?.reverse())?;
     let mixed = forward.mix(&backward, 0.5)?;
     for q in [
         (143.7, 101.3),
@@ -105,7 +105,7 @@ fn refusals() -> Outcome {
     assert!(Flow::noise(0.0, 0.0, 0.0).is_err());
     assert!(Flow::angle(f64::NAN).is_err());
     assert!(Flow::angle(0.0)?.mix(&Flow::angle(1.0)?, 1.5).is_err());
-    assert!(Flow::contour(&Path::new()).is_err());
+    assert!(Flow::contour(Path::new()).is_err());
     // a mix holds a bounded number of parts
     let mut flow = Flow::angle(0.0)?;
     let mut refused = false;

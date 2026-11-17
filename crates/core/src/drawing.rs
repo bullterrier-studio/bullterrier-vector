@@ -389,6 +389,39 @@ impl From<Path> for Drawing {
     }
 }
 
+impl From<&Path> for Drawing {
+    fn from(path: &Path) -> Self {
+        Self::from(path.clone())
+    }
+}
+
+impl Drawing {
+    /// Whether this and `other` are one drawing: the same object (or a clone of it), or each nothing but a `path` call
+    /// of the same path. Two drawings built apart from equal calls are not told apart further, which a comparison
+    /// that walked every step of both could do only in time and memory the nesting of drawings multiplies.
+    pub(crate) fn is_same_as(&self, other: &Self) -> bool {
+        match (&self.last, &other.last) {
+            (Ok(a), Ok(b)) => {
+                Arc::ptr_eq(a, b)
+                    || self
+                        .lone_path()
+                        .zip(other.lone_path())
+                        .is_some_and(|(a, b)| crate::key::key_of(a) == crate::key::key_of(b))
+            }
+            _ => false,
+        }
+    }
+
+    /// The path of a drawing that is nothing but one `path` call, such as `Drawing::from(path)`.
+    pub(crate) fn lone_path(&self) -> Option<&Path> {
+        let step = self.last.as_ref().ok()?;
+        if step.previous.is_some() || step.node.verb().name != "path" {
+            return None;
+        }
+        step.args.path("path").ok()
+    }
+}
+
 impl From<Shape> for Drawing {
     /// A drawing of the one shape, with its style and attributes as `shapes()` returned them: a source that holds the
     /// path and the attributes, then the steps that set the style, which is how the JSON format writes it, so that two

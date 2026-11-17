@@ -36,6 +36,7 @@ mod expr;
 mod field;
 mod field_contours;
 mod field_map;
+mod field_params;
 mod flow;
 mod font_bundled;
 mod font_woff2;

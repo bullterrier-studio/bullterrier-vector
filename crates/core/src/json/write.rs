@@ -4,6 +4,7 @@ use super::value::Json;
 use super::{bare, depth};
 use crate::drawing::Graph;
 use crate::expr::{Op, View};
+use crate::field::FieldKind;
 use crate::limits::{MAX_CALLS, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_DEPTH};
 use crate::node::{Args, Given};
 use crate::shape::{SELECTABLE, Single};
@@ -62,11 +63,12 @@ struct Document {
 }
 
 /// Writes one drawing.
-struct Writer<'a> {
+pub(super) struct Writer<'a> {
     drawing: &'a Drawing,
     graph: Graph,
-    /// The name each font is written under, by the SHA-256 of its bytes, and the fonts in the order the walk met them.
-    fonts: Vec<(String, String)>,
+    /// The inputs in the order the walk met them: the name each is written under, its kind (`font` or `map`) and the
+    /// SHA-256 of its bytes.
+    inputs: Vec<(String, &'static str, String)>,
     /// The name of each node that is written under `drawings`: `d1`, `d2`... in the order the walk reaches them.
     names: Vec<Option<String>>,
     calls: Cell<usize>,
@@ -86,11 +88,11 @@ impl<'a> Writer<'a> {
                 })
             })
             .collect();
-        let fonts = font_names(&graph)?;
+        let inputs = input_names(&graph)?;
         Ok(Self {
             drawing,
             graph,
-            fonts,
+            inputs,
             names,
             calls: Cell::new(0),
         })
@@ -116,13 +118,13 @@ impl<'a> Writer<'a> {
         if !params.is_empty() {
             top.push(("params", Json::Array(params)));
         }
-        if !self.fonts.is_empty() {
+        if !self.inputs.is_empty() {
             top.push((
                 "inputs",
-                Json::object(self.fonts.iter().map(|(name, sha256)| {
+                Json::object(self.inputs.iter().map(|(name, kind, sha256)| {
                     (
                         name.as_str(),
-                        Json::object([("kind", Json::text("font")), ("sha256", Json::text(sha256))]),
+                        Json::object([("kind", Json::text(kind)), ("sha256", Json::text(sha256))]),
                     )
                 })),
             ));
@@ -147,7 +149,7 @@ impl<'a> Writer<'a> {
     /// The calls that make the drawing ending at `last`, from its source: written in place back to a node that is
     /// shared, which is a reference to it. `entry` writes the call of `last` itself even if it is shared: that is the
     /// entry under its name.
-    fn chain(&self, last: usize, entry: bool) -> Result<Vec<Json>, Error> {
+    pub(super) fn chain(&self, last: usize, entry: bool) -> Result<Vec<Json>, Error> {
         let mut groups = Vec::new();
         let mut at = Some(last);
         while let Some(node) = at {
@@ -230,8 +232,8 @@ impl<'a> Writer<'a> {
             Given::Text(text) => Json::text(text),
             Given::Color(color) => Json::String(color_text(*color)),
             Given::Paint(paint) => paint_json(paint),
-            Given::Field(field) => super::fields::field_json(field),
-            Given::Flow(flow) => super::fields::flow_json(flow),
+            Given::Field(field) => self.field_json(field, taken)?,
+            Given::Flow(flow) => self.flow_json(flow, taken)?,
             Given::Path(path) => Json::String(path.to_svg_path()),
             Given::Shape(shape) => shape_json(shape),
             Given::Drawings(items) => {
@@ -252,10 +254,10 @@ impl<'a> Writer<'a> {
             Given::Values(values) => values_json(values),
             Given::Font(font) => {
                 let digest = font.sha256();
-                let (name, _) = self
-                    .fonts
+                let (name, ..) = self
+                    .inputs
                     .iter()
-                    .find(|(_, sha256)| *sha256 == digest)
+                    .find(|(_, kind, sha256)| *kind == "font" && *sha256 == digest)
                     .ok_or_else(|| Error::parameter("to_json", "a font of the drawing is not among its inputs"))?;
                 Json::text(name)
             }
@@ -281,7 +283,7 @@ impl<'a> Writer<'a> {
 
     /// An expression with every part that is a plain number folded to its value, a per-item number kept; [`Expr::view`] gives the operands of
     /// `add` and `mul` with a literal one first.
-    fn expression(&self, expr: &Expr) -> Result<Json, Error> {
+    pub(super) fn expression(&self, expr: &Expr) -> Result<Json, Error> {
         if expr.is_plain() {
             return Ok(Json::Number(expr.value(&Values::new())?));
         }
@@ -314,58 +316,81 @@ impl<'a> Writer<'a> {
     }
 }
 
-/// The inputs of a drawing: each font once, with the name it is written under and the SHA-256 of its bytes, in the order
-/// the walk of formats.md meets them. A font keeps the name it was given, else it is called `font1`, `font2`... in that
-/// order, skipping names the drawing gives; fonts with equal bytes are one input.
+/// The name of the map input whose bytes have the SHA-256 `sha256`.
+impl Writer<'_> {
+    pub(super) fn map_name(&self, sha256: &str) -> Result<&str, Error> {
+        self.inputs
+            .iter()
+            .find(|(_, kind, digest)| *kind == "map" && digest == sha256)
+            .map(|(name, ..)| name.as_str())
+            .ok_or_else(|| Error::parameter("to_json", "a map of the drawing is not among its inputs"))
+    }
+}
+
+/// The inputs of a drawing: each font and each map once, with the name it is written under and the SHA-256 of its
+/// bytes, in the order the walk of formats.md meets them. An input keeps the name it was given, else it is called
+/// `font1`, `map1`... in that order, skipping names the drawing gives; inputs of one kind with equal bytes are one input.
 ///
 /// # Errors
-/// [`Error::Parameter`] naming `to_json` if one font is given two names, or two fonts one name.
-fn font_names(graph: &Graph) -> Result<Vec<(String, String)>, Error> {
-    // the fonts by digest in walk order, each with the name it was given
-    let mut found: Vec<(String, Option<String>)> = Vec::new();
+/// [`Error::Parameter`] naming `to_json` if one input is given two names, or two inputs one name.
+fn input_names(graph: &Graph) -> Result<Vec<(String, &'static str, String)>, Error> {
+    // the inputs by kind and digest in walk order, each with the name it was given
+    let mut found: Vec<(&'static str, String, Option<String>)> = Vec::new();
+    let mut note = |kind: &'static str, digest: String, given: Option<&str>| -> Result<(), Error> {
+        match found.iter_mut().find(|(k, known, _)| *k == kind && *known == digest) {
+            None => found.push((kind, digest, given.map(str::to_owned))),
+            Some((_, _, name)) => match (name.as_deref(), given) {
+                (Some(first), Some(second)) if first != second => {
+                    return Err(Error::parameter(
+                        "to_json",
+                        format!("the {kind} {first:?} is also given as {second:?}: one input is given one name"),
+                    ));
+                }
+                (None, Some(second)) => *name = Some(second.to_owned()),
+                _ => {}
+            },
+        }
+        Ok(())
+    };
     for node in &graph.nodes {
         let runs = node.args().declared().flat_map(|(_, given)| match given {
             Given::Runs(runs) => runs.iter().flat_map(Args::declared).collect::<Vec<_>>(),
             _ => Vec::new(),
         });
         for (_, given) in node.args().declared().chain(runs) {
-            let Given::Font(font) = given else { continue };
-            let digest = font.sha256();
-            match found.iter_mut().find(|(known, _)| *known == digest) {
-                None => found.push((digest, font.name().map(str::to_owned))),
-                Some((_, name)) => match (name.as_deref(), font.name()) {
-                    (Some(first), Some(second)) if first != second => {
-                        return Err(Error::parameter(
-                            "to_json",
-                            format!("the font {first:?} is also given as {second:?}: one input is given one name"),
-                        ));
+            match given {
+                Given::Font(font) => note("font", font.sha256(), font.name())?,
+                Given::Field(field) => {
+                    if let FieldKind::Map(map) = field.kind() {
+                        note("map", map.sha256_hex(), map.name.as_deref())?;
                     }
-                    (None, Some(second)) => *name = Some(second.to_owned()),
-                    _ => {}
-                },
+                }
+                _ => {}
             }
         }
     }
-    let given: Vec<String> = found.iter().filter_map(|(_, name)| name.clone()).collect();
+    let given: Vec<&str> = found.iter().filter_map(|(_, _, name)| name.as_deref()).collect();
     for (at, name) in given.iter().enumerate() {
         if given[..at].contains(name) {
             return Err(Error::parameter(
                 "to_json",
-                format!("two different fonts are both called {name:?}: one name is given one input"),
+                format!("two different inputs are both called {name:?}: one name is given one input"),
             ));
         }
     }
-    let mut number = 0;
-    let mut automatic = || loop {
-        number += 1;
-        let name = format!("font{number}");
-        if !given.contains(&name) {
+    let taken: Vec<String> = given.iter().map(|name| (*name).to_owned()).collect();
+    let mut counts = BTreeMap::<&str, usize>::new();
+    let mut automatic = |kind: &'static str| loop {
+        let number = counts.entry(kind).or_default();
+        *number += 1;
+        let name = format!("{kind}{number}");
+        if !taken.contains(&name) {
             return name;
         }
     };
     Ok(found
         .into_iter()
-        .map(|(digest, name)| (name.unwrap_or_else(&mut automatic), digest))
+        .map(|(kind, digest, name)| (name.unwrap_or_else(|| automatic(kind)), kind, digest))
         .collect())
 }
 

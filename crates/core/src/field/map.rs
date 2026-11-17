@@ -25,11 +25,18 @@ pub(crate) struct MapData {
     pub(crate) height: usize,
     pub(crate) bytes: Vec<u8>,
     pub(crate) frame: Rect,
+    /// What a saved document calls the map, if it was given a name.
+    pub(crate) name: Option<String>,
     /// The SHA-256 of the bytes: how a document names them and how two maps are told apart.
     pub(crate) sha256: [u8; 32],
 }
 
 impl MapData {
+    /// The SHA-256 of the bytes as 64 lower-case hexadecimal digits: the name a document gives the input.
+    pub(crate) fn sha256_hex(&self) -> String {
+        crate::key::hex(&self.sha256)
+    }
+
     /// The map's value, 0 to 1, at `point`: bilinear between pixel centres, the nearest edge value beyond the frame.
     pub(crate) fn sample(&self, point: Point) -> f64 {
         let across = |p: f64, origin: f64, size: f64, count: usize| {
@@ -96,9 +103,26 @@ impl Field {
     /// # Errors
     /// [`Error::Parameter`] naming `width` unless both sizes are from 1 with at most 2^26 pixels; naming `data` unless
     /// it holds `width * height` bytes; naming `box` unless it is finite, within ±1e100 and has a width and a height
-    /// above 0.
-    pub fn map(width: usize, height: usize, data: &[u8], frame: Option<Rect>) -> Result<Self, Error> {
+    /// above 0; naming `name` unless it is letters, digits and `_` starting with a letter.
+    ///
+    /// `name` is what a saved document calls the map; whoever loads the document supplies the bytes under that name.
+    /// Without one it is `map1`, `map2`... in the order the document meets them.
+    pub fn map(
+        width: usize,
+        height: usize,
+        data: &[u8],
+        frame: Option<Rect>,
+        name: Option<&str>,
+    ) -> Result<Self, Error> {
         size_of(width, height)?;
+        if let Some(name) = name
+            && !crate::param::is_name(name)
+        {
+            return Err(Error::parameter(
+                "name",
+                format!("must be letters, digits and _, starting with a letter, got {name:?}"),
+            ));
+        }
         if data.len() != width * height {
             return Err(Error::parameter(
                 "data",
@@ -115,6 +139,7 @@ impl Field {
             height,
             bytes: data.to_vec(),
             frame,
+            name: name.map(str::to_owned),
             sha256: Sha256::digest(data).into(),
         }))
     }

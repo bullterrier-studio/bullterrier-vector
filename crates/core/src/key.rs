@@ -101,3 +101,13 @@ pub(crate) fn key_of(keyed: &impl Keyed) -> Vec<u64> {
     key.of(keyed);
     key.finish()
 }
+
+/// `bytes` as lower-case hexadecimal: how a document writes the SHA-256 of an input.
+pub(crate) fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes.iter().fold(String::new(), |mut text, byte| {
+        // writing to a String cannot fail
+        let _ = write!(text, "{byte:02x}");
+        text
+    })
+}

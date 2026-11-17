@@ -68,8 +68,8 @@ impl Drawing {
         let top = parse::parse(text)?;
         let doc = read::document(&top)?;
         let checked = checks::run(&doc, &top)?;
-        let fonts = inputs::fonts(&doc, inputs)?;
-        checks::fonts(&doc, &fonts)?;
-        build::build(&doc, &checked, &fonts)
+        let supplied = inputs::read(&doc, inputs)?;
+        checks::fonts(&doc, &supplied.fonts)?;
+        build::build(&doc, &checked, &supplied.fonts, &supplied.maps)
     }
 }

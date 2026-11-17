@@ -71,6 +71,7 @@ fn params_of(call: &Call) -> Vec<(&str, &str)> {
                     second.params(&mut found);
                 }),
                 Value::Axes(axes) => axes.iter().for_each(|axis| axis.value.params(&mut found)),
+                Value::Field(_) | Value::Flow(_) => value.field_params(&mut found),
                 Value::Values(fixed) => found.extend(fixed.iter().map(|one| (one.name.as_str(), one.pointer.as_str()))),
                 _ => {}
             }
@@ -274,6 +275,7 @@ fn first_reads<'a>(
                             second.params(&mut found);
                         }),
                         Value::Axes(axes) => axes.iter().for_each(|axis| axis.value.params(&mut found)),
+                        Value::Field(_) | Value::Flow(_) => value.field_params(&mut found),
                         _ => {}
                     }
                     for item in value.drawings() {
@@ -296,14 +298,29 @@ fn inputs(doc: &Doc) -> Result<(), Error> {
     each_call_of(doc, |call| {
         let What::Verb(verb) = &call.what else { return Ok(()) };
         for (_, value) in flat(&verb.args) {
-            if let Value::Font { name, pointer } = value {
-                match doc.inputs.iter().find(|input| &input.name == name) {
+            let named: Vec<(&str, &str, InputKind)> = match value {
+                Value::Font { name, pointer } => vec![(name, pointer, InputKind::Font)],
+                other => other
+                    .maps()
+                    .into_iter()
+                    .map(|(name, pointer)| (name, pointer, InputKind::Map))
+                    .collect(),
+            };
+            for (name, pointer, kind) in named {
+                match doc.inputs.iter().find(|input| input.name == name) {
                     None => return Err(refuse(pointer, format!("{name:?} is not an entry of `inputs`"))),
-                    Some(input) if input.kind != InputKind::Font => {
-                        return Err(refuse(pointer, format!("{name:?} is declared as a map, not a font")));
+                    Some(input) if input.kind != kind => {
+                        let (declared, wanted) = match kind {
+                            InputKind::Font => ("a map", "a font"),
+                            InputKind::Map => ("a font", "a map"),
+                        };
+                        return Err(refuse(
+                            pointer,
+                            format!("{name:?} is declared as {declared}, not {wanted}"),
+                        ));
                     }
                     Some(_) => {
-                        read.insert(name.as_str());
+                        read.insert(name);
                     }
                 }
             }

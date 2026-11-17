@@ -9,8 +9,8 @@
 mod common;
 
 use bullterrier_vector::{
-    Color, Drawing, Error, Expr, Flow, Hatch, Inputs, Mesh, Param, Path, Random, Size, Stagger, Text, Values, by_index,
-    by_order, text,
+    Color, Drawing, Error, Expr, Field, Flow, Hatch, Inputs, Mesh, Param, Path, Random, Size, Stagger, Text, Values,
+    by_index, by_order, text,
 };
 use common::fonts::synthetic;
 use common::{Outcome, parameter_refusal};
@@ -228,6 +228,18 @@ fn drawings_nested_through_the_other_of_a_boolean_step_are_drawn_and_dropped_on_
                 2 => ink.intersect(drawing, 0.01),
                 _ => ink.exclude(drawing, 0.01),
             })
+        })
+    })
+}
+
+#[test]
+fn drawings_nested_through_the_field_and_flow_of_a_hatch_are_drawn_and_dropped_on_the_smallest_stack() -> Outcome {
+    // each level hatches by the distance field and along the contour of the level below: drawings inside values
+    deepest_drawing_on_the_smallest_stack(false, |x| {
+        nested(x, DEEPEST - 1, |_, ink, drawing| {
+            let hatch =
+                Hatch::between(4.0, 5.0, Field::distance(drawing.clone(), false)?).flow(Flow::contour(drawing)?);
+            Ok(ink.hatch(&hatch, None))
         })
     })
 }
