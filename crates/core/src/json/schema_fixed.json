@@ -164,8 +164,8 @@
     "path_data": { "type": "string", "pattern": "^(\\s*[Mm][MmZzLlHhVvCcSsQqTtAa0-9eE.,+\\-\\s]*)?$" },
     "number": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/expression" }] },
     "param_name": {
-      "allOf": [{ "$ref": "#/$defs/name" }, { "not": { "enum": ["into", "pen_mm"] } }],
-      "$comment": "into and pen_mm are output options in Python, so no Param may take them"
+      "allOf": [{ "$ref": "#/$defs/name" }, { "not": { "enum": ["into", "pen_width", "tolerance", "unit", "window"] } }],
+      "$comment": "into, pen_width, tolerance, unit and window are output options in Python, so no Param may take them"
     },
     "operands": {
       "type": "array",

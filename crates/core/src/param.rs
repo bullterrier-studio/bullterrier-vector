@@ -5,9 +5,9 @@ use crate::geometry::finite;
 use crate::key::{Key, Keyed};
 
 /// The names a Param may not take: in Python an output option of the same name sits beside the Param values.
-// constant: the output options of api.md "Outputs" (`to_mesh`'s `into`, `to_plotter_svg`'s `pen_mm`, the pixel outputs'
-// `window`)
-const RESERVED_NAMES: [&str; 3] = ["into", "pen_mm", "window"];
+// constant: the output options of api.md "Outputs" (`to_mesh`'s `into`, `to_plot_svg`'s `pen_width`, `tolerance` and
+// `unit`, the pixel outputs' `window`)
+const RESERVED_NAMES: [&str; 5] = ["into", "pen_width", "tolerance", "unit", "window"];
 
 /// The span of one turn in degrees.
 // constant: a full turn
@@ -115,8 +115,8 @@ impl Param {
     /// ([`Unit::None`]) and no meaning until [`Param::unit`] and [`Param::meaning`] say so.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `name` if it is not letters, digits and `_` starting with a letter, or is `into` or
-    /// `pen_mm` (output options in Python); naming `default`, `min` or `max` if it is NaN or infinite; naming `min`
+    /// [`Error::Parameter`] naming `name` if it is not letters, digits and `_` starting with a letter, or is an output option
+    /// of Python's keywords (`into`, `pen_width`, `tolerance`, `unit`, `window`); naming `default`, `min` or `max` if it is NaN or infinite; naming `min`
     /// if it is not below `max`; naming `default` if it is outside `min..=max`.
     pub fn new(name: &str, default: f64, min: f64, max: f64) -> Result<Self, Error> {
         if !is_name(name) {

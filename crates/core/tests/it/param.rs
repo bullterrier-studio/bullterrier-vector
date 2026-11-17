@@ -36,6 +36,7 @@ fn a_param_is_made_with_a_good_name_and_range() -> Outcome {
         ("y", 5.0, -5.0, 5.0),
         ("tiny", 1e-300, 0.0, 1e-299),
         ("huge", 0.0, -1e300, 1e300),
+        ("pen_mm", 0.0, 0.0, 1.0), // retired as an output option: a free name
     ];
     for (name, default, min, max) in rows {
         Param::new(name, default, min, max).map_err(|error| format!("{name}: {error}"))?;
@@ -56,10 +57,12 @@ fn a_param_is_refused_naming_the_argument_and_the_value() -> Outcome {
         ("an output option", Param::new("into", 0.0, 0.0, 1.0), "name", "into"),
         (
             "an output option too",
-            Param::new("pen_mm", 0.0, 0.0, 1.0),
+            Param::new("pen_width", 0.0, 0.0, 1.0),
             "name",
-            "pen_mm",
+            "pen_width",
         ),
+        ("the tolerance of a plot", Param::new("tolerance", 0.0, 0.0, 1.0), "name", "tolerance"),
+        ("the unit of a plot", Param::new("unit", 0.0, 0.0, 1.0), "name", "unit"),
         (
             "the window of a pixel output",
             Param::new("window", 0.0, 0.0, 1.0),

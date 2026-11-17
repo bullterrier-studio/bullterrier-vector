@@ -101,7 +101,7 @@ def test_a_value_for_no_param_raises_a_parameter_error_naming_it():
         btvec.Drawing(LINE).to_svg(10, 10, shift=1)
 
 
-@pytest.mark.parametrize("name", ["into", "pen_mm", "window"])
+@pytest.mark.parametrize("name", ["into", "pen_width", "tolerance", "unit", "window"])
 def test_the_names_of_output_options_are_not_params_so_a_value_for_them_raises(name: str):
     with pytest.raises(btvec.ParameterError, match=name):
         btvec.Drawing(LINE).to_svg(10, 10, **{name: 1})

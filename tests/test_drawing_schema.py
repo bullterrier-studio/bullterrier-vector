@@ -185,7 +185,7 @@ BAD = [
         id="a Param named like an output option",
     ),
     pytest.param(
-        square_with({"with_values": {"pen_mm": 0.5}}), "not", "/root/1/with_values", id="fixing an output option"
+        square_with({"with_values": {"pen_width": 0.5}}), "not", "/root/1/with_values", id="fixing an output option"
     ),
     pytest.param(
         square_with({"hatch": {"spacing": [2.4, 14]}}), "required", "/root/1/hatch", id="a spacing pair without tone"

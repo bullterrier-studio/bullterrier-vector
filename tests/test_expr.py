@@ -91,7 +91,7 @@ def test_a_param_of_the_wrong_type_is_a_type_error(arguments):
         pytest.param({"name": "2x"}, "name", "2x", id="name starts with a digit"),
         pytest.param({"name": "a-b"}, "name", "a-b", id="name with a dash"),
         pytest.param({"name": "into"}, "name", "into", id="a name an output option takes"),
-        pytest.param({"name": "pen_mm"}, "name", "pen_mm", id="another output option"),
+        pytest.param({"name": "pen_width"}, "name", "pen_width", id="another output option"),
         pytest.param({"min": 1}, "min", "1", id="min equal to max"),
         pytest.param({"min": 2}, "min", "2", id="min above max"),
         pytest.param({"default": 1.5}, "default", "1.5", id="default above max"),

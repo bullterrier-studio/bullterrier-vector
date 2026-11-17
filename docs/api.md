@@ -778,7 +778,7 @@ the drawing is the argument `drawing`, an array of calls (one path is `[{"path":
 
 A Param in `deg` or `cycle` is cyclic: any value is accepted and wraps into its range, which spans one turn; a
 default at the end of the range is read as its start (`default=360` is 0), like the same value given. Errors
-(`ParameterError`): a bad name, a name an output option takes in Python (`into`, `pen_mm`), `min` not below `max`, a
+(`ParameterError`): a bad name, a name an output option takes in Python (`into`, `pen_width`, `tolerance`, `unit`, `window`), `min` not below `max`, a
 default outside the range, a cyclic range other than one turn.
 
 Arithmetic (`+`, `-`, `*`, `/`, unary `-`) on Params and numbers builds an `Expr`, which saves with the drawing. A
