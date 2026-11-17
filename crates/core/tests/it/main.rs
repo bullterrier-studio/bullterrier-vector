@@ -52,6 +52,7 @@ mod json_schema;
 mod json_text;
 mod json_write;
 mod lines_bands;
+mod lines_limits;
 mod lines_rows;
 mod lines_stipple;
 mod lines_within;

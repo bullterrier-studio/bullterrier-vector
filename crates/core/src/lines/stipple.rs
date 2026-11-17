@@ -159,6 +159,9 @@ impl Path {
         let Ok(bounds) = self.bounds() else {
             return Ok(Path::new());
         };
+        if !self.may_fill() {
+            return Ok(Path::new());
+        }
         let reach = bounds
             .x
             .abs()

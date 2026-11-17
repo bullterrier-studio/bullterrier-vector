@@ -318,6 +318,9 @@ impl Path {
         let Ok(bounds) = self.bounds() else {
             return Ok(Path::new());
         };
+        if !self.may_fill() {
+            return Ok(Path::new());
+        }
         let carrier = carrier(plan, bounds, charge)?;
         let inside = carrier.within(self)?;
         tone.charge_reads("spacing", "bands", inside.weight() as f64)?;
@@ -337,11 +340,11 @@ impl Path {
 /// A carrier line: its points and whether it closes on itself.
 type Carried = (Vec<Point>, bool);
 
-/// The error of a carrier that would have more points than `MAX_SAMPLES`.
-fn too_many() -> Error {
+/// The error of a carrier that would have more points than `MAX_SAMPLES`; `name` is the argument that made it so.
+fn too_many(name: &str) -> Error {
     Error::parameter(
-        "spacing",
-        format!("is too small for a region this large: it would need over {MAX_SAMPLES} points"),
+        name,
+        format!("would need over {MAX_SAMPLES} points to cover a region this large"),
     )
 }
 
@@ -386,8 +389,9 @@ fn straight(plan: &Plan, corners: &[Point; 4], step: f64) -> Result<Vec<Carried>
     let (n_min, n_max) = range(corners.iter().map(across));
     let count = ((n_max - n_min - plan.spacing / 2.0) / plan.spacing).floor() + 1.0;
     let samples = ((u_max - u_min) / step).ceil() + 1.0;
-    if count * samples > MAX_SAMPLES {
-        return Err(too_many());
+    let points = count.max(1.0) * samples;
+    if points.is_nan() || points > MAX_SAMPLES {
+        return Err(too_many("spacing"));
     }
     let mut lines = Vec::new();
     for k in 0..count.max(0.0) as usize {
@@ -424,15 +428,28 @@ fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> R
         .iter()
         .map(|p| length(p.x - centre.x, p.y - centre.y))
         .fold(0.0, f64::max);
+    // the points of a far ring or arm cannot be told apart at a step
+    let reach = centre.x.abs().max(centre.y.abs()) + d_max;
+    if reach + step <= reach {
+        return Err(Error::parameter(
+            "centre",
+            format!("is too far from the region: a step of the spacing would not move at {reach}"),
+        ));
+    }
     let (low, high) = (d_min / plan.spacing, d_max / plan.spacing);
-    let area = std::f64::consts::PI * (d_max * d_max - d_min * d_min);
+    // the rings are k = first..=last at radius (k + 1/2) spacing, each of TAU radius / step points at least RING_POINTS;
+    // counted in f64 and before any is made, with no difference of squares to cancel
+    let (first, last) = ((low - 0.5).ceil().max(0.0), (high - 0.5).floor());
+    let rings = (last - first + 1.0).max(0.0);
     let samples = match plan.family {
-        Family::Rings => area / (plan.spacing * step) + RING_POINTS * (high - low + 1.0),
-        Family::Spiral => area / plan.spacing / step,
+        Family::Rings => rings * RING_POINTS + TAU / STEP * rings * (first + last + 1.0) / 2.0,
+        Family::Spiral => std::f64::consts::PI * (d_max - d_min) * (d_max + d_min) / plan.spacing / step,
         _ => TAU * high.max(1.0) * ((d_max - d_min) / step + 1.0),
     };
-    if samples > MAX_SAMPLES {
-        return Err(too_many());
+    if samples.is_nan() || samples > MAX_SAMPLES {
+        // a centre away from the region is what stretches a ring or an arm out: name it, when the default would do
+        let name = if plan.centre.is_some() && d_min > 0.0 { "centre" } else { "spacing" };
+        return Err(too_many(name));
     }
     let at = |radius: f64, angle: f64| {
         let (sin, cos) = sin_cos(angle);
@@ -442,8 +459,7 @@ fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> R
     let mut lines = Vec::new();
     match plan.family {
         Family::Rings => {
-            let first = (low - 0.5).ceil().max(0.0) as usize;
-            for k in first.. {
+            for k in first as usize.. {
                 let radius = (k as f64 + 0.5) * plan.spacing;
                 if radius > d_max {
                     break;

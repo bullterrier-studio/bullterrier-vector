@@ -104,6 +104,9 @@ impl Path {
                 format!("must be within ±{MAX_COORDINATE}, got {amplitude}"),
             ));
         }
+        if !self.may_fill() {
+            return Ok(Path::new());
+        }
         let region = Region::of(self, charge)?;
         let Some((top, bottom)) = region.extent() else {
             return Ok(Path::new());
@@ -123,7 +126,8 @@ impl Path {
             0.0
         };
         let columns = ((right - left) / step).ceil() + 1.0;
-        if rows * columns > MAX_SAMPLES {
+        // the lattice of columns is made whatever the rows, so it is bounded on its own
+        if rows.max(1.0) * columns > MAX_SAMPLES {
             return Err(Error::parameter(
                 "spacing",
                 format!("is too small for a region this large: it would need over {MAX_SAMPLES} points"),
