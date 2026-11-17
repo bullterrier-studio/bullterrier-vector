@@ -729,3 +729,23 @@ def test_the_node_example_of_flow_hatch_carries_the_document_of_the_python_drawi
     drawing = run("flow_hatch")["drawing"]
     document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "flow_hatch.json"
     assert document.read_text(encoding="utf-8") == drawing.to_json()
+
+
+def test_line_families_draws_each_hill_with_one_family_inside_its_circle(run):
+    found = run("line_families")
+    rows, rings, dots = found["drawing"].shapes()
+    assert (rows.style.stroke, rings.style.fill, dots.style.fill) == ("#16151aff", "#16151aff", "#c8341cff")
+    for shape, hill in zip((rows, rings, dots), found["hills"], strict=True):
+        inner, outer = shape.path.bounds, hill.bounds
+        assert inner.x >= outer.x - 2
+        assert inner.x + inner.width <= outer.x + outer.width + 2
+        assert inner.y >= outer.y - 2
+        assert inner.y + inner.height <= outer.y + outer.height + 2
+    # the plot has a layer for each of the two pens: ink and red
+    assert found["frames"]["plot"].count('inkscape:groupmode="layer"') == 2
+
+
+def test_the_node_example_of_line_families_carries_the_document_of_the_python_drawing(run):
+    drawing = run("line_families")["drawing"]
+    document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "line_families.json"
+    assert document.read_text(encoding="utf-8") == drawing.to_json()

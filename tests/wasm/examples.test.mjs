@@ -13,6 +13,7 @@ const EXAMPLES = {
   flow_hatch: "still or light",
   glyph_morph: "start, half or end",
   kinetic_type: "hairlines, kick, bend or morph",
+  line_families: "still or plot",
 };
 
 for (const [name, frames] of Object.entries(EXAMPLES)) {
