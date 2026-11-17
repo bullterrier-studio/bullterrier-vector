@@ -192,7 +192,11 @@ fn to_map_of_a_field_too_costly_to_read_is_refused_before_it_starts() -> Outcome
     assert!(message.contains("to_map"), "{message}");
     assert!(started.elapsed().as_secs() < 5);
     // the same call on a cheap field, and a small map of this one, are as before
-    assert!(Field::ramp((0.0, 0.0), (4.0, 0.0))?.to_map(1024, 1024, None, 0.0, 1.0).is_ok());
+    assert!(
+        Field::ramp((0.0, 0.0), (4.0, 0.0))?
+            .to_map(1024, 1024, None, 0.0, 1.0)
+            .is_ok()
+    );
     assert!(field.to_map(64, 64, None, 0.0, 100.0).is_ok());
     Ok(())
 }

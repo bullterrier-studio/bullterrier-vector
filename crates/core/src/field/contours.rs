@@ -148,7 +148,12 @@ impl Grid {
 fn cells_along(extent: f64, cell: f64) -> f64 {
     let n = extent / cell;
     let whole = n.round();
-    (if (n - whole).abs() <= 1e-9 * whole { whole } else { n.ceil() }).max(1.0)
+    (if (n - whole).abs() <= 1e-9 * whole {
+        whole
+    } else {
+        n.ceil()
+    })
+    .max(1.0)
 }
 
 impl Field {

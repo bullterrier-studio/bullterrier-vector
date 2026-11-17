@@ -184,7 +184,12 @@ fn a_grid_of_whole_cells_is_not_made_one_cell_too_many_by_rounding() -> Outcome 
             }
         }
     }
-    assert!(off.is_empty(), "{} cases off, first {:?}", off.len(), &off[..off.len().min(5)]);
+    assert!(
+        off.is_empty(),
+        "{} cases off, first {:?}",
+        off.len(),
+        &off[..off.len().min(5)]
+    );
     Ok(())
 }
 
