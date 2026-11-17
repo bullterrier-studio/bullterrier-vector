@@ -1545,6 +1545,51 @@ holds.
 - **Limit: halftone's tone is still a number.** `halftone(tone=)` takes no field; the reference `halftone.json` (a map as the
   tone) waits for a later batch.
 
+## Line families, plotter output and tidy contours (V15c)
+
+- **Three verbs, not one `lines` with a family.** `rows` (displaced rows), `bands` (width carries tone) and `stipple` (dots)
+  have different outputs (open lines, closed outlines, closed dots) and different arguments; one verb would have been a
+  union of unrelated options. The carriers of `bands` are one verb because they differ only in where the centre lines run.
+  *Rejected:* a `family` for rows and dots, and a rotation for rows (turn the region instead).
+- **A tone is read where the centre line is; a width is `(at tone 0, at tone 1)`.** As `hatch`'s spacing pair, so the call
+  reads the same in every family; the width is the documented mapping and the oracle reads it off the polygon's vertices.
+- **Hidden lines by a horizon, conservative between points.** Rows are made from the nearest (lowest) up; a horizon holds the
+  lowest height seen at each point of one shared lattice, and a point is seen when it is above it. Between lattice points the
+  horizon is the interpolation of its two values, which lies at or below the true envelope of the nearer rows, so a drawn
+  point is never behind a nearer row (the test rebuilds every row and checks); the cost is that a row can end a fraction of a
+  step early where two rows cross between points, and at a region's edge that falls between points. *Reason for the lattice:*
+  one pass, no segment intersection, and spans from `Region::spans_at` give the region's edge exactly.
+- **Stipple is a threshold, not blue noise.** An R2 sequence over the lattice picks the cells that get a dot, so the count in
+  any slab follows the density to a cell or two with no relaxation and no state; the jitter inside a cell breaks the grid.
+  *Rejected:* dart throwing with a minimum distance (state, order-dependent, cost), and Poisson disc.
+- **`within` cuts exactly, from the outline's own edges.** Sampling the vertices missed a two-point line across a circle;
+  every edge is cut where it meets an edge of the region and each part kept by its middle, never by its start (a point on the
+  outline is inside or out by chance). It is the one way to keep contours inside a subject, so a `contours` of a matte gives
+  the silhouette and `within` the lines of the picture. Not a verb yet: a document would need a region argument.
+- **Contour lines run with the high side on the left.** Marching squares followed an edge in whichever direction it met it
+  first, so the loops of a matte did not fill as the subject (a hole filled in). Orienting each line by the corner that is high
+  at its first edge makes a `contours(0.5)` of a matte a region the nonzero rule reads; a closed loop inside a hole winds the
+  other way. *Reason for `smooth` on the grid, not the lines:* a line from a smooth field is smooth at every level and its tiny
+  loops disappear before they are traced; smoothing the lines after would keep the loops and the bunching. `smooth` is a
+  Gaussian in design pixels (refused past 2 billion steps), `min_length` drops short lines. The weights per level, the levels
+  and the palette are the poster's, not the library's.
+- **Plotter output is a writer, not a step.** `to_plot_svg` is `to_svg` for a pen: strokes only, a layer per pen (a stroke or
+  fill colour), written in Inkscape's layer convention. The pen width is the plot's (`Plot`), a fill is `hatch` at that width, and
+  what has no pen form (gradient, halftone, shadow, clip, mask, knockout, blend) is refused naming the shape, as the mesh
+  refuses what it cannot draw. Order is nearest neighbour with flips and, for a closed loop, the nearest vertex; a grid of the
+  ends finds it (ties go to the earlier stroke, so the order is deterministic). Measured on twelve seeds of seven strokes, at
+  most 1.41 times the best order; 50,783 lines of the poster order in 2.4 s. *Rejected:* an optimal tour (NP-hard; two-opt
+  improves a little and costs time); a document verb (the plot is an output).
+- **Douglas and Peucker without recursion, with a budget.** The worst case is quadratic (a spiral), so the tests are counted
+  and a call over a billion is refused naming `tolerance`; the stack stays flat (rule 7).
+- **A name tells fonts apart, as it does maps.** Two fonts with equal bytes and different names shared a key, so a drawing
+  using both saved with one name for both; the name is now in the key and `to_json` refuses the pair, as for maps.
+- **A window of a pixel render once differed in one pixel by one level** for `bands` at spacing 7 and 20 degrees over the
+  differential's map (one pixel, one channel; rasteriser rounding where outlines of nearby bands meet). Not a visible
+  difference (rule 2): the corpus uses spacing 8, which is exact; recorded here, nothing added.
+- **Left for later.** A document verb for contours and `within` (V14's `trace` takes a field), rays whose width follows the
+  radius, a field in `halftone`'s `tone`, two-opt for the plotter order, hatching that avoids the strokes of other pens.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

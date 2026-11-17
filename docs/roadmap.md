@@ -62,7 +62,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V13 | Morph, any shape to any shape | M | Done 2026-11-16 |
 | M3 | The kinetic type piece: `examples/kinetic_type.{py,rs,mjs}`, the first public demo | S | **M3 kinetic type piece**, done 2026-11-16 |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
-| V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output (V15a and V15b done, V15c planned) | L | **M5 poster piece** |
+| V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output (V15a, V15b and V15c done) | L | **M5 poster piece** |
 | V16 | SVG import (logos) | S | Done 2026-11-11, trimmed |
 | V17 | Presets as JSON | S | |
 | V18 | Command line: `render`, `describe`, `list`, `validate` | S | |
@@ -73,7 +73,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines) and V15b (fields and lines) are done; next: V15c
+unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done; next: V14 (trace, the M4 piece)
 (see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
 Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12, V13 and M3 are done; V15 (before V14) follows.
@@ -675,9 +675,15 @@ document verb for contour lines (V14's `trace` takes a field), a field in `halft
 demo still shows where two strokes meet at a right angle (the line field has a defect there: a few ticks 6 to 8 px long at the F's
 stem and arm, a diagonal seam at outer corners): a join along the bisector, or dropping chord ticks near corners.
 
-**V15c.** Tone-driven line families (rows displaced by tone, ridgelines with hidden lines removed, lines whose width carries
-tone along waves, rings, a spiral or rays, stippled dots; [dither-and-print.md](dither-and-print.md)), plotter output (stroke
-only, ordered to reduce pen travel, simplified, solids as pen-width hatching, one layer per pen) and the M5 poster piece.
+**V15c, done 2026-11-17; V15 done and M5 reached.** `rows` (ridgelines with hidden lines removed), `bands` (lines whose width
+carries a tone along straight lines, waves, rings, a spiral or rays) and `stipple` (dots whose density follows a tone), each
+on a `Path` and as a `Drawing` step, in Rust, Python and documents (so WebAssembly); `Path.within(region)` (lines kept inside a
+region); `Field.contours(.., smooth=, min_length=)` with lines running the high side on the left (a matte's `contours(0.5)` is
+its silhouette); `Drawing.to_plot_svg` (strokes only, a layer per pen, nearest-neighbour order, simplified, solids hatched at the
+pen width; `toPlotSvg` in JavaScript); a font's name in its cache key; `examples/line_families.py` in the three languages. The
+M5 piece is the demos folder's poster of the owner's dog: his outline from image's subject matte, drawn as rings whose width
+is his tone, a headline hatched along its own outline keeping clear of him, a stippled shadow, and the plotter SVG of it (50,000
+lines in three pens). Reasons and limits: `design-decisions.md`, "Line families, plotter output and tidy contours (V15c)".
 
 Distance fields have a second job: a signed, normalised distance field of letters or shapes is the relief that
 image's `relight`, and later `glass`, light. Written out as a grayscale map (`field.to_map`, V15b: bytes, the input form of `Field.map`), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link

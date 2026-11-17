@@ -38,6 +38,7 @@ import bullterrier_vector as btvec
 | [wobble_outline.py](../examples/wobble_outline.py) | a small noise wobble; a font axis as a described parameter |
 | [bent_type.py](../examples/bent_type.py), [.rs](../crates/core/examples/bent_type.rs), [.mjs](../crates/wasm/examples/bent_type.mjs) | the deformer half of piece 1, in all three languages: a line that arches, ripples, twists and wobbles on `progress` and `phase` |
 | [flow_hatch.py](../examples/flow_hatch.py), [.rs](../crates/core/examples/flow_hatch.rs), [.mjs](../crates/wasm/examples/flow_hatch.mjs) | a headline hatched along its own outline, closer at the edge, in all three languages |
+| [line_families.py](../examples/line_families.py), [.rs](../crates/core/examples/line_families.rs), [.mjs](../crates/wasm/examples/line_families.mjs) | three hills drawn only from lines that follow a tone (ridgelines, rings, dots), and the plotter SVG of them, in all three languages |
 | [glyph_morph.py](../examples/glyph_morph.py), [.rs](../crates/core/examples/glyph_morph.rs), [.mjs](../crates/wasm/examples/glyph_morph.mjs) | a letter that turns into a circle and CAT into HORSE on one `progress`, in all three languages |
 | [glyph_scatter.py](../examples/glyph_scatter.py) | letters split into parts, scattered by seeded random numbers |
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
@@ -397,6 +398,34 @@ And as a document (two passes; the `photo` input is supplied by whoever loads it
 Each pass places its own lines, so passes cross; a lighter tone gets fewer of them. `hatch` reads the `tone` of a
 `Field.map` at the pixel centres, bilinear between them.
 
+### Line families (V15c)
+
+A tone (a `Field`, or a number) makes the look of lines: `rows`, `bands` and `stipple` work inside the region each shape
+fills (nonzero rule), on a `Path` and as steps on a `Drawing` (a shape keeps its style, attributes and `origin`), with the
+Params of a number read once with the values of the draw (a per-item number is refused). Every call is bounded before it
+starts: a spacing too small for the region is a `ParameterError` naming `spacing`.
+
+| Call | Result | Arguments |
+|---|---|---|
+| `rows(spacing, *, tone, amplitude)` | open lines: ridgelines | rows `spacing` apart, the first half a spacing below the region's top, each lifted towards the top by `amplitude` times the tone at the point of the row (a negative amplitude pushes down). A row hides what lies behind it (higher up the picture, below its curve): it is cut where a nearer row passes over it. Points are half a spacing apart. |
+| `bands(spacing, *, tone, width, family="lines", angle=0, centre=None, wavelength=None, amplitude=None)` | closed outlines, for filling | a carrier laid over the region and cut to it, each line as wide at a point as `width = (at tone 0, at tone 1)` says (linear, held beyond; the tone is read on the centre line). `family`: `"lines"` along `angle` degrees, `"waves"` (needs `wavelength` and `amplitude`; a sine in phase at the origin), `"rings"` round `centre` (default the middle of the region's box), `"spiral"` (arms `spacing` apart along any ray from the centre, turned by `angle`) and `"rays"` (as many as are `spacing` apart at the box's farthest corner, so they crowd near the centre: use a narrow width). A ring wholly inside is two loops, the inner the other way. |
+| `stipple(spacing, *, tone, radius, density=(1, 0), seed=0)` | closed round dots, for filling | one dot at most in each cell of a square lattice `spacing` apart; `density` is the share of cells that get a dot where the tone is 0 and where it is 1. Which cells is a low-discrepancy threshold (R2) moved by `seed`, so the dots of a tone are evenly spread and their count follows the tone to within a cell or two. |
+| `Path.within(region)` | open lines | the parts of a path's lines inside the region `region` fills, cut exactly where they cross its outline; a closed loop wholly inside stays closed. A value on a `Path` only so far, not a step. |
+
+```python
+photo = btvec.Field.map(w, h, grey_bytes, box=(0, 0, 1080, 1440))
+dog = matte_field.contours(0.5, box=centres, cell=2, smooth=3, min_length=200)  # the dog's outline, from image's matte
+engraving = dog.bands(6, tone=photo, width=(5, 0.4), family="rings", centre=nose)
+btvec.Drawing(engraving).fill("#15161a")
+```
+
+Rust: `Rows::new(spacing, tone, amplitude)?`, `Bands::lines(spacing, tone, (thin, thick))?` (also `waves`, `rings`,
+`spiral`, `rays`; `.angle(..)`, `.centre(..)`), `Stipple::new(spacing, tone, radius)?` (`.density(a, b)`, `.seed(n)`), then
+`path.rows(&rows)?` or `drawing.rows(&rows)`. Errors: `ParameterError` for a spacing not above 0, a `width` below 0, a
+`wavelength` not above 0, a `density` outside 0 to 1, a `seed` that is not whole, a non-finite number, a carrier of over 2
+million points (`bands`), 5 million (`rows`) or 2 million cells (`stipple`), or more than 10 million points. A drawing in the
+tone's `Field` is taken by the step like `hatch`'s. [line_families.py](../examples/line_families.py) draws a hill of each.
+
 ## Drawing
 
 `Drawing(*items, size=None)`: the items (paths, shapes, drawings) stacked in order, the first at the bottom. `size` is
@@ -716,7 +745,7 @@ To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Fie
 | `font.features` | property | the OpenType feature tags its `GSUB` and `GPOS` tables list, sorted (Rust: `Font::features()`) | |
 | `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white): `data` is `height` rows of `width` bytes, top row first (Python: `bytes`, a `bytearray`, a `memoryview`, a `numpy` array of `uint8` or any contiguous 8-bit buffer, or a list of whole numbers from 0 to 255; Rust: `Field::map(w, h, &bytes, Some(rect), Some("name"))`). It lies over `box` `(x, y, width, height)` in design units (default: one pixel a map pixel, from the origin); a pixel's value stands at its centre, the field is bilinear between centres and holds the nearest edge value beyond the box. A saved drawing names it (an input of kind `map`, with its SHA-256) and the loader supplies the bytes. At most 2^24 pixels | `len(data)` not `width × height`; a size of 0 or past 2^24 pixels; a `box` not finite, past ±1e100 or with no width or height; a `name` that is not letters, digits and `_` |
 | `field.to_map` | `to_map(width, height, *, box=None, low=0, high=1)` (Rust: `to_map(w, h, Some(rect), low, high)`) | the field written out as an 8-bit grayscale map, as `bytes` (Rust: `Vec<u8>`), `height` rows of `width` bytes, top row first: each pixel is the field at its centre over `box` (default as for `Field.map`), `low` written as 0 and `high` as 255, linear between, held beyond, rounded to the nearest level. It is the input form of `Field.map` and of image's `relight` (`Field.distance(word, normalized=True).to_map(w, h, box=frame)` is a bevel: 0 on the edge, rising inwards); a raw distance in pixels needs a `low` and `high` (`-bevel` to `0`) to keep its range | `width` or `height` of 0 or past 2^24 pixels in all, or a field too costly to read that many times (a distance field of a very detailed drawing; the message says so, before any pixel is made); `box` as for `Field.map`; `high` not above `low` or either not finite |
-| `field.contours` | `contours(levels, *, box, cell)` (Rust: `contours(&[levels], rect, cell)`) | the lines where the field equals each of `levels` (a number or a list), as one `Path`: marching squares over `box` cut into equal cells no wider than `cell`, the field read at their corners and a line crossing a cell edge at the linear interpolation of the two readings (a reading equal to the level counts as above it; a saddle joins its high corners when the mean of its four is high). A line that reaches the box ends there, open; any other is closed. Levels are made in the order given. To follow a map's pixels, give `box` the box of the pixel centres (the map's box inset half a pixel) and a `cell` of one pixel. Like `Path.arc` it is a value, not a step: a saved drawing holds its path data | `levels` more than 256 or not finite; `cell` not above 0, a grid of over 4 million nodes, or a field too costly to read at that many nodes (a distance field of a very detailed drawing; the message says so); `box` as for `Field.map` (it has no default: a field, unlike a map, has no extent of its own); more than 10 million points |
+| `field.contours` | `contours(levels, *, box, cell, smooth=0, min_length=0)` (Rust: `contours(&[levels], rect, cell)`, and `contours_with(.., &Tidy::default().smooth(s).min_length(l))`) | the lines where the field equals each of `levels` (a number or a list), as one `Path`: marching squares over `box` cut into equal cells no wider than `cell`, the field read at their corners and a line crossing a cell edge at the linear interpolation of the two readings (a reading equal to the level counts as above it; a saddle joins its high corners when the mean of its four is high). A line that reaches the box ends there, open; any other is closed. Every line runs with the high side (a reading at or above the level) on its left as drawn (y down), so the loops of a map that is high inside a region wind one way and its holes the other: `contours(0.5, ..)` of a matte is that region's outline, ready to fill, to hatch inside or to give `rows`. `smooth` blurs the readings with a Gaussian of that many pixels before tracing (grass and grain make hundreds of tiny loops and a jagged line; a few pixels removes them; the blur is refused past 2 billion steps), `min_length` drops every line shorter than that many pixels. Levels are made in the order given. To follow a map's pixels, give `box` the box of the pixel centres (the map's box inset half a pixel) and a `cell` of one pixel. Like `Path.arc` it is a value, not a step: a saved drawing holds its path data | `levels` more than 256 or not finite; `cell` not above 0, a grid of over 4 million nodes, or a field too costly to read at that many nodes (a distance field of a very detailed drawing; the message says so); `box` as for `Field.map` (it has no default: a field, unlike a map, has no extent of its own); more than 10 million points |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
 | `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Path`, a `Shape` or a `Drawing` (all its shapes together; a `hatch` step reads the drawing again with the values it draws with, so a headline whose weight is a `Param` is hatched along its outline at that weight): signed distance to the nearest outline in pixels, negative inside (nonzero rule); normalised: inside each part (an outline with its holes) 0 on its outer edge rising to 1 on its holes' edges (`d / (d + distance to the holes)`), or, for a part with no hole, to 1 at its deepest point (`d` over its largest inscribed radius, estimated to about a percent), 0 outside and inside a hole. Where parts overlap the distance is to the nearest edge of any: `resolve` first | `GeometryError`: the drawing has no edge; the drawing's own error |
 | `field.at` | `at(x, y)` | the field's number at a point | |
@@ -857,7 +886,7 @@ opens nothing.
 | `to_svg` | `to_svg(width, height, /, **values)` | an SVG document of that size; shadows, halftone, knockouts, clips, masks and blends kept, so it shows what the pixels show |
 | `to_png` | `to_png(width, height, /, *, window=None, **values)` | PNG bytes, 8-bit RGBA, transparent where nothing is drawn; of the window, if given |
 | `to_rgba` | `to_rgba(width, height, /, *, window=None, **values)` | `width × height × 4` bytes (a window's `w × h × 4`), rows top to bottom, straight alpha |
-| `to_plotter_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
+| `to_plot_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
 | `to_mesh` | `to_mesh(width, height, /, *, into=None, **values)` | triangles for the picture (below) |
 | `to_json` | `to_json()` | the drawing as JSON: the same tree written down |
 | `Drawing.from_json` | `Drawing.from_json(text, *, inputs=None)` | the drawing back, given the bytes (`bytes` or `bytearray`) of its inputs by name, a dict; it draws to identical bytes. A static method. In Rust `Drawing::from_json(text, &Inputs::new().set("anybody", bytes))`, in JavaScript `Drawing.fromJson(text, { anybody: bytes })` with a `Uint8Array` each |
@@ -927,9 +956,23 @@ and blur passes, which three flat buffers and draw ranges cannot hold (a later r
 
 ### Plotter
 
-A pen draws lines, so `to_plotter_svg` says what becomes of everything else: a fill becomes hatching at `pen_mm`
-spacing; halftone dots become circles; a knockout is applied as a boolean; a shape at opacity 0 is not drawn. Shadows,
-any other opacity and blend modes have no pen form and are left out.
+`Drawing.to_plot_svg(width, height, /, *, pen_width, tolerance=None, **values)` (Rust `to_plot_svg(size, &values, &Plot::new(pen_width)?.tolerance(t))`,
+JavaScript `toPlotSvg(width, height, penWidth, tolerance?, values?)`) writes strokes only. A pen draws lines, so:
+
+- **One layer per pen**, a pen being a stroke or fill colour (alpha ignored), in the order the colours first appear:
+  `<g inkscape:groupmode="layer" inkscape:label="pen 1 #d0341a" fill="none" stroke="#d0341a" stroke-width=..>` holding one `<path>` per line.
+- **A stroke is its centre line**, the shape's own width ignored (`pen_width` is the pen's). **A fill is hatched** at 45 degrees
+  `pen_width` apart inside its outline (a solid too small for a line is its outline), so a `bands` drawing plots as the
+  hatched bands.
+- **Simplified** (Douglas and Peucker) to within `tolerance` design pixels of the line the drawing has, default a quarter of
+  `pen_width`; 0 keeps every point. A closed outline is a line that comes back to its start. The simplification is refused
+  past a billion distance tests.
+- **Ordered** by nearest neighbour to cut pen-up travel: the pen starts at the top left corner of each layer, draws the line
+  with the nearest end (reversed if that is its last; a closed loop entered at its nearest vertex), and goes on from where it
+  ended. A grid finds the nearest end, so a plot of 50,000 lines orders in about two seconds. Measured on small cases the
+  travel is at most 1.41 times the best order over twelve seeds of seven strokes.
+- **Refused, naming the shape** (`shape 3`): a gradient, halftone, shadow, clip, mask, knockout or blend mode, which a pen
+  cannot draw. Opacity is ignored. A shape drawn later does not hide one drawn earlier.
 
 Leave the paper out of the drawing sent to the plotter: a background rectangle filled with the paper's colour becomes
 a solid block of hatching. Keep the inks in a drawing of their own and stack the paper under it only for pixels and SVG
@@ -1125,7 +1168,7 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 | 7 | Curve fitting through dense polylines | `simplify`; `trace(tolerance=)` |
 | 8 | One picture to both pixels and SVG, every effect kept | `to_svg`, `to_png`, `to_rgba` |
 | 9 | A fast halftone fill | `halftone` |
-| 10 | Plotter export: stroke only, ordered, simplified, solids hatched, a layer per pen | `to_plotter_svg` |
+| 10 | Plotter export: stroke only, ordered, simplified, solids hatched, a layer per pen | `to_plot_svg` |
 | 11 | A variable-width stroke, tapered at free ends | `outline(width, profile=)` as a filled outline, and `stroke(profile=)` drawn the same way by every output |
 | 12 | Partial path by length from a stable start | `slice(0, progress)`: every outline the library makes in one orientation and order, closed ones measured from the topmost point, or from the point nearest `near=` where the top jumps |
 | 13 | Fitting text to a box by a variable axis, with a clear signal when the axis runs out | `text(width=, fit=)`; `ParameterError` naming the line and the width reached |
