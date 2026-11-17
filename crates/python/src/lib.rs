@@ -4,6 +4,7 @@
 
 mod drawing;
 mod expr;
+mod field;
 mod mesh;
 mod shape;
 mod text;
@@ -15,6 +16,7 @@ use pyo3::types::{PyList, PyTuple};
 
 use crate::drawing::{Item, Pair, PyDrawing, refuse_expr, refuse_expr_in_pair};
 use crate::expr::Num;
+use crate::field::{PyFlow, Spacing, Tone, hatch_of};
 use crate::shape::PaintArg;
 
 pyo3::import_exception!(bullterrier_vector.errors, BullterrierVectorError);
@@ -29,6 +31,8 @@ mod _core {
     use super::drawing::PyDrawing;
     #[pymodule_export]
     use super::expr::{PyExpr, PyParam, by_index, by_order, random, stagger};
+    #[pymodule_export]
+    use super::field::{PyField, PyFlow};
     #[pymodule_export]
     use super::mesh::PyMesh;
     #[pymodule_export]
@@ -536,6 +540,22 @@ impl PyPath {
     /// of straight lines; open sub-paths stay open.
     fn morph(&self, target: &Bound<'_, Self>, fraction: f64) -> PyResult<Self> {
         Self::of(self.0.morph(&target.get().0, fraction))
+    }
+
+    /// Evenly spaced lines along `flow` (default `Flow.angle(45)`) inside the region this path fills: `spacing` pixels apart,
+    /// or a pair (spacing where `tone` is 0, where it is 1) read from `tone`, a `Field` or a number; the lines keep out of
+    /// the region the path `avoid` fills and close where they come round to their own start. No two lines come within half
+    /// a spacing. The result is open lines, so stroke it.
+    #[pyo3(signature = (spacing, *, tone=None, flow=None, avoid=None))]
+    fn hatch(
+        &self,
+        spacing: Spacing,
+        tone: Option<Tone>,
+        flow: Option<&PyFlow>,
+        avoid: Option<&Bound<'_, Self>>,
+    ) -> PyResult<Self> {
+        let hatch = hatch_of(spacing, tone, flow)?;
+        Self::of(self.0.hatch(&hatch, avoid.map(|path| &path.get().0)))
     }
 
     /// Few smooth curves within `tolerance` pixels of the path, sharp corners (turns past 45 degrees) kept.

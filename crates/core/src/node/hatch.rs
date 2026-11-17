@@ -50,13 +50,10 @@ pub(crate) static HATCH: Verb = Verb {
 
 /// A spacing that differs between tone 0 and tone 1 needs a tone to read.
 fn pair_needs_tone(args: &Args) -> Result<(), Error> {
-    if let Some((zero, one)) = args.literal_pair("spacing")?
-        && zero.to_bits() != one.to_bits()
-        && !args.given("tone")?
-    {
-        return Err(Error::parameter("tone", "is needed when `spacing` is a pair"));
+    match args.literal_pair("spacing")? {
+        Some(spacing) => Hatch::checked(spacing, args.field("tone")?.cloned()).map(drop),
+        None => Ok(()),
     }
-    Ok(())
 }
 
 impl Node for HatchStep {
@@ -68,10 +65,7 @@ impl Node for HatchStep {
         let (zero, one) = args
             .literal_pair("spacing")?
             .ok_or_else(|| Error::parameter("spacing", "is missing"))?;
-        let mut hatch = match args.field("tone")? {
-            Some(tone) => Hatch::between(zero, one, tone.clone()),
-            None => Hatch::new(zero),
-        };
+        let mut hatch = Hatch::checked((zero, one), args.field("tone")?.cloned())?;
         if let Some(flow) = args.flow("flow")? {
             hatch = hatch.flow(flow.clone());
         }

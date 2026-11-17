@@ -1,6 +1,7 @@
 //! `Drawing`: a tree of steps that draws shapes.
 
 use crate::expr::{Num, PyExpr, PyParam};
+use crate::field::{PyFlow, Spacing, Tone, hatch_of};
 use crate::mesh::PyMesh;
 use crate::shape::{PaintArg, PyShape};
 use crate::text::{bytes_of, entries};
@@ -511,6 +512,21 @@ impl PyDrawing {
     /// grows from its own centre, each keeping its own style.
     fn morph(&self, target: Item, fraction: Num) -> PyResult<Self> {
         checked(self.0.morph(target.0, fraction.0))
+    }
+
+    /// Every shape replaced by evenly spaced lines along `flow` (default `Flow.angle(45)`) inside the region it fills, as
+    /// `Path.hatch` makes them: `spacing` pixels apart, or a pair read from `tone`; the lines keep out of `avoid` (a Path, a
+    /// Shape or a Drawing). The lines are open, so stroke them. A shape keeps its style and attributes.
+    #[pyo3(signature = (spacing, *, tone=None, flow=None, avoid=None))]
+    fn hatch(
+        &self,
+        spacing: Spacing,
+        tone: Option<Tone>,
+        flow: Option<&PyFlow>,
+        avoid: Option<Item>,
+    ) -> PyResult<Self> {
+        let hatch = hatch_of(spacing, tone, flow)?;
+        checked(self.0.hatch(&hatch, avoid.map(|item| item.0).as_ref()))
     }
 
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the

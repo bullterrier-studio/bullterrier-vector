@@ -150,6 +150,21 @@ fn verb_schema(verb: &Verb) -> Json {
     if !required.is_empty() {
         schema = with(schema, "required", Json::Array(required));
     }
+    // a spacing of two numbers is read from a field: the field's argument is needed when the factor is a pair
+    if let (Some(pair), Some(field)) = (
+        verb.args.iter().find(|arg| arg.kind == Kind::Factor && arg.reads == Reads::Literal),
+        verb.args.iter().find(|arg| arg.kind == Kind::Field),
+    ) {
+        schema = with(
+            schema,
+            "if",
+            Json::object([
+                ("properties", Json::object([(pair.name, typed("array"))])),
+                ("required", Json::Array(vec![Json::text(pair.name)])),
+            ]),
+        );
+        schema = with(schema, "then", Json::object([("required", Json::Array(vec![Json::text(field.name)]))]));
+    }
     described(schema)
 }
 
@@ -204,7 +219,7 @@ fn argument(arg: &Arg) -> Json {
             }
             _ => typed("string"),
         },
-        Kind::Field => reference("field"),
+        Kind::Field => any_of(vec![typed("number"), reference("field")]),
         Kind::Flow => reference("flow"),
         Kind::Path => reference("path_data"),
         Kind::Shape => shape(),

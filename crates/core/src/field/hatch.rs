@@ -67,6 +67,19 @@ impl Hatch {
         Self { at_zero: at_tone_0, at_one: at_tone_1, tone: Some(tone), flow: Flow::fixed(45.0) }
     }
 
+    /// The hatch a caller's values make: `spacing` is `(at tone 0, at tone 1)`, which differ only where there is a
+    /// `tone` to read; the one rule behind a call, a document and the bindings.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `tone` if the two spacings differ and there is no tone.
+    pub fn checked(spacing: (f64, f64), tone: Option<Field>) -> Result<Self, Error> {
+        match tone {
+            Some(tone) => Ok(Self::between(spacing.0, spacing.1, tone)),
+            None if spacing.0.to_bits() == spacing.1.to_bits() => Ok(Self::new(spacing.0)),
+            None => Err(Error::parameter("tone", "is needed when `spacing` is a pair")),
+        }
+    }
+
     /// The lines follow `flow`.
     #[must_use]
     pub fn flow(mut self, flow: Flow) -> Self {

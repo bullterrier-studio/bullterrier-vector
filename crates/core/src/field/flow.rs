@@ -10,34 +10,32 @@ use crate::noise::Noise;
 use crate::path::Path;
 use std::sync::Arc;
 
-/// The most parts one flow mixes.
-// constant: a flow is read at every step of every line, so its cost grows with its parts; 64 is more than any
+/// The most flows one flow mixes (its leaves).
+// constant: a flow is read at every step of every line, so its cost grows with its leaves; 64 is more than any
 // hand-written blend and keeps a loop of `mix` calls from making a flow that is slow to read
-pub(crate) const MAX_PARTS: usize = 64;
+pub(crate) const MAX_LEAVES: usize = 64;
 
-/// One thing a flow follows.
-#[derive(Debug, Clone)]
+/// The deepest nesting of mixes.
+// constant: a document holds each nested mix two levels deep and has 40 in all (`MAX_DOCUMENT_DEPTH`), and reading
+// one recurses this deep: 16 mixes fit in a document beside the call that holds them
+pub(crate) const MAX_MIX_DEPTH: usize = 16;
+
+/// What a flow is made of, as a document writes it.
+#[derive(Debug)]
 pub(crate) enum FlowKind {
     Angle { degrees: f64 },
     Noise { wavelength: f64, phase: f64, seed: f64 },
     Contour { path: Path },
+    Mix { flow: Flow, other: Flow, fraction: f64 },
 }
 
-/// A part of a flow and how much it counts.
-#[derive(Debug, Clone)]
-pub(crate) struct FlowPart {
-    pub(crate) weight: f64,
-    pub(crate) kind: FlowKind,
-    /// What `kind` reads at a point, built once.
-    reader: Reader,
-}
-
-#[derive(Debug, Clone)]
-enum Reader {
-    /// The doubled-angle unit vector, fixed.
-    Fixed(f64, f64),
-    Noise(Noise),
-    Outline(Arc<Outline>),
+#[derive(Debug)]
+enum Node {
+    /// The doubled-angle unit vector of an angle, fixed.
+    Angle { degrees: f64, cos: f64, sin: f64 },
+    Noise { wavelength: f64, phase: f64, seed: f64, noise: Noise },
+    Contour { path: Path, outline: Outline },
+    Mix { flow: Flow, other: Flow, fraction: f64 },
 }
 
 /// A direction without sign at every point: a line through the point, not an arrow. A direction and its opposite are
@@ -45,19 +43,14 @@ enum Reader {
 /// [`Hatch`](crate::Hatch) draws lines along it.
 #[derive(Debug, Clone)]
 pub struct Flow {
-    parts: Vec<FlowPart>,
-}
-
-impl FlowPart {
-    /// This part alone, at weight 1.
-    pub(crate) fn alone(&self) -> Flow {
-        Flow { parts: vec![Self { weight: 1.0, ..self.clone() }] }
-    }
+    node: Arc<Node>,
+    depth: usize,
+    leaves: usize,
 }
 
 impl Flow {
-    fn single(kind: FlowKind, reader: Reader) -> Self {
-        Self { parts: vec![FlowPart { weight: 1.0, kind, reader }] }
+    fn leaf(node: Node) -> Self {
+        Self { node: Arc::new(node), depth: 0, leaves: 1 }
     }
 
     /// The same direction everywhere: `degrees` clockwise from the right on screen (`y` points down), any finite
@@ -66,14 +59,13 @@ impl Flow {
     /// # Errors
     /// [`Error::Parameter`] naming `degrees` if it is NaN or infinite.
     pub fn angle(degrees: f64) -> Result<Self, Error> {
-        let degrees = finite("degrees", degrees)?;
-        Ok(Self::fixed(degrees))
+        Ok(Self::fixed(finite("degrees", degrees)?))
     }
 
     /// The angle `degrees`, already known to be finite.
     pub(crate) fn fixed(degrees: f64) -> Self {
         let (sin, cos) = sin_cos_deg(2.0 * (degrees % 180.0));
-        Self::single(FlowKind::Angle { degrees }, Reader::Fixed(cos, sin))
+        Self::leaf(Node::Angle { degrees, cos, sin })
     }
 
     /// Smooth seeded noise: the direction turns through half a turn each way over a few `wavelength`s (pixels) and
@@ -88,7 +80,7 @@ impl Flow {
         }
         let phase = finite("phase", phase)?;
         let noise = Noise::new(seed, 0)?;
-        Ok(Self::single(FlowKind::Noise { wavelength, phase, seed }, Reader::Noise(noise)))
+        Ok(Self::leaf(Node::Noise { wavelength, phase, seed, noise }))
     }
 
     /// The direction of the outline of `path` nearest the point.
@@ -97,31 +89,25 @@ impl Flow {
     /// [`Error::Geometry`] if the path has no edge; [`Error::Parameter`] past `MAX_SEGMENTS` edges.
     pub fn contour(path: &Path) -> Result<Self, Error> {
         let outline = Outline::of(path, "contour", &mut segment_budget("path"))?;
-        Ok(Self::single(FlowKind::Contour { path: path.clone() }, Reader::Outline(Arc::new(outline))))
+        Ok(Self::leaf(Node::Contour { path: path.clone(), outline }))
     }
 
     /// This flow `fraction` of the way to `other`, 0 to 1, blended in doubled-angle space so a direction and its
-    /// opposite agree. A mix of mixes is one flat list of parts, weighted. Where the parts cancel exactly, the first
-    /// part's direction stands.
+    /// opposite agree. Where the two cancel exactly, this flow's direction stands.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `fraction` unless it is from 0 to 1; naming `other` if the result would hold more
-    /// than 64 parts.
+    /// [`Error::Parameter`] naming `fraction` unless it is from 0 to 1; naming `other` if the result would mix more
+    /// than 64 flows or nest more than 16 mixes.
     pub fn mix(&self, other: &Self, fraction: f64) -> Result<Self, Error> {
         let fraction = crate::geometry::fraction("fraction", fraction)?;
-        let scaled = |flow: &Self, by: f64| -> Vec<FlowPart> {
-            flow.parts
-                .iter()
-                .map(|part| FlowPart { weight: part.weight * by, ..part.clone() })
-                .filter(|part| part.weight > 0.0)
-                .collect()
-        };
-        let mut parts = scaled(self, 1.0 - fraction);
-        parts.extend(scaled(other, fraction));
-        if parts.len() > MAX_PARTS {
-            return Err(Error::parameter("other", format!("a flow mixes at most {MAX_PARTS} parts")));
+        let (depth, leaves) = (self.depth.max(other.depth) + 1, self.leaves + other.leaves);
+        if depth > MAX_MIX_DEPTH || leaves > MAX_LEAVES {
+            return Err(Error::parameter(
+                "other",
+                format!("a flow mixes at most {MAX_LEAVES} flows and nests at most {MAX_MIX_DEPTH} mixes"),
+            ));
         }
-        Ok(Self { parts })
+        Ok(Self { node: Arc::new(Node::Mix { flow: self.clone(), other: other.clone(), fraction }), depth, leaves })
     }
 
     /// The direction at `point`, in degrees from 0 up to 180, clockwise from the right on screen.
@@ -133,37 +119,42 @@ impl Flow {
         if wrapped >= 180.0 { 0.0 } else { wrapped }
     }
 
-    /// The doubled-angle vector at `point`: the weighted sum of each part's unit vector.
+    /// The doubled-angle vector at `point`: a leaf's unit vector, a mix's weighted sum. Where the sum has cancelled the
+    /// first leaf's stands.
     fn doubled(&self, point: Point) -> (f64, f64) {
-        let (mut x, mut y) = (0.0, 0.0);
-        let mut first = (1.0, 0.0);
-        for (index, part) in self.parts.iter().enumerate() {
-            let (px, py) = match &part.reader {
-                Reader::Fixed(cos, sin) => (*cos, *sin),
-                Reader::Noise(noise) => {
-                    let FlowKind::Noise { wavelength, phase, .. } = part.kind else {
-                        unreachable!("a noise reader is made for noise")
-                    };
-                    let value = noise.value(point.x / wavelength, point.y / wavelength, phase);
-                    // the noise is from -1 to 1: it turns the direction through half a turn each way
-                    let (sin, cos) = sin_cos_deg(value * 360.0);
-                    (cos, sin)
-                }
-                Reader::Outline(outline) => {
-                    // as a unit vector, so a contour counts as much as an angle
-                    let (x, y) = outline.nearest(point).doubled;
-                    let length = x.hypot(y);
-                    if length < 1e-12 { (1.0, 0.0) } else { (x / length, y / length) }
-                }
-            };
-            if index == 0 {
-                first = (px, py);
-            }
-            x += part.weight * px;
-            y += part.weight * py;
-        }
+        let (x, y) = self.sum(point);
         // constant: below a thousandth of a unit the parts have cancelled, and the sum's direction is rounding
-        if x.hypot(y) < 1e-3 { first } else { (x, y) }
+        if x.hypot(y) < 1e-3 { self.first(point) } else { (x, y) }
+    }
+
+    fn sum(&self, point: Point) -> (f64, f64) {
+        match &*self.node {
+            Node::Angle { cos, sin, .. } => (*cos, *sin),
+            Node::Noise { wavelength, phase, noise, .. } => {
+                let value = noise.value(point.x / wavelength, point.y / wavelength, *phase);
+                // the noise is from -1 to 1: it turns the direction through half a turn each way
+                let (sin, cos) = sin_cos_deg(value * 360.0);
+                (cos, sin)
+            }
+            Node::Contour { outline, .. } => {
+                // as a unit vector, so a contour counts as much as an angle
+                let (x, y) = outline.nearest(point).doubled;
+                let length = x.hypot(y);
+                if length < 1e-12 { (1.0, 0.0) } else { (x / length, y / length) }
+            }
+            Node::Mix { flow, other, fraction } => {
+                let (a, b) = (flow.sum(point), other.sum(point));
+                (a.0 * (1.0 - fraction) + b.0 * fraction, a.1 * (1.0 - fraction) + b.1 * fraction)
+            }
+        }
+    }
+
+    /// The unit vector of the first leaf at `point`.
+    fn first(&self, point: Point) -> (f64, f64) {
+        match &*self.node {
+            Node::Mix { flow, .. } => flow.first(point),
+            _ => self.sum(point),
+        }
     }
 
     /// The unit direction at `point` (either sign), from the half-angle formulas: no trigonometry in the loop that
@@ -177,43 +168,43 @@ impl Flow {
         (cos, if sin2 < 0.0 { -sin } else { sin })
     }
 
-    pub(crate) fn parts(&self) -> &[FlowPart] {
-        &self.parts
-    }
-
-    /// The flows blended with `weights` (each above 0), as a document writes a mix; one flat list of parts.
-    pub(crate) fn weighted(flows: &[(f64, Self)]) -> Result<Self, Error> {
-        let parts: Vec<FlowPart> = flows
-            .iter()
-            .flat_map(|(weight, flow)| flow.parts.iter().map(move |part| FlowPart { weight: part.weight * weight, ..part.clone() }))
-            .collect();
-        if parts.is_empty() || parts.len() > MAX_PARTS {
-            return Err(Error::parameter("parts", format!("a flow mixes from 1 to {MAX_PARTS} parts, got {}", parts.len())));
+    /// What this flow is made of.
+    pub(crate) fn kind(&self) -> FlowKind {
+        match &*self.node {
+            Node::Angle { degrees, .. } => FlowKind::Angle { degrees: *degrees },
+            Node::Noise { wavelength, phase, seed, .. } => {
+                FlowKind::Noise { wavelength: *wavelength, phase: *phase, seed: *seed }
+            }
+            Node::Contour { path, .. } => FlowKind::Contour { path: path.clone() },
+            Node::Mix { flow, other, fraction } => {
+                FlowKind::Mix { flow: flow.clone(), other: other.clone(), fraction: *fraction }
+            }
         }
-        Ok(Self { parts })
     }
 }
 
 impl Keyed for Flow {
     fn write_key(&self, key: &mut Key) {
-        key.count(self.parts.len());
-        for part in &self.parts {
-            key.number(part.weight);
-            match &part.kind {
-                FlowKind::Angle { degrees } => {
-                    key.word(1);
-                    key.number(*degrees);
-                }
-                FlowKind::Noise { wavelength, phase, seed } => {
-                    key.word(2);
-                    key.number(*wavelength);
-                    key.number(*phase);
-                    key.number(*seed);
-                }
-                FlowKind::Contour { path } => {
-                    key.word(3);
-                    key.of(path);
-                }
+        match &*self.node {
+            Node::Angle { degrees, .. } => {
+                key.word(1);
+                key.number(*degrees);
+            }
+            Node::Noise { wavelength, phase, seed, .. } => {
+                key.word(2);
+                key.number(*wavelength);
+                key.number(*phase);
+                key.number(*seed);
+            }
+            Node::Contour { path, .. } => {
+                key.word(3);
+                key.of(path);
+            }
+            Node::Mix { flow, other, fraction } => {
+                key.word(4);
+                key.number(*fraction);
+                key.of(flow);
+                key.of(other);
             }
         }
     }

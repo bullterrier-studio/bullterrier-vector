@@ -71,6 +71,10 @@ fn a_document_reads_back_to_the_same_lines() -> Outcome {
     let constant = Drawing::from(rect(50.0, 50.0)).hatch(&Hatch::between(4.0, 9.0, Field::constant(0.5)?), None);
     let text = constant.to_json()?;
     assert!(text.contains("\"tone\":0.5") && text.contains("\"spacing\":[4,9]"), "{text}");
+    // a mix written as the code made it: nested, each level a call
+    let mix = Flow::angle(0.0)?.mix(&Flow::angle(90.0)?.mix(&Flow::angle(45.0)?, 0.5)?, 0.25)?;
+    let text = Drawing::from(rect(50.0, 50.0)).hatch(&Hatch::new(5.0).flow(mix), None).to_json()?;
+    assert!(text.contains("\"Flow.mix\":{\"flow\":{\"Flow.angle\"") && text.matches("Flow.mix").count() == 2, "{text}");
     Ok(())
 }
 
@@ -78,11 +82,15 @@ fn a_document_reads_back_to_the_same_lines() -> Outcome {
 fn a_document_with_a_bad_flow_or_field_is_refused_with_a_pointer() {
     let call = |args: &str| format!(r#"{{"version":1,"root":[{{"path":"M0 0 L50 0 L50 50 L0 50 Z"}},{{"hatch":{args}}}]}}"#);
     for (args, pointer) in [
-        (r#"{"spacing":5,"flow":{"flow":"angle"}}"#, "/root/1/hatch/flow"),
-        (r#"{"spacing":5,"flow":{"flow":"noise","wavelength":0}}"#, "/root/1/hatch/flow"),
-        (r#"{"spacing":5,"flow":{"flow":"mix","parts":[{"flow":"angle","angle":1}]}}"#, "/root/1/hatch/flow/parts/0"),
-        (r#"{"spacing":5,"tone":{"field":"ramp","from":[1,1],"to":[1,1]}}"#, "/root/1/hatch/tone"),
-        (r#"{"spacing":5,"tone":{"field":"distance","path":"M0 0"}}"#, "/root/1/hatch/tone"),
+        (r#"{"spacing":5,"flow":{"Flow.angle":{}}}"#, "/root/1/hatch/flow/Flow.angle"),
+        (r#"{"spacing":5,"flow":{"Flow.angle":{"angle":"x"}}}"#, "/root/1/hatch/flow/Flow.angle/angle"),
+        (r#"{"spacing":5,"flow":{"Flow.noise":{"wavelength":0}}}"#, "/root/1/hatch/flow/Flow.noise"),
+        (r#"{"spacing":5,"flow":{"Flow.noise":{"seed":{"random":{"low":0,"high":9}}}}}"#, "/root/1/hatch/flow/Flow.noise/seed"),
+        (r#"{"spacing":5,"flow":{"Flow.spin":{}}}"#, "/root/1/hatch/flow/Flow.spin"),
+        (r#"{"spacing":5,"flow":{"Flow.mix":{"flow":{"Flow.angle":{"angle":1}},"other":{"Flow.angle":{"angle":2}},"fraction":2}}}"#, "/root/1/hatch/flow/Flow.mix"),
+        (r#"{"spacing":5,"tone":{"Field.ramp":{"start":[1,1],"end":[1,1]}}}"#, "/root/1/hatch/tone/Field.ramp"),
+        (r#"{"spacing":5,"tone":{"Field.distance":{"drawing":[{"path":"M0 0"}]}}}"#, "/root/1/hatch/tone/Field.distance"),
+        (r#"{"spacing":5,"tone":{"Field.distance":{"drawing":[{"drawing":"x"}]}}}"#, "/root/1/hatch/tone/Field.distance/drawing"),
         (r#"{"spacing":5,"tone":"dark"}"#, "/root/1/hatch/tone"),
         (r#"{"spacing":0}"#, "/root/1/hatch/spacing"),
     ] {
