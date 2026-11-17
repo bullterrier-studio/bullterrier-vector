@@ -18,7 +18,10 @@ fn trace() -> Result<Drawing, Error> {
     // whole numbers only, so the bytes equal the Python and JavaScript programs'
     let relief: Vec<u8> = (0..SIDE * SIDE)
         .map(|i| {
-            let (x, y) = ((i % SIDE) as i64, (i / SIDE) as i64);
+            let (x, y) = (
+                i64::try_from(i % SIDE).unwrap_or(0),
+                i64::try_from(i / SIDE).unwrap_or(0),
+            );
             let value = 0
                 .max(255 - ((x - 34).pow(2) + (y - 40).pow(2)) / 6)
                 .max(200 - ((x - 68).pow(2) + (y - 56).pow(2)) / 5);

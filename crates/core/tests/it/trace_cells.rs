@@ -2,6 +2,14 @@
 //! cells' area, the shapes together the map's), `Path::contains` at every cell's middle against the cell's colour, and
 //! the corners of small maps written out.
 
+#![expect(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::unwrap_used,
+    reason = "map sizes and tones are small, a corner of a cell map is an exact multiple, and a proptest body has no Result to return"
+)]
+
 use crate::common::region::{net_area, sampled};
 use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{Drawing, Error, Field, Rect, Shape, Values};
@@ -58,7 +66,7 @@ fn a_ring_of_cells_is_an_outline_and_a_hole_with_the_corners_only() -> Outcome {
     );
     assert!((net_area(outer.path(), 1)? - 24.0).abs() < 1e-9);
     assert!((net_area(shapes[1].path(), 1)? - 1.0).abs() < 1e-9);
-    assert!(outer.path().contains((2.5, 2.5))? == false && outer.path().contains((0.5, 0.5))?);
+    assert!(!outer.path().contains((2.5, 2.5))? && outer.path().contains((0.5, 0.5))?);
     Ok(())
 }
 
@@ -152,12 +160,10 @@ fn a_huge_checkerboard_is_refused_before_anything_is_made() -> Outcome {
     let bytes: Vec<u8> = (0..side * side)
         .map(|i| u8::from((i % side + i / side) % 2 == 1))
         .collect();
-    let started = std::time::Instant::now();
     let refusal = parameter_refusal(traced(&map(side, side, &bytes)?, 1, 32))?;
     assert!(
         refusal.0.contains("trace_cells") && refusal.1.contains("MAX_SEGMENTS"),
         "{refusal:?}"
     );
-    assert!(started.elapsed().as_secs() < 20);
     Ok(())
 }

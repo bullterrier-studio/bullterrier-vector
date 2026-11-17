@@ -617,6 +617,7 @@ impl PyDrawing {
         signature = (map, levels, *, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
         text_signature = "(map, levels, *, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)"
     )]
+    #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
     fn trace_levels(
         map: &PyField,
         levels: Levels,
@@ -642,6 +643,7 @@ impl PyDrawing {
         signature = (map, *, max_colors=32, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
         text_signature = "(map, *, max_colors=32, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)"
     )]
+    #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
     fn trace_labels(
         map: &PyField,
         max_colors: usize,

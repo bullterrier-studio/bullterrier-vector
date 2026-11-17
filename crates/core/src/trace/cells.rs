@@ -6,7 +6,6 @@
 
 #![expect(
     clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
     clippy::cast_precision_loss,
     reason = "the lattice has at most MAX_CELLS cells and corner numbers fit u32 for it, checked before any is made"
 )]
@@ -63,7 +62,7 @@ pub(crate) fn trace(
     max_colors: usize,
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Vec<(u8, Path)>, Error> {
-    if map.width % cell != 0 || map.height % cell != 0 {
+    if !map.width.is_multiple_of(cell) || !map.height.is_multiple_of(cell) {
         return Err(Error::parameter(
             "cell",
             format!(
@@ -130,6 +129,12 @@ pub(crate) fn trace(
             add(left, 3, column, row + 1);
         }
     }
+    loops(map, edges, columns, rows)
+}
+
+/// The outlines of the colours from their cracks: each crack is followed corner to corner back to where it began.
+fn loops(map: &MapData, mut edges: Vec<Edge>, columns: usize, rows: usize) -> Result<Vec<(u8, Path)>, Error> {
+    let across = (columns + 1) as u32;
     edges.sort_unstable_by_key(|e| (e.colour, e.from, e.direction));
     let step = |edge: &Edge| -> u32 {
         match edge.direction {
