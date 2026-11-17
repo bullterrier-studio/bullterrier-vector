@@ -129,3 +129,28 @@ def test_a_plot_has_a_layer_per_pen_and_no_fill() -> None:
 def test_what_cannot_be_made_is_a_parameter_error(call: object) -> None:
     with pytest.raises(btvec.ParameterError):
         call()  # type: ignore[operator]
+
+
+def test_a_width_of_nothing_is_the_same_in_a_path_a_step_and_a_document() -> None:
+    drawing = btvec.Drawing(BOX).bands(10, tone=RAMP, width=(0, 4))
+    assert svg(drawing) == BOX.bands(10, tone=RAMP, width=(0, 4)).to_svg_path()
+    back = btvec.Drawing.from_json(drawing.to_json())
+    assert svg(back) == svg(drawing)
+
+
+@pytest.mark.parametrize(
+    ("call", "argument", "family"),
+    [
+        ({"family": "lines", "wavelength": 30}, "wavelength", "lines"),
+        ({"family": "rays", "amplitude": 2}, "amplitude", "rays"),
+        ({"family": "lines", "centre": (5, 5)}, "centre", "lines"),
+        ({"family": "waves", "wavelength": 30, "amplitude": 3, "centre": (5, 5)}, "centre", "waves"),
+        ({"family": "rings", "angle": 10}, "angle", "rings"),
+    ],
+)
+def test_an_argument_the_family_does_not_read_is_refused_naming_it_and_the_family(
+    call: dict[str, object], argument: str, family: str
+) -> None:
+    for target in (BOX, btvec.Drawing(BOX)):
+        with pytest.raises(btvec.ParameterError, match=rf"{argument}.*{family}"):
+            target.bands(10, tone=RAMP, width=(1, 2), **call)  # type: ignore[arg-type]

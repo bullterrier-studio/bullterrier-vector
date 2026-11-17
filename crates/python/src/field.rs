@@ -284,6 +284,16 @@ pub(crate) fn bands_of(
     wavelength: Option<Num>,
     amplitude: Option<Num>,
 ) -> PyResult<vector::Bands> {
+    for (name, given) in [
+        ("angle", angle.is_some()),
+        ("centre", centre.is_some()),
+        ("wavelength", wavelength.is_some()),
+        ("amplitude", amplitude.is_some()),
+    ] {
+        if given {
+            raised(vector::Bands::refuse_unread(family, name))?;
+        }
+    }
     let (spacing, tone, width) = (spacing.0, tone.0, (width.0.0, width.1.0));
     let needed = |value: Option<Num>, name: &str| {
         value
@@ -308,11 +318,14 @@ pub(crate) fn bands_of(
             )));
         }
     };
-    let bands = bands.angle(angle.map_or_else(|| vector::Expr::from(0.0), |angle| angle.0));
-    Ok(match centre {
-        Some(centre) => bands.centre(centre.0),
+    let bands = match angle {
+        Some(angle) => raised(bands.angle(angle.0))?,
         None => bands,
-    })
+    };
+    match centre {
+        Some(centre) => raised(bands.centre(centre.0)),
+        None => Ok(bands),
+    }
 }
 
 /// The stipple a call's numbers describe.

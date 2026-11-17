@@ -5,7 +5,7 @@ use super::{Args, Context, Inputs, Node, each_shape};
 use crate::field::Shapes;
 use crate::geometry::MAX_COORDINATE;
 use crate::lines::{Family, Plan, StipplePlan};
-use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
+use crate::{Arg, Bands, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
 
 /// A number read once for the whole call, within `domain`.
 const fn once(name: &'static str, domain: Domain) -> Arg {
@@ -94,16 +94,10 @@ pub(crate) static BANDS: Verb = Verb {
             kind: Kind::Pair,
             default: None,
             reads: Reads::Once,
-            domain: Domain::PositiveUpTo(MAX_COORDINATE),
+            domain: Domain::AtLeast(0.0),
         },
         word("family", Some("lines"), Family::NAMES),
-        Arg {
-            name: "angle",
-            kind: Kind::Number,
-            default: Some(Literal::Number(0.0)),
-            reads: Reads::Once,
-            domain: Domain::Coordinate,
-        },
+        optional("angle", Domain::Coordinate),
         optional("wavelength", Domain::PositiveUpTo(MAX_COORDINATE)),
         optional("amplitude", Domain::Coordinate),
         Arg {
@@ -117,13 +111,19 @@ pub(crate) static BANDS: Verb = Verb {
     check: Some(waves_need_their_size),
 };
 
-/// `waves` need a `wavelength` and an `amplitude`.
+/// `waves` need a `wavelength` and an `amplitude`, and no family is given what it does not read.
 fn waves_need_their_size(args: &Args) -> Result<(), Error> {
-    if args.text("family")? == "waves" {
+    let family = args.text("family")?;
+    if family == "waves" {
         for name in ["wavelength", "amplitude"] {
             if !args.given(name)? {
                 return Err(Error::parameter(name, "is needed when `family` is \"waves\""));
             }
+        }
+    }
+    for name in ["angle", "wavelength", "amplitude", "centre"] {
+        if args.given(name)? {
+            Bands::refuse_unread(family, name)?;
         }
     }
     Ok(())
@@ -145,7 +145,7 @@ impl Node for BandsStep {
                 .once_pair(cx, "width")
                 .map_err(placed)?
                 .ok_or_else(|| Error::parameter("width", "is missing"))?,
-            angle: args.once_number(cx, "angle").map_err(placed)?,
+            angle: args.once_number_opt(cx, "angle").map_err(placed)?.unwrap_or(0.0),
             wavelength: args.once_number_opt(cx, "wavelength").map_err(placed)?,
             amplitude: args.once_number_opt(cx, "amplitude").map_err(placed)?,
             centre: args.once_point(cx, "centre").map_err(placed)?.map(|p: Point| p),

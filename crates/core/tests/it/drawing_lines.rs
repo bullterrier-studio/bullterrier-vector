@@ -98,11 +98,11 @@ fn the_schema_describes_rows_and_a_bad_document_is_refused_with_a_pointer() -> O
 fn every_family() -> Result<Vec<Bands>, Error> {
     let t = || Field::ramp((0.0, 0.0), (120.0, 90.0));
     Ok(vec![
-        Bands::lines(9.0, t()?, (0.5, 4.0))?.angle(20.0),
+        Bands::lines(9.0, t()?, (0.5, 4.0))?.angle(20.0)?,
         Bands::waves(9.0, t()?, (0.5, 4.0), 30.0, 3.0)?,
-        Bands::rings(9.0, t()?, (0.5, 4.0))?.centre((30.0, 20.0)),
+        Bands::rings(9.0, t()?, (0.5, 4.0))?.centre((30.0, 20.0))?,
         Bands::spiral(9.0, t()?, (0.5, 4.0))?,
-        Bands::rays(9.0, t()?, (0.5, 4.0))?.angle(10.0),
+        Bands::rays(9.0, t()?, (0.5, 4.0))?.angle(10.0)?,
     ])
 }
 
@@ -120,7 +120,7 @@ fn the_bands_step_is_the_path_call_of_each_shape_for_every_family() -> Outcome {
 fn a_param_in_a_bands_number_is_read_with_the_values_of_the_draw() -> Outcome {
     let thick = Param::new("thick", 1.0, 0.5, 6.0)?;
     let turn = Param::new("turn", 0.0, 0.0, 90.0)?;
-    let drawing = Drawing::from(rect()?).bands(&Bands::lines(9.0, tone()?, (0.5, &thick))?.angle(&turn));
+    let drawing = Drawing::from(rect()?).bands(&Bands::lines(9.0, tone()?, (0.5, &thick))?.angle(&turn)?);
     assert_eq!(drawing.parameters()?.len(), 2);
     let at = |thick: f64, turn: f64| svg(&drawing, &Values::new().set("thick", thick).set("turn", turn));
     assert_eq!(at(1.0, 0.0)?, svg(&drawing, &Values::new())?);
@@ -203,6 +203,61 @@ fn the_stipple_step_is_the_path_call_and_a_param_is_read_with_the_values_of_the_
     ] {
         match Drawing::from_json(&call(args), &Inputs::new()) {
             Err(Error::Format { pointer: got, .. }) => assert_eq!(got, pointer, "{args}"),
+            other => return Err(format!("{args}: expected a format error, got {other:?}").into()),
+        }
+    }
+    Ok(())
+}
+
+// a width of 0 and the arguments a family does not read ---------------------------------------------------------------
+
+#[test]
+fn a_width_of_nothing_fades_a_band_away_in_the_path_the_step_and_a_document() -> Outcome {
+    // tone 0 at the left, 1 at the right: the outline is a point at the left and 4 wide at the right
+    let ramp = Field::ramp((0.0, 0.0), (120.0, 0.0))?;
+    let bands = Bands::lines(30.0, ramp, (0.0, 4.0))?;
+    let by_path = rect()?.bands(&bands)?;
+    assert_eq!(svg(&Drawing::from(rect()?).bands(&bands), &Values::new())?, by_path.to_svg_path());
+    assert!(by_path.contains((110.0, 15.0))? && !by_path.contains((2.0, 17.0))?, "thick at the right, nothing at the left");
+    let text = Drawing::from(rect()?).bands(&bands).to_json()?;
+    let back = Drawing::from_json(&text, &Inputs::new())?;
+    assert_eq!(svg(&back, &Values::new())?, by_path.to_svg_path());
+    Ok(())
+}
+
+#[test]
+fn an_argument_the_family_does_not_read_is_refused_naming_it_and_the_family() -> Outcome {
+    let flat = || Field::constant(0.5);
+    let refused = |bands: Result<Bands, Error>| -> Result<(String, String), Box<dyn std::error::Error>> {
+        parameter_refusal(bands)
+    };
+    for (what, bands, argument) in [
+        ("lines", Bands::lines(5.0, flat()?, (1.0, 2.0))?.centre((1.0, 1.0)), "centre"),
+        ("waves", Bands::waves(5.0, flat()?, (1.0, 2.0), 10.0, 1.0)?.centre((1.0, 1.0)), "centre"),
+        ("rings", Bands::rings(5.0, flat()?, (1.0, 2.0))?.angle(10.0), "angle"),
+    ] {
+        let (name, message) = refused(bands)?;
+        assert_eq!(name, argument);
+        assert!(message.contains(what), "{message}");
+    }
+    assert!(Bands::refuse_unread("lines", "wavelength").is_err());
+    assert!(Bands::refuse_unread("rays", "amplitude").is_err());
+    assert!(Bands::refuse_unread("waves", "wavelength").is_ok() && Bands::refuse_unread("spiral", "angle").is_ok());
+    let call =
+        |args: &str| format!(r#"{{"version":1,"root":[{{"path":"M0 0 L50 0 L50 50 L0 50 Z"}},{{"bands":{args}}}]}}"#);
+    for (args, pointer) in [
+        (r#"{"spacing":5,"tone":0.5,"width":[1,2],"wavelength":9}"#, "/root/1/bands/wavelength"),
+        (r#"{"spacing":5,"tone":0.5,"width":[1,2],"centre":[1,1]}"#, "/root/1/bands/centre"),
+        (
+            r#"{"spacing":5,"tone":0.5,"width":[1,2],"family":"rings","angle":0}"#,
+            "/root/1/bands/angle",
+        ),
+    ] {
+        match Drawing::from_json(&call(args), &Inputs::new()) {
+            Err(Error::Format { pointer: got, message }) => {
+                assert_eq!(got, pointer, "{args}");
+                assert!(message.contains("family"), "{message}");
+            }
             other => return Err(format!("{args}: expected a format error, got {other:?}").into()),
         }
     }

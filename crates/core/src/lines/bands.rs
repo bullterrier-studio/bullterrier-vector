@@ -53,6 +53,16 @@ impl Family {
     pub(crate) fn name(self) -> &'static str {
         Self::NAMES[self as usize]
     }
+
+    /// Whether this carrier reads the optional argument `argument` (`angle`, `centre`, `wavelength`, `amplitude`).
+    fn reads(self, argument: &str) -> bool {
+        match argument {
+            "angle" => self != Self::Rings,
+            "centre" => matches!(self, Self::Rings | Self::Spiral | Self::Rays),
+            "wavelength" | "amplitude" => self == Self::Waves,
+            _ => true,
+        }
+    }
 }
 
 /// What to draw: a carrier, the spacing between its lines, the tone that sets their width and the width at tone 0 and 1.
@@ -62,7 +72,7 @@ pub struct Bands {
     spacing: Expr,
     tone: Field,
     width: (Expr, Expr),
-    angle: Expr,
+    angle: Option<Expr>,
     wavelength: Option<Expr>,
     amplitude: Option<Expr>,
     centre: Option<(Expr, Expr)>,
@@ -80,11 +90,27 @@ impl Bands {
             spacing: once("spacing", &spacing.into())?,
             tone,
             width: (once("width", &width.0.into())?, once("width", &width.1.into())?),
-            angle: Expr::from(0.0),
+            angle: None,
             wavelength: None,
             amplitude: None,
             centre: None,
         })
+    }
+
+    /// Whether the carrier `family` (`"lines"`, `"waves"`, `"rings"`, `"spiral"` or `"rays"`) reads the optional
+    /// argument `argument` (`angle`, `centre`, `wavelength` or `amplitude`): the one place the rule lives, for the
+    /// builder, a document and the bindings.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `argument` if the family does not read it.
+    pub fn refuse_unread(family: &str, argument: &str) -> Result<(), Error> {
+        match Family::from_name(family) {
+            Some(known) if !known.reads(argument) => Err(Error::parameter(
+                argument,
+                format!("is not read by the family \"{family}\""),
+            )),
+            _ => Ok(()),
+        }
     }
 
     /// Straight lines `spacing` design pixels apart, along the direction of [`Bands::angle`] (0: left to right), the
@@ -160,19 +186,25 @@ impl Bands {
     }
 
     /// The direction of the lines and waves, or the turn of the spiral and the rays, in degrees (default 0), clockwise
-    /// on the screen. Rings have no direction.
-    #[must_use]
-    pub fn angle(mut self, degrees: impl Into<Expr>) -> Self {
-        self.angle = degrees.into();
-        self
+    /// on the screen.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `angle` for rings, which have no direction; or if it is a per-item number.
+    pub fn angle(mut self, degrees: impl Into<Expr>) -> Result<Self, Error> {
+        Self::refuse_unread(self.family.name(), "angle")?;
+        self.angle = Some(once("angle", &degrees.into())?);
+        Ok(self)
     }
 
     /// The centre of rings, the spiral and rays (default: the middle of the region's bounding box).
-    #[must_use]
-    pub fn centre(mut self, centre: impl Into<Point>) -> Self {
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `centre` for lines and waves, which have none.
+    pub fn centre(mut self, centre: impl Into<Point>) -> Result<Self, Error> {
+        Self::refuse_unread(self.family.name(), "centre")?;
         let centre = centre.into();
         self.centre = Some((Expr::from(centre.x), Expr::from(centre.y)));
-        self
+        Ok(self)
     }
 
     pub(crate) fn family(&self) -> Family {
@@ -191,8 +223,8 @@ impl Bands {
         &self.width
     }
 
-    pub(crate) fn angle_of(&self) -> &Expr {
-        &self.angle
+    pub(crate) fn angle_of(&self) -> Option<&Expr> {
+        self.angle.as_ref()
     }
 
     pub(crate) fn wavelength_of(&self) -> Option<&Expr> {
@@ -216,7 +248,7 @@ impl Bands {
                 read("width", &self.width.0, values)?,
                 read("width", &self.width.1, values)?,
             ),
-            angle: read("angle", &self.angle, values)?,
+            angle: self.angle.as_ref().map(|e| read("angle", e, values)).transpose()?.unwrap_or(0.0),
             wavelength: self
                 .wavelength
                 .as_ref()
@@ -258,7 +290,7 @@ impl Plan {
         }
         for width in [self.width.0, self.width.1] {
             if !(width.is_finite() && (0.0..=MAX_COORDINATE).contains(&width)) {
-                return Err(Error::parameter("width", format!("must be 0 or more, got {width}")));
+                return Err(Error::parameter("width", format!("must be from 0 to {MAX_COORDINATE}, got {width}")));
             }
         }
         if !(self.angle.is_finite() && self.angle.abs() <= MAX_COORDINATE) {

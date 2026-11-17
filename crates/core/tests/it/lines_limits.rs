@@ -31,7 +31,7 @@ fn a_centre_too_far_to_draw_round_is_refused_naming_the_centre() -> Outcome {
     let region = Path::rect(0.0, 0.0, 100.0, 100.0, 0.0)?;
     for family in ["rings", "spiral", "rays"] {
         for centre in [(1e20, 1e20), (1e8, 0.0)] {
-            let bands = bands_of(family)?.centre(Point::new(centre.0, centre.1));
+            let bands = bands_of(family)?.centre(Point::new(centre.0, centre.1))?;
             let (name, _) = parameter_refusal(region.bands(&bands))?;
             assert_eq!(name, "centre", "{family} {centre:?}");
         }

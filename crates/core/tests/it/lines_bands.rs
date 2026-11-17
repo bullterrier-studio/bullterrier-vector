@@ -100,7 +100,7 @@ fn the_spiral_arms_are_one_spacing_apart_along_a_ray() -> Outcome {
 #[test]
 fn rays_are_as_many_as_fit_round_the_farthest_corner() -> Outcome {
     let region = Path::circle((50.0, 50.0), 40.0)?;
-    let bands = Bands::rays(10.0, Field::constant(0.5)?, (1.0, 1.0))?.centre((50.0, 50.0));
+    let bands = Bands::rays(10.0, Field::constant(0.5)?, (1.0, 1.0))?.centre((50.0, 50.0))?;
     let drawn = region.bands(&bands)?;
     // the bounding box corner is 40 sqrt 2 = 56.57 from the centre: 2 pi 56.57 / 10 = 35.5, so 36 rays
     let mut runs = 0;
@@ -137,7 +137,7 @@ fn waves_follow_a_sine_across_the_lines() -> Outcome {
 fn bands_stay_inside_the_region_up_to_half_their_width() -> Outcome {
     let region = Path::circle((60.0, 60.0), 50.0)?;
     for bands in [
-        Bands::lines(7.0, Field::constant(1.0)?, (1.0, 4.0))?.angle(30.0),
+        Bands::lines(7.0, Field::constant(1.0)?, (1.0, 4.0))?.angle(30.0)?,
         Bands::spiral(7.0, Field::constant(1.0)?, (1.0, 4.0))?,
         Bands::rays(7.0, Field::constant(1.0)?, (1.0, 4.0))?,
     ] {
@@ -177,12 +177,12 @@ fn what_it_cannot_make_is_refused_naming_the_argument() -> Outcome {
         "amplitude"
     );
     assert_eq!(
-        parameter_refusal(call(Bands::lines(5.0, flat()?, (1.0, 1.0)).map(|b| b.angle(f64::NAN))))?.0,
+        parameter_refusal(call(Bands::lines(5.0, flat()?, (1.0, 1.0)).and_then(|b| b.angle(f64::NAN))))?.0,
         "angle"
     );
     assert_eq!(
         parameter_refusal(call(
-            Bands::rings(5.0, flat()?, (1.0, 1.0)).map(|b| b.centre(Point::new(f64::NAN, 0.0)))
+            Bands::rings(5.0, flat()?, (1.0, 1.0)).and_then(|b| b.centre(Point::new(f64::NAN, 0.0)))
         ))?
         .0,
         "centre"
