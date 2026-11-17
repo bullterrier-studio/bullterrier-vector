@@ -10,6 +10,11 @@ use crate::{Drawing, Error, Expr, Param, Values};
 use std::fmt;
 use std::sync::Arc;
 
+/// The most work the reads of one `to_map` or `contours` call may cost, in units of one read of a ramp.
+// constant: about 20 seconds measured at 2 microseconds a unit-of-20 read (a headline's distance field), the bound a
+// caller waits on without a progress bar; `hatch` bounds its visits the same way (`MAX_VISITS`)
+pub(crate) const MAX_READ_WORK: f64 = 2e8;
+
 /// What a field is made of, as a document writes it.
 #[derive(Debug, Clone)]
 pub(crate) enum FieldKind {
@@ -148,6 +153,29 @@ impl Field {
             Bound::Distance { parts, normalized } => parts.at(point, *normalized),
             Bound::Map(map) => map.sample(point),
         }
+    }
+
+    /// Refuses, naming `parameter` and `call`, a call that would read this field `reads` times when that is more work
+    /// than [`MAX_READ_WORK`]: a read of a constant, a ramp or a map is one unit, of a distance a unit and the square
+    /// root of its edges (a nearest-edge search looks at about that many; measured: 2 microseconds a read on a
+    /// headline of 400 edges, 26 on a path of 200,000), three times that when `normalized`.
+    pub(crate) fn charge_reads(&self, parameter: &'static str, call: &str, reads: f64) -> Result<(), Error> {
+        #[expect(clippy::cast_precision_loss, reason = "an edge count is far below 2^53")]
+        let each = match &self.bound {
+            Bound::Distance { parts, normalized } => {
+                (1.0 + (parts.whole.edge_count() as f64).sqrt()) * if *normalized { 3.0 } else { 1.0 }
+            }
+            _ => 1.0,
+        };
+        if reads * each > MAX_READ_WORK {
+            return Err(Error::parameter(
+                parameter,
+                format!(
+                    "{call} would read this field {reads} times at a cost of {each:.0} each, past {MAX_READ_WORK} units of work: use fewer samples or a simpler drawing"
+                ),
+            ));
+        }
+        Ok(())
     }
 
     pub(crate) fn kind(&self) -> &FieldKind {

@@ -171,6 +171,29 @@ fn to_map_refuses_what_it_cannot_write() -> Outcome {
     ] {
         assert_eq!(parameter_refusal(outcome)?.0, parameter);
     }
+    let (_, message) = parameter_refusal(ramp.to_map(0, 1, None, 0.0, 1.0))?;
+    assert!(message.starts_with("must be from 1"), "{message}");
+    Ok(())
+}
+
+#[test]
+fn to_map_of_a_field_too_costly_to_read_is_refused_before_it_starts() -> Outcome {
+    let wiggle = Path::polyline(
+        (0..200_000_u32).map(|i| {
+            let a = f64::from(i) * 0.01;
+            (500.0 + 400.0 * libm::cos(a), 500.0 + 400.0 * libm::sin(a * 1.01))
+        }),
+        false,
+    )?;
+    let field = Field::distance(&wiggle, false)?;
+    let started = std::time::Instant::now();
+    let (parameter, message) = parameter_refusal(field.to_map(1024, 1024, None, 0.0, 100.0))?;
+    assert_eq!(parameter, "width");
+    assert!(message.contains("to_map"), "{message}");
+    assert!(started.elapsed().as_secs() < 5);
+    // the same call on a cheap field, and a small map of this one, are as before
+    assert!(Field::ramp((0.0, 0.0), (4.0, 0.0))?.to_map(1024, 1024, None, 0.0, 1.0).is_ok());
+    assert!(field.to_map(64, 64, None, 0.0, 100.0).is_ok());
     Ok(())
 }
 

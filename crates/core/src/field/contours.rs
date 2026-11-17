@@ -13,9 +13,10 @@
     reason = "the grid has at most MAX_NODES nodes, checked before any index is made"
 )]
 
+use super::map::frame_of;
 use super::{Field, segment_budget};
 use crate::Error;
-use crate::geometry::{Point, Rect, coordinate, finite};
+use crate::geometry::{Point, Rect, finite};
 use crate::path::Path;
 
 /// The most grid nodes a contour run samples.
@@ -142,14 +143,17 @@ impl Grid {
     }
 }
 
-/// The nodes along one side: cells no wider than `step`, equal.
-fn cells_along(extent: f64, step: f64) -> f64 {
-    (extent / step).ceil().max(1.0)
+/// The cells along one side: no wider than `cell`, equal. A quotient within rounding of a whole number is that number
+/// (`(W - p) / p` is 2.0000000000000004 for a box of three pixels), so a grid laid on pixel centres stays on them.
+fn cells_along(extent: f64, cell: f64) -> f64 {
+    let n = extent / cell;
+    let whole = n.round();
+    (if (n - whole).abs() <= 1e-9 * whole { whole } else { n.ceil() }).max(1.0)
 }
 
 impl Field {
     /// The lines where this field equals each of `levels`, as one path: the grid is `frame` cut into equal cells no
-    /// wider than `step` (design pixels), the field is read at their corners, and a line crosses a cell edge at the
+    /// wider than `cell` (design pixels), the field is read at their corners, and a line crosses a cell edge at the
     /// linear interpolation of the two readings. A reading equal to the level counts as above it. A line that
     /// reaches the frame is open there; one that does not is closed. Lines are made level by level in the order of
     /// `levels`, each from the frame's edge first and then through the inside, so the same input gives the same path.
@@ -157,13 +161,14 @@ impl Field {
     /// crosses gives nothing, and an empty path is the answer when no level crosses.
     ///
     /// To trace a map along its pixels, give `frame` the box of the pixel centres (the map's box inset by half a
-    /// pixel on each side) and a `step` of one pixel.
+    /// pixel on each side) and a `cell` of one pixel.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `levels` if there are more than 256 or one is not finite; naming `frame` unless it is
-    /// finite, within ±1e100 and has a width and a height above 0; naming `step` unless it is above 0 and finite, or if
-    /// the grid would need more than 4 million nodes; naming `levels` past `MAX_SEGMENTS` points.
-    pub fn contours(&self, levels: &[f64], frame: Rect, step: f64) -> Result<Path, Error> {
+    /// [`Error::Parameter`] naming `levels` if there are more than 256 or one is not finite; naming `box` unless it is
+    /// finite, within ±1e100 and has a width and a height above 0; naming `cell` unless it is above 0 and finite, if
+    /// the grid would need more than 4 million nodes or if reading the field at them would be too much work (see
+    /// [`Field::to_map`]); naming `levels` past `MAX_SEGMENTS` points.
+    pub fn contours(&self, levels: &[f64], frame: Rect, cell: f64) -> Result<Path, Error> {
         if levels.len() > MAX_LEVELS {
             return Err(Error::parameter(
                 "levels",
@@ -173,34 +178,18 @@ impl Field {
         for level in levels {
             finite("levels", *level)?;
         }
-        for (name, value) in [("x", frame.x), ("y", frame.y)] {
-            coordinate(&format!("frame.{name}"), finite("frame", value)?)?;
+        let frame = frame_of(Some(frame), 1, 1)?;
+        if !(cell.is_finite() && cell > 0.0) {
+            return Err(Error::parameter("cell", format!("must be above 0, got {cell}")));
         }
-        if !(frame.width.is_finite()
-            && frame.height.is_finite()
-            && frame.width > 0.0
-            && frame.height > 0.0
-            && frame.width <= crate::geometry::MAX_COORDINATE
-            && frame.height <= crate::geometry::MAX_COORDINATE)
-        {
-            return Err(Error::parameter(
-                "frame",
-                format!(
-                    "must have a width and a height above 0, got {} by {}",
-                    frame.width, frame.height
-                ),
-            ));
-        }
-        if !(step.is_finite() && step > 0.0) {
-            return Err(Error::parameter("step", format!("must be above 0, got {step}")));
-        }
-        let (columns, rows) = (cells_along(frame.width, step), cells_along(frame.height, step));
+        let (columns, rows) = (cells_along(frame.width, cell), cells_along(frame.height, cell));
         if (columns + 1.0) * (rows + 1.0) > MAX_NODES {
             return Err(Error::parameter(
-                "step",
-                format!("is too small for a frame this large: its grid would pass {MAX_NODES} nodes"),
+                "cell",
+                format!("is too small for a box this large: its grid would pass {MAX_NODES} nodes"),
             ));
         }
+        self.charge_reads("cell", "contours", (columns + 1.0) * (rows + 1.0))?;
         let mut grid = Grid {
             columns: columns as usize,
             rows: rows as usize,

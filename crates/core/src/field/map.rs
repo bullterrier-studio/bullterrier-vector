@@ -56,7 +56,7 @@ impl MapData {
 }
 
 /// `frame`, or the one pixel a map pixel from the origin when none is given, checked.
-fn frame_of(frame: Option<Rect>, width: usize, height: usize) -> Result<Rect, Error> {
+pub(super) fn frame_of(frame: Option<Rect>, width: usize, height: usize) -> Result<Rect, Error> {
     let frame = frame.unwrap_or(Rect {
         x: 0.0,
         y: 0.0,
@@ -70,7 +70,10 @@ fn frame_of(frame: Option<Rect>, width: usize, height: usize) -> Result<Rect, Er
         if !(value.is_finite() && value > 0.0 && value <= crate::geometry::MAX_COORDINATE) {
             return Err(Error::parameter(
                 "box",
-                format!("must have a width and a height above 0, got {name} {value}"),
+                format!(
+                    "{name} must be above 0 and at most {:e}, got {value:e}",
+                    crate::geometry::MAX_COORDINATE
+                ),
             ));
         }
     }
@@ -82,13 +85,13 @@ fn size_of(width: usize, height: usize) -> Result<(), Error> {
     if width == 0 || height == 0 {
         return Err(Error::parameter(
             "width",
-            format!("and `height` must be from 1, got {width} by {height}"),
+            format!("must be from 1, as must `height`, got {width} by {height}"),
         ));
     }
     if width.checked_mul(height).is_none_or(|pixels| pixels > MAX_MAP_PIXELS) {
         return Err(Error::parameter(
             "width",
-            format!("by `height` would pass {MAX_MAP_PIXELS} pixels, got {width} by {height}"),
+            format!("times `height` must be at most {MAX_MAP_PIXELS} pixels, got {width} by {height}"),
         ));
     }
     Ok(())
@@ -163,6 +166,7 @@ impl Field {
     ) -> Result<Vec<u8>, Error> {
         size_of(width, height)?;
         let frame = frame_of(frame, width, height)?;
+        self.charge_reads("width", "to_map", (width * height) as f64)?;
         if !(low.is_finite() && high.is_finite() && high > low) {
             return Err(Error::parameter(
                 "high",

@@ -56,6 +56,11 @@ pub(crate) struct Outline {
 }
 
 impl Outline {
+    /// How many straight edges the outline has.
+    pub(crate) fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
+
     /// The outline of `path`; `charge` is told the edges of each curve, as for [`Path::flattened`].
     ///
     /// # Errors

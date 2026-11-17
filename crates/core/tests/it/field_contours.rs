@@ -148,15 +148,60 @@ fn what_it_cannot_trace_is_refused_naming_the_argument() -> Outcome {
         (ramp.contours(&[f64::NAN], ok, 1.0), "levels"),
         (ramp.contours(&[f64::INFINITY], ok, 1.0), "levels"),
         (ramp.contours(&many, ok, 1.0), "levels"),
-        (ramp.contours(&[0.5], ok, 0.0), "step"),
-        (ramp.contours(&[0.5], ok, f64::NAN), "step"),
-        (ramp.contours(&[0.5], ok, 1e-9), "step"),
-        (ramp.contours(&[0.5], frame(0.0, 0.0, 0.0, 10.0), 1.0), "frame"),
-        (ramp.contours(&[0.5], frame(f64::NAN, 0.0, 10.0, 10.0), 1.0), "frame"),
-        (ramp.contours(&[0.5], frame(0.0, 0.0, 1e200, 10.0), 1.0), "frame"),
+        (ramp.contours(&[0.5], ok, 0.0), "cell"),
+        (ramp.contours(&[0.5], ok, f64::NAN), "cell"),
+        (ramp.contours(&[0.5], ok, 1e-9), "cell"),
+        (ramp.contours(&[0.5], frame(0.0, 0.0, 0.0, 10.0), 1.0), "box"),
+        (ramp.contours(&[0.5], frame(f64::NAN, 0.0, 10.0, 10.0), 1.0), "box"),
+        (ramp.contours(&[0.5], frame(0.0, 0.0, 1e200, 10.0), 1.0), "box"),
     ];
     for (outcome, parameter) in results {
         assert_eq!(parameter_refusal(outcome)?.0, parameter);
     }
+    Ok(())
+}
+
+#[test]
+fn a_box_past_the_limit_says_the_limit() -> Outcome {
+    let ramp = Field::ramp((0.0, 0.0), (100.0, 0.0))?;
+    let (_, message) = parameter_refusal(ramp.contours(&[0.5], frame(0.0, 0.0, 1e200, 10.0), 1.0))?;
+    assert!(message.contains("at most 1e100"), "{message}");
+    Ok(())
+}
+
+#[test]
+fn a_grid_of_whole_cells_is_not_made_one_cell_too_many_by_rounding() -> Outcome {
+    // the recipe for tracing an n by n map along its pixels: the box inset half a pixel, a cell of one pixel
+    let mut off = Vec::new();
+    for width in 1..=200_u32 {
+        for pixels in 2..=70_u32 {
+            let (w, p) = (f64::from(width), f64::from(width) / f64::from(pixels));
+            let ramp = Field::ramp((0.0, 0.0), (w, 0.0))?;
+            let path = ramp.contours(&[0.37], frame(p / 2.0, p / 2.0, w - p, w - p), p)?;
+            let rows = lines(&path)[0].0.len();
+            if rows != pixels as usize {
+                off.push((width, pixels));
+            }
+        }
+    }
+    assert!(off.is_empty(), "{} cases off, first {:?}", off.len(), &off[..off.len().min(5)]);
+    Ok(())
+}
+
+#[test]
+fn a_field_too_costly_to_trace_is_refused_before_it_is_read() -> Outcome {
+    let wiggle = Path::polyline(
+        (0..200_000_u32).map(|i| {
+            let a = f64::from(i) * 0.01;
+            (500.0 + 400.0 * libm::cos(a), 500.0 + 400.0 * libm::sin(a * 1.01))
+        }),
+        false,
+    )?;
+    let field = Field::distance(&wiggle, false)?;
+    let started = std::time::Instant::now();
+    let (parameter, message) = parameter_refusal(field.contours(&[10.0], frame(0.0, 0.0, 1000.0, 1000.0), 1.0))?;
+    assert_eq!(parameter, "cell");
+    assert!(message.contains("contours"), "{message}");
+    assert!(started.elapsed().as_secs() < 5);
     Ok(())
 }
