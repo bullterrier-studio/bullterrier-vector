@@ -967,6 +967,7 @@ REGISTERED = {
     "hatch",
     "Field.ramp",
     "Field.distance",
+    "Field.map",
     "Flow.angle",
     "Flow.noise",
     "Flow.contour",
@@ -1035,9 +1036,13 @@ UNREGISTERED = call_names(SCHEMA) - REGISTERED
 
 
 def waits_for_a_later_batch(document: Any) -> bool:
-    """Whether the document uses a call that the library does not register yet."""
+    """Whether the document uses a call that the library does not register yet, or a `halftone` whose tone is a field
+    (the tone of a halftone is a number until a later batch reads fields there)."""
     if keys_of(document) & UNREGISTERED:
         return True
+    halftone = document.get("halftone") if isinstance(document, dict) else None
+    if isinstance(halftone, dict) and isinstance(halftone.get("tone"), dict):
+        return any(word.startswith("Field.") for word in halftone["tone"])
     if isinstance(document, dict):
         return any(waits_for_a_later_batch(inner) for inner in document.values())
     if isinstance(document, list):

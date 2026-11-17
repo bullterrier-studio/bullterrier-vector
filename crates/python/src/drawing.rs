@@ -26,7 +26,7 @@ pub(crate) fn checked(drawing: vector::Drawing) -> PyResult<PyDrawing> {
 }
 
 /// What a drawing is made of, as the caller gave it: a `Path`, a `Shape` or a `Drawing`.
-pub(crate) struct Item(vector::Drawing);
+pub(crate) struct Item(pub(crate) vector::Drawing);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for Item {
     type Error = PyErr;
@@ -516,16 +516,19 @@ impl PyDrawing {
 
     /// Every shape replaced by evenly spaced lines along `flow` (default `Flow.angle(45)`) inside the region it fills, as
     /// `Path.hatch` makes them: `spacing` pixels apart, or a pair read from `tone`; the lines keep out of `avoid` (a Path, a
-    /// Shape or a Drawing). The lines are open, so stroke them. A shape keeps its style and attributes.
-    #[pyo3(signature = (spacing, *, tone=None, flow=None, avoid=None))]
+    /// Shape or a Drawing). With `below` (a number or a `Param`), lines only where the tone is at most that level (needs a
+    /// `tone`; 0 is dark: hatch steps at other angles and levels, stacked, crosshatch). The lines are open, so stroke
+    /// them. A shape keeps its style and attributes.
+    #[pyo3(signature = (spacing, *, tone=None, flow=None, avoid=None, below=None))]
     fn hatch(
         &self,
         spacing: Spacing,
         tone: Option<Tone>,
         flow: Option<&PyFlow>,
         avoid: Option<Item>,
+        below: Option<Num>,
     ) -> PyResult<Self> {
-        let hatch = hatch_of(spacing, tone, flow)?;
+        let hatch = hatch_of(spacing, tone, flow, below)?;
         checked(self.0.hatch(&hatch, avoid.map(|item| item.0).as_ref()))
     }
 

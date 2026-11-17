@@ -545,16 +545,18 @@ impl PyPath {
     /// Evenly spaced lines along `flow` (default `Flow.angle(45)`) inside the region this path fills: `spacing` pixels apart,
     /// or a pair (spacing where `tone` is 0, where it is 1) read from `tone`, a `Field` or a number; the lines keep out of
     /// the region the path `avoid` fills and close where they come round to their own start. No two lines come within half
-    /// a spacing. The result is open lines, so stroke it.
-    #[pyo3(signature = (spacing, *, tone=None, flow=None, avoid=None))]
+    /// a spacing. With `below`, lines only where the tone is at most that level (needs a `tone`; 0 is dark: passes at other
+    /// angles and levels over each other crosshatch). The result is open lines, so stroke it.
+    #[pyo3(signature = (spacing, *, tone=None, flow=None, avoid=None, below=None))]
     fn hatch(
         &self,
         spacing: Spacing,
         tone: Option<Tone>,
         flow: Option<&PyFlow>,
         avoid: Option<&Bound<'_, Self>>,
+        below: Option<Num>,
     ) -> PyResult<Self> {
-        let hatch = hatch_of(spacing, tone, flow)?;
+        let hatch = hatch_of(spacing, tone, flow, below)?;
         Self::of(self.0.hatch(&hatch, avoid.map(|path| &path.get().0)))
     }
 
