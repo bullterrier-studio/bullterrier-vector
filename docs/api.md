@@ -448,8 +448,10 @@ map's `box` places it. Rust: `Drawing::trace_levels(&map, &[0.3, 0.6], &Trace::n
 
 ```python
 photo = btvec.Field.map(w, h, grey_bytes, box=(0, 0, 1080, 1440))
-layers = [btvec.Drawing.trace_levels(photo, l, smooth=4, close=6, min_area=300).fill(c)
-          for l, c in zip([0.2, 0.45, 0.7], ["#e9dcc3", "#c9a678", "#8a5a3b"])]
+layers = [
+    btvec.Drawing.trace_levels(photo, l, smooth=4, close=6, min_area=300).fill(c)
+    for l, c in zip([0.2, 0.45, 0.7], ["#e9dcc3", "#c9a678", "#8a5a3b"])
+]
 print(btvec.Drawing(*layers, size=(1080, 1440)).to_svg(1080, 1440))
 ```
 
