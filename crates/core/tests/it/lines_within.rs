@@ -1,6 +1,8 @@
 //! `Path::within` through the public API. Oracles: a horizontal line through a circle is cut at the chord worked out by
 //! hand, and every point of every piece is checked against `Path::contains` of the region.
 
+use std::fmt::Write as _;
+
 use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::Path;
 
@@ -132,13 +134,13 @@ fn a_line_is_cut_the_same_whichever_way_it_runs() -> Outcome {
 }
 
 /// A comb of `teeth` teeth one wide and one apart, 10 high, all in one row of the region's grid, as an SVG path.
-fn comb(teeth: usize) -> Result<Path, bullterrier_vector::Error> {
+fn comb(teeth: usize) -> Result<Path, Box<dyn std::error::Error>> {
     let mut data = String::from("M0 -5");
     for i in 0..teeth {
-        data.push_str(&format!("L{} 0L{} 10L{} 10L{} 0", 2 * i, 2 * i, 2 * i + 1, 2 * i + 1));
+        write!(data, "L{} 0L{} 10L{} 10L{} 0", 2 * i, 2 * i, 2 * i + 1, 2 * i + 1)?;
     }
-    data.push_str(&format!("L{} 0L{} -5Z", 2 * teeth, 2 * teeth));
-    Path::from_svg_path(&data)
+    write!(data, "L{} 0L{} -5Z", 2 * teeth, 2 * teeth)?;
+    Ok(Path::from_svg_path(&data)?)
 }
 
 #[test]
@@ -146,7 +148,9 @@ fn a_comb_of_many_edges_is_cut_by_a_line_of_many_points_without_walking_every_ed
     // 100,000 edges all in one band and a line of 100,000 points: every edge against every point is 1e10 visits
     let teeth = 25_000;
     let region = comb(teeth)?;
-    let points: Vec<(f64, f64)> = (0..=4 * teeth).map(|i| (i as f64 * 0.5, 5.0)).collect();
+    let points: Vec<(f64, f64)> = (0..=4 * teeth)
+        .map(|i| (f64::from(u32::try_from(i).unwrap_or(0)) * 0.5, 5.0))
+        .collect();
     let found = lines(&Path::polyline(points, false)?.within(&region)?);
     assert_eq!(found.len(), teeth, "one piece in each tooth");
     for (piece, _) in found.iter().take(50) {
@@ -162,11 +166,7 @@ fn work_past_the_budget_is_refused_naming_the_region_before_it_is_done() -> Outc
     let region = comb(25_000)?;
     let mut data = String::new();
     for k in 0..20_000 {
-        data.push_str(&format!(
-            "M-1 {}L60000 {}",
-            0.0002 * f64::from(k),
-            0.0002 * f64::from(k)
-        ));
+        write!(data, "M-1 {}L60000 {}", 0.0002 * f64::from(k), 0.0002 * f64::from(k))?;
     }
     let (name, _) = parameter_refusal(Path::from_svg_path(&data)?.within(&region))?;
     assert_eq!(name, "region");

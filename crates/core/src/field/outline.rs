@@ -354,8 +354,8 @@ impl Outline {
             (&self.strips, columns, &|a, b| self.column_of(a.x.min(b.x)))
         };
         let mut shares = Vec::new();
-        for at in span.0..=span.1 {
-            for &id in &lists[at] {
+        for (at, list) in lists.iter().enumerate().take(span.1 + 1).skip(span.0) {
+            for &id in list {
                 // an edge spanning several lists is met once: in the first of them that the segment spans
                 let (start, end) = self.edges[id as usize];
                 if at != key(start, end).max(span.0) {

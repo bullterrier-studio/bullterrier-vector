@@ -156,7 +156,7 @@ fn read_window(given: Option<Window>) -> Result<Option<vector::Window>, JsValue>
 }
 
 /// The plot an object of options describes.
-fn read_plot(given: PlotOptions) -> Result<vector::Plot, JsValue> {
+fn read_plot(given: &PlotOptions) -> Result<vector::Plot, JsValue> {
     let given: &JsValue = given.as_ref();
     if !given.is_object() {
         return Err(refuse("options", "an object with penWidth", given));
@@ -264,6 +264,10 @@ impl Drawing {
     /// As `toSvg`; also a `ParameterError` naming `pen_width` unless it is above 0, `tolerance` unless it is 0 or more,
     /// or the shape (`shape 3`) that has what a pen cannot draw (a gradient, a shadow, a clip, a mask, a knockout, a
     /// halftone, a blend).
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "wasm-bindgen exports take a JavaScript value by value"
+    )]
     #[wasm_bindgen(js_name = toPlotSvg)]
     pub fn to_plot_svg(
         &self,
@@ -272,7 +276,7 @@ impl Drawing {
         values: Option<Values>,
         options: PlotOptions,
     ) -> Result<String, JsValue> {
-        let plot = read_plot(options)?;
+        let plot = read_plot(&options)?;
         raised(
             self.0
                 .to_plot_svg(vector::Size::px(width, height), &read_values(values)?, &plot),

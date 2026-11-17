@@ -4,6 +4,8 @@
 //! simplification is checked against the original points by their distance to the result; hatching by the length
 //! it must have (area over pen width).
 
+use std::fmt::Write as _;
+
 use crate::common::{Outcome, parameter_refusal, to_segment};
 use bullterrier_vector::{Color, Drawing, Error, Path, Plot, PlotUnit, Shadow, Size, Stroke, Values};
 
@@ -437,13 +439,14 @@ fn strokes_crowded_into_a_corner_are_all_plotted_in_time_and_each_once() -> Outc
     let n = scatter(count * 4, 9);
     let mut data = String::from("M1000 1000L1001 1001");
     for k in 0..count {
-        data.push_str(&format!(
+        write!(
+            data,
             "M{} {}L{} {}",
             n[4 * k] / 10.0,
             n[4 * k + 1] / 10.0,
             n[4 * k + 2] / 10.0,
             n[4 * k + 3] / 10.0
-        ));
+        )?;
     }
     let drawing = Drawing::from(Path::from_svg_path(&data)?).stroke(Stroke::new(red()?).width(1.0));
     let found = pens(&plot(&drawing, 2000.0, &Plot::new(1.0)?.tolerance(0.0))?)?;

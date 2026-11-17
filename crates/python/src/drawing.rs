@@ -807,6 +807,7 @@ impl PyDrawing {
     /// layer ordered to cut pen-up travel, simplified within `tolerance` design pixels (default a quarter of
     /// `pen_width`) and every fill hatched at `pen_width`. A keyword named `pen_width`, `tolerance` or `unit` is the
     /// plot's, so a Param cannot be called any of them.
+    #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
     #[pyo3(signature = (width, height, /, *, pen_width, tolerance=None, unit="px", **given))]
     fn to_plot_svg(
         &self,
