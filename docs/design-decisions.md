@@ -1528,11 +1528,18 @@ holds.
   differ by 21.8 degrees: a 23.7 degree jump between samples a quarter pixel apart, under 1 after). Where two edges meet
   at a right angle the doubled vectors are opposite and cancel on the bisector: a line field must have a defect at such a
   corner (its index is a half), so the lines of the two edges still end there. *Limit:* the blend does not remove it; a
-  hatch drops a line that ends against another line and is shorter than three spacings (`SHORTEST` was one), which
+  hatch drops a line that ends against another line and is shorter than three spacings (`SHORTEST` was one; straight hatching of an L, a star, a plus, a comb, a triangle and six letters at five spacings and four angles: 4 of 240 runs differ, all in letters, each by about one line of under three spacings), which
   removes the ticks by construction; a chord (a line that leaves the region at both ends) keeps the old one-spacing floor,
   so a coarse hatch of a small shape still draws. Measured on the headline of `flow_hatch`: at spacing 3 to 9 a fragment 8.5
   long ended 17 pixels inside a letter before, and every line under three spacings now is a chord within a step of the
   outline.
+- **`to_map` and `contours` charge their reads before the first one** (`MAX_READ_WORK`, 2e8 units). A read of a ramp, a
+  constant or a map is one unit, of a distance field `1 + sqrt(edges)` (three times that normalised): a nearest-edge search looks
+  at about that many edges. *Measured:* 2 microseconds a read on a headline (about 21 units), 26 on a path of 200,000
+  edges (448), so 1 million reads of that took 26 s and 4 million nodes 100 s; the limit is some ten to twenty seconds.
+  `Field.contours` has no default `box`: only a map has an extent, and a field made by a distance or ramp reads everywhere.
+  A grid's cell count is `extent / cell` rounded to the nearest whole number when within 1e-9 of it, so the documented recipe
+  for a map's pixel centres stays on them.
 - **A stack test for the new nesting.** Drawings nested 15 levels through the field and the flow of a hatch step are
   drawn, saved, loaded and dropped on the 256 KB stack (passes at 112 KB).
 - **Limit: halftone's tone is still a number.** `halftone(tone=)` takes no field; the reference `halftone.json` (a map as the
