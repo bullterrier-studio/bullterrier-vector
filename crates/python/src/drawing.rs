@@ -1,7 +1,7 @@
 //! `Drawing`: a tree of steps that draws shapes.
 
 use crate::expr::{Num, PyExpr, PyParam};
-use crate::field::{PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
+use crate::field::{Levels, PyField, PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
 use crate::mesh::PyMesh;
 use crate::shape::{PaintArg, PyShape};
 use crate::text::{bytes_of, entries};
@@ -23,6 +23,37 @@ pub(crate) fn checked(drawing: vector::Drawing) -> PyResult<PyDrawing> {
         Some(error) => Err(exception(error)),
         None => Ok(PyDrawing(drawing)),
     }
+}
+
+/// The tidying numbers of a trace as the caller gave them; what is left out keeps the default.
+fn trace_of(
+    smooth: Option<Num>,
+    tolerance: Option<Num>,
+    open: Option<Num>,
+    close: Option<Num>,
+    min_area: Option<Num>,
+    min_hole: Option<Num>,
+) -> vector::Trace {
+    let mut trace = vector::Trace::new();
+    if let Some(Num(value)) = smooth {
+        trace = trace.smooth(value);
+    }
+    if let Some(Num(value)) = tolerance {
+        trace = trace.tolerance(value);
+    }
+    if let Some(Num(value)) = open {
+        trace = trace.open(value);
+    }
+    if let Some(Num(value)) = close {
+        trace = trace.close(value);
+    }
+    if let Some(Num(value)) = min_area {
+        trace = trace.min_area(value);
+    }
+    if let Some(Num(value)) = min_hole {
+        trace = trace.min_hole(value);
+    }
+    trace
 }
 
 /// What a drawing is made of, as the caller gave it: a `Path`, a `Shape` or a `Drawing`.
@@ -569,6 +600,71 @@ impl PyDrawing {
         seed: Option<Num>,
     ) -> PyResult<Self> {
         checked(self.0.stipple(&stipple_of(spacing, tone, radius, density, seed)?))
+    }
+
+    /// A map of grayscale tone traced at `levels` (0 black to 1 white; a number or a list), as filled shapes: one for each
+    /// level the map reaches, in the order given, the region where the map is at or above the level, with the level as
+    /// its `level` attribute and no fill. Stack them from the lowest level and fill each by its level
+    /// (`.only(level=l).fill(...)`) for a posterized, cut-paper picture. `map` is a `Field.map`. A shape that meets the
+    /// map's border goes on past it and closes outside, so no edge lies along the border.
+    ///
+    /// `smooth` blurs the map by that many pixels first; `close` then `open` (design pixels) fill and remove what is
+    /// narrower than twice the radius; `min_hole` fills holes, and `min_area` drops parts, below that many square pixels;
+    /// `tolerance` fits curves within that many pixels of the traced polyline (0 keeps the polyline). Each is a number, a
+    /// `Param` or an expression, read once.
+    #[staticmethod]
+    #[pyo3(
+        signature = (map, levels, *, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
+        text_signature = "(map, levels, *, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)"
+    )]
+    fn trace_levels(
+        map: &PyField,
+        levels: Levels,
+        smooth: Option<Num>,
+        tolerance: Option<Num>,
+        open: Option<Num>,
+        close: Option<Num>,
+        min_area: Option<Num>,
+        min_hole: Option<Num>,
+    ) -> PyResult<Self> {
+        let Levels(levels) = levels;
+        let trace = trace_of(smooth, tolerance, open, close, min_area, min_hole);
+        checked(vector::Drawing::trace_levels(&map.0, &levels, &trace))
+    }
+
+    /// A map of colour labels traced as filled shapes: one for each byte value the map holds, in order of the byte, the
+    /// region of the pixels with that byte, with the byte as its `level` attribute and no fill (fill each from a palette:
+    /// `.only(level=i).fill(palette[i])`). More than `max_colors` labels raises. Neighbouring shapes meet within
+    /// `tolerance`, so a hairline can show between them: stack them over a shape of the commonest colour. The other
+    /// arguments are those of `trace_levels`.
+    #[staticmethod]
+    #[pyo3(
+        signature = (map, *, max_colors=32, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
+        text_signature = "(map, *, max_colors=32, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)"
+    )]
+    fn trace_labels(
+        map: &PyField,
+        max_colors: usize,
+        smooth: Option<Num>,
+        tolerance: Option<Num>,
+        open: Option<Num>,
+        close: Option<Num>,
+        min_area: Option<Num>,
+        min_hole: Option<Num>,
+    ) -> PyResult<Self> {
+        let trace = trace_of(smooth, tolerance, open, close, min_area, min_hole).max_colors(max_colors);
+        checked(vector::Drawing::trace_labels(&map.0, &trace))
+    }
+
+    /// A map of square cells traced exactly, for a dithered picture: `map` (a `Field.map` whose bytes are palette indexes)
+    /// is read as cells of `cell` pixels each, and every colour becomes one shape (attribute `level` the byte, in order of
+    /// the byte) with straight edges on the cell sides, cells that touch merged and holes kept: nothing is fitted, the
+    /// shapes' areas are the cells' and they neither overlap nor leave a gap. The width and height of the map must be
+    /// multiples of `cell`, every cell one byte, and there may be at most `max_colors` colours.
+    #[staticmethod]
+    #[pyo3(signature = (map, cell, *, max_colors=32))]
+    fn trace_cells(map: &PyField, cell: usize, max_colors: usize) -> PyResult<Self> {
+        checked(vector::Drawing::trace_cells(&map.0, cell, max_colors))
     }
 
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the

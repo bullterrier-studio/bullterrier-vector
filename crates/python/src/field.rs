@@ -32,7 +32,7 @@ fn map_bytes(data: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
 }
 
 /// Levels as the caller gave them: one number or a sequence of numbers.
-struct Levels(Vec<f64>);
+pub(crate) struct Levels(pub(crate) Vec<f64>);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for Levels {
     type Error = PyErr;

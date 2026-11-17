@@ -449,6 +449,37 @@ class Drawing:
         density: tuple[_Num, _Num] | None = None,
         seed: _Num | None = None,
     ) -> Drawing: ...
+    @staticmethod
+    def trace_levels(
+        map: Field,  # noqa: A002  api.md names the arguments `map` and `open`
+        levels: float | Sequence[float],
+        *,
+        smooth: _Num = 0.0,
+        tolerance: _Num = 0.5,
+        open: _Num = 0.0,  # noqa: A002  api.md names the arguments `map` and `open`
+        close: _Num = 0.0,
+        min_area: _Num = 0.0,
+        min_hole: _Num = 0.0,
+    ) -> Drawing: ...
+    @staticmethod
+    def trace_labels(
+        map: Field,  # noqa: A002  api.md names the arguments `map` and `open`
+        *,
+        max_colors: int = 32,
+        smooth: _Num = 0.0,
+        tolerance: _Num = 0.5,
+        open: _Num = 0.0,  # noqa: A002  api.md names the arguments `map` and `open`
+        close: _Num = 0.0,
+        min_area: _Num = 0.0,
+        min_hole: _Num = 0.0,
+    ) -> Drawing: ...
+    @staticmethod
+    def trace_cells(
+        map: Field,  # noqa: A002  api.md names the arguments `map` and `open`
+        cell: int,
+        *,
+        max_colors: int = 32,
+    ) -> Drawing: ...
     def simplify(self, *, tolerance: _Num = 0.5) -> Drawing: ...
     def reverse(self) -> Drawing: ...
     def scale(self, by: _Num | _NumPair, *, about: _NumPair | None = None) -> Drawing: ...

@@ -1,0 +1,86 @@
+"""`Drawing.trace_levels`, `trace_labels` and `trace_cells` through the public package. Expected values are worked out
+by hand (a ramp's edge, a checkerboard's cells) or counted from the bytes."""
+
+import re
+
+import pytest
+
+import bullterrier_vector as btvec
+
+
+def area(path: btvec.Path) -> float:
+    """The absolute area a path of straight lines fills (shoelace over its sub-paths, holes against outlines)."""
+    total = 0.0
+    for word in path.to_svg_path().replace("M", "|M").split("|"):
+        numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?(?:e-?\d+)?", word)]
+        points = list(zip(numbers[::2], numbers[1::2], strict=True))
+        total += sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(points, points[1:] + points[:1], strict=True)) / 2
+    return abs(total)
+
+
+def ramp_map() -> btvec.Field:
+    return btvec.Field.map(256, 4, bytes(x for _ in range(4) for x in range(256)))
+
+
+def test_a_level_of_a_ramp_is_the_region_past_its_edge_with_the_level_as_an_attribute() -> None:
+    drawing = btvec.Drawing.trace_levels(ramp_map(), [0.5], tolerance=0)
+    (shape,) = drawing.shapes()
+    assert shape.attributes["level"] == 0.5
+    inside = shape.path.intersect(btvec.Path.rect(0, 0, 256, 4))
+    assert area(inside) == pytest.approx(128 * 4, abs=1e-6)
+
+
+def test_levels_are_in_the_order_given_and_a_level_the_map_never_reaches_is_left_out() -> None:
+    shapes = btvec.Drawing.trace_levels(ramp_map(), [0.75, 0.25, 7]).shapes()
+    assert [shape.attributes["level"] for shape in shapes] == [0.75, 0.25]
+
+
+def test_a_checkerboard_of_cells_is_traced_exactly_to_rectangles_that_fill_the_map() -> None:
+    cells = bytes(((x // 2) + (y // 2)) % 2 for y in range(8) for x in range(8))
+    drawing = btvec.Drawing.trace_cells(btvec.Field.map(8, 8, cells), 2)
+    shapes = drawing.shapes()
+    assert [shape.attributes["level"] for shape in shapes] == [0, 1]
+    assert [area(shape.path) for shape in shapes] == [32, 32]
+    assert shapes[0].path.to_svg_path().count("M") == 8
+
+
+def test_labels_make_one_shape_each_and_more_than_max_colors_raises() -> None:
+    labels = btvec.Field.map(4, 2, bytes([2, 2, 9, 9, 2, 2, 9, 9]))
+    shapes = btvec.Drawing.trace_labels(labels, tolerance=0).shapes()
+    assert [shape.attributes["level"] for shape in shapes] == [2, 9]
+    with pytest.raises(btvec.ParameterError, match="max_colors"):
+        btvec.Drawing.trace_labels(labels, max_colors=1).shapes()
+
+
+@pytest.mark.parametrize(
+    ("call", "argument"),
+    [
+        (lambda: btvec.Drawing.trace_levels(ramp_map(), [0.5], smooth=-1), "smooth"),
+        (lambda: btvec.Drawing.trace_levels(ramp_map(), [], tolerance=0), "levels"),
+        (lambda: btvec.Drawing.trace_levels(ramp_map(), [float("nan")]), "levels"),
+        (lambda: btvec.Drawing.trace_levels(ramp_map(), [0.5], open=float("nan")), "open"),
+        (lambda: btvec.Drawing.trace_cells(ramp_map(), 0), "cell"),
+        (lambda: btvec.Drawing.trace_cells(ramp_map(), 3).shapes(), "cell"),
+        (lambda: btvec.Drawing.trace_levels(btvec.Field.ramp((0, 0), (1, 0)), [0.5]).shapes(), "map"),
+    ],
+)
+def test_a_refused_number_names_its_argument(call: object, argument: str) -> None:
+    with pytest.raises(btvec.ParameterError, match=argument):
+        call()  # type: ignore[operator]
+
+
+def test_a_trace_is_a_document_that_loads_back_to_the_same_shapes() -> None:
+    data = bytes(range(64))
+    drawing = btvec.Drawing.trace_levels(btvec.Field.map(8, 8, data, name="photo"), [0.3, 0.6], smooth=0.5, min_area=2)
+    text = drawing.to_json()
+    back = btvec.Drawing.from_json(text, inputs={"photo": data})
+    assert [s.path.to_svg_path() for s in back.shapes()] == [s.path.to_svg_path() for s in drawing.shapes()]
+    assert back.to_json() == text
+
+
+def test_a_param_feeds_a_tidying_number() -> None:
+    cells = bytes(255 if 4 <= x < 7 and 4 <= y < 7 else 0 for y in range(12) for x in range(12))
+    grow = btvec.Param("grow", default=0, min=0, max=3)
+    drawing = btvec.Drawing.trace_levels(btvec.Field.map(12, 12, cells), [0.5], tolerance=0, close=grow)
+    plain, grown = (drawing.shapes(grow=grow)[0].path.to_svg_path() for grow in (0, 1))
+    assert plain != grown

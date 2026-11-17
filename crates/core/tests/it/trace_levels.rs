@@ -313,3 +313,24 @@ fn a_huge_map_with_many_levels_or_a_wide_radius_is_refused_before_the_work() -> 
     assert!(started.elapsed().as_secs() < 10, "refusals are quick");
     Ok(())
 }
+
+// Documents ---------------------------------------------------------------------------------------------------------
+
+#[test]
+fn the_three_calls_are_documents_that_draw_what_the_code_draws_and_write_back_the_same() -> Outcome {
+    use bullterrier_vector::Inputs;
+    let bytes: Vec<u8> = (0..64).map(|i| u8::try_from(i * 4 % 256).unwrap_or(0)).collect();
+    let map = Field::map(8, 8, &bytes, None, Some("photo"))?;
+    let drawings = [
+        Drawing::trace_levels(&map, &[0.25, 0.75], &Trace::new().smooth(0.5).open(0.25).min_area(2.0)),
+        Drawing::trace_labels(&map, &Trace::new().max_colors(64).tolerance(0.0)),
+        Drawing::trace_cells(&map, 1, 64),
+    ];
+    for drawing in drawings {
+        let text = drawing.to_json()?;
+        let back = Drawing::from_json(&text, &Inputs::new().set("photo", &bytes[..]))?;
+        assert_eq!(back.shapes(&Values::new())?, drawing.shapes(&Values::new())?, "{text}");
+        assert_eq!(back.to_json()?, text);
+    }
+    Ok(())
+}
