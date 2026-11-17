@@ -118,7 +118,8 @@ impl PyField {
     /// A line that reaches the box is open there, any other is closed.
     #[pyo3(signature = (levels, *, r#box, step))]
     fn contours(&self, levels: Levels, r#box: Frame, step: f64) -> PyResult<PyPath> {
-        raised(self.0.contours(&levels.0, r#box.0, step)).map(PyPath)
+        let Levels(levels) = levels;
+        raised(self.0.contours(&levels, r#box.0, step)).map(PyPath)
     }
 
     /// The field's number at `(x, y)`.
