@@ -68,6 +68,7 @@ mod node_contract;
 mod output_gradient;
 mod output_halftone;
 mod output_knockout;
+mod output_plot;
 mod output_shadow;
 mod param;
 mod path;

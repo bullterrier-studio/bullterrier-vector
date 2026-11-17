@@ -38,7 +38,7 @@ pub use geometry::{Point, Rect, Scale};
 pub use json::{Inputs, drawing_schema};
 pub use lines::{Bands, Rows, Stipple};
 pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
-pub use output::{Mesh, Size, Window};
+pub use output::{Mesh, Plot, Size, Window};
 pub use param::{Param, Unit};
 pub use path::{Path, Spacing, require_round_stroke};
 pub use registry::verbs;

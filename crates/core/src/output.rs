@@ -2,7 +2,9 @@
 //! the design frame in the output the same way (`view`), so that a picture is the same picture in each.
 
 mod mesh;
+mod order;
 mod outline;
+mod plot;
 mod png;
 mod ramp;
 mod raster;
@@ -14,6 +16,7 @@ mod window;
 use crate::node::stack::MAX_FRAME;
 use crate::{Error, ShadowStyle, Shape, Style};
 pub use mesh::Mesh;
+pub use plot::Plot;
 pub use window::Window;
 
 /// The longest side of a pixel output, in whole pixels.
