@@ -61,6 +61,7 @@ def workspace(tmp_path_factory, copy_tree) -> Path:
         "glyph_morph.py",
         "flow_hatch.py",
         "line_families.py",
+        "trace.py",
         "kinetic_type.py",
         "fonts/anybody-subset.ttf",
     ):
