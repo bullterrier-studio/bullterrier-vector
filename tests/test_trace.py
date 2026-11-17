@@ -64,9 +64,9 @@ def test_labels_make_one_shape_each_and_more_than_max_colors_raises() -> None:
         (lambda: btvec.Drawing.trace_cells(ramp_map(), 0), "cell_size"),
         (lambda: btvec.Drawing.trace_cells(ramp_map(), 3).shapes(), "cell_size"),
         (lambda: btvec.Drawing.trace_cells(ramp_map(), -1), "cell_size"),
-        (lambda: btvec.Drawing.trace_cells(ramp_map(), 2.5), "cell_size"),
+        (lambda: btvec.Drawing.trace_cells(ramp_map(), 2.5), "cell_size"),  # type: ignore[arg-type]
         (lambda: btvec.Drawing.trace_cells(ramp_map(), 2, max_colors=-3), "max_colors"),
-        (lambda: btvec.Drawing.trace_labels(ramp_map(), max_colors=1.5), "max_colors"),
+        (lambda: btvec.Drawing.trace_labels(ramp_map(), max_colors=1.5), "max_colors"),  # type: ignore[arg-type]
         (lambda: btvec.Drawing.trace_levels(btvec.Field.ramp((0, 0), (1, 0)), [0.5]).shapes(), "map"),
     ],
 )
@@ -86,7 +86,7 @@ def test_a_trace_is_a_document_that_loads_back_to_the_same_shapes() -> None:
 
 def test_a_whole_number_float_is_the_whole_number_it_reads_as() -> None:
     cells = bytes(((x // 2) + (y // 2)) % 2 for y in range(8) for x in range(8))
-    shapes = btvec.Drawing.trace_cells(btvec.Field.map(8, 8, cells), 2.0).shapes()
+    shapes = btvec.Drawing.trace_cells(btvec.Field.map(8, 8, cells), 2.0).shapes()  # type: ignore[arg-type]
     assert [shape.attributes["label"] for shape in shapes] == [0, 1]
 
 
