@@ -1100,6 +1100,65 @@ def hatches() -> list[Entry]:
     ]
 
 
+def line_families() -> list[Entry]:
+    """V15c: ridgelines, bands of each carrier and stippled dots, over a map tone and a ramp, with Params."""
+    box = btvec.Path.rect(0, 0, 100, 100)
+    photo = btvec.Field.map(16, 16, FONTS["tone_map"], box=(0, 0, 100, 100), name="tone_map")
+    ramp = btvec.Field.ramp((0, 0), (100, 0))
+    lift = btvec.Param("lift", default=10, min=0, max=40)
+    dot = btvec.Param("dot", default=1, min=0.5, max=2)
+    drawings = {
+        "rows_map": framed(btvec.Drawing(box).rows(8, tone=photo, amplitude=24).stroke(INK, width=1)),
+        "rows_param": framed(btvec.Drawing(box).rows(8, tone=ramp, amplitude=lift).stroke(INK, width=1)),
+        # spacing 7 at 20 degrees gave a pixel one level off between a window and the whole (design-decisions.md, V15c)
+        "bands_lines": framed(btvec.Drawing(box).bands(8, tone=photo, width=(0.6, 5), angle=20).fill(INK)),
+        "bands_waves": framed(
+            btvec.Drawing(box).bands(9, tone=ramp, width=(0.6, 4), family="waves", wavelength=30, amplitude=3).fill(INK)
+        ),
+        "bands_rings": framed(btvec.Drawing(box).bands(8, tone=photo, width=(0.6, 5), family="rings").fill(INK)),
+        "bands_spiral": framed(
+            btvec.Drawing(box).bands(8, tone=ramp, width=(0.6, 5), family="spiral", centre=(30, 60)).fill(INK)
+        ),
+        "bands_rays": framed(btvec.Drawing(box).bands(8, tone=ramp, width=(0.6, 5), family="rays", angle=10).fill(INK)),
+        "stipple_map": framed(btvec.Drawing(box).stipple(4, tone=photo, radius=dot, seed=3).fill(INK)),
+    }
+    draws: dict[str, list[Draw]] = {
+        "rows_param": [(100, 100, {}), (100, 100, {"lift": 30})],
+        "stipple_map": [(100, 100, {}), (100, 100, {"dot": 1.8})],
+    }
+    return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
+
+
+def plots() -> list[dict[str, object]]:
+    """V15c: the plotter SVG of drawings of strokes, fills and a closed outline, as the native extension writes it."""
+    box = btvec.Path.rect(0, 0, 100, 100)
+    ramp = btvec.Field.ramp((0, 0), (100, 0))
+    art = btvec.Drawing(
+        btvec.Drawing(box).rows(10, tone=ramp, amplitude=20).stroke(INK, width=1),
+        btvec.Drawing(box).stipple(10, tone=0.3, radius=1.5).fill("#cc2200"),
+        btvec.Path.circle((50, 50), 30).fill("#003399"),
+        size=FRAME,
+    )
+    return [
+        {
+            "json": art.to_json(),
+            "width": 400,
+            "height": 400,
+            "penWidth": 1.0,
+            "tolerance": None,
+            "svg": art.to_plot_svg(400, 400, pen_width=1.0),
+        },
+        {
+            "json": art.to_json(),
+            "width": 200,
+            "height": 100,
+            "penWidth": 0.5,
+            "tolerance": 0.0,
+            "svg": art.to_plot_svg(200, 100, pen_width=0.5, tolerance=0.0),
+        },
+    ]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -1116,6 +1175,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     envelopes,
     morphs,
     hatches,
+    line_families,
     wobbles,
     dashes,
     simplifies,
@@ -1341,6 +1401,7 @@ def main(output: Path) -> None:
         "glyph_morph": example_everywhere("glyph_morph"),
         "flow_hatch": example_everywhere("flow_hatch"),
         "kinetic_type": example_everywhere("kinetic_type"),
+        "plots": plots(),
         "refusals": [
             refused("fromJson", "not a document"),
             refused("fromJson", '{"version": 1, "drawings": {"a": [{"nope": 1}]}}'),

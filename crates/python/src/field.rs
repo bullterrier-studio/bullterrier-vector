@@ -116,10 +116,23 @@ impl PyField {
     /// The lines where the field equals each of `levels` (a number or a list), as one `Path`: over `box` cut into cells no
     /// wider than `cell` pixels, a line crossing a cell edge at the linear interpolation of the readings at its corners.
     /// A line that reaches the box is open there, any other is closed.
-    #[pyo3(signature = (levels, *, r#box, cell))]
-    fn contours(&self, py: Python<'_>, levels: Levels, r#box: Frame, cell: f64) -> PyResult<PyPath> {
+    ///
+    /// `smooth` blurs the readings with a Gaussian of that many pixels before tracing, which removes the tiny loops and the jag
+    /// of a photograph's tone; `min_length` drops every line shorter than that many pixels. Every line runs with the high side
+    /// (a reading at or above the level) on its left as drawn, so the loops of a map that is high inside a region fill as it.
+    #[pyo3(signature = (levels, *, r#box, cell, smooth=0.0, min_length=0.0))]
+    fn contours(
+        &self,
+        py: Python<'_>,
+        levels: Levels,
+        r#box: Frame,
+        cell: f64,
+        smooth: f64,
+        min_length: f64,
+    ) -> PyResult<PyPath> {
         let Levels(levels) = levels;
-        raised(py.detach(|| self.0.contours(&levels, r#box.0, cell))).map(PyPath)
+        let tidy = vector::Tidy::default().smooth(smooth).min_length(min_length);
+        raised(py.detach(|| self.0.contours_with(&levels, r#box.0, cell, &tidy))).map(PyPath)
     }
 
     /// The field's number at `(x, y)`.
@@ -248,5 +261,68 @@ pub(crate) fn hatch_of(
     Ok(match below {
         Some(level) => hatch.below(level.0),
         None => hatch,
+    })
+}
+
+/// The rows a call's `spacing`, `tone` and `amplitude` describe.
+pub(crate) fn rows_of(spacing: Num, tone: Tone, amplitude: Num) -> PyResult<vector::Rows> {
+    raised(vector::Rows::new(spacing.0, tone.0, amplitude.0))
+}
+
+/// The bands a call describes: `family` is one of `lines`, `waves`, `rings`, `spiral` and `rays`.
+#[expect(clippy::too_many_arguments, reason = "the arguments of the one Python call, passed as they came")]
+pub(crate) fn bands_of(
+    spacing: Num,
+    tone: Tone,
+    width: (Num, Num),
+    family: &str,
+    angle: Num,
+    centre: Option<Pt>,
+    wavelength: Option<Num>,
+    amplitude: Option<Num>,
+) -> PyResult<vector::Bands> {
+    let (spacing, tone, width) = (spacing.0, tone.0, (width.0.0, width.1.0));
+    let needed = |value: Option<Num>, name: &str| {
+        value.map(|number| number.0).ok_or_else(|| {
+            crate::ParameterError::new_err(format!("{name}: is needed when `family` is \"waves\""))
+        })
+    };
+    let bands = match family {
+        "lines" => raised(vector::Bands::lines(spacing, tone, width))?,
+        "waves" => raised(vector::Bands::waves(
+            spacing,
+            tone,
+            width,
+            needed(wavelength, "wavelength")?,
+            needed(amplitude, "amplitude")?,
+        ))?,
+        "rings" => raised(vector::Bands::rings(spacing, tone, width))?,
+        "spiral" => raised(vector::Bands::spiral(spacing, tone, width))?,
+        "rays" => raised(vector::Bands::rays(spacing, tone, width))?,
+        other => {
+            return Err(crate::ParameterError::new_err(format!(
+                "family: must be one of lines, waves, rings, spiral, rays, got {other:?}"
+            )));
+        }
+    };
+    let bands = bands.angle(angle.0);
+    Ok(match centre {
+        Some(centre) => bands.centre(centre.0),
+        None => bands,
+    })
+}
+
+/// The stipple a call's numbers describe.
+pub(crate) fn stipple_of(
+    spacing: Num,
+    tone: Tone,
+    radius: Num,
+    density: Option<(Num, Num)>,
+    seed: Num,
+) -> PyResult<vector::Stipple> {
+    let stipple = raised(vector::Stipple::new(spacing.0, tone.0, radius.0))?.seed(seed.0);
+    Ok(match density {
+        Some((dense, light)) => stipple.density(dense.0, light.0),
+        None => stipple,
     })
 }

@@ -16,7 +16,7 @@ use pyo3::types::{PyList, PyTuple};
 
 use crate::drawing::{Item, Pair, PyDrawing, refuse_expr, refuse_expr_in_pair};
 use crate::expr::Num;
-use crate::field::{PyFlow, Spacing, Tone, hatch_of};
+use crate::field::{PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
 use crate::shape::PaintArg;
 
 pyo3::import_exception!(bullterrier_vector.errors, BullterrierVectorError);
@@ -559,6 +559,61 @@ impl PyPath {
     ) -> PyResult<Self> {
         let hatch = hatch_of(spacing, tone, flow, below)?;
         Self::of(self.0.hatch(&hatch, avoid.map(|path| &path.get().0)))
+    }
+
+    /// The parts of this path's lines that lie inside the region `region` fills: open lines cut where they cross its
+    /// outline, closed ones kept whole when they are inside.
+    fn within(&self, py: Python<'_>, region: &Bound<'_, Self>) -> PyResult<Self> {
+        let region = region.get().0.clone();
+        Self::of(py.detach(|| self.0.within(&region)))
+    }
+
+    /// Ridgelines inside the region this path fills: rows `spacing` pixels apart, each lifted towards the top of the picture by
+    /// `amplitude` times `tone` (a `Field` or a number) at the point of the row, and cut where a row in front (lower in the
+    /// picture) passes over it. The result is open lines, so stroke it. A `Param` is read at its default here.
+    #[pyo3(signature = (spacing, *, tone, amplitude))]
+    fn rows(&self, py: Python<'_>, spacing: Num, tone: Tone, amplitude: Num) -> PyResult<Self> {
+        let rows = rows_of(spacing, tone, amplitude)?;
+        Self::of(py.detach(|| self.0.rows(&rows)))
+    }
+
+    /// Lines laid over the region this path fills and outlined as wide at each point as `tone` asks: `width` is
+    /// `(width where the tone is 0, where it is 1)`. `family` is `"lines"` (along `angle` degrees), `"waves"` (`wavelength`
+    /// long, `amplitude` high), `"rings"` or `"spiral"` round `centre` (default the middle of the bounds) or `"rays"` out of
+    /// it. The result is closed outlines, so fill it. A `Param` is read at its default here.
+    #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
+    #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=Num(0.0.into()), centre=None, wavelength=None, amplitude=None))]
+    fn bands(
+        &self,
+        py: Python<'_>,
+        spacing: Num,
+        tone: Tone,
+        width: (Num, Num),
+        family: &str,
+        angle: Num,
+        centre: Option<Pt>,
+        wavelength: Option<Num>,
+        amplitude: Option<Num>,
+    ) -> PyResult<Self> {
+        let bands = bands_of(spacing, tone, width, family, angle, centre, wavelength, amplitude)?;
+        Self::of(py.detach(|| self.0.bands(&bands)))
+    }
+
+    /// Round dots of `radius` pixels on a square lattice `spacing` apart inside the region this path fills, one at most per
+    /// cell; `density` is `(share of cells with a dot where the tone is 0, where it is 1)`, default `(1, 0)`: dark is
+    /// dense. `seed` moves them. The result is closed dots, so fill it.
+    #[pyo3(signature = (spacing, *, tone, radius, density=None, seed=Num(0.0.into())))]
+    fn stipple(
+        &self,
+        py: Python<'_>,
+        spacing: Num,
+        tone: Tone,
+        radius: Num,
+        density: Option<(Num, Num)>,
+        seed: Num,
+    ) -> PyResult<Self> {
+        let stipple = stipple_of(spacing, tone, radius, density, seed)?;
+        Self::of(py.detach(|| self.0.stipple(&stipple)))
     }
 
     /// Few smooth curves within `tolerance` pixels of the path, sharp corners (turns past 45 degrees) kept.

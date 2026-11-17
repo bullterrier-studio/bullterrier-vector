@@ -170,6 +170,29 @@ class Path:
         avoid: Path | None = None,
         below: _Num | None = None,
     ) -> Path: ...
+    def within(self, region: Path) -> Path: ...
+    def rows(self, spacing: _Num, *, tone: Field | _Num, amplitude: _Num) -> Path: ...
+    def bands(
+        self,
+        spacing: _Num,
+        *,
+        tone: Field | _Num,
+        width: tuple[_Num, _Num],
+        family: str = "lines",
+        angle: _Num = 0.0,
+        centre: _PointLike | None = None,
+        wavelength: _Num | None = None,
+        amplitude: _Num | None = None,
+    ) -> Path: ...
+    def stipple(
+        self,
+        spacing: _Num,
+        *,
+        tone: Field | _Num,
+        radius: _Num,
+        density: tuple[_Num, _Num] | None = None,
+        seed: _Num = 0.0,
+    ) -> Path: ...
     def simplify(self, *, tolerance: float = 0.5) -> Path: ...
     def reverse(self) -> Path: ...
     def translate(self, dx: float, dy: float) -> Path: ...
@@ -255,7 +278,15 @@ class Field:
     def to_map(
         self, width: int, height: int, *, box: _FrameLike | None = None, low: float = 0.0, high: float = 1.0
     ) -> bytes: ...
-    def contours(self, levels: float | Sequence[float], *, box: _FrameLike, cell: float) -> Path: ...
+    def contours(
+        self,
+        levels: float | Sequence[float],
+        *,
+        box: _FrameLike,
+        cell: float,
+        smooth: float = 0.0,
+        min_length: float = 0.0,
+    ) -> Path: ...
     def __eq__(self, other: object, /) -> bool: ...
 
 @final
@@ -396,6 +427,28 @@ class Drawing:
         avoid: Path | Shape | Drawing | None = None,
         below: _Num | None = None,
     ) -> Drawing: ...
+    def rows(self, spacing: _Num, *, tone: Field | _Num, amplitude: _Num) -> Drawing: ...
+    def bands(
+        self,
+        spacing: _Num,
+        *,
+        tone: Field | _Num,
+        width: tuple[_Num, _Num],
+        family: str = "lines",
+        angle: _Num = 0.0,
+        centre: _PointLike | None = None,
+        wavelength: _Num | None = None,
+        amplitude: _Num | None = None,
+    ) -> Drawing: ...
+    def stipple(
+        self,
+        spacing: _Num,
+        *,
+        tone: Field | _Num,
+        radius: _Num,
+        density: tuple[_Num, _Num] | None = None,
+        seed: _Num = 0.0,
+    ) -> Drawing: ...
     def simplify(self, *, tolerance: _Num = 0.5) -> Drawing: ...
     def reverse(self) -> Drawing: ...
     def scale(self, by: _Num | _NumPair, *, about: _NumPair | None = None) -> Drawing: ...
@@ -433,6 +486,9 @@ class Drawing:
     def shapes(self, **given: _Values) -> list[Shape]: ...
     def bounds(self, **given: _Values) -> Rect: ...
     def to_svg(self, width: float, height: float, /, **given: _Values) -> str: ...
+    def to_plot_svg(
+        self, width: float, height: float, /, *, pen_width: float, tolerance: float | None = None, **given: _Values
+    ) -> str: ...
     def to_rgba(
         self,
         width: float,

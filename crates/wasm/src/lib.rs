@@ -216,6 +216,28 @@ impl Drawing {
         raised(self.0.to_svg(vector::Size::px(width, height), &read_values(values)?))
     }
 
+    /// The drawing as an SVG document for a pen plotter of `width` by `height` pixels: strokes only, one layer per pen (a
+    /// stroke or fill colour), the lines of a layer ordered to cut pen-up travel, simplified within `tolerance` design
+    /// pixels (default a quarter of `penWidth`), every fill hatched at `penWidth`; each Param at the value given by name.
+    ///
+    /// # Errors
+    /// As `toSvg`; also a `ParameterError` naming `pen_width` unless it is above 0, `tolerance` unless it is 0 or more,
+    /// or the shape (`shape 3`) that has what a pen cannot draw (a gradient, a shadow, a clip, a mask, a knockout, a
+    /// halftone, a blend).
+    #[wasm_bindgen(js_name = toPlotSvg)]
+    pub fn to_plot_svg(
+        &self,
+        width: f64,
+        height: f64,
+        pen_width: f64,
+        tolerance: Option<f64>,
+        values: Option<Values>,
+    ) -> Result<String, JsValue> {
+        let plot = raised(vector::Plot::new(pen_width))?;
+        let plot = tolerance.map_or(plot, |tolerance| plot.tolerance(tolerance));
+        raised(self.0.to_plot_svg(vector::Size::px(width, height), &read_values(values)?, &plot))
+    }
+
     /// Every Param the drawing reads, in the order first used, each a plain object.
     ///
     /// # Errors

@@ -26,6 +26,17 @@ for (const [name, expected] of Object.entries(native.documents)) {
   });
 }
 
+for (const [index, { json, width, height, penWidth, tolerance, svg }] of native.plots.entries()) {
+  test(`plot ${index}: toPlotSvg writes the text the native extension writes`, () => {
+    assert.equal(Drawing.fromJson(json).toPlotSvg(width, height, penWidth, tolerance ?? undefined), svg);
+  });
+}
+
+test("toPlotSvg refuses a pen of no width with a ParameterError", () => {
+  const { json } = native.documents.star;
+  assert.throws(() => Drawing.fromJson(json).toPlotSvg(100, 100, 0), (error) => error.name === "ParameterError");
+});
+
 test("the module is built for WebAssembly SIMD", () => {
   const bytes = readFileSync(new URL("../../pkg/bullterrier_vector_wasm_bg.wasm", import.meta.url));
   const [features] = WebAssembly.Module.customSections(new WebAssembly.Module(bytes), "target_features");

@@ -1,7 +1,7 @@
 //! `Drawing`: a tree of steps that draws shapes.
 
 use crate::expr::{Num, PyExpr, PyParam};
-use crate::field::{PyFlow, Spacing, Tone, hatch_of};
+use crate::field::{PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
 use crate::mesh::PyMesh;
 use crate::shape::{PaintArg, PyShape};
 use crate::text::{bytes_of, entries};
@@ -532,6 +532,43 @@ impl PyDrawing {
         checked(self.0.hatch(&hatch, avoid.map(|item| item.0).as_ref()))
     }
 
+    /// Every shape replaced by ridgelines inside the region it fills, as `Path.rows` makes them for its path.
+    #[pyo3(signature = (spacing, *, tone, amplitude))]
+    fn rows(&self, spacing: Num, tone: Tone, amplitude: Num) -> PyResult<Self> {
+        checked(self.0.rows(&rows_of(spacing, tone, amplitude)?))
+    }
+
+    /// Every shape replaced by the closed outlines of lines whose width carries `tone`, as `Path.bands` makes them for its
+    /// path; fill them. A `Param` in a number is read with the values of the draw.
+    #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
+    #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=Num(0.0.into()), centre=None, wavelength=None, amplitude=None))]
+    fn bands(
+        &self,
+        spacing: Num,
+        tone: Tone,
+        width: (Num, Num),
+        family: &str,
+        angle: Num,
+        centre: Option<crate::Pt>,
+        wavelength: Option<Num>,
+        amplitude: Option<Num>,
+    ) -> PyResult<Self> {
+        checked(self.0.bands(&bands_of(spacing, tone, width, family, angle, centre, wavelength, amplitude)?))
+    }
+
+    /// Every shape replaced by round dots whose density follows `tone`, as `Path.stipple` makes them for its path; fill them.
+    #[pyo3(signature = (spacing, *, tone, radius, density=None, seed=Num(0.0.into())))]
+    fn stipple(
+        &self,
+        spacing: Num,
+        tone: Tone,
+        radius: Num,
+        density: Option<(Num, Num)>,
+        seed: Num,
+    ) -> PyResult<Self> {
+        checked(self.0.stipple(&stipple_of(spacing, tone, radius, density, seed)?))
+    }
+
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the
     /// other end. Style, attributes and `origin` are kept.
     fn reverse(&self) -> PyResult<Self> {
@@ -761,6 +798,26 @@ impl PyDrawing {
     fn to_svg(&self, py: Python<'_>, width: f64, height: f64, given: Option<&Bound<'_, PyDict>>) -> PyResult<String> {
         let values = values(given)?;
         raised(py.detach(|| self.0.to_svg(vector::Size::px(width, height), &values)))
+    }
+
+    /// The drawing as an SVG document for a pen plotter of `width` by `height` pixels: strokes only, one layer per pen (a
+    /// stroke or fill colour), the lines of a layer ordered to cut pen-up travel, simplified within `tolerance` design pixels
+    /// (default a quarter of `pen_width`) and every fill hatched at `pen_width`. A keyword named `pen_width` or `tolerance`
+    /// is the plot's, so a Param cannot be called either.
+    #[pyo3(signature = (width, height, /, *, pen_width, tolerance=None, **given))]
+    fn to_plot_svg(
+        &self,
+        py: Python<'_>,
+        width: f64,
+        height: f64,
+        pen_width: f64,
+        tolerance: Option<f64>,
+        given: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<String> {
+        let values = values(given)?;
+        let plot = raised(vector::Plot::new(pen_width))?;
+        let plot = tolerance.map_or(plot, |tolerance| plot.tolerance(tolerance));
+        raised(py.detach(|| self.0.to_plot_svg(vector::Size::px(width, height), &values, &plot)))
     }
 
     /// The drawing as straight-alpha RGBA bytes of `width` by `height` pixels, rows from the top, with each Param at the
