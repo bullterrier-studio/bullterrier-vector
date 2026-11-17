@@ -63,6 +63,7 @@ pub(crate) mod source;
 pub(crate) mod stack;
 pub(crate) mod style;
 pub(crate) mod text;
+pub(crate) mod trace;
 pub(crate) mod transform;
 pub(crate) mod values;
 

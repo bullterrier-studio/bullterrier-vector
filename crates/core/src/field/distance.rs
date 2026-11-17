@@ -125,6 +125,14 @@ impl Field {
         }
     }
 
+    /// The map this field is, if it is one.
+    pub(crate) fn map_data(&self) -> Option<&MapData> {
+        match &self.bound {
+            Bound::Map(map) => Some(map),
+            _ => None,
+        }
+    }
+
     /// The drawings this field reads, in order.
     pub(crate) fn drawings(&self) -> Vec<&Drawing> {
         match &self.kind {

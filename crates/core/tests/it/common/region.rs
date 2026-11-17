@@ -255,3 +255,12 @@ pub(crate) fn canonical_fault(rings: &[Ring]) -> Option<String> {
     }
     None
 }
+
+/// The area a path fills, by the nonzero rule when its outlines do not cross: the signed areas of its sub-paths added
+/// (an outline clockwise on screen counts for, a hole counter-clockwise against), curves sampled at `steps` points.
+pub(crate) fn net_area(path: &Path, steps: usize) -> Result<f64, Box<dyn std::error::Error>> {
+    Ok(sampled(path, steps)?
+        .iter()
+        .map(|ring| super::shoelace_area(ring))
+        .sum())
+}

@@ -24,6 +24,7 @@ mod path;
 mod registry;
 mod shape;
 mod svg;
+mod trace;
 mod r#type;
 mod values;
 

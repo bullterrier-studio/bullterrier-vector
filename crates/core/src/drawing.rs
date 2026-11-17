@@ -13,6 +13,7 @@ mod offset;
 mod place;
 mod select;
 mod style;
+mod trace;
 mod transform;
 mod values;
 

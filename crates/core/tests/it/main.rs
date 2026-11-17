@@ -124,3 +124,4 @@ mod text_axes;
 mod text_inside;
 mod text_layout;
 mod text_runs;
+mod trace_cells;

@@ -1,7 +1,7 @@
 //! The list of every verb a drawing can be built from.
 
 use crate::node::{
-    Node, Verb, boolean, clip, hatch, items, lines, morph, offset, place, select, source, stack, style, text,
+    Node, Verb, boolean, clip, hatch, items, lines, morph, offset, place, select, source, stack, style, text, trace,
     transform, values,
 };
 
@@ -22,6 +22,7 @@ const NODES: &[&dyn Node] = &[
     &source::ShapeSource,
     &stack::Stack,
     &text::TextNode,
+    &trace::TraceCells,
     &transform::Translate,
     &transform::Rotate,
     &transform::Scale,
