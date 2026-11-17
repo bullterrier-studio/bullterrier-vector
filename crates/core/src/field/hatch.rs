@@ -7,7 +7,7 @@
 
 use super::outline::Outline;
 use super::seeds::{Sample, Samples};
-use super::{Field, Flow, segment_budget};
+use super::{Field, Flow, length, segment_budget};
 use crate::Error;
 use crate::geometry::Point;
 use crate::path::Path;
@@ -57,14 +57,24 @@ impl Hatch {
     /// Lines `spacing` pixels apart, along a flow of 45 degrees.
     #[must_use]
     pub fn new(spacing: f64) -> Self {
-        Self { at_zero: spacing, at_one: spacing, tone: None, flow: Flow::fixed(45.0) }
+        Self {
+            at_zero: spacing,
+            at_one: spacing,
+            tone: None,
+            flow: Flow::fixed(45.0),
+        }
     }
 
     /// Lines whose spacing is `at_tone_0` where `tone` is 0 and `at_tone_1` where it is 1, linear between and held
     /// beyond, along a flow of 45 degrees.
     #[must_use]
     pub fn between(at_tone_0: f64, at_tone_1: f64, tone: Field) -> Self {
-        Self { at_zero: at_tone_0, at_one: at_tone_1, tone: Some(tone), flow: Flow::fixed(45.0) }
+        Self {
+            at_zero: at_tone_0,
+            at_one: at_tone_1,
+            tone: Some(tone),
+            flow: Flow::fixed(45.0),
+        }
     }
 
     /// The hatch a caller's values make: `spacing` is `(at tone 0, at tone 1)`, which differ only where there is a
@@ -248,11 +258,23 @@ impl Run<'_> {
     }
 
     /// The line through `seed`, kept unless it is a stub; its index.
-    fn trace(&mut self, seed: Point, charge: &mut dyn FnMut(usize) -> Result<(), Error>) -> Result<Option<usize>, Error> {
+    fn trace(
+        &mut self,
+        seed: Point,
+        charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+    ) -> Result<Option<usize>, Error> {
         let id = self.lines.len();
-        self.lines.push(Traced { points: Vec::new(), closed: false, kept: true });
+        self.lines.push(Traced {
+            points: Vec::new(),
+            closed: false,
+            kept: true,
+        });
         charge(1)?;
-        self.samples.add(Sample { at: seed, line: u32::try_from(id).unwrap_or(u32::MAX), along: 0.0 });
+        self.samples.add(Sample {
+            at: seed,
+            line: u32::try_from(id).unwrap_or(u32::MAX),
+            along: 0.0,
+        });
         let heading = self.hatch.flow_of().direction(seed);
         let (forward, closed) = self.walk(id, seed, heading, 1.0, charge)?;
         let backward = if closed {
@@ -263,7 +285,10 @@ impl Run<'_> {
         let mut points: Vec<Point> = backward.into_iter().rev().collect();
         points.push(seed);
         points.extend(forward);
-        let length: f64 = points.windows(2).map(|pair| (pair[1].x - pair[0].x).hypot(pair[1].y - pair[0].y)).sum();
+        let length: f64 = points
+            .windows(2)
+            .map(|pair| length(pair[1].x - pair[0].x, pair[1].y - pair[0].y))
+            .sum();
         let kept = closed || (points.len() > 1 && length >= SHORTEST * self.spacing(seed));
         let line = &mut self.lines[id];
         line.closed = closed;
@@ -296,7 +321,7 @@ impl Run<'_> {
                 return Ok((points, false));
             }
             let gap = self.spacing(next);
-            if sign > 0.0 && next_along > CLOSE_AFTER * gap && (next.x - from.x).hypot(next.y - from.y) < TEST * gap {
+            if sign > 0.0 && next_along > CLOSE_AFTER * gap && length(next.x - from.x, next.y - from.y) < TEST * gap {
                 return Ok((points, true));
             }
             let own = u32::try_from(id).unwrap_or(u32::MAX);
@@ -308,7 +333,11 @@ impl Run<'_> {
                 return Ok((points, false));
             }
             charge(1)?;
-            self.samples.add(Sample { at: next, line: own, along: next_along });
+            self.samples.add(Sample {
+                at: next,
+                line: own,
+                along: next_along,
+            });
             points.push(next);
             (at, heading, along) = (next, turn, next_along);
         }

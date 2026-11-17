@@ -1,6 +1,13 @@
 //! The samples of the lines made so far, in a grid of cells as wide as the narrowest spacing: "is any sample of
 //! another line closer than this" looks at the cells round the point, never at every sample.
 
+#![expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    reason = "cell indexes are clamped into a grid of at most 2048 by 2048 cells before they are used"
+)]
+
 use crate::geometry::Point;
 
 /// One point of a line.
@@ -32,7 +39,15 @@ impl Samples {
     pub(crate) fn new(left: f64, top: f64, width: f64, height: f64, cell: f64) -> Self {
         let across = |extent: f64| ((extent / cell).floor() as usize).saturating_add(1);
         let (columns, rows) = (across(width), across(height));
-        Self { left, top, cell, columns, rows, head: vec![NONE; columns * rows], items: Vec::new() }
+        Self {
+            left,
+            top,
+            cell,
+            columns,
+            rows,
+            head: vec![NONE; columns * rows],
+            items: Vec::new(),
+        }
     }
 
     /// The number of cells a grid over this rectangle would have.
@@ -46,10 +61,6 @@ impl Samples {
 
     fn row(&self, y: f64) -> i64 {
         ((y - self.top) / self.cell).floor() as i64
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        self.items.len()
     }
 
     /// Adds a sample. Its point lies inside the rectangle the grid covers.

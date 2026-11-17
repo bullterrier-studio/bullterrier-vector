@@ -24,21 +24,33 @@ fn call<'a>(
     };
     let mut entries = outer.iter();
     let (Some((word, args)), None) = (entries.next(), entries.next()) else {
-        return Err(refuse(pointer, format!("must be an object with one call, one of {}", listed())));
+        return Err(refuse(
+            pointer,
+            format!("must be an object with one call, one of {}", listed()),
+        ));
     };
     if !words.contains(&word.as_str()) {
-        return Err(refuse(&at(pointer, word), format!("is not a call of {what}; it is one of {}", listed())));
+        return Err(refuse(
+            &at(pointer, word),
+            format!("is not a call of {what}; it is one of {}", listed()),
+        ));
     }
     let here = at(pointer, word);
     match args {
         Json::Object(args) => Ok((word, args, here)),
-        other => Err(refuse(&here, format!("must be an object of arguments, not {}", other.describe()))),
+        other => Err(refuse(
+            &here,
+            format!("must be an object of arguments, not {}", other.describe()),
+        )),
     }
 }
 
 fn only(pointer: &str, args: &BTreeMap<String, Json>, allowed: &[&str]) -> Result<(), Error> {
     match args.keys().find(|key| !allowed.contains(&key.as_str())) {
-        Some(key) => Err(refuse(&at(pointer, key), format!("is not an argument of this call, which has {}", allowed.join(", ")))),
+        Some(key) => Err(refuse(
+            &at(pointer, key),
+            format!("is not an argument of this call, which has {}", allowed.join(", ")),
+        )),
         None => Ok(()),
     }
 }
@@ -80,7 +92,10 @@ fn drawing_path(pointer: &str, args: &BTreeMap<String, Json>) -> Result<Path, Er
         None => return Err(refuse(pointer, "is missing `drawing`")),
     };
     let Some((Json::String(data), data_at)) = lone else {
-        return Err(refuse(&here, "must be one path, written [{\"path\": \"M0 0 ...\"}]: a field reads a path, not a drawing, in this version"));
+        return Err(refuse(
+            &here,
+            "must be one path, written [{\"path\": \"M0 0 ...\"}]: a field reads a path, not a drawing, in this version",
+        ));
     };
     Path::from_svg_path(data).map_err(|error| refuse(&data_at, reason(&error)))
 }
@@ -97,7 +112,10 @@ pub(super) fn field(pointer: &str, json: &Json) -> Result<Field, Error> {
     let (word, args, here) = call(pointer, json, &["Field.ramp", "Field.distance"], "a number or a field")?;
     if word == "Field.ramp" {
         only(&here, args, &["start", "end"])?;
-        return built(&here, Field::ramp(point(&here, args, "start")?, point(&here, args, "end")?));
+        return built(
+            &here,
+            Field::ramp(point(&here, args, "start")?, point(&here, args, "end")?),
+        );
     }
     only(&here, args, &["drawing", "normalized"])?;
     let normalized = match args.get("normalized") {
@@ -134,7 +152,10 @@ pub(super) fn flow(pointer: &str, json: &Json) -> Result<Flow, Error> {
         }
         _ => {
             only(&here, args, &["flow", "other", "fraction"])?;
-            let member = |name: &str| args.get(name).ok_or_else(|| refuse(&here, format!("is missing `{name}`")));
+            let member = |name: &str| {
+                args.get(name)
+                    .ok_or_else(|| refuse(&here, format!("is missing `{name}`")))
+            };
             let first = flow(&at(&here, "flow"), member("flow")?)?;
             let second = flow(&at(&here, "other"), member("other")?)?;
             built(&here, first.mix(&second, number(&here, args, "fraction", None)?))
@@ -172,7 +193,11 @@ pub(super) fn field_json(field: &Field) -> Json {
 pub(super) fn flow_json(flow: &Flow) -> Json {
     match flow.kind() {
         FlowKind::Angle { degrees } => Json::object([("Flow.angle", Json::object([("angle", Json::Number(degrees))]))]),
-        FlowKind::Noise { wavelength, phase, seed } => Json::object([(
+        FlowKind::Noise {
+            wavelength,
+            phase,
+            seed,
+        } => Json::object([(
             "Flow.noise",
             Json::object([
                 ("wavelength", Json::Number(wavelength)),

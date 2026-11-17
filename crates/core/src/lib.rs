@@ -31,8 +31,8 @@ pub use drawing::{
     Stroke, Twist, Wanted,
 };
 pub use error::Error;
-pub use field::{Field, Flow, Hatch};
 pub use expr::{Expr, Random, Stagger, by_index, by_order};
+pub use field::{Field, Flow, Hatch};
 pub use geometry::{Point, Rect, Scale};
 pub use json::{Inputs, drawing_schema};
 pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};

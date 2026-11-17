@@ -152,7 +152,9 @@ fn verb_schema(verb: &Verb) -> Json {
     }
     // a spacing of two numbers is read from a field: the field's argument is needed when the factor is a pair
     if let (Some(pair), Some(field)) = (
-        verb.args.iter().find(|arg| arg.kind == Kind::Factor && arg.reads == Reads::Literal),
+        verb.args
+            .iter()
+            .find(|arg| arg.kind == Kind::Factor && arg.reads == Reads::Literal),
         verb.args.iter().find(|arg| arg.kind == Kind::Field),
     ) {
         schema = with(
@@ -163,7 +165,11 @@ fn verb_schema(verb: &Verb) -> Json {
                 ("required", Json::Array(vec![Json::text(pair.name)])),
             ]),
         );
-        schema = with(schema, "then", Json::object([("required", Json::Array(vec![Json::text(field.name)]))]));
+        schema = with(
+            schema,
+            "then",
+            Json::object([("required", Json::Array(vec![Json::text(field.name)]))]),
+        );
     }
     described(schema)
 }

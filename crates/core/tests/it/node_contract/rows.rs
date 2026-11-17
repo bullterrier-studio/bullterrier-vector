@@ -2,8 +2,9 @@
 
 use crate::common::fonts::fraunces;
 use bullterrier_vector::{
-    Along, Arch, Blend, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Flow, Gradient, Halftone, Hatch, Join, Param, Path,
-    PlaceAlong, Point, Rect, Rotate, Scale, ScaleBy, Select, Shadow, Spacing, Stroke, Text, Twist, Values, text,
+    Along, Arch, Blend, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Flow, Gradient, Halftone, Hatch, Join,
+    Param, Path, PlaceAlong, Point, Rect, Rotate, Scale, ScaleBy, Select, Shadow, Spacing, Stroke, Text, Twist, Values,
+    text,
 };
 
 /// A drawing made of a verb with one argument set from an expression, or the reason the row has no such argument.

@@ -5,7 +5,9 @@ use super::{Arg, Context, Domain, Kind, Reads, Verb};
 use crate::geometry::{coordinate, finite, fraction};
 use crate::key::Key;
 use crate::limits::MAX_DEPTH;
-use crate::{Color, Drawing, Error, Expr, Field, Flow, Font, Literal, Paint, Param, Path, Point, Select, Shape, Values};
+use crate::{
+    Color, Drawing, Error, Expr, Field, Flow, Font, Literal, Paint, Param, Path, Point, Select, Shape, Values,
+};
 
 /// The place of a shape in the list a step works on, and how long the list is.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -185,6 +187,7 @@ impl Args {
 
     /// The call as numbers: the verb and every argument's value, which is everything but the steps it builds on that
     /// decides the shapes it makes. A drawing the call takes counts only as an item: its own key is its own.
+    #[expect(clippy::too_many_lines, reason = "one arm for each kind of value an argument holds")]
     pub(crate) fn key(&self) -> Vec<u64> {
         let mut key = Key::new();
         key.text(self.verb.name);

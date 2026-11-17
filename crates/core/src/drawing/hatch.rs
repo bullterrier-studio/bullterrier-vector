@@ -19,9 +19,15 @@ impl Drawing {
             &hatch::HatchStep,
             vec![
                 ("spacing", Given::Pair(Expr::from(zero), Expr::from(one))),
-                ("tone", hatch.tone().map_or(Given::Unset, |tone| Given::Field(tone.clone()))),
+                (
+                    "tone",
+                    hatch.tone().map_or(Given::Unset, |tone| Given::Field(tone.clone())),
+                ),
                 ("flow", Given::Flow(hatch.flow_of().clone())),
-                ("avoid", avoid.map_or(Given::Unset, |drawing| Given::Drawing(drawing.clone()))),
+                (
+                    "avoid",
+                    avoid.map_or(Given::Unset, |drawing| Given::Drawing(drawing.clone())),
+                ),
             ],
         )
     }

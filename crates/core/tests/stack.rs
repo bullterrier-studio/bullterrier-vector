@@ -9,8 +9,8 @@
 mod common;
 
 use bullterrier_vector::{
-    Color, Drawing, Error, Expr, Flow, Hatch, Inputs, Mesh, Param, Path, Random, Size, Stagger, Text, Values, by_index, by_order,
-    text,
+    Color, Drawing, Error, Expr, Flow, Hatch, Inputs, Mesh, Param, Path, Random, Size, Stagger, Text, Values, by_index,
+    by_order, text,
 };
 use common::fonts::synthetic;
 use common::{Outcome, parameter_refusal};
@@ -340,7 +340,9 @@ fn a_flow_mixed_to_the_deepest_nesting_is_read_written_and_hatched_on_the_smalle
             let document = drawing.to_json()?;
             let back = Drawing::from_json(&document, &Inputs::new())?;
             assert_eq!(back.to_json()?, document);
-            assert!(!back.shapes(&Values::new())?.is_empty());
+            parameter_refusal(back.shapes(&Values::new())).map_or_else(|_| (), |_| ());
+            let lines = back.shapes(&Values::new())?;
+            assert!(lines.iter().any(|shape| shape.path().to_svg_path().len() > 1));
             assert!(flow.at((10.0, 10.0)) < 180.0);
             drop(flow);
             Ok(())

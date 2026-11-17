@@ -32,7 +32,10 @@ impl Field {
     /// [`Error::Parameter`] naming `value` if it is NaN or infinite.
     pub fn constant(value: f64) -> Result<Self, Error> {
         let value = crate::geometry::finite("value", value)?;
-        Ok(Self { kind: FieldKind::Constant(value), parts: None })
+        Ok(Self {
+            kind: FieldKind::Constant(value),
+            parts: None,
+        })
     }
 
     /// 0 at `start`, 1 at `end`, linear along the line between and held beyond: the value of a point is the share of
@@ -45,7 +48,10 @@ impl Field {
         if start == end {
             return Err(Error::parameter("end", "must differ from start"));
         }
-        Ok(Self { kind: FieldKind::Ramp { start, end }, parts: None })
+        Ok(Self {
+            kind: FieldKind::Ramp { start, end },
+            parts: None,
+        })
     }
 
     /// The distance to the outline of `path` in design pixels, negative inside (by the nonzero rule). With
@@ -61,7 +67,10 @@ impl Field {
         let whole = Outline::from_polylines(&polylines, "distance")?;
         let parts = Parts::new(whole, &polylines, normalized)?;
         Ok(Self {
-            kind: FieldKind::Distance { path: path.clone(), normalized },
+            kind: FieldKind::Distance {
+                path: path.clone(),
+                normalized,
+            },
             parts: Some(Arc::new(parts)),
         })
     }
@@ -133,7 +142,11 @@ impl Parts {
     fn at(&self, point: Point, normalized: bool) -> f64 {
         if !normalized {
             let distance = self.whole.nearest(point).distance;
-            return if self.whole.contains(point) { -distance } else { distance };
+            return if self.whole.contains(point) {
+                -distance
+            } else {
+                distance
+            };
         }
         let mut best = 0.0_f64;
         for part in &self.parts {
@@ -158,7 +171,10 @@ impl Parts {
 /// The closed outlines of `polylines` grouped into parts: an outline nested an even number of times is an outer, an
 /// odd number a hole of the smallest outer that holds it.
 fn split(polylines: &[Polyline]) -> Result<Vec<Part>, Error> {
-    let shapes: Vec<&Polyline> = polylines.iter().filter(|line| line.drawn && line.points.len() > 2).collect();
+    let shapes: Vec<&Polyline> = polylines
+        .iter()
+        .filter(|line| line.drawn && line.points.len() > 2)
+        .collect();
     let holders: Vec<Vec<usize>> = shapes
         .iter()
         .enumerate()
@@ -177,7 +193,10 @@ fn split(polylines: &[Polyline]) -> Result<Vec<Part>, Error> {
         let mut members = vec![shapes[index].clone()];
         let mut holes = Vec::new();
         for (hole, holding_hole) in holders.iter().enumerate() {
-            let owner = holding_hole.iter().copied().min_by(|&a, &b| area(a).total_cmp(&area(b)));
+            let owner = holding_hole
+                .iter()
+                .copied()
+                .min_by(|&a, &b| area(a).total_cmp(&area(b)));
             if holding_hole.len() % 2 == 1 && owner == Some(index) {
                 members.push(shapes[hole].clone());
                 holes.push(shapes[hole].clone());
@@ -185,9 +204,23 @@ fn split(polylines: &[Polyline]) -> Result<Vec<Part>, Error> {
         }
         let outer = Outline::from_polylines(std::slice::from_ref(shapes[index]), "distance")?;
         let region = Outline::from_polylines(&members, "distance")?;
-        let holes = if holes.is_empty() { None } else { Some(Outline::from_polylines(&holes, "distance")?) };
-        let inradius = if holes.is_none() { inradius(&region, &outer) } else { 1.0 };
-        parts.push(Part { extent: region.extent(), region, outer, holes, inradius });
+        let holes = if holes.is_empty() {
+            None
+        } else {
+            Some(Outline::from_polylines(&holes, "distance")?)
+        };
+        let inradius = if holes.is_none() {
+            inradius(&region, &outer)
+        } else {
+            1.0
+        };
+        parts.push(Part {
+            extent: region.extent(),
+            region,
+            outer,
+            holes,
+            inradius,
+        });
     }
     Ok(parts)
 }
@@ -200,13 +233,19 @@ fn inradius(region: &Outline, outer: &Outline) -> f64 {
     const PROBES: u32 = 48;
     // constant: each round halves the step, so three rounds leave the deepest point within a 1/8 of a probe step
     const ROUNDS: u32 = 3;
-    let (l, t, r, b) = region.extent();
-    let (step_x, step_y) = ((r - l) / f64::from(PROBES), (b - t) / f64::from(PROBES));
-    let depth = |p: Point| if region.contains(p) { outer.nearest(p).distance } else { 0.0 };
-    let (mut best, mut at) = (0.0_f64, Point::new((l + r) / 2.0, (t + b) / 2.0));
+    let (left, top, right, bottom) = region.extent();
+    let (step_x, step_y) = ((right - left) / f64::from(PROBES), (bottom - top) / f64::from(PROBES));
+    let depth = |p: Point| {
+        if region.contains(p) {
+            outer.nearest(p).distance
+        } else {
+            0.0
+        }
+    };
+    let (mut best, mut at) = (0.0_f64, Point::new(left.midpoint(right), top.midpoint(bottom)));
     for i in 0..=PROBES {
         for j in 0..=PROBES {
-            let p = Point::new(l + step_x * f64::from(i), t + step_y * f64::from(j));
+            let p = Point::new(left + step_x * f64::from(i), top + step_y * f64::from(j));
             let d = depth(p);
             if d > best {
                 (best, at) = (d, p);

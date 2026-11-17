@@ -81,12 +81,16 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Tone {
         }
         match object.extract::<f64>() {
             Ok(number) => raised(vector::Field::constant(number)).map(Self),
-            Err(_) => Err(PyTypeError::new_err(format!("expected a Field or a number, got {}", object.repr()?))),
+            Err(_) => Err(PyTypeError::new_err(format!(
+                "expected a Field or a number, got {}",
+                object.repr()?
+            ))),
         }
     }
 }
 
 /// A spacing as the caller gave it: one number, or `(at tone 0, at tone 1)`.
+#[derive(Clone, Copy)]
 pub(crate) struct Spacing(pub(crate) (f64, f64));
 
 impl<'a, 'py> FromPyObject<'a, 'py> for Spacing {

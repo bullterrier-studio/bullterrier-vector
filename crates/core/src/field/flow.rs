@@ -1,7 +1,7 @@
 //! `Flow`: a direction without sign at every point.
 
 use super::outline::Outline;
-use super::segment_budget;
+use super::{length, segment_budget};
 use crate::Error;
 use crate::geometry::{Point, finite};
 use crate::key::{Key, Keyed};
@@ -32,10 +32,26 @@ pub(crate) enum FlowKind {
 #[derive(Debug)]
 enum Node {
     /// The doubled-angle unit vector of an angle, fixed.
-    Angle { degrees: f64, cos: f64, sin: f64 },
-    Noise { wavelength: f64, phase: f64, seed: f64, noise: Noise },
-    Contour { path: Path, outline: Outline },
-    Mix { flow: Flow, other: Flow, fraction: f64 },
+    Angle {
+        degrees: f64,
+        cos: f64,
+        sin: f64,
+    },
+    Noise {
+        wavelength: f64,
+        phase: f64,
+        seed: f64,
+        noise: Noise,
+    },
+    Contour {
+        path: Path,
+        outline: Outline,
+    },
+    Mix {
+        flow: Flow,
+        other: Flow,
+        fraction: f64,
+    },
 }
 
 /// A direction without sign at every point: a line through the point, not an arrow. A direction and its opposite are
@@ -50,7 +66,11 @@ pub struct Flow {
 
 impl Flow {
     fn leaf(node: Node) -> Self {
-        Self { node: Arc::new(node), depth: 0, leaves: 1 }
+        Self {
+            node: Arc::new(node),
+            depth: 0,
+            leaves: 1,
+        }
     }
 
     /// The same direction everywhere: `degrees` clockwise from the right on screen (`y` points down), any finite
@@ -76,11 +96,19 @@ impl Flow {
     /// ±(2^53 - 1).
     pub fn noise(wavelength: f64, phase: f64, seed: f64) -> Result<Self, Error> {
         if !(wavelength.is_finite() && wavelength > 0.0) {
-            return Err(Error::parameter("wavelength", format!("must be above 0, got {wavelength}")));
+            return Err(Error::parameter(
+                "wavelength",
+                format!("must be above 0, got {wavelength}"),
+            ));
         }
         let phase = finite("phase", phase)?;
         let noise = Noise::new(seed, 0)?;
-        Ok(Self::leaf(Node::Noise { wavelength, phase, seed, noise }))
+        Ok(Self::leaf(Node::Noise {
+            wavelength,
+            phase,
+            seed,
+            noise,
+        }))
     }
 
     /// The direction of the outline of `path` nearest the point.
@@ -89,7 +117,10 @@ impl Flow {
     /// [`Error::Geometry`] if the path has no edge; [`Error::Parameter`] past `MAX_SEGMENTS` edges.
     pub fn contour(path: &Path) -> Result<Self, Error> {
         let outline = Outline::of(path, "contour", &mut segment_budget("path"))?;
-        Ok(Self::leaf(Node::Contour { path: path.clone(), outline }))
+        Ok(Self::leaf(Node::Contour {
+            path: path.clone(),
+            outline,
+        }))
     }
 
     /// This flow `fraction` of the way to `other`, 0 to 1, blended in doubled-angle space so a direction and its
@@ -107,7 +138,15 @@ impl Flow {
                 format!("a flow mixes at most {MAX_LEAVES} flows and nests at most {MAX_MIX_DEPTH} mixes"),
             ));
         }
-        Ok(Self { node: Arc::new(Node::Mix { flow: self.clone(), other: other.clone(), fraction }), depth, leaves })
+        Ok(Self {
+            node: Arc::new(Node::Mix {
+                flow: self.clone(),
+                other: other.clone(),
+                fraction,
+            }),
+            depth,
+            leaves,
+        })
     }
 
     /// The direction at `point`, in degrees from 0 up to 180, clockwise from the right on screen.
@@ -124,13 +163,18 @@ impl Flow {
     fn doubled(&self, point: Point) -> (f64, f64) {
         let (x, y) = self.sum(point);
         // constant: below a thousandth of a unit the parts have cancelled, and the sum's direction is rounding
-        if x.hypot(y) < 1e-3 { self.first(point) } else { (x, y) }
+        if length(x, y) < 1e-3 { self.first(point) } else { (x, y) }
     }
 
     fn sum(&self, point: Point) -> (f64, f64) {
         match &*self.node {
             Node::Angle { cos, sin, .. } => (*cos, *sin),
-            Node::Noise { wavelength, phase, noise, .. } => {
+            Node::Noise {
+                wavelength,
+                phase,
+                noise,
+                ..
+            } => {
                 let value = noise.value(point.x / wavelength, point.y / wavelength, *phase);
                 // the noise is from -1 to 1: it turns the direction through half a turn each way
                 let (sin, cos) = sin_cos_deg(value * 360.0);
@@ -139,12 +183,15 @@ impl Flow {
             Node::Contour { outline, .. } => {
                 // as a unit vector, so a contour counts as much as an angle
                 let (x, y) = outline.nearest(point).doubled;
-                let length = x.hypot(y);
-                if length < 1e-12 { (1.0, 0.0) } else { (x / length, y / length) }
+                let size = length(x, y);
+                if size < 1e-12 { (1.0, 0.0) } else { (x / size, y / size) }
             }
             Node::Mix { flow, other, fraction } => {
                 let (a, b) = (flow.sum(point), other.sum(point));
-                (a.0 * (1.0 - fraction) + b.0 * fraction, a.1 * (1.0 - fraction) + b.1 * fraction)
+                (
+                    a.0 * (1.0 - fraction) + b.0 * fraction,
+                    a.1 * (1.0 - fraction) + b.1 * fraction,
+                )
             }
         }
     }
@@ -161,9 +208,9 @@ impl Flow {
     /// draws lines.
     pub(crate) fn direction(&self, point: Point) -> (f64, f64) {
         let (x, y) = self.doubled(point);
-        let length = x.hypot(y);
-        let (cos2, sin2) = (x / length, y / length);
-        let cos = ((1.0 + cos2) / 2.0).sqrt();
+        let size = length(x, y);
+        let (cos2, sin2) = (x / size, y / size);
+        let cos = 1.0_f64.midpoint(cos2).sqrt();
         let sin = ((1.0 - cos2) / 2.0).sqrt();
         (cos, if sin2 < 0.0 { -sin } else { sin })
     }
@@ -172,13 +219,22 @@ impl Flow {
     pub(crate) fn kind(&self) -> FlowKind {
         match &*self.node {
             Node::Angle { degrees, .. } => FlowKind::Angle { degrees: *degrees },
-            Node::Noise { wavelength, phase, seed, .. } => {
-                FlowKind::Noise { wavelength: *wavelength, phase: *phase, seed: *seed }
-            }
+            Node::Noise {
+                wavelength,
+                phase,
+                seed,
+                ..
+            } => FlowKind::Noise {
+                wavelength: *wavelength,
+                phase: *phase,
+                seed: *seed,
+            },
             Node::Contour { path, .. } => FlowKind::Contour { path: path.clone() },
-            Node::Mix { flow, other, fraction } => {
-                FlowKind::Mix { flow: flow.clone(), other: other.clone(), fraction: *fraction }
-            }
+            Node::Mix { flow, other, fraction } => FlowKind::Mix {
+                flow: flow.clone(),
+                other: other.clone(),
+                fraction: *fraction,
+            },
         }
     }
 }
@@ -190,7 +246,12 @@ impl Keyed for Flow {
                 key.word(1);
                 key.number(*degrees);
             }
-            Node::Noise { wavelength, phase, seed, .. } => {
+            Node::Noise {
+                wavelength,
+                phase,
+                seed,
+                ..
+            } => {
                 key.word(2);
                 key.number(*wavelength);
                 key.number(*phase);

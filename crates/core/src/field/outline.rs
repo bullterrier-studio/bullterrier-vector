@@ -1,6 +1,15 @@
 //! A path as straight edges in a grid, built once and asked many times: is a point inside (nonzero rule), and which
 //! edge is nearest. Streamlines and the fields of a path read it at every step, so a question never walks all edges.
 
+#![expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    reason = "cell indexes are clamped into a grid of at most 2048 by 2048 cells before they are used"
+)]
+
+use super::length;
 use crate::Error;
 use crate::geometry::Point;
 use crate::path::{Path, Polyline};
@@ -93,16 +102,16 @@ impl Outline {
             }
         }
         let (width, height) = (right - left, bottom - top);
-        #[expect(clippy::cast_precision_loss, reason = "an edge count far below 2^53")]
         let count = edges.len() as f64;
         let wanted = if width * height > 0.0 {
             (width * height / count).sqrt()
         } else {
             width.max(height) / count
         };
-        let size = wanted.max(width.max(height) / MAX_CELLS_PER_SIDE).max(f64::MIN_POSITIVE);
-        let side = |extent: f64| -> usize { cells_across(extent, size) };
-        let (columns, rows) = (side(width), side(height));
+        let size = wanted
+            .max(width.max(height) / MAX_CELLS_PER_SIDE)
+            .max(f64::MIN_POSITIVE);
+        let (columns, rows) = (cells_across(width, size), cells_across(height, size));
         let mut outline = Self {
             edges,
             neighbours,
@@ -184,7 +193,7 @@ impl Outline {
                 for &id in &self.cells[(y * columns + x) as usize] {
                     let (a, b) = self.edges[id as usize];
                     let (d, along) = distance_to_edge(point, a, b);
-                    if d < best.0 || (d == best.0 && (id as usize) < best.1) {
+                    if d < best.0 || (d.total_cmp(&best.0).is_eq() && (id as usize) < best.1) {
                         best = (d, id as usize, along);
                     }
                 }
@@ -204,15 +213,21 @@ impl Outline {
             own
         } else {
             let other = self.doubled_tangent(neighbour as usize);
-            (own.0 * (1.0 - share) + other.0 * share, own.1 * (1.0 - share) + other.1 * share)
+            (
+                own.0 * (1.0 - share) + other.0 * share,
+                own.1 * (1.0 - share) + other.1 * share,
+            )
         };
-        Nearest { distance: best.0, doubled }
+        Nearest {
+            distance: best.0,
+            doubled,
+        }
     }
 
     fn doubled_tangent(&self, edge: usize) -> (f64, f64) {
         let (a, b) = self.edges[edge];
-        let length = (b.x - a.x).hypot(b.y - a.y);
-        let (dx, dy) = ((b.x - a.x) / length, (b.y - a.y) / length);
+        let size = length(b.x - a.x, b.y - a.y);
+        let (dx, dy) = ((b.x - a.x) / size, (b.y - a.y) / size);
         (dx * dx - dy * dy, 2.0 * dx * dy)
     }
 
@@ -229,12 +244,10 @@ impl Outline {
     }
 }
 
-#[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a small positive cell count")]
 fn cells_across(extent: f64, size: f64) -> usize {
     ((extent / size).floor() as usize).saturating_add(1)
 }
 
-#[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "clamped into the grid first")]
 fn clamp_cell(value: f64, count: usize) -> usize {
     value.floor().clamp(0.0, (count - 1) as f64) as usize
 }
@@ -272,5 +285,5 @@ fn ring_cells(cx: i64, cy: i64, ring: i64) -> Vec<(i64, i64)> {
 fn distance_to_edge(p: Point, a: Point, b: Point) -> (f64, f64) {
     let (dx, dy) = (b.x - a.x, b.y - a.y);
     let along = (((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy)).clamp(0.0, 1.0);
-    ((p.x - (a.x + dx * along)).hypot(p.y - (a.y + dy * along)), along)
+    (length(p.x - (a.x + dx * along), p.y - (a.y + dy * along)), along)
 }

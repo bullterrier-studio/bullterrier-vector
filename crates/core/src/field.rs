@@ -9,10 +9,10 @@ mod outline;
 mod seeds;
 
 pub use distance::Field;
+pub(crate) use distance::FieldKind;
 pub use flow::Flow;
 pub(crate) use flow::FlowKind;
 pub use hatch::Hatch;
-pub(crate) use distance::FieldKind;
 
 use crate::Error;
 use crate::limits::MAX_SEGMENTS;
@@ -23,9 +23,17 @@ pub(crate) fn segment_budget(parameter: &'static str) -> impl FnMut(usize) -> Re
     move |count| {
         used = used.saturating_add(count);
         if used > MAX_SEGMENTS {
-            Err(Error::parameter(parameter, format!("MAX_SEGMENTS {MAX_SEGMENTS} passed")))
+            Err(Error::parameter(
+                parameter,
+                format!("MAX_SEGMENTS {MAX_SEGMENTS} passed"),
+            ))
         } else {
             Ok(())
         }
     }
+}
+
+/// The length of the vector `(x, y)`: `sqrt` is exact on every target, where `hypot` is the platform's.
+pub(crate) fn length(x: f64, y: f64) -> f64 {
+    (x * x + y * y).sqrt()
 }
