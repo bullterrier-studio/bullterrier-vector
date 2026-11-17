@@ -64,6 +64,7 @@ cache-keys = [
 [tool.poe.tasks]
 # A fast pure-Python scan of the tracked files: no .py or .rs file over 1000 lines, no test file over 1500, and the files
 # listed in [tool.file-size.exempt] never grow. tests/tools/test_file_size_gate.py shows it failing.
+disk = { cmd = "python tools/disk.py", help = "Delete this checkout's incremental build output when the disk has under 15 GB free" }
 file-size = { cmd = "python tools/check_file_size.py", help = "Check that no tracked Python or Rust file is over 1000 lines (test files 1500); listed exceptions may not grow" }
 # The examples are code the docs run: mypy checks them too (the template's `mypy` covers src, tests and tools).
 examples-types = { cmd = "mypy examples", help = "Type-check the example programs" }
@@ -134,7 +135,7 @@ rust-test-layout = { cmd = "python tools/check_rust_test_layout.py", help = "Che
 dead-code = { cmd = "vulture src", help = "Find dead code in src (vulture)" }
 # The project's own gates (vector: file size, the font crates without std, the WebAssembly bindings and their Node tests, the
 # stack tests unoptimised). `check` and `full` run this last; tests/tools/test_*_gate.py show each failing.
-project-gates = { sequence = [{ ref = "file-size" }, { ref = "examples-types" }, { ref = "rust-fonts" }, { ref = "wasm-build" }, { ref = "rust-test-stack" }, { ref = "wasm-test" }], help = "Vector's own gates, run last by check and full" }
+project-gates = { sequence = [{ ref = "disk" }, { ref = "file-size" }, { ref = "examples-types" }, { ref = "rust-fonts" }, { ref = "wasm-build" }, { ref = "rust-test-stack" }, { ref = "wasm-test" }], help = "Vector's own gates, run last by check and full" }
 # The steps only `full` runs: after build-check, whose dist/check it reads. tests/tools/test_check_dist_contents.py shows it failing.
 dist-contents = { cmd = "python tools/check_dist_contents.py dist/check", help = "Check the sdist's Rust sources and the licence files of the sdist and wheels (fonts included)" }
 project-full = { sequence = [{ ref = "dist-contents" }], help = "Vector's own steps that only full runs" }

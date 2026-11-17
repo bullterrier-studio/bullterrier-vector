@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-PROJECT_GATES = ["file-size", "rust-fonts", "wasm-build", "rust-test-stack", "wasm-test"]
+PROJECT_GATES = ["disk", "file-size", "rust-fonts", "wasm-build", "rust-test-stack", "wasm-test"]
 FULL_ONLY = ["dist-contents"]  # reads the distributions `build-check` builds: `full` only
 NOT_IN_FAST = ["wasm-build", "rust-test-stack", "wasm-test"]  # builds and Node: `check` and `full` only
 
