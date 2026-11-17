@@ -226,11 +226,11 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "trace_levels",
-            sample: || Ok(Drawing::trace_levels(&ramp_map()?, &[0.3, 0.6], &Trace::new())),
+            sample: || Ok(Drawing::trace_levels(&ramp_map()?, [0.3, 0.6], &Trace::new())),
             with: Some(|argument, value| {
                 Ok(Drawing::trace_levels(
                     &ramp_map()?,
-                    &[0.3, 0.6],
+                    [0.3, 0.6],
                     &traced_with(argument, value)?,
                 ))
             }),
@@ -240,7 +240,7 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "trace_labels",
-            sample: || Ok(Drawing::trace_labels(&ramp_map()?, &Trace::new())),
+            sample: || Ok(Drawing::trace_labels(&ramp_map()?, 32, &Trace::new())),
             with: Some(|argument, value| {
                 // one label, so that any cap from 1 draws
                 let map = Field::map(2, 2, &[3; 4], None, None)?;
@@ -252,9 +252,10 @@ pub(super) fn rows() -> Vec<Row> {
                     )]
                     "max_colors" => Ok(Drawing::trace_labels(
                         &map,
-                        &Trace::new().max_colors(literal(argument, &value)? as usize),
+                        literal(argument, &value)? as usize,
+                        &Trace::new(),
                     )),
-                    _ => Ok(Drawing::trace_labels(&map, &traced_with(argument, value)?)),
+                    _ => Ok(Drawing::trace_labels(&map, 32, &traced_with(argument, value)?)),
                 }
             }),
             ranges: Box::leak(
@@ -289,15 +290,15 @@ pub(super) fn rows() -> Vec<Row> {
                 let count = literal(argument, &value)? as usize;
                 let map = Field::map(4, 2, &[0, 0, 1, 1, 0, 0, 1, 1], None, None)?;
                 match argument {
-                    "cell" => Ok(Drawing::trace_cells(&map, count, 8)),
+                    "cell_size" => Ok(Drawing::trace_cells(&map, count, 8)),
                     "max_colors" => Ok(Drawing::trace_cells(&map, 2, count)),
                     other => Err(unknown("trace_cells", other)),
                 }
             }),
             ranges: &[
-                ("cell", 1.0, true),
-                ("cell", 2.0, true),
-                ("cell", 0.0, false),
+                ("cell_size", 1.0, true),
+                ("cell_size", 2.0, true),
+                ("cell_size", 0.0, false),
                 ("max_colors", 256.0, true),
                 ("max_colors", 2.0, true),
                 ("max_colors", 0.0, false),

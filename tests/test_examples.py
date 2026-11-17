@@ -761,7 +761,7 @@ def test_trace_stacks_three_papers_and_traces_the_dither_exactly(run):
     for lower, upper in pairwise(papers):
         assert upper.path.subtract(lower.path).to_svg_path() == ""
     # the dither is two colours that together are the strip's whole box
-    assert (red.attributes["level"], ink.attributes["level"]) == (1, 0)
+    assert (red.attributes["label"], ink.attributes["label"]) == (1, 0)
     strip = red.path.union(ink.path).bounds
     assert (strip.x, strip.y, strip.width, strip.height) == (60, 1000, 840, 126)
 

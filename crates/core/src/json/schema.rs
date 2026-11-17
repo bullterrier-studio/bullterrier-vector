@@ -286,10 +286,16 @@ fn value(arg: &Arg) -> Json {
         Domain::Fraction => vec![("minimum", number(0.0)), ("maximum", number(1.0))],
         Domain::PositiveUpTo(most) => vec![("exclusiveMinimum", number(0.0)), ("maximum", number(most))],
         Domain::Between(low, high, _) => vec![("exclusiveMinimum", number(low)), ("exclusiveMaximum", number(high))],
+        Domain::WholeBetween(low, high) => vec![("minimum", number(low)), ("maximum", number(high))],
+    };
+    let kind = if matches!(arg.domain, Domain::WholeBetween(..)) {
+        "integer"
+    } else {
+        "number"
     };
     let literal = bounds
         .into_iter()
-        .fold(typed("number"), |schema, (key, bound)| with(schema, key, bound));
+        .fold(typed(kind), |schema, (key, bound)| with(schema, key, bound));
     match arg.reads {
         Reads::Literal => literal,
         Reads::PerItem => any_of(vec![literal, reference("expression")]),

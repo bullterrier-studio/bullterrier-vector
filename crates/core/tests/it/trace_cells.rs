@@ -24,7 +24,7 @@ fn traced(field: &Field, cell: usize, max_colors: usize) -> Result<Vec<Shape>, E
 }
 
 fn level(shape: &Shape) -> Option<f64> {
-    shape.attributes().level()
+    shape.attributes().label().map(f64::from)
 }
 
 #[test]
@@ -134,13 +134,13 @@ proptest! {
 fn a_map_that_is_not_cells_is_refused_naming_the_argument() -> Outcome {
     let named = |outcome: Result<Vec<Shape>, Error>| parameter_refusal(outcome).map(|(name, _)| name);
     assert!(
-        named(traced(&map(5, 4, &[0; 20])?, 2, 32))?.contains("cell"),
+        named(traced(&map(5, 4, &[0; 20])?, 2, 32))?.contains("cell_size"),
         "5 is not a multiple of 2"
     );
     let mut uneven = vec![0_u8; 16];
     uneven[1] = 1;
     assert!(
-        named(traced(&map(4, 4, &uneven)?, 2, 32))?.contains("cell"),
+        named(traced(&map(4, 4, &uneven)?, 2, 32))?.contains("cell_size"),
         "a cell of two colours"
     );
     let many: Vec<u8> = (0..16).collect();
@@ -150,7 +150,7 @@ fn a_map_that_is_not_cells_is_refused_naming_the_argument() -> Outcome {
         "16 colours are within a cap of 16"
     );
     assert!(named(Drawing::trace_cells(&Field::constant(0.5)?, 1, 32).shapes(&Values::new()))?.contains("map"));
-    assert!(named(traced(&map(4, 4, &[0; 16])?, 0, 32))?.contains("cell"));
+    assert!(named(traced(&map(4, 4, &[0; 16])?, 0, 32))?.contains("cell_size"));
     Ok(())
 }
 

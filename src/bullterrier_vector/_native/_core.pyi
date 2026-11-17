@@ -452,7 +452,7 @@ class Drawing:
     @staticmethod
     def trace_levels(
         map: Field,  # noqa: A002  api.md names the arguments `map` and `open`
-        levels: float | Sequence[float],
+        levels: _Num | Sequence[_Num],
         *,
         smooth: _Num = 0,
         tolerance: _Num = 0.5,
@@ -476,7 +476,7 @@ class Drawing:
     @staticmethod
     def trace_cells(
         map: Field,  # noqa: A002  api.md names the arguments `map` and `open`
-        cell: int,
+        cell_size: int,
         *,
         max_colors: int = 32,
     ) -> Drawing: ...

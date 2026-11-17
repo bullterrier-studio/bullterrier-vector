@@ -134,7 +134,8 @@ impl Domain {
             | Self::Positive
             | Self::AtLeast(_)
             | Self::PositiveUpTo(_)
-            | Self::Between(..) => {
+            | Self::Between(..)
+            | Self::WholeBetween(..) => {
                 let value = finite(name, value)?;
                 let accepted = match self {
                     Self::NonZero => value != 0.0,
@@ -142,6 +143,7 @@ impl Domain {
                     Self::AtLeast(least) => value >= least,
                     Self::PositiveUpTo(most) => value > 0.0 && value <= most,
                     Self::Between(low, high, _) => value > low && value < high,
+                    Self::WholeBetween(low, high) => value.fract() == 0.0 && value >= low && value <= high,
                     _ => true,
                 };
                 if accepted {
@@ -161,6 +163,7 @@ impl Domain {
             Self::AtLeast(least) => format!("at least {least}"),
             Self::PositiveUpTo(most) => format!("above 0 and at most {most}"),
             Self::Between(_, _, words) => String::from(words),
+            Self::WholeBetween(low, high) => format!("a whole number from {low} to {high}"),
             Self::Any | Self::Finite | Self::Coordinate | Self::Fraction | Self::Choice(_) | Self::Painting => {
                 String::from("accepted")
             }

@@ -41,7 +41,7 @@ def test_a_checkerboard_of_cells_is_traced_exactly_to_rectangles_that_fill_the_m
     cells = bytes(((x // 2) + (y // 2)) % 2 for y in range(8) for x in range(8))
     drawing = btvec.Drawing.trace_cells(btvec.Field.map(8, 8, cells), 2)
     shapes = drawing.shapes()
-    assert [shape.attributes["level"] for shape in shapes] == [0, 1]
+    assert [shape.attributes["label"] for shape in shapes] == [0, 1]
     assert [area(shape.path) for shape in shapes] == [32, 32]
     assert shapes[0].path.to_svg_path().count("M") == 8
 
@@ -49,7 +49,7 @@ def test_a_checkerboard_of_cells_is_traced_exactly_to_rectangles_that_fill_the_m
 def test_labels_make_one_shape_each_and_more_than_max_colors_raises() -> None:
     labels = btvec.Field.map(4, 2, bytes([2, 2, 9, 9, 2, 2, 9, 9]))
     shapes = btvec.Drawing.trace_labels(labels, tolerance=0).shapes()
-    assert [shape.attributes["level"] for shape in shapes] == [2, 9]
+    assert [shape.attributes["label"] for shape in shapes] == [2, 9]
     with pytest.raises(btvec.ParameterError, match="max_colors"):
         btvec.Drawing.trace_labels(labels, max_colors=1).shapes()
 
@@ -61,8 +61,12 @@ def test_labels_make_one_shape_each_and_more_than_max_colors_raises() -> None:
         (lambda: btvec.Drawing.trace_levels(ramp_map(), [], tolerance=0), "levels"),
         (lambda: btvec.Drawing.trace_levels(ramp_map(), [float("nan")]), "levels"),
         (lambda: btvec.Drawing.trace_levels(ramp_map(), [0.5], open=float("nan")), "open"),
-        (lambda: btvec.Drawing.trace_cells(ramp_map(), 0), "cell"),
-        (lambda: btvec.Drawing.trace_cells(ramp_map(), 3).shapes(), "cell"),
+        (lambda: btvec.Drawing.trace_cells(ramp_map(), 0), "cell_size"),
+        (lambda: btvec.Drawing.trace_cells(ramp_map(), 3).shapes(), "cell_size"),
+        (lambda: btvec.Drawing.trace_cells(ramp_map(), -1), "cell_size"),
+        (lambda: btvec.Drawing.trace_cells(ramp_map(), 2.5), "cell_size"),
+        (lambda: btvec.Drawing.trace_cells(ramp_map(), 2, max_colors=-3), "max_colors"),
+        (lambda: btvec.Drawing.trace_labels(ramp_map(), max_colors=1.5), "max_colors"),
         (lambda: btvec.Drawing.trace_levels(btvec.Field.ramp((0, 0), (1, 0)), [0.5]).shapes(), "map"),
     ],
 )
@@ -80,6 +84,12 @@ def test_a_trace_is_a_document_that_loads_back_to_the_same_shapes() -> None:
     assert back.to_json() == text
 
 
+def test_a_whole_number_float_is_the_whole_number_it_reads_as() -> None:
+    cells = bytes(((x // 2) + (y // 2)) % 2 for y in range(8) for x in range(8))
+    shapes = btvec.Drawing.trace_cells(btvec.Field.map(8, 8, cells), 2.0).shapes()
+    assert [shape.attributes["label"] for shape in shapes] == [0, 1]
+
+
 def test_a_param_feeds_a_tidying_number() -> None:
     cells = bytes(255 if 4 <= x < 7 and 4 <= y < 7 else 0 for y in range(12) for x in range(12))
     grow = btvec.Param("grow", default=0, min=0, max=3)
@@ -94,7 +104,11 @@ def test_the_generated_schema_accepts_a_trace_document_and_refuses_a_bad_one() -
     photo = {"Field.map": {"width": 8, "height": 8, "data": "photo"}}
     good = {"version": 1, "inputs": inputs, "root": [{"trace_levels": {"map": photo, "levels": [0.3], "open": 1}}]}
     assert validator.is_valid(good)
-    assert validator.is_valid({**good, "root": [{"trace_cells": {"map": photo, "cell": 2, "max_colors": 8}}]})
+    assert validator.is_valid({**good, "root": [{"trace_cells": {"map": photo, "cell_size": 2, "max_colors": 8}}]})
     assert not validator.is_valid({**good, "root": [{"trace_levels": {"map": photo, "levels": "dark"}}]})
     assert not validator.is_valid({**good, "root": [{"trace_levels": {"map": photo, "levels": [0.3], "smooth": -1}}]})
     assert not validator.is_valid({**good, "root": [{"trace_labels": {"map": photo, "max_colors": 300}}]})
+    # a count is a whole number: the schema says so rather than leave the draw to refuse it
+    assert not validator.is_valid({**good, "root": [{"trace_cells": {"map": photo, "cell_size": 1.5}}]})
+    assert not validator.is_valid({**good, "root": [{"trace_labels": {"map": photo, "max_colors": 2.5}}]})
+    assert validator.is_valid({**good, "root": [{"trace_labels": {"map": photo, "max_colors": 2.0}}]})

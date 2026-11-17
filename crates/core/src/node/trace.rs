@@ -14,6 +14,10 @@ pub(crate) const MAX_COLORS: f64 = 256.0;
 // constant: a dithered picture of a palette of 32 colours is already finer than a cut-paper or plotter piece wants
 pub(crate) const DEFAULT_COLORS: f64 = 32.0;
 
+/// The largest cell a map holds.
+// constant: a map has at most 2^24 pixels, so a cell of more pixels than that is never a divisor of one
+const MAX_CELL_SIZE: f64 = 16_777_216.0;
+
 const MAP: Arg = Arg {
     name: "map",
     kind: Kind::Field,
@@ -27,7 +31,7 @@ const MAX_COLORS_ARG: Arg = Arg {
     kind: Kind::Number,
     default: Some(Literal::Number(DEFAULT_COLORS)),
     reads: Reads::Literal,
-    domain: Domain::PositiveUpTo(MAX_COLORS),
+    domain: Domain::WholeBetween(1.0, MAX_COLORS),
 };
 
 /// A number read once, default `default`, from 0.
@@ -73,21 +77,14 @@ fn map_of(args: &Args) -> Result<&crate::field::MapData, Error> {
         .ok_or_else(|| Error::parameter("map", "must be a Field.map: a grayscale or label map of bytes"))
 }
 
-/// The whole number of `name`, from 1.
+/// The whole number of `name`, which its domain keeps from 1.
 fn whole(args: &Args, cx: &Context<'_>, name: &str) -> Result<usize, Error> {
-    let value = args.once_number(cx, name)?;
-    if value.fract() != 0.0 || value < 1.0 {
-        return Err(Error::parameter(
-            name,
-            format!("must be a whole number from 1, got {value}"),
-        ));
-    }
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "whole, from 1, below 2^53"
     )]
-    Ok(value as usize)
+    args.once_number(cx, name).map(|value| value as usize)
 }
 
 /// One shape for each colour of a map of cells.
@@ -97,15 +94,15 @@ pub(crate) struct TraceCells;
 pub(crate) static TRACE_CELLS: Verb = Verb {
     name: "trace_cells",
     role: Role::Source,
-    summary: "traces a map of square cells exactly: the `map` (a Field.map) is read as a lattice of cells of `cell` pixels, each one colour (its byte, a palette index), and every colour becomes one shape (attribute `level` the colour byte, in order of the byte) whose straight edges lie on cell sides, cells that touch along a side merged, holes kept; nothing is fitted, so the shapes' areas are the cells' and they neither overlap nor leave a gap; more than `max_colors` colours is refused",
+    summary: "traces a map of square cells exactly: the `map` (a Field.map) is read as a lattice of cells of `cell_size` map pixels, each one colour (its byte, a palette index), and every colour becomes one shape (attribute `label` the colour byte, in order of the byte) whose straight edges lie on cell sides, cells that touch along a side merged, holes kept; nothing is fitted, so the shapes' areas are the cells' and they neither overlap nor leave a gap; more than `max_colors` colours is refused",
     args: &[
         MAP,
         Arg {
-            name: "cell",
+            name: "cell_size",
             kind: Kind::Number,
             default: None,
             reads: Reads::Literal,
-            domain: Domain::AtLeast(1.0),
+            domain: Domain::WholeBetween(1.0, MAX_CELL_SIZE),
         },
         MAX_COLORS_ARG,
     ],
@@ -118,32 +115,52 @@ impl Node for TraceCells {
     }
 
     fn evaluate(&self, args: &Args, _: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
-        let placed = |error: Error| error.at_argument(&cx.place, None);
-        let (cell, colors) = (
-            whole(args, cx, "cell").map_err(placed)?,
-            whole(args, cx, "max_colors").map_err(placed)?,
-        );
         let place = cx.place.to_string();
         let mut charge = |count| cx.work.made_segments(count, &place);
-        let outlines =
-            crate::trace::trace_cells(map_of(args).map_err(placed)?, cell, colors, &mut charge).map_err(placed)?;
-        shapes(outlines.into_iter().map(|(colour, path)| (f64::from(colour), path)), cx)
+        let outlines = (|| {
+            let (cell, colors) = (whole(args, cx, "cell_size")?, whole(args, cx, "max_colors")?);
+            crate::trace::trace_cells(map_of(args)?, cell, colors, &mut charge)
+        })()
+        .map_err(|error| placed(error, cx))?;
+        shapes(outlines, Attribute::Label, cx)
     }
 }
 
-/// The shapes of `outlines`, each with its `level`.
-pub(crate) fn shapes(
-    outlines: impl Iterator<Item = (f64, crate::Path)>,
+/// `error` placed at this step, unless it is the charge of the draw's budget, which names the step itself.
+fn placed(error: Error, cx: &Context<'_>) -> Error {
+    match &error {
+        Error::Parameter { parameter, .. } if *parameter == cx.place.to_string() => error,
+        _ => error.at_argument(&cx.place, None),
+    }
+}
+
+/// What a traced shape's number is.
+#[derive(Clone, Copy)]
+pub(crate) enum Attribute {
+    /// A colour byte of a map of labels or cells.
+    Label,
+    /// A tone level.
+    Level,
+}
+
+/// The shapes of `outlines`, each with its number as the attribute `attribute`.
+pub(crate) fn shapes<N: Into<f64>>(
+    outlines: Vec<(N, crate::Path)>,
+    attribute: Attribute,
     cx: &Context<'_>,
 ) -> Result<Vec<Shape>, Error> {
-    let outlines: Vec<_> = outlines.collect();
     cx.work.made_shapes(outlines.len(), &cx.place)?;
     Ok(outlines
         .into_iter()
         .enumerate()
-        .map(|(index, (level, path))| {
+        .map(|(index, (number, path))| {
             let mut shape = Shape::from_path(path, index);
-            shape.attributes_mut().level = Some(level);
+            let number: f64 = number.into();
+            match attribute {
+                Attribute::Level => shape.attributes_mut().level = Some(number),
+                #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a byte")]
+                Attribute::Label => shape.attributes_mut().label = Some(number as u32),
+            }
             shape
         })
         .collect())
@@ -194,24 +211,19 @@ impl Node for TraceLevels {
     }
 
     fn evaluate(&self, args: &Args, _: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
-        let placed = |error: Error| error.at_argument(&cx.place, None);
-        let levels = args
-            .numbers(
-                cx,
-                "levels",
-                Item {
-                    index: 0,
-                    count: 1,
-                    order: 0.0,
-                },
-            )
-            .map_err(placed)?;
-        let plan = plan(args, cx).map_err(placed)?;
         let place = cx.place.to_string();
         let mut charge = |count| cx.work.made_segments(count, &place);
-        let outlines =
-            crate::trace::trace_levels(map_of(args).map_err(placed)?, &levels, &plan, &mut charge).map_err(placed)?;
-        shapes(outlines.into_iter(), cx)
+        let outlines = (|| {
+            let item = Item {
+                index: 0,
+                count: 1,
+                order: 0.0,
+            };
+            let levels = args.numbers(cx, "levels", item)?;
+            crate::trace::trace_levels(map_of(args)?, &levels, &plan(args, cx)?, &mut charge)
+        })()
+        .map_err(|error| placed(error, cx))?;
+        shapes(outlines, Attribute::Level, cx)
     }
 }
 
@@ -222,7 +234,7 @@ pub(crate) struct TraceLabels;
 pub(crate) static TRACE_LABELS: Verb = Verb {
     name: "trace_labels",
     role: Role::Source,
-    summary: "traces a map of colour labels: the `map` (a Field.map) holds a palette index, its byte, at every pixel, and each index it holds becomes one filled shape (attribute `level` the byte, in order of the byte) of the pixels with that index; more than `max_colors` indexes is refused; a shape that meets the map's border goes on past it and closes outside; `smooth`, `close`, `open`, `min_hole`, `min_area` and `tolerance` as for trace_levels, so the shapes of neighbouring labels meet within `tolerance` and can leave a hairline between them (stack them over a shape of the commonest colour)",
+    summary: "traces a map of colour labels: the `map` (a Field.map) holds a palette index, its byte, at every pixel, and each index it holds becomes one filled shape (attribute `label` the byte, in order of the byte) of the pixels with that index; more than `max_colors` indexes is refused; a shape that meets the map's border goes on past it and closes outside; `smooth`, `close`, `open`, `min_hole`, `min_area` and `tolerance` as for trace_levels, so the shapes of neighbouring labels meet within `tolerance` and can leave a hairline between them (stack them over a shape of the commonest colour)",
     args: &[
         MAP,
         MAX_COLORS_ARG,
@@ -242,13 +254,13 @@ impl Node for TraceLabels {
     }
 
     fn evaluate(&self, args: &Args, _: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
-        let placed = |error: Error| error.at_argument(&cx.place, None);
-        let colors = whole(args, cx, "max_colors").map_err(placed)?;
-        let plan = plan(args, cx).map_err(placed)?;
         let place = cx.place.to_string();
         let mut charge = |count| cx.work.made_segments(count, &place);
-        let outlines =
-            crate::trace::trace_labels(map_of(args).map_err(placed)?, colors, &plan, &mut charge).map_err(placed)?;
-        shapes(outlines.into_iter().map(|(label, path)| (f64::from(label), path)), cx)
+        let outlines = (|| {
+            let colors = whole(args, cx, "max_colors")?;
+            crate::trace::trace_labels(map_of(args)?, colors, &plan(args, cx)?, &mut charge)
+        })()
+        .map_err(|error| placed(error, cx))?;
+        shapes(outlines, Attribute::Label, cx)
     }
 }

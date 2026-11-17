@@ -19,11 +19,11 @@ fn field(width: usize, height: usize, bytes: &[u8]) -> Result<Field, Error> {
 }
 
 fn levels(map: &Field, levels: &[f64], trace: &Trace) -> Result<Vec<Shape>, Error> {
-    Drawing::trace_levels(map, levels, trace).shapes(&Values::new())
+    Drawing::trace_levels(map, levels.iter().copied(), trace).shapes(&Values::new())
 }
 
 fn labels(map: &Field, trace: &Trace) -> Result<Vec<Shape>, Error> {
-    Drawing::trace_labels(map, trace).shapes(&Values::new())
+    Drawing::trace_labels(map, 32, trace).shapes(&Values::new())
 }
 
 fn raw() -> Trace {
@@ -261,8 +261,8 @@ fn labels_make_one_shape_each_that_together_fill_the_map() -> Outcome {
         }
     });
     let shapes = labels(&field(40, 20, &bytes)?, &raw())?;
-    let found: Vec<f64> = shapes.iter().filter_map(|s| s.attributes().level()).collect();
-    assert_eq!(found, vec![0.0, 2.0, 7.0]);
+    let found: Vec<u32> = shapes.iter().filter_map(|s| s.attributes().label()).collect();
+    assert_eq!(found, vec![0, 2, 7]);
     let areas: Vec<f64> = shapes
         .iter()
         .map(|s| inside(s.path(), 40.0, 20.0))
@@ -281,8 +281,12 @@ fn too_many_labels_and_hostile_numbers_are_refused_naming_the_argument() -> Outc
     let named = |outcome: Result<Vec<Shape>, Error>| parameter_refusal(outcome).map(|(name, _)| name);
     let many: Vec<u8> = (0..64).collect();
     let map = field(8, 8, &many)?;
-    assert!(named(labels(&map, &Trace::new().max_colors(10)))?.contains("max_colors"));
-    assert!(labels(&map, &Trace::new().max_colors(64)).is_ok());
+    assert!(named(Drawing::trace_labels(&map, 10, &Trace::new()).shapes(&Values::new()))?.contains("max_colors"));
+    assert!(
+        Drawing::trace_labels(&map, 64, &Trace::new())
+            .shapes(&Values::new())
+            .is_ok()
+    );
     let tone = field(4, 4, &[100; 16])?;
     for (trace, argument) in [
         (Trace::new().smooth(f64::NAN), "smooth"),
@@ -328,8 +332,8 @@ fn the_three_calls_are_documents_that_draw_what_the_code_draws_and_write_back_th
     let bytes: Vec<u8> = (0..64).map(|i| u8::try_from(i * 4 % 256).unwrap_or(0)).collect();
     let map = Field::map(8, 8, &bytes, None, Some("photo"))?;
     let drawings = [
-        Drawing::trace_levels(&map, &[0.25, 0.75], &Trace::new().smooth(0.5).open(0.25).min_area(2.0)),
-        Drawing::trace_labels(&map, &Trace::new().max_colors(64).tolerance(0.0)),
+        Drawing::trace_levels(&map, [0.25, 0.75], &Trace::new().smooth(0.5).open(0.25).min_area(2.0)),
+        Drawing::trace_labels(&map, 64, &Trace::new().tolerance(0.0)),
         Drawing::trace_cells(&map, 1, 64),
     ];
     for drawing in drawings {

@@ -41,7 +41,7 @@ fn lattice(map: &MapData, cell: usize) -> Result<Vec<u8>, Error> {
                 let start = y * map.width + column * cell;
                 if map.bytes[start..start + cell].iter().any(|&byte| byte != colour) {
                     return Err(Error::parameter(
-                        "cell",
+                        "cell_size",
                         format!(
                             "the cell at column {column}, row {row} is not one colour: the map is not cells of {cell} pixels"
                         ),
@@ -54,7 +54,7 @@ fn lattice(map: &MapData, cell: usize) -> Result<Vec<u8>, Error> {
     Ok(colours)
 }
 
-/// One shape's outline for each colour of `map`, in order of the colour byte, cut into cells of `cell` pixels (the
+/// One shape's outline for each colour of `map`, in order of the colour byte, cut into cells of `cell_size` map pixels (the
 /// colour byte is the palette index). `charge` is called with the number of cracks before they are made.
 pub(crate) fn trace(
     map: &MapData,
@@ -64,7 +64,7 @@ pub(crate) fn trace(
 ) -> Result<Vec<(u8, Path)>, Error> {
     if !map.width.is_multiple_of(cell) || !map.height.is_multiple_of(cell) {
         return Err(Error::parameter(
-            "cell",
+            "cell_size",
             format!(
                 "must divide the map's width and height, got {cell} for {} by {}",
                 map.width, map.height
@@ -73,7 +73,7 @@ pub(crate) fn trace(
     }
     let (columns, rows) = (map.width / cell, map.height / cell);
     if columns * rows > MAX_CELLS {
-        return Err(Error::parameter("cell", "is too small: more than 2^24 cells"));
+        return Err(Error::parameter("cell_size", "is too small: more than 2^24 cells"));
     }
     let colours = lattice(map, cell)?;
     let mut present = [false; 256];

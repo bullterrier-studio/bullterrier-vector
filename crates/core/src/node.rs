@@ -284,6 +284,8 @@ pub enum Domain {
     Fraction,
     /// A finite number above 0 and at or below the limit.
     PositiveUpTo(f64),
+    /// A whole number from the first limit to the second, both included.
+    WholeBetween(f64, f64),
     /// A finite number above the first and below the second; the words of the refusal, naming the bounds and why.
     Between(f64, f64, &'static str),
     /// One of these words.

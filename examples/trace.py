@@ -42,8 +42,8 @@ layers = [
 dither = btvec.Drawing.trace_cells(strip, 2, max_colors=2)
 drawing = btvec.Drawing(
     *layers,
-    dither.only(level=1).fill(RED),
-    dither.only(level=0).fill(INK),
+    dither.only(label=1).fill(RED),
+    dither.only(label=0).fill(INK),
     size=(WIDTH, HEIGHT),
 )
 

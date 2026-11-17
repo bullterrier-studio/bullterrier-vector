@@ -443,7 +443,7 @@ impl PyShape {
     }
 
     /// A read-only mapping: `index` always, then what generators wrote (`glyph`, `char`, `word`, `line`, `part`,
-    /// `copy`, `level`, `order`, `origin`, and `id`, `class`, `group` from an SVG import).
+    /// `copy`, `label`, `level`, `order`, `origin`, and `id`, `class`, `group` from an SVG import).
     #[getter]
     fn attributes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let found = PyDict::new(py);
@@ -469,6 +469,9 @@ impl PyShape {
         }
         if let Some(copy) = attributes.copy() {
             found.set_item("copy", copy)?;
+        }
+        if let Some(label) = attributes.label() {
+            found.set_item("label", label)?;
         }
         if let Some(level) = attributes.level() {
             found.set_item("level", level)?;

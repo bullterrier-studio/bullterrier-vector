@@ -54,17 +54,17 @@ fn trace() -> Result<Drawing, Error> {
     let mut items: Vec<Drawing> = [0.2, 0.45, 0.7]
         .iter()
         .zip(papers)
-        .map(|(level, paper)| Drawing::trace_levels(&relief, &[*level], &tidy).fill(Color::hex(paper)))
+        .map(|(level, paper)| Drawing::trace_levels(&relief, [*level], &tidy).fill(Color::hex(paper)))
         .collect();
     let dither = Drawing::trace_cells(&strip, 2, 2);
     items.push(
         dither
-            .only(Select::new().attribute("level", 1))
+            .only(Select::new().attribute("label", 1))
             .fill(Color::hex(0xc8_34_1c)),
     );
     items.push(
         dither
-            .only(Select::new().attribute("level", 0))
+            .only(Select::new().attribute("label", 0))
             .fill(Color::hex(0x16_15_1a)),
     );
     Ok(Drawing::new(items).with_size(WIDTH, HEIGHT))

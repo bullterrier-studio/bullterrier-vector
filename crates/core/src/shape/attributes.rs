@@ -15,6 +15,7 @@ pub struct Attributes {
     pub(crate) run: Option<u32>,
     pub(crate) part: Option<u32>,
     pub(crate) copy: Option<u32>,
+    pub(crate) label: Option<u32>,
     pub(crate) level: Option<f64>,
     pub(crate) order: Option<f64>,
     pub(crate) origin: Option<Point>,
@@ -59,9 +60,9 @@ pub(crate) enum Holds {
     Text,
 }
 
-/// The attributes a selection can ask about, by name: the shape's `index`, the ten a generator writes and
+/// The attributes a selection can ask about, by name: the shape's `index`, the eleven a generator writes and
 /// the three an SVG import writes.
-pub(crate) const SELECTABLE: [(&str, Holds); 14] = [
+pub(crate) const SELECTABLE: [(&str, Holds); 15] = [
     ("index", Holds::Whole),
     ("glyph", Holds::Whole),
     ("char", Holds::Char),
@@ -70,6 +71,7 @@ pub(crate) const SELECTABLE: [(&str, Holds); 14] = [
     ("run", Holds::Whole),
     ("part", Holds::Whole),
     ("copy", Holds::Whole),
+    ("label", Holds::Whole),
     ("level", Holds::Real),
     ("order", Holds::Real),
     ("origin", Holds::Point),
@@ -102,6 +104,7 @@ impl Attributes {
             "run" => self.run.map(|n| Single::Number(f64::from(n))),
             "part" => self.part.map(|n| Single::Number(f64::from(n))),
             "copy" => self.copy.map(|n| Single::Number(f64::from(n))),
+            "label" => self.label.map(|n| Single::Number(f64::from(n))),
             "level" => self.level.map(Single::Number),
             "order" => self.order.map(Single::Number),
             "origin" => self.origin.map(Single::Point),
@@ -154,7 +157,13 @@ impl Attributes {
         self.copy
     }
 
-    /// The level of a traced shape.
+    /// The colour byte of a shape traced from a map of labels or cells, from 0 to 255.
+    #[must_use]
+    pub fn label(&self) -> Option<u32> {
+        self.label
+    }
+
+    /// The level of a shape traced at a tone.
     #[must_use]
     pub fn level(&self) -> Option<f64> {
         self.level
@@ -217,7 +226,9 @@ impl Keyed for Single {
 
 impl Keyed for Attributes {
     fn write_key(&self, key: &mut Key) {
-        for whole in [self.glyph, self.word, self.line, self.run, self.part, self.copy] {
+        for whole in [
+            self.glyph, self.word, self.line, self.run, self.part, self.copy, self.label,
+        ] {
             key.of(&whole.map(u64::from));
         }
         key.of(&self.char.map(u32::from).map(u64::from));

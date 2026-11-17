@@ -36,6 +36,7 @@ fn fits(domain: &Domain, default: &Literal) -> bool {
                     Domain::Fraction => (0.0..=1.0).contains(&number),
                     Domain::PositiveUpTo(most) => number > 0.0 && number <= *most,
                     Domain::Between(low, high, _) => number > *low && number < *high,
+                    Domain::WholeBetween(low, high) => number.fract() == 0.0 && (*low..=*high).contains(&number),
                     _ => false,
                 }
         }

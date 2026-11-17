@@ -1,11 +1,11 @@
 //! `Drawing`: a tree of steps that draws shapes.
 
 use crate::expr::{Num, PyExpr, PyParam};
-use crate::field::{Levels, PyField, PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
+use crate::field::{PyField, PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
 use crate::mesh::PyMesh;
 use crate::shape::{PaintArg, PyShape};
 use crate::text::{bytes_of, entries};
-use crate::trace::trace_of;
+use crate::trace::{Levels, colors, trace_of, whole};
 use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, Frame, PyPath, PyPoint, PyRect, exception, raised, two_items};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
@@ -598,9 +598,8 @@ impl PyDrawing {
         min_area: Option<Num>,
         min_hole: Option<Num>,
     ) -> PyResult<Self> {
-        let Levels(levels) = levels;
         let trace = trace_of(smooth, tolerance, open, close, min_area, min_hole);
-        checked(vector::Drawing::trace_levels(&map.0, &levels, &trace))
+        checked(vector::Drawing::trace_levels(&map.0, levels.0, &trace))
     }
 
     /// A map of colour labels traced as filled shapes: one for each byte value the map holds, in order of the byte, the
@@ -610,13 +609,13 @@ impl PyDrawing {
     /// arguments are those of `trace_levels`.
     #[staticmethod]
     #[pyo3(
-        signature = (map, *, max_colors=32, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
+        signature = (map, *, max_colors=None, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
         text_signature = "(map, *, max_colors=32, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)"
     )]
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
     fn trace_labels(
         map: &PyField,
-        max_colors: usize,
+        max_colors: Option<&Bound<'_, PyAny>>,
         smooth: Option<Num>,
         tolerance: Option<Num>,
         open: Option<Num>,
@@ -624,8 +623,8 @@ impl PyDrawing {
         min_area: Option<Num>,
         min_hole: Option<Num>,
     ) -> PyResult<Self> {
-        let trace = trace_of(smooth, tolerance, open, close, min_area, min_hole).max_colors(max_colors);
-        checked(vector::Drawing::trace_labels(&map.0, &trace))
+        let trace = trace_of(smooth, tolerance, open, close, min_area, min_hole);
+        checked(vector::Drawing::trace_labels(&map.0, colors(max_colors)?, &trace))
     }
 
     /// A map of square cells traced exactly, for a dithered picture: `map` (a `Field.map` whose bytes are palette indexes)
@@ -634,9 +633,17 @@ impl PyDrawing {
     /// shapes' areas are the cells' and they neither overlap nor leave a gap. The width and height of the map must be
     /// multiples of `cell`, every cell one byte, and there may be at most `max_colors` colours.
     #[staticmethod]
-    #[pyo3(signature = (map, cell, *, max_colors=32))]
-    fn trace_cells(map: &PyField, cell: usize, max_colors: usize) -> PyResult<Self> {
-        checked(vector::Drawing::trace_cells(&map.0, cell, max_colors))
+    #[pyo3(signature = (map, cell_size, *, max_colors=None), text_signature = "(map, cell_size, *, max_colors=32)")]
+    fn trace_cells(
+        map: &PyField,
+        cell_size: &Bound<'_, PyAny>,
+        max_colors: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        checked(vector::Drawing::trace_cells(
+            &map.0,
+            whole("cell_size", cell_size)?,
+            colors(max_colors)?,
+        ))
     }
 
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the

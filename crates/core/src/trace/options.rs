@@ -12,7 +12,6 @@ pub struct Trace {
     pub(crate) close: Expr,
     pub(crate) min_area: Expr,
     pub(crate) min_hole: Expr,
-    pub(crate) max_colors: usize,
 }
 
 impl Default for Trace {
@@ -24,7 +23,6 @@ impl Default for Trace {
             close: Expr::from(0.0),
             min_area: Expr::from(0.0),
             min_hole: Expr::from(0.0),
-            max_colors: 32,
         }
     }
 }
@@ -79,13 +77,6 @@ impl Trace {
     #[must_use]
     pub fn min_hole(mut self, area: impl Into<Expr>) -> Self {
         self.min_hole = area.into();
-        self
-    }
-
-    /// The most colours `trace_labels` keeps apart (from 1 to 256, default 32): a map with more is refused.
-    #[must_use]
-    pub fn max_colors(mut self, count: usize) -> Self {
-        self.max_colors = count;
         self
     }
 }
