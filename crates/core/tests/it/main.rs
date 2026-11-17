@@ -70,6 +70,7 @@ mod path_bulge;
 mod path_dash;
 mod path_envelope;
 mod path_measure;
+mod path_hatch;
 mod path_morph;
 mod path_offset;
 mod path_range;

@@ -60,8 +60,13 @@ impl Flow {
     /// [`Error::Parameter`] naming `degrees` if it is NaN or infinite.
     pub fn angle(degrees: f64) -> Result<Self, Error> {
         let degrees = finite("degrees", degrees)?;
+        Ok(Self::fixed(degrees))
+    }
+
+    /// The angle `degrees`, already known to be finite.
+    pub(crate) fn fixed(degrees: f64) -> Self {
         let (sin, cos) = sin_cos_deg(2.0 * (degrees % 180.0));
-        Ok(Self::single(FlowKind::Angle { degrees }, Reader::Fixed(cos, sin)))
+        Self::single(FlowKind::Angle { degrees }, Reader::Fixed(cos, sin))
     }
 
     /// Smooth seeded noise: the direction turns through half a turn each way over a few `wavelength`s (pixels) and
@@ -138,8 +143,10 @@ impl Flow {
                     (cos, sin)
                 }
                 Reader::Outline(outline) => {
-                    let (dx, dy) = outline.nearest(point).tangent;
-                    (dx * dx - dy * dy, 2.0 * dx * dy)
+                    // as a unit vector, so a contour counts as much as an angle
+                    let (x, y) = outline.nearest(point).doubled;
+                    let length = x.hypot(y);
+                    if length < 1e-12 { (1.0, 0.0) } else { (x / length, y / length) }
                 }
             };
             if index == 0 {

@@ -10,19 +10,25 @@ use crate::path::{Path, Polyline};
 // from its neighbours then, whatever the path's size
 const MAX_CELLS_PER_SIDE: f64 = 2048.0;
 
+const NO_EDGE: u32 = u32::MAX;
+
 /// What the nearest edge says at a point.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Nearest {
     /// The distance to the edge, from 0.
     pub(crate) distance: f64,
-    /// The unit direction of the edge (its sign is the edge's own).
-    pub(crate) tangent: (f64, f64),
+    /// The direction of the outline there as a doubled-angle vector `(cos 2a, sin 2a)`: the tangent of the nearest edge,
+    /// turned smoothly into its neighbours' towards each end of the edge, so a polygon that stands for a curve has a
+    /// direction that changes along it instead of jumping at its corners.
+    pub(crate) doubled: (f64, f64),
 }
 
 /// The straight edges of a path, every sub-path closed as the fill closes it.
 #[derive(Debug)]
 pub(crate) struct Outline {
     edges: Vec<(Point, Point)>,
+    /// The edge before and after each edge along its sub-path, `NO_EDGE` where the sub-path is two points.
+    neighbours: Vec<(u32, u32)>,
     left: f64,
     top: f64,
     size: f64,
@@ -50,15 +56,28 @@ impl Outline {
 
     pub(crate) fn from_polylines(polylines: &[Polyline], verb: &str) -> Result<Self, Error> {
         let mut edges = Vec::new();
+        let mut neighbours = Vec::new();
         for line in polylines.iter().filter(|line| line.drawn) {
             let count = line.points.len();
             // every sub-path closes onto its start, as the fill closes it; two points make one edge
             let closing = if count > 2 { count } else { count - 1 };
+            let first = edges.len();
             for index in 0..closing {
                 let (from, to) = (line.points[index], line.points[(index + 1) % count]);
                 if from != to {
                     edges.push((from, to));
                 }
+            }
+            let made = edges.len() - first;
+            for at in 0..made {
+                neighbours.push(if made > 2 {
+                    (
+                        u32::try_from(first + (at + made - 1) % made).unwrap_or(NO_EDGE),
+                        u32::try_from(first + (at + 1) % made).unwrap_or(NO_EDGE),
+                    )
+                } else {
+                    (NO_EDGE, NO_EDGE)
+                });
             }
         }
         if edges.is_empty() {
@@ -86,6 +105,7 @@ impl Outline {
         let (columns, rows) = (side(width), side(height));
         let mut outline = Self {
             edges,
+            neighbours,
             left,
             top,
             size,
@@ -155,7 +175,7 @@ impl Outline {
         let (cx, cy) = (self.column_of(point.x) as i64, self.row_of(point.y) as i64);
         let (columns, rows) = (self.columns as i64, self.rows as i64);
         let last = columns.max(rows);
-        let mut best = (f64::MAX, 0_usize);
+        let mut best = (f64::MAX, 0_usize, 0.0_f64);
         for ring in 0..=last {
             for (x, y) in ring_cells(cx, cy, ring) {
                 if x < 0 || y < 0 || x >= columns || y >= rows {
@@ -163,9 +183,9 @@ impl Outline {
                 }
                 for &id in &self.cells[(y * columns + x) as usize] {
                     let (a, b) = self.edges[id as usize];
-                    let d = distance_to_edge(point, a, b);
+                    let (d, along) = distance_to_edge(point, a, b);
                     if d < best.0 || (d == best.0 && (id as usize) < best.1) {
-                        best = (d, id as usize);
+                        best = (d, id as usize, along);
                     }
                 }
             }
@@ -173,12 +193,27 @@ impl Outline {
                 break;
             }
         }
-        let (a, b) = self.edges[best.1];
+        let own = self.doubled_tangent(best.1);
+        // from the middle of the edge towards a vertex, the direction turns half way into the neighbour's there
+        let (neighbour, share) = if best.2 < 0.5 {
+            (self.neighbours[best.1].0, 0.5 - best.2)
+        } else {
+            (self.neighbours[best.1].1, best.2 - 0.5)
+        };
+        let doubled = if neighbour == NO_EDGE {
+            own
+        } else {
+            let other = self.doubled_tangent(neighbour as usize);
+            (own.0 * (1.0 - share) + other.0 * share, own.1 * (1.0 - share) + other.1 * share)
+        };
+        Nearest { distance: best.0, doubled }
+    }
+
+    fn doubled_tangent(&self, edge: usize) -> (f64, f64) {
+        let (a, b) = self.edges[edge];
         let length = (b.x - a.x).hypot(b.y - a.y);
-        Nearest {
-            distance: best.0,
-            tangent: ((b.x - a.x) / length, (b.y - a.y) / length),
-        }
+        let (dx, dy) = ((b.x - a.x) / length, (b.y - a.y) / length);
+        (dx * dx - dy * dy, 2.0 * dx * dy)
     }
 
     /// The smallest rectangle round the edges: left, top, right, bottom.
@@ -233,8 +268,9 @@ fn ring_cells(cx: i64, cy: i64, ring: i64) -> Vec<(i64, i64)> {
     cells
 }
 
-fn distance_to_edge(p: Point, a: Point, b: Point) -> f64 {
+/// The distance from `p` to the edge `a` to `b` and where along the edge (0 to 1) the nearest point lies.
+fn distance_to_edge(p: Point, a: Point, b: Point) -> (f64, f64) {
     let (dx, dy) = (b.x - a.x, b.y - a.y);
     let along = (((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy)).clamp(0.0, 1.0);
-    (p.x - (a.x + dx * along)).hypot(p.y - (a.y + dy * along))
+    ((p.x - (a.x + dx * along)).hypot(p.y - (a.y + dy * along)), along)
 }

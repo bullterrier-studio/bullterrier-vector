@@ -4,10 +4,13 @@
 
 mod distance;
 mod flow;
+mod hatch;
 mod outline;
+mod seeds;
 
 pub use distance::Field;
 pub use flow::Flow;
+pub use hatch::Hatch;
 pub(crate) use distance::FieldKind;
 
 use crate::Error;
