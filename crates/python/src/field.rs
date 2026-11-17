@@ -149,9 +149,14 @@ impl PyFlow {
     /// Smooth seeded noise; `phase` in cycles moves it, one cycle on is the same flow. `wavelength` and `phase` may be
     /// `Param`s.
     #[staticmethod]
-    #[pyo3(signature = (*, wavelength=Num(400.0.into()), phase=Num(0.0.into()), seed=0.0))]
-    fn noise(wavelength: Num, phase: Num, seed: f64) -> PyResult<Self> {
-        raised(vector::Flow::noise(wavelength.0, phase.0, seed)).map(Self)
+    #[pyo3(
+        signature = (*, wavelength=None, phase=None, seed=0.0),
+        text_signature = "(*, wavelength=400, phase=0, seed=0)"
+    )]
+    fn noise(wavelength: Option<Num>, phase: Option<Num>, seed: f64) -> PyResult<Self> {
+        let wavelength = wavelength.map_or_else(|| vector::Expr::from(400.0), |number| number.0);
+        let phase = phase.map_or_else(|| vector::Expr::from(0.0), |number| number.0);
+        raised(vector::Flow::noise(wavelength, phase, seed)).map(Self)
     }
 
     /// The direction of the outline of `drawing` (a Path, a Shape or a Drawing: all its shapes together, drawn with the
