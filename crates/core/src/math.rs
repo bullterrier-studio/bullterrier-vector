@@ -47,3 +47,8 @@ pub(crate) fn sin_cos_deg(degrees: f64) -> (f64, f64) {
         sin_cos(turn.to_radians())
     }
 }
+
+/// e raised to `value`.
+pub(crate) fn exp(value: f64) -> f64 {
+    libm::exp(value)
+}

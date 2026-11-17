@@ -251,9 +251,13 @@ proptest! {
 #[test]
 fn two_fonts_with_equal_bytes_and_different_names_are_refused_by_name_not_merged() -> Outcome {
     let (alpha, beta) = (fraunces()?.named("alpha")?, fraunces()?.named("beta")?);
-    let drawing = Drawing::new(vec![Drawing::from(text("Hi", &alpha)), Drawing::from(text("Hi", &beta))]);
+    let drawing = Drawing::new(vec![text("Hi", &alpha), text("Hi", &beta)]);
     let refusal = parameter_refusal(drawing.to_json())?;
     assert_eq!(refusal.0, "to_json");
-    assert!(refusal.1.contains("alpha") && refusal.1.contains("beta"), "{}", refusal.1);
+    assert!(
+        refusal.1.contains("alpha") && refusal.1.contains("beta"),
+        "{}",
+        refusal.1
+    );
     Ok(())
 }

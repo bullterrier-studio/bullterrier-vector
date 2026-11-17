@@ -14,7 +14,7 @@
 )]
 
 use super::map::frame_of;
-use super::{Field, segment_budget};
+use super::{Field, length, segment_budget};
 use crate::Error;
 use crate::geometry::{Point, Rect, finite};
 use crate::path::Path;
@@ -156,6 +156,74 @@ fn cells_along(extent: f64, cell: f64) -> f64 {
     .max(1.0)
 }
 
+/// How to tidy contour lines of a noisy field (a photograph's tone): blur the readings before tracing, and drop the
+/// lines that stay short. The default does neither.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Tidy {
+    smooth: f64,
+    min_length: f64,
+}
+
+impl Tidy {
+    /// Blur the readings with a Gaussian of standard deviation `sigma` design pixels before tracing (0: not at all).
+    /// Grass and grain make hundreds of tiny loops and jagged lines; a sigma of a few pixels removes them.
+    #[must_use]
+    pub fn smooth(mut self, sigma: f64) -> Self {
+        self.smooth = sigma;
+        self
+    }
+
+    /// Drop every line shorter than `length` design pixels (a closed line counts its closing edge).
+    #[must_use]
+    pub fn min_length(mut self, length: f64) -> Self {
+        self.min_length = length;
+        self
+    }
+}
+
+/// The most multiply-adds the blur of one call may cost.
+// constant: about two seconds measured at a nanosecond a tap; a sigma of 50 cells over a 2000 by 2000 grid is under it
+const MAX_SMOOTH_WORK: f64 = 2e9;
+
+/// Blurs `values` (columns + 1 by rows + 1 nodes) with a Gaussian of `sigma` nodes along each axis, the edge held.
+fn blur(values: &mut [f64], width: usize, height: usize, sigma: (f64, f64)) {
+    fn pass(values: &mut [f64], length: usize, stride: usize, lines: usize, line_step: usize, sigma: f64) {
+        if sigma <= 0.0 {
+            return;
+        }
+        let reach = (3.0 * sigma).ceil() as usize;
+        let mut taps: Vec<f64> = (0..=2 * reach)
+            .map(|i| {
+                let d = i as f64 - reach as f64;
+                crate::math::exp(-d * d / (2.0 * sigma * sigma))
+            })
+            .collect();
+        let total: f64 = taps.iter().sum();
+        for tap in &mut taps {
+            *tap /= total;
+        }
+        let mut line = vec![0.0; length];
+        for n in 0..lines {
+            let base = n * line_step;
+            for (i, out) in line.iter_mut().enumerate() {
+                *out = taps
+                    .iter()
+                    .enumerate()
+                    .map(|(t, tap)| {
+                        let at = (i + t).saturating_sub(reach).min(length - 1);
+                        tap * values[base + at * stride]
+                    })
+                    .sum();
+            }
+            for (i, out) in line.iter().enumerate() {
+                values[base + i * stride] = *out;
+            }
+        }
+    }
+    pass(values, width, 1, height, width, sigma.0);
+    pass(values, height, width, width, 1, sigma.1);
+}
+
 impl Field {
     /// The lines where this field equals each of `levels`, as one path: the grid is `frame` cut into equal cells no
     /// wider than `cell` (design pixels), the field is read at their corners, and a line crosses a cell edge at the
@@ -174,6 +242,23 @@ impl Field {
     /// the grid would need more than 4 million nodes or if reading the field at them would be too much work (see
     /// [`Field::to_map`]); naming `levels` past `MAX_SEGMENTS` points.
     pub fn contours(&self, levels: &[f64], frame: Rect, cell: f64) -> Result<Path, Error> {
+        self.contours_with(levels, frame, cell, &Tidy::default())
+    }
+
+    /// As [`Field::contours`], tidied by `tidy`: the readings blurred first, then short lines dropped. Every line runs
+    /// with the high side (a reading at or above the level) on its left as drawn (y down), so the loops of a map
+    /// that is high inside a region wind the same way and holes the other, and fill by the nonzero rule as that
+    /// region.
+    ///
+    /// # Errors
+    /// As [`Field::contours`]; also [`Error::Parameter`] naming `smooth` or `min_length` unless it is finite and at
+    /// least 0, and `smooth` if the blur would cost over 2 billion multiply-adds.
+    pub fn contours_with(&self, levels: &[f64], frame: Rect, cell: f64, tidy: &Tidy) -> Result<Path, Error> {
+        for (name, value) in [("smooth", tidy.smooth), ("min_length", tidy.min_length)] {
+            if !(value.is_finite() && value >= 0.0) {
+                return Err(Error::parameter(name, format!("must be at least 0, got {value}")));
+            }
+        }
         if levels.len() > MAX_LEVELS {
             return Err(Error::parameter(
                 "levels",
@@ -208,19 +293,39 @@ impl Field {
             }
         }
         grid.values = values;
+        if tidy.smooth > 0.0 {
+            let sigma = (tidy.smooth * columns / frame.width, tidy.smooth * rows / frame.height);
+            let taps = |s: f64| 2.0 * (3.0 * s).ceil() + 1.0;
+            if grid.nodes() as f64 * (taps(sigma.0) + taps(sigma.1)) > MAX_SMOOTH_WORK {
+                return Err(Error::parameter(
+                    "smooth",
+                    format!("is too wide for a grid this fine: the blur would pass {MAX_SMOOTH_WORK} steps"),
+                ));
+            }
+            blur(&mut grid.values, grid.columns + 1, grid.rows + 1, sigma);
+        }
         let mut charge = segment_budget("levels");
         let mut lines = Vec::new();
         for level in levels {
-            trace(&grid, *level, &mut charge, &mut lines)?;
+            trace(&grid, *level, tidy.min_length, &mut charge, &mut lines)?;
         }
         Ok(Path::joined(lines.iter()))
     }
+}
+
+/// Whether the line `points`, which started on `edge`, has its high side on the left as drawn (y down).
+fn high_on_left(grid: &Grid, edge: Edge, level: f64, points: &[Point]) -> bool {
+    let (a, b) = grid.ends(edge);
+    let high = if grid.value(a.0, a.1) >= level { a } else { b };
+    let (from, to, corner) = (points[0], points[1], grid.at(high.0, high.1));
+    (to.x - from.x) * (corner.y - from.y) - (to.y - from.y) * (corner.x - from.x) < 0.0
 }
 
 /// Every line of `level`: those that start on the frame, then the closed ones.
 fn trace(
     grid: &Grid,
     level: f64,
+    min_length: f64,
     charge: &mut impl FnMut(usize) -> Result<(), Error>,
     lines: &mut Vec<Path>,
 ) -> Result<(), Error> {
@@ -255,7 +360,23 @@ fn trace(
             };
             charge(points.len())?;
             if points.len() >= 2 {
-                lines.push(Path::polyline(points, closed && !open)?);
+                let closed = closed && !open;
+                if !high_on_left(grid, edge, level, &points) {
+                    points.reverse();
+                }
+                let along: f64 = points
+                    .windows(2)
+                    .map(|w| length(w[1].x - w[0].x, w[1].y - w[0].y))
+                    .sum();
+                let closing = if closed {
+                    let (a, b) = (points[points.len() - 1], points[0]);
+                    length(b.x - a.x, b.y - a.y)
+                } else {
+                    0.0
+                };
+                if along + closing >= min_length {
+                    lines.push(Path::polyline(points, closed)?);
+                }
             }
         }
     }

@@ -10,6 +10,7 @@ mod map;
 mod outline;
 mod seeds;
 
+pub use contours::Tidy;
 pub use distance::Field;
 pub(crate) use distance::FieldKind;
 pub use flow::Flow;

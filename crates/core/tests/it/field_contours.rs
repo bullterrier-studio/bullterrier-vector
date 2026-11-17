@@ -2,7 +2,7 @@
 //! distance an exact circle, a saddle's segments are worked out by hand, and the SVG of the result is parsed here.
 
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Error, Field, Path, Rect};
+use bullterrier_vector::{Drawing, Error, Field, Path, Rect, Tidy};
 
 fn frame(x: f64, y: f64, width: f64, height: f64) -> Rect {
     Rect { x, y, width, height }
@@ -206,5 +206,96 @@ fn a_field_too_costly_to_trace_is_refused_before_it_is_read() -> Outcome {
     let (parameter, message) = parameter_refusal(field.contours(&[10.0], frame(0.0, 0.0, 1000.0, 1000.0), 1.0))?;
     assert_eq!(parameter, "cell");
     assert!(message.contains("contours"), "{message}");
+    Ok(())
+}
+
+// Tidying -----------------------------------------------------------------------------------------------------------
+
+fn two_circles() -> Result<Field, Error> {
+    let both = Drawing::new(vec![
+        Drawing::from(Path::circle((60.0, 100.0), 40.0)?),
+        Drawing::from(Path::circle((170.0, 100.0), 3.0)?),
+    ]);
+    Field::distance(both, false)
+}
+
+#[test]
+fn a_minimum_length_drops_the_short_loops_and_keeps_the_long() -> Outcome {
+    let field = two_circles()?;
+    let all = lines(&field.contours(&[0.0], frame(0.0, 0.0, 200.0, 200.0), 1.0)?);
+    assert_eq!(all.len(), 2, "the big circle and the 3 pixel one");
+    // perimeters: 2 pi 40 = 251, 2 pi 3 = 18.8
+    let kept = lines(&field.contours_with(
+        &[0.0],
+        frame(0.0, 0.0, 200.0, 200.0),
+        1.0,
+        &Tidy::default().min_length(30.0),
+    )?);
+    assert_eq!(kept.len(), 1);
+    assert!(kept[0].0.iter().all(|p| p.0 < 110.0), "the big one stays");
+    Ok(())
+}
+
+#[test]
+fn every_line_keeps_the_high_side_on_its_left() -> Outcome {
+    let field = Field::distance(&Path::circle((100.0, 100.0), 50.0)?, false)?;
+    // distance is negative inside: level -20 is a loop with the lower readings inside, so the high side is outside
+    let path = field.contours(&[-20.0, 15.0], frame(0.0, 0.0, 200.0, 200.0), 2.0)?;
+    for (points, _) in lines(&path) {
+        for pair in points.windows(2) {
+            let (mid_x, mid_y) = (f64::midpoint(pair[0].0, pair[1].0), f64::midpoint(pair[0].1, pair[1].1));
+            let (dx, dy) = (pair[1].0 - pair[0].0, pair[1].1 - pair[0].1);
+            let norm = libm::hypot(dx, dy);
+            let left = (mid_x + dy / norm * 0.5, mid_y - dx / norm * 0.5);
+            let level = if libm::hypot(mid_x - 100.0, mid_y - 100.0) < 50.0 {
+                -20.0
+            } else {
+                15.0
+            };
+            assert!(field.at(left) > level, "{left:?} is not on the high side");
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn smoothing_removes_a_speck_of_noise_and_keeps_a_wide_shape() -> Outcome {
+    // a 60 by 60 map: a wide bright square and a single bright pixel
+    let mut bytes = vec![0_u8; 60 * 60];
+    for y in 10..40 {
+        for x in 10..40 {
+            bytes[y * 60 + x] = 255;
+        }
+    }
+    bytes[50 * 60 + 50] = 255;
+    let field = Field::map(60, 60, &bytes, None, None)?;
+    let centres = frame(0.5, 0.5, 59.0, 59.0);
+    let raw = lines(&field.contours(&[0.5], centres, 1.0)?);
+    assert_eq!(raw.len(), 2);
+    let smooth = lines(&field.contours_with(&[0.5], centres, 1.0, &Tidy::default().smooth(2.0))?);
+    assert_eq!(smooth.len(), 1, "a pixel blurred with sigma 2 never reaches half");
+    assert!(smooth[0].0.iter().all(|p| p.0 < 45.0));
+    Ok(())
+}
+
+#[test]
+fn a_tidy_that_is_not_a_number_is_refused_by_name() -> Outcome {
+    let field = Field::constant(0.5)?;
+    for (tidy, name) in [
+        (Tidy::default().smooth(f64::NAN), "smooth"),
+        (Tidy::default().smooth(-1.0), "smooth"),
+        (Tidy::default().min_length(f64::INFINITY), "min_length"),
+    ] {
+        let refusal = parameter_refusal(field.contours_with(&[0.5], frame(0.0, 0.0, 9.0, 9.0), 1.0, &tidy))?;
+        assert_eq!(refusal.0, name);
+    }
+    // a blur wider than the work bound allows
+    let refusal = parameter_refusal(field.contours_with(
+        &[0.5],
+        frame(0.0, 0.0, 1000.0, 1000.0),
+        1.0,
+        &Tidy::default().smooth(1.0e6),
+    ))?;
+    assert_eq!(refusal.0, "smooth");
     Ok(())
 }
