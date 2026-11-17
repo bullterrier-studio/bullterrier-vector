@@ -8,6 +8,7 @@ mod field;
 mod mesh;
 mod shape;
 mod text;
+mod trace;
 
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
