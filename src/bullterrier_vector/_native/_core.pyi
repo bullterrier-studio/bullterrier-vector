@@ -179,7 +179,7 @@ class Path:
         tone: Field | _Num,
         width: tuple[_Num, _Num],
         family: str = "lines",
-        angle: _Num = 0.0,
+        angle: _Num | None = None,
         centre: _PointLike | None = None,
         wavelength: _Num | None = None,
         amplitude: _Num | None = None,
@@ -191,7 +191,7 @@ class Path:
         tone: Field | _Num,
         radius: _Num,
         density: tuple[_Num, _Num] | None = None,
-        seed: _Num = 0.0,
+        seed: _Num | None = None,
     ) -> Path: ...
     def simplify(self, *, tolerance: float = 0.5) -> Path: ...
     def reverse(self) -> Path: ...
@@ -435,7 +435,7 @@ class Drawing:
         tone: Field | _Num,
         width: tuple[_Num, _Num],
         family: str = "lines",
-        angle: _Num = 0.0,
+        angle: _Num | None = None,
         centre: _PointLike | None = None,
         wavelength: _Num | None = None,
         amplitude: _Num | None = None,
@@ -447,7 +447,7 @@ class Drawing:
         tone: Field | _Num,
         radius: _Num,
         density: tuple[_Num, _Num] | None = None,
-        seed: _Num = 0.0,
+        seed: _Num | None = None,
     ) -> Drawing: ...
     def simplify(self, *, tolerance: _Num = 0.5) -> Drawing: ...
     def reverse(self) -> Drawing: ...

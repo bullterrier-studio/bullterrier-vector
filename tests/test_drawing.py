@@ -1148,6 +1148,26 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
     ),
     "reverse": (lambda: Drawing(LINE).reverse(), {}, [row("M10 0 L0 0", None, BLACK)]),
     "simplify": (lambda: Drawing(LINE).simplify(), {}, [row("M0 0 L10 0", None, BLACK)]),
+    "rows": (
+        lambda: Drawing(SQUARE).rows(5, tone=0, amplitude=1),
+        {},
+        [row("M0 2.5 L2.5 2.5 L5 2.5 L7.5 2.5 L10 2.5 M0 7.5 L2.5 7.5 L5 7.5 L7.5 7.5 L10 7.5", None, BLACK)],
+    ),
+    # a band 2 wide on the rows at 2.5 and 7.5, points every quarter spacing: one side out, the other back
+    "bands": (
+        lambda: Drawing(SQUARE).bands(5, tone=0.5, width=(2, 2)),
+        {},
+        [
+            row(
+                "M0 3.5 L1.25 3.5 L2.5 3.5 L3.75 3.5 L5 3.5 L6.25 3.5 L7.5 3.5 L8.75 3.5 L10 3.5"
+                " L10 1.5 L8.75 1.5 L7.5 1.5 L6.25 1.5 L5 1.5 L3.75 1.5 L2.5 1.5 L1.25 1.5 L0 1.5 Z"
+                " M0 8.5 L1.25 8.5 L2.5 8.5 L3.75 8.5 L5 8.5 L6.25 8.5 L7.5 8.5 L8.75 8.5 L10 8.5"
+                " L10 6.5 L8.75 6.5 L7.5 6.5 L6.25 6.5 L5 6.5 L3.75 6.5 L2.5 6.5 L1.25 6.5 L0 6.5 Z"
+            )
+        ],
+    ),
+    # no cell may have a dot: nothing is drawn (where the dots lie is checked against their counts in the Rust tests)
+    "stipple": (lambda: Drawing(SQUARE).stipple(5, tone=0, radius=1, density=(0, 0)), {}, [row("")]),
     "fill": (lambda: Drawing(SQUARE).fill("#0000ff"), {}, [row(RECT, "#0000ffff")]),
     "stroke": (lambda: Drawing(SQUARE).stroke("#00ff00"), {}, [row(RECT, None, "#00ff00ff")]),
     "opacity": (lambda: Drawing(SQUARE).opacity(0.5), {}, [row(RECT, opacity=0.5)]),

@@ -541,14 +541,14 @@ impl PyDrawing {
     /// Every shape replaced by the closed outlines of lines whose width carries `tone`, as `Path.bands` makes them for its
     /// path; fill them. A `Param` in a number is read with the values of the draw.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
-    #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=Num(0.0.into()), centre=None, wavelength=None, amplitude=None))]
+    #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=None, centre=None, wavelength=None, amplitude=None))]
     fn bands(
         &self,
         spacing: Num,
         tone: Tone,
         width: (Num, Num),
         family: &str,
-        angle: Num,
+        angle: Option<Num>,
         centre: Option<crate::Pt>,
         wavelength: Option<Num>,
         amplitude: Option<Num>,
@@ -559,8 +559,15 @@ impl PyDrawing {
     }
 
     /// Every shape replaced by round dots whose density follows `tone`, as `Path.stipple` makes them for its path; fill them.
-    #[pyo3(signature = (spacing, *, tone, radius, density=None, seed=Num(0.0.into())))]
-    fn stipple(&self, spacing: Num, tone: Tone, radius: Num, density: Option<(Num, Num)>, seed: Num) -> PyResult<Self> {
+    #[pyo3(signature = (spacing, *, tone, radius, density=None, seed=None))]
+    fn stipple(
+        &self,
+        spacing: Num,
+        tone: Tone,
+        radius: Num,
+        density: Option<(Num, Num)>,
+        seed: Option<Num>,
+    ) -> PyResult<Self> {
         checked(self.0.stipple(&stipple_of(spacing, tone, radius, density, seed)?))
     }
 

@@ -582,7 +582,7 @@ impl PyPath {
     /// long, `amplitude` high), `"rings"` or `"spiral"` round `centre` (default the middle of the bounds) or `"rays"` out of
     /// it. The result is closed outlines, so fill it. A `Param` is read at its default here.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
-    #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=Num(0.0.into()), centre=None, wavelength=None, amplitude=None))]
+    #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=None, centre=None, wavelength=None, amplitude=None))]
     fn bands(
         &self,
         py: Python<'_>,
@@ -590,7 +590,7 @@ impl PyPath {
         tone: Tone,
         width: (Num, Num),
         family: &str,
-        angle: Num,
+        angle: Option<Num>,
         centre: Option<Pt>,
         wavelength: Option<Num>,
         amplitude: Option<Num>,
@@ -602,7 +602,7 @@ impl PyPath {
     /// Round dots of `radius` pixels on a square lattice `spacing` apart inside the region this path fills, one at most per
     /// cell; `density` is `(share of cells with a dot where the tone is 0, where it is 1)`, default `(1, 0)`: dark is
     /// dense. `seed` moves them. The result is closed dots, so fill it.
-    #[pyo3(signature = (spacing, *, tone, radius, density=None, seed=Num(0.0.into())))]
+    #[pyo3(signature = (spacing, *, tone, radius, density=None, seed=None))]
     fn stipple(
         &self,
         py: Python<'_>,
@@ -610,7 +610,7 @@ impl PyPath {
         tone: Tone,
         radius: Num,
         density: Option<(Num, Num)>,
-        seed: Num,
+        seed: Option<Num>,
     ) -> PyResult<Self> {
         let stipple = stipple_of(spacing, tone, radius, density, seed)?;
         Self::of(py.detach(|| self.0.stipple(&stipple)))

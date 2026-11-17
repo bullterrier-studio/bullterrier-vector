@@ -279,7 +279,7 @@ pub(crate) fn bands_of(
     tone: Tone,
     width: (Num, Num),
     family: &str,
-    angle: Num,
+    angle: Option<Num>,
     centre: Option<Pt>,
     wavelength: Option<Num>,
     amplitude: Option<Num>,
@@ -308,7 +308,7 @@ pub(crate) fn bands_of(
             )));
         }
     };
-    let bands = bands.angle(angle.0);
+    let bands = bands.angle(angle.map_or_else(|| vector::Expr::from(0.0), |angle| angle.0));
     Ok(match centre {
         Some(centre) => bands.centre(centre.0),
         None => bands,
@@ -321,9 +321,10 @@ pub(crate) fn stipple_of(
     tone: Tone,
     radius: Num,
     density: Option<(Num, Num)>,
-    seed: Num,
+    seed: Option<Num>,
 ) -> PyResult<vector::Stipple> {
-    let stipple = raised(vector::Stipple::new(spacing.0, tone.0, radius.0))?.seed(seed.0);
+    let stipple = raised(vector::Stipple::new(spacing.0, tone.0, radius.0))?
+        .seed(seed.map_or_else(|| vector::Expr::from(0.0), |seed| seed.0));
     Ok(match density {
         Some((dense, light)) => stipple.density(dense.0, light.0),
         None => stipple,
