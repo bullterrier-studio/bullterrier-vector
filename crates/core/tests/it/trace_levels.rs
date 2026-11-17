@@ -99,11 +99,11 @@ fn nested_levels_of_a_cone_are_discs_of_the_hand_computed_radii() -> Outcome {
         (255.0 * (1.0 - d / 200.0).clamp(0.0, 1.0)).round() as u8
     });
     let map = field(n, n, &bytes)?;
-    let wanted = [0.25, 0.5, 0.75, 1.5, -1.0];
+    let wanted = [0.25, 0.5, 0.75, 1e12, -1e12];
     let shapes = levels(&map, &wanted, &raw())?;
-    // 1.5 is above every tone and is left out; -1 is below every tone and fills the frame
+    // 1e12 is above every tone and is left out; -1e12 is below every tone (and the padding) and fills the frame
     let found: Vec<f64> = shapes.iter().filter_map(|s| s.attributes().level()).collect();
-    assert_eq!(found, vec![0.25, 0.5, 0.75, -1.0]);
+    assert_eq!(found, vec![0.25, 0.5, 0.75, -1e12]);
     for (shape, level) in shapes.iter().zip([0.25, 0.5, 0.75]) {
         let radius = 200.0 * (1.0 - level);
         let area = net_area(shape.path(), 1)?.abs();
