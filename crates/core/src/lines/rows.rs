@@ -154,7 +154,7 @@ impl Path {
                 format!("is too small for a region this large: it would need over {MAX_SAMPLES} points"),
             ));
         }
-        tone.charge_reads("spacing", "rows", rows * columns)?;
+        tone.charge_reads("spacing", "rows", rows * columns * FOOTPRINT.len() as f64)?;
         let mut visits = 0.0;
         let lattice: Vec<f64> = (0..columns as usize)
             .map(|i| (left + i as f64 * step).min(right))
@@ -187,7 +187,7 @@ impl Path {
                     .chain(std::iter::once(to));
                 let points: Vec<(Point, f64)> = xs
                     .map(|x| {
-                        let lifted = Point::new(x, base - amplitude * tone.at(Point::new(x, base)));
+                        let lifted = Point::new(x, base - amplitude * footprint(tone, x, base, step, spacing));
                         (lifted, cover(&lattice, &horizon, x) - lifted.y)
                     })
                     .collect();
@@ -214,6 +214,31 @@ impl Path {
         }
         Ok(Path::joined(drawn.iter().rev().flatten()))
     }
+}
+
+/// Where a point reads its tone, as shares of the step along the row and of the spacing across it, and how much each
+/// reading weighs: a tent over the point's share of the rows.
+// constant: three readings each way, half a step and half a spacing apart, flatten any detail of a period of a step
+// along or a spacing across (too fine for the rows to draw) to its mean, and leave a slope as it is
+const FOOTPRINT: [(f64, f64, f64); 9] = [
+    (-0.5, -0.5, 1.0),
+    (0.0, -0.5, 2.0),
+    (0.5, -0.5, 1.0),
+    (-0.5, 0.0, 2.0),
+    (0.0, 0.0, 4.0),
+    (0.5, 0.0, 2.0),
+    (-0.5, 0.5, 1.0),
+    (0.0, 0.5, 2.0),
+    (0.5, 0.5, 1.0),
+];
+
+/// The tone at `(x, y)` read over the footprint of a point of the rows, `step` wide and `spacing` tall.
+fn footprint(tone: &Field, x: f64, y: f64, step: f64, spacing: f64) -> f64 {
+    FOOTPRINT
+        .iter()
+        .map(|(along, across, weight)| weight * tone.at(Point::new(x + along * step, y + across * spacing)))
+        .sum::<f64>()
+        / 16.0
 }
 
 /// The left and right of the path's bounds.
