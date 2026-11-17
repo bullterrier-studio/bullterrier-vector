@@ -3,7 +3,7 @@
 //! to a drawing that draws the same lines.
 
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Drawing, Error, Field, Inputs, Param, Path, Rows, Values, drawing_schema};
+use bullterrier_vector::{Bands, Drawing, Error, Field, Inputs, Param, Path, Rows, Values, drawing_schema};
 
 fn rect() -> Result<Path, Error> {
     Path::rect(0.0, 0.0, 120.0, 90.0, 0.0)
@@ -83,6 +83,86 @@ fn the_schema_describes_rows_and_a_bad_document_is_refused_with_a_pointer() -> O
         (
             r#"{"spacing":5,"tone":0.5,"amplitude":{"random":{"low":0,"high":9}}}"#,
             "/root/1/rows/amplitude/random",
+        ),
+    ] {
+        match Drawing::from_json(&call(args), &Inputs::new()) {
+            Err(Error::Format { pointer: got, .. }) => assert_eq!(got, pointer, "{args}"),
+            other => return Err(format!("{args}: expected a format error, got {other:?}").into()),
+        }
+    }
+    Ok(())
+}
+
+// bands -------------------------------------------------------------------------------------------------------------
+
+fn every_family() -> Result<Vec<Bands>, Error> {
+    let t = || Field::ramp((0.0, 0.0), (120.0, 90.0));
+    Ok(vec![
+        Bands::lines(9.0, t()?, (0.5, 4.0))?.angle(20.0),
+        Bands::waves(9.0, t()?, (0.5, 4.0), 30.0, 3.0)?,
+        Bands::rings(9.0, t()?, (0.5, 4.0))?.centre((30.0, 20.0)),
+        Bands::spiral(9.0, t()?, (0.5, 4.0))?,
+        Bands::rays(9.0, t()?, (0.5, 4.0))?.angle(10.0),
+    ])
+}
+
+#[test]
+fn the_bands_step_is_the_path_call_of_each_shape_for_every_family() -> Outcome {
+    for bands in every_family()? {
+        let drawn = svg(&Drawing::from(rect()?).bands(&bands), &Values::new())?;
+        assert_eq!(drawn, rect()?.bands(&bands)?.to_svg_path());
+        assert_ne!(drawn, "");
+    }
+    Ok(())
+}
+
+#[test]
+fn a_param_in_a_bands_number_is_read_with_the_values_of_the_draw() -> Outcome {
+    let thick = Param::new("thick", 1.0, 0.5, 6.0)?;
+    let turn = Param::new("turn", 0.0, 0.0, 90.0)?;
+    let drawing = Drawing::from(rect()?).bands(&Bands::lines(9.0, tone()?, (0.5, &thick))?.angle(&turn));
+    assert_eq!(drawing.parameters()?.len(), 2);
+    let at = |thick: f64, turn: f64| svg(&drawing, &Values::new().set("thick", thick).set("turn", turn));
+    assert_eq!(at(1.0, 0.0)?, svg(&drawing, &Values::new())?);
+    assert_ne!(at(5.0, 0.0)?, at(1.0, 0.0)?);
+    assert_ne!(at(1.0, 45.0)?, at(1.0, 0.0)?);
+    Ok(())
+}
+
+#[test]
+fn a_bands_document_reads_back_to_the_same_outlines_and_the_same_text() -> Outcome {
+    for bands in every_family()? {
+        let drawing = Drawing::from(rect()?).bands(&bands);
+        let text = drawing.to_json()?;
+        let back = Drawing::from_json(&text, &Inputs::new())?;
+        assert_eq!(svg(&back, &Values::new())?, svg(&drawing, &Values::new())?, "{text}");
+        assert_eq!(back.to_json()?, text);
+    }
+    Ok(())
+}
+
+#[test]
+fn a_bad_bands_document_is_refused_with_a_pointer() -> Outcome {
+    let call =
+        |args: &str| format!(r#"{{"version":1,"root":[{{"path":"M0 0 L50 0 L50 50 L0 50 Z"}},{{"bands":{args}}}]}}"#);
+    for (args, pointer) in [
+        (r#"{"spacing":5,"tone":0.5}"#, "/root/1/bands"),
+        (
+            r#"{"spacing":5,"tone":0.5,"width":[1,2],"family":"zigzag"}"#,
+            "/root/1/bands/family",
+        ),
+        (
+            r#"{"spacing":5,"tone":0.5,"width":[1,2],"family":"waves"}"#,
+            "/root/1/bands/wavelength",
+        ),
+        (r#"{"spacing":5,"tone":0.5,"width":[-1,2]}"#, "/root/1/bands/width/0"),
+        (
+            r#"{"spacing":5,"tone":0.5,"width":[1,2],"centre":[1]}"#,
+            "/root/1/bands/centre",
+        ),
+        (
+            r#"{"spacing":5,"tone":0.5,"width":[1,2],"wavelength":0,"family":"waves","amplitude":1}"#,
+            "/root/1/bands/wavelength",
         ),
     ] {
         match Drawing::from_json(&call(args), &Inputs::new()) {

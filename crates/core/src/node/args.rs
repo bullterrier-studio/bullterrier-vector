@@ -580,6 +580,21 @@ impl Args {
         }
     }
 
+    /// The pair of `name`, read once for the whole call, or `None` if the call left it out.
+    pub(crate) fn once_pair(&self, cx: &Context<'_>, name: &str) -> Result<Option<(f64, f64)>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            (arg, Given::Pair(first, second)) => {
+                let read = |expr: &Expr| {
+                    let value = expr.value(cx.env).map_err(|error| relabel(error, name))?;
+                    arg.domain.number(name, value)
+                };
+                Ok(Some((read(first)?, read(second)?)))
+            }
+            _ => Err(self.misread(name, "a pair of numbers")),
+        }
+    }
+
     /// The pair of `name` for the shape `item`, each number within the argument's domain.
     pub(crate) fn pair(&self, cx: &Context<'_>, name: &str, item: Item) -> Result<(f64, f64), Error> {
         match self.find(name)? {

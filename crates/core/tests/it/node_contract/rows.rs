@@ -2,9 +2,9 @@
 
 use crate::common::fonts::fraunces;
 use bullterrier_vector::{
-    Along, Arch, Blend, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Field, Flow, Gradient, Halftone, Hatch,
-    Join, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Shadow, Spacing, Stroke, Text,
-    Twist, Values, text,
+    Along, Arch, Bands, Blend, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Field, Flow, Gradient, Halftone,
+    Hatch, Join, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Shadow, Spacing, Stroke,
+    Text, Twist, Values, text,
 };
 
 /// A drawing made of a verb with one argument set from an expression, or the reason the row has no such argument.
@@ -925,6 +925,37 @@ pub(super) fn rows() -> Vec<Row> {
                 ("amplitude", -3.0, true),
             ],
             // equal to `Path::rows` is shown in drawing_lines.rs
+            geometry: None,
+        },
+        Row {
+            verb: "bands",
+            sample: || Ok(square()?.bands(&Bands::lines(2.0, Field::constant(0.5)?, (1.0, 2.0))?)),
+            with: Some(|argument, value| {
+                let waves = |wavelength: Expr, amplitude: Expr| {
+                    Bands::waves(2.0, Field::constant(0.5)?, (1.0, 2.0), wavelength, amplitude)
+                };
+                match argument {
+                    "spacing" => Ok(square()?.bands(&Bands::lines(value, Field::constant(0.5)?, (1.0, 2.0))?)),
+                    "angle" => Ok(square()?.bands(&Bands::lines(2.0, Field::constant(0.5)?, (1.0, 2.0))?.angle(value))),
+                    "wavelength" => Ok(square()?.bands(&waves(value, Expr::from(1.0))?)),
+                    "amplitude" => Ok(square()?.bands(&waves(Expr::from(4.0), value)?)),
+                    other => Err(unknown("bands", other)),
+                }
+            }),
+            ranges: &[
+                ("spacing", 0.0, false),
+                ("spacing", -1.0, false),
+                ("spacing", f64::NAN, false),
+                ("spacing", 2.0, true),
+                ("angle", f64::NAN, false),
+                ("angle", 720.0, true),
+                ("wavelength", 0.0, false),
+                ("wavelength", f64::INFINITY, false),
+                ("wavelength", 4.0, true),
+                ("amplitude", f64::NAN, false),
+                ("amplitude", -2.0, true),
+            ],
+            // equal to `Path::bands` is shown in drawing_lines.rs
             geometry: None,
         },
         Row {
