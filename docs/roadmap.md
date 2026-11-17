@@ -684,6 +684,8 @@ pen width, its sides in px, mm or in; `toPlotSvg` in JavaScript); a font's name 
 M5 piece is the demos folder's poster of the owner's dog: his outline from image's subject matte, drawn as rings whose width
 is his tone, a headline hatched along its own outline keeping clear of him, a stippled shadow, and the plotter SVG of it (50,000
 lines in three pens). Reasons and limits: `design-decisions.md`, "Line families, plotter output and tidy contours (V15c)".
+After the owner's review (2026-11-17): `rows` keeps to its region once lifted and reads the tone over each point's share of
+the rows, so a photo's fine detail no longer chops them.
 
 Distance fields have a second job: a signed, normalised distance field of letters or shapes is the relief that
 image's `relight`, and later `glass`, light. Written out as a grayscale map (`field.to_map`, V15b: bytes, the input form of `Field.map`), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link

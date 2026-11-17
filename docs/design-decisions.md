@@ -1559,6 +1559,13 @@ holds.
   point is never behind a nearer row (the test rebuilds every row and checks); the cost is that a row can end a fraction of a
   step early where two rows cross between points, and at a region's edge that falls between points. *Reason for the lattice:*
   one pass, no segment intersection, and spans from `Region::spans_at` give the region's edge exactly.
+- **Rows are a window on the region, and read the tone over their footprint** (2026-11-17, from the owner's look at the
+  dog). A lifted row is cut to the region, and only its part inside raises the horizon, so a peak lifted out of the outline
+  neither crosses it nor hides the rows behind (clipping the finished rows instead left empty patches between the ears).
+  The tone is read as a 3 by 3 tent over half a step along and half a spacing across: a photo's fur and grass varied faster
+  than rows a spacing apart can draw and chopped them into short pieces; a blur upstream of half a spacing was measured to
+  clean them and keep the face, and the tent does the same with no setting. *Rejected:* a `smooth` argument (a decision the
+  rows can make from their own spacing), and rows that follow the row above (softer detail, a different look).
 - **Stipple is a threshold, not blue noise.** An R2 sequence over the lattice picks the cells that get a dot, so the count in
   any slab follows the density to a cell or two with no relaxation and no state; the jitter inside a cell breaks the grid.
   *Rejected:* dart throwing with a minimum distance (state, order-dependent, cost), and Poisson disc.
