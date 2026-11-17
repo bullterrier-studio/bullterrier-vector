@@ -68,10 +68,10 @@ impl Outline {
         let mut neighbours = Vec::new();
         for line in polylines.iter().filter(|line| line.drawn) {
             let count = line.points.len();
-            // every sub-path closes onto its start, as the fill closes it; two points make one edge
-            let closing = if count > 2 { count } else { count - 1 };
+            // every sub-path closes onto its start, as the fill closes it: two points make two opposite edges, which
+            // wind to nothing, so a line encloses no area
             let first = edges.len();
-            for index in 0..closing {
+            for index in 0..count {
                 let (from, to) = (line.points[index], line.points[(index + 1) % count]);
                 if from != to {
                     edges.push((from, to));

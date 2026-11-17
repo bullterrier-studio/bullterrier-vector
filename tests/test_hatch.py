@@ -103,3 +103,10 @@ def test_a_hatched_drawing_saves_to_json_and_loads_back_to_the_same_lines() -> N
     again = btvec.Drawing.from_json(text)
     assert again.to_json() == text
     assert [s.path.to_svg_path() for s in again.shapes()] == [s.path.to_svg_path() for s in drawing.shapes()]
+
+
+@pytest.mark.parametrize("points", [[(0, 0), (100, 100)], [(0, 0), (100, 100), (0, 0)]])
+def test_a_path_of_two_points_encloses_nothing(points: list[tuple[int, int]]) -> None:
+    line = btvec.Path.polyline(points)
+    assert line.hatch(50).to_svg_path() == ""
+    assert btvec.Field.distance(line).at(10, 50) > 0

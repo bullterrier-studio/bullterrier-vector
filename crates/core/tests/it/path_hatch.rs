@@ -149,3 +149,14 @@ fn refusals_and_the_empty_path() -> Outcome {
     assert_eq!(Path::new().hatch(&Hatch::new(5.0), None)?.to_svg_path(), "");
     Ok(())
 }
+
+#[test]
+fn a_path_of_two_points_encloses_nothing() -> Outcome {
+    for points in [vec![(0.0, 0.0), (100.0, 100.0)], vec![(0.0, 0.0), (100.0, 100.0), (0.0, 0.0)]] {
+        let line = Path::polyline(points, false)?;
+        assert_eq!(line.hatch(&Hatch::new(50.0), None)?.to_svg_path(), "");
+        let field = Field::distance(&line, false)?;
+        assert!(field.at(bullterrier_vector::Point::new(10.0, 50.0)) > 0.0);
+    }
+    Ok(())
+}
