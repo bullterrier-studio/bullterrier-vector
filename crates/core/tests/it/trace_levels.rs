@@ -282,9 +282,9 @@ fn blobs(kind: usize) -> Vec<u8> {
     made(64, 64, |x, y| {
         let (x, y) = (x as f64, y as f64);
         let v = match kind {
-            0 => (x / 5.0).sin() + (y / 7.0).cos() + (x * y / 300.0).sin(),
-            1 => (y + 6.0 * (x / 9.0).sin()) / 11.0,
-            _ => (libm::hypot(x - 20.0, y - 30.0) / 6.0).sin() + (libm::hypot(x - 45.0, y - 15.0) / 4.0).cos(),
+            0 => libm::sin(x / 5.0) + libm::cos(y / 7.0) + libm::sin(x * y / 300.0),
+            1 => (y + 6.0 * libm::sin(x / 9.0)) / 11.0,
+            _ => libm::sin(libm::hypot(x - 20.0, y - 30.0) / 6.0) + libm::cos(libm::hypot(x - 45.0, y - 15.0) / 4.0),
         };
         (v * 1.7).floor().rem_euclid(4.0) as u8 * 3
     })
