@@ -9,6 +9,8 @@ from typing_extensions import disjoint_base
 __all__ = [
     "Drawing",
     "Expr",
+    "Field",
+    "Flow",
     "Font",
     "Gradient",
     "Halftone",
