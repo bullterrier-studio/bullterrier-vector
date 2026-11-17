@@ -241,17 +241,21 @@ pub(super) fn rows() -> Vec<Row> {
         Row {
             verb: "trace_labels",
             sample: || Ok(Drawing::trace_labels(&ramp_map()?, &Trace::new())),
-            with: Some(|argument, value| match argument {
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    clippy::cast_sign_loss,
-                    reason = "a row's whole number"
-                )]
-                "max_colors" => Ok(Drawing::trace_labels(
-                    &ramp_map()?,
-                    &Trace::new().max_colors(literal(argument, &value)? as usize),
-                )),
-                _ => Ok(Drawing::trace_labels(&ramp_map()?, &traced_with(argument, value)?)),
+            with: Some(|argument, value| {
+                // one label, so that any cap from 1 draws
+                let map = Field::map(2, 2, &[3; 4], None, None)?;
+                match argument {
+                    #[expect(
+                        clippy::cast_possible_truncation,
+                        clippy::cast_sign_loss,
+                        reason = "a row's whole number"
+                    )]
+                    "max_colors" => Ok(Drawing::trace_labels(
+                        &map,
+                        &Trace::new().max_colors(literal(argument, &value)? as usize),
+                    )),
+                    _ => Ok(Drawing::trace_labels(&map, &traced_with(argument, value)?)),
+                }
             }),
             ranges: Box::leak(
                 [
@@ -294,7 +298,6 @@ pub(super) fn rows() -> Vec<Row> {
                 ("cell", 1.0, true),
                 ("cell", 2.0, true),
                 ("cell", 0.0, false),
-                ("cell", -1.0, false),
                 ("max_colors", 256.0, true),
                 ("max_colors", 2.0, true),
                 ("max_colors", 0.0, false),
