@@ -1016,6 +1016,37 @@ def morphs() -> list[Entry]:
     ]
 
 
+def hatches() -> list[Entry]:
+    """`hatch`: straight lines, noise with a spacing read from a ramp, the contour of a ring (closed loops), a mix of an
+    angle and noise, a distance field as the tone, and lines that avoid a circle. Every field and flow is a document
+    value, so the native extension and the WebAssembly package read the same calls."""
+    box = btvec.Path.rect(0, 0, 100, 100)
+    ring_path = btvec.Path.from_svg_path(
+        btvec.Path.circle((50, 50), 45).to_svg_path() + " " + btvec.Path.circle((50, 50), 15).reverse().to_svg_path()
+    )
+    ramp = btvec.Field.ramp((0, 0), (100, 0))
+    noise = btvec.Flow.noise(wavelength=80, seed=3)
+    drawings = {
+        "hatch_angle": framed(btvec.Drawing(box).hatch(7, flow=btvec.Flow.angle(20)).stroke(INK, width=1)),
+        "hatch_noise_ramp": framed(btvec.Drawing(box).hatch((3, 9), tone=ramp, flow=noise).stroke(INK, width=1)),
+        "hatch_contour_ring": framed(
+            btvec.Drawing(ring_path).hatch(5, flow=btvec.Flow.contour(ring_path)).stroke(INK, width=1)
+        ),
+        "hatch_mix": framed(btvec.Drawing(box).hatch(6, flow=btvec.Flow.angle(0).mix(noise, 0.5)).stroke(INK, width=1)),
+        "hatch_distance_tone": framed(
+            btvec.Drawing(ring_path)
+            .hatch((3, 8), tone=btvec.Field.distance(ring_path, normalized=True), flow=btvec.Flow.angle(60))
+            .stroke(INK, width=1)
+        ),
+        "hatch_avoid": framed(
+            btvec.Drawing(box)
+            .hatch(6, flow=btvec.Flow.angle(10), avoid=btvec.Path.circle((50, 50), 25))
+            .stroke(INK, width=1)
+        ),
+    }
+    return [(name, drawing, [(100, 100, {}), (50, 50, {})]) for name, drawing in drawings.items()]
+
+
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     joins_and_caps,
     shapes,
@@ -1031,6 +1062,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     radials,
     envelopes,
     morphs,
+    hatches,
     wobbles,
     dashes,
     simplifies,
@@ -1254,6 +1286,7 @@ def main(output: Path) -> None:
         "star": star_everywhere(output.parent / "oracle-pixels"),
         "bent_type": example_everywhere("bent_type"),
         "glyph_morph": example_everywhere("glyph_morph"),
+        "flow_hatch": example_everywhere("flow_hatch"),
         "kinetic_type": example_everywhere("kinetic_type"),
         "refusals": [
             refused("fromJson", "not a document"),

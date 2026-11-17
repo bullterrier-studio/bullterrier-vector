@@ -702,3 +702,28 @@ def test_the_node_example_of_kinetic_type_carries_the_document_of_the_python_dra
     piece = run("kinetic_type")["piece"]
     document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "kinetic_type.json"
     assert document.read_text(encoding="utf-8") == piece.to_json()
+
+
+def test_flow_hatch_fills_each_letter_with_lines_that_stay_inside_it_and_crowd_at_its_edge(run):
+    found = run("flow_hatch")
+    drawing, outline, tone = found["drawing"], found["outline"], found["tone"]
+    paper, *letters = drawing.shapes()
+    assert paper.style.fill == "#f3eee4ff"
+    assert len(letters) == 4
+    assert {letter.style.stroke for letter in letters} == {"#16151aff"}
+    points = []
+    for letter in letters:
+        numbers = letter.path.to_svg_path().replace("M", " ").replace("L", " ").split()
+        points += [(float(x), float(y)) for x, y in zip(numbers[::2], numbers[1::2], strict=True)]
+    assert len(points) > 1000
+    # every vertex of every line lies in a letter (a hair of slack for the flattened edge)
+    inside = outline.offset(0.5)
+    assert all(inside.contains(point) for point in points)
+    # the spacing closes up where the tone is 0: a third of the line vertices lie in the outer third of a stroke
+    assert sum(tone.at(*point) < 0.3 for point in points) > len(points) / 3
+
+
+def test_the_node_example_of_flow_hatch_carries_the_document_of_the_python_drawing(run):
+    drawing = run("flow_hatch")["drawing"]
+    document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "flow_hatch.json"
+    assert document.read_text(encoding="utf-8") == drawing.to_json()

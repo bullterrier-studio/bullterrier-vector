@@ -10,6 +10,7 @@ const native = JSON.parse(readFileSync(new URL("../../pkg/oracle.json", import.m
 // each example with the frames it names, in the words its Node program prints when it refuses another
 const EXAMPLES = {
   bent_type: "calm, half or bent",
+  flow_hatch: "still",
   glyph_morph: "start, half or end",
   kinetic_type: "hairlines, kick, bend or morph",
 };
