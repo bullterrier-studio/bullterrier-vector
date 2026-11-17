@@ -5,7 +5,7 @@
 //! it must have (area over pen width).
 
 use crate::common::{Outcome, parameter_refusal, to_segment};
-use bullterrier_vector::{Color, Drawing, Error, Path, Plot, Shadow, Size, Stroke, Values};
+use bullterrier_vector::{Color, Drawing, Error, Path, Plot, PlotUnit, Shadow, Size, Stroke, Values};
 
 type Line = Vec<(f64, f64)>;
 
@@ -334,5 +334,120 @@ fn the_same_drawing_gives_the_same_plot() -> Outcome {
     let (drawing, _) = strokes(30, 5)?;
     let options = Plot::new(1.0)?;
     assert_eq!(plot(&drawing, 100.0, &options)?, plot(&drawing, 100.0, &options)?);
+    Ok(())
+}
+
+#[test]
+fn a_plot_in_millimetres_or_inches_says_its_physical_size_with_a_matching_view_box() -> Outcome {
+    let line = Path::polyline([(10.0, 10.0), (20.0, 30.0)], false)?
+        .stroke(Stroke::new(red()?).width(1.0))
+        .with_size(100.0, 100.0);
+    let draw = |size: Size, unit: PlotUnit| line.to_plot_svg(size, &Values::new(), &Plot::new(1.0)?.unit(unit));
+    let root = |svg: &str| -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
+        let document = roxmltree::Document::parse(svg)?;
+        Ok(document
+            .root_element()
+            .attributes()
+            .map(|a| (a.name().to_owned(), a.value().to_owned()))
+            .collect())
+    };
+    let attribute = |found: &[(String, String)], name: &str| {
+        found
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value.clone())
+            .unwrap_or_default()
+    };
+    // an A4 sheet: 210 by 297 mm, the 100 pixel frame scaled by 2.1 and centred on the long side
+    let mm = root(&draw(Size::px(210.0, 297.0), PlotUnit::Mm)?)?;
+    assert_eq!(attribute(&mm, "width"), "210mm");
+    assert_eq!(attribute(&mm, "height"), "297mm");
+    assert_eq!(attribute(&mm, "viewBox"), "0 0 210 297");
+    // a Letter page in inches: sides need not be whole
+    let inches = draw(Size::px(8.5, 11.0), PlotUnit::In)?;
+    let found = root(&inches)?;
+    assert_eq!(
+        (
+            attribute(&found, "width").as_str(),
+            attribute(&found, "viewBox").as_str()
+        ),
+        ("8.5in", "0 0 8.5 11")
+    );
+    // the pen is 1 design pixel, 0.085 inch wide when the frame fills 8.5 inches
+    assert!(inches.contains("stroke-width=\"0.085\""), "{inches}");
+    // pixels stay as they were: bare numbers, whole sides only
+    let px = root(&draw(Size::px(100.0, 100.0), PlotUnit::Px)?)?;
+    assert_eq!(
+        (attribute(&px, "width").as_str(), attribute(&px, "viewBox").as_str()),
+        ("100", "0 0 100 100")
+    );
+    let (name, _) = parameter_refusal(draw(Size::px(8.5, 11.0), PlotUnit::Px))?;
+    assert_eq!(name, "width");
+    for side in [0.0, -1.0, f64::NAN, 100_001.0] {
+        let (name, _) = parameter_refusal(draw(Size::px(side, 10.0), PlotUnit::Mm))?;
+        assert_eq!(name, "width", "{side}");
+    }
+    Ok(())
+}
+
+#[test]
+fn a_plot_draws_only_what_the_picture_shows() -> Outcome {
+    let faint = Color::parse("#ff000000")?;
+    let square = || Path::rect(0.0, 0.0, 20.0, 20.0, 0.0);
+    let hidden = Drawing::new(vec![
+        square()?.fill(red()?).opacity(0.0),
+        square()?.fill(faint),
+        square()?.stroke(Stroke::new(faint).width(2.0)),
+        square()?.stroke(Stroke::new(red()?).width(2.0)).opacity(0.0),
+    ]);
+    assert!(pens(&plot(&hidden, 100.0, &Plot::new(1.0)?)?)?.is_empty());
+    // a translucent colour still plots as its opaque one
+    let half = square()?
+        .stroke(Stroke::new(Color::parse("#ff000080")?).width(2.0))
+        .opacity(0.5);
+    assert_eq!(pens(&plot(&half, 100.0, &Plot::new(1.0)?)?)?.len(), 1);
+    Ok(())
+}
+
+#[test]
+fn a_pen_too_fine_for_a_solid_is_refused_naming_the_pen_width_and_a_huge_one_the_real_limit() -> Outcome {
+    let solid = Path::rect(0.0, 0.0, 20.0, 20.0, 0.0)?.fill(red()?);
+    let (name, _) = parameter_refusal(plot(&solid, 100.0, &Plot::new(1e-9)?))?;
+    assert_eq!(name, "pen_width");
+    let (name, message) = parameter_refusal(Plot::new(1e101))?;
+    assert_eq!(name, "pen_width");
+    assert!(
+        message.contains("1e100") || message.contains("10000000000"),
+        "{message}"
+    );
+    let (name, message) = parameter_refusal(plot(&solid, 100.0, &Plot::new(1.0)?.tolerance(1e101)))?;
+    assert_eq!(name, "tolerance");
+    assert!(
+        message.contains("1e100") || message.contains("10000000000"),
+        "{message}"
+    );
+    Ok(())
+}
+
+#[test]
+fn strokes_crowded_into_a_corner_are_all_plotted_in_time_and_each_once() -> Outcome {
+    // 300,000 two-point strokes in a 10 by 10 corner and one stroke far away: a grid over the whole box puts a crowd in
+    // each cell, so a scan for the nearest end is quadratic without a bound
+    let count = 300_000_usize;
+    let n = scatter(count * 4, 9);
+    let mut data = String::from("M1000 1000L1001 1001");
+    for k in 0..count {
+        data.push_str(&format!(
+            "M{} {}L{} {}",
+            n[4 * k] / 10.0,
+            n[4 * k + 1] / 10.0,
+            n[4 * k + 2] / 10.0,
+            n[4 * k + 3] / 10.0
+        ));
+    }
+    let drawing = Drawing::from(Path::from_svg_path(&data)?).stroke(Stroke::new(red()?).width(1.0));
+    let found = pens(&plot(&drawing, 2000.0, &Plot::new(1.0)?.tolerance(0.0))?)?;
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].lines.len(), count + 1, "every stroke once");
     Ok(())
 }

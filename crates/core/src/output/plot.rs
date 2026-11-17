@@ -19,11 +19,48 @@ const MAX_SIMPLIFY_WORK: f64 = 1e9;
 // constant: a quarter of the pen width is a deviation the line of the pen already covers
 const DEFAULT_TOLERANCE: f64 = 0.25;
 
-/// How to write a plot: the width of the pen, and how closely the lines follow the drawing.
+/// What the sides of a plot are measured in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlotUnit {
+    /// Pixels (the default): whole sides, written as bare numbers.
+    #[default]
+    Px,
+    /// Millimetres: the document says `width="210mm"`, so plotter software reads its physical size.
+    Mm,
+    /// Inches, written the same way.
+    In,
+}
+
+impl PlotUnit {
+    /// The words a binding uses, in the order of the variants.
+    pub const NAMES: &'static [&'static str] = &["px", "mm", "in"];
+
+    /// The unit a word names, or `None`.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        [Self::Px, Self::Mm, Self::In]
+            .into_iter()
+            .zip(Self::NAMES)
+            .find(|(_, word)| **word == name)
+            .map(|(unit, _)| unit)
+    }
+
+    /// The text after a number of this unit in an SVG length.
+    fn suffix(self) -> &'static str {
+        match self {
+            Self::Px => "",
+            Self::Mm => "mm",
+            Self::In => "in",
+        }
+    }
+}
+
+/// How to write a plot: the width of the pen, how closely the lines follow the drawing, and the unit of its sides.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Plot {
     pen_width: f64,
     tolerance: Option<f64>,
+    unit: PlotUnit,
 }
 
 impl Plot {
@@ -36,17 +73,29 @@ impl Plot {
         if !(pen_width.is_finite() && pen_width > 0.0 && pen_width <= MAX_COORDINATE) {
             return Err(Error::parameter(
                 "pen_width",
-                format!("must be above 0, got {pen_width}"),
+                format!("must be above 0 and at most {MAX_COORDINATE}, got {pen_width}"),
             ));
         }
         Ok(Self {
             pen_width,
             tolerance: None,
+            unit: PlotUnit::Px,
         })
     }
 
+    /// Measure the sides of the output in `unit` (default pixels): with [`PlotUnit::Mm`] or [`PlotUnit::In`] the
+    /// `size` given to [`Drawing::to_plot_svg`] is in that unit (any number above 0 up to 100,000, not only whole ones),
+    /// the document's `width` and `height` carry it (`width="210mm"`) and its `viewBox` has the same numbers, so
+    /// plotter software reads the physical size. The design frame is fitted into it as for pixels, and the pen is still
+    /// `pen_width` design pixels, scaled with it.
+    #[must_use]
+    pub fn unit(mut self, unit: PlotUnit) -> Self {
+        self.unit = unit;
+        self
+    }
+
     /// Simplify every line to within `tolerance` design pixels of the line the drawing has (0: keep every point). Checked
-    /// where the plot is written: it must be at least 0 and within 1e100.
+    /// where the plot is written: it must be from 0 to 1e100.
     #[must_use]
     pub fn tolerance(mut self, tolerance: f64) -> Self {
         self.tolerance = Some(tolerance);
@@ -68,7 +117,8 @@ impl Drawing {
     ///
     /// Every shape's outline is drawn along its centre, the shape's own stroke width ignored (the pen draws its own);
     /// every fill is drawn by pen-width hatching at 45 degrees inside its outline (its outline when it is too small
-    /// for a line); a translucent colour is drawn as its opaque one and opacity is ignored. A shape drawn later does not
+    /// for a line); a translucent colour is drawn as its opaque one, but a shape with opacity 0 or a fully transparent fill or
+    /// stroke is not drawn at all (a plot draws what the picture shows). A shape drawn later does not
     /// hide one drawn earlier: draw what hides in the drawing, not on top. Curves are flattened within the library's
     /// flatness and every line simplified (Douglas and Peucker) to within `plot`'s tolerance; a closed outline is
     /// written as a line that comes back to its start.
@@ -78,18 +128,22 @@ impl Drawing {
     /// ends. The same drawing gives the same plot.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 100,000;
+    /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 100,000 (in
+    /// millimetres or inches: a number above 0 up to 100,000);
     /// naming `tolerance` if it is not at least 0 or the simplification would take over a billion distance tests;
     /// naming the shape (`shape 3`) if it has a gradient fill or stroke, a halftone, a shadow, a clip, a mask, a
     /// knockout or a blend, which a pen cannot draw; naming `pen_width` past `MAX_SEGMENTS` points; otherwise what
     /// [`Drawing::shapes`] raises.
     pub fn to_plot_svg(&self, size: Size, values: &Values, plot: &Plot) -> Result<String, Error> {
-        let canvas = size.checked()?;
+        let canvas = match plot.unit {
+            PlotUnit::Px => size.checked()?,
+            PlotUnit::Mm | PlotUnit::In => size.checked_physical()?,
+        };
         let tolerance = plot.tolerance.unwrap_or(DEFAULT_TOLERANCE * plot.pen_width);
         if !(tolerance.is_finite() && (0.0..=MAX_COORDINATE).contains(&tolerance)) {
             return Err(Error::parameter(
                 "tolerance",
-                format!("must be at least 0, got {tolerance}"),
+                format!("must be from 0 to {MAX_COORDINATE}, got {tolerance}"),
             ));
         }
         let shapes = self.shapes(values)?;
@@ -101,6 +155,10 @@ impl Drawing {
             let place = format!("shape {}", shape.index());
             refuse_what_a_pen_cannot_draw(shape, &place)?;
             let style = shape.style();
+            // a plot draws what the picture shows: nothing of a shape with no opacity
+            if style.opacity() <= 0.0 {
+                continue;
+            }
             let mut charge = |count| work.made_segments(count, "pen_width");
             let mut add = |colour: [u8; 3], lines: Vec<Polyline>| -> Result<(), Error> {
                 let at = pens.iter().position(|pen| pen.colour == colour).unwrap_or_else(|| {
@@ -121,12 +179,14 @@ impl Drawing {
                 Ok(())
             };
             if let Paint::Color(colour) = style.fill()
-                && let Some(rgba) = colour.rgba()
+                && let Some(rgba) = colour.rgba().filter(|rgba| rgba[3] > 0)
             {
                 let hatch = Hatch::new(plot.pen_width).flow(Flow::fixed(45.0));
+                // the hatching is the pen's, so a spacing it cannot make is the pen width
                 let lines = shape
                     .path()
-                    .hatch_charged(&hatch, &[], &mut charge)?
+                    .hatch_charged(&hatch, &[], &mut charge)
+                    .map_err(as_pen_width)?
                     .flattened(&mut charge)?;
                 let lines = if lines.iter().any(|line| line.drawn) {
                     lines
@@ -137,7 +197,7 @@ impl Drawing {
             }
             if let Some(stroke) = style.stroke()
                 && let Paint::Color(colour) = stroke.paint()
-                && let Some(rgba) = colour.rgba()
+                && let Some(rgba) = colour.rgba().filter(|rgba| rgba[3] > 0)
             {
                 add([rgba[0], rgba[1], rgba[2]], shape.path().flattened(&mut charge)?)?;
             }
@@ -146,7 +206,8 @@ impl Drawing {
         let pen_width = number(view.length(plot.pen_width)?);
         let mut svg = format!(
             "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:inkscape=\"http://www.inkscape.org/namespaces/inkscape\" \
-             width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\">\n"
+             width=\"{width}{unit}\" height=\"{height}{unit}\" viewBox=\"0 0 {width} {height}\">\n",
+            unit = plot.unit.suffix()
         );
         for (number_of, pen) in pens.into_iter().enumerate() {
             let hex = format!("#{:02x}{:02x}{:02x}", pen.colour[0], pen.colour[1], pen.colour[2]);
@@ -167,6 +228,17 @@ impl Drawing {
         }
         svg.push_str("</svg>\n");
         Ok(svg)
+    }
+}
+
+/// `error` with the hatching's `spacing` called what the caller gave it: the `pen_width`.
+fn as_pen_width(error: Error) -> Error {
+    match error {
+        Error::Parameter { parameter, message } if parameter == "spacing" => Error::Parameter {
+            parameter: "pen_width".to_owned(),
+            message,
+        },
+        other => other,
     }
 }
 

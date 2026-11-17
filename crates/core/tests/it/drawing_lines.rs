@@ -217,8 +217,14 @@ fn a_width_of_nothing_fades_a_band_away_in_the_path_the_step_and_a_document() ->
     let ramp = Field::ramp((0.0, 0.0), (120.0, 0.0))?;
     let bands = Bands::lines(30.0, ramp, (0.0, 4.0))?;
     let by_path = rect()?.bands(&bands)?;
-    assert_eq!(svg(&Drawing::from(rect()?).bands(&bands), &Values::new())?, by_path.to_svg_path());
-    assert!(by_path.contains((110.0, 15.0))? && !by_path.contains((2.0, 17.0))?, "thick at the right, nothing at the left");
+    assert_eq!(
+        svg(&Drawing::from(rect()?).bands(&bands), &Values::new())?,
+        by_path.to_svg_path()
+    );
+    assert!(
+        by_path.contains((110.0, 15.0))? && !by_path.contains((2.0, 17.0))?,
+        "thick at the right, nothing at the left"
+    );
     let text = Drawing::from(rect()?).bands(&bands).to_json()?;
     let back = Drawing::from_json(&text, &Inputs::new())?;
     assert_eq!(svg(&back, &Values::new())?, by_path.to_svg_path());
@@ -232,8 +238,16 @@ fn an_argument_the_family_does_not_read_is_refused_naming_it_and_the_family() ->
         parameter_refusal(bands)
     };
     for (what, bands, argument) in [
-        ("lines", Bands::lines(5.0, flat()?, (1.0, 2.0))?.centre((1.0, 1.0)), "centre"),
-        ("waves", Bands::waves(5.0, flat()?, (1.0, 2.0), 10.0, 1.0)?.centre((1.0, 1.0)), "centre"),
+        (
+            "lines",
+            Bands::lines(5.0, flat()?, (1.0, 2.0))?.centre((1.0, 1.0)),
+            "centre",
+        ),
+        (
+            "waves",
+            Bands::waves(5.0, flat()?, (1.0, 2.0), 10.0, 1.0)?.centre((1.0, 1.0)),
+            "centre",
+        ),
         ("rings", Bands::rings(5.0, flat()?, (1.0, 2.0))?.angle(10.0), "angle"),
     ] {
         let (name, message) = refused(bands)?;
@@ -246,8 +260,14 @@ fn an_argument_the_family_does_not_read_is_refused_naming_it_and_the_family() ->
     let call =
         |args: &str| format!(r#"{{"version":1,"root":[{{"path":"M0 0 L50 0 L50 50 L0 50 Z"}},{{"bands":{args}}}]}}"#);
     for (args, pointer) in [
-        (r#"{"spacing":5,"tone":0.5,"width":[1,2],"wavelength":9}"#, "/root/1/bands/wavelength"),
-        (r#"{"spacing":5,"tone":0.5,"width":[1,2],"centre":[1,1]}"#, "/root/1/bands/centre"),
+        (
+            r#"{"spacing":5,"tone":0.5,"width":[1,2],"wavelength":9}"#,
+            "/root/1/bands/wavelength",
+        ),
+        (
+            r#"{"spacing":5,"tone":0.5,"width":[1,2],"centre":[1,1]}"#,
+            "/root/1/bands/centre",
+        ),
         (
             r#"{"spacing":5,"tone":0.5,"width":[1,2],"family":"rings","angle":0}"#,
             "/root/1/bands/angle",

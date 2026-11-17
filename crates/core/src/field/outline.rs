@@ -180,7 +180,11 @@ impl Outline {
         }
         // the winding is counted along whichever ray, to the right or down, meets fewer edges
         let (band, strip) = (&self.bands[self.row_of(point.y)], &self.strips[self.column_of(point.x)]);
-        let (ids, flip) = if band.len() <= strip.len() { (band, false) } else { (strip, true) };
+        let (ids, flip) = if band.len() <= strip.len() {
+            (band, false)
+        } else {
+            (strip, true)
+        };
         let turned = |p: Point| if flip { Point::new(p.y, p.x) } else { p };
         let point = turned(point);
         let mut turns = 0_i32;
@@ -202,7 +206,9 @@ impl Outline {
     /// How many edges [`Outline::contains`] weighs for `point`: what a question costs, to be charged before it is asked.
     pub(crate) fn contains_cost(&self, point: Point) -> usize {
         if self.in_grid(point) {
-            self.bands[self.row_of(point.y)].len().min(self.strips[self.column_of(point.x)].len())
+            self.bands[self.row_of(point.y)]
+                .len()
+                .min(self.strips[self.column_of(point.x)].len())
         } else {
             0
         }
@@ -334,8 +340,12 @@ impl Outline {
     ) -> Result<Vec<f64>, Error> {
         let (low, high) = if from.y <= to.y { (from.y, to.y) } else { (to.y, from.y) };
         let (min_x, max_x) = (from.x.min(to.x), from.x.max(to.x));
-        let (rows, columns) = ((self.row_of(low), self.row_of(high)), (self.column_of(min_x), self.column_of(max_x)));
-        let weigh = |lists: &[Vec<u32>], (first, last): (usize, usize)| lists[first..=last].iter().map(Vec::len).sum::<usize>();
+        let (rows, columns) = (
+            (self.row_of(low), self.row_of(high)),
+            (self.column_of(min_x), self.column_of(max_x)),
+        );
+        let weigh =
+            |lists: &[Vec<u32>], (first, last): (usize, usize)| lists[first..=last].iter().map(Vec::len).sum::<usize>();
         let (by_rows, by_columns) = (weigh(&self.bands, rows), weigh(&self.strips, columns));
         charge(by_rows.min(by_columns))?;
         let (lists, span, key): (&[Vec<u32>], _, &dyn Fn(Point, Point) -> usize) = if by_rows <= by_columns {

@@ -177,7 +177,10 @@ fn what_it_cannot_make_is_refused_naming_the_argument() -> Outcome {
         "amplitude"
     );
     assert_eq!(
-        parameter_refusal(call(Bands::lines(5.0, flat()?, (1.0, 1.0)).and_then(|b| b.angle(f64::NAN))))?.0,
+        parameter_refusal(call(
+            Bands::lines(5.0, flat()?, (1.0, 1.0)).and_then(|b| b.angle(f64::NAN))
+        ))?
+        .0,
         "angle"
     );
     assert_eq!(

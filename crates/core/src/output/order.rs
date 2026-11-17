@@ -15,6 +15,11 @@ use crate::geometry::Point;
 // constant: 2048 by 2048 cells of a few entries each is the finest grid worth keeping for a few million entries
 const MAX_SIDE: usize = 2048;
 
+/// The most entries one order may scan in all.
+// constant: a few seconds (measured: 100,000 strokes crowded into a corner of a page scanned about 3e9 and took ten);
+// a page of strokes spread over it scans a few dozen per stroke, so only a crowd past it loses its order
+const MAX_WORK: f64 = 2e8;
+
 /// A stroke to draw: its points, and whether it comes back to its start (the last point is not repeated then).
 pub(crate) struct Stroke {
     pub(crate) points: Vec<Point>,
@@ -31,7 +36,9 @@ struct End {
 /// `strokes` in the order of the nearest neighbour from the pen at `start`, each as the pen draws it: an open stroke
 /// from the nearer end (reversed when that is its last), a closed one from the nearest vertex round to it again, its
 /// first point repeated at the end. Ties go to the earlier stroke. Time is about linear in the strokes for strokes spread
-/// over a page (a grid finds the nearest end), and at worst quadratic.
+/// over a page (a grid finds the nearest end). A crowd the grid cannot spread (strokes packed into a corner of a big
+/// box) would be quadratic, so the entries scanned are counted, and past `MAX_WORK` the strokes left are drawn in the
+/// order they were given: shortcut: the rest of a crowd keeps its drawing order, upgrade with a k-d tree if one matters.
 pub(crate) fn nearest_neighbour(strokes: &[Stroke], start: Point) -> Vec<Vec<Point>> {
     let mut ends: Vec<End> = Vec::new();
     for (index, stroke) in strokes.iter().enumerate() {
@@ -59,25 +66,37 @@ pub(crate) fn nearest_neighbour(strokes: &[Stroke], start: Point) -> Vec<Vec<Poi
     let mut used = vec![false; strokes.len()];
     let mut order = Vec::with_capacity(strokes.len());
     let mut pen = start;
-    for _ in 0..strokes.len() {
-        let Some(found) = grid.nearest(&ends, &used, pen) else {
+    let mut work = 0.0;
+    while work <= MAX_WORK {
+        let Some(found) = grid.nearest(&ends, &used, pen, &mut work) else {
             break;
         };
         let (stroke, vertex) = (ends[found].stroke as usize, ends[found].vertex as usize);
         used[stroke] = true;
-        let source = &strokes[stroke];
-        let drawn: Vec<Point> = if source.closed {
-            let n = source.points.len();
-            (0..=n).map(|k| source.points[(vertex + k) % n]).collect()
-        } else if vertex == 0 {
-            source.points.clone()
-        } else {
-            source.points.iter().rev().copied().collect()
-        };
+        let drawn = drawn_from(&strokes[stroke], vertex);
         pen = drawn[drawn.len() - 1];
         order.push(drawn);
     }
+    // what the work budget left, as given
+    for (source, used) in strokes.iter().zip(&used) {
+        if !used && !source.points.is_empty() {
+            order.push(drawn_from(source, 0));
+        }
+    }
     order
+}
+
+/// The points of `source` as the pen draws it from `vertex`: a closed one round to it again, an open one from its first
+/// point (`vertex` 0) or its last.
+fn drawn_from(source: &Stroke, vertex: usize) -> Vec<Point> {
+    if source.closed {
+        let n = source.points.len();
+        (0..=n).map(|k| source.points[(vertex + k) % n]).collect()
+    } else if vertex == 0 {
+        source.points.clone()
+    } else {
+        source.points.iter().rev().copied().collect()
+    }
 }
 
 /// A grid of the entries, each cell the entries inside it.
@@ -139,7 +158,7 @@ impl Grid {
     }
 
     /// The nearest entry of a stroke not yet `used` to `pen`: the least distance, then the earliest entry.
-    fn nearest(&mut self, ends: &[End], used: &[bool], pen: Point) -> Option<usize> {
+    fn nearest(&mut self, ends: &[End], used: &[bool], pen: Point, work: &mut f64) -> Option<usize> {
         let (column, row) = self.cell_of(pen);
         let reach = self.columns.max(self.rows);
         let mut best: Option<(f64, usize)> = None;
@@ -164,6 +183,7 @@ impl Grid {
                 for x in columns {
                     let cell = &mut self.cells[y * self.columns + x];
                     cell.retain(|entry| !used[ends[*entry as usize].stroke as usize]);
+                    *work += cell.len() as f64 + 1.0;
                     for &entry in cell.iter() {
                         let end = &ends[entry as usize];
                         let distance = length(end.at.x - pen.x, end.at.y - pen.y);

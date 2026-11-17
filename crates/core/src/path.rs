@@ -223,9 +223,9 @@ impl Path {
 
     /// Whether the path could fill any area: a point and a lone straight line fill nothing, anything else might.
     pub(crate) fn may_fill(&self) -> bool {
-        self.subpaths
-            .iter()
-            .any(|subpath| subpath.segments.len() > 1 || subpath.segments.iter().any(|s| !matches!(s, Segment::Line(_))))
+        self.subpaths.iter().any(|subpath| {
+            subpath.segments.len() > 1 || subpath.segments.iter().any(|s| !matches!(s, Segment::Line(_)))
+        })
     }
 
     /// How much geometry the path holds, in segments (a sub-path's start counts as one): what copying it costs.

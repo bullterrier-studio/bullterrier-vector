@@ -162,7 +162,11 @@ fn work_past_the_budget_is_refused_naming_the_region_before_it_is_done() -> Outc
     let region = comb(25_000)?;
     let mut data = String::new();
     for k in 0..20_000 {
-        data.push_str(&format!("M-1 {}L60000 {}", 0.0002 * f64::from(k), 0.0002 * f64::from(k)));
+        data.push_str(&format!(
+            "M-1 {}L60000 {}",
+            0.0002 * f64::from(k),
+            0.0002 * f64::from(k)
+        ));
     }
     let (name, _) = parameter_refusal(Path::from_svg_path(&data)?.within(&region))?;
     assert_eq!(name, "region");

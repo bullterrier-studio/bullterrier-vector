@@ -61,7 +61,12 @@ fn a_param_is_refused_naming_the_argument_and_the_value() -> Outcome {
             "name",
             "pen_width",
         ),
-        ("the tolerance of a plot", Param::new("tolerance", 0.0, 0.0, 1.0), "name", "tolerance"),
+        (
+            "the tolerance of a plot",
+            Param::new("tolerance", 0.0, 0.0, 1.0),
+            "name",
+            "tolerance",
+        ),
         ("the unit of a plot", Param::new("unit", 0.0, 0.0, 1.0), "name", "unit"),
         (
             "the window of a pixel output",

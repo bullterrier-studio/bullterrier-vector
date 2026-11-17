@@ -75,7 +75,12 @@ fn cut(
     for i in 0..edges {
         let (from, to) = (points[i], points[(i + 1) % count]);
         let mut shares = vec![0.0];
-        shares.extend(outline.crossings(from, to, work)?.into_iter().filter(|t| *t > 0.0 && *t < 1.0));
+        shares.extend(
+            outline
+                .crossings(from, to, work)?
+                .into_iter()
+                .filter(|t| *t > 0.0 && *t < 1.0),
+        );
         shares.push(1.0);
         let at = |t: f64| Point::new(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
         for pair in shares.windows(2) {

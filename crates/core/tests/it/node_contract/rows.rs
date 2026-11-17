@@ -936,7 +936,9 @@ pub(super) fn rows() -> Vec<Row> {
                 };
                 match argument {
                     "spacing" => Ok(square()?.bands(&Bands::lines(value, Field::constant(0.5)?, (1.0, 2.0))?)),
-                    "angle" => Ok(square()?.bands(&Bands::lines(2.0, Field::constant(0.5)?, (1.0, 2.0))?.angle(value)?)),
+                    "angle" => {
+                        Ok(square()?.bands(&Bands::lines(2.0, Field::constant(0.5)?, (1.0, 2.0))?.angle(value)?))
+                    }
                     "wavelength" => Ok(square()?.bands(&waves(value, Expr::from(1.0))?)),
                     "amplitude" => Ok(square()?.bands(&waves(Expr::from(4.0), value)?)),
                     other => Err(unknown("bands", other)),

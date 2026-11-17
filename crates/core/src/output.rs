@@ -16,7 +16,7 @@ mod window;
 use crate::node::stack::MAX_FRAME;
 use crate::{Error, ShadowStyle, Shape, Style};
 pub use mesh::Mesh;
-pub use plot::Plot;
+pub use plot::{Plot, PlotUnit};
 pub use window::Window;
 
 /// The longest side of a pixel output, in whole pixels.
@@ -60,6 +60,21 @@ impl Size {
             side("width", self.width, MAX_FRAME)?,
             side("height", self.height, MAX_FRAME)?,
         ))
+    }
+
+    /// The sides of a plot in millimetres or inches: numbers above 0 up to the largest side of a design frame, whole or not.
+    pub(crate) fn checked_physical(self) -> Result<(f64, f64), Error> {
+        let side = |name: &str, value: f64| {
+            if value > 0.0 && value <= MAX_FRAME {
+                Ok(value)
+            } else {
+                Err(Error::parameter(
+                    name,
+                    format!("must be above 0 and at most {MAX_FRAME}, got {value}"),
+                ))
+            }
+        };
+        Ok((side("width", self.width)?, side("height", self.height)?))
     }
 
     /// The sides of a pixel output: whole pixels from 1 to [`MAX_PIXEL_SIDE`], [`MAX_PIXELS`] at most in all.

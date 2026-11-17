@@ -248,7 +248,12 @@ impl Bands {
                 read("width", &self.width.0, values)?,
                 read("width", &self.width.1, values)?,
             ),
-            angle: self.angle.as_ref().map(|e| read("angle", e, values)).transpose()?.unwrap_or(0.0),
+            angle: self
+                .angle
+                .as_ref()
+                .map(|e| read("angle", e, values))
+                .transpose()?
+                .unwrap_or(0.0),
             wavelength: self
                 .wavelength
                 .as_ref()
@@ -290,7 +295,10 @@ impl Plan {
         }
         for width in [self.width.0, self.width.1] {
             if !(width.is_finite() && (0.0..=MAX_COORDINATE).contains(&width)) {
-                return Err(Error::parameter("width", format!("must be from 0 to {MAX_COORDINATE}, got {width}")));
+                return Err(Error::parameter(
+                    "width",
+                    format!("must be from 0 to {MAX_COORDINATE}, got {width}"),
+                ));
             }
         }
         if !(self.angle.is_finite() && self.angle.abs() <= MAX_COORDINATE) {
@@ -480,7 +488,11 @@ fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> R
     };
     if samples.is_nan() || samples > MAX_SAMPLES {
         // a centre away from the region is what stretches a ring or an arm out: name it, when the default would do
-        let name = if plan.centre.is_some() && d_min > 0.0 { "centre" } else { "spacing" };
+        let name = if plan.centre.is_some() && d_min > 0.0 {
+            "centre"
+        } else {
+            "spacing"
+        };
         return Err(too_many(name));
     }
     let at = |radius: f64, angle: f64| {
