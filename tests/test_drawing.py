@@ -1184,7 +1184,8 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
     "trace_labels": (
         lambda: Drawing.trace_labels(btvec.Field.map(1, 1, b"\xff"), tolerance=0),
         {},
-        [row(PADDED)],
+        # a lone label is the base: the padded rectangle, with nothing to cut from it
+        [row("M-1 -1 L2 -1 L2 2 L-1 2 Z")],
     ),
     "trace_cells": (
         lambda: Drawing.trace_cells(btvec.Field.map(2, 1, bytes([0, 1])), 1),
