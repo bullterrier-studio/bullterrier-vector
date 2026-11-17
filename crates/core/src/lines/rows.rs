@@ -118,20 +118,7 @@ impl Path {
         let Ok(outline) = Outline::from_polylines(&self.flattened(&mut |_| Ok(()))?, "rows") else {
             return Ok(Path::new());
         };
-        let mut cut_visits = 0.0;
-        let mut work = |edges: usize| {
-            cut_visits += edges as f64;
-            if cut_visits > MAX_VISITS {
-                Err(Error::parameter(
-                    "spacing",
-                    format!(
-                        "is too small for a region this detailed: cutting to it would pass {MAX_VISITS} edge visits"
-                    ),
-                ))
-            } else {
-                Ok(())
-            }
-        };
+        let mut work = cutting_budget();
         let (left, right) = self_x_extent(self)?;
         let step = STEP * spacing;
         let reach = left.abs().max(right.abs()).max(top.abs()).max(bottom.abs());
@@ -239,6 +226,22 @@ fn footprint(tone: &Field, x: f64, y: f64, step: f64, spacing: f64) -> f64 {
         .map(|(along, across, weight)| weight * tone.at(Point::new(x + along * step, y + across * spacing)))
         .sum::<f64>()
         / 16.0
+}
+
+/// What cutting the rows to their region may weigh: `MAX_VISITS` edges in all, then a refusal naming `spacing`.
+fn cutting_budget() -> impl FnMut(usize) -> Result<(), Error> {
+    let mut visits = 0.0;
+    move |edges| {
+        visits += edges as f64;
+        if visits > MAX_VISITS {
+            Err(Error::parameter(
+                "spacing",
+                format!("is too small for a region this detailed: cutting to it would pass {MAX_VISITS} edge visits"),
+            ))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 /// The left and right of the path's bounds.

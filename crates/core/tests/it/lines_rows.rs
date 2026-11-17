@@ -73,8 +73,8 @@ fn detail_finer_than_the_rows_is_averaged_away() -> Outcome {
     for tone in [stripes, columns] {
         let found = lines(&rect(100.0, 100.0)?.rows(&Rows::new(spacing, tone, amplitude)?)?)?;
         assert_eq!(found.len(), 10);
-        for (k, (points, _)) in found.iter().enumerate() {
-            let flat = 5.0 + spacing * k as f64 - amplitude / 2.0;
+        for (k, (points, _)) in (0_u32..).zip(&found) {
+            let flat = 5.0 + spacing * f64::from(k) - amplitude / 2.0;
             assert!(
                 points.iter().all(|p| (p.1 - flat).abs() < 1e-9),
                 "row {k} is not flat at {flat}: {points:?}"
