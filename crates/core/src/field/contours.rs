@@ -32,15 +32,15 @@ pub(crate) const MAX_LEVELS: usize = 256;
 #[derive(Clone, Copy, PartialEq)]
 struct Edge(usize);
 
-struct Grid {
-    columns: usize,
-    rows: usize,
-    frame: Rect,
-    values: Vec<f64>,
+pub(crate) struct Grid {
+    pub(crate) columns: usize,
+    pub(crate) rows: usize,
+    pub(crate) frame: Rect,
+    pub(crate) values: Vec<f64>,
 }
 
 impl Grid {
-    fn nodes(&self) -> usize {
+    pub(crate) fn nodes(&self) -> usize {
         (self.columns + 1) * (self.rows + 1)
     }
 
@@ -183,10 +183,10 @@ impl Tidy {
 
 /// The most multiply-adds the blur of one call may cost.
 // constant: about two seconds measured at a nanosecond a tap; a sigma of 50 cells over a 2000 by 2000 grid is under it
-const MAX_SMOOTH_WORK: f64 = 2e9;
+pub(crate) const MAX_SMOOTH_WORK: f64 = 2e9;
 
 /// Blurs `values` (columns + 1 by rows + 1 nodes) with a Gaussian of `sigma` nodes along each axis, the edge held.
-fn blur(values: &mut [f64], width: usize, height: usize, sigma: (f64, f64)) {
+pub(crate) fn blur(values: &mut [f64], width: usize, height: usize, sigma: (f64, f64)) {
     fn pass(values: &mut [f64], length: usize, stride: usize, lines: usize, line_step: usize, sigma: f64) {
         if sigma <= 0.0 {
             return;
@@ -322,7 +322,7 @@ fn high_on_left(grid: &Grid, edge: Edge, level: f64, points: &[Point]) -> bool {
 }
 
 /// Every line of `level`: those that start on the frame, then the closed ones.
-fn trace(
+pub(crate) fn trace(
     grid: &Grid,
     level: f64,
     min_length: f64,

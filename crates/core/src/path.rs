@@ -211,6 +211,11 @@ impl Path {
         self.subpaths.iter().all(|subpath| subpath.closed)
     }
 
+    /// Whether the path has no sub-path.
+    pub(crate) fn has_nothing(&self) -> bool {
+        self.subpaths.is_empty()
+    }
+
     /// The sub-paths of `paths`, one after the other, as one path.
     pub(crate) fn joined<'a>(paths: impl IntoIterator<Item = &'a Self>) -> Self {
         Self {

@@ -22,6 +22,8 @@ const NODES: &[&dyn Node] = &[
     &source::ShapeSource,
     &stack::Stack,
     &text::TextNode,
+    &trace::TraceLevels,
+    &trace::TraceLabels,
     &trace::TraceCells,
     &transform::Translate,
     &transform::Rotate,
