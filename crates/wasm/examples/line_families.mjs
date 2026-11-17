@@ -17,7 +17,7 @@ const drawing = Drawing.fromJson(readFileSync(new URL("line_families.json", impo
 // the frames: the picture, and the SVG a pen plotter reads, with a pen 0.8 pixels wide
 const FRAMES = {
   still: () => drawing.toSvg(WIDTH, HEIGHT),
-  plot: () => drawing.toPlotSvg(WIDTH, HEIGHT, 0.8),
+  plot: () => drawing.toPlotSvg(WIDTH, HEIGHT, {}, { penWidth: 0.8 }),
 };
 
 const name = process.argv[2];

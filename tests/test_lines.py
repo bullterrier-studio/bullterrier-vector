@@ -154,3 +154,18 @@ def test_an_argument_the_family_does_not_read_is_refused_naming_it_and_the_famil
     for target in (BOX, btvec.Drawing(BOX)):
         with pytest.raises(btvec.ParameterError, match=rf"{argument}.*{family}"):
             target.bands(10, tone=RAMP, width=(1, 2), **call)  # type: ignore[arg-type]
+
+
+def test_a_plot_in_millimetres_or_inches_says_its_physical_size() -> None:
+    art = btvec.Drawing(btvec.Path.polyline([(10, 10), (60, 30)]).stroke("#0000ff", width=3), size=(100, 40))
+    text = art.to_plot_svg(297, 210, pen_width=1, unit="mm")
+    assert 'width="297mm" height="210mm" viewBox="0 0 297 210"' in text
+    inches = art.to_plot_svg(8.5, 11, pen_width=1, unit="in")
+    assert 'width="8.5in" height="11in" viewBox="0 0 8.5 11"' in inches
+    assert 'width="100" height="40"' in art.to_plot_svg(100, 40, pen_width=1)
+    for call in (
+        lambda: art.to_plot_svg(8.5, 11, pen_width=1),
+        lambda: art.to_plot_svg(100, 40, pen_width=1, unit="furlong"),
+    ):
+        with pytest.raises(btvec.ParameterError):
+            call()

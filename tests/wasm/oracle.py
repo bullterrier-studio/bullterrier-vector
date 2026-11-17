@@ -1146,6 +1146,7 @@ def plots() -> list[dict[str, object]]:
             "height": 400,
             "penWidth": 1.0,
             "tolerance": None,
+            "unit": "px",
             "svg": art.to_plot_svg(400, 400, pen_width=1.0),
         },
         {
@@ -1154,7 +1155,17 @@ def plots() -> list[dict[str, object]]:
             "height": 100,
             "penWidth": 0.5,
             "tolerance": 0.0,
+            "unit": "px",
             "svg": art.to_plot_svg(200, 100, pen_width=0.5, tolerance=0.0),
+        },
+        {
+            "json": art.to_json(),
+            "width": 8.5,
+            "height": 11,
+            "penWidth": 0.5,
+            "tolerance": None,
+            "unit": "in",
+            "svg": art.to_plot_svg(8.5, 11, pen_width=0.5, unit="in"),
         },
     ]
 

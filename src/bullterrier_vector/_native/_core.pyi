@@ -487,7 +487,15 @@ class Drawing:
     def bounds(self, **given: _Values) -> Rect: ...
     def to_svg(self, width: float, height: float, /, **given: _Values) -> str: ...
     def to_plot_svg(
-        self, width: float, height: float, /, *, pen_width: float, tolerance: float | None = None, **given: _Values
+        self,
+        width: float,
+        height: float,
+        /,
+        *,
+        pen_width: float,
+        tolerance: float | None = None,
+        unit: str = "px",
+        **given: _Values,
     ) -> str: ...
     def to_rgba(
         self,

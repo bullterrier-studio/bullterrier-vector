@@ -26,15 +26,19 @@ for (const [name, expected] of Object.entries(native.documents)) {
   });
 }
 
-for (const [index, { json, width, height, penWidth, tolerance, svg }] of native.plots.entries()) {
+for (const [index, { json, width, height, penWidth, tolerance, unit, svg }] of native.plots.entries()) {
   test(`plot ${index}: toPlotSvg writes the text the native extension writes`, () => {
-    assert.equal(Drawing.fromJson(json).toPlotSvg(width, height, penWidth, tolerance ?? undefined), svg);
+    const options = { penWidth, tolerance: tolerance ?? undefined, unit };
+    assert.equal(Drawing.fromJson(json).toPlotSvg(width, height, {}, options), svg);
   });
 }
 
-test("toPlotSvg refuses a pen of no width with a ParameterError", () => {
+test("toPlotSvg refuses a pen of no width and an unknown unit", () => {
   const { json } = native.documents.star;
-  assert.throws(() => Drawing.fromJson(json).toPlotSvg(100, 100, 0), (error) => error.name === "ParameterError");
+  const refused = (options) => () => Drawing.fromJson(json).toPlotSvg(100, 100, {}, options);
+  assert.throws(refused({ penWidth: 0 }), (error) => error.name === "ParameterError");
+  assert.throws(refused({ penWidth: 1, unit: "furlong" }), (error) => error.name === "TypeError");
+  assert.throws(refused({}), (error) => error.name === "TypeError");
 });
 
 test("the module is built for WebAssembly SIMD", () => {

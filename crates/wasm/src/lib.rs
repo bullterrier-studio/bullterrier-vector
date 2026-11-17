@@ -29,6 +29,11 @@ extern "C" {
     #[wasm_bindgen(typescript_type = "{ x: number; y: number; width: number; height: number }")]
     pub type Window;
 
+    /// How a plot is written: `penWidth` in design pixels (required), `tolerance` in design pixels, `unit` (`"px"`,
+    /// `"mm"` or `"in"`) of the output's sides.
+    #[wasm_bindgen(typescript_type = "{ penWidth: number; tolerance?: number; unit?: 'px' | 'mm' | 'in' }")]
+    pub type PlotOptions;
+
     /// What a caller gives a document for its inputs (its fonts): an object of their names to the bytes of each.
     #[wasm_bindgen(typescript_type = "Record<string, Uint8Array>")]
     pub type Inputs;
@@ -150,6 +155,39 @@ fn read_window(given: Option<Window>) -> Result<Option<vector::Window>, JsValue>
     )))
 }
 
+/// The plot an object of options describes.
+fn read_plot(given: PlotOptions) -> Result<vector::Plot, JsValue> {
+    let given: &JsValue = given.as_ref();
+    if !given.is_object() {
+        return Err(refuse("options", "an object with penWidth", given));
+    }
+    let pen_width = member(given, "penWidth");
+    let plot = raised(vector::Plot::new(
+        pen_width
+            .as_f64()
+            .ok_or_else(|| refuse("penWidth", "a number", &pen_width))?,
+    ))?;
+    let tolerance = member(given, "tolerance");
+    let plot = if tolerance.is_undefined() {
+        plot
+    } else {
+        plot.tolerance(
+            tolerance
+                .as_f64()
+                .ok_or_else(|| refuse("tolerance", "a number", &tolerance))?,
+        )
+    };
+    let unit = member(given, "unit");
+    if unit.is_undefined() {
+        return Ok(plot);
+    }
+    let name = unit
+        .as_string()
+        .ok_or_else(|| refuse("unit", "'px', 'mm' or 'in'", &unit))?;
+    let unit = vector::PlotUnit::from_name(&name).ok_or_else(|| refuse("unit", "'px', 'mm' or 'in'", &unit))?;
+    Ok(plot.unit(unit))
+}
+
 /// The bytes an object gives the inputs of a document by name: each a `Uint8Array` (a Node `Buffer` is one).
 fn read_inputs(given: Option<Inputs>) -> Result<vector::Inputs, JsValue> {
     let mut inputs = vector::Inputs::new();
@@ -216,9 +254,11 @@ impl Drawing {
         raised(self.0.to_svg(vector::Size::px(width, height), &read_values(values)?))
     }
 
-    /// The drawing as an SVG document for a pen plotter of `width` by `height` pixels: strokes only, one layer per pen (a
-    /// stroke or fill colour), the lines of a layer ordered to cut pen-up travel, simplified within `tolerance` design
-    /// pixels (default a quarter of `penWidth`), every fill hatched at `penWidth`; each Param at the value given by name.
+    /// The drawing as an SVG document for a pen plotter of `width` by `height` in the `unit` of `options` (pixels by
+    /// default; `"mm"` or `"in"` write `width="210mm"` and a matching `viewBox`): strokes only, one layer per pen (a
+    /// stroke or fill colour), the lines of a layer ordered to cut pen-up travel, simplified within `options.tolerance`
+    /// design pixels (default a quarter of `penWidth`), every fill hatched at `penWidth`; each Param at the value given
+    /// by name (as `toSvg`).
     ///
     /// # Errors
     /// As `toSvg`; also a `ParameterError` naming `pen_width` unless it is above 0, `tolerance` unless it is 0 or more,
@@ -229,12 +269,10 @@ impl Drawing {
         &self,
         width: f64,
         height: f64,
-        pen_width: f64,
-        tolerance: Option<f64>,
         values: Option<Values>,
+        options: PlotOptions,
     ) -> Result<String, JsValue> {
-        let plot = raised(vector::Plot::new(pen_width))?;
-        let plot = tolerance.map_or(plot, |tolerance| plot.tolerance(tolerance));
+        let plot = read_plot(options)?;
         raised(
             self.0
                 .to_plot_svg(vector::Size::px(width, height), &read_values(values)?, &plot),

@@ -802,11 +802,12 @@ impl PyDrawing {
         raised(py.detach(|| self.0.to_svg(vector::Size::px(width, height), &values)))
     }
 
-    /// The drawing as an SVG document for a pen plotter of `width` by `height` pixels: strokes only, one layer per pen (a
-    /// stroke or fill colour), the lines of a layer ordered to cut pen-up travel, simplified within `tolerance` design pixels
-    /// (default a quarter of `pen_width`) and every fill hatched at `pen_width`. A keyword named `pen_width` or `tolerance`
-    /// is the plot's, so a Param cannot be called either.
-    #[pyo3(signature = (width, height, /, *, pen_width, tolerance=None, **given))]
+    /// The drawing as an SVG document for a pen plotter of `width` by `height` in `unit` (`"px"`, `"mm"` or `"in"`; the
+    /// document then says `width="210mm"`): strokes only, one layer per pen (a stroke or fill colour), the lines of a
+    /// layer ordered to cut pen-up travel, simplified within `tolerance` design pixels (default a quarter of
+    /// `pen_width`) and every fill hatched at `pen_width`. A keyword named `pen_width`, `tolerance` or `unit` is the
+    /// plot's, so a Param cannot be called any of them.
+    #[pyo3(signature = (width, height, /, *, pen_width, tolerance=None, unit="px", **given))]
     fn to_plot_svg(
         &self,
         py: Python<'_>,
@@ -814,10 +815,13 @@ impl PyDrawing {
         height: f64,
         pen_width: f64,
         tolerance: Option<f64>,
+        unit: &str,
         given: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<String> {
         let values = values(given)?;
-        let plot = raised(vector::Plot::new(pen_width))?;
+        let unit = vector::PlotUnit::from_name(unit)
+            .ok_or_else(|| crate::ParameterError::new_err(format!("unit: must be one of px, mm, in, got {unit:?}")))?;
+        let plot = raised(vector::Plot::new(pen_width))?.unit(unit);
         let plot = tolerance.map_or(plot, |tolerance| plot.tolerance(tolerance));
         raised(py.detach(|| self.0.to_plot_svg(vector::Size::px(width, height), &values, &plot)))
     }
