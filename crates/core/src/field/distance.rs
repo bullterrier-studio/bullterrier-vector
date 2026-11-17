@@ -209,6 +209,9 @@ impl Keyed for Field {
                 key.number(map.frame.y);
                 key.number(map.frame.width);
                 key.number(map.frame.height);
+                // the name is what a saved drawing calls the map, so two names are two maps: `to_json` refuses the pair
+                key.word(u64::from(map.name.is_some()));
+                key.text(map.name.as_deref().unwrap_or(""));
                 for chunk in map.sha256.chunks(8) {
                     key.word(chunk.iter().fold(0, |word, byte| word << 8 | u64::from(*byte)));
                 }

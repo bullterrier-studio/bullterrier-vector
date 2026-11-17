@@ -269,6 +269,19 @@ fn two_maps_with_equal_bytes_are_one_input() -> Outcome {
 }
 
 #[test]
+fn one_byte_string_given_two_names_cannot_be_saved_and_the_names_make_maps_differ() -> Outcome {
+    let a = Field::map(3, 2, &BYTES, None, Some("a"))?;
+    let b = Field::map(3, 2, &BYTES, None, Some("b"))?;
+    assert_ne!(a, b);
+    assert_eq!(a, Field::map(3, 2, &BYTES, None, Some("a"))?);
+    let drawing = Drawing::from(Path::rect(0.0, 0.0, 3.0, 2.0, 0.0)?)
+        .hatch(&Hatch::between(0.5, 0.5, a).below(0.5), None)
+        .hatch(&Hatch::between(0.5, 0.5, b).below(0.5), None);
+    assert_eq!(parameter_refusal(drawing.to_json())?.0, "to_json");
+    Ok(())
+}
+
+#[test]
 fn inputs_that_are_not_what_the_document_declares_are_refused_naming_the_input() -> Outcome {
     let text = hatched(Field::map(3, 2, &BYTES, None, Some("photo"))?)?.to_json()?;
     let mut changed = BYTES;
