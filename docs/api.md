@@ -191,7 +191,7 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | `envelope` | `envelope(top, bottom=None, *, frame=None, amount=1)` | the `frame` `(x, y, width, height)` (a `Rect` or four numbers; default: the bounds of this `Path`, on a `Drawing` the bounds of all its shapes read when the step is drawn, so one frame is shared and a line of text keeps its height among its lines) mapped onto the region between the curve `top` and the curve `bottom` (default: the frame's own straight bottom edge `y = y0 + height`): a point `(x, y)` goes to `lerp(T(u), B(u), v)`, `u = (x - x0) / width` and `v = (y - y0) / height`, `T(u)` and `B(u)` the points `u` of the way along the arc length of `top` and `bottom`. A column of the frame stays a straight line from `T(u)` to `B(u)`, so the columns of a word stay straight and shear, which `along` (letters fanned round the curve) does not; to keep every column's height give `bottom` as `top` moved down by the frame's height. `top` and `bottom` set the orientation: v = 0 lies on `top`, so a `bottom` curve lying above `top` flips the word upside down (swapping the two mirrors the result: each point goes to the original's with v replaced by 1 - v), and curves that cross fold it. The curves are walked as `along` walks a guide (sub-paths in order as one length): `u` outside 0 to 1 goes on straight past an open curve's ends, a closed curve wraps and its seam is at its start (`u` = 0 and `u` = 1 are the same point). `amount` (a number; on a `Drawing` per item, a Param allowed) blends each edge between the frame's straight edge (0) and the curve (1), `T_eff(u) = lerp(straight(u), T(u), amount)`, any finite number: 0 is the identity, above 1 exaggerates, below 0 bends the other way; it is how a bend animates, `top` and `bottom` being literal paths. The path is flattened and each edge cut into equal pieces of at most a 256th of the frame's width, every vertex kept (corners stay corners): every point of the result is within 0.05 pixel plus 0.2% of its displacement of the exact image on the shapes the tests hold it to; the result is straight lines, each sub-path keeping its closedness, a lone point is moved, an empty path stays empty. On a `Drawing` shapes keep style, attributes and `origin` (not moved). Rust: `drawing.envelope(&top, Envelope::new().bottom(&b).frame(rect).amount(&p))`, `path.envelope(&top, Some(&b), Some(rect), 1.0)` | `ParameterError`: `frame` NaN, infinite, past 1e100, with a width or height not above 0 (a line has no frame of its own to default to: give `frame`), or more than `MAX_SEGMENTS` pieces (counted before any is made); `amount` NaN, infinite or sending a point past 1e100; `GeometryError`: `top` or `bottom` empty or of no length; `FormatError` naming `frame`: a document `frame` without four numbers |
 | `arch` | `arch(bend, *, frame=None)` | the classic arch on the same map as `envelope` (`frame` as there): the whole band of the frame (top and bottom edge alike) is lifted by a parabola through the frame's corners whose middle is `bend * width` above them (`bend` negative: below, a sag; `y` is down, so positive lifts up the screen), so the frame's height is kept at every column, `-bend` is the exact mirror of `bend`, and a point `(x, y)` goes to `(x, y - 4 bend width u (1 - u))`. `bend` 0 is the identity. The lift is a share of the frame's WIDTH, not its height: a 365 px word with `bend` 0.3 rises 110 px, a long word wants a small `bend`. A flat baseline under a curved top is `envelope(top=<curve>)`. The parabola is closed form: `u` follows `x`, so the horizontal spacing of the letters of a word is kept (`envelope` with an arc spaces them by arc length). `bend` is a number; on a `Drawing` per item, a Param allowed, shapes keep style, attributes and `origin`. Cut and bounded as `envelope`. Rust: `drawing.arch(0.2)`, `drawing.arch(Arch::new(&b).frame(rect))`, `path.arch(0.2, None)` | `ParameterError`: `frame` as for `envelope`; `bend` NaN, infinite or sending a point past 1e100 |
 | `morph` | `morph(target, fraction)` | the outline `fraction` of the way from this path to `target`: 0 is this path, 1 is `target`, and any finite number is the straight lerp of the two (outside 0 to 1 it extrapolates, so an overshooting ease leaves the hull of the two shapes). Both are flattened as for drawing. A closed contour is an outer or a hole by the sign of its area (no area: an outer), after the whole path is reversed once if its largest contour runs the other way; closed contours pair with closed ones of the same role, open with open, nearest first by the distance between the contours' centres, each taken in the box of its own path scaled to 0..1 (ties to the lower indices, so `a.morph(b, t)` fills what `b.morph(a, 1 - t)` fills). A closed pair starts where the two outlines lie nearest (128 equal steps of length, summed squared distance; no reversal search); an open pair is joined end to end or end to start, whichever is nearer. The points of a pair are the vertices of both outlines, each at its share of the length, so 0 and 1 are the flattenings of the two paths. A contour with no partner shrinks to (or grows from) one point: the place in the other path's box that matches its centre's place in its own box, or its own centre if the other path is empty; past 1 (before 0 for a growing one) it stays that point, where a matched contour goes on along its line. A hole with no partner is wound in the other way and the result cut to the body, so it takes away what the nonzero rule says (an outer inside it stays) and never paints outside the body (the closed part is then canonical, as for `Path.subtract`); an overlapping pair of outers is not united (`resolve` first). The result is straight lines, each sub-path keeping its closedness, grouped by role in pairing order. On a `Drawing` the shape at each index pairs with the shape of `target` (a `Drawing`, `Path` or `Shape`, its shapes taken one for one, never united) at that index; `fraction` is a per-item number (a Param, `stagger` or `by_index` allowed), read with the shape's `index` and its `order` attribute (the source's for a pair, the target shape's own for one that grows; a word's glyphs carry theirs); a paired shape keeps the source's style, attributes and `origin`; a source shape with no partner shrinks to its own centre keeping its style; a target shape with no partner grows from its own centre in place, with its own style and attributes, so the result has as many shapes as the longer drawing. Rust: `path.morph(&target, 0.5)`, `drawing.morph(target, Stagger::new(&progress))` | `ParameterError`: `fraction` NaN or infinite, or sending a point past 1e100; more than `MAX_SEGMENTS` points (flattening, pairs ranked and result, counted before any is made; naming `fraction` on a `Path` and the step on a `Drawing`); on a `Drawing`, a `target` that holds an error, and more than `MAX_SHAPES` shapes |
-| `hatch` | `hatch(spacing, *, tone=None, flow=None, avoid=None)` | each region filled with evenly spaced open lines (below) | below |
+| `hatch` | `hatch(spacing, *, tone=None, flow=None, avoid=None, below=None)` | each region filled with evenly spaced open lines (below) | below |
 
 A deformer's result is smooth at any size, however few points the outline had: `wave`, `wobble`, `twist`, `bulge`,
 `envelope` and `arch` all cut each edge into pieces fine enough for the effect, and charge them to `MAX_SEGMENTS` before
@@ -311,13 +311,13 @@ leaves the region at both ends (one longer than a spacing), stay.
 | `tone` | a `Field` or a number; needed when `spacing` is a pair |
 | `flow` | a `Flow`; default `Flow.angle(45)` (straight hatching) |
 | `avoid` | a `Path`, `Shape` or `Drawing` (on a `Path`, a `Path`) the lines keep clear of |
-| `below` | a number or a `Param` (needs a `tone`): lines only where the tone is at most this level; a line stops where the tone passes it (within a quarter spacing) and none starts above it |
+| `below` | a number or a `Param` (needs a `tone`): lines only where the tone is at most this level; a line stops near where the tone passes the level and none starts above it |
 
 The result is open lines (a shape keeps its style, so set `fill("none")` and the stroke after it). The step makes
 a path of the lines for each shape. Errors: `ParameterError` for a spacing not above 0 or beyond 1e100, a pair without
 `tone`, a shape so large next to the spacing that its grid would pass 4 million cells, a pair of spacings so far apart
 for the shape that placing the lines would take over a billion cell visits (1 to 1000 over 400 by 400), a spacing too small
-for the coordinates (near 1e17 a step must be at least a few units), or more than `MAX_SEGMENTS` points; a path of two
+for the coordinates (near 1e17 a step must be at least a few units), or more than 10 million points; a path of two
 points encloses nothing, so it gives no lines; a shape with no outline gives no lines. Rust: `path.hatch(&Hatch::new(8.0).flow(flow), Some(&avoid))`,
 `Hatch::between(near, far, tone)`, `.below(level)`, `drawing.hatch(&hatch, Some(&avoid_drawing))`.
 
@@ -336,6 +336,62 @@ crosshatch = btvec.Drawing(
         for level, angle in passes
     ]
 )
+```
+
+The same in Rust (`tone` as a spacing pair `Hatch::between(7.0, 7.0, tone)`):
+
+```rust
+let photo = Field::map(w, h, &grey_bytes, Some(Rect { x: 0.0, y: 0.0, width: 1080.0, height: 1350.0 }), None)?;
+let region = Path::rect(0.0, 0.0, 1080.0, 1350.0, 0.0)?;
+let passes = [(0.85, 45.0), (0.6, 135.0), (0.4, 0.0), (0.2, 90.0)]; // (level, angle)
+let mut stack = Vec::new();
+for (level, angle) in passes {
+    let hatch = Hatch::between(7.0, 7.0, photo.clone()).flow(Flow::angle(angle)?).below(level);
+    stack.push(Drawing::from(&region).hatch(&hatch, None).stroke(Stroke::new(Color::hex(0x16_15_1a)).width(0.8)));
+}
+let crosshatch = Drawing::new(stack);
+```
+
+And as a document (two passes; the `photo` input is supplied by whoever loads it, as formats.md "Inputs" says):
+
+```json
+{
+  "version": 1,
+  "inputs": { "photo": { "kind": "map" } },
+  "drawings": { "region": [{ "path": "M0 0 L1080 0 L1080 1350 L0 1350 Z" }] },
+  "root": [
+    {
+      "stack": {
+        "items": [
+          [
+            { "drawing": "region" },
+            {
+              "hatch": {
+                "spacing": 7,
+                "tone": { "Field.map": { "width": 540, "height": 675, "data": "photo", "box": [0, 0, 1080, 1350] } },
+                "flow": { "Flow.angle": { "angle": 45 } },
+                "below": 0.85
+              }
+            },
+            { "stroke": { "color": "#16151a", "width": 0.8 } }
+          ],
+          [
+            { "drawing": "region" },
+            {
+              "hatch": {
+                "spacing": 7,
+                "tone": { "Field.map": { "width": 540, "height": 675, "data": "photo", "box": [0, 0, 1080, 1350] } },
+                "flow": { "Flow.angle": { "angle": 135 } },
+                "below": 0.6
+              }
+            },
+            { "stroke": { "color": "#16151a", "width": 0.8 } }
+          ]
+        ]
+      }
+    }
+  ]
+}
 ```
 
 Each pass places its own lines, so passes cross; a lighter tone gets fewer of them. `hatch` reads the `tone` of a
@@ -424,7 +480,7 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | `stroke` | `stroke(paint, *, width=2, join="round", cap="round", miter_limit=4, profile=None)` | strokes each outline with a colour or a gradient; with a `profile` (a list of `[position, factor]` pairs as `outline` takes, "Tapered strokes" above) the width follows it along each sub-path and the stroke is drawn as a filled region by SVG, pixels and mesh, `width` and each number of the profile per-item numbers (Rust: `Stroke::new(c).width(24).profile([(0, 0), (0.15, 1), (0.85, 1), (1, 0)])`; `Style.profile` gives it back) | as `fill`; a paint of `"none"`; `width` not above 0; `miter_limit` below 1; with a `profile`: as `outline`'s (at the step: `join` or `cap` not `"round"`, no stops or over `MAX_PROFILE_STOPS`, a position outside 0..1 or going back, a factor outside 0..1e100), and when drawn a region over `MAX_SEGMENTS` |
 | `linear_gradient` | `linear_gradient(stops, *, start, end)` | a paint for `fill` and `stroke`: `stops` are `(offset, color)`, the colour along the line from `start` to `end`, held at the end colours beyond it | fewer than 2 stops; an offset outside 0..1 or below the one before; a stop colour of `"none"`; `start` equal to `end`; a coordinate beyond ±1e100 |
 | `radial_gradient` | `radial_gradient(stops, *, center, radius)` | a paint: offset 0 at `center`, offset 1 at `radius`, held beyond | as `linear_gradient`; `radius` not above 0 |
-| `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` asks (a number; a `Field` arrives in V15; 0 solid, 1 none) | `color` of `"none"`; `tone` outside 0..1; `pitch` not above 0; `angle` not finite; the limit below |
+| `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` asks (a number; a `Field` waits for a later batch; 0 solid, 1 none) | `color` of `"none"`; `tone` outside 0..1; `pitch` not above 0; `angle` not finite; the limit below |
 | `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | `alpha` outside 0..1 |
 | `blend` | `blend(mode)` | paints over what is below with a CSS blend `mode`: `"normal"`, `"multiply"`, `"screen"`, `"overlay"`, `"darken"`, `"lighten"`, `"color-dodge"`, `"color-burn"`, `"hard-light"`, `"soft-light"`, `"difference"` or `"exclusion"`; it applies to a shape with its shadow once | another word, the non-separable `"hue"`, `"saturation"`, `"color"` and `"luminosity"` included; a mesh: any mode but normal and multiply |
 | `shadow` | `shadow(*, dx=0, dy=8, blur=16, color="#00000059")` | a drop shadow under each shape: the silhouette of its fill and stroke, moved by `dx` and `dy`, blurred and tinted `color`; the last call wins | `blur` below 0; `dx`, `dy` or `blur` not finite; `color` of `"none"`; pixel outputs: a blur past the limits below |
@@ -647,7 +703,7 @@ only if a neighbour has it too. The library keeps no sequence.
 Errors (`ParameterError`): levels not increasing, a neighbour of a different size or box, `tolerance` or `sigma` not
 above 0.
 
-The same verb draws contour lines: trace a `Field.distance` at several levels and stroke the result.
+To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Field.contours` and stroke the result; `trace` is for the filled regions a map's levels enclose, with curves fitted.
 
 ## Inputs
 
@@ -659,8 +715,8 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 | `font.axes` | property | its variable axes by tag, each a `Param` named by the tag, with the font's range, default and name, in the font's order (Python: a new dict each time; Rust: `Font::axes()`, a list). Only an axis that can vary and is named by a `Param` name is listed: one pinned (minimum equal to maximum), with a tag that is not a name or a repeat of an earlier tag is left out, and is still set by its tag, and a refusal names it | |
 | `font.features` | property | the OpenType feature tags its `GSUB` and `GPOS` tables list, sorted (Rust: `Font::features()`) | |
 | `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white): `data` is `height` rows of `width` bytes, top row first (Python: `bytes`, a `bytearray`, a `memoryview`, a `numpy` array of `uint8` or any contiguous 8-bit buffer, or a list of whole numbers from 0 to 255; Rust: `Field::map(w, h, &bytes, Some(rect), Some("name"))`). It lies over `box` `(x, y, width, height)` in design units (default: one pixel a map pixel, from the origin); a pixel's value stands at its centre, the field is bilinear between centres and holds the nearest edge value beyond the box. A saved drawing names it (an input of kind `map`, with its SHA-256) and the loader supplies the bytes. At most 2^24 pixels | `len(data)` not `width × height`; a size of 0 or past 2^24 pixels; a `box` not finite, past ±1e100 or with no width or height; a `name` that is not letters, digits and `_` |
-| `field.to_map` | `to_map(width, height, *, box=None, low=0, high=1)` (Rust: `to_map(w, h, Some(rect), low, high)`) | the field written out as an 8-bit grayscale map, as `bytes` (Rust: `Vec<u8>`), `height` rows of `width` bytes, top row first: each pixel is the field at its centre over `box` (default as for `Field.map`), `low` written as 0 and `high` as 255, linear between, held beyond, rounded to the nearest level. It is the input form of `Field.map` and of image's `relight` (`Field.distance(word, normalized=True).to_map(w, h, box=frame)` is a bevel: 0 on the edge, rising inwards); a raw distance in pixels needs a `low` and `high` (`-bevel` to `0`) to keep its range | `width` or `height` of 0 or past 2^24 pixels in all; `box` as for `Field.map`; `high` not above `low` or either not finite |
-| `field.contours` | `contours(levels, *, box, step)` (Rust: `contours(&[levels], rect, step)`) | the lines where the field equals each of `levels` (a number or a list), as one `Path`: marching squares over `box` cut into equal cells no wider than `step`, the field read at their corners and a line crossing a cell edge at the linear interpolation of the two readings (a reading equal to the level counts as above it; a saddle joins its high corners when the mean of its four is high). A line that reaches the box ends there, open; any other is closed. Levels are made in the order given. To follow a map's pixels, give `box` the box of the pixel centres (the map's box inset half a pixel) and a `step` of one pixel. Like `Path.arc` it is a value, not a step: a saved drawing holds its path data | `levels` more than 256 or not finite; `step` not above 0, or a grid of over 4 million nodes; `box` as for `Field.map`; more than `MAX_SEGMENTS` points |
+| `field.to_map` | `to_map(width, height, *, box=None, low=0, high=1)` (Rust: `to_map(w, h, Some(rect), low, high)`) | the field written out as an 8-bit grayscale map, as `bytes` (Rust: `Vec<u8>`), `height` rows of `width` bytes, top row first: each pixel is the field at its centre over `box` (default as for `Field.map`), `low` written as 0 and `high` as 255, linear between, held beyond, rounded to the nearest level. It is the input form of `Field.map` and of image's `relight` (`Field.distance(word, normalized=True).to_map(w, h, box=frame)` is a bevel: 0 on the edge, rising inwards); a raw distance in pixels needs a `low` and `high` (`-bevel` to `0`) to keep its range | `width` or `height` of 0 or past 2^24 pixels in all, or a field too costly to read that many times (a distance field of a very detailed drawing; the message says so, before any pixel is made); `box` as for `Field.map`; `high` not above `low` or either not finite |
+| `field.contours` | `contours(levels, *, box, cell)` (Rust: `contours(&[levels], rect, cell)`) | the lines where the field equals each of `levels` (a number or a list), as one `Path`: marching squares over `box` cut into equal cells no wider than `cell`, the field read at their corners and a line crossing a cell edge at the linear interpolation of the two readings (a reading equal to the level counts as above it; a saddle joins its high corners when the mean of its four is high). A line that reaches the box ends there, open; any other is closed. Levels are made in the order given. To follow a map's pixels, give `box` the box of the pixel centres (the map's box inset half a pixel) and a `cell` of one pixel. Like `Path.arc` it is a value, not a step: a saved drawing holds its path data | `levels` more than 256 or not finite; `cell` not above 0, a grid of over 4 million nodes, or a field too costly to read at that many nodes (a distance field of a very detailed drawing; the message says so); `box` as for `Field.map` (it has no default: a field, unlike a map, has no extent of its own); more than 10 million points |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
 | `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Path`, a `Shape` or a `Drawing` (all its shapes together; a `hatch` step reads the drawing again with the values it draws with, so a headline whose weight is a `Param` is hatched along its outline at that weight): signed distance to the nearest outline in pixels, negative inside (nonzero rule); normalised: inside each part (an outline with its holes) 0 on its outer edge rising to 1 on its holes' edges (`d / (d + distance to the holes)`), or, for a part with no hole, to 1 at its deepest point (`d` over its largest inscribed radius, estimated to about a percent), 0 outside and inside a hole. Where parts overlap the distance is to the nearest edge of any: `resolve` first | `GeometryError`: the drawing has no edge; the drawing's own error |
 | `field.at` | `at(x, y)` | the field's number at a point | |
@@ -671,7 +727,7 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 | `flow.at` | `at(x, y)` | the direction at a point in degrees, from 0 up to 180 | |
 
 A `Field` or a `Flow` is a value, built once (a grid of an outline's edges makes it quick to read) and part of the
-drawing that uses it. Its numbers (`Field.constant`'s value, `Flow.angle`'s angle, `Flow.noise`'s `wavelength` and `phase`,
+drawing that uses it. Its numbers (a number given as `tone`, `Flow.angle`'s angle, `Flow.noise`'s `wavelength` and `phase`,
 `flow.mix`'s fraction) may be `Param`s or expressions, never per-item numbers, and the drawings it reads are drawings:
 `field.at` and `flow.at` read them with every Param at its default, and a `hatch` step reads them again with the values
 it draws with (the step takes the drawings like `avoid`, so the cache, `parameters()` and `with_values` see them). A

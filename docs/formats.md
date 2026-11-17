@@ -545,9 +545,8 @@ checked before the first byte is read. What the schema states value by value (ve
 range of a literal, the rules of an expression) is found while reading, before `drawing-declared`; the listed checks
 then run in their order. `with-values` and `call-checks` need the calls made, so the first failure of the first kind
 anywhere in the document is reported before the first of the second. A value a call refuses is a `FormatError` at the
-value's pointer with the call's own message. As built (V5a), fonts are the one input kind that a call reads (`text`'s
-`font`): `input-declared` and `input-used` run with the other checks on the document, and a `map` input is refused by
-`input-used` until a call reads maps. `inputs-supplied` needs the fonts to make the calls, so it runs before the drawing
+value's pointer with the call's own message. As built (V5a, V15b), a call reads a font (`text`'s `font`) or a map (`Field.map`'s `data`):
+`input-declared` and `input-used` run with the other checks on the document. `inputs-supplied` needs the fonts to make the calls, so it runs before the drawing
 is built: a document that has both a `with-values` failure and a missing input reports the input. As built (V5b),
 `font-checks` runs right after it, before the drawing is built: an axis or feature that a call names and its font lacks,
 or an axis value written as a number outside the font's range, is a `ParameterError` naming `inputs.` and the input,

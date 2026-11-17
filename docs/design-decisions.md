@@ -1511,7 +1511,7 @@ holds.
   same centres, so `Field.map(w, h, f.to_map(w, h, box=b), box=b)` is `f` at the centres within half a level. A raw
   distance clamps almost everywhere to 0 or 1, so `to_map` takes the range to write (`low`, `high`) instead of choosing
   one. A map is capped at 2^24 pixels (16 MiB, 4096 by 4096); a larger photo is scaled down by the caller.
-- **Contour lines are a value, not a step.** `Field.contours(levels, box, step)` returns a `Path` (like `Path.arc`), by marching
+- **Contour lines are a value, not a step.** `Field.contours(levels, box, cell)` returns a `Path` (like `Path.arc`), by marching
   squares followed edge to edge rather than as loose segments (no hash map, a bit per edge, deterministic). A saddle
   joins its high corners when the mean of the four is high; a reading equal to the level counts as above it. Open where the
   line reaches the box, closed otherwise. Not a document verb: V14's `trace` is the verb for filled regions and will take a

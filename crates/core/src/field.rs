@@ -29,7 +29,7 @@ pub(crate) fn segment_budget(parameter: &'static str) -> impl FnMut(usize) -> Re
         if used > MAX_SEGMENTS {
             Err(Error::parameter(
                 parameter,
-                format!("MAX_SEGMENTS {MAX_SEGMENTS} passed"),
+                format!("would make more than {MAX_SEGMENTS} points"),
             ))
         } else {
             Ok(())
