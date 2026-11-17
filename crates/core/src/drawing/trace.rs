@@ -49,12 +49,17 @@ impl Drawing {
         Self::source(&trace::TraceLevels, given)
     }
 
-    /// A drawing of a map of colour labels: one shape for each byte the map holds, in order of the byte, the region of
-    /// the pixels with that byte, with the byte as its `label` attribute and no paint. `trace` says how the outlines are
-    /// tidied and, how many labels (`max_colors`) are allowed. The shapes of neighbouring labels meet within
-    /// the curve tolerance, so a hairline can show between them: stack them over a shape of the commonest colour.
+    /// A drawing of a map of colour labels: one shape for each byte the map holds, the region of the pixels with that
+    /// byte, with the byte as its `label` attribute and no paint. `trace` says how the outlines are tidied and
+    /// `max_colors` how many labels are allowed.
     ///
-    /// Refusals as for [`Drawing::trace_levels`]; a map with more than `max_colors` labels is refused when drawn.
+    /// The shapes tile the frame and its padding: they never overlap and leave no gap, whatever the tidying, so two inks
+    /// never lie on one spot. The commonest label (the lowest byte of a tie) comes first and is whatever the others
+    /// leave; the others follow in order of the byte, each its traced and tidied region without the labels after it.
+    /// Tidied shapes are polylines within 0.01 design pixels of their curves, because they are cut by booleans.
+    ///
+    /// Refusals as for [`Drawing::trace_levels`]; a map with more than `max_colors` labels is refused when drawn, and
+    /// so is one whose outlines are too many to cut apart within the draw's segment budget (naming `max_colors`).
     #[must_use]
     pub fn trace_labels(map: &Field, max_colors: usize, trace: &Trace) -> Self {
         #[expect(clippy::cast_precision_loss, reason = "a count of at most 256 is far below 2^53")]

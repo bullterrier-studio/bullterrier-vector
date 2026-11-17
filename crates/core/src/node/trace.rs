@@ -173,7 +173,7 @@ pub(crate) struct TraceLevels;
 pub(crate) static TRACE_LEVELS: Verb = Verb {
     name: "trace_levels",
     role: Role::Source,
-    summary: "traces a grayscale map at chosen levels: the `map` (a Field.map, 0 black to 1 white) gives one filled shape for each of `levels` (0 to 1) that it reaches, in the order given, the region where the map is at or above the level, with the level as its `level` attribute; the shapes are for stacking, one over the other, each painted by its level; a shape that meets the map's border goes on past it and closes outside, so no edge lies along the border; `smooth` blurs the map by that many pixels first, `close` then `open` (design pixels) fill and remove what is narrower than twice the radius, `min_hole` and `min_area` (square pixels) fill small holes and drop small parts, `tolerance` fits curves within that many pixels (0 keeps the polyline)",
+    summary: "traces a grayscale map at chosen levels: the `map` (a Field.map, 0 black to 1 white) gives one filled shape for each of `levels` (0 to 1) that it reaches, in the order given, the region where the map is at or above the level, with the level as its `level` attribute; the shapes are for stacking, one over the other, each painted by its level; a shape that meets the map's border goes on past it and closes outside, so no edge lies along the border; `smooth` blurs the map first with a Gaussian of that standard deviation in design pixels, `close` then `open` (design pixels) fill and remove what is narrower than twice the radius, `min_hole` and `min_area` (square pixels) fill small holes and drop small parts, `tolerance` fits curves within that many design pixels (0 keeps the polyline); `levels` are numbers, Params or expressions, read once; shapes reach past the frame by the padding (the larger of `open` and `close` plus `tolerance`, plus two map pixels), so crop them to the frame for plotting or cutting",
     args: &[
         MAP,
         Arg {
@@ -234,7 +234,7 @@ pub(crate) struct TraceLabels;
 pub(crate) static TRACE_LABELS: Verb = Verb {
     name: "trace_labels",
     role: Role::Source,
-    summary: "traces a map of colour labels: the `map` (a Field.map) holds a palette index, its byte, at every pixel, and each index it holds becomes one filled shape (attribute `label` the byte, in order of the byte) of the pixels with that index; more than `max_colors` indexes is refused; a shape that meets the map's border goes on past it and closes outside; `smooth`, `close`, `open`, `min_hole`, `min_area` and `tolerance` as for trace_levels, so the shapes of neighbouring labels meet within `tolerance` and can leave a hairline between them (stack them over a shape of the commonest colour)",
+    summary: "traces a map of colour labels: the `map` (a Field.map) holds a palette index, its byte, at every pixel, and each index it holds becomes one filled shape (attribute `label` the byte) of the pixels with that index; the shapes tile the frame and its padding, never overlapping and leaving no gap: the commonest label comes first and is whatever the others leave, the others follow in order of the byte, each cut by the labels after it (so a tidied shape is a polyline within 0.01 pixels of its curve); more than `max_colors` indexes is refused, and so is cutting more outlines apart than the draw's segment budget allows; a shape that meets the map's border goes on past it and closes outside; `smooth`, `close`, `open`, `min_hole`, `min_area` and `tolerance` as for trace_levels",
     args: &[
         MAP,
         MAX_COLORS_ARG,

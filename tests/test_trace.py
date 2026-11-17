@@ -112,3 +112,23 @@ def test_the_generated_schema_accepts_a_trace_document_and_refuses_a_bad_one() -
     assert not validator.is_valid({**good, "root": [{"trace_cells": {"map": photo, "cell_size": 1.5}}]})
     assert not validator.is_valid({**good, "root": [{"trace_labels": {"map": photo, "max_colors": 2.5}}]})
     assert validator.is_valid({**good, "root": [{"trace_labels": {"map": photo, "max_colors": 2.0}}]})
+
+
+def test_labels_cropped_to_the_frame_still_tile_it() -> None:
+    labels = btvec.Field.map(8, 8, bytes((x // 3 + y // 2) % 3 for y in range(8) for x in range(8)))
+    shapes = btvec.Drawing.trace_labels(labels, smooth=0.6, close=1).intersect(btvec.Path.rect(0, 0, 8, 8)).shapes()
+    assert sum(area(shape.path) for shape in shapes) == pytest.approx(64, abs=1e-6)
+    for shape in shapes:
+        bounds = shape.path.bounds
+        assert bounds.x >= -1e-9
+        assert bounds.y >= -1e-9
+        assert bounds.x + bounds.width <= 8 + 1e-9
+        assert bounds.y + bounds.height <= 8 + 1e-9
+
+
+def test_levels_may_be_params() -> None:
+    level = btvec.Param("level", default=0.25, min=0, max=1)
+    drawing = btvec.Drawing.trace_levels(ramp_map(), [level, 0.75], tolerance=0)
+    assert [s.attributes["level"] for s in drawing.shapes(level=0.5)] == [0.5, 0.75]
+    assert [s.attributes["level"] for s in drawing.shapes()] == [0.25, 0.75]
+    assert btvec.Drawing.trace_levels(ramp_map(), level).shapes(level=0.5)[0].attributes["level"] == 0.5

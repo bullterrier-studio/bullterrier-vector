@@ -104,13 +104,13 @@ number of a field or a flow.
 | Call | Code | Arguments |
 |---|---|---|
 | `path` | a `Path` | its path data: the value is the string itself, `{"path": "M0 0 L10 0"}` |
-| `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `run`, `part`, `copy`, `level`, `order`, `origin` a point, and the text `id`, `class`, `group` of an SVG import); its style follows as steps, a `fill` step always |
+| `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `run`, `part`, `copy`, `label`, `level`, `order`, `origin` a point, and the text `id`, `class`, `group` of an SVG import); its style follows as steps, a `fill` step always |
 | `drawing` | a shared drawing | the value is its name: `{"drawing": "letters"}` |
 | `stack` | `Drawing(*items, size=None)` | `items` (drawings, bottom first; none is a blank frame of `size`), `size` (`[width, height]`, literal numbers above 0) |
 | `text` | `text(content, *, font, ...)` | `content` (a string) and `font` (input), or `runs` instead (below; with `runs` the text gives no `content`, `font`, `axes` or `features`), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width` (above 0), `fit` (a tag or `"size"`; needs `width`), `inside` (path data; not with `width`, `fit` or `anchor`) |
-| `trace_levels` | `Drawing.trace_levels(map, levels, *, ...)` | `map` (a `Field.map`, required), `levels` (an array of 1 to 256 numbers, read once), `smooth`, `tolerance` (default 0.5), `open`, `close`, `min_area`, `min_hole` (numbers from 0, read once; default 0) |
-| `trace_labels` | `Drawing.trace_labels(map, *, ...)` | `map`, `max_colors` (a number from 1 to 256, a literal; default 32), and the tidying numbers of `trace_levels` |
-| `trace_cells` | `Drawing.trace_cells(map, cell, *, ...)` | `map`, `cell` (a whole number from 1, a literal), `max_colors` |
+| `trace_levels` | `Drawing.trace_levels(map, levels, *, ...)` | `map` (a `Field.map`, required), `levels` (an array of 1 to 256 numbers, Params or expressions, read once), `smooth`, `tolerance` (default 0.5), `open`, `close`, `min_area`, `min_hole` (numbers from 0, read once; default 0) |
+| `trace_labels` | `Drawing.trace_labels(map, *, ...)` | `map`, `max_colors` (a whole number from 1 to 256, a literal; default 32), and the tidying numbers of `trace_levels` |
+| `trace_cells` | `Drawing.trace_cells(map, cell_size, *, ...)` | `map`, `cell_size` (a whole number from 1, a literal; map pixels), `max_colors` |
 
 `text`'s `runs` is an array of one to `MAX_RUNS` objects, each a stretch of the text with a font of its own:
 `{"content": "N", "font": "serif", "size": 120, "axes": {"wght": 800}, "features": {"liga": 0}, "tracking": 20}`. `content`
@@ -184,7 +184,7 @@ out, then resolved:
 ```
 
 `only`, `without` and `with_values` take keyword arguments in the code (`only(char="O")`), so their arguments are those
-keywords. An attribute is `index`, `glyph`, `char`, `word`, `line`, `run`, `part`, `copy`, `level`, `order`, `origin` (a
+keywords. An attribute is `index`, `glyph`, `char`, `word`, `line`, `run`, `part`, `copy`, `label`, `level`, `order`, `origin` (a
 point), `id`, `class` or `group` (text, matched whole). A whole-number attribute is at most 4,294,967,295, a `char` is one character, and an empty list (`{"index":
 []}`) is a selection that matches no shape; `{}` names no attribute and is refused when the call is checked
 (`call-checks`).

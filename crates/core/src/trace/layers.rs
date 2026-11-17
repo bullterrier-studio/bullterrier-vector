@@ -4,26 +4,38 @@
 //! The lattice of readings is the map's pixels padded with rings of the nearest edge value, and one outer ring of a
 //! value far below every level. A shape that reaches the map's border therefore goes on past it and closes outside the
 //! frame, and no edge of any shape lies along the border: a viewer that crops at the frame sees none. Closing and
-//! opening shrink an edge by their radius, so the padding is as wide as the largest of them (and the curve tolerance)
-//! plus two pixels.
+//! opening shrink an edge by their radius, so the padding is the larger of them plus the curve tolerance, in map pixels
+//! (at least one), plus two pixels.
+//!
+//! The labels of a map tile the lattice: the commonest label is the base and takes what the others leave, each other
+//! label is its traced shape minus the labels after it. The shapes are disjoint and cover the whole padded rectangle.
 
 #![expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_precision_loss,
-    reason = "the lattice has at most MAX_NODES nodes, checked before any index is made"
+    reason = "the lattice has at most MAX_LATTICE_NODES nodes, checked before any index is made"
 )]
 
 use super::Plan;
 use super::tidy::tidy;
 use crate::Error;
-use crate::field::{Grid, MAX_NODES, MAX_READ_WORK, MAX_SMOOTH_WORK, MapData, blur, trace_level};
+use crate::field::{Grid, MAX_READ_WORK, MAX_SMOOTH_WORK, MapData, blur, trace_level};
 use crate::geometry::Rect;
-use crate::path::Path;
+use crate::path::{Combine, Path};
 
 /// The most levels one call traces.
 // constant: each level is a pass over the whole lattice, and no picture reads more than a few dozen tones
 pub(crate) const MAX_LEVELS: usize = 256;
+
+/// The most nodes a padded lattice has.
+// constant: a node costs 8 bytes in the grid and 8 in the map's readings, so 2^25 nodes is half a gigabyte at most, and
+// a 4096 by 4096 map (the largest a `Field.map` holds, 2^24 pixels) with a few hundred pixels of padding fits
+const MAX_LATTICE_NODES: f64 = 33_554_432.0;
+
+/// How closely the booleans that cut the labels apart follow a curve, in design pixels.
+// constant: a hundredth of a design pixel is below anything that shows, and is the tidying's own
+const CUT_TOLERANCE: f64 = 0.01;
 
 /// The reading of the outermost ring of nodes: the lines close just inside it.
 // constant: far below any level a map's 0 to 1 tones are asked for, so the line between the ring before it and this one
@@ -47,17 +59,20 @@ impl Lattice {
     fn new(map: &MapData, plan: &Plan, passes: usize, passes_name: &str) -> Result<Self, Error> {
         let pixel = (map.frame.width / map.width as f64, map.frame.height / map.height as f64);
         let margin = plan.open.max(plan.close) + plan.tolerance;
-        let (wide, name) = if plan.open >= plan.close {
-            (plan.open, "open")
-        } else {
-            (plan.close, "close")
-        };
         let rings = 2.0 + (margin / pixel.0.min(pixel.1)).ceil();
         let (nodes_wide, nodes_high) = (map.width as f64 + 2.0 * rings, map.height as f64 + 2.0 * rings);
-        if nodes_wide * nodes_high > MAX_NODES {
+        if nodes_wide * nodes_high > MAX_LATTICE_NODES {
+            // the map alone fits (a `Field.map` has at most 2^24 pixels), so the padding is too wide: name its widest part
+            let (name, _) = [
+                ("open", plan.open),
+                ("close", plan.close),
+                ("tolerance", plan.tolerance),
+            ]
+            .into_iter()
+            .fold(("map", 0.0), |most, one| if one.1 > most.1 { one } else { most });
             return Err(Error::parameter(
-                if wide > 0.0 { name } else { "map" },
-                format!("the map with its padding of {rings} pixels would pass {MAX_NODES} nodes"),
+                name,
+                format!("the map with its padding of {rings} pixels would pass {MAX_LATTICE_NODES} nodes"),
             ));
         }
         if nodes_wide * nodes_high * passes as f64 > MAX_READ_WORK {
@@ -88,6 +103,17 @@ impl Lattice {
             frame: map.frame,
             pixel,
         })
+    }
+
+    /// The rectangle the tiled labels cover: the rings of padding where a shape can lie, and half a pixel more.
+    fn cover(&self) -> Rect {
+        let (pad, wide, high) = (self.pad as f64, self.width as f64, self.height as f64);
+        Rect {
+            x: self.frame.x + (1.0 - pad) * self.pixel.0,
+            y: self.frame.y + (1.0 - pad) * self.pixel.1,
+            width: (wide + 2.0 * pad - 2.0) * self.pixel.0,
+            height: (high + 2.0 * pad - 2.0) * self.pixel.1,
+        }
     }
 
     /// The marching grid of `readings` (one per pixel, blurred by `smooth` first), padded.
@@ -176,37 +202,87 @@ pub(crate) fn levels(
     Ok(found)
 }
 
-/// One outline for each label (byte) the map holds, the region where the map is that byte.
+/// One outline for each label (byte) the map holds, tiling the map: the commonest label first (the lowest byte of a tie),
+/// the others in order of the byte. Each is the region where the map is that byte, tidied, and the labels never overlap
+/// or leave a gap: the commonest label is whatever the others leave of the padded rectangle, and every other label is
+/// its tidied region without the labels after it.
 pub(crate) fn labels(
     map: &MapData,
     max_colors: usize,
     plan: &Plan,
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Vec<(u8, Path)>, Error> {
-    let mut present = [false; 256];
+    let mut counts = [0_usize; 256];
     for &byte in &map.bytes {
-        present[usize::from(byte)] = true;
+        counts[usize::from(byte)] += 1;
     }
-    let count = present.iter().filter(|&&p| p).count();
-    if count > max_colors {
+    let mut present: Vec<u8> = (0..=255_u8).filter(|&label| counts[usize::from(label)] > 0).collect();
+    if present.len() > max_colors {
         return Err(Error::parameter(
             "max_colors",
-            format!("the map has {count} labels, more than {max_colors}"),
+            format!("the map has {} labels, more than {max_colors}", present.len()),
         ));
     }
-    let lattice = Lattice::new(map, plan, count, "max_colors")?;
-    let mut found = Vec::new();
-    for label in (0..=255_u8).filter(|&label| present[usize::from(label)]) {
+    let Some(&base) = present
+        .iter()
+        .max_by_key(|&&label| (counts[usize::from(label)], std::cmp::Reverse(label)))
+    else {
+        return Ok(Vec::new());
+    };
+    present.retain(|&label| label != base);
+    // the base is never traced: it is what the others leave
+    let lattice = Lattice::new(map, plan, present.len(), "max_colors")?;
+    let mut traced = Vec::with_capacity(present.len());
+    for label in present {
         let readings = map
             .bytes
             .iter()
             .map(|&byte| f64::from(u8::from(byte == label)))
             .collect();
         let grid = lattice.grid(readings, plan.smooth);
-        let path = layer(&grid, 0.5, plan, charge)?;
-        if !path.has_nothing() {
-            found.push((label, path));
+        traced.push((label, layer(&grid, 0.5, plan, charge)?));
+    }
+    tile(lattice.cover(), base, traced, charge)
+}
+
+/// The base and the traced labels cut so that none overlaps another and together they fill `cover`: the base is `cover`
+/// without all of them, each other label is its path without those after it. A label left with nothing is dropped.
+fn tile(
+    cover: Rect,
+    base: u8,
+    traced: Vec<(u8, Path)>,
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+) -> Result<Vec<(u8, Path)>, Error> {
+    let count = traced.len() + 1;
+    // the cuts are charged to the draw; running out is the number of labels' doing
+    let mut charge = |edges| {
+        charge(edges).map_err(|_| {
+            Error::parameter(
+                "max_colors",
+                format!(
+                    "cutting {count} labels apart would pass the limit on segments: use fewer colours or a smaller map"
+                ),
+            )
+        })
+    };
+    // fitted apart, a hole can poke out of its outline by the tolerance, which would count against the labels beside it
+    let traced = traced
+        .into_iter()
+        .map(|(label, path)| Ok((label, path.resolved(CUT_TOLERANCE, &mut charge)?)))
+        .collect::<Result<Vec<_>, Error>>()?;
+    let whole = Path::rect(cover.x, cover.y, cover.width, cover.height, 0.0)?;
+    // the outlines of labels may overlap a little, and under the nonzero rule their joined outlines fill their union
+    let all = Path::joined(traced.iter().map(|(_, path)| path));
+    let mut tiles = vec![(
+        base,
+        whole.combined(&all, Combine::Subtract, CUT_TOLERANCE, &mut charge)?,
+    )];
+    for (at, (label, path)) in traced.iter().enumerate() {
+        let later = Path::joined(traced[at + 1..].iter().map(|(_, path)| path));
+        let cut = path.combined(&later, Combine::Subtract, CUT_TOLERANCE, &mut charge)?;
+        if !cut.has_nothing() {
+            tiles.push((*label, cut));
         }
     }
-    Ok(found)
+    Ok(tiles)
 }

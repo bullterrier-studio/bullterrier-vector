@@ -11,7 +11,7 @@ mod outline;
 mod seeds;
 
 pub use contours::Tidy;
-pub(crate) use contours::{Grid, MAX_NODES, MAX_SMOOTH_WORK, blur, trace as trace_level};
+pub(crate) use contours::{Grid, MAX_SMOOTH_WORK, blur, trace as trace_level};
 pub use distance::Field;
 pub(crate) use distance::{FieldKind, MAX_READ_WORK};
 pub use flow::Flow;

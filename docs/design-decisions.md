@@ -1636,33 +1636,56 @@ the traced paths.
   a box through documents and the schema).
 - **Levels are filled regions, stacked.** Level L is where the map is at or above L, so the shapes nest and the lowest goes
   first; a level the map never reaches gives no shape (an empty shape would only be an element to skip). The level is the
-  `level` attribute (already in the attribute list), the label byte for labels and cells. No palette argument: the shapes
-  come unpainted and `only(level=..).fill(..)` paints them, because a list of colours would be a new argument kind in the
+  `level` attribute (already in the attribute list); a label or cell shape carries its colour byte as the new whole-number
+  attribute `label` (a byte is an index, not a tone: one name for both would read as a tone). No palette argument: the shapes
+  come unpainted and `only(label=..).fill(..)` paints them, because a list of colours would be a new argument kind in the
   reader, writer and schema for what a loop already says. *Cost:* a palette is a few lines in the caller.
 - **One lattice, one tracer.** Levels and labels run the contour tracer of `Field::contours` over the map's pixel centres
   (a label is the indicator of its byte at 0.5), so saddles, orientation and the edge walk are written once.
 - **Edge padding.** The lattice gets rings of the edge value and an outermost ring far below every level, so a shape that
   meets the border goes on past it and closes outside the frame. No edge lies along the border, which a stroke would draw
-  as a false closed edge and a morphological opening would eat into. The padding is two pixels plus `max(open, close,
-  tolerance)`, so shrinking cannot reach the frame. *Cost:* shapes are a few pixels larger than the frame; crop with
-  the view as usual. A map plus its padding is at most 4 million nodes (about 1998 by 1998).
+  as a false closed edge and a morphological opening would eat into. The padding is two pixels plus `max(open, close) +
+  tolerance` (in map pixels, rounded up), so shrinking cannot reach the frame. *Cost:* shapes reach past the frame; a view
+  crops them, and for a plotter or a cutter one `Drawing.intersect` with the frame rectangle cuts them (labels still tile).
+  A padded lattice is at most 2^25 nodes (8 bytes in the grid and 8 in the readings: half a gigabyte), which holds the
+  largest map a `Field.map` can be (4096 by 4096) with hundreds of pixels of padding. Measured: three levels of 3000 by
+  3000 with smooth 2, open 2 and close 2 in 3.0 s and 646 MB, of 4096 by 4096 in 6.6 s and 1.4 GB; a dither of 4096 by
+  4096 cells of two pixels (4.9 million points) in 2.1 s and 1.0 GB; the padding that fills the cap (28.9 million
+  nodes, open 15 on a 100-pixel frame) in 6.4 s and 855 MB. The old bound was a node count borrowed from `contours`
+  (4 million) and refused a 2000 by 2000 map. When the padding is what is too wide the refusal names the one of `open`,
+  `close` and `tolerance` that is largest.
 - **Tidy order.** Blur (on the map), trace, close, open, fill small holes, drop small parts, fit curves. Open and close
   are offsets with round joins (a ball rolled along the edge) at 0.01 pixel; the area limits subtract or unite the
   small rings from the canonical result, so a dropped part takes its holes with it. Curve fitting is `Path::simplify` (corners
-  past 45 degrees stay), so every fitted point is within `tolerance` of the traced polyline.
+  past 45 degrees stay), so every fitted point is within `tolerance` of the traced polyline. `smooth` is the standard
+  deviation of the blur, in design pixels (the map's pixels are scaled by its box).
 - **Exact cells.** `trace_cells` follows the cracks between cells of different colour, clockwise round each colour, turning
   towards the colour first (two cells that meet at a corner are two regions) and keeping only the corners where the
   direction changes. The result is rectilinear, its area per colour is the cells' count times the cell area, the colours
   tile the map with no gap or overlap, and holes are sub-paths running the other way (nonzero fill). The cells must be uniform
   (every pixel of a cell one byte) and divide the map: a map that is not what the caller said is refused naming `cell`.
   *Rejected:* fitting curves (it rounds the cells) and one polygon per cell (a dither of a photo is millions).
-- **Limits, charged before allocation.** Passes over the lattice (levels, labels) times its nodes at most `MAX_READ_WORK`
-  (2e8), at most 256 levels, `max_colors` at most 256 (default 32), the cracks of a cell trace and every traced point against
-  `MAX_SEGMENTS`, the blur against its work bound. Each refusal names the argument (`levels`, `max_colors`, `smooth`, `open`,
-  `close`, `cell`, `map`).
-- **Known limits.** Neighbouring label shapes are fitted apart and can leave a hairline between them (stack them over the
-  commonest colour); tracing a binary indicator cuts the corner of every one-pixel step by an eighth of a pixel
-  (curve fitting hides it); the raw trace of a map winds the other way round than the canonical form (fill is nonzero, so
+- **Labels tile.** Each label is traced and tidied on its own, and fitted apart neighbours leave gaps and overlaps (measured
+  on 64 by 64 maps: smooth 2 left 40 square pixels of gap and 23 of overlap, even untidied three labels met with gaps of
+  a pixel or less); for riso and cut paper an overlap is two inks on one spot. So the shapes are made to tile, by
+  construction: the order is the **commonest label first** (the lowest byte of a tie, so it is the paper), then the others
+  in order of the byte; the commonest is not traced, it is the padded rectangle without all the others, and each other
+  label is its own traced shape without the labels after it. Any list of sets cut this way, the first being the whole
+  frame, is a disjoint cover. Each traced shape is resolved first (fitted apart, a hole can poke out of its outline by the
+  tolerance and would count against its neighbours), the cuts are `Path` booleans at 0.01 pixels, so a tidied label is a
+  polyline within 0.01 pixels of its curve; a label the others swallow is left out. Heavy `smooth` loses what the blur
+  makes minor to the commonest label. *Rejected:* an argmax of blurred indicators (it tiles too, but a label would
+  then not be what `open` and `close` shaped) and a hairline workaround in the caller.
+- **Limits, charged before allocation.** Passes over the lattice (levels, labels but the commonest) times its nodes at
+  most `MAX_READ_WORK` (2e8), at most 256 levels, `max_colors` at most 256 (default 32), the cracks of a cell trace, every
+  traced point and every edge, edge-box pair and vertex of the label cuts against `MAX_SEGMENTS`, the blur against its
+  work bound. Each refusal names the argument: `levels`, `max_colors` (also when the cuts pass the budget), `smooth`,
+  `cell_size`, and for a padded lattice past 2^25 nodes the largest of `open`, `close` and `tolerance`. `max_colors`, `cell_size`
+  are whole numbers in the schema too (`Domain::WholeBetween`); `levels` takes numbers, Params or expressions in Rust,
+  Python and documents (read once, as `dash`'s `pattern`); `max_colors` is a plain argument of the two verbs, not a field of
+  `Trace`, which holds only the tidying.
+- **Known limits.** Tracing a binary indicator cuts the corner of every one-pixel step by an eighth of a pixel
+  (curve fitting hides it; the labels' cuts keep a corner's gap to the commonest label); the raw trace of a map winds the other way round than the canonical form (fill is nonzero, so
   it does not matter); sequences of maps (V14b) are left to the caller.
 
 ## Engineering

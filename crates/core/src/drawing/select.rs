@@ -68,7 +68,7 @@ impl<T: Into<Wanted>, const N: usize> From<[T; N]> for Wanted {
 }
 
 /// Which shapes `only` and `without` act on: the attributes to compare (`index`, `glyph`, `char`, `word`, `line`,
-/// `part`, `copy`, `level`, `order`, `origin`, and `id`, `class`, `group`, which an SVG import writes) and the values
+/// `part`, `copy`, `label`, `level`, `order`, `origin`, and `id`, `class`, `group`, which an SVG import writes) and the values
 /// a shape's must equal. A shape matches when every attribute asked about has one of the values given for it; text
 /// is compared whole, not as a prefix.
 ///

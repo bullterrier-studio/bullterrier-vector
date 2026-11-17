@@ -576,12 +576,15 @@ impl PyDrawing {
     /// level the map reaches, in the order given, the region where the map is at or above the level, with the level as
     /// its `level` attribute and no fill. Stack them from the lowest level and fill each by its level
     /// (`.only(level=l).fill(...)`) for a posterized, cut-paper picture. `map` is a `Field.map`. A shape that meets the
-    /// map's border goes on past it and closes outside, so no edge lies along the border.
+    /// map's border goes on past it and closes outside, so no edge lies along the border; the overhang is the larger of
+    /// `open` and `close` plus `tolerance`, plus two map pixels: crop it with `.intersect(Path.rect(...))` for a plotter
+    /// or a cutter. `levels` and each number below is a number, a `Param` or an expression, read once.
     ///
-    /// `smooth` blurs the map by that many pixels first; `close` then `open` (design pixels) fill and remove what is
-    /// narrower than twice the radius; `min_hole` fills holes, and `min_area` drops parts, below that many square pixels;
-    /// `tolerance` fits curves within that many pixels of the traced polyline (0 keeps the polyline). Each is a number, a
-    /// `Param` or an expression, read once.
+    /// `smooth` is the standard deviation, in design pixels, of a Gaussian that blurs the map first; `close` then `open`
+    /// (design pixels) fill and remove what is narrower than twice the radius; `min_hole` fills holes, and `min_area`
+    /// drops parts, below that many square pixels; `tolerance` fits curves within that many design pixels of the traced
+    /// polyline (0 keeps the polyline). A map whose padded lattice would pass 2^25 nodes raises naming `open`, `close`
+    /// or `tolerance`, whichever sets the padding.
     #[staticmethod]
     #[pyo3(
         signature = (map, levels, *, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
@@ -602,11 +605,15 @@ impl PyDrawing {
         checked(vector::Drawing::trace_levels(&map.0, levels.0, &trace))
     }
 
-    /// A map of colour labels traced as filled shapes: one for each byte value the map holds, in order of the byte, the
-    /// region of the pixels with that byte, with the byte as its `level` attribute and no fill (fill each from a palette:
-    /// `.only(level=i).fill(palette[i])`). More than `max_colors` labels raises. Neighbouring shapes meet within
-    /// `tolerance`, so a hairline can show between them: stack them over a shape of the commonest colour. The other
-    /// arguments are those of `trace_levels`.
+    /// A map of colour labels traced as filled shapes: one for each byte value the map holds, the region of the pixels
+    /// with that byte, with the byte as its `label` attribute and no fill (fill each from a palette:
+    /// `.only(label=i).fill(palette[i])`). More than `max_colors` labels raises.
+    ///
+    /// The shapes tile the frame and its padding, whatever the tidying: none overlaps another and none leaves a gap, so
+    /// two inks never lie on one spot. The commonest label (the lowest byte of a tie) is first and is whatever the
+    /// others leave; the others follow in order of the byte, each its tidied region without the labels after it. They
+    /// are polylines within 0.01 design pixels of their curves. Cutting more outlines apart than the draw's segment
+    /// budget allows raises naming `max_colors`. The other arguments are those of `trace_levels`.
     #[staticmethod]
     #[pyo3(
         signature = (map, *, max_colors=None, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
@@ -628,10 +635,10 @@ impl PyDrawing {
     }
 
     /// A map of square cells traced exactly, for a dithered picture: `map` (a `Field.map` whose bytes are palette indexes)
-    /// is read as cells of `cell` pixels each, and every colour becomes one shape (attribute `level` the byte, in order of
-    /// the byte) with straight edges on the cell sides, cells that touch merged and holes kept: nothing is fitted, the
-    /// shapes' areas are the cells' and they neither overlap nor leave a gap. The width and height of the map must be
-    /// multiples of `cell`, every cell one byte, and there may be at most `max_colors` colours.
+    /// is read as cells of `cell_size` map pixels each, and every colour becomes one shape (attribute `label` the byte, in
+    /// order of the byte) with straight edges on the cell sides, cells that touch merged and holes kept: nothing is
+    /// fitted, the shapes' areas are the cells' and they neither overlap nor leave a gap. The width and height of the map
+    /// must be multiples of `cell_size`, every cell one byte, and there may be at most `max_colors` colours.
     #[staticmethod]
     #[pyo3(signature = (map, cell_size, *, max_colors=None), text_signature = "(map, cell_size, *, max_colors=32)")]
     fn trace_cells(

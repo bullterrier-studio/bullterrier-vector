@@ -262,17 +262,149 @@ fn labels_make_one_shape_each_that_together_fill_the_map() -> Outcome {
     });
     let shapes = labels(&field(40, 20, &bytes)?, &raw())?;
     let found: Vec<u32> = shapes.iter().filter_map(|s| s.attributes().label()).collect();
-    assert_eq!(found, vec![0, 2, 7]);
+    // the commonest label (2) is the base and comes first, the others in order of the byte
+    assert_eq!(found, vec![2, 0, 7]);
     let areas: Vec<f64> = shapes
         .iter()
         .map(|s| inside(s.path(), 40.0, 20.0))
         .collect::<Result<_, _>>()?;
-    for (area, expected) in areas.iter().zip([200.0, 400.0, 200.0]) {
+    for (area, expected) in areas.iter().zip([400.0, 200.0, 200.0]) {
         assert!((area - expected).abs() < 0.02 * expected, "{area} against {expected}");
     }
     assert!((areas.iter().sum::<f64>() - 800.0).abs() < 0.01 * 800.0);
     // a label at the border goes on past it
-    assert!(shapes[1].path().bounds()?.x < 0.0);
+    assert!(shapes[0].path().bounds()?.x < 0.0);
+    Ok(())
+}
+
+/// Four labels in blobs and waves, 64 by 64: places where three labels meet, thin parts and small islands.
+fn blobs(kind: usize) -> Vec<u8> {
+    made(64, 64, |x, y| {
+        let (x, y) = (x as f64, y as f64);
+        let v = match kind {
+            0 => (x / 5.0).sin() + (y / 7.0).cos() + (x * y / 300.0).sin(),
+            1 => (y + 6.0 * (x / 9.0).sin()) / 11.0,
+            _ => (libm::hypot(x - 20.0, y - 30.0) / 6.0).sin() + (libm::hypot(x - 45.0, y - 15.0) / 4.0).cos(),
+        };
+        (v * 1.7).floor().rem_euclid(4.0) as u8 * 3
+    })
+}
+
+#[test]
+fn labels_tile_the_frame_whatever_the_tidying() -> Outcome {
+    let tidyings = [
+        raw(),
+        Trace::new(),
+        Trace::new().smooth(2.0),
+        Trace::new().close(2.0),
+        Trace::new().open(2.0),
+        Trace::new()
+            .smooth(1.0)
+            .open(1.5)
+            .close(1.5)
+            .min_area(6.0)
+            .min_hole(6.0),
+    ];
+    for kind in 0..3 {
+        let map = field(64, 64, &blobs(kind))?;
+        for (n, trace) in tidyings.iter().enumerate() {
+            let shapes = labels(&map, trace)?;
+            let covered: f64 = shapes
+                .iter()
+                .map(|s| inside(s.path(), 64.0, 64.0))
+                .sum::<Result<f64, _>>()?;
+            assert!(
+                (covered - 4096.0).abs() < 0.05,
+                "map {kind}, tidying {n}: labels cover {covered} of 4096"
+            );
+            for (i, a) in shapes.iter().enumerate() {
+                for b in &shapes[i + 1..] {
+                    let common = a.path().intersect(b.path(), 0.001)?;
+                    let both = net_area(&common, 1)?.abs();
+                    assert!(
+                        both < 0.05,
+                        "map {kind}, tidying {n}: labels {:?} and {:?} overlap by {both} at {:?}: {}",
+                        a.attributes().label(),
+                        b.attributes().label(),
+                        common.bounds()?,
+                        common.to_svg_path()
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn untidied_labels_still_match_the_map_cell_by_cell() -> Outcome {
+    let bytes = blobs(0);
+    let shapes = labels(&field(64, 64, &bytes)?, &raw())?;
+    for (index, &byte) in bytes.iter().enumerate() {
+        let centre = ((index % 64) as f64 + 0.5, (index / 64) as f64 + 0.5);
+        for shape in &shapes {
+            let label = shape.attributes().label().ok_or("no label")?;
+            assert_eq!(shape.path().contains(centre)?, label == u32::from(byte), "cell {index}");
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn a_big_map_traces_and_its_refusals_name_what_is_too_big() -> Outcome {
+    let side = 3000;
+    let ramp = made(side, side, |x, _| (x * 255 / side) as u8);
+    let map = field(side, side, &ramp)?;
+    assert_eq!(
+        levels(&map, &[0.5], &Trace::new().smooth(2.0).open(2.0).close(2.0))?.len(),
+        1
+    );
+    let halves = made(side, side, |x, _| u8::from(x > side / 2));
+    let shapes = labels(&field(side, side, &halves)?, &Trace::new().close(2.0))?;
+    assert_eq!(shapes.len(), 2);
+    // the padding is what would make the lattice too large: the refusal names the number that sets it
+    for (trace, name) in [
+        (Trace::new().open(1e6), "open"),
+        (Trace::new().close(1e6), "close"),
+        (Trace::new().tolerance(1e6), "tolerance"),
+    ] {
+        let (argument, message) = parameter_refusal(levels(&map, &[0.5], &trace))?;
+        assert!(
+            argument.contains(name) && message.contains("nodes"),
+            "{name}: {argument}: {message}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn cutting_many_labels_apart_past_the_budget_is_refused_naming_max_colors() -> Outcome {
+    // a noisy map of 64 labels: every pixel edge is an outline edge, and each label is cut by all those after it
+    let bytes = made(300, 300, |x, y| {
+        u8::try_from((x * 31 + y * 17 + (x * y) % 13) % 64).unwrap_or(0)
+    });
+    let (argument, message) =
+        parameter_refusal(Drawing::trace_labels(&field(300, 300, &bytes)?, 64, &raw()).shapes(&Values::new()))?;
+    assert!(
+        argument.contains("max_colors") && message.contains("segments"),
+        "{argument}: {message}"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_level_can_be_a_param_in_code_as_in_a_document() -> Outcome {
+    use bullterrier_vector::{Expr, Param};
+    let level = Param::new("level", 0.25, 0.0, 1.0)?;
+    let bytes = made(256, 4, |x, _| u8::try_from(x).unwrap_or(255));
+    let map = field(256, 4, &bytes)?;
+    let drawing = Drawing::trace_levels(&map, [Expr::from(&level), Expr::from(0.75)], &raw());
+    assert_eq!(drawing.error(), None);
+    for (value, found) in [(0.25, 0.25), (0.5, 0.5)] {
+        let shapes = drawing.shapes(&Values::new().set("level", value))?;
+        assert_eq!(shapes[0].attributes().level(), Some(found));
+        assert_eq!(shapes.len(), 2);
+    }
     Ok(())
 }
 

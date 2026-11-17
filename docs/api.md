@@ -59,7 +59,7 @@ computes at once and returns a new `Path`; nothing changes the old one. This is 
 cut, combine and offset geometry the way Paper.js does, with callbacks where they help.
 
 **`Shape`** is what a drawing is made of: one `Path` with a style (fill, stroke, opacity, blend mode, shadow, knockout)
-and attributes (its index, and what its generator wrote: glyph, char, word, line, run, copy, level, part, order 0..1, the
+and attributes (its index, and what its generator wrote: glyph, char, word, line, run, copy, label, level, part, order 0..1, the
 origin it turns about; from `Drawing.from_svg`, the text `id`, `class` and `group`). A shape is read, never built by hand: `drawing.shapes()` evaluates a drawing into a list of
 them. A list of shapes is a plain list; there is no collection type.
 
@@ -433,17 +433,20 @@ tone's `Field` is taken by the step like `hatch`'s. [line_families.py](../exampl
 ## Trace
 
 A map (`Field.map`: 8-bit bytes, the same input form in documents) traced into filled shapes. Three sources, all on `Drawing`;
-the shapes carry no paint (paint each with `only(level=..).fill(..)`) and the byte or level as the `level` attribute.
+the shapes carry no paint (paint each with `only(level=..).fill(..)`, or `only(label=..).fill(..)` for labels and cells): a level shape has its level as the `level` attribute, a label or cell shape its colour byte as the `label` attribute (a whole number).
 
 | Call | Result | Arguments |
 |---|---|---|
-| `Drawing.trace_levels(map, levels, *, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)` | one shape for each of `levels` (0 black to 1 white; a number or a list) the map reaches, in the order given: the region where the map is at or above it | `smooth` blurs by that many design pixels first; `close`, then `open` (design pixels) fill and remove what is narrower than twice the radius; `min_hole` and `min_area` (square pixels) fill small holes and drop small parts; `tolerance` fits curves within that many pixels of the traced polyline (0 keeps it). Each number is a number, a `Param` or an expression, read once |
-| `Drawing.trace_labels(map, *, max_colors=32, ...)` | one shape for each byte the map holds, in order of the byte | the tidying of `trace_levels`; neighbouring shapes meet within `tolerance` and can leave a hairline |
-| `Drawing.trace_cells(map, cell, *, max_colors=32)` | one shape (one outline with all its regions) for each colour, exactly | the map is cells of `cell` pixels, each one byte (a dithered picture scaled by `cell`); cells of one colour that touch are merged, edges lie on cell sides, no fitting; areas are the cells' and the shapes tile the map |
+| `Drawing.trace_levels(map, levels, *, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)` | one shape for each of `levels` (0 black to 1 white; a number or a list) the map reaches, in the order given: the region where the map is at or above it | `smooth` is the standard deviation, in design pixels, of a Gaussian that blurs the map first; `close`, then `open` (design pixels) fill and remove what is narrower than twice the radius; `min_hole` and `min_area` (square pixels) fill small holes and drop small parts; `tolerance` fits curves within that many design pixels of the traced polyline (0 keeps it). `levels` and each number is a number, a `Param` or an expression, read once |
+| `Drawing.trace_labels(map, *, max_colors=32, ...)` | one shape for each byte the map holds, attribute `label` the byte; the shapes tile the frame and its padding: no overlap, no gap, whatever the tidying | the tidying of `trace_levels`. The commonest label (the lowest byte of a tie) comes first and is whatever the others leave; the others follow in order of the byte, each cut by the labels after it, so a tidied shape is a polyline within 0.01 pixels of its curve. Cutting too many outlines apart is refused naming `max_colors` |
+| `Drawing.trace_cells(map, cell_size, *, max_colors=32)` | one shape (one outline with all its regions) for each colour, in order of the byte, attribute `label`, exactly | the map is cells of `cell_size` map pixels, each one byte (a dithered picture scaled by `cell_size`); cells of one colour that touch are merged, edges lie on cell sides, no fitting; areas are the cells' and the shapes tile the map |
 
 A shape that meets the map's border goes on past it and closes outside the frame, so no edge lies along the border. The
-map's `box` places it. Rust: `Drawing::trace_levels(&map, &[0.3, 0.6], &Trace::new().smooth(1.5).open(2.0))`,
-`Drawing::trace_labels(&map, &Trace::new().max_colors(8))`, `Drawing::trace_cells(&map, 2, 8)`; in a document
+overhang is the larger of `open` and `close` plus `tolerance` (in map pixels, rounded up), plus two map pixels. For a plotter
+or a cutter crop it to the frame in one call, `drawing.intersect(btvec.Path.rect(0, 0, width, height))` (the labels still
+tile); a view crops it for the screen. The map's `box` places the map. Rust: `Drawing::trace_levels(&map, [0.3, 0.6], &Trace::new().smooth(1.5).open(2.0))`
+(`levels` is any list of numbers, Params or expressions), `Drawing::trace_labels(&map, 8, &Trace::new())`,
+`Drawing::trace_cells(&map, 2, 8)`; in a document
 `{"trace_levels": {"map": {"Field.map": {...}}, "levels": [0.3, 0.6], "open": 2}}`.
 
 ```python
@@ -455,10 +458,13 @@ layers = [
 print(btvec.Drawing(*layers, size=(1080, 1440)).to_svg(1080, 1440))
 ```
 
-Errors: `ParameterError` naming `levels` (none, over 256, not finite, or levels times lattice nodes over 2e8), `smooth`,
-`tolerance`, `open`, `close`, `min_area`, `min_hole` (below 0, not finite or over 1e100; `open`, `close` and `smooth` also
-when the padded lattice passes 4 million nodes or the blur 2e9 steps), `max_colors` (outside 1 to 256, or fewer than the map's
-colours), `cell` (not whole, not dividing the map, or a cell of more than one byte) and `map` (not a `Field.map`).
+Errors: `ParameterError` naming `levels` (none, over 256, not finite, or passes times lattice nodes over 2e8; for labels
+`max_colors` names the passes), `smooth`, `tolerance`, `open`, `close`, `min_area`, `min_hole` (below 0, not finite or
+over 1e100; the largest of `open`, `close` and `tolerance` also when the padded lattice passes 2^25 nodes (a 4096 by 4096
+map holds hundreds of pixels of padding), `smooth` also when the blur passes 2e9 steps), `max_colors` (not a whole number from
+1 to 256, fewer than the map's colours, or labels whose outlines are too many to cut apart within the draw's segment
+budget), `cell_size` (not a whole number from 1, not dividing the map, or a cell of more than one byte) and `map` (not a
+`Field.map`). From Python a count that is not whole (2.5) or below 0 raises `ParameterError` naming it.
 [trace.py](../examples/trace.py) traces a relief and a dithered strip.
 
 ## Drawing
