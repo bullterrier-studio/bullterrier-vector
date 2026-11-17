@@ -293,6 +293,41 @@ impl Outline {
         (dx * dx - dy * dy, 2.0 * dx * dy)
     }
 
+    /// Where the segment `from` to `to` crosses an edge of the outline, as shares of the segment (0 to 1), ascending
+    /// and without repeats: every edge of the bands the segment spans is tried.
+    pub(crate) fn crossings(&self, from: Point, to: Point) -> Vec<f64> {
+        let (low, high) = if from.y <= to.y { (from.y, to.y) } else { (to.y, from.y) };
+        let (min_x, max_x) = (from.x.min(to.x), from.x.max(to.x));
+        let mut shares = Vec::new();
+        let (first, last) = (self.row_of(low), self.row_of(high));
+        for row in first..=last {
+            for &id in &self.bands[row] {
+                // an edge spanning several bands is met once: in the first of them that the segment spans
+                let (start, end) = self.edges[id as usize];
+                if row != self.row_of(start.y.min(end.y)).max(first) {
+                    continue;
+                }
+                if start.x.max(end.x) < min_x || start.x.min(end.x) > max_x {
+                    continue;
+                }
+                let (aim, side) = ((to.x - from.x, to.y - from.y), (end.x - start.x, end.y - start.y));
+                let denominator = aim.0 * side.1 - aim.1 * side.0;
+                if denominator == 0.0 {
+                    continue;
+                }
+                let (dx, dy) = (start.x - from.x, start.y - from.y);
+                let t = (dx * side.1 - dy * side.0) / denominator;
+                let u = (dx * aim.1 - dy * aim.0) / denominator;
+                if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u) {
+                    shares.push(t);
+                }
+            }
+        }
+        shares.sort_by(f64::total_cmp);
+        shares.dedup();
+        shares
+    }
+
     /// The smallest rectangle round the edges: left, top, right, bottom.
     pub(crate) fn extent(&self) -> (f64, f64, f64, f64) {
         let (mut l, mut t, mut r, mut b) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);

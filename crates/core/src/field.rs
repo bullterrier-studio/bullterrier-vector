@@ -16,6 +16,7 @@ pub(crate) use distance::FieldKind;
 pub use flow::Flow;
 pub(crate) use flow::FlowKind;
 pub use hatch::Hatch;
+pub(crate) use outline::Outline;
 
 use crate::limits::MAX_SEGMENTS;
 use crate::path::Path;

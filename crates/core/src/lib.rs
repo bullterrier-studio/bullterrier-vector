@@ -14,6 +14,7 @@ mod geometry;
 mod json;
 mod key;
 mod limits;
+mod lines;
 mod math;
 mod node;
 mod noise;

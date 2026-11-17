@@ -50,6 +50,7 @@ mod json_roundtrip;
 mod json_schema;
 mod json_text;
 mod json_write;
+mod lines_within;
 mod mesh;
 mod mesh_fill;
 mod mesh_gradient;
