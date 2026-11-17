@@ -9,7 +9,7 @@
 mod common;
 
 use bullterrier_vector::{
-    Color, Drawing, Error, Expr, Inputs, Mesh, Param, Path, Random, Size, Stagger, Text, Values, by_index, by_order,
+    Color, Drawing, Error, Expr, Flow, Hatch, Inputs, Mesh, Param, Path, Random, Size, Stagger, Text, Values, by_index, by_order,
     text,
 };
 use common::fonts::synthetic;
@@ -323,4 +323,30 @@ fn the_deepest_document_is_loaded_drawn_and_dropped_on_the_smallest_stack() -> O
 #[test]
 fn the_deepest_document_over_the_deepest_expression_is_loaded_drawn_and_dropped_on_the_smallest_stack() -> Outcome {
     deepest_document_on_the_smallest_stack(|x| (1..DEEPEST).fold(x, |deepest, _| deepest + 1.0))
+}
+
+#[test]
+fn a_flow_mixed_to_the_deepest_nesting_is_read_written_and_hatched_on_the_smallest_stack() -> Outcome {
+    let handle = std::thread::Builder::new().stack_size(SMALLEST_STACK).spawn(|| {
+        let run = || -> Outcome {
+            // 16 mixes deep, one leaf added at each level, the most the library builds
+            let mut flow = Flow::angle(0.0)?;
+            for degrees in 1..=16 {
+                flow = flow.mix(&Flow::angle(f64::from(degrees) * 7.0)?, 0.5)?;
+            }
+            parameter_refusal(flow.mix(&Flow::angle(1.0)?, 0.5))?;
+            let square = Path::rect(0.0, 0.0, 40.0, 40.0, 0.0)?;
+            let drawing = Drawing::from(square).hatch(&Hatch::new(8.0).flow(flow.clone()), None);
+            let document = drawing.to_json()?;
+            let back = Drawing::from_json(&document, &Inputs::new())?;
+            assert_eq!(back.to_json()?, document);
+            assert!(!back.shapes(&Values::new())?.is_empty());
+            assert!(flow.at((10.0, 10.0)) < 180.0);
+            drop(flow);
+            Ok(())
+        };
+        run().map_err(|error| error.to_string())
+    })?;
+    handle.join().map_err(|_| "the thread panicked")??;
+    Ok(())
 }
