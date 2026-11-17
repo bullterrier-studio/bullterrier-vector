@@ -150,7 +150,7 @@ default paint, and draws as it did.
 | `envelope` | `top` (path data), `bottom` (path data; default: the frame's straight bottom edge), `frame` (an array of exactly four numbers `[x, y, width, height]`, each within ±1e100, a number or an expression; default: the bounds of all the shapes; the loader refuses another count and a width or height not above 0 when drawn, which the schema cannot state), `amount` (per-item number, any finite value; default 1) |
 | `arch` | `bend` (per-item number, any finite value; required), `frame` as for `envelope` |
 | `morph` | `target` (drawing: an array of calls, as the `other` of a boolean; its shapes pair with the drawing's by index and are not united), `fraction` (per-item number, any finite value; required) |
-| `hatch` | `spacing` (pair), `tone` (number or field), `flow` (flow), `avoid` (drawing) |
+| `hatch` | `spacing` (pair), `tone` (number or field), `flow` (flow), `avoid` (drawing), `below` (number, read once; needs `tone`) |
 | `merge` | `by` (an attribute name) |
 | `only`, `without` | attribute names to a value or a list of values: `{"only": {"char": "O"}}` |
 | `repeat` | `count` (whole number), `translate` (point), `rotate`, `scale` (pair), `about` (point) |
@@ -194,13 +194,13 @@ list given at draw time (`to_png(..., pulse=[...])`) is not: it is a value of th
 |---|---|---|
 | `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | `width`, `height` (literal whole numbers from 1), `data` (input; `name` names the input, not an argument here), `box` (`[x, y, width, height]`) |
 | `Field.ramp` | `Field.ramp(start, end)` | `start`, `end` (points) |
-| `Field.distance` | `Field.distance(path, *, normalized=False)` | `drawing` (the argument `path` of the call: one path, `[{"path": "..."}]`; a drawing with other calls is refused until V15b), `normalized` (`true` or `false`) |
-| `Flow.angle` | `Flow.angle(angle)` | `angle` (degrees) |
-| `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | `wavelength`, `phase`, `seed` (whole number) |
-| `Flow.contour` | `Flow.contour(path)` | `drawing` (the argument `path` of the call, written as for `Field.distance`) |
-| `Flow.mix` | `flow.mix(other, fraction)` | `flow`, `other` (flows), `fraction` |
+| `Field.distance` | `Field.distance(drawing, *, normalized=False)` | `drawing` (a drawing: an array of calls, `[{"path": "..."}]` for one path), `normalized` (`true` or `false`) |
+| `Flow.angle` | `Flow.angle(angle)` | `angle` (degrees; a number or an expression) |
+| `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | `wavelength`, `phase` (numbers or expressions), `seed` (whole number) |
+| `Flow.contour` | `Flow.contour(drawing)` | `drawing` (written as for `Field.distance`) |
+| `Flow.mix` | `flow.mix(other, fraction)` | `flow`, `other` (flows), `fraction` (a number or an expression) |
 
-A field or a flow reads literal numbers: a Param or per-item number in one is refused until V15b. A `tone` or `Field` argument may also be a plain number (the same everywhere). `Flow.mix` nests (16 deep, 64 flows at most), the tree the code built, so a document written again is the same text. `hatch` with a `spacing` pair needs a `tone`. A map's `width` and `height` are literal so that the loader can check the bytes against them when they arrive.
+A number of a field or a flow (a constant field's value, `angle`, `wavelength`, `phase`, `fraction`) may be an expression of Params, read once for the whole call: a per-item number is refused, and a Param the document does not declare is refused at the number, as anywhere. `ramp`'s points and `seed` are literals. A `drawing` of a field or a flow is a drawing like any other (a shared drawing may be named there, and then it is written once under `drawings`); a `hatch` step draws it with the values it draws with, so its Params are the drawing's Params. A `tone` or `Field` argument may also be a plain number (the same everywhere). `Flow.mix` nests (16 deep, 64 flows at most), the tree the code built, so a document written again is the same text. `hatch` with a `spacing` pair needs a `tone`, and so does `below`. A map's `width` and `height` are literal so that the loader can check the bytes against them when they arrive; `data` names an input of kind `map` (8-bit grayscale bytes, `width` times `height` of them), and a `box` that is not the default is written.
 
 ### Shared drawings
 

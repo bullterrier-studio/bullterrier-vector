@@ -245,3 +245,11 @@ fn a_level_needs_a_tone_and_a_finite_number() -> Outcome {
     );
     Ok(())
 }
+
+#[test]
+fn a_line_across_a_small_shape_is_kept_where_a_stub_against_other_lines_is_not() -> Outcome {
+    // spacing 5 over a square 10 wide: each line is a chord of the shape, under three spacings long and kept
+    let result = made(&rect(10.0, 10.0)?, &Hatch::new(5.0).flow(Flow::angle(0.0)?), None)?;
+    assert_eq!(result.len(), 2, "{result:?}");
+    Ok(())
+}

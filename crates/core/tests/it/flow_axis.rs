@@ -115,24 +115,36 @@ fn letters() -> Result<Vec<Path>, bullterrier_vector::Error> {
 }
 
 #[test]
-fn a_headline_hatched_along_its_letters_has_no_line_shorter_than_three_spacings() -> Outcome {
+fn a_headline_hatched_along_its_letters_has_no_stub_a_line_under_three_spacings_ends_at_the_outline_both_ends()
+-> Outcome {
     let letters = letters()?;
     let whole = Path::from_svg_path(&letters.iter().map(Path::to_svg_path).collect::<Vec<_>>().join(" "))?;
     let flow = Flow::contour(&whole)?;
-    for (near, far, shortest) in [(6.0, 6.0, 18.0), (3.0, 9.0, 9.0)] {
+    let edge = Field::distance(&whole, false)?;
+    for (near, far) in [(6.0, 6.0), (3.0, 9.0)] {
         let hatch = Hatch::between(near, far, Field::distance(&whole, true)?).flow(flow.clone());
-        let mut found = 0;
+        let (mut found, mut chords) = (0, 0);
         for letter in &letters {
             for (points, closed) in lines(&letter.hatch(&hatch, None)?)? {
                 found += 1;
-                assert!(
-                    closed || length(&points) >= shortest,
-                    "a line {} long at spacing {near}..{far}",
-                    length(&points)
-                );
+                if closed || length(&points) >= 3.0 * near {
+                    continue;
+                }
+                // a short line is a chord of a corner: it leaves the letter at both ends, within one step of its edge
+                chords += 1;
+                for end in [points[0], points[points.len() - 1]] {
+                    assert!(
+                        edge.at(end).abs() < 0.3 * far,
+                        "a line {} long at spacing {near}..{far} ends {} from the outline",
+                        length(&points),
+                        edge.at(end)
+                    );
+                }
+                assert!(length(&points) >= near, "a fragment {} long", length(&points));
             }
         }
         assert!(found > 40, "{found} lines");
+        assert!(chords * 6 <= found, "{chords} of {found} lines are short chords");
     }
     Ok(())
 }

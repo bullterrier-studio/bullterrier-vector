@@ -42,11 +42,27 @@ const OWN_GRACE: f64 = 2.0;
 // constant: a loop shorter than four spacings is a bend, not a loop
 const CLOSE_AFTER: f64 = 4.0;
 
-/// A line shorter than this many spacings is dropped.
-// constant: a line shorter than three spacings is a tick left where lines of two edges meet, not a line: measured on a
-// headline hatched along its letters, at one spacing the ticks at corners and the middles of strokes were a tenth of
-// the lines
+/// A line that ends against another line, shorter than this many spacings, is dropped.
+// constant: a line stopped by its neighbours and shorter than three spacings is a tick left where the lines of two edges
+// meet, not a line: measured on a headline hatched along its letters, at one spacing those ticks at corners and the
+// middles of strokes were a tenth of the lines
 const SHORTEST: f64 = 3.0;
+
+/// A line that runs from edge to edge of the region, shorter than this many spacings, is dropped.
+// constant: a chord of the region (a line across a small shape) is as long as the shape is wide, so only what is shorter
+// than a spacing is a fragment of an edge, not a line
+const SHORTEST_CHORD: f64 = 1.0;
+
+/// Why a line stopped.
+#[derive(Clone, Copy, PartialEq)]
+enum Stop {
+    /// It came round to its own start.
+    Closed,
+    /// It left the region or entered what is avoided.
+    Region,
+    /// It came within half a spacing of another line.
+    Blocked,
+}
 
 /// The most cells the lattice and the grid of samples may have.
 // constant: 4 million cells of the grid are 16 MB of heads; a shape that needs more would draw more lines than
@@ -352,11 +368,12 @@ impl Run<'_> {
             along: 0.0,
         });
         let heading = self.hatch.flow_of().direction(seed);
-        let (forward, closed) = self.walk(id, seed, heading, 1.0, charge)?;
-        let backward = if closed {
-            Vec::new()
+        let (forward, ahead) = self.walk(id, seed, heading, 1.0, charge)?;
+        let closed = ahead == Stop::Closed;
+        let (backward, behind) = if closed {
+            (Vec::new(), Stop::Closed)
         } else {
-            self.walk(id, seed, (-heading.0, -heading.1), -1.0, charge)?.0
+            self.walk(id, seed, (-heading.0, -heading.1), -1.0, charge)?
         };
         let mut points: Vec<Point> = backward.into_iter().rev().collect();
         points.push(seed);
@@ -365,7 +382,12 @@ impl Run<'_> {
             .windows(2)
             .map(|pair| length(pair[1].x - pair[0].x, pair[1].y - pair[0].y))
             .sum();
-        let kept = closed || (points.len() > 1 && length >= SHORTEST * self.spacing(seed));
+        let shortest = if ahead == Stop::Region && behind == Stop::Region {
+            SHORTEST_CHORD
+        } else {
+            SHORTEST
+        };
+        let kept = closed || (points.len() > 1 && length >= shortest * self.spacing(seed));
         let line = &mut self.lines[id];
         line.closed = closed;
         line.kept = kept;
@@ -374,7 +396,7 @@ impl Run<'_> {
     }
 
     /// Steps from `from` along the flow, `sign` 1 forwards and -1 backwards along the line, until it must stop; the
-    /// points made, and whether it came round to `from` (only forwards).
+    /// points made, and why it stopped (it can come round to `from` only forwards).
     fn walk(
         &mut self,
         id: usize,
@@ -382,7 +404,7 @@ impl Run<'_> {
         heading: (f64, f64),
         sign: f64,
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
-    ) -> Result<(Vec<Point>, bool), Error> {
+    ) -> Result<(Vec<Point>, Stop), Error> {
         let flow = self.hatch.flow_of();
         let (mut points, mut at, mut heading, mut along) = (Vec::new(), from, heading, 0.0);
         loop {
@@ -394,11 +416,11 @@ impl Run<'_> {
             let next = Point::new(at.x + turn.0 * step, at.y + turn.1 * step);
             let next_along = along + sign * step;
             if !self.usable(next) {
-                return Ok((points, false));
+                return Ok((points, Stop::Region));
             }
             let gap = self.spacing(next);
             if sign > 0.0 && next_along > CLOSE_AFTER * gap && length(next.x - from.x, next.y - from.y) < TEST * gap {
-                return Ok((points, true));
+                return Ok((points, Stop::Closed));
             }
             let own = u32::try_from(id).unwrap_or(u32::MAX);
             let blocked = self.samples.any_within(next, TEST * gap, |sample| {
@@ -406,7 +428,7 @@ impl Run<'_> {
                     && !(sample.line == own && (sample.along - next_along).abs() < OWN_GRACE * gap)
             });
             if blocked {
-                return Ok((points, false));
+                return Ok((points, Stop::Blocked));
             }
             charge(1)?;
             self.samples.add(Sample {

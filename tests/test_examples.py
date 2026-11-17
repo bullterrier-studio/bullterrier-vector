@@ -4,6 +4,7 @@ by hand: the star's from the geometry of a five-pointed star, the bars' from the
 
 import runpy
 import xml.etree.ElementTree as ET
+from functools import reduce
 from pathlib import Path
 
 import pytest
@@ -706,7 +707,8 @@ def test_the_node_example_of_kinetic_type_carries_the_document_of_the_python_dra
 
 def test_flow_hatch_fills_each_letter_with_lines_that_stay_inside_it_and_crowd_at_its_edge(run):
     found = run("flow_hatch")
-    drawing, outline, tone = found["drawing"], found["outline"], found["tone"]
+    drawing, word, tone = found["drawing"], found["word"], found["tone"]
+    outline = reduce(lambda whole, part: whole.union(part), (shape.path for shape in word.shapes()))
     paper, *letters = drawing.shapes()
     assert paper.style.fill == "#f3eee4ff"
     assert len(letters) == 4

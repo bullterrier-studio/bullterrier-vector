@@ -41,7 +41,7 @@ import bullterrier_vector as btvec
 | [glyph_morph.py](../examples/glyph_morph.py), [.rs](../crates/core/examples/glyph_morph.rs), [.mjs](../crates/wasm/examples/glyph_morph.mjs) | a letter that turns into a circle and CAT into HORSE on one `progress`, in all three languages |
 | [glyph_scatter.py](../examples/glyph_scatter.py) | letters split into parts, scattered by seeded random numbers |
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
-| [halftone.py](examples/halftone.py) | halftone dots from a tone map (a `Field` tone, V15b) |
+| [halftone.py](examples/halftone.py) | halftone dots from a tone map (a `Field` tone: a later batch reads fields in `halftone`) |
 | [halftone.py](../examples/halftone.py) | discs filled with a screen of dots, a tone each, over paper |
 | [cut_type.py](../examples/cut_type.py) | a headline faded by one mask, over stripes clipped to a circular window |
 | [gradient_type.py](../examples/gradient_type.py) | a headline filled with one gradient across the frame, a glow and a ring with radial ones |
@@ -301,7 +301,9 @@ Evenly spaced streamlines (Jobard and Lefer) of `flow` inside the region each sh
 is traced both ways from a seed and stops where it leaves the region, enters `avoid`, or comes within half a spacing of a
 point of another line; the next seeds stand one spacing to either side of a line, so lines settle one spacing apart where the
 flow is straight and split or end where it spreads or gathers. A line that comes round to its own start is closed. The
-floor is half the spacing between any two lines, never the spacing itself. Lines shorter than a spacing are dropped.
+floor is half the spacing between any two lines, never the spacing itself. A line that ends against another line and is shorter
+than three spacings (at its start) is dropped: the ticks left where the lines of two edges meet; a closed line, and a chord that
+leaves the region at both ends (one longer than a spacing), stay.
 
 | Argument | Meaning |
 |---|---|
@@ -309,6 +311,7 @@ floor is half the spacing between any two lines, never the spacing itself. Lines
 | `tone` | a `Field` or a number; needed when `spacing` is a pair |
 | `flow` | a `Flow`; default `Flow.angle(45)` (straight hatching) |
 | `avoid` | a `Path`, `Shape` or `Drawing` (on a `Path`, a `Path`) the lines keep clear of |
+| `below` | a number or a `Param` (needs a `tone`): lines only where the tone is at most this level; a line stops where the tone passes it (within a quarter spacing) and none starts above it |
 
 The result is open lines (a shape keeps its style, so set `fill("none")` and the stroke after it). The step makes
 a path of the lines for each shape. Errors: `ParameterError` for a spacing not above 0 or beyond 1e100, a pair without
@@ -316,8 +319,23 @@ a path of the lines for each shape. Errors: `ParameterError` for a spacing not a
 for the shape that placing the lines would take over a billion cell visits (1 to 1000 over 400 by 400), a spacing too small
 for the coordinates (near 1e17 a step must be at least a few units), or more than `MAX_SEGMENTS` points; a path of two
 points encloses nothing, so it gives no lines; a shape with no outline gives no lines. Rust: `path.hatch(&Hatch::new(8.0).flow(flow), Some(&avoid))`,
-`Hatch::between(near, far, tone)`, `drawing.hatch(&hatch, Some(&avoid_drawing))`. Not yet: a `Field.map` tone (a photo), crosshatch and tone levels, a
-Param in a field or flow, a drawing (not a path) in `Field.distance` and `Flow.contour`.
+`Hatch::between(near, far, tone)`, `.below(level)`, `drawing.hatch(&hatch, Some(&avoid_drawing))`.
+
+**Crosshatch and tone levels** are hatch steps stacked, each at its own angle and level (0 is dark, so the darker the
+tone, the more passes reach it); no second routine:
+
+```python
+photo = btvec.Field.map(w, h, grey_bytes, box=(0, 0, 1080, 1350))           # tone of a photo, 0 black
+region = btvec.Path.rect(0, 0, 1080, 1350)
+passes = [(0.85, 45), (0.6, 135), (0.4, 0), (0.2, 90)]                       # (level, angle)
+crosshatch = btvec.Drawing(*[
+    btvec.Drawing(region).hatch(7, tone=photo, flow=btvec.Flow.angle(angle), below=level).stroke("#16151a", width=0.8)
+    for level, angle in passes
+])
+```
+
+Each pass places its own lines, so passes cross; a lighter tone gets fewer of them. `hatch` reads the `tone` of a
+`Field.map` at the pixel centres, bilinear between them.
 
 ## Drawing
 
@@ -636,19 +654,26 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 | `Font.bundled_names` | `Font.bundled_names()` (Rust: `Font::bundled_names()`) | the names `Font.bundled` takes, in order | |
 | `font.axes` | property | its variable axes by tag, each a `Param` named by the tag, with the font's range, default and name, in the font's order (Python: a new dict each time; Rust: `Font::axes()`, a list). Only an axis that can vary and is named by a `Param` name is listed: one pinned (minimum equal to maximum), with a tag that is not a name or a repeat of an earlier tag is left out, and is still set by its tag, and a refusal names it | |
 | `font.features` | property | the OpenType feature tags its `GSUB` and `GPOS` tables list, sorted (Rust: `Font::features()`) | |
-| `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value. Planned (V15b) | `len(data)` not `width × height` |
+| `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white): `data` is `height` rows of `width` bytes, top row first (Python: `bytes`, a `bytearray`, a `memoryview`, a `numpy` array of `uint8` or any contiguous 8-bit buffer, or a list of whole numbers from 0 to 255; Rust: `Field::map(w, h, &bytes, Some(rect), Some("name"))`). It lies over `box` `(x, y, width, height)` in design units (default: one pixel a map pixel, from the origin); a pixel's value stands at its centre, the field is bilinear between centres and holds the nearest edge value beyond the box. A saved drawing names it (an input of kind `map`, with its SHA-256) and the loader supplies the bytes. At most 2^26 pixels | `len(data)` not `width × height`; a size of 0 or past 2^26 pixels; a `box` not finite, past ±1e100 or with no width or height; a `name` that is not letters, digits and `_` |
+| `field.to_map` | `to_map(width, height, *, box=None, low=0, high=1)` (Rust: `to_map(w, h, Some(rect), low, high)`) | the field written out as an 8-bit grayscale map, as `bytes` (Rust: `Vec<u8>`), `height` rows of `width` bytes, top row first: each pixel is the field at its centre over `box` (default as for `Field.map`), `low` written as 0 and `high` as 255, linear between, held beyond, rounded to the nearest level. It is the input form of `Field.map` and of image's `relight` (`Field.distance(word, normalized=True).to_map(w, h, box=frame)` is a bevel: 0 on the edge, rising inwards); a raw distance in pixels needs a `low` and `high` (`-bevel` to `0`) to keep its range | `width` or `height` of 0 or past 2^26 pixels in all; `box` as for `Field.map`; `high` not above `low` or either not finite |
+| `field.contours` | `contours(levels, *, box, step)` (Rust: `contours(&[levels], rect, step)`) | the lines where the field equals each of `levels` (a number or a list), as one `Path`: marching squares over `box` cut into equal cells no wider than `step`, the field read at their corners and a line crossing a cell edge at the linear interpolation of the two readings (a reading equal to the level counts as above it; a saddle joins its high corners when the mean of its four is high). A line that reaches the box ends there, open; any other is closed. Levels are made in the order given. To follow a map's pixels, give `box` the box of the pixel centres (the map's box inset half a pixel) and a `step` of one pixel. Like `Path.arc` it is a value, not a step: a saved drawing holds its path data | `levels` more than 256 or not finite; `step` not above 0, or a grid of over 4 million nodes; `box` as for `Field.map`; more than `MAX_SEGMENTS` points |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
-| `Field.distance` | `Field.distance(path, *, normalized=False)` | from a `Path`: signed distance to the nearest outline in pixels, negative inside (nonzero rule); normalised: inside each part (an outline with its holes) 0 on its outer edge rising to 1 on its holes' edges (`d / (d + distance to the holes)`), or, for a part with no hole, to 1 at its deepest point (`d` over its largest inscribed radius, estimated to about a percent), 0 outside and inside a hole. Where parts overlap the distance is to the nearest edge of any: `resolve` first | `GeometryError`: `path` has no edge |
+| `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Path`, a `Shape` or a `Drawing` (all its shapes together; a `hatch` step reads the drawing again with the values it draws with, so a headline whose weight is a `Param` is hatched along its outline at that weight): signed distance to the nearest outline in pixels, negative inside (nonzero rule); normalised: inside each part (an outline with its holes) 0 on its outer edge rising to 1 on its holes' edges (`d / (d + distance to the holes)`), or, for a part with no hole, to 1 at its deepest point (`d` over its largest inscribed radius, estimated to about a percent), 0 outside and inside a hole. Where parts overlap the distance is to the nearest edge of any: `resolve` first | `GeometryError`: the drawing has no edge; the drawing's own error |
 | `field.at` | `at(x, y)` | the field's number at a point | |
-| `Flow.angle` | `Flow.angle(angle)` | the same direction everywhere, clockwise from the right on screen; 30 and 210 are the same | |
-| `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | smooth seeded noise directions (value noise turning the direction half a turn each way); `phase` in cycles moves it, one cycle on is the same flow | `wavelength` not above 0 |
-| `Flow.contour` | `Flow.contour(path)` | the direction of the nearest outline of `path`, turned smoothly between neighbouring edges | `GeometryError`: `path` has no edge |
-| `flow.mix` | `mix(other, fraction)` | `fraction` 0..1 of the way to `other`, blended in doubled-angle space, so a direction and its opposite count as the same and never cancel; where the two cancel exactly the first flow's direction stands. A mix holds at most 64 flows and nests at most 16 deep | `fraction` outside 0..1; more flows or depth |
+| `Flow.angle` | `Flow.angle(angle)` | the same direction everywhere, clockwise from the right on screen; 30 and 210 are the same; a number or a `Param` | a per-item number |
+| `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | smooth seeded noise directions (value noise turning the direction half a turn each way); `phase` in cycles moves it, one cycle on is the same flow; `wavelength` and `phase` may be `Param`s | `wavelength` not above 0; a per-item number |
+| `Flow.contour` | `Flow.contour(drawing)` | the direction of the nearest outline of a `Path`, `Shape` or `Drawing` (as for `Field.distance`), turned smoothly between neighbouring edges of one outline, and blended over every edge about as near as the nearest (weights fall to 0 at twice its distance), so the direction turns across the middle of a stroke instead of jumping from one edge's to the other's. Where two edges meet at a right angle the blend cancels on the bisector: a line field has a defect there | `GeometryError`: the drawing has no edge; the drawing's own error |
+| `flow.mix` | `mix(other, fraction)` | `fraction` (a number or a `Param`) 0..1 of the way to `other`, blended in doubled-angle space, so a direction and its opposite count as the same and never cancel; where the two cancel exactly the first flow's direction stands. A mix holds at most 64 flows and nests at most 16 deep | `fraction` outside 0..1; more flows or depth |
 | `flow.at` | `at(x, y)` | the direction at a point in degrees, from 0 up to 180 | |
 
-A `Field` or a `Flow` is a value, built once from literal numbers and a path (a grid of the path's edges makes it quick to
-read) and part of the drawing that uses it. In V15a a Param or per-item number in one is refused (a noise `phase` as a Param is V15b), and
-`Field.distance` and `Flow.contour` read one path, not a drawing, so a drawing with a Param is not frozen at its defaults by accident. A `Field` or `Flow` prints as its call (`Flow.angle(45)`) and equals another made by the same call; in a document the path is the argument `drawing`, one path written `[{"path": "..."}]`.
+A `Field` or a `Flow` is a value, built once (a grid of an outline's edges makes it quick to read) and part of the
+drawing that uses it. Its numbers (`Field.constant`'s value, `Flow.angle`'s angle, `Flow.noise`'s `wavelength` and `phase`,
+`flow.mix`'s fraction) may be `Param`s or expressions, never per-item numbers, and the drawings it reads are drawings:
+`field.at` and `flow.at` read them with every Param at its default, and a `hatch` step reads them again with the values
+it draws with (the step takes the drawings like `avoid`, so the cache, `parameters()` and `with_values` see them). A
+`Path` goes where a drawing is asked for. A `Field` or `Flow` prints as its call (`Flow.angle(45)`); two are equal when
+they are the same call over drawings that are the same object (or are each one path of the same data). In a document
+the drawing is the argument `drawing`, an array of calls (one path is `[{"path": "..."}]`), and a map is an input.
 
 ## Params, expressions and per-item numbers
 

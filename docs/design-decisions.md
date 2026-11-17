@@ -1454,7 +1454,7 @@ holds.
 - **`Flow` and `Field` are values, `hatch` the verb.** A field is built once from literal numbers and one path and read with
   `at`; the call that uses it is `hatch`, named as `api.md` drafted it. *Reason:* the drafted JSON (`{"Field.ramp": ...}`)
   and the drafted example already read this way. *Cost:* a Param (a noise `phase`) in a field waits for V15b.
-- **One path, not a drawing, in `Field.distance` and `Flow.contour`.** A drawing would be read at its default values when the
+- **One path, not a drawing, in `Field.distance` and `Flow.contour`** (V15a; V15b took the drawing, below). A drawing would be read at its default values when the
   field is built, so a headline whose weight is a Param would be hatched along its default outline while the letters move.
   A path has no Params, so nothing is frozen by accident. V15b evaluates a drawing with the step's values.
 - **`hatch` refuses what would be slow or stall, before it makes a line.** A lattice point looks at the cells within the
@@ -1486,7 +1486,57 @@ holds.
 - **Work is bounded before it starts.** The lattice and the sample grid together may have 4 million cells, and every sample
   is charged to `MAX_SEGMENTS`. The grid is a linked list through a `Vec` (no hashed collection, rule 4); lengths use `sqrt`,
   never `hypot` (rule 3). Same bytes on every target: the SVG of `flow_hatch` is compared in Python, Rust and Node.
-- **Straight hatching is `hatch` with `Flow.angle`.** No second routine. Crosshatch and tone levels are V15b.
+- **Straight hatching is `hatch` with `Flow.angle`.** No second routine. Crosshatch and tone levels are stacked hatch steps (V15b).
+
+## Fields and lines (V15b)
+
+- **A field or flow keeps what it was told and what it made.** Its numbers stay expressions and its drawings stay
+  drawings (`FieldKind`, `FlowKind`, what a document writes); beside them is the made value (the outline in a grid, the
+  numbers worked out) at the Params' defaults, so `at` works anywhere. A `hatch` step makes it again with the values it
+  draws with (`bind`). *Reason:* a value with a Param has no one number; the document and the cache need the unevaluated
+  form, `at` needs the evaluated one.
+- **A drawing in a field is taken by the step, like `avoid`.** `Given::drawings` lists a field's and a flow's drawings, so
+  the graph, the cache, `reads` and `MAX_DEPTH` see them and the step is handed their shapes. *Rejected:* drawing it
+  inside the step with `Drawing::shapes`: the drawing may share its cache with the drawing being drawn, and the cache's
+  lock is not re-entered (a mutant that did so hung the test; killed). *Cost:* a field over a plain path is also taken
+  and made again at every draw of the step that is not in the cache (measured: no visible time on the headline of
+  `flow_hatch`; the outline is built once per distinct value of the Params it reads).
+- **A key holds no drawing.** A field's or flow's key is its calls and numbers; its drawings are told apart by the node
+  ids of the calls that take them. *Reason:* a drawing's own key holds the keys of the drawings its steps take, once for
+  each way to reach them; nested through two fields a level, 15 levels needed gigabytes (the stack test did).
+  `==` on a field or flow is the key plus `Drawing::is_same_as`: the same object, or each a lone path of equal data.
+- **`Field.map` is bytes, an input, and sampled at pixel centres.** 8-bit, because that is what a photo is and what a
+  document can name by `sha256`; vector links no raster library. Value `b/255` at the centre of its pixel over the box,
+  bilinear between centres, clamped beyond (the nearest edge value: a photo has no edge to fall off). `to_map` samples the
+  same centres, so `Field.map(w, h, f.to_map(w, h, box=b), box=b)` is `f` at the centres within half a level. A raw
+  distance clamps almost everywhere to 0 or 1, so `to_map` takes the range to write (`low`, `high`) instead of choosing
+  one. A map is capped at 2^26 pixels (64 MiB); a larger photo is scaled down by the caller.
+- **Contour lines are a value, not a step.** `Field.contours(levels, box, step)` returns a `Path` (like `Path.arc`), by marching
+  squares followed edge to edge rather than as loose segments (no hash map, a bit per edge, deterministic). A saddle
+  joins its high corners when the mean of the four is high; a reading equal to the level counts as above it. Open where the
+  line reaches the box, closed otherwise. Not a document verb: V14's `trace` is the verb for filled regions and will take a
+  field; a saved drawing holds the path data, and a level that changes with a Param waits for it. *Cost:* the grid is
+  sampled whole (4 million nodes at most, `MAX_SEGMENTS` for the lines).
+- **Tone levels are `hatch(below=)` and passes are steps.** A level shrinks the region lines may enter to where the tone is
+  at most it, so each pass places its own lines from its own seeds and passes cross; a stack of hatch steps is a
+  crosshatch, and nothing else is new (no angle list, no pass type). The cut is where the tone passes the level within one
+  step (a quarter spacing): a line is not clipped at the exact crossing. *Rejected:* one verb with a list of (level, angle)
+  passes: it needs a list-of-pairs argument with its own limits and gives nothing a stack of steps does not.
+- **The contour direction blends the edges about as near as the nearest.** Weights `(1 - (d - d0) / d0)^2` for `d` under
+  `2 d0` (`BAND`, a constant with its reason), in doubled-angle space; along an edge `d0` is small and one edge counts
+  alone, at the middle of a stroke both count and the direction turns instead of jumping (measured on a stroke whose edges
+  differ by 21.8 degrees: a 23.7 degree jump between samples a quarter pixel apart, under 1 after). Where two edges meet
+  at a right angle the doubled vectors are opposite and cancel on the bisector: a line field must have a defect at such a
+  corner (its index is a half), so the lines of the two edges still end there. *Limit:* the blend does not remove it; a
+  hatch drops a line that ends against another line and is shorter than three spacings (`SHORTEST` was one), which
+  removes the ticks by construction; a chord (a line that leaves the region at both ends) keeps the old one-spacing floor,
+  so a coarse hatch of a small shape still draws. Measured on the headline of `flow_hatch`: at spacing 3 to 9 a fragment 8.5
+  long ended 17 pixels inside a letter before, and every line under three spacings now is a chord within a step of the
+  outline.
+- **A stack test for the new nesting.** Drawings nested 15 levels through the field and the flow of a hatch step are
+  drawn, saved, loaded and dropped on the 256 KB stack (passes at 112 KB).
+- **Limit: halftone's tone is still a number.** `halftone(tone=)` takes no field; the reference `halftone.json` (a map as the
+  tone) waits for a later batch.
 
 ## Engineering
 

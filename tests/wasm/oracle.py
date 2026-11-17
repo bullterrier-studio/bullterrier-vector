@@ -26,6 +26,12 @@ FONT_FILES = ROOT / "crates" / "core" / "tests" / "it" / "fonts"
 FONTS = {
     "fraunces": (FONT_FILES / "fraunces-subset.ttf").read_bytes(),
     "synthetic": (FONT_FILES / "synthetic.ttf").read_bytes(),
+    # a map is an input too: 16 by 16 grayscale bytes, bright on the left, with a dark spot at the lower right
+    "tone_map": bytes(
+        max(0, min(255, 40 + 14 * column - (180 if (column - 11) ** 2 + (row - 11) ** 2 < 12 else 0)))
+        for row in range(16)
+        for column in range(16)
+    ),
 }
 FRAUNCES = btvec.Font(FONTS["fraunces"], name="fraunces")
 SYNTHETIC = btvec.Font(FONTS["synthetic"], name="synthetic")
@@ -1026,6 +1032,11 @@ def hatches() -> list[Entry]:
     )
     ramp = btvec.Field.ramp((0, 0), (100, 0))
     noise = btvec.Flow.noise(wavelength=80, seed=3)
+    photo = btvec.Field.map(16, 16, FONTS["tone_map"], box=(0, 0, 100, 100), name="tone_map")
+    phase = btvec.Param("phase", default=0, min=0, max=4)
+    level = btvec.Param("level", default=0.4, min=0, max=1)
+    weight = btvec.Param("weight", default=800, min=200, max=800)
+    word = btvec.text("Hi", font=BRICOLAGE, size=96, anchor=(8, 84), axes={"wght": weight}).resolve()
     drawings = {
         "hatch_angle": framed(btvec.Drawing(box).hatch(7, flow=btvec.Flow.angle(20)).stroke(INK, width=1)),
         "hatch_noise_ramp": framed(btvec.Drawing(box).hatch((3, 9), tone=ramp, flow=noise).stroke(INK, width=1)),
@@ -1044,7 +1055,49 @@ def hatches() -> list[Entry]:
             .stroke(INK, width=1)
         ),
     }
-    return [(name, drawing, [(100, 100, {}), (50, 50, {})]) for name, drawing in drawings.items()]
+    draws: list[Draw] = [(100, 100, {}), (50, 50, {})]
+    # V15b: values a step reads again with the values of the draw, a map as the tone, a level of tone
+    by_values: dict[str, tuple[btvec.Drawing, list[Draw]]] = {
+        "hatch_below_ramp": (
+            framed(
+                btvec.Drawing(box).hatch((6, 6), tone=ramp, flow=btvec.Flow.angle(30), below=0.5).stroke(INK, width=1)
+            ),
+            draws,
+        ),
+        "hatch_below_param": (
+            framed(
+                btvec.Drawing(box)
+                .hatch((6, 6), tone=ramp, flow=btvec.Flow.angle(120), below=level)
+                .stroke(INK, width=1)
+            ),
+            [(100, 100, {}), (100, 100, {"level": 0.8})],
+        ),
+        "hatch_map_tone": (
+            framed(
+                btvec.Drawing(box).hatch((3, 9), tone=photo, flow=btvec.Flow.angle(45), below=0.7).stroke(INK, width=1)
+            ),
+            draws,
+        ),
+        "hatch_noise_phase_param": (
+            framed(
+                btvec.Drawing(box)
+                .hatch(7, flow=btvec.Flow.noise(wavelength=90, phase=phase, seed=5))
+                .stroke(INK, width=1)
+            ),
+            [(100, 100, {}), (100, 100, {"phase": 0.5})],
+        ),
+        "hatch_text_weight_param": (
+            framed(
+                word.hatch(
+                    (2.5, 7), tone=btvec.Field.distance(word, normalized=True), flow=btvec.Flow.contour(word)
+                ).stroke(INK, width=0.8)
+            ),
+            [(100, 100, {}), (100, 100, {"weight": 300})],
+        ),
+    }
+    return [(name, drawing, draws) for name, drawing in drawings.items()] + [
+        (name, drawing, drawn) for name, (drawing, drawn) in by_values.items()
+    ]
 
 
 CORPUS_PARTS: list[Callable[[], list[Entry]]] = [

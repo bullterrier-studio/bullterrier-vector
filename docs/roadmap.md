@@ -62,7 +62,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V13 | Morph, any shape to any shape | M | Done 2026-11-16 |
 | M3 | The kinetic type piece: `examples/kinetic_type.{py,rs,mjs}`, the first public demo | S | **M3 kinetic type piece**, done 2026-11-16 |
 | V14 | Trace: grayscale levels and colour labels to outlines, steady over a sequence of maps | L | **M4 cut-paper piece** |
-| V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output (V15a done, V15b and V15c planned) | L | **M5 poster piece** |
+| V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output (V15a and V15b done, V15c planned) | L | **M5 poster piece** |
 | V16 | SVG import (logos) | S | Done 2026-11-11, trimmed |
 | V17 | Presets as JSON | S | |
 | V18 | Command line: `render`, `describe`, `list`, `validate` | S | |
@@ -73,7 +73,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines) are done; next: V15b
+unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines) and V15b (fields and lines) are done; next: V15c
 (see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
 Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12, V13 and M3 are done; V15 (before V14) follows.
@@ -539,7 +539,7 @@ differential (128 drawings), written into SVG, drawn in pixels and cut into the 
 "Style"; `design-decisions.md`, "Style effects (V10)"). The SVG is checked against the pixels by rendering it with
 `resvg` in the core tests; multiply was found to agree. A blurred shadow stays a `ParameterError` in `to_mesh`: the mesh
 format is untouched, so allowing it later adds a draw-range kind and breaks no caller. The halftone `tone` is a number
-until a `Field.map` tone (V15b; V15a built `Field` for `hatch`); a screen of 3,000 dots takes 20 ms in pixels and about 70 ms as SVG or mesh,
+until a `Field` tone (V15a built `Field` for `hatch`, `Field.map` is V15b; `halftone` reads a number only); a screen of 3,000 dots takes 20 ms in pixels and about 70 ms as SVG or mesh,
 against about 500 ms for a boolean per dot (`benchmarks.md`).
 
 ## V10d Paint and compositing style
@@ -664,16 +664,21 @@ varying with a tone, an avoided drawing, closed loops, on a `Path` and as a step
 `examples/flow_hatch.py` in the three languages. Straight hatching clipped to a shape is `hatch` with `Flow.angle`. Reasons and
 limits: `design-decisions.md`, "Fields and streamlines (V15a)".
 
-**V15b.** `Field.map` (a grayscale map in, the tone of a photo) and Params in a `Field` or a `Flow` (a noise `phase`); a drawing,
-not one path, in `Field.distance` and `Flow.contour` (evaluated with the step's values); crosshatch and hatching by tone levels;
-contour lines of a field or a map; a `Flow.contour` direction that does not flip at the medial axis of a stroke (found by the demo: lines along one edge meet lines along the other and stop, leaving stubs; the direction of the nearest edge is the cause); a distance field written out as a grayscale map for image's `relight`.
+**V15b, done 2026-11-17.** `Field.map` (8-bit grayscale bytes in, bilinear, placed by a `box`; an input of kind `map` in
+documents) and `field.to_map` (a distance field out for image's `relight`, over a `low` to `high` range), `field.contours` (marching
+squares: open lines at the frame, closed loops inside), Params in the numbers of a `Field` or a `Flow` (an angle, a `phase`, a
+`fraction`) and a drawing in `Field.distance` and `Flow.contour` (a `hatch` step reads both with the values it draws with),
+`hatch(below=)` (crosshatch and tone levels are stacked steps), and a `Flow.contour` direction blended across the middle of a
+stroke; in Rust, Python and documents (so WebAssembly), with `examples/flow_hatch.py` in the three languages following the
+headline's weight. Reasons and limits: `design-decisions.md`, "Fields and lines (V15b)". Left for V15c or later: a
+document verb for contour lines (V14's `trace` takes a field), a field in `halftone`'s `tone`, Params in a ramp's points.
 
 **V15c.** Tone-driven line families (rows displaced by tone, ridgelines with hidden lines removed, lines whose width carries
 tone along waves, rings, a spiral or rays, stippled dots; [dither-and-print.md](dither-and-print.md)), plotter output (stroke
 only, ordered to reduce pen travel, simplified, solids as pen-width hatching, one layer per pen) and the M5 poster piece.
 
 Distance fields have a second job: a signed, normalised distance field of letters or shapes is the relief that
-image's `relight`, and later `glass`, light. Written out as a grayscale map (bytes; the call is not designed yet, and `Field.map` only reads maps in), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link
+image's `relight`, and later `glass`, light. Written out as a grayscale map (`field.to_map`, V15b: bytes, the input form of `Field.map`), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link
 between image and vector. Chrome type already works without it: scene's C5 example lights the headline's own brightness (`relight` with `field="light"`, a light fill). The distance field is a later refinement, and gives a bevel that also reaches outside the letters only if image lets a look change alpha.
 
 Placement that stays stable as values change (design.md, D7) is needed before hatching is animated; the poster is a
