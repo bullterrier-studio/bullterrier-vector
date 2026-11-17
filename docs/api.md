@@ -37,10 +37,11 @@ import bullterrier_vector as btvec
 | [brush_taper.py](../examples/brush_taper.py) | a brush stroke that thins at its ends, drawn on |
 | [wobble_outline.py](../examples/wobble_outline.py) | a small noise wobble; a font axis as a described parameter |
 | [bent_type.py](../examples/bent_type.py), [.rs](../crates/core/examples/bent_type.rs), [.mjs](../crates/wasm/examples/bent_type.mjs) | the deformer half of piece 1, in all three languages: a line that arches, ripples, twists and wobbles on `progress` and `phase` |
+| [flow_hatch.py](../examples/flow_hatch.py), [.rs](../crates/core/examples/flow_hatch.rs), [.mjs](../crates/wasm/examples/flow_hatch.mjs) | a headline hatched along its own outline, closer at the edge, in all three languages |
 | [glyph_morph.py](../examples/glyph_morph.py), [.rs](../crates/core/examples/glyph_morph.rs), [.mjs](../crates/wasm/examples/glyph_morph.mjs) | a letter that turns into a circle and CAT into HORSE on one `progress`, in all three languages |
 | [glyph_scatter.py](../examples/glyph_scatter.py) | letters split into parts, scattered by seeded random numbers |
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
-| [halftone.py](examples/halftone.py) | halftone dots from a tone map (a `Field` tone, V15) |
+| [halftone.py](examples/halftone.py) | halftone dots from a tone map (a `Field` tone, V15b) |
 | [halftone.py](../examples/halftone.py) | discs filled with a screen of dots, a tone each, over paper |
 | [cut_type.py](../examples/cut_type.py) | a headline faded by one mask, over stripes clipped to a circular window |
 | [gradient_type.py](../examples/gradient_type.py) | a headline filled with one gradient across the frame, a glow and a ring with radial ones |
@@ -190,7 +191,7 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | `envelope` | `envelope(top, bottom=None, *, frame=None, amount=1)` | the `frame` `(x, y, width, height)` (a `Rect` or four numbers; default: the bounds of this `Path`, on a `Drawing` the bounds of all its shapes read when the step is drawn, so one frame is shared and a line of text keeps its height among its lines) mapped onto the region between the curve `top` and the curve `bottom` (default: the frame's own straight bottom edge `y = y0 + height`): a point `(x, y)` goes to `lerp(T(u), B(u), v)`, `u = (x - x0) / width` and `v = (y - y0) / height`, `T(u)` and `B(u)` the points `u` of the way along the arc length of `top` and `bottom`. A column of the frame stays a straight line from `T(u)` to `B(u)`, so the columns of a word stay straight and shear, which `along` (letters fanned round the curve) does not; to keep every column's height give `bottom` as `top` moved down by the frame's height. `top` and `bottom` set the orientation: v = 0 lies on `top`, so a `bottom` curve lying above `top` flips the word upside down (swapping the two mirrors the result: each point goes to the original's with v replaced by 1 - v), and curves that cross fold it. The curves are walked as `along` walks a guide (sub-paths in order as one length): `u` outside 0 to 1 goes on straight past an open curve's ends, a closed curve wraps and its seam is at its start (`u` = 0 and `u` = 1 are the same point). `amount` (a number; on a `Drawing` per item, a Param allowed) blends each edge between the frame's straight edge (0) and the curve (1), `T_eff(u) = lerp(straight(u), T(u), amount)`, any finite number: 0 is the identity, above 1 exaggerates, below 0 bends the other way; it is how a bend animates, `top` and `bottom` being literal paths. The path is flattened and each edge cut into equal pieces of at most a 256th of the frame's width, every vertex kept (corners stay corners): every point of the result is within 0.05 pixel plus 0.2% of its displacement of the exact image on the shapes the tests hold it to; the result is straight lines, each sub-path keeping its closedness, a lone point is moved, an empty path stays empty. On a `Drawing` shapes keep style, attributes and `origin` (not moved). Rust: `drawing.envelope(&top, Envelope::new().bottom(&b).frame(rect).amount(&p))`, `path.envelope(&top, Some(&b), Some(rect), 1.0)` | `ParameterError`: `frame` NaN, infinite, past 1e100, with a width or height not above 0 (a line has no frame of its own to default to: give `frame`), or more than `MAX_SEGMENTS` pieces (counted before any is made); `amount` NaN, infinite or sending a point past 1e100; `GeometryError`: `top` or `bottom` empty or of no length; `FormatError` naming `frame`: a document `frame` without four numbers |
 | `arch` | `arch(bend, *, frame=None)` | the classic arch on the same map as `envelope` (`frame` as there): the whole band of the frame (top and bottom edge alike) is lifted by a parabola through the frame's corners whose middle is `bend * width` above them (`bend` negative: below, a sag; `y` is down, so positive lifts up the screen), so the frame's height is kept at every column, `-bend` is the exact mirror of `bend`, and a point `(x, y)` goes to `(x, y - 4 bend width u (1 - u))`. `bend` 0 is the identity. The lift is a share of the frame's WIDTH, not its height: a 365 px word with `bend` 0.3 rises 110 px, a long word wants a small `bend`. A flat baseline under a curved top is `envelope(top=<curve>)`. The parabola is closed form: `u` follows `x`, so the horizontal spacing of the letters of a word is kept (`envelope` with an arc spaces them by arc length). `bend` is a number; on a `Drawing` per item, a Param allowed, shapes keep style, attributes and `origin`. Cut and bounded as `envelope`. Rust: `drawing.arch(0.2)`, `drawing.arch(Arch::new(&b).frame(rect))`, `path.arch(0.2, None)` | `ParameterError`: `frame` as for `envelope`; `bend` NaN, infinite or sending a point past 1e100 |
 | `morph` | `morph(target, fraction)` | the outline `fraction` of the way from this path to `target`: 0 is this path, 1 is `target`, and any finite number is the straight lerp of the two (outside 0 to 1 it extrapolates, so an overshooting ease leaves the hull of the two shapes). Both are flattened as for drawing. A closed contour is an outer or a hole by the sign of its area (no area: an outer), after the whole path is reversed once if its largest contour runs the other way; closed contours pair with closed ones of the same role, open with open, nearest first by the distance between the contours' centres, each taken in the box of its own path scaled to 0..1 (ties to the lower indices, so `a.morph(b, t)` fills what `b.morph(a, 1 - t)` fills). A closed pair starts where the two outlines lie nearest (128 equal steps of length, summed squared distance; no reversal search); an open pair is joined end to end or end to start, whichever is nearer. The points of a pair are the vertices of both outlines, each at its share of the length, so 0 and 1 are the flattenings of the two paths. A contour with no partner shrinks to (or grows from) one point: the place in the other path's box that matches its centre's place in its own box, or its own centre if the other path is empty; past 1 (before 0 for a growing one) it stays that point, where a matched contour goes on along its line. A hole with no partner is wound in the other way and the result cut to the body, so it takes away what the nonzero rule says (an outer inside it stays) and never paints outside the body (the closed part is then canonical, as for `Path.subtract`); an overlapping pair of outers is not united (`resolve` first). The result is straight lines, each sub-path keeping its closedness, grouped by role in pairing order. On a `Drawing` the shape at each index pairs with the shape of `target` (a `Drawing`, `Path` or `Shape`, its shapes taken one for one, never united) at that index; `fraction` is a per-item number (a Param, `stagger` or `by_index` allowed), read with the shape's `index` and its `order` attribute (the source's for a pair, the target shape's own for one that grows; a word's glyphs carry theirs); a paired shape keeps the source's style, attributes and `origin`; a source shape with no partner shrinks to its own centre keeping its style; a target shape with no partner grows from its own centre in place, with its own style and attributes, so the result has as many shapes as the longer drawing. Rust: `path.morph(&target, 0.5)`, `drawing.morph(target, Stagger::new(&progress))` | `ParameterError`: `fraction` NaN or infinite, or sending a point past 1e100; more than `MAX_SEGMENTS` points (flattening, pairs ranked and result, counted before any is made; naming `fraction` on a `Path` and the step on a `Drawing`); on a `Drawing`, a `target` that holds an error, and more than `MAX_SHAPES` shapes |
-| `hatch` | `hatch(*, spacing=8, tone=None, flow=None, avoid=None)` | each region filled with evenly spaced open lines (below) | below |
+| `hatch` | `hatch(spacing, *, tone=None, flow=None, avoid=None)` | each region filled with evenly spaced open lines (below) | below |
 
 A deformer's result is smooth at any size, however few points the outline had: `wave`, `wobble`, `twist`, `bulge`,
 `envelope` and `arch` all cut each edge into pieces fine enough for the effect, and charge them to `MAX_SEGMENTS` before
@@ -296,18 +297,25 @@ square ends (refused)
 
 ### hatch
 
-Evenly spaced lines following `flow` inside each region: no two closer than the spacing, each
-line as long as the spacing allows, closed where a line meets its own start.
+Evenly spaced streamlines (Jobard and Lefer) of `flow` inside the region each shape fills (nonzero rule). A line
+is traced both ways from a seed and stops where it leaves the region, enters `avoid`, or comes within half a spacing of a
+point of another line; the next seeds stand one spacing to either side of a line, so lines settle one spacing apart where the
+flow is straight and split or end where it spreads or gathers. A line that comes round to its own start is closed. The
+floor is half the spacing between any two lines, never the spacing itself. Lines shorter than a spacing are dropped.
 
 | Argument | Meaning |
 |---|---|
-| `spacing` | pixels between lines; or a pair `(at tone 0, at tone 1)`, read from `tone` |
+| `spacing` | pixels between lines; or a pair `(at tone 0, at tone 1)`, linear between and held beyond, read from `tone` |
 | `tone` | a `Field` or a number; needed when `spacing` is a pair |
 | `flow` | a `Flow`; default `Flow.angle(45)` (straight hatching) |
-| `avoid` | a `Path` or `Drawing` the lines keep clear of |
+| `avoid` | a `Path`, `Shape` or `Drawing` (on a `Path`, a `Path`) the lines keep clear of |
 
-The result is open lines, so set the stroke after it. Errors: `ParameterError` for a spacing not above 0, or a pair
-without `tone`.
+The result is open lines (a shape keeps its style, so set `fill("none")` and the stroke after it). The step makes
+a path of the lines for each shape. Errors: `ParameterError` for a spacing not above 0 or beyond 1e100, a pair without
+`tone`, a shape so large next to the spacing that its grid would pass 4 million cells, or more than `MAX_SEGMENTS`
+points; a shape with no outline gives no lines. Rust: `path.hatch(&Hatch::new(8.0).flow(flow), Some(&avoid))`,
+`Hatch::between(near, far, tone)`, `drawing.hatch(&hatch, Some(&avoid_drawing))`. Not yet: a `Field.map` tone (a photo), crosshatch and tone levels, a
+Param in a field or flow, a drawing (not a path) in `Field.distance` and `Flow.contour`.
 
 ## Drawing
 
@@ -626,15 +634,19 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 | `Font.bundled_names` | `Font.bundled_names()` (Rust: `Font::bundled_names()`) | the names `Font.bundled` takes, in order | |
 | `font.axes` | property | its variable axes by tag, each a `Param` named by the tag, with the font's range, default and name, in the font's order (Python: a new dict each time; Rust: `Font::axes()`, a list). Only an axis that can vary and is named by a `Param` name is listed: one pinned (minimum equal to maximum), with a tag that is not a name or a repeat of an earlier tag is left out, and is still set by its tag, and a refusal names it | |
 | `font.features` | property | the OpenType feature tags its `GSUB` and `GPOS` tables list, sorted (Rust: `Font::features()`) | |
-| `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value | `len(data)` not `width × height` |
+| `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white), covering `box` `(x, y, width, height)` (default: one pixel a map pixel from the origin); beyond it, the nearest edge value. Planned (V15b) | `len(data)` not `width × height` |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
-| `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Drawing` or a `Path`: signed distance to the nearest outline in pixels, negative inside; normalised: inside each shape 0 on its outer edge to 1 on its holes' edges (its centre line when it has none), 0 outside | `GeometryError`: `drawing` empty when drawn |
-| `Flow.angle` | `Flow.angle(angle)` | the same direction everywhere | |
-| `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | smooth seeded noise directions; `phase` in cycles moves it | `wavelength` not above 0 |
-| `Flow.contour` | `Flow.contour(drawing)` | the direction of the nearest outline of `drawing` (a `Drawing` or a `Path`) | `GeometryError`: `drawing` empty when drawn |
-| `flow.mix` | `mix(other, fraction)` | `fraction` 0..1 of the way to `other`; a direction and its opposite count as the same, so they never cancel | `fraction` outside 0..1 |
+| `Field.distance` | `Field.distance(path, *, normalized=False)` | from a `Path`: signed distance to the nearest outline in pixels, negative inside (nonzero rule); normalised: inside each part (an outline with its holes) 0 on its outer edge rising to 1 on its holes' edges (`d / (d + distance to the holes)`), or, for a part with no hole, to 1 at its deepest point (`d` over its largest inscribed radius, estimated to about a percent), 0 outside and inside a hole. Where parts overlap the distance is to the nearest edge of any: `resolve` first | `GeometryError`: `path` has no edge |
+| `field.at` | `at(x, y)` | the field's number at a point | |
+| `Flow.angle` | `Flow.angle(degrees)` | the same direction everywhere, clockwise from the right on screen; 30 and 210 are the same | |
+| `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | smooth seeded noise directions (value noise turning the direction half a turn each way); `phase` in cycles moves it, one cycle on is the same flow | `wavelength` not above 0 |
+| `Flow.contour` | `Flow.contour(path)` | the direction of the nearest outline of `path`, turned smoothly between neighbouring edges | `GeometryError`: `path` has no edge |
+| `flow.mix` | `mix(other, fraction)` | `fraction` 0..1 of the way to `other`, blended in doubled-angle space, so a direction and its opposite count as the same and never cancel; where the two cancel exactly the first flow's direction stands. A mix holds at most 64 flows and nests at most 16 deep | `fraction` outside 0..1; more flows or depth |
+| `flow.at` | `at(x, y)` | the direction at a point in degrees, from 0 up to 180 | |
 
-A field or a flow may read Params (a noise `phase`) and is part of the drawing that uses it.
+A `Field` or a `Flow` is a value, built once from literal numbers and a path (a grid of the path's edges makes it quick to
+read) and part of the drawing that uses it. In V15a a Param or per-item number in one is refused (a noise `phase` as a Param is V15b), and
+`Field.distance` and `Flow.contour` read one path, not a drawing, so a drawing with a Param is not frozen at its defaults by accident.
 
 ## Params, expressions and per-item numbers
 
@@ -665,7 +677,7 @@ Every number a step takes may be an `Expr`:
 Except: these take literal numbers only: `Drawing`'s `size`, `Field.map`'s `width` and `height`, `text`'s `features`,
 the values of `only`, `without` and `with_values`. A per-item number is refused (`ParameterError`) where an argument is
 read once rather than per shape: `text`'s `size`, `tracking`, `leading`, `anchor` and `width` (its `axes` take one per
-character), every number of `trace`, and every number of a `Field` or a `Flow`.
+character), every number of `trace`, and every number of a `Field`, a `Flow` or a `hatch` spacing.
 
 An expression with no Param and no per-item number is a plain number: it is computed and checked when the call is made,
 like a literal. Every number is finite: NaN or an infinity raises `ParameterError`, when the call is made or when
@@ -1018,7 +1030,7 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 | # | Need | Where the API expresses it |
 |---|---|---|
 | 1 | Per-glyph variable-font layout that re-flows; tracking, stacked lines, fitting at a reference pose, outlines cached by axis location | `text(axes=..., tracking=, leading=, width=, fit=)`, per-item numbers in `axes`; caching is internal |
-| 2 | Evenly spaced streamlines with spacing from a tone, region masks, obstacles, closed loops; line fields and distance fields | `hatch(spacing=(a, b), tone=, flow=, avoid=)` inside each shape; `Flow.noise`, `Flow.contour`, `flow.mix`; `Field.distance` |
+| 2 | Evenly spaced streamlines with spacing from a tone, region masks, obstacles, closed loops; line fields and distance fields | `hatch(spacing=(a, b), tone=, flow=, avoid=)` inside each shape; `Flow.noise`, `Flow.contour`, `flow.mix`; `Field.distance` ([flow_hatch.py](../examples/flow_hatch.py)) |
 | 3 | Steady tracing over a sequence of maps: smoothing and hole persistence | `trace(before=, after=, sigma=)` |
 | 4 | Booleans that hold on overlapping, rotated glyphs; ink layers from them | `union`, `subtract`, `intersect`, `exclude`; glyph overlaps removed by `resolve`; inks as drawings with `blend("multiply")` ([kinetic_type.py](../examples/kinetic_type.py)) |
 | 5 | Shrink and grow per layer; dropping small parts and filling small holes | `offset(r).offset(-r)`, `offset(-r).offset(r)`; `drop_parts`, `fill_holes` |

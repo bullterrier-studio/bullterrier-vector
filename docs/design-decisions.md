@@ -1449,6 +1449,37 @@ holds.
 - Rust needs `seed(7.0)`: `Expr` has no `From` for integers (the sketches that said `seed(7)` were wrong; they were deleted
   with the rest of `docs/examples/kinetic_type.*`, whose `btvec.ease` never existed; `docs/examples/json` stays).
 
+## Fields and streamlines (V15a)
+
+- **`Flow` and `Field` are values, `hatch` the verb.** A field is built once from literal numbers and one path and read with
+  `at`; the call that uses it is `hatch`, named as `api.md` drafted it. *Reason:* the drafted JSON (`{"Field.ramp": ...}`)
+  and the drafted example already read this way. *Cost:* a Param (a noise `phase`) in a field waits for V15b.
+- **One path, not a drawing, in `Field.distance` and `Flow.contour`.** A drawing would be read at its default values when the
+  field is built, so a headline whose weight is a Param would be hatched along its default outline while the letters move.
+  A path has no Params, so nothing is frozen by accident. V15b evaluates a drawing with the step's values.
+- **A mix is a tree, blended linearly in doubled-angle space.** `(cos 2a, sin 2a)` of a direction and of its opposite are the
+  same vector, so `mix(contour(p), contour(p.reverse()), 0.5)` is `contour(p)` where a plain blend of the vectors cancels to
+  nothing. The weighted sum is linear, so the tree evaluates in any grouping; the tree is kept (not flattened to weights) so that
+  a document written again is the same text. Depth 16 and 64 leaves are enforced where `mix` builds it (rule 7); the stack
+  test reads, writes and hatches the deepest. Exactly cancelling parts keep the first flow's direction.
+- **A contour's direction is smooth along the polygon.** The nearest edge's tangent, turned half way into the neighbour's at
+  each vertex: a piecewise-constant tangent made a line round a ring wander 4 pixels (measured: a loop of radius 100 spread
+  95 to 99); with the blend it stays within 1.5.
+- **Normalised distance has two definitions.** A part with holes: `d / (d + h)`, exactly 0 on the outer edge and 1 on a hole's
+  edge. A part with none: `d` over its largest inscribed radius (probes on a 48 by 48 grid and three rounds of refinement,
+  about 1 percent), so a stroke's middle line is 1 only if the stroke is as thick as the letter's thickest part. The drafted
+  "centre line" would need a medial axis. *Cost:* the thin stem of a letter with a fat bowl peaks below 1.
+- **Streamlines.** Jobard and Lefer: lines stop at half the spacing from another line's samples (the floor; a line is never
+  promised a full spacing from its neighbour), seeds stand one spacing from a sample, and a lattice of the narrowest spacing
+  finds a start for every part of the region. Steps are a quarter of the local spacing, midpoint rule. Under a tone, a seed is
+  tested against the spacing of the line it comes from, so the gap between lines follows the tone line by line. All six
+  constants are `// constant:` in `field/hatch.rs`. A line shorter than a spacing is dropped. *Cost:* near a boundary or where
+  lines gather, short stubs and gaps up to two spacings remain.
+- **Work is bounded before it starts.** The lattice and the sample grid together may have 4 million cells, and every sample
+  is charged to `MAX_SEGMENTS`. The grid is a linked list through a `Vec` (no hashed collection, rule 4); lengths use `sqrt`,
+  never `hypot` (rule 3). Same bytes on every target: the SVG of `flow_hatch` is compared in Python, Rust and Node.
+- **Straight hatching is `hatch` with `Flow.angle`.** No second routine. Crosshatch and tone levels are V15b.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

@@ -8,7 +8,7 @@ The ecosystem view is the design repository's `dither-and-print.md`.
 | Item | What it is | Batch |
 |---|---|---|
 | Tracing a dithered label map | A palette index per pixel, in square cells of a known size, traced exactly into straight-edged regions, one group per colour, a cap on colours: dither and posterize to SVG. Curve fitting would round the cells. | V14 (row added) |
-| Tone-driven line families | Rows displaced by tone (ridgelines, waveforms; hidden lines removed), lines whose width carries tone along waves, rings, a spiral or rays, hatching and crosshatching by tone levels, stippled dots. Plotter output applies. | V15 (row added) |
+| Tone-driven line families | Rows displaced by tone (ridgelines, waveforms; hidden lines removed), lines whose width carries tone along waves, rings, a spiral or rays, hatching and crosshatching by tone levels, stippled dots. Plotter output applies. | V15c (row added; V15a built the `hatch` it rests on) |
 | Halftone dot shapes | The `halftone` style draws round dots on a lattice. Add square, ellipse, diamond and a caller's path as the dot. | effects track |
 | Halftone screen geometry | The lattice laid along waves, rings, a spiral or rays, as image's `halftone` will be: the same names and meanings, so a look reads the same in both (design.md, "Colour effects" keeps colour effects consistent the same way). | effects track |
 | Character grids as text | A grid of characters from a caller (image's `ascii` gives one) set as real SVG text. Needs a monospaced bundled font: the bundled fonts are proportional. Check whether `text` with lines already lays out a grid; the font may be the only gap. | effects track |
