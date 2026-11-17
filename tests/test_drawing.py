@@ -1066,6 +1066,12 @@ def row(path: str, fill: str | None = BLACK, stroke: str | None = None, opacity:
     return (path, fill, stroke, opacity, blend)
 
 
+PADDED = (
+    "M-0.5 -0.5000000005 L-0.5000000005 -0.5 L-0.5000000005 0.5 L-0.5000000005 1.5 L-0.5 1.5000000005 "
+    "L0.5 1.5000000005 L1.5 1.5000000005 L1.5000000005 1.5 L1.5000000005 0.5 L1.5000000005 -0.5 "
+    "L1.5 -0.5000000005 L0.5 -0.5000000005 Z"
+)
+
 VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any]]] = {
     "path": (lambda: Drawing(SQUARE), {}, [row(RECT)]),
     "shape": (lambda: Drawing(*SQUARE.fill("#ff0000").shapes()), {}, [row(RECT, "#ff0000ff")]),
@@ -1168,6 +1174,23 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
     ),
     # no cell may have a dot: nothing is drawn (where the dots lie is checked against their counts in the Rust tests)
     "stipple": (lambda: Drawing(SQUARE).stipple(5, tone=0, radius=1, density=(0, 0)), {}, [row("")]),
+    # a one-pixel map: the region closes half a pixel past the pixel on every side (the padding), by hand;
+    # two cells of a map are the two unit squares
+    "trace_levels": (
+        lambda: Drawing.trace_levels(btvec.Field.map(1, 1, b"\xff"), 0.5, tolerance=0),
+        {},
+        [row(PADDED)],
+    ),
+    "trace_labels": (
+        lambda: Drawing.trace_labels(btvec.Field.map(1, 1, b"\xff"), tolerance=0),
+        {},
+        [row(PADDED)],
+    ),
+    "trace_cells": (
+        lambda: Drawing.trace_cells(btvec.Field.map(2, 1, bytes([0, 1])), 1),
+        {},
+        [row("M0 0 L1 0 L1 1 L0 1 Z"), row("M1 0 L2 0 L2 1 L1 1 Z")],
+    ),
     "fill": (lambda: Drawing(SQUARE).fill("#0000ff"), {}, [row(RECT, "#0000ffff")]),
     "stroke": (lambda: Drawing(SQUARE).stroke("#00ff00"), {}, [row(RECT, None, "#00ff00ff")]),
     "opacity": (lambda: Drawing(SQUARE).opacity(0.5), {}, [row(RECT, opacity=0.5)]),
