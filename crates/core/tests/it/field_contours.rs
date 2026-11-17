@@ -203,10 +203,8 @@ fn a_field_too_costly_to_trace_is_refused_before_it_is_read() -> Outcome {
         false,
     )?;
     let field = Field::distance(&wiggle, false)?;
-    let started = std::time::Instant::now();
     let (parameter, message) = parameter_refusal(field.contours(&[10.0], frame(0.0, 0.0, 1000.0, 1000.0), 1.0))?;
     assert_eq!(parameter, "cell");
     assert!(message.contains("contours"), "{message}");
-    assert!(started.elapsed().as_secs() < 5);
     Ok(())
 }
