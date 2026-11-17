@@ -1,6 +1,7 @@
 //! `Path::rows` through the public API. Oracles: rows of a flat tone are straight lines at heights worked out by hand;
 //! a ramp tone makes straight displaced rows, so the nearer rows' silhouettes are known exactly and every drawn point is
-//! checked against them (none behind a nearer row); the region is checked with `Path::contains`.
+//! checked against them (none behind a nearer row); every drawn point is checked to lie inside the
+//! region, a circle, by its distance from the centre.
 
 use crate::common::{Outcome, lines, parameter_refusal};
 use bullterrier_vector::{Field, Path, Rect, Rows};
@@ -83,6 +84,12 @@ fn no_drawn_point_lies_behind_a_nearer_rows_silhouette() -> Outcome {
         let (a, b) = (row[at], row[at + 1]);
         a.1 + (b.1 - a.1) * (x - a.0) / (b.0 - a.0)
     };
+    // a nearer row covers x where it is inside the region (y >= 0) at the point at x, or at both points either side of it;
+    // a part lifted out of the region hides nothing
+    let covers = |row: &[(f64, f64)], x: f64| {
+        let at = (0..39).take_while(|i| f64::from(i + 1) * 5.0 <= x).count();
+        row[at].1 >= 0.0 && (x - row[at].0 < 1e-9 || row[at + 1].1 >= 0.0)
+    };
     let mut drawn = 0;
     for (points, _) in &found {
         // which row is it: the one whose base the first point's tone lifts to its height
@@ -92,7 +99,8 @@ fn no_drawn_point_lies_behind_a_nearer_rows_silhouette() -> Outcome {
             .ok_or("a drawn point is on no row")?;
         for p in points {
             drawn += 1;
-            for nearer in &silhouettes[row + 1..] {
+            assert!(p.1 >= -1e-9, "({}, {}) lies outside the region", p.0, p.1);
+            for nearer in silhouettes[row + 1..].iter().filter(|nearer| covers(nearer, p.0)) {
                 let wall = height(nearer, p.0);
                 assert!(
                     p.1 <= wall + 1e-6,
@@ -108,8 +116,16 @@ fn no_drawn_point_lies_behind_a_nearer_rows_silhouette() -> Outcome {
         drawn < full * 9 / 10,
         "{drawn} of {full}: hidden lines were not removed"
     );
-    let front = found.last().ok_or("no rows")?;
-    assert_eq!(front.0.len(), 41, "the nearest row is drawn whole");
+    // the nearest row is drawn at every one of its points inside the region
+    let front = &silhouettes[9];
+    for point in front.iter().filter(|point| point.1 >= 0.0) {
+        assert!(
+            found.iter().any(|(points, _)| points
+                .iter()
+                .any(|p| (p.0 - point.0).abs() < 1e-9 && (p.1 - point.1).abs() < 1e-9)),
+            "{point:?} of the nearest row is not drawn"
+        );
+    }
     Ok(())
 }
 
@@ -128,11 +144,11 @@ fn a_row_is_cut_where_the_one_in_front_crosses_it() -> Outcome {
         }),
         None,
     )?;
-    let found = lines(&rect(100.0, 20.0)?.rows(&Rows::new(10.0, tone, 20.0)?)?)?;
-    // the back row stays at 5; the front row, 15 - 20 tone, meets it at tone 1/2, x = 50, and passes above it after
+    let found = lines(&rect(100.0, 20.0)?.rows(&Rows::new(10.0, tone, 10.0)?)?)?;
+    // the back row stays at 5; the front row, 15 - 10 tone, meets it at tone 1, x = 75, and runs along it after
     let back = &found[0].0;
     assert!(
-        (back[0].0 - 0.0).abs() < 1e-9 && (back[back.len() - 1].0 - 50.0).abs() < 1e-6,
+        (back[0].0 - 0.0).abs() < 1e-9 && (back[back.len() - 1].0 - 75.0).abs() < 1e-6,
         "{back:?}"
     );
     assert!(back.iter().all(|p| (p.1 - 5.0).abs() < 1e-9));
@@ -141,19 +157,51 @@ fn a_row_is_cut_where_the_one_in_front_crosses_it() -> Outcome {
 }
 
 #[test]
-fn rows_stay_inside_the_region() -> Outcome {
+fn every_drawn_point_lies_inside_the_region() -> Outcome {
+    // a ramp lifts the rows by up to 40, far past the top of the circle: the lifted parts outside are cut away
     let region = Path::circle((100.0, 100.0), 60.0)?;
-    let rows = Rows::new(8.0, Field::ramp((0.0, 0.0), (200.0, 0.0))?, 10.0)?;
-    for (points, _) in lines(&region.rows(&rows)?)? {
+    let rows = Rows::new(8.0, Field::ramp((0.0, 0.0), (200.0, 0.0))?, 40.0)?;
+    let found = lines(&region.rows(&rows)?)?;
+    assert_ne!(found.len(), 0);
+    for (points, _) in found {
         for p in points {
-            // the row's base is inside: lift it back by the displacement the ramp gives there
-            let base = (p.0, p.1 + 10.0 * (p.0 / 200.0).clamp(0.0, 1.0));
-            assert!(
-                libm::hypot(base.0 - 100.0, base.1 - 100.0) <= 60.0 + 0.05,
-                "{p:?} is outside"
-            );
+            assert!(libm::hypot(p.0 - 100.0, p.1 - 100.0) <= 60.0 + 0.05, "{p:?} is outside");
         }
     }
+    Ok(())
+}
+
+#[test]
+fn a_part_lifted_out_of_the_region_hides_nothing() -> Outcome {
+    // the 2 by 2 map of `a_row_is_cut_where_the_one_in_front_crosses_it`, lifted by 40: the front row, 15 - 40 tone with
+    // tone = (x - 25) / 50, passes over the back row (y = 5) at x = 37.5 and leaves the region (y = 0) at x = 43.75.
+    // Past there the back row shows again, up to a step (5) early or late where the region's edge falls between points.
+    let tone = Field::map(
+        2,
+        2,
+        &[0, 0, 0, 255],
+        Some(Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 20.0,
+        }),
+        None,
+    )?;
+    let found = lines(&rect(100.0, 20.0)?.rows(&Rows::new(10.0, tone, 40.0)?)?)?;
+    let back: Vec<&Vec<(f64, f64)>> = found
+        .iter()
+        .map(|(points, _)| points)
+        .filter(|points| points.iter().all(|p| (p.1 - 5.0).abs() < 1e-9))
+        .collect();
+    assert_eq!(back.len(), 2, "the back row in two pieces: {found:?}");
+    let ends = |piece: &Vec<(f64, f64)>| (piece[0].0, piece[piece.len() - 1].0);
+    let (first, second) = (ends(back[0]), ends(back[1]));
+    assert!(first.0.abs() < 1e-9 && (first.1 - 37.5).abs() < 1e-6, "{first:?}");
+    assert!(
+        (second.0 - 43.75).abs() <= 5.0 && (second.1 - 100.0).abs() < 1e-9,
+        "{second:?}"
+    );
     Ok(())
 }
 

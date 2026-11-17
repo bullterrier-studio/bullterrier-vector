@@ -61,7 +61,7 @@ impl Path {
 
 /// The pieces of one polyline inside `outline`, each with whether it is closed: every edge is cut where it crosses the
 /// outline, and each part between two cuts is inside or out by its middle.
-fn cut(
+pub(crate) fn cut(
     points: &[Point],
     closed: bool,
     outline: &Outline,

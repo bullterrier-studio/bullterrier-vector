@@ -8,7 +8,8 @@
     reason = "the counts of rows and samples are checked against MAX_SAMPLES before they are used"
 )]
 
-use crate::field::{Field, once, read, segment_budget};
+use super::within::cut;
+use crate::field::{Field, Outline, once, read, segment_budget};
 use crate::geometry::{MAX_COORDINATE, Point};
 use crate::path::{Path, Region};
 use crate::{Error, Expr, Values};
@@ -68,7 +69,9 @@ impl Rows {
 impl Path {
     /// Ridgelines inside the region this path fills (nonzero rule): rows `spacing` apart, lifted by `amplitude` times
     /// `tone` (see [`Rows::new`]), each cut where a nearer row's silhouette passes over it. Rows run left to right, from
-    /// the top of the picture down, in pieces where the region or a nearer row interrupts them. The tone is read at the
+    /// the top of the picture down, in pieces where the region or a nearer row interrupts them. A row starts where its
+    /// base is inside the region and is drawn only where it is still inside once lifted; the part lifted out of the
+    /// region is cut away and hides nothing, so the rows behind it show again. The tone is read at the
     /// point of the row before it is lifted. A Param is read at its default here; a `rows` step reads it with the values
     /// it draws with. An empty path gives an empty path.
     ///
@@ -110,6 +113,24 @@ impl Path {
         let region = Region::of(self, charge)?;
         let Some((top, bottom)) = region.extent() else {
             return Ok(Path::new());
+        };
+        // the same flattening the region was charged for
+        let Ok(outline) = Outline::from_polylines(&self.flattened(&mut |_| Ok(()))?, "rows") else {
+            return Ok(Path::new());
+        };
+        let mut cut_visits = 0.0;
+        let mut work = |edges: usize| {
+            cut_visits += edges as f64;
+            if cut_visits > MAX_VISITS {
+                Err(Error::parameter(
+                    "spacing",
+                    format!(
+                        "is too small for a region this detailed: cutting to it would pass {MAX_VISITS} edge visits"
+                    ),
+                ))
+            } else {
+                Ok(())
+            }
         };
         let (left, right) = self_x_extent(self)?;
         let step = STEP * spacing;
@@ -171,12 +192,22 @@ impl Path {
                     })
                     .collect();
                 for run in visible(&points) {
-                    charge(run.len())?;
-                    row.push(Path::polyline(run, false)?);
+                    for (piece, _) in cut(&run, false, &outline, &mut work)? {
+                        charge(piece.len())?;
+                        row.push(Path::polyline(piece, false)?);
+                    }
                 }
+                // a row runs left to right, so each of its parts inside the region is a stretch of x
+                let lifted: Vec<Point> = points.iter().map(|(point, _)| *point).collect();
+                let inside: Vec<(f64, f64)> = cut(&lifted, false, &outline, &mut work)?
+                    .iter()
+                    .map(|(piece, _)| (piece[0].x, piece[piece.len() - 1].x))
+                    .collect();
                 for (point, _) in &points[1..points.len() - 1] {
-                    let at = lattice.partition_point(|x| *x < point.x);
-                    horizon[at] = horizon[at].min(point.y);
+                    if inside.iter().any(|(from, to)| (*from..=*to).contains(&point.x)) {
+                        let at = lattice.partition_point(|x| *x < point.x);
+                        horizon[at] = horizon[at].min(point.y);
+                    }
                 }
             }
             drawn.push(row);
