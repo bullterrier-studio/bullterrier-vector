@@ -194,10 +194,10 @@ list given at draw time (`to_png(..., pulse=[...])`) is not: it is a value of th
 |---|---|---|
 | `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | `width`, `height` (literal whole numbers from 1), `data` (input; `name` names the input, not an argument here), `box` (`[x, y, width, height]`) |
 | `Field.ramp` | `Field.ramp(start, end)` | `start`, `end` (points) |
-| `Field.distance` | `Field.distance(path, *, normalized=False)` | `drawing` (one path, `[{"path": "..."}]`: a drawing with other calls is refused until V15b), `normalized` (`true` or `false`) |
-| `Flow.angle` | `Flow.angle(angle)` | `angle` |
+| `Field.distance` | `Field.distance(path, *, normalized=False)` | `drawing` (the argument `path` of the call: one path, `[{"path": "..."}]`; a drawing with other calls is refused until V15b), `normalized` (`true` or `false`) |
+| `Flow.angle` | `Flow.angle(angle)` | `angle` (degrees) |
 | `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | `wavelength`, `phase`, `seed` (whole number) |
-| `Flow.contour` | `Flow.contour(path)` | `drawing` (one path, `[{"path": "..."}]`, as `Field.distance`) |
+| `Flow.contour` | `Flow.contour(path)` | `drawing` (the argument `path` of the call, written as for `Field.distance`) |
 | `Flow.mix` | `flow.mix(other, fraction)` | `flow`, `other` (flows), `fraction` |
 
 A field or a flow reads literal numbers: a Param or per-item number in one is refused until V15b. A `tone` or `Field` argument may also be a plain number (the same everywhere). `Flow.mix` nests (16 deep, 64 flows at most), the tree the code built, so a document written again is the same text. `hatch` with a `spacing` pair needs a `tone`. A map's `width` and `height` are literal so that the loader can check the bytes against them when they arrive.

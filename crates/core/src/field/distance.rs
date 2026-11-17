@@ -4,8 +4,9 @@ use super::outline::Outline;
 use super::segment_budget;
 use crate::Error;
 use crate::geometry::{Point, coordinate_point};
-use crate::key::{Key, Keyed};
+use crate::key::{Key, Keyed, key_of};
 use crate::path::{Path, Polyline};
+use std::fmt;
 use std::sync::Arc;
 
 /// What a field is made of, as a document writes it.
@@ -293,4 +294,26 @@ fn winding(corners: &[Point], point: Point) -> i32 {
         }
     }
     turns
+}
+
+impl PartialEq for Field {
+    fn eq(&self, other: &Self) -> bool {
+        key_of(self) == key_of(other)
+    }
+}
+
+/// The field as the call that makes it reads in the Python package: `Field.ramp((0, 0), (200, 0))`.
+impl fmt::Display for Field {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.kind {
+            FieldKind::Constant(value) => write!(f, "{value}"),
+            FieldKind::Ramp { start, end } => {
+                write!(f, "Field.ramp(({}, {}), ({}, {}))", start.x, start.y, end.x, end.y)
+            }
+            FieldKind::Distance { path, normalized } => {
+                write!(f, "Field.distance(Path.from_svg_path('{}')", path.to_svg_path())?;
+                write!(f, "{})", if *normalized { ", normalized=True" } else { "" })
+            }
+        }
+    }
 }

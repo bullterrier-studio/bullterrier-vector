@@ -90,12 +90,12 @@ impl Hatch {
         }
     }
 
-    /// The hatch a caller's values make: `spacing` is `(at tone 0, at tone 1)`, which differ only where there is a
-    /// `tone` to read; the one rule behind a call, a document and the bindings.
+    /// The hatch a document's values make: `spacing` is `(at tone 0, at tone 1)`, which differ only where there is a
+    /// `tone` to read.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `tone` if the two spacings differ and there is no tone.
-    pub fn checked(spacing: (f64, f64), tone: Option<Field>) -> Result<Self, Error> {
+    pub(crate) fn checked(spacing: (f64, f64), tone: Option<Field>) -> Result<Self, Error> {
         match tone {
             Some(tone) => Ok(Self::between(spacing.0, spacing.1, tone)),
             None if spacing.0.to_bits() == spacing.1.to_bits() => Ok(Self::new(spacing.0)),
@@ -131,7 +131,7 @@ impl Path {
     /// # Errors
     /// [`Error::Parameter`] naming `spacing` if a spacing is not above 0, or if the shape is so large next to the
     /// spacing that it would take over 4 million cells, or if the spacings are so far apart for the shape's size that
-/// placing the lines would take over a billion cell visits (a pair 1 to 1000 over a 400 by 400 shape); naming `spacing` past `MAX_SEGMENTS` points.
+    /// placing the lines would take over a billion cell visits (a pair 1 to 1000 over a 400 by 400 shape); naming `spacing` past `MAX_SEGMENTS` points.
     pub fn hatch(&self, hatch: &Hatch, avoid: Option<&Path>) -> Result<Path, Error> {
         let avoid: Vec<&Path> = avoid.into_iter().collect();
         self.hatch_charged(hatch, &avoid, &mut segment_budget("spacing"))
@@ -178,7 +178,9 @@ impl Path {
         if cells * cells.min((widest / narrowest) * (widest / narrowest)) > MAX_VISITS {
             return Err(Error::parameter(
                 "spacing",
-                format!("the widest and narrowest spacing are too far apart for a shape this large: {narrowest} to {widest}"),
+                format!(
+                    "the widest and narrowest spacing are too far apart for a shape this large: {narrowest} to {widest}"
+                ),
             ));
         }
         let mut run = Run {

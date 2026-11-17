@@ -4,10 +4,11 @@ use super::outline::Outline;
 use super::{length, segment_budget};
 use crate::Error;
 use crate::geometry::{Point, finite};
-use crate::key::{Key, Keyed};
+use crate::key::{Key, Keyed, key_of};
 use crate::math::{atan2, sin_cos_deg};
 use crate::noise::Noise;
 use crate::path::Path;
+use std::fmt;
 use std::sync::Arc;
 
 /// The most flows one flow mixes (its leaves).
@@ -267,6 +268,29 @@ impl Keyed for Flow {
                 key.of(flow);
                 key.of(other);
             }
+        }
+    }
+}
+
+impl PartialEq for Flow {
+    fn eq(&self, other: &Self) -> bool {
+        key_of(self) == key_of(other)
+    }
+}
+
+/// The flow as the call that makes it reads in the Python package: `Flow.angle(45)`.
+impl fmt::Display for Flow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &*self.node {
+            Node::Angle { degrees, .. } => write!(f, "Flow.angle({degrees})"),
+            Node::Noise {
+                wavelength,
+                phase,
+                seed,
+                ..
+            } => write!(f, "Flow.noise(wavelength={wavelength}, phase={phase}, seed={seed})"),
+            Node::Contour { path, .. } => write!(f, "Flow.contour(Path.from_svg_path('{}'))", path.to_svg_path()),
+            Node::Mix { flow, other, fraction } => write!(f, "{flow}.mix({other}, {fraction})"),
         }
     }
 }

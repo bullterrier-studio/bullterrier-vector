@@ -110,3 +110,18 @@ def test_a_path_of_two_points_encloses_nothing(points: list[tuple[int, int]]) ->
     line = btvec.Path.polyline(points)
     assert line.hatch(50).to_svg_path() == ""
     assert btvec.Field.distance(line).at(10, 50) > 0
+
+
+def test_the_angle_is_named_angle_as_in_the_document() -> None:
+    assert btvec.Flow.angle(angle=45) == btvec.Flow.angle(45)
+
+
+def test_a_field_and_a_flow_print_as_their_call_and_equal_when_they_are_the_same_call() -> None:
+    assert repr(btvec.Flow.angle(45)) == "Flow.angle(45)"
+    assert repr(btvec.Field.ramp((0, 0), (200, 0))) == "Field.ramp((0, 0), (200, 0))"
+    mixed = btvec.Flow.angle(0).mix(btvec.Flow.noise(wavelength=90, seed=4), 0.5)
+    assert repr(mixed) == "Flow.angle(0).mix(Flow.noise(wavelength=90, phase=0, seed=4), 0.5)"
+    assert btvec.Field.distance(CIRCLE) == btvec.Field.distance(CIRCLE)
+    assert btvec.Field.distance(CIRCLE) != btvec.Field.distance(CIRCLE, normalized=True)
+    assert btvec.Flow.angle(45) != btvec.Flow.angle(46)
+    assert btvec.Flow.angle(45) != btvec.Field.ramp((0, 0), (1, 1))

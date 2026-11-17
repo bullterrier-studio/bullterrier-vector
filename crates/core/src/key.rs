@@ -94,3 +94,10 @@ impl Keyed for f64 {
         key.number(*self);
     }
 }
+
+/// The key of `keyed`: two values are equal when their keys are.
+pub(crate) fn key_of(keyed: &impl Keyed) -> Vec<u64> {
+    let mut key = Key::new();
+    key.of(keyed);
+    key.finish()
+}

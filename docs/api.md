@@ -312,8 +312,10 @@ floor is half the spacing between any two lines, never the spacing itself. Lines
 
 The result is open lines (a shape keeps its style, so set `fill("none")` and the stroke after it). The step makes
 a path of the lines for each shape. Errors: `ParameterError` for a spacing not above 0 or beyond 1e100, a pair without
-`tone`, a shape so large next to the spacing that its grid would pass 4 million cells, or more than `MAX_SEGMENTS`
-points; a shape with no outline gives no lines. Rust: `path.hatch(&Hatch::new(8.0).flow(flow), Some(&avoid))`,
+`tone`, a shape so large next to the spacing that its grid would pass 4 million cells, a pair of spacings so far apart
+for the shape that placing the lines would take over a billion cell visits (1 to 1000 over 400 by 400), a spacing too small
+for the coordinates (near 1e17 a step must be at least a few units), or more than `MAX_SEGMENTS` points; a path of two
+points encloses nothing, so it gives no lines; a shape with no outline gives no lines. Rust: `path.hatch(&Hatch::new(8.0).flow(flow), Some(&avoid))`,
 `Hatch::between(near, far, tone)`, `drawing.hatch(&hatch, Some(&avoid_drawing))`. Not yet: a `Field.map` tone (a photo), crosshatch and tone levels, a
 Param in a field or flow, a drawing (not a path) in `Field.distance` and `Flow.contour`.
 
@@ -638,7 +640,7 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
 | `Field.distance` | `Field.distance(path, *, normalized=False)` | from a `Path`: signed distance to the nearest outline in pixels, negative inside (nonzero rule); normalised: inside each part (an outline with its holes) 0 on its outer edge rising to 1 on its holes' edges (`d / (d + distance to the holes)`), or, for a part with no hole, to 1 at its deepest point (`d` over its largest inscribed radius, estimated to about a percent), 0 outside and inside a hole. Where parts overlap the distance is to the nearest edge of any: `resolve` first | `GeometryError`: `path` has no edge |
 | `field.at` | `at(x, y)` | the field's number at a point | |
-| `Flow.angle` | `Flow.angle(degrees)` | the same direction everywhere, clockwise from the right on screen; 30 and 210 are the same | |
+| `Flow.angle` | `Flow.angle(angle)` | the same direction everywhere, clockwise from the right on screen; 30 and 210 are the same | |
 | `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | smooth seeded noise directions (value noise turning the direction half a turn each way); `phase` in cycles moves it, one cycle on is the same flow | `wavelength` not above 0 |
 | `Flow.contour` | `Flow.contour(path)` | the direction of the nearest outline of `path`, turned smoothly between neighbouring edges | `GeometryError`: `path` has no edge |
 | `flow.mix` | `mix(other, fraction)` | `fraction` 0..1 of the way to `other`, blended in doubled-angle space, so a direction and its opposite count as the same and never cancel; where the two cancel exactly the first flow's direction stands. A mix holds at most 64 flows and nests at most 16 deep | `fraction` outside 0..1; more flows or depth |
@@ -646,7 +648,7 @@ The same verb draws contour lines: trace a `Field.distance` at several levels an
 
 A `Field` or a `Flow` is a value, built once from literal numbers and a path (a grid of the path's edges makes it quick to
 read) and part of the drawing that uses it. In V15a a Param or per-item number in one is refused (a noise `phase` as a Param is V15b), and
-`Field.distance` and `Flow.contour` read one path, not a drawing, so a drawing with a Param is not frozen at its defaults by accident.
+`Field.distance` and `Flow.contour` read one path, not a drawing, so a drawing with a Param is not frozen at its defaults by accident. A `Field` or `Flow` prints as its call (`Flow.angle(45)`) and equals another made by the same call; in a document the path is the argument `drawing`, one path written `[{"path": "..."}]`.
 
 ## Params, expressions and per-item numbers
 

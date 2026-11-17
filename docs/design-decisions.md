@@ -1457,6 +1457,14 @@ holds.
 - **One path, not a drawing, in `Field.distance` and `Flow.contour`.** A drawing would be read at its default values when the
   field is built, so a headline whose weight is a Param would be hatched along its default outline while the letters move.
   A path has no Params, so nothing is frozen by accident. V15b evaluates a drawing with the step's values.
+- **`hatch` refuses what would be slow or stall, before it makes a line.** A lattice point looks at the cells within the
+  widest spacing, at most the whole grid: cells times `min(ratio squared, cells)` above a billion visits (`MAX_VISITS`) is
+  refused (1 to 1e6 over 400 by 400 took 20 s; a wide ratio over a small shape is cheap and allowed). A step the
+  coordinates cannot hold (`reach + step == reach`, near 1e17) is refused, and lattice points are `left + i * lattice`, so
+  no sum can stop moving. A path of two points closes into two opposite edges: it encloses nothing.
+- **JSON names the path `drawing`.** `Field.distance` and `Flow.contour` take a `Path` in Python and Rust; their document
+  argument stays `drawing` (one path in a one-element list) because V15b widens it to a drawing and the poster example
+  already writes that form. The angle is `angle` in Python, Rust documents and JSON.
 - **A mix is a tree, blended linearly in doubled-angle space.** `(cos 2a, sin 2a)` of a direction and of its opposite are the
   same vector, so `mix(contour(p), contour(p.reverse()), 0.5)` is `contour(p)` where a plain blend of the vectors cancels to
   nothing. The weighted sum is linear, so the tree evaluates in any grouping; the tree is kept (not flattened to weights) so that

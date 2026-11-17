@@ -152,7 +152,10 @@ fn refusals_and_the_empty_path() -> Outcome {
 
 #[test]
 fn a_path_of_two_points_encloses_nothing() -> Outcome {
-    for points in [vec![(0.0, 0.0), (100.0, 100.0)], vec![(0.0, 0.0), (100.0, 100.0), (0.0, 0.0)]] {
+    for points in [
+        vec![(0.0, 0.0), (100.0, 100.0)],
+        vec![(0.0, 0.0), (100.0, 100.0), (0.0, 0.0)],
+    ] {
         let line = Path::polyline(points, false)?;
         assert_eq!(line.hatch(&Hatch::new(50.0), None)?.to_svg_path(), "");
         let field = Field::distance(&line, false)?;

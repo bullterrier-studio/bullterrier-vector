@@ -6,8 +6,8 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 
 /// A number at every point: a ramp along a line or the distance to a path's outline. `hatch` reads one as its `tone`.
-#[pyclass(name = "Field", module = "bullterrier_vector", frozen)]
-#[derive(Clone)]
+#[pyclass(name = "Field", module = "bullterrier_vector", frozen, eq)]
+#[derive(Clone, PartialEq)]
 pub(crate) struct PyField(pub(crate) vector::Field);
 
 #[pymethods]
@@ -30,19 +30,23 @@ impl PyField {
     fn at(&self, x: f64, y: f64) -> f64 {
         self.0.at(vector::Point::new(x, y))
     }
+
+    fn __repr__(&self) -> String {
+        self.0.to_string()
+    }
 }
 
 /// A direction without sign at every point: a line through the point, not an arrow. `hatch` draws along one.
-#[pyclass(name = "Flow", module = "bullterrier_vector", frozen)]
-#[derive(Clone)]
+#[pyclass(name = "Flow", module = "bullterrier_vector", frozen, eq)]
+#[derive(Clone, PartialEq)]
 pub(crate) struct PyFlow(pub(crate) vector::Flow);
 
 #[pymethods]
 impl PyFlow {
     /// The same direction everywhere: `degrees` clockwise from the right on screen.
     #[staticmethod]
-    fn angle(degrees: f64) -> PyResult<Self> {
-        raised(vector::Flow::angle(degrees)).map(Self)
+    fn angle(angle: f64) -> PyResult<Self> {
+        raised(vector::Flow::angle(angle)).map(Self)
     }
 
     /// Smooth seeded noise; `phase` in cycles moves it, one cycle on is the same flow.
@@ -66,6 +70,10 @@ impl PyFlow {
     /// The direction at `(x, y)` in degrees from 0 up to 180, clockwise from the right on screen.
     fn at(&self, x: f64, y: f64) -> f64 {
         self.0.at(vector::Point::new(x, y))
+    }
+
+    fn __repr__(&self) -> String {
+        self.0.to_string()
     }
 }
 
@@ -110,9 +118,18 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Spacing {
     }
 }
 
-/// The hatch a call's `spacing`, `tone` and `flow` describe.
+/// The hatch a call's `spacing`, `tone` and `flow` describe: a pair of spacings that differ needs a tone to read.
 pub(crate) fn hatch_of(spacing: Spacing, tone: Option<Tone>, flow: Option<&PyFlow>) -> PyResult<vector::Hatch> {
-    let hatch = raised(vector::Hatch::checked(spacing.0, tone.map(|tone| tone.0)))?;
+    let ((near, far), tone) = (spacing.0, tone.map(|tone| tone.0));
+    let hatch = match tone {
+        Some(tone) => vector::Hatch::between(near, far, tone),
+        None if near.to_bits() == far.to_bits() => vector::Hatch::new(near),
+        None => {
+            return Err(crate::ParameterError::new_err(
+                "tone: is needed when `spacing` is a pair",
+            ));
+        }
+    };
     Ok(match flow {
         Some(flow) => hatch.flow(flow.0.clone()),
         None => hatch,
