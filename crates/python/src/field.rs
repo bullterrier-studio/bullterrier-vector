@@ -68,8 +68,8 @@ impl PyField {
     /// outer edge rising to 1 on its holes' edges (or at its deepest point where it has none); 0 outside.
     #[staticmethod]
     #[pyo3(signature = (drawing, *, normalized=false))]
-    fn distance(drawing: Item, normalized: bool) -> PyResult<Self> {
-        raised(vector::Field::distance(drawing.0, normalized)).map(Self)
+    fn distance(py: Python<'_>, drawing: Item, normalized: bool) -> PyResult<Self> {
+        raised(py.detach(|| vector::Field::distance(drawing.0, normalized))).map(Self)
     }
 
     /// An 8-bit grayscale map as a field, 0 (black) to 1 (white): `data` holds `height` rows of `width` bytes, top row
@@ -109,17 +109,17 @@ impl PyField {
         low: f64,
         high: f64,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        let bytes = raised(self.0.to_map(width, height, r#box.map(|frame| frame.0), low, high))?;
+        let bytes = raised(py.detach(|| self.0.to_map(width, height, r#box.map(|frame| frame.0), low, high)))?;
         Ok(PyBytes::new(py, &bytes))
     }
 
     /// The lines where the field equals each of `levels` (a number or a list), as one `Path`: over `box` cut into cells no
-    /// wider than `step` pixels, a line crossing a cell edge at the linear interpolation of the readings at its corners.
+    /// wider than `cell` pixels, a line crossing a cell edge at the linear interpolation of the readings at its corners.
     /// A line that reaches the box is open there, any other is closed.
-    #[pyo3(signature = (levels, *, r#box, step))]
-    fn contours(&self, levels: Levels, r#box: Frame, step: f64) -> PyResult<PyPath> {
+    #[pyo3(signature = (levels, *, r#box, cell))]
+    fn contours(&self, py: Python<'_>, levels: Levels, r#box: Frame, cell: f64) -> PyResult<PyPath> {
         let Levels(levels) = levels;
-        raised(self.0.contours(&levels, r#box.0, step)).map(PyPath)
+        raised(py.detach(|| self.0.contours(&levels, r#box.0, cell))).map(PyPath)
     }
 
     /// The field's number at `(x, y)`.
@@ -163,8 +163,8 @@ impl PyFlow {
     /// values of the step that reads the flow) nearest each point; where two edges are about as near, as at the middle
     /// of a stroke, their directions blend.
     #[staticmethod]
-    fn contour(drawing: Item) -> PyResult<Self> {
-        raised(vector::Flow::contour(drawing.0)).map(Self)
+    fn contour(py: Python<'_>, drawing: Item) -> PyResult<Self> {
+        raised(py.detach(|| vector::Flow::contour(drawing.0))).map(Self)
     }
 
     /// `fraction` (0 to 1; a number, a `Param` or an expression) of the way to `other`; a direction and its opposite

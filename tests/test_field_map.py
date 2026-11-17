@@ -85,21 +85,21 @@ def test_a_distance_field_written_out_reads_back_within_half_a_level() -> None:
 
 def test_contours_of_a_circles_distance_are_circles_and_a_ramp_gives_a_straight_line() -> None:
     distance = btvec.Field.distance(btvec.Path.circle((100, 100), 50))
-    found = lines(distance.contours([-20, 15], box=(0, 0, 200, 200), step=2))
+    found = lines(distance.contours([-20, 15], box=(0, 0, 200, 200), cell=2))
     assert len(found) == 2
     for line, radius in zip(found, (30, 65), strict=True):
         assert all(abs(math.hypot(x - 100, y - 100) - radius) < 0.05 for x, y in line)
-    (line,) = lines(btvec.Field.ramp((0, 0), (100, 0)).contours(0.37, box=(0, 0, 100, 50), step=5))
+    (line,) = lines(btvec.Field.ramp((0, 0), (100, 0)).contours(0.37, box=(0, 0, 100, 50), cell=5))
     assert all(abs(x - 37) < 1e-9 for x, _ in line)
 
 
 def test_contours_refuse_what_they_cannot_trace() -> None:
     ramp = btvec.Field.ramp((0, 0), (100, 0))
     for call in (
-        lambda: ramp.contours(math.nan, box=(0, 0, 10, 10), step=1),
-        lambda: ramp.contours(0.5, box=(0, 0, 10, 10), step=0),
-        lambda: ramp.contours(0.5, box=(0, 0, 10, 10), step=1e-9),
-        lambda: ramp.contours([0.5] * 300, box=(0, 0, 10, 10), step=1),
+        lambda: ramp.contours(math.nan, box=(0, 0, 10, 10), cell=1),
+        lambda: ramp.contours(0.5, box=(0, 0, 10, 10), cell=0),
+        lambda: ramp.contours(0.5, box=(0, 0, 10, 10), cell=1e-9),
+        lambda: ramp.contours([0.5] * 300, box=(0, 0, 10, 10), cell=1),
     ):
         with pytest.raises(btvec.ParameterError):
             call()
@@ -170,3 +170,46 @@ def test_a_map_is_an_input_of_the_saved_drawing() -> None:
         btvec.Drawing.from_json(text)
     with pytest.raises(ValueError, match="photo"):
         btvec.Drawing.from_json(text, inputs={"photo": bytes(6)})
+
+
+def test_two_names_for_equal_bytes_cannot_be_saved_and_make_maps_differ() -> None:
+    first = btvec.Field.map(3, 2, BYTES, name="a")
+    second = btvec.Field.map(3, 2, BYTES, name="b")
+    assert first != second
+    assert first == btvec.Field.map(3, 2, BYTES, name="a")
+    drawing = btvec.Drawing(btvec.Path.rect(0, 0, 3, 2))
+    drawing = drawing.hatch((0.5, 0.5), tone=first, below=0.5).hatch((0.5, 0.5), tone=second, below=0.5)
+    with pytest.raises(btvec.ParameterError, match="to_json"):
+        drawing.to_json()
+
+
+def test_the_recipe_for_tracing_a_map_along_its_pixels_gives_one_node_a_pixel() -> None:
+    size, pixels = 1000, 3
+    p = size / pixels
+    ramp = btvec.Field.ramp((0, 0), (size, 0))
+    (line,) = lines(ramp.contours(0.37, box=(p / 2, p / 2, size - p, size - p), cell=p))
+    assert len(line) == pixels
+
+
+def test_errors_name_the_argument_the_caller_wrote() -> None:
+    ramp = btvec.Field.ramp((0, 0), (100, 0))
+    with pytest.raises(btvec.ParameterError, match=r"box: .*at most 1e100"):
+        ramp.contours(0.5, box=(0, 0, 1e200, 2), cell=1)
+    with pytest.raises(btvec.ParameterError, match=r"box: width must be above 0"):
+        ramp.contours(0.5, box=(0, 0, 0, 2), cell=1)
+    with pytest.raises(btvec.ParameterError, match=r"width: must be from 1, as must `height`"):
+        btvec.Field.map(0, 0, b"")
+
+
+def test_a_field_too_costly_to_read_is_refused_before_it_starts() -> None:
+    wiggle = btvec.Path.from_svg_path(
+        "M"
+        + " L".join(
+            f"{500 + 400 * math.cos(i * 0.01):.3f} {500 + 400 * math.sin(i * 0.0101):.3f}" for i in range(20_000)
+        )
+    )
+    field = btvec.Field.distance(wiggle)
+    # 20,000 edges: a read costs 143 units, the limit is 2e8: 90,000 reads pass, 2.8 million do not
+    assert len(field.to_map(300, 300, box=(0, 0, 1000, 1000))) == 90_000
+    with pytest.raises(btvec.ParameterError, match=r"cell: contours would read"):
+        field.contours(10, box=(0, 0, 1000, 1000), cell=0.6)

@@ -546,7 +546,8 @@ impl PyPath {
     /// or a pair (spacing where `tone` is 0, where it is 1) read from `tone`, a `Field` or a number; the lines keep out of
     /// the region the path `avoid` fills and close where they come round to their own start. No two lines come within half
     /// a spacing. With `below`, lines only where the tone is at most that level (needs a `tone`; 0 is dark: passes at other
-    /// angles and levels over each other crosshatch). The result is open lines, so stroke it.
+    /// angles and levels over each other crosshatch). A `Param` in `tone` or `below` is read at its default here; a
+    /// `Drawing` step reads it with the values of the draw. The result is open lines, so stroke it.
     #[pyo3(signature = (spacing, *, tone=None, flow=None, avoid=None, below=None))]
     fn hatch(
         &self,
