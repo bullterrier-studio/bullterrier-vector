@@ -5,6 +5,7 @@
 mod distance;
 mod flow;
 mod hatch;
+mod map;
 mod outline;
 mod seeds;
 

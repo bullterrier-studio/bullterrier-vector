@@ -179,6 +179,7 @@ pub(super) fn field_json(field: &Field) -> Json {
             "Field.ramp",
             Json::object([("start", pair(*start)), ("end", pair(*end))]),
         )]),
+        FieldKind::Map(_) => Json::Null,
         FieldKind::Distance { path, normalized } => {
             let mut args = vec![("drawing", path_call(path))];
             if *normalized {

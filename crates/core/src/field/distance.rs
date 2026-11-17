@@ -1,9 +1,10 @@
 //! `Field`: a number at every point.
 
+use super::map::MapData;
 use super::outline::Outline;
 use super::segment_budget;
 use crate::Error;
-use crate::geometry::{Point, coordinate_point};
+use crate::geometry::{Point, Rect, coordinate_point};
 use crate::key::{Key, Keyed, key_of};
 use crate::path::{Path, Polyline};
 use std::fmt;
@@ -15,6 +16,7 @@ pub(crate) enum FieldKind {
     Constant(f64),
     Ramp { start: Point, end: Point },
     Distance { path: Path, normalized: bool },
+    Map(Arc<MapData>),
 }
 
 /// A number at every point: a constant, a ramp along a line, or the distance to a path's outline. A value, built once
@@ -88,6 +90,14 @@ impl Field {
             }
             (FieldKind::Distance { normalized, .. }, Some(parts)) => parts.at(point, *normalized),
             (FieldKind::Distance { .. }, None) => 0.0,
+            (FieldKind::Map(map), _) => map.sample(point),
+        }
+    }
+
+    pub(crate) fn of_map(map: MapData) -> Self {
+        Self {
+            kind: FieldKind::Map(Arc::new(map)),
+            parts: None,
         }
     }
 
@@ -112,6 +122,18 @@ impl Keyed for Field {
                 key.word(3);
                 key.word(u64::from(*normalized));
                 key.of(path);
+            }
+            FieldKind::Map(map) => {
+                key.word(4);
+                key.count(map.width);
+                key.count(map.height);
+                key.number(map.frame.x);
+                key.number(map.frame.y);
+                key.number(map.frame.width);
+                key.number(map.frame.height);
+                for chunk in map.sha256.chunks(8) {
+                    key.word(chunk.iter().fold(0, |word, byte| word << 8 | u64::from(*byte)));
+                }
             }
         }
     }
@@ -309,6 +331,16 @@ impl fmt::Display for Field {
             FieldKind::Constant(value) => write!(f, "{value}"),
             FieldKind::Ramp { start, end } => {
                 write!(f, "Field.ramp(({}, {}), ({}, {}))", start.x, start.y, end.x, end.y)
+            }
+            FieldKind::Map(map) => {
+                let Rect { x, y, width, height } = map.frame;
+                write!(
+                    f,
+                    "Field.map({}, {}, <{} bytes>, box=({x}, {y}, {width}, {height}))",
+                    map.width,
+                    map.height,
+                    map.bytes.len()
+                )
             }
             FieldKind::Distance { path, normalized } => {
                 write!(f, "Field.distance(Path.from_svg_path('{}')", path.to_svg_path())?;
