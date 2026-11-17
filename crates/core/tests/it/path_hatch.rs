@@ -172,3 +172,12 @@ fn a_very_wide_pair_of_spacings_is_refused_not_slow() -> Outcome {
     assert!(rect(20.0, 20.0)?.hatch(&Hatch::between(1.0, 1e6, tone), None).is_ok());
     Ok(())
 }
+
+#[test]
+fn a_shape_far_from_the_origin_is_refused_when_the_spacing_is_below_what_a_coordinate_resolves() -> Outcome {
+    let far = Path::rect(1e17, 1e17, 1000.0, 1000.0, 0.0)?;
+    assert!(parameter_refusal(far.hatch(&Hatch::new(1.0), None)).is_ok());
+    // a spacing the coordinates do resolve works there
+    assert_ne!(far.hatch(&Hatch::new(400.0), None)?.to_svg_path(), "");
+    Ok(())
+}

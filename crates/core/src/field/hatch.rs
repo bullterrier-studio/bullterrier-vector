@@ -5,6 +5,13 @@
 //! spacing to either side of every sample, so lines settle one spacing apart where the flow is straight and split
 //! or end where it spreads or gathers. A lattice of one narrowest spacing finds a start for every part the region has.
 
+#![expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    reason = "the lattice count is at most the 4 million cells checked before it is used"
+)]
+
 use super::outline::Outline;
 use super::seeds::{Sample, Samples};
 use super::{Field, Flow, length, segment_budget};
@@ -158,9 +165,17 @@ impl Path {
                 format!("is too small for a shape this large: its grid would pass {MAX_CELLS} cells"),
             ));
         }
+        // a step smaller than the gap between coordinates here would not move a line, or a lattice point
+        let reach = left.abs().max(right.abs()).max(top.abs()).max(bottom.abs());
+        if reach + STEP * narrowest <= reach {
+            return Err(Error::parameter(
+                "spacing",
+                format!("is too small for coordinates near {reach}: a step of it would not move"),
+            ));
+        }
         let widest = near.max(far);
         let cells = Samples::cells(right - left, bottom - top, narrowest);
-        if cells * cells.min((widest / narrowest).powi(2)) > MAX_VISITS {
+        if cells * cells.min((widest / narrowest) * (widest / narrowest)) > MAX_VISITS {
             return Err(Error::parameter(
                 "spacing",
                 format!("the widest and narrowest spacing are too far apart for a shape this large: {narrowest} to {widest}"),
@@ -229,11 +244,12 @@ impl Run<'_> {
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<(), Error> {
         let mut queue: VecDeque<usize> = VecDeque::new();
-        let mut y = top + lattice / 2.0;
-        while y < bottom + lattice / 2.0 {
-            let mut x = left + lattice / 2.0;
-            while x < right + lattice / 2.0 {
-                let start = Point::new(x, y);
+        // by index, so that a point never depends on the sum of the ones before; the count is the lattice's cells
+        let count = |extent: f64| (extent / lattice).ceil() as usize;
+        for row in 0..count(bottom - top) {
+            let y = top + lattice / 2.0 + row as f64 * lattice;
+            for column in 0..count(right - left) {
+                let start = Point::new(left + lattice / 2.0 + column as f64 * lattice, y);
                 if self.free(start, self.spacing(start))
                     && let Some(line) = self.trace(start, charge)?
                 {
@@ -242,9 +258,7 @@ impl Run<'_> {
                         self.seed_from(done, &mut queue, charge)?;
                     }
                 }
-                x += lattice;
             }
-            y += lattice;
         }
         Ok(())
     }
