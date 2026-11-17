@@ -54,6 +54,18 @@ def nested_through_other(leaf_expression):
     return drawing
 
 
+def nested_through_field_and_flow(leaf_expression):
+    """16 drawings nested through the tone and the flow of a hatch step: each level hatches by the distance field and
+    along the contour of the level below."""
+    drawing = btvec.Path.circle((5, 5), 2).fill("#112233").translate(leaf_expression, 0)
+    for _ in range(15):
+        below = drawing
+        drawing = btvec.Path.circle((5, 5), 4).fill("#445566").hatch(
+            (4, 5), tone=btvec.Field.distance(below), flow=btvec.Flow.contour(below)
+        )
+    return drawing
+
+
 def morph_target_document(levels):
     """A document of `levels` morph steps, each taking the whole chain below it as its `target`, over a leaf that
     reads x (written as a document: the morph step has no Python method yet)."""
@@ -170,6 +182,11 @@ def run():
         del drawing
     elif scenario == "nested_through_other":
         drawing = nested_through_other(x)
+        every_output(drawing)
+        step("drop")
+        del drawing
+    elif scenario == "nested_through_field_and_flow":
+        drawing = nested_through_field_and_flow(x)
         every_output(drawing)
         step("drop")
         del drawing
@@ -367,6 +384,7 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
     [
         pytest.param("nested", id="16-drawings-nested"),
         pytest.param("nested_through_other", id="16-drawings-nested-through-the-other-of-booleans"),
+        pytest.param("nested_through_field_and_flow", id="16-drawings-nested-through-the-field-and-flow-of-hatches"),
         pytest.param("nested_through_morph_target", id="drawings-nested-through-the-target-of-morphs"),
         pytest.param("nested_through_clip", id="16-drawings-nested-through-the-region-of-clips"),
         pytest.param("nested_through_mask", id="16-drawings-nested-through-the-source-of-masks"),

@@ -250,7 +250,7 @@ fn pair(point: Point) -> Json {
 
 #[expect(
     clippy::cast_precision_loss,
-    reason = "a map has at most 2^26 pixels, so its sides are exact in a number"
+    reason = "a map has at most 2^24 pixels, so its sides are exact in a number"
 )]
 impl Writer<'_> {
     /// `field` as a document writes it; `taken` yields the nodes of the drawings it reads.

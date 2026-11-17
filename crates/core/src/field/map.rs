@@ -14,9 +14,9 @@ use crate::geometry::{Point, Rect, coordinate, finite};
 use sha2::{Digest, Sha256};
 
 /// The most pixels a map holds, read or written.
-// constant: 2^26 bytes is 64 MiB, a 8192 by 8192 picture; a larger photo is scaled down by the caller, and the
-// distance field written out costs a nearest-edge query a pixel
-pub(crate) const MAX_MAP_PIXELS: usize = 1 << 26;
+// constant: 2^24 bytes is 16 MiB, a 4096 by 4096 picture; a larger photo is scaled down by the caller, and the
+// distance field written out costs a nearest-edge query a pixel (2 microseconds measured on a headline: 40 s at the cap)
+pub(crate) const MAX_MAP_PIXELS: usize = 1 << 24;
 
 /// A map's bytes and where it lies.
 #[derive(Debug)]
@@ -101,7 +101,7 @@ impl Field {
     /// nearest edge value beyond the frame.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `width` unless both sizes are from 1 with at most 2^26 pixels; naming `data` unless
+    /// [`Error::Parameter`] naming `width` unless both sizes are from 1 with at most 2^24 pixels; naming `data` unless
     /// it holds `width * height` bytes; naming `box` unless it is finite, within ±1e100 and has a width and a height
     /// above 0; naming `name` unless it is letters, digits and `_` starting with a letter.
     ///
@@ -151,7 +151,7 @@ impl Field {
     /// half a level.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `width` unless both sizes are from 1 with at most 2^26 pixels; naming `box` as for
+    /// [`Error::Parameter`] naming `width` unless both sizes are from 1 with at most 2^24 pixels; naming `box` as for
     /// [`Field::map`]; naming `high` unless `low` and `high` are finite and `high` is above `low`.
     pub fn to_map(
         &self,

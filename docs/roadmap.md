@@ -671,7 +671,9 @@ squares: open lines at the frame, closed loops inside), Params in the numbers of
 `hatch(below=)` (crosshatch and tone levels are stacked steps), and a `Flow.contour` direction blended across the middle of a
 stroke; in Rust, Python and documents (so WebAssembly), with `examples/flow_hatch.py` in the three languages following the
 headline's weight. Reasons and limits: `design-decisions.md`, "Fields and lines (V15b)". Left for V15c or later: a
-document verb for contour lines (V14's `trace` takes a field), a field in `halftone`'s `tone`, Params in a ramp's points.
+document verb for contour lines (V14's `trace` takes a field), a field in `halftone`'s `tone`, Params in a ramp's points, and the stubs the
+demo still shows where two strokes meet at a right angle (the line field has a defect there: a few ticks 6 to 8 px long at the F's
+stem and arm, a diagonal seam at outer corners): a join along the bisector, or dropping chord ticks near corners.
 
 **V15c.** Tone-driven line families (rows displaced by tone, ridgelines with hidden lines removed, lines whose width carries
 tone along waves, rings, a spiral or rays, stippled dots; [dither-and-print.md](dither-and-print.md)), plotter output (stroke
