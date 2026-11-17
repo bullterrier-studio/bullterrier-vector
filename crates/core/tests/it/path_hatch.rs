@@ -160,3 +160,15 @@ fn a_path_of_two_points_encloses_nothing() -> Outcome {
     }
     Ok(())
 }
+
+#[test]
+fn a_very_wide_pair_of_spacings_is_refused_not_slow() -> Outcome {
+    let tone = Field::ramp((0.0, 0.0), (400.0, 0.0))?;
+    for wide in [1e6, 1e3] {
+        let result = rect(400.0, 400.0)?.hatch(&Hatch::between(1.0, wide, tone.clone()), None);
+        assert!(parameter_refusal(result).is_ok());
+    }
+    // the same ratio over a region the grid holds in a few cells is cheap, so it stays allowed
+    assert!(rect(20.0, 20.0)?.hatch(&Hatch::between(1.0, 1e6, tone), None).is_ok());
+    Ok(())
+}

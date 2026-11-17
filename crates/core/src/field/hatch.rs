@@ -44,6 +44,12 @@ const SHORTEST: f64 = 1.0;
 // `MAX_SEGMENTS` allows anyway
 const MAX_CELLS: f64 = 4_000_000.0;
 
+/// The most cell visits the lattice may cost: each of its points looks at the cells within the widest spacing, at most
+/// the whole grid.
+// constant: a billion visits of a few instructions is a few seconds; a pair of spacings far apart over a large shape
+// would cost minutes
+const MAX_VISITS: f64 = 1e9;
+
 /// What to draw: the spacing, a tone that varies it, and the flow the lines follow.
 #[derive(Debug, Clone)]
 pub struct Hatch {
@@ -117,7 +123,8 @@ impl Path {
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `spacing` if a spacing is not above 0, or if the shape is so large next to the
-    /// spacing that it would take over 4 million cells; naming `spacing` past `MAX_SEGMENTS` points.
+    /// spacing that it would take over 4 million cells, or if the spacings are so far apart for the shape's size that
+/// placing the lines would take over a billion cell visits (a pair 1 to 1000 over a 400 by 400 shape); naming `spacing` past `MAX_SEGMENTS` points.
     pub fn hatch(&self, hatch: &Hatch, avoid: Option<&Path>) -> Result<Path, Error> {
         let avoid: Vec<&Path> = avoid.into_iter().collect();
         self.hatch_charged(hatch, &avoid, &mut segment_budget("spacing"))
@@ -149,6 +156,14 @@ impl Path {
             return Err(Error::parameter(
                 "spacing",
                 format!("is too small for a shape this large: its grid would pass {MAX_CELLS} cells"),
+            ));
+        }
+        let widest = near.max(far);
+        let cells = Samples::cells(right - left, bottom - top, narrowest);
+        if cells * cells.min((widest / narrowest).powi(2)) > MAX_VISITS {
+            return Err(Error::parameter(
+                "spacing",
+                format!("the widest and narrowest spacing are too far apart for a shape this large: {narrowest} to {widest}"),
             ));
         }
         let mut run = Run {
