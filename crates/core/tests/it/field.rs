@@ -55,6 +55,11 @@ fn normalised_distance_of_a_ring_runs_from_outer_edge_to_hole_edge() -> Outcome 
 fn normalised_distance_without_a_hole_is_one_at_the_deepest_point() -> Outcome {
     let field = Field::distance(&circle()?, true)?;
     assert!((field.at(Point::new(100.0, 100.0)) - 1.0).abs() < 0.02);
+    // never above 1, wherever the deepest point is estimated to lie
+    for step in 0..50 {
+        let at = Point::new(100.0 + f64::from(step) * 0.07, 100.0 - f64::from(step) * 0.05);
+        assert!(field.at(at) <= 1.0, "{} at {at:?}", field.at(at));
+    }
     let half = field.at(Point::new(125.0, 100.0));
     assert!((half - 0.5).abs() < 0.02, "{half}");
     Ok(())
