@@ -184,3 +184,64 @@ fn a_shape_far_from_the_origin_is_refused_when_the_spacing_is_below_what_a_coord
     assert_ne!(far.hatch(&Hatch::new(400.0), None)?.to_svg_path(), "");
     Ok(())
 }
+
+#[test]
+fn lines_stay_where_the_tone_is_below_the_level() -> Outcome {
+    let tone = Field::ramp((0.0, 0.0), (100.0, 0.0))?;
+    let flow = Flow::angle(45.0)?;
+    let all = made(&rect(100.0, 100.0)?, &Hatch::new(4.0).flow(flow.clone()), None)?;
+    let dark = made(
+        &rect(100.0, 100.0)?,
+        &Hatch::between(4.0, 4.0, tone.clone()).flow(flow).below(0.3),
+        None,
+    )?;
+    assert!(!dark.is_empty() && dark.len() < all.len());
+    let mut farthest = 0.0_f64;
+    for (points, _) in &dark {
+        for p in points {
+            assert!(
+                tone.at(*p) <= 0.3 + 1e-12,
+                "a line point at {p:?} reads {}",
+                tone.at(*p)
+            );
+            farthest = farthest.max(p.0);
+        }
+    }
+    // and they reach the level: a step is a quarter of the spacing, so within a spacing of 30
+    assert!(
+        farthest > 29.0 - 1.0,
+        "lines stop at {farthest}, short of the level at 30"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_level_above_the_tone_everywhere_changes_nothing() -> Outcome {
+    let tone = Field::constant(0.4)?;
+    let plain = Hatch::between(5.0, 5.0, tone.clone());
+    let above = plain.clone().below(0.5);
+    let shape = rect(80.0, 60.0)?;
+    assert_eq!(
+        shape.hatch(&plain, None)?.to_svg_path(),
+        shape.hatch(&above, None)?.to_svg_path()
+    );
+    // and a level below the tone everywhere draws nothing
+    let none = shape.hatch(&plain.below(0.3), None)?;
+    assert_eq!(none.to_svg_path(), "");
+    Ok(())
+}
+
+#[test]
+fn a_level_needs_a_tone_and_a_finite_number() -> Outcome {
+    let shape = rect(80.0, 60.0)?;
+    let tone = Field::constant(0.4)?;
+    assert_eq!(
+        parameter_refusal(shape.hatch(&Hatch::new(5.0).below(0.5), None))?.0,
+        "below"
+    );
+    assert_eq!(
+        parameter_refusal(shape.hatch(&Hatch::between(5.0, 5.0, tone).below(f64::NAN), None))?.0,
+        "below"
+    );
+    Ok(())
+}

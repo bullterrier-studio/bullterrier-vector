@@ -160,3 +160,37 @@ fn the_schema_names_the_flow_and_the_field() {
         assert!(schema.contains(needle), "{needle}");
     }
 }
+
+#[test]
+fn the_below_level_is_the_path_call_and_survives_a_document() -> Outcome {
+    let tone = Field::ramp((0.0, 0.0), (120.0, 0.0))?;
+    let hatch = Hatch::between(6.0, 6.0, tone).below(0.4);
+    let path = rect(120.0, 90.0)?;
+    let drawing = Drawing::from(path.clone()).hatch(&hatch, None);
+    assert_eq!(svg(&drawing)?, path.hatch(&hatch, None)?.to_svg_path());
+    let text = drawing.to_json()?;
+    assert!(text.contains("\"below\":0.4"), "{text}");
+    let back = Drawing::from_json(&text, &Inputs::new())?;
+    assert_eq!(svg(&back)?, svg(&drawing)?);
+    assert_eq!(back.to_json()?, text);
+    // another level is another step
+    let other = Drawing::from(path).hatch(
+        &Hatch::between(6.0, 6.0, Field::ramp((0.0, 0.0), (120.0, 0.0))?).below(0.7),
+        None,
+    );
+    assert_ne!(svg(&other)?, svg(&drawing)?);
+    Ok(())
+}
+
+#[test]
+fn a_document_level_without_a_tone_is_refused() -> Outcome {
+    let text = r#"{"version":1,"root":[{"path":"M0 0 L50 0 L50 50 L0 50 Z"},{"hatch":{"spacing":5,"below":0.5}}]}"#;
+    let message = Drawing::from_json(text, &Inputs::new()).err().map(|e| e.to_string());
+    assert!(message.is_some_and(|m| m.contains("below")));
+    let drawn = Drawing::from(rect(50.0, 50.0)?).hatch(&Hatch::new(5.0).below(0.5), None);
+    assert_eq!(
+        parameter_refusal(drawn.shapes(&Values::new()))?.0.contains("below"),
+        true
+    );
+    Ok(())
+}

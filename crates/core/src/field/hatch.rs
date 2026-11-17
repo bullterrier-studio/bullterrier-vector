@@ -15,9 +15,9 @@
 use super::outline::Outline;
 use super::seeds::{Sample, Samples};
 use super::{Field, Flow, length, segment_budget};
-use crate::Error;
 use crate::geometry::Point;
 use crate::path::Path;
+use crate::{Error, Expr, Values};
 use std::collections::VecDeque;
 
 /// How far a line steps, as a share of the spacing where it is.
@@ -64,6 +64,7 @@ pub struct Hatch {
     at_one: f64,
     tone: Option<Field>,
     flow: Flow,
+    below: Option<Expr>,
 }
 
 impl Hatch {
@@ -75,6 +76,7 @@ impl Hatch {
             at_one: spacing,
             tone: None,
             flow: Flow::fixed(45.0),
+            below: None,
         }
     }
 
@@ -87,6 +89,7 @@ impl Hatch {
             at_one: at_tone_1,
             tone: Some(tone),
             flow: Flow::fixed(45.0),
+            below: None,
         }
     }
 
@@ -108,6 +111,19 @@ impl Hatch {
     pub fn flow(mut self, flow: Flow) -> Self {
         self.flow = flow;
         self
+    }
+
+    /// Lines only where the tone is at most `level`: a line stops where the tone passes it (within a step, a quarter
+    /// of the spacing there) and no line starts above it. Needs a tone; with tone 0 dark, a hatch pass for the
+    /// darker half of a picture is `below(0.5)`, and passes at other angles and levels over each other crosshatch.
+    #[must_use]
+    pub fn below(mut self, level: impl Into<Expr>) -> Self {
+        self.below = Some(level.into());
+        self
+    }
+
+    pub(crate) fn below_of(&self) -> Option<&Expr> {
+        self.below.as_ref()
     }
 
     pub(crate) fn spacings(&self) -> (f64, f64) {
@@ -150,6 +166,26 @@ impl Path {
                 return Err(Error::parameter("spacing", format!("must be above 0, got {spacing}")));
             }
         }
+        // a Param is read at its default here; the step reads it at the values it draws with
+        let below = hatch
+            .below
+            .as_ref()
+            .map(|level| {
+                let level = level
+                    .value(&Values::new())
+                    .map_err(|error| Error::parameter("below", error.to_string()))?;
+                if !level.is_finite() {
+                    return Err(Error::parameter(
+                        "below",
+                        format!("must be a finite number, got {level}"),
+                    ));
+                }
+                if hatch.tone.is_none() {
+                    return Err(Error::parameter("below", "needs a `tone` to read"));
+                }
+                Ok(level)
+            })
+            .transpose()?;
         let Ok(region) = Outline::of(self, "hatch", charge) else {
             return Ok(Path::new());
         };
@@ -187,6 +223,7 @@ impl Path {
             hatch,
             region,
             blocks,
+            below,
             samples: Samples::new(left, top, right - left, bottom - top, narrowest),
             lines: Vec::new(),
         };
@@ -212,6 +249,7 @@ struct Run<'a> {
     hatch: &'a Hatch,
     region: Outline,
     blocks: Vec<Outline>,
+    below: Option<f64>,
     samples: Samples,
     lines: Vec<Traced>,
 }
@@ -227,7 +265,12 @@ impl Run<'_> {
     }
 
     fn usable(&self, at: Point) -> bool {
-        self.region.contains(at) && !self.blocks.iter().any(|block| block.contains(at))
+        self.region.contains(at)
+            && !self.blocks.iter().any(|block| block.contains(at))
+            && match (self.below, self.hatch.tone()) {
+                (Some(level), Some(tone)) => tone.at(at) <= level,
+                _ => true,
+            }
     }
 
     /// Whether a line may start at `at`: usable and clear of every kept sample by `gap`, the spacing of what it is

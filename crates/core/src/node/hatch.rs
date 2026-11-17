@@ -36,6 +36,14 @@ const AVOID: Arg = Arg {
     domain: Domain::Any,
 };
 
+const BELOW: Arg = Arg {
+    name: "below",
+    kind: Kind::Number,
+    default: Some(Literal::Unset),
+    reads: Reads::Once,
+    domain: Domain::Finite,
+};
+
 /// Every shape hatched.
 #[derive(Debug)]
 pub(crate) struct HatchStep;
@@ -43,13 +51,16 @@ pub(crate) struct HatchStep;
 pub(crate) static HATCH: Verb = Verb {
     name: "hatch",
     role: Role::Step,
-    summary: "replaces every shape by evenly spaced lines along `flow` (default: 45 degrees) inside the region it fills (as Path.hatch): `spacing` design pixels apart, or a pair (spacing where `tone` is 0, where it is 1) read from the field `tone`; no two lines come within half a spacing; lines never enter the drawing `avoid` and close where they come round to their own start; the result is open lines, so set the stroke after it",
-    args: &[SPACING, TONE, FLOW, AVOID],
+    summary: "replaces every shape by evenly spaced lines along `flow` (default: 45 degrees) inside the region it fills (as Path.hatch): `spacing` design pixels apart, or a pair (spacing where `tone` is 0, where it is 1) read from the field `tone`; no two lines come within half a spacing; with `below`, only where the tone is at most that level (hatch passes at other angles and levels over each other crosshatch); lines never enter the drawing `avoid` and close where they come round to their own start; the result is open lines, so set the stroke after it",
+    args: &[SPACING, TONE, FLOW, AVOID, BELOW],
     check: Some(pair_needs_tone),
 };
 
 /// A spacing that differs between tone 0 and tone 1 needs a tone to read.
 fn pair_needs_tone(args: &Args) -> Result<(), Error> {
+    if args.given("below")? && !args.given("tone")? {
+        return Err(Error::parameter("below", "needs a `tone` to read"));
+    }
     match args.literal_pair("spacing")? {
         Some(spacing) => Hatch::checked(spacing, args.field("tone")?.cloned()).map(drop),
         None => Ok(()),
@@ -68,6 +79,12 @@ impl Node for HatchStep {
         let mut hatch = Hatch::checked((zero, one), args.field("tone")?.cloned())?;
         if let Some(flow) = args.flow("flow")? {
             hatch = hatch.flow(flow.clone());
+        }
+        if let Some(level) = args
+            .once_number_opt(cx, "below")
+            .map_err(|error| error.at_argument(&cx.place, None))?
+        {
+            hatch = hatch.below(level);
         }
         let avoid: Vec<Path> = if args.given("avoid")? {
             inputs.taken[0].iter().map(|shape| shape.path().clone()).collect()

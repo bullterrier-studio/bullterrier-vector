@@ -25,6 +25,12 @@ impl Drawing {
                 ),
                 ("flow", Given::Flow(hatch.flow_of().clone())),
                 (
+                    "below",
+                    hatch
+                        .below_of()
+                        .map_or(Given::Unset, |level| Given::Number(level.clone())),
+                ),
+                (
                     "avoid",
                     avoid.map_or(Given::Unset, |drawing| Given::Drawing(drawing.clone())),
                 ),
