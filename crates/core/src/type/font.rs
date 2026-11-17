@@ -374,8 +374,11 @@ fn refuse(message: String) -> Error {
 }
 
 impl Keyed for Font {
-    /// The digest of the bytes: a font is its bytes, and the name is not part of what is drawn.
+    /// The digest of the bytes and the name: the name is not drawn, but it is what a saved drawing calls the font, so
+    /// two names are two fonts to the cache and the graph, and `to_json` refuses the pair.
     fn write_key(&self, key: &mut Key) {
+        key.word(u64::from(self.shared.name.is_some()));
+        key.text(self.shared.name.as_deref().unwrap_or(""));
         for chunk in self.shared.sha256.as_chunks::<8>().0 {
             key.word(u64::from_be_bytes(*chunk));
         }
