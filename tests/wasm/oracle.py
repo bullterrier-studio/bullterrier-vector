@@ -922,7 +922,7 @@ def simplifies() -> list[Entry]:
     wave = btvec.Path.polyline([(10 + 80 * i / 120, 50 + 25 * math.sin(i / 12)) for i in range(121)])
     arc = [(50 + 35 * math.cos(math.pi * i / 60), 70 - 35 * math.sin(math.pi * i / 60)) for i in range(61)]
     disc = btvec.Path.polyline(arc + [(15 + 70 * i / 30, 70) for i in range(1, 30)], closed=True)
-    tolerance = btvec.Param("tolerance", default=0.5, min=0.1, max=8, unit="px", meaning="how far a curve may stray")
+    slack = btvec.Param("slack", default=0.5, min=0.1, max=8, unit="px", meaning="how far a curve may stray")
     drawings = {
         "simplify_circle": framed(ring.fill(BLUE)).simplify(tolerance=0.5),
         "simplify_wave": framed(wave.stroke(INK, width=2)).simplify(tolerance=1),
@@ -930,9 +930,9 @@ def simplifies() -> list[Entry]:
         "simplify_per_item": framed(btvec.Drawing(ring, ring.scale(0.5)).fill(GOLD)).simplify(
             tolerance=btvec.by_index(4, 0.2)
         ),
-        "simplify_param": framed(wave.stroke(INK, width=2)).simplify(tolerance=tolerance),
+        "simplify_param": framed(wave.stroke(INK, width=2)).simplify(tolerance=slack),
     }
-    draws: dict[str, list[Draw]] = {"simplify_param": [(100, 100, {}), (200, 200, {"tolerance": 6})]}
+    draws: dict[str, list[Draw]] = {"simplify_param": [(100, 100, {}), (200, 200, {"slack": 6})]}
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 

@@ -50,12 +50,12 @@ fn each_shape_reads_its_own_tolerance_and_keeps_its_style_and_attributes() -> Ou
 
 #[test]
 fn a_param_tolerance_is_read_when_drawn() -> Outcome {
-    let tolerance = Param::new("tolerance", 0.25, 0.1, 5.0)?;
+    let tolerance = Param::new("slack", 0.25, 0.1, 5.0)?;
     let bump = Path::polyline([(0.0, 0.0), (10.0, 1.0), (20.0, 0.0)], false)?;
     let drawing = Drawing::from(bump).simplify(&tolerance);
     let curve = drawn(&drawing, &Values::new())?;
     assert!(curve[0].starts_with("M0 0 C"), "{curve:?}");
-    assert_eq!(drawn(&drawing, &Values::new().set("tolerance", 2.0))?, ["M0 0 L20 0"]);
+    assert_eq!(drawn(&drawing, &Values::new().set("slack", 2.0))?, ["M0 0 L20 0"]);
     Ok(())
 }
 
@@ -91,8 +91,8 @@ fn a_tolerance_not_above_zero_names_the_step() -> Outcome {
     let line = Drawing::from(dense(10, 1.0)?);
     let error = line.simplify(0.0).error().map(ToString::to_string).ok_or("no error")?;
     assert!(error.contains("tolerance"), "{error}");
-    let tolerance = Param::new("tolerance", 1.0, -5.0, 5.0)?;
-    let (place, _) = parameter_refusal(line.simplify(&tolerance).shapes(&Values::new().set("tolerance", -1.0)))?;
+    let tolerance = Param::new("slack", 1.0, -5.0, 5.0)?;
+    let (place, _) = parameter_refusal(line.simplify(&tolerance).shapes(&Values::new().set("slack", -1.0)))?;
     assert!(place.contains("step 1 (simplify)"), "{place}");
     Ok(())
 }

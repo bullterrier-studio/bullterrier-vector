@@ -322,7 +322,7 @@ impl Path {
             return Ok(Path::new());
         }
         let carrier = carrier(plan, bounds, charge)?;
-        let inside = carrier.within(self)?;
+        let inside = carrier.within_named(self, "spacing")?;
         tone.charge_reads("spacing", "bands", inside.weight() as f64)?;
         let mut outlines = Vec::new();
         for line in inside.flattened(charge)? {

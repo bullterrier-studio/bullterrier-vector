@@ -53,6 +53,9 @@ pub(crate) struct Outline {
     cells: Vec<Vec<u32>>,
     /// The edges that cross each horizontal band (one cell high), for the winding of a point.
     bands: Vec<Vec<u32>>,
+    /// The edges that cross each vertical strip (one cell wide): a point or a segment asks whichever of the two
+    /// indexes holds fewer, so an outline that is all in one band (a comb) is as cheap to ask as a round one.
+    strips: Vec<Vec<u32>>,
 }
 
 impl Outline {
@@ -133,6 +136,7 @@ impl Outline {
             rows,
             cells: vec![Vec::new(); columns * rows],
             bands: vec![Vec::new(); rows],
+            strips: vec![Vec::new(); columns],
         };
         outline.fill();
         Ok(outline)
@@ -149,6 +153,7 @@ impl Outline {
             }
             let (first, last) = (self.column_of(a.x.min(b.x)), self.column_of(a.x.max(b.x)));
             for column in first..=last {
+                self.strips[column].push(id);
                 // the part of the edge inside this column strip
                 let strip_left = self.left + column as f64 * self.size;
                 let strip_right = strip_left + self.size;
@@ -170,13 +175,18 @@ impl Outline {
 
     /// Whether the nonzero rule fills `point`.
     pub(crate) fn contains(&self, point: Point) -> bool {
-        let extent = self.top + self.rows as f64 * self.size;
-        if point.y < self.top || point.y > extent {
+        if !self.in_grid(point) {
             return false;
         }
+        // the winding is counted along whichever ray, to the right or down, meets fewer edges
+        let (band, strip) = (&self.bands[self.row_of(point.y)], &self.strips[self.column_of(point.x)]);
+        let (ids, flip) = if band.len() <= strip.len() { (band, false) } else { (strip, true) };
+        let turned = |p: Point| if flip { Point::new(p.y, p.x) } else { p };
+        let point = turned(point);
         let mut turns = 0_i32;
-        for &id in &self.bands[self.row_of(point.y)] {
+        for &id in ids {
             let (from, to) = self.edges[id as usize];
+            let (from, to) = (turned(from), turned(to));
             let side = (to.x - from.x) * (point.y - from.y) - (point.x - from.x) * (to.y - from.y);
             if from.y <= point.y {
                 if to.y > point.y && side > 0.0 {
@@ -187,6 +197,23 @@ impl Outline {
             }
         }
         turns != 0
+    }
+
+    /// How many edges [`Outline::contains`] weighs for `point`: what a question costs, to be charged before it is asked.
+    pub(crate) fn contains_cost(&self, point: Point) -> usize {
+        if self.in_grid(point) {
+            self.bands[self.row_of(point.y)].len().min(self.strips[self.column_of(point.x)].len())
+        } else {
+            0
+        }
+    }
+
+    fn in_grid(&self, point: Point) -> bool {
+        let (right, bottom) = (
+            self.left + self.columns as f64 * self.size,
+            self.top + self.rows as f64 * self.size,
+        );
+        (self.left..=right).contains(&point.x) && (self.top..=bottom).contains(&point.y)
     }
 
     /// The nearest edge to `point`: its distance and direction.
@@ -294,20 +321,41 @@ impl Outline {
     }
 
     /// Where the segment `from` to `to` crosses an edge of the outline, as shares of the segment (0 to 1), ascending
-    /// and without repeats: every edge of the bands the segment spans is tried.
-    pub(crate) fn crossings(&self, from: Point, to: Point) -> Vec<f64> {
+    /// and without repeats. Every edge of the bands, or of the strips, the segment spans is tried, whichever are
+    /// fewer; `charge` is told how many, before any is.
+    ///
+    /// # Errors
+    /// What `charge` returns.
+    pub(crate) fn crossings(
+        &self,
+        from: Point,
+        to: Point,
+        charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+    ) -> Result<Vec<f64>, Error> {
         let (low, high) = if from.y <= to.y { (from.y, to.y) } else { (to.y, from.y) };
         let (min_x, max_x) = (from.x.min(to.x), from.x.max(to.x));
+        let (rows, columns) = ((self.row_of(low), self.row_of(high)), (self.column_of(min_x), self.column_of(max_x)));
+        let weigh = |lists: &[Vec<u32>], (first, last): (usize, usize)| lists[first..=last].iter().map(Vec::len).sum::<usize>();
+        let (by_rows, by_columns) = (weigh(&self.bands, rows), weigh(&self.strips, columns));
+        charge(by_rows.min(by_columns))?;
+        let (lists, span, key): (&[Vec<u32>], _, &dyn Fn(Point, Point) -> usize) = if by_rows <= by_columns {
+            (&self.bands, rows, &|a, b| self.row_of(a.y.min(b.y)))
+        } else {
+            (&self.strips, columns, &|a, b| self.column_of(a.x.min(b.x)))
+        };
         let mut shares = Vec::new();
-        let (first, last) = (self.row_of(low), self.row_of(high));
-        for row in first..=last {
-            for &id in &self.bands[row] {
-                // an edge spanning several bands is met once: in the first of them that the segment spans
+        for at in span.0..=span.1 {
+            for &id in &lists[at] {
+                // an edge spanning several lists is met once: in the first of them that the segment spans
                 let (start, end) = self.edges[id as usize];
-                if row != self.row_of(start.y.min(end.y)).max(first) {
+                if at != key(start, end).max(span.0) {
                     continue;
                 }
-                if start.x.max(end.x) < min_x || start.x.min(end.x) > max_x {
+                if start.x.max(end.x) < min_x
+                    || start.x.min(end.x) > max_x
+                    || start.y.max(end.y) < low
+                    || start.y.min(end.y) > high
+                {
                     continue;
                 }
                 let (aim, side) = ((to.x - from.x, to.y - from.y), (end.x - start.x, end.y - start.y));
@@ -325,7 +373,7 @@ impl Outline {
         }
         shares.sort_by(f64::total_cmp);
         shares.dedup();
-        shares
+        Ok(shares)
     }
 
     /// The smallest rectangle round the edges: left, top, right, bottom.
