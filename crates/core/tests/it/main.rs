@@ -34,6 +34,7 @@ mod drawing_wobble;
 mod error;
 mod expr;
 mod field;
+mod field_contours;
 mod field_map;
 mod flow;
 mod font_bundled;

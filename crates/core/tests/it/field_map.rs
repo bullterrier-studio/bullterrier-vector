@@ -18,9 +18,9 @@ fn near(got: f64, want: f64) {
 #[test]
 fn a_pixel_centre_reads_its_byte() -> Outcome {
     let field = grid()?;
-    for (i, byte) in BYTES.iter().enumerate() {
-        let (x, y) = ((i % 3) as f64 + 0.5, (i / 3) as f64 + 0.5);
-        near(field.at(Point::new(x, y)), f64::from(*byte) / 255.0);
+    for (i, byte) in (0..6_u32).zip(BYTES) {
+        let (x, y) = (f64::from(i % 3) + 0.5, f64::from(i / 3) + 0.5);
+        near(field.at(Point::new(x, y)), f64::from(byte) / 255.0);
     }
     Ok(())
 }
@@ -70,17 +70,17 @@ fn a_box_places_the_map_in_design_units() -> Outcome {
 
 #[test]
 fn equal_bytes_and_box_make_equal_fields() -> Outcome {
-    assert!(grid()? == grid()?);
+    assert_eq!(grid()?, grid()?);
     let mut other = BYTES;
     other[3] = 254;
-    assert!(grid()? != Field::map(3, 2, &other, None)?);
+    assert_ne!(grid()?, Field::map(3, 2, &other, None)?);
     let moved = Rect {
         x: 1.0,
         y: 0.0,
         width: 3.0,
         height: 2.0,
     };
-    assert!(grid()? != Field::map(3, 2, &BYTES, Some(moved))?);
+    assert_ne!(grid()?, Field::map(3, 2, &BYTES, Some(moved))?);
     Ok(())
 }
 

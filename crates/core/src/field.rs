@@ -2,6 +2,7 @@
 //! hatched lines. Each is a plain value built once from literal numbers and paths, read by `at`, and saved in a
 //! document by its parts.
 
+mod contours;
 mod distance;
 mod flow;
 mod hatch;
