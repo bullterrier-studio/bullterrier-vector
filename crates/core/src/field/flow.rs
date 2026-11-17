@@ -261,7 +261,7 @@ impl Flow {
             }
             Node::Contour { outline } => {
                 // as a unit vector, so a contour counts as much as an angle
-                let (x, y) = outline.nearest(point).doubled;
+                let (x, y) = outline.direction(point);
                 let size = length(x, y);
                 if size < 1e-12 { (1.0, 0.0) } else { (x / size, y / size) }
             }

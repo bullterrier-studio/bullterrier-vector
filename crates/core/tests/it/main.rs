@@ -38,6 +38,7 @@ mod field_contours;
 mod field_map;
 mod field_params;
 mod flow;
+mod flow_axis;
 mod font_bundled;
 mod font_woff2;
 mod json_axes;

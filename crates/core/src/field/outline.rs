@@ -19,6 +19,12 @@ use crate::path::{Path, Polyline};
 // from its neighbours then, whatever the path's size
 const MAX_CELLS_PER_SIDE: f64 = 2048.0;
 
+/// How far past the nearest edge another still counts towards the direction, as a multiple of the nearest distance.
+// constant: at 2 an edge twice as far as the nearest is not counted and one as near as the nearest counts fully; the
+// two edges of a stroke are within it only around its middle, a third of its width, where the direction has to turn
+// from one edge's to the other's
+const BAND: f64 = 2.0;
+
 const NO_EDGE: u32 = u32::MAX;
 
 /// What the nearest edge says at a point.
@@ -202,14 +208,22 @@ impl Outline {
                 break;
             }
         }
-        let own = self.doubled_tangent(best.1);
-        // from the middle of the edge towards a vertex, the direction turns half way into the neighbour's there
-        let (neighbour, share) = if best.2 < 0.5 {
-            (self.neighbours[best.1].0, 0.5 - best.2)
+        Nearest {
+            distance: best.0,
+            doubled: self.doubled_at(best.1, best.2),
+        }
+    }
+
+    /// The doubled-angle direction of `edge` at `along` it (0 to 1): its own tangent, and from the middle towards a
+    /// vertex turning half way into the neighbour's there.
+    fn doubled_at(&self, edge: usize, along: f64) -> (f64, f64) {
+        let own = self.doubled_tangent(edge);
+        let (neighbour, share) = if along < 0.5 {
+            (self.neighbours[edge].0, 0.5 - along)
         } else {
-            (self.neighbours[best.1].1, best.2 - 0.5)
+            (self.neighbours[edge].1, along - 0.5)
         };
-        let doubled = if neighbour == NO_EDGE {
+        if neighbour == NO_EDGE {
             own
         } else {
             let other = self.doubled_tangent(neighbour as usize);
@@ -217,10 +231,53 @@ impl Outline {
                 own.0 * (1.0 - share) + other.0 * share,
                 own.1 * (1.0 - share) + other.1 * share,
             )
-        };
-        Nearest {
-            distance: best.0,
-            doubled,
+        }
+    }
+
+    /// The direction of the outline at `point` as a doubled-angle vector, blended over every edge about as near as the
+    /// nearest: an edge `d` away counts for `(1 - (d - d0) / ((BAND - 1) d0))^2` while `d` is under `BAND * d0`, `d0`
+    /// being the nearest distance. Along an edge the nearest one counts alone, so a line follows its edge; at the middle
+    /// of a stroke the two edges count alike, so the direction turns smoothly between them instead of jumping from one
+    /// edge's to the other's.
+    pub(crate) fn direction(&self, point: Point) -> (f64, f64) {
+        let nearest = self.nearest(point);
+        let reach = BAND * nearest.distance;
+        if reach <= 0.0 {
+            return nearest.doubled;
+        }
+        let (cx, cy) = (self.column_of(point.x) as i64, self.row_of(point.y) as i64);
+        let (columns, rows) = (self.columns as i64, self.rows as i64);
+        let rings = ((reach / self.size).ceil() as i64 + 1).min(columns.max(rows));
+        let mut seen: Vec<u32> = Vec::new();
+        let (mut x_sum, mut y_sum, mut weights) = (0.0, 0.0, 0.0);
+        for ring in 0..=rings {
+            for (x, y) in ring_cells(cx, cy, ring) {
+                if x < 0 || y < 0 || x >= columns || y >= rows {
+                    continue;
+                }
+                for &id in &self.cells[(y * columns + x) as usize] {
+                    if seen.contains(&id) {
+                        continue;
+                    }
+                    seen.push(id);
+                    let (a, b) = self.edges[id as usize];
+                    let (d, along) = distance_to_edge(point, a, b);
+                    if d >= reach {
+                        continue;
+                    }
+                    let fall = 1.0 - (d - nearest.distance) / ((BAND - 1.0) * nearest.distance);
+                    let weight = fall * fall;
+                    let (tx, ty) = self.doubled_at(id as usize, along);
+                    x_sum += weight * tx;
+                    y_sum += weight * ty;
+                    weights += weight;
+                }
+            }
+        }
+        if weights > 0.0 {
+            (x_sum / weights, y_sum / weights)
+        } else {
+            nearest.doubled
         }
     }
 

@@ -43,8 +43,10 @@ const OWN_GRACE: f64 = 2.0;
 const CLOSE_AFTER: f64 = 4.0;
 
 /// A line shorter than this many spacings is dropped.
-// constant: a stub shorter than a spacing is a fragment of an edge, not a line
-const SHORTEST: f64 = 1.0;
+// constant: a line shorter than three spacings is a tick left where lines of two edges meet, not a line: measured on a
+// headline hatched along its letters, at one spacing the ticks at corners and the middles of strokes were a tenth of
+// the lines
+const SHORTEST: f64 = 3.0;
 
 /// The most cells the lattice and the grid of samples may have.
 // constant: 4 million cells of the grid are 16 MB of heads; a shape that needs more would draw more lines than
