@@ -36,7 +36,7 @@ pub use expr::{Expr, Random, Stagger, by_index, by_order};
 pub use field::{Field, Flow, Hatch, Tidy};
 pub use geometry::{Point, Rect, Scale};
 pub use json::{Inputs, drawing_schema};
-pub use lines::{Bands, Rows};
+pub use lines::{Bands, Rows, Stipple};
 pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
 pub use output::{Mesh, Size, Window};
 pub use param::{Param, Unit};

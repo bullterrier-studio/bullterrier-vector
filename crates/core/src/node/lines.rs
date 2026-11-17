@@ -4,7 +4,7 @@ use super::style::word;
 use super::{Args, Context, Inputs, Node, each_shape};
 use crate::field::Shapes;
 use crate::geometry::MAX_COORDINATE;
-use crate::lines::{Family, Plan};
+use crate::lines::{Family, Plan, StipplePlan};
 use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
 
 /// A number read once for the whole call, within `domain`.
@@ -160,6 +160,63 @@ impl Node for BandsStep {
         let mut charge = |count| cx.work.made_segments(count, &place);
         each_shape(inputs.previous, cx, |shape, _| {
             Ok(shape.with_path(shape.path().bands_charged(&plan, &tone, &mut charge)?))
+        })
+    }
+}
+
+/// Every shape replaced by dots.
+#[derive(Debug)]
+pub(crate) struct StippleStep;
+
+pub(crate) static STIPPLE: Verb = Verb {
+    name: "stipple",
+    role: Role::Step,
+    summary: "replaces every shape by round dots of `radius` design pixels inside the region it fills (as Path.stipple): a square lattice `spacing` apart with one dot at most in each cell, standing within 0.4 spacings of the cell's middle; `density` is a pair, the share of cells that get a dot where the `tone` field is 0 and where it is 1 (default [1, 0]: dark is dense), and the dots of a tone are spread evenly; `seed` moves them; the result is closed dots, so set the fill after it",
+    args: &[
+        once("spacing", Domain::PositiveUpTo(MAX_COORDINATE)),
+        required_field("tone"),
+        once("radius", Domain::PositiveUpTo(MAX_COORDINATE)),
+        Arg {
+            name: "density",
+            kind: Kind::Pair,
+            default: Some(Literal::Unset),
+            reads: Reads::Once,
+            domain: Domain::Fraction,
+        },
+        Arg {
+            name: "seed",
+            kind: Kind::Number,
+            default: Some(Literal::Number(0.0)),
+            reads: Reads::Once,
+            domain: Domain::Coordinate,
+        },
+    ],
+    check: None,
+};
+
+impl Node for StippleStep {
+    fn verb(&self) -> &'static Verb {
+        &STIPPLE
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let placed = |error: Error| error.at_argument(&cx.place, None);
+        let plan = StipplePlan {
+            spacing: args.once_number(cx, "spacing").map_err(placed)?,
+            radius: args.once_number(cx, "radius").map_err(placed)?,
+            density: args.once_pair(cx, "density").map_err(placed)?.unwrap_or((1.0, 0.0)),
+            seed: args.once_number(cx, "seed").map_err(placed)?,
+        };
+        let mut shapes = Shapes::taken(inputs.taken);
+        let tone = args
+            .field("tone")?
+            .ok_or_else(|| Error::parameter("tone", "is missing"))?
+            .bind(cx.env, &mut shapes)
+            .map_err(placed)?;
+        let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        each_shape(inputs.previous, cx, |shape, _| {
+            Ok(shape.with_path(shape.path().stipple_charged(&plan, &tone, &mut charge)?))
         })
     }
 }

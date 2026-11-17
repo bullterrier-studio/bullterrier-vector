@@ -3,7 +3,7 @@
 //! to a drawing that draws the same lines.
 
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Bands, Drawing, Error, Field, Inputs, Param, Path, Rows, Values, drawing_schema};
+use bullterrier_vector::{Bands, Drawing, Error, Field, Inputs, Param, Path, Rows, Stipple, Values, drawing_schema};
 
 fn rect() -> Result<Path, Error> {
     Path::rect(0.0, 0.0, 120.0, 90.0, 0.0)
@@ -164,6 +164,42 @@ fn a_bad_bands_document_is_refused_with_a_pointer() -> Outcome {
             r#"{"spacing":5,"tone":0.5,"width":[1,2],"wavelength":0,"family":"waves","amplitude":1}"#,
             "/root/1/bands/wavelength",
         ),
+    ] {
+        match Drawing::from_json(&call(args), &Inputs::new()) {
+            Err(Error::Format { pointer: got, .. }) => assert_eq!(got, pointer, "{args}"),
+            other => return Err(format!("{args}: expected a format error, got {other:?}").into()),
+        }
+    }
+    Ok(())
+}
+
+// stipple -----------------------------------------------------------------------------------------------------------
+
+#[test]
+fn the_stipple_step_is_the_path_call_and_a_param_is_read_with_the_values_of_the_draw() -> Outcome {
+    let stipple = Stipple::new(6.0, tone()?, 1.0)?.density(1.0, 0.1).seed(3.0);
+    let drawn = svg(&Drawing::from(rect()?).stipple(&stipple), &Values::new())?;
+    assert_eq!(drawn, rect()?.stipple(&stipple)?.to_svg_path());
+    let dot = Param::new("dot", 1.0, 0.5, 3.0)?;
+    let seed = Param::new("seed", 0.0, 0.0, 9.0)?;
+    let drawing = Drawing::from(rect()?).stipple(&Stipple::new(6.0, tone()?, &dot)?.seed(&seed));
+    let at = |dot: f64, seed: f64| svg(&drawing, &Values::new().set("dot", dot).set("seed", seed));
+    assert_ne!(at(2.0, 0.0)?, at(1.0, 0.0)?);
+    assert_ne!(at(1.0, 4.0)?, at(1.0, 0.0)?);
+    // a document reads back to the same dots and the same text
+    let text = drawing.to_json()?;
+    let back = Drawing::from_json(&text, &Inputs::new())?;
+    assert_eq!(svg(&back, &Values::new())?, svg(&drawing, &Values::new())?);
+    assert_eq!(back.to_json()?, text);
+    let call =
+        |args: &str| format!(r#"{{"version":1,"root":[{{"path":"M0 0 L50 0 L50 50 L0 50 Z"}},{{"stipple":{args}}}]}}"#);
+    for (args, pointer) in [
+        (r#"{"spacing":5,"tone":0.5}"#, "/root/1/stipple"),
+        (
+            r#"{"spacing":5,"tone":0.5,"radius":1,"density":[0,2]}"#,
+            "/root/1/stipple/density/1",
+        ),
+        (r#"{"spacing":5,"tone":0.5,"radius":0}"#, "/root/1/stipple/radius"),
     ] {
         match Drawing::from_json(&call(args), &Inputs::new()) {
             Err(Error::Format { pointer: got, .. }) => assert_eq!(got, pointer, "{args}"),

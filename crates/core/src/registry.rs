@@ -38,6 +38,7 @@ const NODES: &[&dyn Node] = &[
     &hatch::HatchStep,
     &lines::RowsStep,
     &lines::BandsStep,
+    &lines::StippleStep,
     &transform::Simplify,
     &transform::Reverse,
     &transform::Dash,

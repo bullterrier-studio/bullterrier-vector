@@ -3,8 +3,8 @@
 use crate::common::fonts::fraunces;
 use bullterrier_vector::{
     Along, Arch, Bands, Blend, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Field, Flow, Gradient, Halftone,
-    Hatch, Join, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Shadow, Spacing, Stroke,
-    Text, Twist, Values, text,
+    Hatch, Join, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Shadow, Spacing, Stipple,
+    Stroke, Text, Twist, Values, text,
 };
 
 /// A drawing made of a verb with one argument set from an expression, or the reason the row has no such argument.
@@ -956,6 +956,28 @@ pub(super) fn rows() -> Vec<Row> {
                 ("amplitude", -2.0, true),
             ],
             // equal to `Path::bands` is shown in drawing_lines.rs
+            geometry: None,
+        },
+        Row {
+            verb: "stipple",
+            sample: || Ok(square()?.stipple(&Stipple::new(2.0, Field::constant(0.5)?, 0.5)?)),
+            with: Some(|argument, value| match argument {
+                "spacing" => Ok(square()?.stipple(&Stipple::new(value, Field::constant(0.5)?, 0.5)?)),
+                "radius" => Ok(square()?.stipple(&Stipple::new(2.0, Field::constant(0.5)?, value)?)),
+                "seed" => Ok(square()?.stipple(&Stipple::new(2.0, Field::constant(0.5)?, 0.5)?.seed(value))),
+                other => Err(unknown("stipple", other)),
+            }),
+            ranges: &[
+                ("spacing", 0.0, false),
+                ("spacing", f64::NAN, false),
+                ("spacing", 2.0, true),
+                ("radius", 0.0, false),
+                ("radius", -1.0, false),
+                ("radius", 0.5, true),
+                ("seed", f64::NAN, false),
+                ("seed", 7.0, true),
+            ],
+            // equal to `Path::stipple` is shown in drawing_lines.rs
             geometry: None,
         },
         Row {
