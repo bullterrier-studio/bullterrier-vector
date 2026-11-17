@@ -680,7 +680,7 @@ carries a tone along straight lines, waves, rings, a spiral or rays) and `stippl
 on a `Path` and as a `Drawing` step, in Rust, Python and documents (so WebAssembly); `Path.within(region)` (lines kept inside a
 region); `Field.contours(.., smooth=, min_length=)` with lines running the high side on the left (a matte's `contours(0.5)` is
 its silhouette); `Drawing.to_plot_svg` (strokes only, a layer per pen, nearest-neighbour order, simplified, solids hatched at the
-pen width; `toPlotSvg` in JavaScript); a font's name in its cache key; `examples/line_families.py` in the three languages. The
+pen width, its sides in px, mm or in; `toPlotSvg` in JavaScript); a font's name in its cache key; `examples/line_families.py` in the three languages. The
 M5 piece is the demos folder's poster of the owner's dog: his outline from image's subject matte, drawn as rings whose width
 is his tone, a headline hatched along its own outline keeping clear of him, a stippled shadow, and the plotter SVG of it (50,000
 lines in three pens). Reasons and limits: `design-decisions.md`, "Line families, plotter output and tidy contours (V15c)".

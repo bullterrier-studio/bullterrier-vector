@@ -1,4 +1,4 @@
-//! `Path::bands`: lines whose width carries a tone. A carrier (straight lines, waves, rings, a spiral or rays) is laid
+//! `Path::bands`: lines whose width follows a tone. A carrier (straight lines, waves, rings, a spiral or rays) is laid
 //! over a region, cut to it, and each piece becomes a closed outline as wide at a point as the tone there asks.
 
 #![expect(
@@ -331,7 +331,7 @@ impl Plan {
 }
 
 impl Path {
-    /// Bands inside the region this path fills (nonzero rule): the carrier of `bands` laid over the region, cut to it
+    /// Lines whose width follows a tone, inside the region this path fills (nonzero rule): the carrier of `bands` laid over the region, cut to it
     /// (a line is kept where its centre is inside), each piece outlined as wide at every point as the tone there asks (see
     /// [`Bands::lines`]). A piece is one closed outline; a ring that lies whole inside the region is two loops, the inner
     /// one the other way, so that the nonzero rule leaves the hole open. A Param is read at its default here; a `bands`

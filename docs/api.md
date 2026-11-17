@@ -408,9 +408,9 @@ starts: a spacing too small for the region is a `ParameterError` naming `spacing
 | Call | Result | Arguments |
 |---|---|---|
 | `rows(spacing, *, tone, amplitude)` | open lines: ridgelines | rows `spacing` apart, the first half a spacing below the region's top, each lifted towards the top by `amplitude` times the tone at the point of the row (a negative amplitude pushes down). A row hides what lies behind it (higher up the picture, below its curve): it is cut where a nearer row passes over it. Points are half a spacing apart. |
-| `bands(spacing, *, tone, width, family="lines", angle=0, centre=None, wavelength=None, amplitude=None)` | closed outlines, for filling | a carrier laid over the region and cut to it, each line as wide at a point as `width = (at tone 0, at tone 1)` says (linear, held beyond; the tone is read on the centre line). `family`: `"lines"` along `angle` degrees, `"waves"` (needs `wavelength` and `amplitude`; a sine in phase at the origin), `"rings"` round `centre` (default the middle of the region's box), `"spiral"` (arms `spacing` apart along any ray from the centre, turned by `angle`) and `"rays"` (as many as are `spacing` apart at the box's farthest corner, so they crowd near the centre: use a narrow width). A ring wholly inside is two loops, the inner the other way. |
-| `stipple(spacing, *, tone, radius, density=(1, 0), seed=0)` | closed round dots, for filling | one dot at most in each cell of a square lattice `spacing` apart; `density` is the share of cells that get a dot where the tone is 0 and where it is 1. Which cells is a low-discrepancy threshold (R2) moved by `seed`, so the dots of a tone are evenly spread and their count follows the tone to within a cell or two. |
-| `Path.within(region)` | open lines | the parts of a path's lines inside the region `region` fills, cut exactly where they cross its outline; a closed loop wholly inside stays closed. A value on a `Path` only so far, not a step. |
+| `bands(spacing, *, tone, width, family="lines", angle=None, centre=None, wavelength=None, amplitude=None)` | closed outlines, for filling | lines whose width follows a tone: a carrier laid over the region and cut to it, each line as wide at a point as `width = (at tone 0, at tone 1)` says (each from 0, so a line can fade to nothing; linear, held beyond; the tone is read on the centre line; 0 is dark, so `(thick, thin)` draws dark thick). `family`: `"lines"` along `angle` degrees (0 when left out), `"waves"` (needs `wavelength` and `amplitude`; a sine in phase at the origin), `"rings"` round `centre` (default the middle of the region's box), `"spiral"` (arms `spacing` apart along any ray from the centre, turned by `angle`) and `"rays"` (as many as are `spacing` apart at the box's farthest corner, so they crowd near the centre: use a narrow width). A ring wholly inside is two loops, the inner the other way. An argument the family does not read (`wavelength` or `amplitude` but for waves, `centre` for lines and waves, `angle` for rings) is a `ParameterError` naming it and the family, in a call, in Rust and in a document. |
+| `stipple(spacing, *, tone, radius, density=None, seed=None)` | closed round dots, for filling | one dot at most in each cell of a square lattice `spacing` apart; `density` (default `(1, 0)`) is the share of cells that get a dot where the tone is 0 and where it is 1. Which cells is a low-discrepancy threshold (R2) moved by `seed` (default 0), so the dots of a tone are evenly spread and their count follows the tone to within a cell or two. |
+| `Path.within(region)` | open lines | the parts of a path's lines inside the region `region` fills, cut exactly where they cross its outline; a closed loop wholly inside stays closed. A method of a `Path` only, with no document step yet: a drawing author calls it on the `Path` before the drawing is built (`Drawing(lines.within(region))`). |
 
 ```python
 photo = btvec.Field.map(w, h, grey_bytes, box=(0, 0, 1080, 1440))
@@ -419,11 +419,14 @@ engraving = dog.bands(6, tone=photo, width=(5, 0.4), family="rings", centre=nose
 btvec.Drawing(engraving).fill("#15161a")
 ```
 
-Rust: `Rows::new(spacing, tone, amplitude)?`, `Bands::lines(spacing, tone, (thin, thick))?` (also `waves`, `rings`,
-`spiral`, `rays`; `.angle(..)`, `.centre(..)`), `Stipple::new(spacing, tone, radius)?` (`.density(a, b)`, `.seed(n)`), then
+Rust: `Rows::new(spacing, tone, amplitude)?`, `Bands::lines(spacing, tone, (thick, thin))?` (the width at tone 0, which is dark, then at tone 1) (also `waves`, `rings`,
+`spiral`, `rays`; `.angle(..)?`, `.centre(..)?`, which refuse a family that does not read them), `Stipple::new(spacing, tone, radius)?` (`.density(a, b)`, `.seed(n)`), then
 `path.rows(&rows)?` or `drawing.rows(&rows)`. Errors: `ParameterError` for a spacing not above 0, a `width` below 0, a
 `wavelength` not above 0, a `density` outside 0 to 1, a `seed` that is not whole, a non-finite number, a carrier of over 2
-million points (`bands`), 5 million (`rows`) or 2 million cells (`stipple`), or more than 10 million points. A drawing in the
+million points (`bands`: a `centre` far from the region stretches rings and arms, and is named), 5 million (`rows`, its
+columns alone too) or 2 million cells (`stipple`), more than 10 million points, or `within` weighing over 500 million
+edges (naming `region`, or `spacing` inside `bands`). A region that fills nothing (a point, a lone line) gives an empty
+path in all three. A drawing in the
 tone's `Field` is taken by the step like `hatch`'s. [line_families.py](../examples/line_families.py) draws a hill of each.
 
 ## Drawing
@@ -886,7 +889,7 @@ opens nothing.
 | `to_svg` | `to_svg(width, height, /, **values)` | an SVG document of that size; shadows, halftone, knockouts, clips, masks and blends kept, so it shows what the pixels show |
 | `to_png` | `to_png(width, height, /, *, window=None, **values)` | PNG bytes, 8-bit RGBA, transparent where nothing is drawn; of the window, if given |
 | `to_rgba` | `to_rgba(width, height, /, *, window=None, **values)` | `width × height × 4` bytes (a window's `w × h × 4`), rows top to bottom, straight alpha |
-| `to_plot_svg` | `to_plotter_svg(width_mm, height_mm, /, *, pen_mm=0.5, **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
+| `to_plot_svg` | `to_plot_svg(width, height, /, *, pen_width, tolerance=None, unit="px", **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
 | `to_mesh` | `to_mesh(width, height, /, *, into=None, **values)` | triangles for the picture (below) |
 | `to_json` | `to_json()` | the drawing as JSON: the same tree written down |
 | `Drawing.from_json` | `Drawing.from_json(text, *, inputs=None)` | the drawing back, given the bytes (`bytes` or `bytearray`) of its inputs by name, a dict; it draws to identical bytes. A static method. In Rust `Drawing::from_json(text, &Inputs::new().set("anybody", bytes))`, in JavaScript `Drawing.fromJson(text, { anybody: bytes })` with a `Uint8Array` each |
@@ -956,8 +959,12 @@ and blur passes, which three flat buffers and draw ranges cannot hold (a later r
 
 ### Plotter
 
-`Drawing.to_plot_svg(width, height, /, *, pen_width, tolerance=None, **values)` (Rust `to_plot_svg(size, &values, &Plot::new(pen_width)?.tolerance(t))`,
-JavaScript `toPlotSvg(width, height, penWidth, tolerance?, values?)`) writes strokes only. A pen draws lines, so:
+`Drawing.to_plot_svg(width, height, /, *, pen_width, tolerance=None, unit="px", **values)` (Rust `to_plot_svg(size, &values, &Plot::new(pen_width)?.tolerance(t).unit(PlotUnit::Mm))`,
+JavaScript `toPlotSvg(width, height, values, { penWidth, tolerance, unit })`) writes strokes only. A pen draws lines, so:
+
+- **The unit** is `"px"` (default: whole sides, bare numbers), `"mm"` or `"in"`: the sides are then in that unit, any number above 0
+  up to 100,000, the document says `width="210mm" height="297mm"` and its `viewBox` has the same numbers, so Inkscape and plotter
+  software read the physical size. The design frame is fitted into it as for pixels, and `pen_width` (design pixels) scales with it.
 
 - **One layer per pen**, a pen being a stroke or fill colour (alpha ignored), in the order the colours first appear:
   `<g inkscape:groupmode="layer" inkscape:label="pen 1 #d0341a" fill="none" stroke="#d0341a" stroke-width=..>` holding one `<path>` per line.
@@ -969,10 +976,14 @@ JavaScript `toPlotSvg(width, height, penWidth, tolerance?, values?)`) writes str
   past a billion distance tests.
 - **Ordered** by nearest neighbour to cut pen-up travel: the pen starts at the top left corner of each layer, draws the line
   with the nearest end (reversed if that is its last; a closed loop entered at its nearest vertex), and goes on from where it
-  ended. A grid finds the nearest end, so a plot of 50,000 lines orders in about two seconds. Measured on small cases the
+  ended. A grid finds the nearest end, so a plot of 50,000 lines orders in about two seconds; a crowd the grid cannot spread
+  (100,000 strokes packed into a corner of a big page) is counted, and past 2e8 entries scanned the strokes left keep their
+  drawing order. Measured on small cases the
   travel is at most 1.41 times the best order over twelve seeds of seven strokes.
 - **Refused, naming the shape** (`shape 3`): a gradient, halftone, shadow, clip, mask, knockout or blend mode, which a pen
-  cannot draw. Opacity is ignored. A shape drawn later does not hide one drawn earlier.
+  cannot draw. A plot draws only what the picture shows: a shape with opacity 0, or a fill or stroke that is fully transparent, is not
+  plotted; a translucent colour is its opaque pen. A shape drawn later does not hide one drawn earlier. A fill the pen is too wide
+  to hatch, or a `pen_width` or `tolerance` past 1e100, is a `ParameterError` naming it.
 
 Leave the paper out of the drawing sent to the plotter: a background rectangle filled with the paper's colour becomes
 a solid block of hatching. Keep the inks in a drawing of their own and stack the paper under it only for pixels and SVG
@@ -1072,8 +1083,8 @@ The same names in every language, in each language's case: `snake_case` in Pytho
 | Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7.0)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7.0) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`) | an options object last (`{ width: 1.5 }`) |
 | Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods (`add`, `sub`, `mul`, `div`, `neg`), read in source order: `pulse.mul(0.08).add(1)`; a number that comes first is lifted once with `btvec.expr(n)`: `btvec.expr(1).sub(rise).mul(HEIGHT)` |
 | Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` | an object: `toPng(1080, 1350, { weight: 820 })` |
-| Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plotter_svg(w, h, pen_mm=0.5, **values)` (so no Param may take those names) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plotter_svg(Size::mm(300.0, 375.0), &values, Plotter::new().pen_mm(0.5))` | an options object after the values: `toPlotterSvg(wMm, hMm, values, { penMm: 0.5 })`; a `Mesh` is lent as its own argument: `toMeshInto(mesh, w, h, values)` |
-| Units as types | | `Deg(..)` for every angle of a `Drawing` step (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`); a `Path` method takes plain degrees (`rotate(30.0, None)?`); `Size::px(w, h)` (whole output pixels, else an error at the draw) and `Size::mm(w, h)` for output sizes | |
+| Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plot_svg(w, h, pen_width=0.5, tolerance=None, unit="mm", **values)` (so no Param may take `into`, `pen_width`, `tolerance`, `unit` or `window`) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plot_svg(Size::px(300.0, 375.0), &values, &Plot::new(0.5)?.unit(PlotUnit::Mm))` | an options object after the values: `toPlotSvg(w, h, values, { penWidth: 0.5, unit: "mm" })`; a `Mesh` is lent as its own argument: `toMeshInto(mesh, w, h, values)` |
+| Units as types | | `Deg(..)` for every angle of a `Drawing` step (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`); a `Path` method takes plain degrees (`rotate(30.0, None)?`); `Size::px(w, h)` (whole output pixels, else an error at the draw; for a plot in `PlotUnit::Mm` or `In` the sides of the same `Size` are in that unit and need not be whole) | |
 | Colours | `"#ff4f9a"` | `Color::hex(0xff4f9a)`, `Color::NONE` | `"#ff4f9a"` |
 | Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`reverse`, `split`, `length`); a verb that takes a plain number returns a `Result`, as a NaN or an infinity is a `ParameterError` (`path.translate(1.0, 2.0)?`); a path is built from `Path::start(point)`, so no segment comes before a start. `Error` is `#[non_exhaustive]`: `Error::Parameter { parameter, message }` and `Error::Geometry { verb, message }`, owned strings so a drawing can prefix the step. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | thrown `Error` objects whose `name` is `"ParameterError"`, `"GeometryError"` or `"FormatError"` and whose message is the core's (the same text as Python's). No classes to `instanceof`: wasm-bindgen cannot define subclasses; the `name` is the contract. A value of a type a call cannot read is a plain `TypeError` |
 | Optional `Path` arguments | keywords: `point_at(0.5, near=p)`, `rotate(30, about=p)`, `Path.rect(0, 0, w, h, radius=8)`, `scale((2, 3))` | plain arguments, `None` for the default: `point_at(0.5, Some(p))?`, `rotate(30.0, None)?`, `Path::rect(0.0, 0.0, w, h, 8.0)?`; `scale` takes a number or a pair through `Scale`: `scale(2.0, None)?`, `scale((2.0, 3.0), None)?`; `Path::polyline(points, closed)` and `Path::star(center, outer, inner, points)` take their options in place; `map_points` takes `FnMut(Point) -> Result<Point, Error>` | an options object last: `pointAt(0.5, { near: p })`, `scale([2, 3])` |

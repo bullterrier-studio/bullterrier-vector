@@ -538,7 +538,7 @@ impl PyDrawing {
         checked(self.0.rows(&rows_of(spacing, tone, amplitude)?))
     }
 
-    /// Every shape replaced by the closed outlines of lines whose width carries `tone`, as `Path.bands` makes them for its
+    /// Lines whose width follows `tone`: every shape replaced by their closed outlines, as `Path.bands` makes them for its
     /// path; fill them. A `Param` in a number is read with the values of the draw.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
     #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=None, centre=None, wavelength=None, amplitude=None))]

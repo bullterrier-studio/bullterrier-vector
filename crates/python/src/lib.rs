@@ -577,8 +577,8 @@ impl PyPath {
         Self::of(py.detach(|| self.0.rows(&rows)))
     }
 
-    /// Lines laid over the region this path fills and outlined as wide at each point as `tone` asks: `width` is
-    /// `(width where the tone is 0, where it is 1)`. `family` is `"lines"` (along `angle` degrees), `"waves"` (`wavelength`
+    /// Lines whose width follows a tone, laid over the region this path fills and outlined as wide at each point as `tone`
+    /// asks: `width` is `(width where the tone is 0, where it is 1)`. `family` is `"lines"` (along `angle` degrees), `"waves"` (`wavelength`
     /// long, `amplitude` high), `"rings"` or `"spiral"` round `centre` (default the middle of the bounds) or `"rays"` out of
     /// it. The result is closed outlines, so fill it. A `Param` is read at its default here.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]

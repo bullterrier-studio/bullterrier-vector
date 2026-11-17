@@ -1573,13 +1573,39 @@ holds.
   loops disappear before they are traced; smoothing the lines after would keep the loops and the bunching. `smooth` is a
   Gaussian in design pixels (refused past 2 billion steps), `min_length` drops short lines. The weights per level, the levels
   and the palette are the poster's, not the library's.
+- **Every allocation is bounded by its own count, before it is made.** A wide thin region made `rows` build its lattice of
+  columns with no row to put on it (4.6 GB at 1e9 wide), and a far `centre` made `bands` take a difference of squares
+  that cancelled and a ring count that saturated (`capacity overflow`). Each count is now worked out in f64 per kind of
+  line (rings by their radii, an arm by its arc length) and refused first, naming `centre` when a centre away from the
+  region is what stretches the carrier. *Reason:* a refusal that depends on a sum made after the allocation is no bound.
+- **A region that fills nothing gives an empty path in every verb** (a point, a lone straight line: `Path::may_fill`).
+  `rows` had returned a sliver for a line, `stipple` an error for a point and `spiral` and `rays` the error of a
+  one-point path. *Reason:* the verbs share a region, so they share what an empty one does.
+- **`within` asks whichever index is sparser, and charges what it weighs.** The edges are in y bands and x strips; the cut
+  of a segment and the middle test of each part use the one with fewer edges, so a comb that is one band tall costs what a
+  round outline costs. What is left (long lines across very many edges, output-sized work) is charged before each
+  question against half a billion edge visits (measured 1.4e8 a second: a 100,000-edge comb under a line of 100,000 points
+  took 73 s, now under a second) and refused naming `region`, or `spacing` inside `bands`. A region that cannot be
+  flattened inside the segment budget is refused, never taken for an empty one.
+- **A family refuses what it does not read.** `bands` is one verb over five carriers, so a `centre` on lines or an `angle`
+  on rings would otherwise be accepted and ignored, which hides a misspelt family. `Bands::refuse_unread` is the one place
+  the rule lives (the builder, the document and the bindings call it); `angle` is therefore unset, not 0, by default.
+  *Rejected:* a verb per family (the summary says what they share); `width` stays one pair from 0 (a line may fade to
+  nothing: the step, the schema and the path agree).
 - **Plotter output is a writer, not a step.** `to_plot_svg` is `to_svg` for a pen: strokes only, a layer per pen (a stroke or
   fill colour), written in Inkscape's layer convention. The pen width is the plot's (`Plot`), a fill is `hatch` at that width, and
   what has no pen form (gradient, halftone, shadow, clip, mask, knockout, blend) is refused naming the shape, as the mesh
   refuses what it cannot draw. Order is nearest neighbour with flips and, for a closed loop, the nearest vertex; a grid of the
   ends finds it (ties go to the earlier stroke, so the order is deterministic). Measured on twelve seeds of seven strokes, at
-  most 1.41 times the best order; 50,783 lines of the poster order in 2.4 s. *Rejected:* an optimal tour (NP-hard; two-opt
-  improves a little and costs time); a document verb (the plot is an output).
+  most 1.41 times the best order; 50,783 lines of the poster order in 2.4 s. A crowd the grid cannot spread (100,000
+  strokes in a 10 by 10 corner of a big page: 9.8 s, 300,000: 38.7 s) is quadratic, so the entries scanned are counted and
+  past 2e8 the strokes left keep their drawing order. *Rejected:* an optimal tour (NP-hard; two-opt improves a little and
+  costs time); a document verb (the plot is an output); a k-d tree for crowds (a later batch if one matters).
+  *The sides carry a unit:* `Plot::unit` (`px`, `mm`, `in`) writes `width="210mm"` and a `viewBox` of the same numbers, so
+  plotter software reads the physical size; outside pixels a side need not be whole. The pen stays in design pixels (it
+  scales with the frame), and a shape the picture does not show (opacity 0, a fully transparent fill or stroke) is not
+  plotted. In Python the options are keywords (so no Param may be named `pen_width`, `tolerance`, `unit`, `into` or
+  `window`; `pen_mm` is free again), in JavaScript an object after the values, as `toRgba` takes its window.
 - **Douglas and Peucker without recursion, with a budget.** The worst case is quadratic (a spiral), so the tests are counted
   and a call over a billion is refused naming `tolerance`; the stack stays flat (rule 7).
 - **A name tells fonts apart, as it does maps.** Two fonts with equal bytes and different names shared a key, so a drawing

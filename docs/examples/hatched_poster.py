@@ -42,5 +42,6 @@ poster = btvec.Drawing(btvec.Path.rect(0, 0, WIDTH, HEIGHT).fill(PAPER), ink, si
 
 Path("low-end.png").write_bytes(poster.to_png(2 * WIDTH, 2 * HEIGHT))
 Path("low-end.svg").write_text(poster.to_svg(WIDTH, HEIGHT), encoding="utf-8")
-# Paper is not drawn by a pen: the plotter file is the ink alone, 300 x 375 mm, one layer per stroke colour.
-Path("low-end-plotter.svg").write_text(ink.to_plotter_svg(300, 375, pen_mm=0.5), encoding="utf-8")
+# Paper is not drawn by a pen: the plotter file is the ink alone, 300 x 375 mm, one layer per stroke colour. A 0.5 mm
+# pen is 1.8 design pixels (300 mm over 1080 pixels).
+Path("low-end-plotter.svg").write_text(ink.to_plot_svg(300, 375, pen_width=1.8, unit="mm"), encoding="utf-8")
