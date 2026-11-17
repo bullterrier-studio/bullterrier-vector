@@ -54,6 +54,7 @@ pub(crate) mod boolean;
 pub(crate) mod clip;
 pub(crate) mod hatch;
 pub(crate) mod items;
+pub(crate) mod lines;
 pub(crate) mod morph;
 pub(crate) mod offset;
 pub(crate) mod place;

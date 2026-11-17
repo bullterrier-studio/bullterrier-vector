@@ -7,6 +7,7 @@ mod eval;
 mod graph;
 mod hatch;
 mod items;
+mod lines;
 mod morph;
 mod offset;
 mod place;

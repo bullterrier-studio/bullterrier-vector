@@ -547,12 +547,16 @@ proptest! {
 // The cache ---------------------------------------------------------------------------------------------------------
 
 #[test]
-fn a_font_is_part_of_what_a_step_is_by_its_bytes_and_not_its_name() -> Outcome {
+fn a_font_is_part_of_what_a_step_is_by_its_bytes_and_its_name() -> Outcome {
     let named = fraunces()?.named("anybody")?;
-    // the same bytes, built apart (and named): one text, computed once
-    let same = Drawing::new([text("H", &fraunces()?), text("H", &named)]);
+    // the same bytes, built apart and both unnamed: one text, computed once
+    let same = Drawing::new([text("H", &fraunces()?), text("H", &fraunces()?)]);
     same.shapes(&Values::new())?;
     assert_eq!(same.stats().computed, 2, "one text and the stack");
+    // the same bytes under two names: what a saved drawing calls them differs, so two texts
+    let named_apart = Drawing::new([text("H", &fraunces()?), text("H", &named)]);
+    named_apart.shapes(&Values::new())?;
+    assert_eq!(named_apart.stats().computed, 3, "two texts and the stack");
     // other bytes: two texts
     let other = Drawing::new([text("A", &fraunces()?), text("A", &synthetic()?)]);
     other.shapes(&Values::new())?;

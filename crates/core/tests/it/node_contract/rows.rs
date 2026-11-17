@@ -3,8 +3,8 @@
 use crate::common::fonts::fraunces;
 use bullterrier_vector::{
     Along, Arch, Blend, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Field, Flow, Gradient, Halftone, Hatch,
-    Join, Param, Path, PlaceAlong, Point, Rect, Rotate, Scale, ScaleBy, Select, Shadow, Spacing, Stroke, Text, Twist,
-    Values, text,
+    Join, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Shadow, Spacing, Stroke, Text,
+    Twist, Values, text,
 };
 
 /// A drawing made of a verb with one argument set from an expression, or the reason the row has no such argument.
@@ -905,6 +905,26 @@ pub(super) fn rows() -> Vec<Row> {
                 ("below", -3.0, true),
             ],
             // equal to `Path::hatch` is shown in drawing_hatch.rs: a random path would make a random number of lines
+            geometry: None,
+        },
+        Row {
+            verb: "rows",
+            sample: || Ok(square()?.rows(&Rows::new(2.0, Field::constant(0.5)?, 3.0)?)),
+            with: Some(|argument, value| match argument {
+                "spacing" => Ok(square()?.rows(&Rows::new(value, Field::constant(0.5)?, 3.0)?)),
+                "amplitude" => Ok(square()?.rows(&Rows::new(2.0, Field::constant(0.5)?, value)?)),
+                other => Err(unknown("rows", other)),
+            }),
+            ranges: &[
+                ("spacing", 0.0, false),
+                ("spacing", -1.0, false),
+                ("spacing", f64::NAN, false),
+                ("spacing", 2.0, true),
+                ("amplitude", f64::NAN, false),
+                ("amplitude", f64::INFINITY, false),
+                ("amplitude", -3.0, true),
+            ],
+            // equal to `Path::rows` is shown in drawing_lines.rs
             geometry: None,
         },
         Row {
