@@ -73,7 +73,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done; next: V14 (trace, the M4 piece)
+unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done and V14a (trace of a single map) is done; next: V14b (sequences of maps, the M4 piece)
 (see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
 Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12, V13 and M3 are done; V15 (before V14) follows.
@@ -638,6 +638,12 @@ run, draw four frames that are the same SVG text in all three (`poe wasm-test`),
 State: done 2026-11-16 (`design-decisions.md`, "Kinetic type piece (M3)"). A frame costs about 25 ms at 1080x1350.
 
 ## V14 Trace
+
+**V14a, done 2026-11-17.** The single-map part, as three source verbs on a `Field.map` (`Drawing.trace_levels`, `trace_labels`,
+`trace_cells`, in Rust, Python and documents so WebAssembly; `examples/trace.py` in the three languages): filled shapes per level
+with the level as an attribute, per label, and an exactly traced dithered cell map (one shape per colour, a cap on colours);
+curve fitting, edge padding, `open`/`close` in design pixels, `min_area`/`min_hole`. Reasons and limits: `design-decisions.md`,
+"Trace (V14a)". **V14b** (below, the last two bullets) and the M4 piece remain.
 
 - A grayscale map in (width, height, bytes), outlines at chosen levels out; each level a shape with its level as an
   attribute.

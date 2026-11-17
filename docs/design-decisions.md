@@ -1623,6 +1623,48 @@ holds.
 - **Left for later.** A document verb for contours and `within` (V14's `trace` takes a field), rays whose width follows the
   radius, a field in `halftone`'s `tone`, two-opt for the plotter order, hatching that avoids the strokes of other pens.
 
+## Trace (V14a)
+
+A map of plain numbers (a `Field.map`, V15b) becomes filled shapes: `trace_levels`, `trace_labels`, `trace_cells`, each a
+source verb with the map as its `map` argument, so a document holds the call and names the map as an input and never embeds
+the traced paths.
+
+- **Sources, not methods and not eager.** A trace makes many shapes with an attribute each (`level`), so it is a `Drawing`
+  source (`Drawing::trace_*`), not a `Path` method. It is a verb, not a function that returns shapes, because a saved
+  drawing would otherwise hold every traced point. *Rejected:* one `trace(mode=...)` verb (the options differ: a cell trace
+  has no fitting, a level trace no palette), a new `Kind` for a map (`Field.map` already carries bytes, a name, a digest and
+  a box through documents and the schema).
+- **Levels are filled regions, stacked.** Level L is where the map is at or above L, so the shapes nest and the lowest goes
+  first; a level the map never reaches gives no shape (an empty shape would only be an element to skip). The level is the
+  `level` attribute (already in the attribute list), the label byte for labels and cells. No palette argument: the shapes
+  come unpainted and `only(level=..).fill(..)` paints them, because a list of colours would be a new argument kind in the
+  reader, writer and schema for what a loop already says. *Cost:* a palette is a few lines in the caller.
+- **One lattice, one tracer.** Levels and labels run the contour tracer of `Field::contours` over the map's pixel centres
+  (a label is the indicator of its byte at 0.5), so saddles, orientation and the edge walk are written once.
+- **Edge padding.** The lattice gets rings of the edge value and an outermost ring far below every level, so a shape that
+  meets the border goes on past it and closes outside the frame. No edge lies along the border, which a stroke would draw
+  as a false closed edge and a morphological opening would eat into. The padding is two pixels plus `max(open, close,
+  tolerance)`, so shrinking cannot reach the frame. *Cost:* shapes are a few pixels larger than the frame; crop with
+  the view as usual. A map plus its padding is at most 4 million nodes (about 1998 by 1998).
+- **Tidy order.** Blur (on the map), trace, close, open, fill small holes, drop small parts, fit curves. Open and close
+  are offsets with round joins (a ball rolled along the edge) at 0.01 pixel; the area limits subtract or unite the
+  small rings from the canonical result, so a dropped part takes its holes with it. Curve fitting is `Path::simplify` (corners
+  past 45 degrees stay), so every fitted point is within `tolerance` of the traced polyline.
+- **Exact cells.** `trace_cells` follows the cracks between cells of different colour, clockwise round each colour, turning
+  towards the colour first (two cells that meet at a corner are two regions) and keeping only the corners where the
+  direction changes. The result is rectilinear, its area per colour is the cells' count times the cell area, the colours
+  tile the map with no gap or overlap, and holes are sub-paths running the other way (nonzero fill). The cells must be uniform
+  (every pixel of a cell one byte) and divide the map: a map that is not what the caller said is refused naming `cell`.
+  *Rejected:* fitting curves (it rounds the cells) and one polygon per cell (a dither of a photo is millions).
+- **Limits, charged before allocation.** Passes over the lattice (levels, labels) times its nodes at most `MAX_READ_WORK`
+  (2e8), at most 256 levels, `max_colors` at most 256 (default 32), the cracks of a cell trace and every traced point against
+  `MAX_SEGMENTS`, the blur against its work bound. Each refusal names the argument (`levels`, `max_colors`, `smooth`, `open`,
+  `close`, `cell`, `map`).
+- **Known limits.** Neighbouring label shapes are fitted apart and can leave a hairline between them (stack them over the
+  commonest colour); tracing a binary indicator cuts the corner of every one-pixel step by an eighth of a pixel
+  (curve fitting hides it); the raw trace of a map winds the other way round than the canonical form (fill is nonzero, so
+  it does not matter); sequences of maps (V14b) are left to the caller.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

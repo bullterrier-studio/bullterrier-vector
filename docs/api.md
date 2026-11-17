@@ -38,6 +38,7 @@ import bullterrier_vector as btvec
 | [wobble_outline.py](../examples/wobble_outline.py) | a small noise wobble; a font axis as a described parameter |
 | [bent_type.py](../examples/bent_type.py), [.rs](../crates/core/examples/bent_type.rs), [.mjs](../crates/wasm/examples/bent_type.mjs) | the deformer half of piece 1, in all three languages: a line that arches, ripples, twists and wobbles on `progress` and `phase` |
 | [flow_hatch.py](../examples/flow_hatch.py), [.rs](../crates/core/examples/flow_hatch.rs), [.mjs](../crates/wasm/examples/flow_hatch.mjs) | a headline hatched along its own outline, closer at the edge, in all three languages |
+| [trace.py](../examples/trace.py), [.rs](../crates/core/examples/trace.rs), [.mjs](../crates/wasm/examples/trace.mjs) | a relief traced into stacked cut-paper layers and a dithered strip traced exactly, in all three languages |
 | [line_families.py](../examples/line_families.py), [.rs](../crates/core/examples/line_families.rs), [.mjs](../crates/wasm/examples/line_families.mjs) | three hills drawn only from lines that follow a tone (ridgelines, rings, dots), and the plotter SVG of them, in all three languages |
 | [glyph_morph.py](../examples/glyph_morph.py), [.rs](../crates/core/examples/glyph_morph.rs), [.mjs](../crates/wasm/examples/glyph_morph.mjs) | a letter that turns into a circle and CAT into HORSE on one `progress`, in all three languages |
 | [glyph_scatter.py](../examples/glyph_scatter.py) | letters split into parts, scattered by seeded random numbers |
@@ -428,6 +429,35 @@ columns alone too) or 2 million cells (`stipple`), more than 10 million points, 
 edges (naming `region`, or `spacing` inside `bands`). A region that fills nothing (a point, a lone line) gives an empty
 path in all three. A drawing in the
 tone's `Field` is taken by the step like `hatch`'s. [line_families.py](../examples/line_families.py) draws a hill of each.
+
+## Trace
+
+A map (`Field.map`: 8-bit bytes, the same input form in documents) traced into filled shapes. Three sources, all on `Drawing`;
+the shapes carry no paint (paint each with `only(level=..).fill(..)`) and the byte or level as the `level` attribute.
+
+| Call | Result | Arguments |
+|---|---|---|
+| `Drawing.trace_levels(map, levels, *, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)` | one shape for each of `levels` (0 black to 1 white; a number or a list) the map reaches, in the order given: the region where the map is at or above it | `smooth` blurs by that many design pixels first; `close`, then `open` (design pixels) fill and remove what is narrower than twice the radius; `min_hole` and `min_area` (square pixels) fill small holes and drop small parts; `tolerance` fits curves within that many pixels of the traced polyline (0 keeps it). Each number is a number, a `Param` or an expression, read once |
+| `Drawing.trace_labels(map, *, max_colors=32, ...)` | one shape for each byte the map holds, in order of the byte | the tidying of `trace_levels`; neighbouring shapes meet within `tolerance` and can leave a hairline |
+| `Drawing.trace_cells(map, cell, *, max_colors=32)` | one shape (one outline with all its regions) for each colour, exactly | the map is cells of `cell` pixels, each one byte (a dithered picture scaled by `cell`); cells of one colour that touch are merged, edges lie on cell sides, no fitting; areas are the cells' and the shapes tile the map |
+
+A shape that meets the map's border goes on past it and closes outside the frame, so no edge lies along the border. The
+map's `box` places it. Rust: `Drawing::trace_levels(&map, &[0.3, 0.6], &Trace::new().smooth(1.5).open(2.0))`,
+`Drawing::trace_labels(&map, &Trace::new().max_colors(8))`, `Drawing::trace_cells(&map, 2, 8)`; in a document
+`{"trace_levels": {"map": {"Field.map": {...}}, "levels": [0.3, 0.6], "open": 2}}`.
+
+```python
+photo = btvec.Field.map(w, h, grey_bytes, box=(0, 0, 1080, 1440))
+layers = [btvec.Drawing.trace_levels(photo, l, smooth=4, close=6, min_area=300).fill(c)
+          for l, c in zip([0.2, 0.45, 0.7], ["#e9dcc3", "#c9a678", "#8a5a3b"])]
+print(btvec.Drawing(*layers, size=(1080, 1440)).to_svg(1080, 1440))
+```
+
+Errors: `ParameterError` naming `levels` (none, over 256, not finite, or levels times lattice nodes over 2e8), `smooth`,
+`tolerance`, `open`, `close`, `min_area`, `min_hole` (below 0, not finite or over 1e100; `open`, `close` and `smooth` also
+when the padded lattice passes 4 million nodes or the blur 2e9 steps), `max_colors` (outside 1 to 256, or fewer than the map's
+colours), `cell` (not whole, not dividing the map, or a cell of more than one byte) and `map` (not a `Field.map`).
+[trace.py](../examples/trace.py) traces a relief and a dithered strip.
 
 ## Drawing
 

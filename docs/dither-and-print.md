@@ -7,7 +7,7 @@ The ecosystem view is the design repository's `dither-and-print.md`.
 
 | Item | What it is | Batch |
 |---|---|---|
-| Tracing a dithered label map | A palette index per pixel, in square cells of a known size, traced exactly into straight-edged regions, one group per colour, a cap on colours: dither and posterize to SVG. Curve fitting would round the cells. | V14 (row added) |
+| Tracing a dithered label map | A palette index per pixel, in square cells of a known size, traced exactly into straight-edged regions, one group per colour, a cap on colours: dither and posterize to SVG. Curve fitting would round the cells. | V14a, built: `Drawing.trace_cells(map, cell, max_colors=)`; paint each colour with `only(level=..).fill(..)` |
 | Tone-driven line families | Rows displaced by tone (ridgelines, waveforms; hidden lines removed), lines whose width carries tone along waves, rings, a spiral or rays, hatching and crosshatching by tone levels (V15b built these: stacked `hatch(below=)` steps over a `Field.map` tone, and `Field.contours` for contour lines), stippled dots. Plotter output applies. | V15c, built: `rows`, `bands` (waves, rings, spiral, rays) and `stipple`; plotter output is `to_plot_svg` (V15a and V15b built the `hatch` and the `Field.map` it rests on) |
 | Halftone dot shapes | The `halftone` style draws round dots on a lattice. Add square, ellipse, diamond and a caller's path as the dot. | effects track |
 | Halftone screen geometry | The lattice laid along waves, rings, a spiral or rays, as image's `halftone` will be: the same names and meanings, so a look reads the same in both (design.md, "Colour effects" keeps colour effects consistent the same way). | effects track |

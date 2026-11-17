@@ -96,7 +96,7 @@ values of `only`, `without` and `with_values`.
 
 Read once: an argument read once for the whole call, not once per shape, takes no per-item number (`by_index`,
 `by_order`, `random`, `stagger`), anywhere in its expression; the schema refuses one. These are `text`'s `size`,
-`tracking`, `leading`, `anchor` and `width` (its `axes` take one per character), every number of `trace`, and every
+`tracking`, `leading`, `anchor` and `width` (its `axes` take one per character), every number of `trace_levels` and `trace_labels`, and every
 number of a field or a flow.
 
 ### Sources
@@ -108,7 +108,9 @@ number of a field or a flow.
 | `drawing` | a shared drawing | the value is its name: `{"drawing": "letters"}` |
 | `stack` | `Drawing(*items, size=None)` | `items` (drawings, bottom first; none is a blank frame of `size`), `size` (`[width, height]`, literal numbers above 0) |
 | `text` | `text(content, *, font, ...)` | `content` (a string) and `font` (input), or `runs` instead (below; with `runs` the text gives no `content`, `font`, `axes` or `features`), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width` (above 0), `fit` (a tag or `"size"`; needs `width`), `inside` (path data; not with `width`, `fit` or `anchor`) |
-| `trace` | `trace(field, *, ...)` | `field` (field), `levels` (numbers), `tolerance`, `before`, `after` (fields), `sigma` |
+| `trace_levels` | `Drawing.trace_levels(map, levels, *, ...)` | `map` (a `Field.map`, required), `levels` (an array of 1 to 256 numbers, read once), `smooth`, `tolerance` (default 0.5), `open`, `close`, `min_area`, `min_hole` (numbers from 0, read once; default 0) |
+| `trace_labels` | `Drawing.trace_labels(map, *, ...)` | `map`, `max_colors` (a number from 1 to 256, a literal; default 32), and the tidying numbers of `trace_levels` |
+| `trace_cells` | `Drawing.trace_cells(map, cell, *, ...)` | `map`, `cell` (a whole number from 1, a literal), `max_colors` |
 
 `text`'s `runs` is an array of one to `MAX_RUNS` objects, each a stretch of the text with a font of its own:
 `{"content": "N", "font": "serif", "size": 120, "axes": {"wght": 800}, "features": {"liga": 0}, "tracking": 20}`. `content`
@@ -423,8 +425,8 @@ node that reads one adds an input kind ("Extension").
 can address a cache. Two documents are the same drawing when their canonical forms are equal. A reader accepts any
 spelling the schema allows; canonical form is what the library writes:
 
-1. **Defaults.** An argument equal to its default is left out (`"angle": 45` on `halftone`, `"levels": [0.5]` on
-   `trace`); so are empty `params`, `inputs` and `drawings`.
+1. **Defaults.** An argument equal to its default is left out (`"angle": 45` on `halftone`, `"tolerance": 0.5` on
+   `trace_levels`); so are empty `params`, `inputs` and `drawings`.
 2. **Paths** in the form under "Values"; a `Path` where a drawing is expected as `[{"path": "..."}]`; `Drawing(x)` of
    one item and no size as `x`.
 3. **Colours** in lower case, `#rrggbbff` as `#rrggbb`.
@@ -492,7 +494,7 @@ evaluated.
 
 A small document can still ask for much work (a `repeat` of a `repeat`, a stack of a shared drawing twice, nested 60
 times). The schema bounds the literal values that set work directly: a `stack`'s `size` at most 100,000 design pixels
-a side, `posterize`'s `levels` at most 256, at most 256 `trace` levels. Everything else is bounded while drawing, by
+a side, `posterize`'s `levels` at most 256, at most 256 `trace_levels` levels. Everything else is bounded while drawing, by
 counters checked as the work is done, never estimated beforehand; passing one raises `ParameterError` naming the
 counter, its limit and the step:
 
@@ -538,7 +540,7 @@ registered, with a test named after it; every later call brings its own checks a
 | `drawing-used` | an entry of `drawings` is used nowhere |
 | `path-data` | path data does not parse; the error names the first bad command |
 | `with-values` | a key names a Param the drawing before it does not read, or one an earlier `with_values` fixed; a value outside its Param's range (a cyclic one wraps) |
-| `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `trace` levels not increasing, `trace` neighbours (`before`, `after`) whose literal `width`, `height` or `box` differ from the field's, `random` with `low` above `high` or a `seed` that is not a whole number, `stagger` with a `spread` outside 0..1 or equal to 1, `merge` with a `by` that is no attribute name, `text` `fit` without `width`, on an axis also in a face's `axes` or that no face's font has, `text` with both `content` and `runs` or neither (a text of runs gives no `font`, `axes` or `features` itself), `text` `inside` with `width`, `fit` or `anchor` or with a constant `leading` not above 0, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
+| `call-checks` | a check api.md makes when a call is made, on literal values, that the schema cannot state: `random` with `low` above `high` or a `seed` that is not a whole number, `stagger` with a `spread` outside 0..1 or equal to 1, `merge` with a `by` that is no attribute name, `text` `fit` without `width`, on an axis also in a face's `axes` or that no face's font has, `text` with both `content` and `runs` or neither (a text of runs gives no `font`, `axes` or `features` itself), `text` `inside` with `width`, `fit` or `anchor` or with a constant `leading` not above 0, `Field.ramp` with equal points, items of a stack without `size` whose sizes differ |
 | `font-checks` | with the font supplied (each run's own font for the axes and features of the run): an axis or feature the font lacks, the axis a `fit` names if the font lacks it (`fit` `"size"` is not an axis), an axis value outside its range (`ParameterError`: the caller supplied the wrong font) |
 | `inputs-supplied` | an input the document declares that `inputs` does not give, a name in `inputs` the document does not declare, two names with equal bytes, bytes that do not match `sha256`, a font the library cannot read, a map whose bytes are not `width × height` (a checked multiply: an overflow is a mismatch; `ParameterError`) |
 
