@@ -325,13 +325,17 @@ points encloses nothing, so it gives no lines; a shape with no outline gives no 
 tone, the more passes reach it); no second routine:
 
 ```python
-photo = btvec.Field.map(w, h, grey_bytes, box=(0, 0, 1080, 1350))           # tone of a photo, 0 black
+photo = btvec.Field.map(w, h, grey_bytes, box=(0, 0, 1080, 1350))  # tone of a photo, 0 black
 region = btvec.Path.rect(0, 0, 1080, 1350)
-passes = [(0.85, 45), (0.6, 135), (0.4, 0), (0.2, 90)]                       # (level, angle)
-crosshatch = btvec.Drawing(*[
-    btvec.Drawing(region).hatch(7, tone=photo, flow=btvec.Flow.angle(angle), below=level).stroke("#16151a", width=0.8)
-    for level, angle in passes
-])
+passes = [(0.85, 45), (0.6, 135), (0.4, 0), (0.2, 90)]  # (level, angle)
+crosshatch = btvec.Drawing(
+    *[
+        btvec.Drawing(region)
+        .hatch(7, tone=photo, flow=btvec.Flow.angle(angle), below=level)
+        .stroke("#16151a", width=0.8)
+        for level, angle in passes
+    ]
+)
 ```
 
 Each pass places its own lines, so passes cross; a lighter tone gets fewer of them. `hatch` reads the `tone` of a
