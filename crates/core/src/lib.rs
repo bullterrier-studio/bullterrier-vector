@@ -9,6 +9,7 @@
 mod drawing;
 mod error;
 mod expr;
+mod field;
 mod geometry;
 mod json;
 mod key;
@@ -30,6 +31,7 @@ pub use drawing::{
     Stroke, Twist, Wanted,
 };
 pub use error::Error;
+pub use field::Field;
 pub use expr::{Expr, Random, Stagger, by_index, by_order};
 pub use geometry::{Point, Rect, Scale};
 pub use json::{Inputs, drawing_schema};
