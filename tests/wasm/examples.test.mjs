@@ -14,6 +14,7 @@ const EXAMPLES = {
   glyph_morph: "start, half or end",
   kinetic_type: "hairlines, kick, bend or morph",
   line_families: "still or plot",
+  trace: "still",
 };
 
 for (const [name, frames] of Object.entries(EXAMPLES)) {

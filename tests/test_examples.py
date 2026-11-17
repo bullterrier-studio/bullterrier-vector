@@ -5,6 +5,7 @@ by hand: the star's from the geometry of a five-pointed star, the bars' from the
 import runpy
 import xml.etree.ElementTree as ET
 from functools import reduce
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -748,4 +749,24 @@ def test_line_families_draws_each_hill_with_one_family_inside_its_circle(run):
 def test_the_node_example_of_line_families_carries_the_document_of_the_python_drawing(run):
     drawing = run("line_families")["drawing"]
     document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "line_families.json"
+    assert document.read_text(encoding="utf-8") == drawing.to_json()
+
+
+def test_trace_stacks_three_papers_and_traces_the_dither_exactly(run):
+    found = run("trace")
+    *papers, red, ink = found["drawing"].shapes()
+    assert [paper.attributes["level"] for paper in papers] == [0.2, 0.45, 0.7]
+    assert [paper.style.fill for paper in papers] == ["#e9dcc3ff", "#c9a678ff", "#8a5a3bff"]
+    # each paper lies inside the one below it: the stack is nested
+    for lower, upper in pairwise(papers):
+        assert upper.path.subtract(lower.path).to_svg_path() == ""
+    # the dither is two colours that together are the strip's whole box
+    assert (red.attributes["level"], ink.attributes["level"]) == (1, 0)
+    strip = red.path.union(ink.path).bounds
+    assert (strip.x, strip.y, strip.width, strip.height) == (60, 1000, 840, 126)
+
+
+def test_the_node_example_of_trace_carries_the_document_of_the_python_drawing(run):
+    drawing = run("trace")["drawing"]
+    document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "trace.json"
     assert document.read_text(encoding="utf-8") == drawing.to_json()
