@@ -3,9 +3,11 @@
 //! document by its parts.
 
 mod distance;
+mod flow;
 mod outline;
 
 pub use distance::Field;
+pub use flow::Flow;
 pub(crate) use distance::FieldKind;
 
 use crate::Error;

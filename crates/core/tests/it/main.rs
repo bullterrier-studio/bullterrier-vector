@@ -33,6 +33,7 @@ mod drawing_wobble;
 mod error;
 mod expr;
 mod field;
+mod flow;
 mod font_bundled;
 mod font_woff2;
 mod json_axes;
