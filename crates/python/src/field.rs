@@ -270,7 +270,10 @@ pub(crate) fn rows_of(spacing: Num, tone: Tone, amplitude: Num) -> PyResult<vect
 }
 
 /// The bands a call describes: `family` is one of `lines`, `waves`, `rings`, `spiral` and `rays`.
-#[expect(clippy::too_many_arguments, reason = "the arguments of the one Python call, passed as they came")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the arguments of the one Python call, passed as they came"
+)]
 pub(crate) fn bands_of(
     spacing: Num,
     tone: Tone,
@@ -283,9 +286,9 @@ pub(crate) fn bands_of(
 ) -> PyResult<vector::Bands> {
     let (spacing, tone, width) = (spacing.0, tone.0, (width.0.0, width.1.0));
     let needed = |value: Option<Num>, name: &str| {
-        value.map(|number| number.0).ok_or_else(|| {
-            crate::ParameterError::new_err(format!("{name}: is needed when `family` is \"waves\""))
-        })
+        value
+            .map(|number| number.0)
+            .ok_or_else(|| crate::ParameterError::new_err(format!("{name}: is needed when `family` is \"waves\"")))
     };
     let bands = match family {
         "lines" => raised(vector::Bands::lines(spacing, tone, width))?,

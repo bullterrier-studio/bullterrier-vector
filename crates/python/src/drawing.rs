@@ -553,19 +553,14 @@ impl PyDrawing {
         wavelength: Option<Num>,
         amplitude: Option<Num>,
     ) -> PyResult<Self> {
-        checked(self.0.bands(&bands_of(spacing, tone, width, family, angle, centre, wavelength, amplitude)?))
+        checked(self.0.bands(&bands_of(
+            spacing, tone, width, family, angle, centre, wavelength, amplitude,
+        )?))
     }
 
     /// Every shape replaced by round dots whose density follows `tone`, as `Path.stipple` makes them for its path; fill them.
     #[pyo3(signature = (spacing, *, tone, radius, density=None, seed=Num(0.0.into())))]
-    fn stipple(
-        &self,
-        spacing: Num,
-        tone: Tone,
-        radius: Num,
-        density: Option<(Num, Num)>,
-        seed: Num,
-    ) -> PyResult<Self> {
+    fn stipple(&self, spacing: Num, tone: Tone, radius: Num, density: Option<(Num, Num)>, seed: Num) -> PyResult<Self> {
         checked(self.0.stipple(&stipple_of(spacing, tone, radius, density, seed)?))
     }
 

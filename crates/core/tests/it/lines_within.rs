@@ -106,3 +106,27 @@ fn a_long_slanted_line_across_many_bands_is_cut_once_per_edge() -> Outcome {
     );
     Ok(())
 }
+
+#[test]
+fn a_line_is_cut_the_same_whichever_way_it_runs() -> Outcome {
+    // a point on the region's own edge is inside or outside by chance, so the middle of each part decides, not its start
+    let region = Path::rect(0.0, 0.0, 100.0, 100.0, 0.0)?;
+    for (from, to) in [
+        ((150.0, 50.0), (50.0, 50.0)),
+        ((-50.0, 50.0), (50.0, 50.0)),
+        ((50.0, 150.0), (50.0, 50.0)),
+    ] {
+        let found = lines(&Path::polyline([from, to], false)?.within(&region)?);
+        assert_eq!(found.len(), 1, "{from:?} to {to:?}");
+        for p in &found[0].0 {
+            assert!(
+                (-1e-9..=100.0 + 1e-9).contains(&p.0) && (-1e-9..=100.0 + 1e-9).contains(&p.1),
+                "{p:?}"
+            );
+        }
+        assert!(
+            (libm::hypot(found[0].0[0].0 - found[0].0[1].0, found[0].0[0].1 - found[0].0[1].1) - 50.0).abs() < 1e-9
+        );
+    }
+    Ok(())
+}

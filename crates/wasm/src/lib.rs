@@ -235,7 +235,10 @@ impl Drawing {
     ) -> Result<String, JsValue> {
         let plot = raised(vector::Plot::new(pen_width))?;
         let plot = tolerance.map_or(plot, |tolerance| plot.tolerance(tolerance));
-        raised(self.0.to_plot_svg(vector::Size::px(width, height), &read_values(values)?, &plot))
+        raised(
+            self.0
+                .to_plot_svg(vector::Size::px(width, height), &read_values(values)?, &plot),
+        )
     }
 
     /// Every Param the drawing reads, in the order first used, each a plain object.
