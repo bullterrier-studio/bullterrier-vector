@@ -369,7 +369,7 @@ fn winding(corners: &[Point], point: Point) -> i32 {
 }
 
 impl PartialEq for Field {
-    /// The same call: equal numbers, and drawings that are the same ([`Drawing::is_same_as`]).
+    /// The same call: equal numbers, and drawings that are the same (the same object, or each one path of the same data).
     fn eq(&self, other: &Self) -> bool {
         key_of(self) == key_of(other)
             && self
