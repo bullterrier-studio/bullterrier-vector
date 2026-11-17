@@ -2,7 +2,7 @@
 
 use crate::common::fonts::fraunces;
 use bullterrier_vector::{
-    Along, Arch, Blend, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Gradient, Halftone, Join, Param, Path,
+    Along, Arch, Blend, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Flow, Gradient, Halftone, Hatch, Join, Param, Path,
     PlaceAlong, Point, Rect, Rotate, Scale, ScaleBy, Select, Shadow, Spacing, Stroke, Text, Twist, Values, text,
 };
 
@@ -890,6 +890,14 @@ pub(super) fn rows() -> Vec<Row> {
                     "M2.5 2.5 L12.5 2.5 L12.5 12.5 L2.5 12.5 Z",
                 )],
             }),
+        },
+        Row {
+            verb: "hatch",
+            sample: || Ok(square()?.hatch(&Hatch::new(2.0).flow(Flow::angle(0.0)?), None)),
+            with: None,
+            ranges: &[],
+            // equal to `Path::hatch` is shown in drawing_hatch.rs: a random path would make a random number of lines
+            geometry: None,
         },
         Row {
             verb: "fill",

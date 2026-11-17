@@ -5,7 +5,7 @@ use super::{Arg, Context, Domain, Kind, Reads, Verb};
 use crate::geometry::{coordinate, finite, fraction};
 use crate::key::Key;
 use crate::limits::MAX_DEPTH;
-use crate::{Color, Drawing, Error, Expr, Font, Literal, Paint, Param, Path, Point, Select, Shape, Values};
+use crate::{Color, Drawing, Error, Expr, Field, Flow, Font, Literal, Paint, Param, Path, Point, Select, Shape, Values};
 
 /// The place of a shape in the list a step works on, and how long the list is.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -59,6 +59,10 @@ pub(crate) enum Given {
     Select(Select),
     /// Values for Params.
     Values(Values),
+    /// A field.
+    Field(Field),
+    /// A flow.
+    Flow(Flow),
     /// A font.
     Font(Font),
     /// Variable-font axis values by four-character tag, in tag order, each a number or an expression, one per item.
@@ -257,6 +261,14 @@ impl Args {
                         key.text(tag);
                         key.word(u64::from(*value));
                     }
+                }
+                Given::Field(field) => {
+                    key.word(18);
+                    key.of(field);
+                }
+                Given::Flow(flow) => {
+                    key.word(19);
+                    key.of(flow);
                 }
                 Given::Paint(paint) => {
                     key.word(14);
@@ -659,6 +671,24 @@ impl Args {
         match self.find(name)? {
             (_, Given::Path(path)) => Ok(path),
             _ => Err(self.misread(name, "a path")),
+        }
+    }
+
+    /// The field of `name`, or `None` if the call left it out.
+    pub(crate) fn field(&self, name: &str) -> Result<Option<&Field>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            (_, Given::Field(field)) => Ok(Some(field)),
+            _ => Err(self.misread(name, "a field")),
+        }
+    }
+
+    /// The flow of `name`, or `None` if the call left it out.
+    pub(crate) fn flow(&self, name: &str) -> Result<Option<&Flow>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            (_, Given::Flow(flow)) => Ok(Some(flow)),
+            _ => Err(self.misread(name, "a flow")),
         }
     }
 

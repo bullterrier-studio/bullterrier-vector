@@ -16,7 +16,7 @@ const LIBRARY: &str = env!("CARGO_PKG_VERSION");
 /// The version of the format this library reads.
 const VERSION: f64 = 1.0;
 
-fn refuse(pointer: &str, message: impl Into<String>) -> Error {
+pub(super) fn refuse(pointer: &str, message: impl Into<String>) -> Error {
     Error::Format {
         pointer: pointer.to_owned(),
         message: message.into(),
@@ -24,7 +24,7 @@ fn refuse(pointer: &str, message: impl Into<String>) -> Error {
 }
 
 /// `pointer` followed by the reference token `token`.
-fn at(pointer: &str, token: &str) -> String {
+pub(super) fn at(pointer: &str, token: &str) -> String {
     format!("{pointer}/{}", pointer_token(token))
 }
 
@@ -339,6 +339,8 @@ impl Reader {
                     .map_err(|error| refuse(pointer, reason(&error)))
             }
             Kind::Paint => paint(pointer, json).map(Value::Paint),
+            Kind::Field => super::fields::field(pointer, json).map(Value::Field),
+            Kind::Flow => super::fields::flow(pointer, json).map(Value::Flow),
             Kind::Text => {
                 let text = string(pointer, json)?;
                 if let Domain::Choice(words) = arg.domain
@@ -736,14 +738,14 @@ fn param(pointer: &str, json: &Json) -> Result<ParamDecl, Error> {
     })
 }
 
-fn string<'a>(pointer: &str, json: &'a Json) -> Result<&'a str, Error> {
+pub(super) fn string<'a>(pointer: &str, json: &'a Json) -> Result<&'a str, Error> {
     match json {
         Json::String(text) => Ok(text),
         other => Err(refuse(pointer, format!("must be a string, not {}", other.describe()))),
     }
 }
 
-fn number_at(pointer: &str, json: &Json) -> Result<f64, Error> {
+pub(super) fn number_at(pointer: &str, json: &Json) -> Result<f64, Error> {
     match json {
         Json::Number(number) => Ok(*number),
         other => Err(refuse(pointer, format!("must be a number, not {}", other.describe()))),

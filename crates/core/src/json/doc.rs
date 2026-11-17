@@ -70,6 +70,8 @@ pub(super) enum Value {
     Text(String),
     Color(Color),
     Paint(Paint),
+    Field(crate::Field),
+    Flow(crate::Flow),
     Path {
         data: String,
         pointer: String,

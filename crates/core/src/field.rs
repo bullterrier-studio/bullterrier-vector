@@ -10,6 +10,7 @@ mod seeds;
 
 pub use distance::Field;
 pub use flow::Flow;
+pub(crate) use flow::FlowKind;
 pub use hatch::Hatch;
 pub(crate) use distance::FieldKind;
 

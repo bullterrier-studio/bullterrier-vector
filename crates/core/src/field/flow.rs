@@ -48,6 +48,13 @@ pub struct Flow {
     parts: Vec<FlowPart>,
 }
 
+impl FlowPart {
+    /// This part alone, at weight 1.
+    pub(crate) fn alone(&self) -> Flow {
+        Flow { parts: vec![Self { weight: 1.0, ..self.clone() }] }
+    }
+}
+
 impl Flow {
     fn single(kind: FlowKind, reader: Reader) -> Self {
         Self { parts: vec![FlowPart { weight: 1.0, kind, reader }] }
@@ -172,6 +179,18 @@ impl Flow {
 
     pub(crate) fn parts(&self) -> &[FlowPart] {
         &self.parts
+    }
+
+    /// The flows blended with `weights` (each above 0), as a document writes a mix; one flat list of parts.
+    pub(crate) fn weighted(flows: &[(f64, Self)]) -> Result<Self, Error> {
+        let parts: Vec<FlowPart> = flows
+            .iter()
+            .flat_map(|(weight, flow)| flow.parts.iter().map(move |part| FlowPart { weight: part.weight * weight, ..part.clone() }))
+            .collect();
+        if parts.is_empty() || parts.len() > MAX_PARTS {
+            return Err(Error::parameter("parts", format!("a flow mixes from 1 to {MAX_PARTS} parts, got {}", parts.len())));
+        }
+        Ok(Self { parts })
     }
 }
 

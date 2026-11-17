@@ -75,6 +75,97 @@
       ],
       "$comment": "in design pixels of the frame; from and to differ, coordinates within +-1e100 (the loader checks both)"
     },
+    "field": {
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field", "from", "to"],
+          "properties": {
+            "field": { "const": "ramp" },
+            "from": { "$ref": "#/$defs/point" },
+            "to": { "$ref": "#/$defs/point" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field", "path"],
+          "properties": {
+            "field": { "const": "distance" },
+            "path": { "$ref": "#/$defs/path_data" },
+            "normalized": { "type": "boolean" }
+          }
+        }
+      ],
+      "$comment": "a number is the same everywhere; ramp points differ and are within +-1e100, a distance path has an edge (the loader checks both)"
+    },
+    "flow_part": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["flow", "angle"],
+          "properties": { "flow": { "const": "angle" }, "angle": { "type": "number" }, "weight": { "type": "number", "exclusiveMinimum": 0 } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["flow", "wavelength"],
+          "properties": {
+            "flow": { "const": "noise" },
+            "wavelength": { "type": "number", "exclusiveMinimum": 0 },
+            "phase": { "type": "number" },
+            "seed": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+            "weight": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["flow", "path"],
+          "properties": { "flow": { "const": "contour" }, "path": { "$ref": "#/$defs/path_data" }, "weight": { "type": "number", "exclusiveMinimum": 0 } }
+        }
+      ]
+    },
+    "flow": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["flow", "angle"],
+          "properties": { "flow": { "const": "angle" }, "angle": { "type": "number" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["flow", "wavelength"],
+          "properties": {
+            "flow": { "const": "noise" },
+            "wavelength": { "type": "number", "exclusiveMinimum": 0 },
+            "phase": { "type": "number" },
+            "seed": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["flow", "path"],
+          "properties": { "flow": { "const": "contour" }, "path": { "$ref": "#/$defs/path_data" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["flow", "parts"],
+          "properties": {
+            "flow": { "const": "mix" },
+            "parts": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/flow_part" } }
+          }
+        }
+      ],
+      "$comment": "a mix blends its parts by weight in doubled-angle space; a contour path has an edge (the loader checks it)"
+    },
     "path_data": { "type": "string", "pattern": "^(\\s*[Mm][MmZzLlHhVvCcSsQqTtAa0-9eE.,+\\-\\s]*)?$" },
     "number": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/expression" }] },
     "param_name": {

@@ -131,6 +131,8 @@ impl<'a> Builder<'a> {
             Value::Text(text) => Given::Text(text.clone()),
             Value::Color(color) => Given::Color(*color),
             Value::Paint(paint) => Given::Paint(paint.clone()),
+            Value::Field(field) => Given::Field(field.clone()),
+            Value::Flow(flow) => Given::Flow(flow.clone()),
             Value::Path { data, pointer } => {
                 Given::Path(Path::from_svg_path(data).map_err(|error| refuse(pointer, reason(&error)))?)
             }

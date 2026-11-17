@@ -230,6 +230,8 @@ impl<'a> Writer<'a> {
             Given::Text(text) => Json::text(text),
             Given::Color(color) => Json::String(color_text(*color)),
             Given::Paint(paint) => paint_json(paint),
+            Given::Field(field) => super::fields::field_json(field),
+            Given::Flow(flow) => super::fields::flow_json(flow),
             Given::Path(path) => Json::String(path.to_svg_path()),
             Given::Shape(shape) => shape_json(shape),
             Given::Drawings(items) => {

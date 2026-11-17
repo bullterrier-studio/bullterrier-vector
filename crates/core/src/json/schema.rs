@@ -204,6 +204,8 @@ fn argument(arg: &Arg) -> Json {
             }
             _ => typed("string"),
         },
+        Kind::Field => reference("field"),
+        Kind::Flow => reference("flow"),
         Kind::Path => reference("path_data"),
         Kind::Shape => shape(),
         Kind::Drawing => reference("drawing"),

@@ -5,6 +5,7 @@ mod cache;
 mod clip;
 mod eval;
 mod graph;
+mod hatch;
 mod items;
 mod morph;
 mod offset;

@@ -6,6 +6,7 @@ mod build;
 mod checks;
 mod depth;
 mod doc;
+mod fields;
 mod inputs;
 mod parse;
 mod read;

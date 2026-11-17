@@ -35,6 +35,7 @@
 //! | Argument | Meaning |
 //! |---|---|
 //! | read once ([`Reads::Once`]) | an `Expr` read once for the whole call: a Param that is given a list is refused. `text`'s `size`, `tracking`, `leading` and `anchor` |
+//! | field ([`Kind::Field`]), flow ([`Kind::Flow`]) | a [`Field`](crate::Field) or a [`Flow`](crate::Flow), written as numbers and path data |
 //! | font ([`Kind::Font`]) | a [`Font`](crate::Font), by its bytes: a document names it and the caller supplies the bytes |
 //! | axes ([`Kind::Axes`]) | tags to expressions, read per item where the items are the characters of the text: `text`'s `axes`. A Param given a list gives character `i` entry `i` |
 //! | numbers ([`Kind::Numbers`]) | a list of expressions, each read as one number would be: `dash`'s `pattern` |
@@ -51,6 +52,7 @@
 mod args;
 pub(crate) mod boolean;
 pub(crate) mod clip;
+pub(crate) mod hatch;
 pub(crate) mod items;
 pub(crate) mod morph;
 pub(crate) mod offset;
@@ -222,6 +224,10 @@ pub enum Kind {
     Attributes,
     /// Param names with a number, or a list of one number per shape, for each (`with_values`).
     Values,
+    /// A [`Field`](crate::Field): a number, or an object that names a ramp or a distance field of a path.
+    Field,
+    /// A [`Flow`](crate::Flow): an object that names an angle, noise, a contour or a mix of them.
+    Flow,
     /// A [`Font`](crate::Font): a document names an input, and the caller supplies its bytes.
     Font,
     /// Variable-font axis values: four-character tags, each with a number or an expression ([`Reads::PerItem`]).
