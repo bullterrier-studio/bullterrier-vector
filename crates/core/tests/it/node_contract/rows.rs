@@ -4,7 +4,7 @@ use crate::common::fonts::fraunces;
 use bullterrier_vector::{
     Along, Arch, Bands, Blend, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Field, Flow, Gradient, Halftone,
     Hatch, Join, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Shadow, Spacing, Stipple,
-    Stroke, Text, Twist, Values, text,
+    Stroke, Text, Trace, Twist, Values, text,
 };
 
 /// A drawing made of a verb with one argument set from an expression, or the reason the row has no such argument.
@@ -83,6 +83,41 @@ pub(super) fn literal(argument: &str, value: &Expr) -> Result<f64, Error> {
         parameter: argument.to_owned(),
         message: String::from("is a literal and takes no Param"),
     })
+}
+
+/// A 6 by 6 map of a ramp across, for the trace rows.
+fn ramp_map() -> Result<Field, Error> {
+    let bytes: Vec<u8> = (0..36_u8).map(|i| (i % 6) * 50).collect();
+    Field::map(6, 6, &bytes, None, None)
+}
+
+/// The tidying numbers of the trace rows, one set from an expression, or the reason there is no such number.
+fn traced_with(argument: &str, value: Expr) -> Result<Trace, Error> {
+    let trace = Trace::new();
+    match argument {
+        "smooth" => Ok(trace.smooth(value)),
+        "tolerance" => Ok(trace.tolerance(value)),
+        "open" => Ok(trace.open(value)),
+        "close" => Ok(trace.close(value)),
+        "min_area" => Ok(trace.min_area(value)),
+        "min_hole" => Ok(trace.min_hole(value)),
+        other => Err(unknown("trace", other)),
+    }
+}
+
+/// The edges of the tidying numbers: from 0 up.
+const TIDY_RANGE: [(&str, f64, bool); 3] = [("x", 0.0, true), ("x", 3.0, true), ("x", -0.5, false)];
+
+fn tidy_ranges() -> Vec<(&'static str, f64, bool)> {
+    ["smooth", "tolerance", "open", "close", "min_area", "min_hole"]
+        .into_iter()
+        .flat_map(|name| {
+            let mut rows = TIDY_RANGE.to_vec();
+            rows.extend([("x", f64::NAN, false), ("x", f64::INFINITY, false)]);
+            rows.into_iter()
+                .map(move |(_, value, accepted)| (name, value, accepted))
+        })
+        .collect()
 }
 
 /// The edges of a tolerance: the largest a path accepts, and the smallest that is still above 0.
@@ -186,6 +221,84 @@ pub(super) fn rows() -> Vec<Row> {
                 ("width", -1.0, false),
                 ("width", f64::NAN, false),
                 ("width", f64::INFINITY, false),
+            ],
+            geometry: None,
+        },
+        Row {
+            verb: "trace_levels",
+            sample: || Ok(Drawing::trace_levels(&ramp_map()?, &[0.3, 0.6], &Trace::new())),
+            with: Some(|argument, value| {
+                Ok(Drawing::trace_levels(
+                    &ramp_map()?,
+                    &[0.3, 0.6],
+                    &traced_with(argument, value)?,
+                ))
+            }),
+            ranges: Box::leak(tidy_ranges().into_boxed_slice()),
+            // the outlines of a map are not a `Path` method: no Path result to equal
+            geometry: None,
+        },
+        Row {
+            verb: "trace_labels",
+            sample: || Ok(Drawing::trace_labels(&ramp_map()?, &Trace::new())),
+            with: Some(|argument, value| match argument {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "a row's whole number"
+                )]
+                "max_colors" => Ok(Drawing::trace_labels(
+                    &ramp_map()?,
+                    &Trace::new().max_colors(literal(argument, &value)? as usize),
+                )),
+                _ => Ok(Drawing::trace_labels(&ramp_map()?, &traced_with(argument, value)?)),
+            }),
+            ranges: Box::leak(
+                [
+                    ("max_colors", 0.0, false),
+                    ("max_colors", 1.0, true),
+                    ("max_colors", 256.0, true),
+                    ("max_colors", 257.0, false),
+                ]
+                .into_iter()
+                .chain(tidy_ranges())
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+            ),
+            geometry: None,
+        },
+        Row {
+            verb: "trace_cells",
+            sample: || {
+                Ok(Drawing::trace_cells(
+                    &Field::map(4, 2, &[0, 0, 1, 1, 0, 0, 1, 1], None, None)?,
+                    2,
+                    8,
+                ))
+            },
+            with: Some(|argument, value| {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "a row's whole number"
+                )]
+                let count = literal(argument, &value)? as usize;
+                let map = Field::map(4, 2, &[0, 0, 1, 1, 0, 0, 1, 1], None, None)?;
+                match argument {
+                    "cell" => Ok(Drawing::trace_cells(&map, count, 8)),
+                    "max_colors" => Ok(Drawing::trace_cells(&map, 2, count)),
+                    other => Err(unknown("trace_cells", other)),
+                }
+            }),
+            ranges: &[
+                ("cell", 1.0, true),
+                ("cell", 2.0, true),
+                ("cell", 0.0, false),
+                ("cell", -1.0, false),
+                ("max_colors", 256.0, true),
+                ("max_colors", 2.0, true),
+                ("max_colors", 0.0, false),
+                ("max_colors", 257.0, false),
             ],
             geometry: None,
         },
