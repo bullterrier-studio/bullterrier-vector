@@ -6,7 +6,7 @@ WIDTH, HEIGHT = 1080, 560
 PAPER, INK = "#f3eee4", "#16151a"
 
 font = btvec.Font.bundled("bricolage_grotesque")
-progress = btvec.Param("progress", default=0, min=0, max=1, unit="fraction", meaning="how far the line is bent")
+progress = btvec.Param("progress", default=0.5, min=0, max=1, unit="fraction", meaning="how far the line is bent")
 phase = btvec.Param("phase", default=0, min=0, max=1, unit="cycle", meaning="where the ripple and the shaking are")
 
 line = btvec.text(
