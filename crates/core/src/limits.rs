@@ -97,6 +97,11 @@ pub(crate) const MAX_FONT_BYTES: usize = 32 * 1024 * 1024;
 // charged to `MAX_OUTLINE_SEGMENTS` and the shapes to `MAX_SHAPES`
 pub(crate) const MAX_GLYPHS: usize = 100_000;
 
+/// Boxes and points one `marks` call is made of.
+// constant: a HUD marks a handful of things; 10,000 is a detection run over a crowd, and each mark is at most a few
+// dozen shapes, so the draw stays far below `MAX_SHAPES`
+pub(crate) const MAX_MARKS: usize = 10_000;
+
 /// Runs one `text` call is made of.
 // constant: formats.md "Limits and security" sets MAX_RUNS to 1,000; each run shapes and builds its font at its own location
 pub(crate) const MAX_RUNS: usize = 1_000;

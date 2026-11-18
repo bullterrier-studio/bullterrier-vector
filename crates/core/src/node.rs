@@ -43,6 +43,7 @@
 //! | pairs ([`Kind::Pairs`]) | a list of pairs of expressions, each read as one number would be: `outline`'s `profile` |
 //! | features ([`Kind::Features`]) | tags to whole numbers, constants: `text`'s `features` |
 //! | colors ([`Kind::Colors`]) | a list of rows, each a list of colours: `characters`'s `colors` |
+//! | boxes ([`Kind::Boxes`]), points ([`Kind::Points`]) | lists of records read like a call's arguments from the tables `BOX` and `POINT`: `marks`'s `boxes` and `points` |
 //! | runs ([`Kind::Runs`]) | a list of `run` records, each checked as a call of its own arguments: `text`'s `runs` |
 //! | drawing ([`Kind::Drawing`]) | one drawing, evaluated with the caller's Param values and handed over as the node's `taken`: the `other` of a boolean |
 //!
@@ -57,6 +58,7 @@ pub(crate) mod clip;
 pub(crate) mod hatch;
 pub(crate) mod items;
 pub(crate) mod lines;
+pub(crate) mod marks;
 pub(crate) mod morph;
 pub(crate) mod offset;
 pub(crate) mod place;
@@ -238,6 +240,10 @@ pub enum Kind {
     Field,
     /// A [`Flow`](crate::Flow): an object that names an angle, noise, a contour or a mix of them.
     Flow,
+    /// The boxes of a `marks`: a list of records, each with the arguments of a box (its place, size and label).
+    Boxes,
+    /// The points of a `marks`: a list of records, each with the arguments of a point (its place and label).
+    Points,
     /// A [`Font`](crate::Font): a document names an input, and the caller supplies its bytes.
     Font,
     /// Variable-font axis values: four-character tags, each with a number or an expression ([`Reads::PerItem`]).
@@ -256,6 +262,8 @@ impl Kind {
     pub(crate) fn records(self) -> Option<&'static Verb> {
         match self {
             Self::Runs => Some(&text::RUN),
+            Self::Boxes => Some(&marks::BOX),
+            Self::Points => Some(&marks::POINT),
             _ => None,
         }
     }

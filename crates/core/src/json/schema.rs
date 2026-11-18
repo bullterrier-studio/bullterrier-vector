@@ -7,7 +7,7 @@
 use super::bare;
 use super::parse::parse;
 use super::value::Json;
-use crate::limits::{MAX_DASH_PATTERN, MAX_PARAMS, MAX_PROFILE_STOPS, MAX_RUNS};
+use crate::limits::{MAX_DASH_PATTERN, MAX_MARKS, MAX_PARAMS, MAX_PROFILE_STOPS, MAX_RUNS};
 use crate::shape::{Holds, SELECTABLE};
 use crate::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
 
@@ -38,6 +38,21 @@ fn max_params() -> f64 {
 #[expect(clippy::cast_precision_loss, reason = "the limit is far below 2^53")]
 fn max_runs() -> f64 {
     MAX_RUNS as f64
+}
+
+/// `MAX_MARKS` as a JSON number.
+#[expect(clippy::cast_precision_loss, reason = "the limit is far below 2^53")]
+fn max_marks() -> f64 {
+    MAX_MARKS as f64
+}
+
+/// An array of at most `MAX_MARKS` records of `table`.
+fn marks_of(table: &'static Verb) -> Json {
+    with(
+        Json::object([("type", Json::text("array")), ("items", verb_schema(table))]),
+        "maxItems",
+        number(max_marks()),
+    )
 }
 
 /// `MAX_DASH_PATTERN` as a JSON number.
@@ -267,6 +282,8 @@ fn argument(arg: &Arg) -> Json {
         Kind::Font => reference("name"),
         Kind::Axes => tagged(value(arg)),
         Kind::Features => tagged(whole()),
+        Kind::Boxes => marks_of(&crate::node::marks::BOX),
+        Kind::Points => marks_of(&crate::node::marks::POINT),
         Kind::Runs => with(
             with(
                 Json::object([

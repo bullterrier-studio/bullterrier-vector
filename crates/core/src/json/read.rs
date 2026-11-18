@@ -413,7 +413,7 @@ impl Reader {
                 .collect::<Result<_, Error>>()
                 .map(Value::Features),
             Kind::Colors => Self::colors(pointer, json),
-            Kind::Runs => self.records(arg, pointer, json),
+            Kind::Runs | Kind::Boxes | Kind::Points => self.records(arg, pointer, json),
             Kind::Font => match json {
                 Json::String(name) if is_name(name) => Ok(Value::Font {
                     name: name.clone(),
