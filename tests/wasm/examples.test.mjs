@@ -15,6 +15,7 @@ const EXAMPLES = {
   halftone: "still",
   kinetic_type: "hairlines, kick, bend or morph",
   line_families: "still or plot",
+  overlay: "still",
   trace: "still",
 };
 

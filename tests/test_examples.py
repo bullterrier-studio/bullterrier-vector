@@ -798,3 +798,26 @@ def test_trace_sequence_smoothing_removes_most_dropout_holes(run):
     alone, steady = [list(map(outlines, found[name])) for name in ("alone", "drawing")]
     assert alone == [5, 4, 3, 7, 7]  # the disc and a hole for each block of dropout that frame has
     assert steady == [1, 1, 2, 3, 1]  # the disc, and a hole where neighbouring frames' dropouts overlap
+
+
+def test_overlay_inks_every_character_of_its_rows_and_marks_a_box_and_a_point(run):
+    found = run("overlay")
+    rows = found["rows"]
+    assert isinstance(rows, str)
+    shapes = found["drawing"].shapes()
+    grid = [shape for shape in shapes if "role" not in shape.attributes]
+    marks = [shape for shape in shapes if "role" in shape.attributes]
+    assert len(grid) == sum(character != " " for character in rows.replace("\n", ""))
+    assert {shape.attributes["char"] for shape in grid} <= set(" .:-=+*#%@")
+    roles = [shape.attributes["role"] for shape in marks]
+    assert [roles.count(role) for role in ("bracket", "cross", "leader", "label")] == [4, 2, 2, 10]
+    assert "".join(shape.attributes["char"] for shape in marks if shape.attributes["role"] == "label") == "DISCCENTRE"
+    # labels are filled, lines are strokes
+    assert {shape.style.fill is not None for shape in marks if shape.attributes["role"] == "label"} == {True}
+    assert {shape.style.stroke for shape in marks if shape.attributes["role"] != "label"} == {"#1c9b5aff"}
+
+
+def test_the_node_example_of_overlay_carries_the_document_of_the_python_drawing(run):
+    drawing = run("overlay")["drawing"]
+    document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "overlay.json"
+    assert document.read_text(encoding="utf-8") == drawing.to_json()

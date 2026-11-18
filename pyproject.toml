@@ -205,6 +205,7 @@ project-triggers = [
     "examples/line_families.py",
     "examples/halftone.py",
     "examples/trace.py",
+    "examples/overlay.py",
     "examples/kinetic_type.py",
     "examples/fonts/*",
     "crates/core/examples/star.rs",

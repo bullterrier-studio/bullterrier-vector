@@ -50,6 +50,7 @@ Draw = tuple[int, int, dict[str, Any]]
 Entry = tuple[str, btvec.Drawing, list[Draw]]
 # the halftone drawings are in their own file (the size budget): loaded as the examples are, so that mypy needs no path
 halftones: Callable[[], list[Entry]] = runpy.run_path(str(Path(__file__).with_name("oracle_halftones.py")))["halftones"]
+glyphs: Callable[[], list[Entry]] = runpy.run_path(str(Path(__file__).with_name("oracle_glyphs.py")))["glyphs"]
 
 GOLD = "#ffcc33"
 TAPER = [(0, 0), (0.15, 1), (0.85, 1), (1, 0)]
@@ -1182,6 +1183,7 @@ CORPUS_PARTS: list[Callable[[], list[Entry]]] = [
     shadows,
     knockouts,
     halftones,
+    glyphs,
     gradients,
     cuts,
 ]
@@ -1401,6 +1403,7 @@ def main(output: Path) -> None:
         "line_families": example_everywhere("line_families"),
         "halftone": example_everywhere("halftone"),
         "trace": example_everywhere("trace"),
+        "overlay": example_everywhere("overlay"),
         "kinetic_type": example_everywhere("kinetic_type"),
         "plots": plots(),
         "refusals": [

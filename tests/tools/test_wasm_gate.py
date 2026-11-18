@@ -63,6 +63,7 @@ def workspace(tmp_path_factory, copy_tree) -> Path:
         "line_families.py",
         "halftone.py",
         "trace.py",
+        "overlay.py",
         "kinetic_type.py",
         "fonts/anybody-subset.ttf",
     ):
