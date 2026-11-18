@@ -278,6 +278,12 @@ class Field:
     def to_map(
         self, width: int, height: int, *, box: _FrameLike | None = None, low: float = 0.0, high: float = 1.0
     ) -> bytes: ...
+    @staticmethod
+    def smooth_maps(maps: Sequence[Field], *, sigma: float) -> list[Field]: ...
+    @staticmethod
+    def persist_holes(
+        maps: Sequence[Field], levels: float | Sequence[float], *, reach: int = 1, at_least: int = 2
+    ) -> list[Field]: ...
     def contours(
         self,
         levels: float | Sequence[float],

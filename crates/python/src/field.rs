@@ -113,6 +113,36 @@ impl PyField {
         Ok(PyBytes::new(py, &bytes))
     }
 
+    /// Each map of `maps` (the frames of a sequence: `Field.map`s of one size and box) as the Gaussian weighted mean of
+    /// itself and its neighbours, `sigma` in maps (frames up to `ceil(3 * sigma)` away; the ends are not padded), as a list
+    /// of unnamed maps. A static sequence is unchanged, `sigma` 0 gives the maps back.
+    #[staticmethod]
+    #[pyo3(signature = (maps, *, sigma))]
+    fn smooth_maps(py: Python<'_>, maps: Vec<PyRef<'_, PyField>>, sigma: f64) -> PyResult<Vec<Self>> {
+        let maps: Vec<vector::Field> = maps.iter().map(|map| map.0.clone()).collect();
+        let smooth = raised(py.detach(|| vector::Field::smooth_maps(&maps, sigma)))?;
+        Ok(smooth.into_iter().map(Self).collect())
+    }
+
+    /// Each map of `maps` with the holes its neighbours do not have filled in. At each of `levels` (a number or a list), a
+    /// hole is a part below the level that does not reach the map's edge; it is kept when it overlaps a hole in at least
+    /// `at_least` of the maps within `reach` (itself counted, the number cut to the frames the window holds), else raised
+    /// to the lowest tone round it. Run it on the output of `smooth_maps`.
+    #[staticmethod]
+    #[pyo3(signature = (maps, levels, *, reach=1, at_least=2))]
+    fn persist_holes(
+        py: Python<'_>,
+        maps: Vec<PyRef<'_, PyField>>,
+        levels: Levels,
+        reach: usize,
+        at_least: usize,
+    ) -> PyResult<Vec<Self>> {
+        let maps: Vec<vector::Field> = maps.iter().map(|map| map.0.clone()).collect();
+        let Levels(levels) = levels;
+        let kept = raised(py.detach(|| vector::Field::persist_holes(&maps, &levels, reach, at_least)))?;
+        Ok(kept.into_iter().map(Self).collect())
+    }
+
     /// The lines where the field equals each of `levels` (a number or a list), as one `Path`: over `box` cut into cells no
     /// wider than `cell` pixels, a line crossing a cell edge at the linear interpolation of the readings at its corners.
     /// A line that reaches the box is open there, any other is closed.
