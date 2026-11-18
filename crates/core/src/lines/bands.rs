@@ -412,7 +412,7 @@ fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> R
     let (d_min, d_max) = (distances.near, distances.far);
     // the rows are k = first..=last at radius (k + 1/2) spacing, each of TAU radius / step points at least RING_POINTS;
     // counted in f64 and before any is made, with no difference of squares to cancel
-    let round = layout.round_rows(centre, bounds, 0.0, step)?;
+    let round = layout.round_rows(centre, bounds, 0.0, step, Layout::ray_count(d_max / plan.spacing))?;
     let (first, rings) = (round.first, round.rows);
     let last = first + rings - 1.0;
     let (low, high) = (d_min / plan.spacing, d_max / plan.spacing);

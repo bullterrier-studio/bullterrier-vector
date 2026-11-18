@@ -22,7 +22,7 @@
 )]
 
 use crate::geometry::Point;
-use crate::lines::{Family, Layout, RoundRows, corners, middle, polar};
+use crate::lines::{Family, Layout, RoundRows, corners, middle, polar, ray_wedges, ring_cells};
 use crate::math::sin_cos_deg;
 use crate::path::Polyline;
 use crate::shape::{Dot, HalftoneStyle, Screen as Arrangement};
@@ -33,12 +33,6 @@ use std::f64::consts::{PI, TAU};
 /// wedge of the rays near their centre, which are at most a pitch wide.
 // constant: the widest ray cell is a pitch (tests/it/halftone_screens.rs measures it), and 2 leaves room
 const WIDEST_CELL: f64 = 2.0;
-
-/// The narrowest a ray cell may be at its middle, in pitches: the rays merge in pairs (a power of two at a time) until
-/// none is narrower.
-// constant: below half a pitch the cells of the rays are about as wide as a dot is thick at tone 0.5, which draws a
-// blob; bullterrier-image keeps the same bound (`NARROWEST_RAY`)
-const NARROWEST_RAY: f64 = 0.5;
 
 /// What a halftone paints over a shape.
 pub(super) enum Screen {
@@ -270,7 +264,9 @@ fn rows(layout: &Layout, rect: Rect, centre: Point, reach_px: f64) -> Result<(Ro
         ));
     }
     // a dot is no smaller than a pitch's step at the coordinates in play, or its cells cannot be told apart
-    let round = layout.round_rows(centre, rect, reach_px, pitch)?;
+    // rays as bullterrier-image has them: a ring's worth of cells half way to the nearest side of the shape
+    let rays = ring_cells(rect.width.min(rect.height) / 2.0 / pitch);
+    let round = layout.round_rows(centre, rect, reach_px, pitch, rays)?;
     Ok(match layout.family {
         Family::Rings => (Rows::Rings(round), round.work),
         Family::Spiral => (Rows::Spiral(round), round.work),
@@ -282,22 +278,6 @@ fn rows(layout: &Layout, rect: Rect, centre: Point, reach_px: f64) -> Result<(Ro
             round.work,
         ),
     })
-}
-
-/// The cells of the ring or arm whose cells are about a cell long when it is `middle` pitches out: an even number, so
-/// that a half turn maps a cell to a cell.
-fn ring_cells(middle: f64) -> usize {
-    2 * (PI * middle).round().max(1.0) as usize
-}
-
-/// The wedges at `middle` pitches out among `rays` rays at the widest: the rays merge in pairs, a power of two at a
-/// time, until none is narrower than [`NARROWEST_RAY`].
-fn wedges(rays: f64, middle: f64) -> usize {
-    let mut step = 1.0;
-    while step < rays && TAU * middle * step / rays < NARROWEST_RAY {
-        step *= 2.0;
-    }
-    (rays / step).floor().max(1.0) as usize
 }
 
 impl Cells {
@@ -327,12 +307,12 @@ impl Cells {
             Rows::Rings(rows) => {
                 for k in rows.indices() {
                     let (radius, count) = (layout.ring_radius(k), ring_cells(k + 0.5));
-                    for at in 0..count {
-                        let angle = TAU * (at as f64 + 0.5) / count as f64;
+                    for at in 0..count as usize {
+                        let angle = TAU * (at as f64 + 0.5) / count;
                         each(Self::wedge(
                             polar(self.centre, radius, angle),
                             angle,
-                            radius * TAU / count as f64,
+                            radius * TAU / count,
                             pitch,
                             true,
                         ));
@@ -342,14 +322,14 @@ impl Cells {
             Rows::Spiral(rows) => {
                 for k in rows.indices() {
                     let count = ring_cells(k + 1.0);
-                    for at in 0..count {
-                        let turns = (at as f64 + 0.5) / count as f64;
+                    for at in 0..count as usize {
+                        let turns = (at as f64 + 0.5) / count;
                         let radius = layout.spiral_radius(TAU * (k + 0.5 + turns));
                         let angle = TAU * turns + layout.turn();
                         each(Self::wedge(
                             polar(self.centre, radius, angle),
                             angle,
-                            radius * TAU / count as f64,
+                            radius * TAU / count,
                             pitch,
                             true,
                         ));
@@ -359,14 +339,16 @@ impl Cells {
             Rows::Rays { rows, rays } => {
                 for m in rows.indices() {
                     let radius = layout.ring_radius(m);
-                    let count = wedges(rays, m + 0.5);
-                    for at in 0..count {
-                        let angle = layout.turn() + TAU * (at as f64 + 0.5) / count as f64;
+                    // wedge `at` takes the turns from `at / wedges` to the next, the last whatever is left of the turn
+                    let wedges = ray_wedges(rays, m + 0.5);
+                    for at in 0..wedges.ceil() as usize {
+                        let (start, end) = (at as f64 / wedges, ((at + 1) as f64 / wedges).min(1.0));
+                        let angle = layout.turn() + TAU * f64::midpoint(start, end);
                         each(Self::wedge(
                             polar(self.centre, radius, angle),
                             angle,
                             pitch,
-                            radius * TAU / count as f64,
+                            radius * TAU * (end - start),
                             false,
                         ));
                     }

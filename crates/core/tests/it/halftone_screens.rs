@@ -550,44 +550,41 @@ fn rings_are_about_the_centre_the_caller_gives() -> Outcome {
 }
 
 #[test]
-fn rays_are_as_many_as_a_pitch_apart_round_the_farthest_corner_and_merge_towards_the_centre() -> Outcome {
-    let found = dots(400.0, black(0.5).pitch(10.0).screen(Screen::Rays))?;
-    let farthest = 200.0 * 2.0_f64.sqrt();
-    let rays = (TAU * farthest / 10.0).ceil();
-    let mut by_row = std::collections::BTreeMap::<i64, Vec<(f64, f64)>>::new();
+fn rays_are_a_rings_worth_half_way_to_the_nearest_side_and_merge_towards_the_centre() -> Outcome {
+    // a square of 100 and a pitch of 5: half way to the nearest side is 25 px, 10 cells, and a ring 10 cells out has
+    // 2 * round(10 pi) = 62 cells, so there are 62 rays. A row m is (m + 1/2) cells out; its rays merge in pairs
+    // (a power of two at a time) until none is narrower than half a cell at its middle: 2 pi (m + 1/2) step / 62 >= 1/2
+    // gives step 16 for m = 0 (62 / 16 = 3.875 wedges, so 4, the last narrower), 4 for m = 1 (15.5, so 16), 2 for m = 2
+    // to 4 (31), and 1 from m = 5 on (62)
+    let found = dots(100.0, black(0.5).pitch(5.0).screen(Screen::Rays))?;
+    let mut by_row = std::collections::BTreeMap::<i64, Vec<f64>>::new();
     for dot in &found {
-        let (radius, turns) = polar(mean(dot), (200.0, 200.0));
-        let row = radius / 10.0 - 0.5;
+        let (radius, _) = polar(mean(dot), (50.0, 50.0));
+        let row = radius / 5.0 - 0.5;
+        // a wedge's dot is not its centre's mean: the mean of its corners is within a hair of the cell's centre
         near(
             row,
             row.round(),
-            1e-9,
+            0.02,
             "a cell a pitch long about (m + 1/2) pitches out",
         );
         #[expect(clippy::cast_possible_truncation, reason = "a small row number")]
-        by_row
-            .entry(row.round() as i64)
-            .or_default()
-            .push((turns, shoelace_area(dot)));
+        by_row.entry(row.round() as i64).or_default().push(shoelace_area(dot));
     }
-    // far out, where a ray is as wide as a pitch, the rays are all there
-    #[expect(clippy::cast_precision_loss, reason = "a few hundred dots")]
-    let far_row = by_row[&15].len() as f64;
-    near(far_row, rays, 0.0, "rays at 155 px");
-    for (row, cells) in &by_row {
-        if *row > 17 {
-            continue;
-        }
-        #[expect(clippy::cast_precision_loss, reason = "a few hundred dots")]
-        let (count, radius) = (cells.len() as f64, (*row as f64 + 0.5) * 10.0);
-        let width = TAU * radius / count;
-        assert!(
-            (5.0 - 1e-9..=10.0 + 1e-9).contains(&width),
-            "row {row}: cells {width} px wide"
+    // the rows that lie whole inside the square: the disc of radius 50
+    let counts: Vec<usize> = (0..=8).map(|row| by_row[&row].len()).collect();
+    assert_eq!(counts, [4, 16, 31, 31, 31, 62, 62, 62, 62]);
+    for row in 0..=8_i64 {
+        // the cells of a row tile its ring, so their dots cover half of its area
+        #[expect(clippy::cast_precision_loss, reason = "a small row number")]
+        let radius = (row as f64 + 0.5) * 5.0;
+        let covered: f64 = by_row[&row].iter().sum();
+        near(
+            covered,
+            0.5 * 5.0 * TAU * radius,
+            1e-6,
+            &format!("row {row}: the area the dots cover"),
         );
-        for &(_, area) in cells {
-            near(area, 0.5 * 10.0 * width, 1e-7, "half of a wedge");
-        }
     }
     Ok(())
 }

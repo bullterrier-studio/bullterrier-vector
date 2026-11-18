@@ -9,7 +9,13 @@
 use crate::geometry::Point;
 use crate::math::{sin_cos, sin_cos_deg};
 use crate::{Error, Rect, field::length};
-use std::f64::consts::TAU;
+use std::f64::consts::{PI, TAU};
+
+/// The narrowest a ray cell may be at its middle, in spacings: the rays merge in pairs (a power of two at a time) until
+/// none is narrower.
+// constant: below half a spacing the cells of the rays are about as wide as a dot is thick at tone 0.5, which draws a
+// blob; bullterrier-image keeps the same bound (`NARROWEST_RAY`)
+const NARROWEST_RAY: f64 = 0.5;
 
 /// What carries the tone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -151,7 +157,8 @@ impl RoundRows {
 
 impl Layout {
     /// The rows of this round layout about `centre` that can reach the box `bounds` with something that reaches `reach`
-    /// design pixels (0 for a line), and a bound of their work. `step` is the smallest distance a point of a row must
+    /// design pixels (0 for a line), and a bound of their work; `rays` is how many rays a layout of rays has at its
+    /// widest (see [`Layout::ray_count`], [`ring_cells`]). `step` is the smallest distance a point of a row must
     /// move at the coordinates in play: where it would not, no row can be told from the next.
     ///
     /// # Errors
@@ -162,7 +169,14 @@ impl Layout {
         clippy::cast_precision_loss,
         reason = "the row indices are counted in floats and loops over them are charged before they run"
     )]
-    pub(crate) fn round_rows(&self, centre: Point, bounds: Rect, reach: f64, step: f64) -> Result<RoundRows, Error> {
+    pub(crate) fn round_rows(
+        &self,
+        centre: Point,
+        bounds: Rect,
+        reach: f64,
+        step: f64,
+        rays: f64,
+    ) -> Result<RoundRows, Error> {
         let box_corners = corners(bounds);
         let distances = Distances::of(centre, bounds, &box_corners);
         let furthest = centre.x.abs().max(centre.y.abs()) + distances.far;
@@ -186,7 +200,7 @@ impl Layout {
         };
         let rows = (last - first + 1.0).max(0.0);
         let outermost = match self.family {
-            Family::Rays => Self::ray_count(distances.far / self.spacing),
+            Family::Rays => rays,
             // a ring or arm of radius (k + 1/2) has at most 2 pi (k + 1/2) + 2 cells
             _ => TAU * (last + 1.0) + 2.0,
         };
@@ -240,4 +254,21 @@ impl Layout {
     pub(crate) fn ray_count(high: f64) -> f64 {
         (TAU * high).ceil().max(1.0)
     }
+}
+
+/// The cells of the ring or spiral arm that lies `middle` spacings out on average: about one spacing long each, and an
+/// even number so that a half turn maps a cell to a cell. The same rule gives the rays of a screen.
+pub(crate) fn ring_cells(middle: f64) -> f64 {
+    2.0 * (PI * middle).round().max(1.0)
+}
+
+/// The cells of a layout of `rays` rays at `middle` spacings out (a cell's middle): the rays merge in pairs, a power of
+/// two at a time, until none is narrower than [`NARROWEST_RAY`], so there are `rays / step` of them: not whole when
+/// `rays` is not a multiple of `step`, and then the last is the narrower and fills the rest of the turn.
+pub(crate) fn ray_wedges(rays: f64, middle: f64) -> f64 {
+    let mut step = 1.0;
+    while step < rays && TAU * middle * step / rays < NARROWEST_RAY {
+        step *= 2.0;
+    }
+    rays / step
 }
