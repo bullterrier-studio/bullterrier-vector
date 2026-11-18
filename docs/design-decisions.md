@@ -1435,7 +1435,7 @@ nine frames before the timeline was fixed; a frame costs 12 to 20 ms at 540x675 
 holds.
 
 - *Ruling: done is the piece running from the shipped examples in Python, Rust and Node with four frames equal as SVG text,
-  and the Python clip; a live canvas page is V20. Cost if wrong: no browser demo yet.*
+  and the Python clip; a live canvas page is not built yet. Cost if wrong: no browser demo yet.*
 - *Ruling: easing (`smooth`, `kick`) is local to each example, no `btvec.ease`: easing and time are the caller's (CLAUDE.md,
   "State, not time"). Cost: each piece repeats a few lines.*
 - *Ruling: the font is the Anybody subset (`wdth` 50 to 150, `wght` 100 to 900, capitals and digits): `fit="wdth"` fills the

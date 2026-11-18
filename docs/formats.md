@@ -473,7 +473,7 @@ The first look's drawing in canonical form:
   `FormatError` naming it and the library's own version, so a document from a newer library says why it fails.
 - Anything else is a new version: removing or renaming a call or argument, changing a unit, a meaning or a default
   (canonical form leaves defaults out, so a saved document relies on them).
-- Before the first release (roadmap V22) version 1 is a draft and changes without a new number.
+- Before the first release version 1 is a draft and changes without a new number.
 
 ## Errors
 
