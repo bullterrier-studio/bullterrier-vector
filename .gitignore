@@ -16,6 +16,7 @@ src/bullterrier_vector/_native/_core*.pyd
 # WebAssembly / JavaScript
 pkg/
 node_modules/
+playground/screenshot.png
 
 .DS_Store
 
