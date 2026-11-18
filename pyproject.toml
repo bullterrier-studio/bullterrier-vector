@@ -53,7 +53,7 @@ include = [
     { path = "crates/wasm/src/**/*.rs", format = "sdist" },
 ]
 
-# `uv sync` and `uv run` rebuild the extension when one of these changes (by default uv looks at pyproject.toml only)
+# `uv sync` and `uv run` rebuild the extension when one of these changes (by default uv looks at pyproject.toml only); the presets and fonts are compiled in
 [tool.uv]
 cache-keys = [
     { file = "pyproject.toml" },
@@ -62,6 +62,8 @@ cache-keys = [
     { file = "rust-toolchain.toml" },
     { file = "crates/**/*.rs" },
     { file = "crates/**/Cargo.toml" },
+    { file = "crates/core/presets/*.json" },
+    { file = "crates/core/fonts/**" },
 ]
 
 [tool.poe.tasks]
