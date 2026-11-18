@@ -749,6 +749,19 @@ impl PyDrawing {
         checked(raised(py.detach(|| vector::Drawing::from_json(text, &supplied)))?)
     }
 
+    /// A drawing that comes with the library, by name; `Drawing.preset_names()` lists them. Its `parameters()` are the
+    /// sliders.
+    #[staticmethod]
+    fn preset(name: &str) -> PyResult<Self> {
+        checked(raised(vector::Drawing::preset(name))?)
+    }
+
+    /// The names of the drawings that come with the library, sorted.
+    #[staticmethod]
+    fn preset_names() -> Vec<&'static str> {
+        vector::Drawing::preset_names()
+    }
+
     /// The drawing an SVG document describes, so that `Drawing.from_svg(text).only(id="ring")` picks the part the SVG
     /// calls "ring". A shape for each `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`
     /// and `polygon`, in document order, with the attributes `id`, `class` and `group` (the ids of the enclosing `g`
