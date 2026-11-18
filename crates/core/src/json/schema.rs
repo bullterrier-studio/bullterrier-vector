@@ -225,6 +225,7 @@ fn argument(arg: &Arg) -> Json {
             }
             _ => typed("string"),
         },
+        Kind::Field if arg.reads == Reads::PerItem => any_of(vec![value(arg), reference("field")]),
         Kind::Field => any_of(vec![reference("number"), reference("field")]),
         Kind::Flow => reference("flow"),
         Kind::Path => reference("path_data"),

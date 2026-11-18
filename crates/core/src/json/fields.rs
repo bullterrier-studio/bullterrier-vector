@@ -239,6 +239,16 @@ impl Reader {
     }
 }
 
+/// Whether `json` is a number or an expression rather than a field's call: what a `Field` argument that reads one number
+/// per shape takes as that number.
+pub(super) fn is_number(json: &Json) -> bool {
+    match json {
+        Json::Number(_) => true,
+        Json::Object(members) => is_expression(members),
+        _ => false,
+    }
+}
+
 /// Whether an object is an expression (a call of the expression language) rather than a field's call.
 fn is_expression(members: &BTreeMap<String, Json>) -> bool {
     members.len() == 1 && members.keys().all(|word| !word.starts_with("Field."))

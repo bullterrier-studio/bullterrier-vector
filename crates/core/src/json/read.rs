@@ -339,6 +339,10 @@ impl Reader {
                     .map_err(|error| refuse(pointer, reason(&error)))
             }
             Kind::Paint => paint(pointer, json).map(Value::Paint),
+            // a field that reads a number per shape is that number where the document writes one
+            Kind::Field if arg.reads == Reads::PerItem && super::fields::is_number(json) => {
+                Ok(Value::Number(self.number(arg, pointer, json)?))
+            }
             Kind::Field => self.field(pointer, json).map(Value::Field),
             Kind::Flow => self.flow(pointer, json).map(Value::Flow),
             Kind::Text => {

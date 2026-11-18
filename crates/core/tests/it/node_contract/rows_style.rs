@@ -1,8 +1,9 @@
 //! The rows of the style verbs: paint, stroke, opacity, blend, shadow, halftone, knockout, clip and mask.
 
 use super::rows::{Row, fade, offset_square, square, unknown};
-use bullterrier_vector::{Blend, Color, Deg, Drawing, Halftone, Shadow, Stroke};
+use bullterrier_vector::{Blend, Color, Deg, Drawing, Halftone, Mark, Screen, Shadow, Stroke};
 
+#[expect(clippy::too_many_lines, reason = "a table: one row per verb")]
 pub(super) fn rows() -> Vec<Row> {
     vec![
         Row {
@@ -91,6 +92,9 @@ pub(super) fn rows() -> Vec<Row> {
                     "tone" => Ok(square()?.halftone(Halftone::new(Color::hex(0), value))),
                     "pitch" => Ok(square()?.halftone(dots.pitch(value))),
                     "angle" => Ok(square()?.halftone(dots.angle(Deg(value)))),
+                    "aspect" => Ok(square()?.halftone(dots.shape(Mark::Ellipse).aspect(value))),
+                    "amplitude" => Ok(square()?.halftone(dots.screen(Screen::Wave).amplitude(value))),
+                    "wavelength" => Ok(square()?.halftone(dots.screen(Screen::Wave).wavelength(value))),
                     _ => Err(unknown("halftone", argument)),
                 }
             }),
@@ -108,6 +112,19 @@ pub(super) fn rows() -> Vec<Row> {
                 ("angle", -1e300, true),
                 ("angle", f64::NAN, false),
                 ("angle", f64::INFINITY, false),
+                ("aspect", 1.0, true),
+                ("aspect", 1e30, true),
+                ("aspect", 0.999_999_999, false),
+                ("aspect", f64::NAN, false),
+                ("aspect", f64::INFINITY, false),
+                ("amplitude", -1e50, true),
+                ("amplitude", f64::NAN, false),
+                ("amplitude", f64::INFINITY, false),
+                ("wavelength", 1e50, true),
+                ("wavelength", 0.0, false),
+                ("wavelength", -1.0, false),
+                ("wavelength", f64::INFINITY, false),
+                ("wavelength", f64::NAN, false),
             ],
             geometry: None,
         },

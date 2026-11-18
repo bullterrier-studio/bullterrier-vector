@@ -119,7 +119,7 @@ fn plan(
     outline: &[Polyline],
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Plan, Error> {
-    let (tone, pitch) = (halftone.tone(), halftone.pitch());
+    let (tone, pitch) = (halftone.tone().level().unwrap_or(0.5), halftone.pitch());
     // the tone is within 0 to 1: its ends are solid and bare by definition
     if tone <= 0.0 {
         return Ok(Plan::Solid);

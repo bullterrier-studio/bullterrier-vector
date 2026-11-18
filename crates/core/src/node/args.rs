@@ -715,6 +715,15 @@ impl Args {
         }
     }
 
+    /// The field of `name`, or `None` if the call left it out or gave a number where the argument takes one per shape.
+    pub(crate) fn field_if_given(&self, name: &str) -> Result<Option<&Field>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset | Given::Number(_)) => Ok(None),
+            (_, Given::Field(field)) => Ok(Some(field)),
+            _ => Err(self.misread(name, "a field")),
+        }
+    }
+
     /// The flow of `name`, or `None` if the call left it out.
     pub(crate) fn flow(&self, name: &str) -> Result<Option<&Flow>, Error> {
         match self.find(name)? {

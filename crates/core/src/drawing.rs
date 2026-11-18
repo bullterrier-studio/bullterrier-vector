@@ -442,11 +442,7 @@ impl From<Shape> for Drawing {
         }
         // a fill is always set, so that the shape never takes the default paint
         drawing = match style.halftone() {
-            Some(halftone) => drawing.halftone(
-                Halftone::new(halftone.color(), halftone.tone())
-                    .pitch(halftone.pitch())
-                    .angle(Deg(halftone.angle())),
-            ),
+            Some(halftone) => drawing.halftone(Halftone::from(halftone)),
             None => drawing.fill(style.fill().clone()),
         };
         if let Some(stroke) = style.stroke() {

@@ -186,6 +186,15 @@ impl Field {
         Ok(())
     }
 
+    /// Tells this field from another that has the same key: a distance field's drawing is held by reference, so the
+    /// address of what it holds is the field; every other field is its key, and gives 0.
+    pub(crate) fn identity(&self) -> u64 {
+        match &self.bound {
+            Bound::Distance { parts, .. } => Arc::as_ptr(parts) as usize as u64,
+            _ => 0,
+        }
+    }
+
     pub(crate) fn kind(&self) -> &FieldKind {
         &self.kind
     }

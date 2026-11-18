@@ -2,12 +2,15 @@
 
 use super::offset::{PROFILE, profile_is_round};
 use super::{Args, Context, Inputs, Node, choice, each_shape};
+use crate::field::Shapes;
+use crate::geometry::MAX_COORDINATE;
 use crate::path::check_profile;
 use crate::shape::{
-    Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, HalftoneStyle, Join, ShadowStyle,
-    StrokeStyle,
+    Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, HalftoneStyle, Join, Mark, Screen,
+    ShadowStyle, StrokeStyle, Tone,
 };
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
+use std::sync::Arc;
 
 /// A colour given when the call is made.
 const fn color(domain: Domain) -> Arg {
@@ -269,12 +272,20 @@ impl Node for Knockout {
 }
 
 /// The pitch of a halftone when none is given, in design pixels.
-// constant: api.md "Style" (`halftone(color, *, tone, pitch=8, angle=45)`)
+// constant: api.md "Style" (`halftone(color, *, tone, pitch=8, angle=45, ...)`)
 const DEFAULT_HALFTONE_PITCH: f64 = 8.0;
 
 /// The turn of a halftone's lattice when none is given, in degrees.
-// constant: api.md "Style" (`halftone(color, *, tone, pitch=8, angle=45)`), the classic screen angle
+// constant: api.md "Style" (`halftone(color, *, tone, pitch=8, angle=45, ...)`), the classic screen angle
 const DEFAULT_HALFTONE_ANGLE: f64 = 45.0;
+
+/// How high a wave screen swings its rows when none is given, in pitches.
+// constant: api.md "Style" (`amplitude=1`): a row moves a cell up and down, so the waves are plain at a glance
+const DEFAULT_HALFTONE_AMPLITUDE: f64 = 1.0;
+
+/// How long a wave screen is when none is given, in pitches.
+// constant: api.md "Style" (`wavelength=6`): six cells to a wave, enough to read as a wave and not as a zigzag
+const DEFAULT_HALFTONE_WAVELENGTH: f64 = 6.0;
 
 /// Fills every shape with a screen of dots.
 #[derive(Debug)]
@@ -283,17 +294,70 @@ pub(crate) struct Halftone;
 pub(crate) static HALFTONE: Verb = Verb {
     name: "halftone",
     role: Role::Step,
-    summary: "fills every shape with a screen of dots of a colour on a square lattice pitch design pixels apart, turned angle \
-              degrees about the origin of the design frame; tone from 0 (solid) to 1 (no dots) is the share of each cell \
-              left bare; replaces any fill before, as fill replaces it",
+    summary: "fills every shape with a screen of dots of a colour, pitch design pixels apart on a layout turned angle \
+              degrees: `screen` grid, wave (rows swung by `amplitude` pitches over `wavelength` pitches), rings, spiral or \
+              rays (about `centre`, default the middle of the shape's bounds); each dot covers (1 - tone) of its own \
+              cell, tone from 0 (solid) to 1 (no dot), a number or a field read at the dot's centre; `shape` is the dot: \
+              dot, square, ellipse (`aspect` times as long as wide), diamond, euclidean (round, diamond at 0.5, round hole) or \
+              path (the closed outline `mark`); replaces any fill before, as fill replaces it",
     args: &[
         color(Domain::Painting),
-        number("tone", None, Domain::Fraction),
+        Arg {
+            name: "tone",
+            kind: Kind::Field,
+            default: None,
+            reads: Reads::PerItem,
+            domain: Domain::Fraction,
+        },
         number("pitch", Some(DEFAULT_HALFTONE_PITCH), Domain::Positive),
         number("angle", Some(DEFAULT_HALFTONE_ANGLE), Domain::Finite),
+        word("shape", Some("dot"), Mark::NAMES),
+        Arg {
+            name: "mark",
+            kind: Kind::Path,
+            default: Some(Literal::Unset),
+            reads: Reads::Literal,
+            domain: Domain::Any,
+        },
+        number("aspect", Some(1.0), Domain::AtLeast(1.0)),
+        word("screen", Some("grid"), Screen::NAMES),
+        Arg {
+            name: "centre",
+            kind: Kind::Point,
+            default: Some(Literal::Unset),
+            reads: Reads::PerItem,
+            domain: Domain::Coordinate,
+        },
+        number("amplitude", Some(DEFAULT_HALFTONE_AMPLITUDE), Domain::Coordinate),
+        number(
+            "wavelength",
+            Some(DEFAULT_HALFTONE_WAVELENGTH),
+            Domain::PositiveUpTo(MAX_COORDINATE),
+        ),
     ],
-    check: None,
+    check: Some(halftone_reads_what_it_is_given),
 };
+
+/// The caller's outline goes with the shape `"path"` and no other, and a centre goes with a screen that has one.
+fn halftone_reads_what_it_is_given(args: &Args) -> Result<(), Error> {
+    let shape = args.text("shape")?;
+    match (shape == "path", args.given("mark")?) {
+        (true, false) => return Err(Error::parameter("mark", "is needed when `shape` is \"path\"")),
+        (false, true) => return Err(Error::parameter("mark", "is read only when `shape` is \"path\"")),
+        _ => {}
+    }
+    let screen = args.text("screen")?;
+    if args.given("centre")?
+        && let Some(known) = Screen::from_name(screen)
+        && !known.reads("centre")
+    {
+        return Err(Error::parameter(
+            "centre",
+            format!("is not read by the screen \"{screen}\""),
+        ));
+    }
+    Ok(())
+}
 
 impl Node for Halftone {
     fn verb(&self) -> &'static Verb {
@@ -301,13 +365,38 @@ impl Node for Halftone {
     }
 
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let placed = |error: Error| error.at_argument(&cx.place, None);
         let color = args.color("color")?;
+        let shape = args.text("shape")?;
+        let mark = if shape == "path" {
+            Mark::path(args.path("mark")?.clone())
+        } else {
+            Mark::from_name(shape).ok_or_else(|| Error::parameter("shape", "is not one of the dots"))?
+        };
+        let screen = Screen::from_name(args.text("screen")?)
+            .ok_or_else(|| Error::parameter("screen", "is not one of the screens"))?;
+        // a field is bound once, with the values and the drawings of this draw, and shared by every shape
+        let field = args
+            .field_if_given("tone")?
+            .map(|field| field.bind(cx.env, &mut Shapes::taken(inputs.taken)).map(Arc::new))
+            .transpose()
+            .map_err(placed)?;
         each_shape(inputs.previous, cx, |shape, item| {
+            let tone = match &field {
+                Some(field) => Tone::Field(Arc::clone(field)),
+                None => Tone::Level(args.number(cx, "tone", item)?),
+            };
             let halftone = HalftoneStyle {
                 color,
-                tone: args.number(cx, "tone", item)?,
+                tone,
                 pitch: args.number(cx, "pitch", item)?,
                 angle: args.number(cx, "angle", item)?,
+                mark: mark.clone(),
+                aspect: args.number(cx, "aspect", item)?,
+                screen,
+                centre: args.point(cx, "centre", item)?,
+                amplitude: args.number(cx, "amplitude", item)?,
+                wavelength: args.number(cx, "wavelength", item)?,
             };
             let mut shape = shape.clone();
             shape.style_mut().set_halftone(halftone);

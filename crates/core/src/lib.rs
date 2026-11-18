@@ -44,8 +44,8 @@ pub use param::{Param, Unit};
 pub use path::{Path, Spacing, require_round_stroke};
 pub use registry::verbs;
 pub use shape::{
-    Attributes, Blend, Cap, Color, Gradient, GradientKind, HalftoneStyle, Join, Paint, ShadowStyle, Shape, StrokeStyle,
-    Style,
+    Attributes, Blend, Cap, Color, Gradient, GradientKind, HalftoneStyle, Join, Mark, Paint, Screen, ShadowStyle,
+    Shape, StrokeStyle, Style, Tone,
 };
 pub use trace::Trace;
 pub use r#type::{Align, Content, Font, Run, Text, text};

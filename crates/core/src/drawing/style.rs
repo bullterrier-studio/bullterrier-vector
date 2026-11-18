@@ -3,7 +3,7 @@
 use super::Drawing;
 use super::transform::Deg;
 use crate::node::{Given, style};
-use crate::{Blend, Cap, Color, Expr, Join, Paint, Path};
+use crate::{Blend, Cap, Color, Expr, Field, HalftoneStyle, Join, Mark, Paint, Path, Point, Screen, Tone};
 
 /// A stroke: its paint, and the width, joins, caps and miter limit if not the defaults (2 pixels, round, round, 4). A
 /// [`Color`] or a [`Gradient`](crate::Gradient) alone converts into one.
@@ -124,25 +124,55 @@ impl Shadow {
     }
 }
 
-/// A halftone fill: the dots' colour and the tone, and the pitch (8 design pixels) and angle (45 degrees) if not the
-/// defaults.
-#[derive(Debug, Clone, PartialEq)]
+/// A halftone fill: the dots' colour and tone, and what is left out takes the defaults: a `pitch` of 8 design pixels, an
+/// `angle` of 45 degrees, round dots on a grid.
+#[derive(Debug, Clone)]
 pub struct Halftone {
     color: Color,
-    tone: Expr,
+    tone: ToneGiven,
     pitch: Option<Expr>,
     angle: Option<Expr>,
+    shape: Option<Mark>,
+    aspect: Option<Expr>,
+    screen: Option<Screen>,
+    centre: Option<Point>,
+    amplitude: Option<Expr>,
+    wavelength: Option<Expr>,
+}
+
+/// The tone as the caller gave it.
+#[derive(Debug, Clone)]
+enum ToneGiven {
+    Number(Expr),
+    Field(Field),
 }
 
 impl Halftone {
-    /// A screen of dots of `color`, `tone` from 0 (solid) to 1 (no dots): the share of each cell left bare.
+    /// A screen of dots of `color`, `tone` from 0 (solid) to 1 (no dots): the share of each cell left bare. A number or
+    /// an expression, which a per-item number may be.
     #[must_use]
     pub fn new(color: Color, tone: impl Into<Expr>) -> Self {
+        Self::of(color, ToneGiven::Number(tone.into()))
+    }
+
+    /// A screen of dots of `color` whose tone is `tone`, a [`Field`] read at the centre of each dot (held to 0 to 1).
+    #[must_use]
+    pub fn field(color: Color, tone: Field) -> Self {
+        Self::of(color, ToneGiven::Field(tone))
+    }
+
+    fn of(color: Color, tone: ToneGiven) -> Self {
         Self {
             color,
-            tone: tone.into(),
+            tone,
             pitch: None,
             angle: None,
+            shape: None,
+            aspect: None,
+            screen: None,
+            centre: None,
+            amplitude: None,
+            wavelength: None,
         }
     }
 
@@ -153,12 +183,75 @@ impl Halftone {
         self
     }
 
-    /// This screen with its lattice turned `angle` degrees clockwise on the screen about the origin of the design
-    /// frame.
+    /// This screen with its layout turned `angle` degrees clockwise on the screen about the origin of the design
+    /// frame (rings have no direction and ignore it; a spiral and rays turn about their centre).
     #[must_use]
     pub fn angle<T: Into<Expr>>(mut self, angle: Deg<T>) -> Self {
         self.angle = Some(angle.0.into());
         self
+    }
+
+    /// This screen with dots of `shape` (default [`Mark::Dot`]).
+    #[must_use]
+    pub fn shape(mut self, shape: Mark) -> Self {
+        self.shape = Some(shape);
+        self
+    }
+
+    /// This screen with its ellipses `aspect` times as long as wide, at least 1; read by [`Mark::Ellipse`] only.
+    #[must_use]
+    pub fn aspect(mut self, aspect: impl Into<Expr>) -> Self {
+        self.aspect = Some(aspect.into());
+        self
+    }
+
+    /// This screen laid out as `screen` (default [`Screen::Grid`]).
+    #[must_use]
+    pub fn screen(mut self, screen: Screen) -> Self {
+        self.screen = Some(screen);
+        self
+    }
+
+    /// This screen about `centre`, for rings, a spiral and rays (default: the middle of the shape's bounding box); a
+    /// grid or a wave has none, and a drawing given one is refused.
+    #[must_use]
+    pub fn centre(mut self, centre: impl Into<Point>) -> Self {
+        self.centre = Some(centre.into());
+        self
+    }
+
+    /// This screen's wave swinging its rows `amplitude` pitches (default 1); read by [`Screen::Wave`] only.
+    #[must_use]
+    pub fn amplitude(mut self, amplitude: impl Into<Expr>) -> Self {
+        self.amplitude = Some(amplitude.into());
+        self
+    }
+
+    /// This screen's wave `wavelength` pitches long (default 6), above 0; read by [`Screen::Wave`] only.
+    #[must_use]
+    pub fn wavelength(mut self, wavelength: impl Into<Expr>) -> Self {
+        self.wavelength = Some(wavelength.into());
+        self
+    }
+}
+
+impl From<&HalftoneStyle> for Halftone {
+    /// The screen a drawn style holds, to put into a drawing again.
+    fn from(style: &HalftoneStyle) -> Self {
+        let tone = match style.tone() {
+            Tone::Level(level) => ToneGiven::Number(Expr::from(*level)),
+            Tone::Field(field) => ToneGiven::Field((**field).clone()),
+        };
+        let mut halftone = Self::of(style.color(), tone);
+        halftone.pitch = Some(Expr::from(style.pitch()));
+        halftone.angle = Some(Expr::from(style.angle()));
+        halftone.shape = Some(style.mark().clone());
+        halftone.aspect = Some(Expr::from(style.aspect()));
+        halftone.screen = Some(style.screen());
+        halftone.centre = style.centre();
+        halftone.amplitude = Some(Expr::from(style.amplitude()));
+        halftone.wavelength = Some(Expr::from(style.wavelength()));
+        halftone
     }
 }
 
@@ -247,12 +340,38 @@ impl Drawing {
     pub fn halftone(&self, halftone: Halftone) -> Self {
         let mut given = vec![
             ("color", Given::Color(halftone.color)),
-            ("tone", Given::Number(halftone.tone)),
+            (
+                "tone",
+                match halftone.tone {
+                    ToneGiven::Number(tone) => Given::Number(tone),
+                    ToneGiven::Field(field) => Given::Field(field),
+                },
+            ),
         ];
-        for (name, number) in [("pitch", halftone.pitch), ("angle", halftone.angle)] {
+        for (name, number) in [
+            ("pitch", halftone.pitch),
+            ("angle", halftone.angle),
+            ("aspect", halftone.aspect),
+            ("amplitude", halftone.amplitude),
+            ("wavelength", halftone.wavelength),
+        ] {
             if let Some(number) = number {
                 given.push((name, Given::Number(number)));
             }
+        }
+        match halftone.shape {
+            Some(Mark::Path(path)) => {
+                given.push(("shape", Given::Text("path".to_owned())));
+                given.push(("mark", Given::Path((*path).clone())));
+            }
+            Some(other) => given.push(("shape", Given::Text(other.name().to_owned()))),
+            None => {}
+        }
+        if let Some(screen) = halftone.screen {
+            given.push(("screen", Given::Text(screen.name().to_owned())));
+        }
+        if let Some(centre) = halftone.centre {
+            given.push(("centre", Given::Pair(Expr::from(centre.x), Expr::from(centre.y))));
         }
         self.then(&style::Halftone, given)
     }

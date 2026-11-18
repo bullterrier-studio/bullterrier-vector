@@ -20,22 +20,27 @@ fn halftones(drawing: &Drawing, values: &Values) -> Result<Vec<Option<HalftoneSt
     Ok(drawing
         .shapes(values)?
         .iter()
-        .map(|shape| shape.style().halftone().copied())
+        .map(|shape| shape.style().halftone().cloned())
         .collect())
 }
 
 fn only_halftone(drawing: &Drawing) -> Result<HalftoneStyle, Box<dyn std::error::Error>> {
     match halftones(drawing, &Values::new())?.as_slice() {
-        [Some(halftone)] => Ok(*halftone),
+        [Some(halftone)] => Ok(halftone.clone()),
         other => Err(format!("expected one halftone, got {other:?}").into()),
     }
+}
+
+/// The number a halftone's tone is, NaN for a field.
+fn level(halftone: &HalftoneStyle) -> f64 {
+    halftone.tone().level().unwrap_or(f64::NAN)
 }
 
 /// The colour, tone, pitch and angle of a halftone.
 fn parts(halftone: &HalftoneStyle) -> (String, f64, f64, f64) {
     (
         halftone.color().to_string(),
-        halftone.tone(),
+        level(halftone),
         halftone.pitch(),
         halftone.angle(),
     )
@@ -107,11 +112,11 @@ fn a_number_follows_a_param_or_the_shape_it_is_for() -> Outcome {
         .halftone(Halftone::new(color("#000000")?, &tone).pitch(by_index(4.0, 8.0)));
     let seen: Vec<(f64, f64)> = halftones(&drawing, &Values::new())?
         .iter()
-        .map(|halftone| halftone.map(|h| (h.tone(), h.pitch())).ok_or("no halftone"))
+        .map(|halftone| halftone.as_ref().map(|h| (level(h), h.pitch())).ok_or("no halftone"))
         .collect::<Result<_, _>>()?;
     assert_eq!(seen, vec![(0.5, 4.0), (0.5, 6.0), (0.5, 8.0)]);
     let lighter = halftones(&drawing, &Values::new().set("tone", 0.9))?;
-    assert_eq!(lighter[0].map(|halftone| halftone.tone()), Some(0.9));
+    assert_eq!(lighter[0].as_ref().map(level), Some(0.9));
     Ok(())
 }
 
@@ -208,6 +213,19 @@ fn the_registry_declares_the_arguments_with_their_defaults_and_ranges() -> Outco
             ("tone", "None Fraction".to_owned()),
             ("pitch", "Some(Number(8.0)) Positive".to_owned()),
             ("angle", "Some(Number(45.0)) Finite".to_owned()),
+            (
+                "shape",
+                r#"Some(Text("dot")) Choice(["dot", "square", "ellipse", "diamond", "euclidean", "path"])"#.to_owned()
+            ),
+            ("mark", "Some(Unset) Any".to_owned()),
+            ("aspect", "Some(Number(1.0)) AtLeast(1.0)".to_owned()),
+            (
+                "screen",
+                r#"Some(Text("grid")) Choice(["grid", "wave", "rings", "spiral", "rays"])"#.to_owned()
+            ),
+            ("centre", "Some(Unset) Coordinate".to_owned()),
+            ("amplitude", "Some(Number(1.0)) Coordinate".to_owned()),
+            ("wavelength", "Some(Number(6.0)) PositiveUpTo(1e100)".to_owned()),
         ]
     );
     Ok(())

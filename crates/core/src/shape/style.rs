@@ -1,6 +1,7 @@
 //! `Style`: how a shape is painted.
 
 use super::color::Color;
+use super::halftone::HalftoneStyle;
 use super::paint::Paint;
 use crate::key::{Key, Keyed};
 use crate::{Error, Path, Shape};
@@ -311,42 +312,6 @@ impl ShadowStyle {
     }
 }
 
-/// A halftone fill: a screen of dots in `color` over the shape, as many and as big as `tone` says (0 solid, 1 none), on
-/// a square lattice `pitch` apart turned `angle` degrees about the design frame's origin.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct HalftoneStyle {
-    pub(crate) color: Color,
-    pub(crate) tone: f64,
-    pub(crate) pitch: f64,
-    pub(crate) angle: f64,
-}
-
-impl HalftoneStyle {
-    /// The colour of the dots, its alpha included.
-    #[must_use]
-    pub fn color(&self) -> Color {
-        self.color
-    }
-
-    /// The tone from 0 to 1: the share of each lattice cell the dot leaves bare, so 0 is solid and 1 has no dots.
-    #[must_use]
-    pub fn tone(&self) -> f64 {
-        self.tone
-    }
-
-    /// The distance between neighbouring dots in design pixels, above 0.
-    #[must_use]
-    pub fn pitch(&self) -> f64 {
-        self.pitch
-    }
-
-    /// The turn of the lattice in degrees, clockwise on the screen about the origin of the design frame.
-    #[must_use]
-    pub fn angle(&self) -> f64 {
-        self.angle
-    }
-}
-
 /// The paint of a shape as it is drawn: `None` and [`Color::NONE`] mean not painted.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Style {
@@ -532,15 +497,6 @@ impl Keyed for ShadowStyle {
         key.number(self.dy);
         key.number(self.blur);
         key.of(&self.color);
-    }
-}
-
-impl Keyed for HalftoneStyle {
-    fn write_key(&self, key: &mut Key) {
-        key.of(&self.color);
-        key.number(self.tone);
-        key.number(self.pitch);
-        key.number(self.angle);
     }
 }
 
