@@ -80,3 +80,27 @@ fn an_unknown_name_is_refused_naming_every_preset() -> Outcome {
     assert!(message.contains(&Drawing::preset_names().join(", ")), "{message}");
     Ok(())
 }
+
+#[test]
+fn every_preset_has_a_one_sentence_description() -> Outcome {
+    for name in Drawing::preset_names() {
+        let text = Drawing::preset_description(name)?;
+        assert!(text.ends_with('.'), "{name}: {text:?} does not end with a full stop");
+        assert!(!text.contains('\n'), "{name}: the description has a line break");
+        assert!(text.trim().len() > 1, "{name}: the description is blank");
+        assert!(
+            !text[..text.len() - 1].contains(". "),
+            "{name}: {text:?} is more than one sentence"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn an_unknown_name_has_no_description_and_the_same_refusal_as_preset() -> Outcome {
+    let refusal = |result: Result<&str, _>| parameter_refusal(result.map(str::to_owned));
+    let (parameter, message) = refusal(Drawing::preset_description("nope"))?;
+    assert_eq!(parameter, "name");
+    assert_eq!(message, parameter_refusal(Drawing::preset("nope"))?.1);
+    Ok(())
+}
