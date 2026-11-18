@@ -1219,6 +1219,23 @@ macOS). In Python and JavaScript the error points at the call that caused it; in
 - **No configuration objects.** Options are keyword arguments of the step they shape.
 - **No collection type.** A list of shapes is a list; a drawing is the only container.
 
+## Command line
+
+`bt-vector` (installed with the Python package) renders and checks drawings without code. SOURCE is a preset name or,
+when it ends in `.json`, a document file.
+
+| Command | What it does |
+|---|---|
+| `bt-vector list` | one line per preset: `name  WxH  param, param` |
+| `bt-vector describe SOURCE` | the design size, then each `Param`: name, default, min, max, unit (`-` for none), meaning |
+| `bt-vector render SOURCE -o OUT [--size WxH] [--input NAME=FILE ...] [NAME=VALUE ...]` | writes `OUT` (`.png` or `.svg`, by its suffix) and prints its path |
+| `bt-vector validate FILE.json [FILE.json ...] [--input NAME=FILE ...]` | prints `ok FILE` for each document that loads, `FILE: <message>` on stderr for each that does not |
+
+`render` draws at the drawing's design size, 800x600 when it has none, unless `--size` is given. `NAME=VALUE` sets a
+Param. `--input` gives `from_json` the bytes of an input the document names (a font or a map that is not bundled).
+Exit codes: 0 done; 1 refused, one line `bt-vector: <what is wrong>` on stderr (never a traceback); 2 wrong usage.
+Results go to stdout, errors to stderr. The same in Python: `bullterrier_vector.cli.run(argv)` returns the exit code.
+
 ## Languages
 
 The same names in every language, in each language's case: `snake_case` in Python and Rust, `camelCase` in JavaScript

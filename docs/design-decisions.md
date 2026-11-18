@@ -1733,6 +1733,16 @@ eyes' catchlights are placed by hand (a hint of where the eyes are), the glue be
 - **The word differs from the image library's.** There a preset is a set of parameters for one effect; here it is a whole
   drawing with its own Params, because a drawing's look is its shapes, not one setting.
 
+## Command line (V18)
+
+- **`bt-vector` is Python, in the package (D4).** The CLI is argument parsing, file IO and one call into the core; `rules.md`
+  already assumes a Python CLI, and control and audio do the same. A Rust crate (clap, a binding, a test crate) is not
+  worth it for that. A Python-free `cargo install` command waits on someone who needs the CLI without Python.
+- **Skipped for now:** plotter output (`to_plot_svg` needs a pen width), `--json` for `describe`, a `schema` command
+  (`drawing_schema()` exists), render windows. Each is a flag or command later.
+- **One duplicate:** `tools/look.py` keeps its own `WxH` and `NAME=VALUE` parsers; the dev tool cannot import the CLI's
+  private helpers.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

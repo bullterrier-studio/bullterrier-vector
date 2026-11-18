@@ -283,7 +283,7 @@ tools only through plain data, with no runtime link in either direction (SVG imp
 
 | # | Question | Needed by |
 |---|---|---|
-| D4 | Command line in Rust (installable with cargo) or in the Python package? | V18 |
+| D4 | Command line in Rust (installable with cargo) or in the Python package? | Decided (V18): the Python package; [design-decisions.md](design-decisions.md) |
 | D5 | Who owns stateful simulation, if ever? | later |
 | D6 | Custom nodes written in Python or JavaScript (local use only), and when? | later |
 | D7 | Placement that stays stable as values change (evenly spaced lines that do not jump between frames): a stateless rule continuous in its parameters, or explicit state passed in and out? The answer bears on D5. | animated hatching, after V15 |

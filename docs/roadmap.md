@@ -65,7 +65,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V15 | Fields and lines: evenly spaced streamlines, direction and distance fields, hatching, plotter output (V15a, V15b and V15c done) | L | **M5 poster piece** |
 | V16 | SVG import (logos) | S | Done 2026-11-11, trimmed |
 | V17 | Presets as JSON | S | Done 2026-11-18 |
-| V18 | Command line: `render`, `describe`, `list`, `validate` | S | |
+| V18 | Command line: `render`, `describe`, `list`, `validate` | S | Done 2026-11-18 |
 | V19 | Presets and gallery | M | |
 | V20 | Browser playground and a live page example | M | |
 | V21 | Reference pieces rebuilt on the library | M | |
@@ -73,7 +73,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done and V14a (trace of a single map) is done; V14 (with V14b) is done and M4 is reached; the effects track's 4a (halftone screens) and 4b (character grids and overlay marks) are done; V17 (presets as JSON) is done; next in the order above: V18 (command line). Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
+unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done and V14a (trace of a single map) is done; V14 (with V14b) is done and M4 is reached; the effects track's 4a (halftone screens) and 4b (character grids and overlay marks) are done; V17 (presets as JSON) and V18 (command line) are done; next in the order above: V19 (presets and gallery). Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
 Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12, V13 and M3 are done; V15 (before V14) follows.
 
@@ -771,6 +771,9 @@ Also:
 - The crate packages must include `LICENSE`.
 
 ## Later, with a trigger
+
+- Command line: a Rust `cargo install` CLI without Python (trigger: someone needs it); `render --plot` (a pen width),
+  `describe --json` and a `schema` command (trigger: a tool that wants them).
 
 - Kinetic type: the mid-turn frames of `A` and `M` (E into A, P into M) are the roughest of the piece; a pairing or a
   target chosen for shape, or a smarter vertex pairing in `morph`, would calm them.
