@@ -21,8 +21,9 @@ CYCLIC_UNITS = ("cycle", "deg")  # a cyclic Param's maximum is the minimum again
 
 def ink(drawing: btvec.Drawing, decode_png, **values: float) -> float:
     """The share of pixels, at a quarter of the design frame, that differ from the pixel at its top left corner."""
+    assert drawing.size is not None  # a preset has a frame
     width, height = (round(side / 4) for side in drawing.size)
-    _, _, pixels = decode_png(drawing.to_png(width, height, **values))
+    _, _, pixels = decode_png(drawing.with_values(**values).to_png(width, height))
     corner = pixels[:4]
     return sum(pixels[i : i + 4] != corner for i in range(0, len(pixels), 4)) / (width * height)
 
