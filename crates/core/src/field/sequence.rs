@@ -99,7 +99,7 @@ impl Field {
             if d == 0 {
                 1.0
             } else {
-                libm::exp(-0.5 * (d as f64 / sigma).powi(2))
+                libm::exp(-0.5 * (d as f64 / sigma) * (d as f64 / sigma))
             }
         };
         let mut out = Vec::with_capacity(count);
