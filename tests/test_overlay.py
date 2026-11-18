@@ -3,6 +3,7 @@ docs/api.md, and from the shipped font read with fontTools (code that shares not
 every printable ASCII glyph, the ink of `H`, the capital height."""
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -142,3 +143,19 @@ def test_marks_the_rules_forbid_are_parameter_errors(call: object, named: str) -
 def test_a_box_that_is_not_four_numbers_and_a_label_is_a_type_error(item: object) -> None:
     with pytest.raises(TypeError, match="boxes"):
         btvec.marks([item])  # type: ignore[list-item]
+
+
+@pytest.mark.parametrize(
+    ("make", "argument"),
+    [
+        pytest.param(lambda: btvec.characters("A" * 1000, cell=1e98), "cell", id="cells past the coordinates"),
+        pytest.param(lambda: btvec.characters("A", cell=8, size=1e200), "size", id="a size past the coordinates"),
+        pytest.param(lambda: btvec.marks([(9e99, 0, 9e99, 10)]), "width", id="a box past the coordinates"),
+        pytest.param(lambda: btvec.marks(points=[(1, 1, "A")] * 20_000), "points", id="too many marks"),
+    ],
+)
+def test_a_refusal_names_the_argument_the_caller_gave_once(make: Callable[[], btvec.Drawing], argument: str) -> None:
+    with pytest.raises(btvec.ParameterError) as caught:
+        make().shapes()
+    assert str(caught.value).count("source (") == 1
+    assert f".{argument}" in str(caught.value)

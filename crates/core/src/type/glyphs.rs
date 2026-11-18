@@ -7,7 +7,8 @@ use super::text::Align;
 use crate::node::Context;
 use crate::{Error, Point, Shape};
 
-/// The glyphs of `content` (one line) in `font`, `size` pixels to the em, the left end of its baseline at `anchor`: what
+/// The glyphs of `content` (one line) in `font`, `size` pixels to the em (the caller's argument `size_argument`, which a
+/// refusal names), the left end of its baseline at `anchor`: what
 /// [`typeset`] makes of it, so each shape carries `glyph`, `char`, `word`, `line`, `run`, `order` and `origin`.
 ///
 /// # Errors
@@ -15,7 +16,7 @@ use crate::{Error, Point, Shape};
 pub(crate) fn string(
     font: &Font,
     content: &str,
-    size: f64,
+    (size_argument, size): (&str, f64),
     anchor: Point,
     cx: &Context<'_>,
 ) -> Result<Vec<Shape>, Error> {
@@ -32,5 +33,5 @@ pub(crate) fn string(
         align: Align::Left,
         anchor,
     };
-    typeset(content, &settings, None, cx)
+    typeset(content, &settings, None, cx).map_err(|error| error.renamed("size", size_argument))
 }

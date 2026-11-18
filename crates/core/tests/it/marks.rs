@@ -253,3 +253,57 @@ fn a_font_left_out_is_the_bundled_monospaced_one() -> Outcome {
     assert_eq!(loaded.shapes(&Values::new())?, left_out.shapes(&Values::new())?);
     Ok(())
 }
+
+#[test]
+fn a_refusal_names_the_argument_the_caller_gave_and_the_place_once() -> Outcome {
+    let long = "N".repeat(100);
+    let many_labels = (0..2_000).map(|at| PointMark::new(f64::from(at), 0.0).text("N".repeat(60)));
+    let many_points = (0..10_001).map(|at| PointMark::new(f64::from(at), 0.0));
+    for (case, options, named) in [
+        (
+            "a box that runs past the coordinates",
+            Marks::new().boxes([BoxMark::new(9e99, 0.0, 9e99, 10.0)]),
+            "source (marks).width",
+        ),
+        (
+            "a box that is too tall for its corner",
+            Marks::new().boxes([BoxMark::new(0.0, 9.5e99, 10.0, 9e99)]),
+            "source (marks).height",
+        ),
+        (
+            "a cross that takes a point out of the coordinates",
+            Marks::new().points([PointMark::new(9.9e99, 0.0)]).cross(2e98),
+            "source (marks).cross",
+        ),
+        (
+            "a leader that takes a label out of the coordinates",
+            Marks::new()
+                .points([PointMark::new(9e99, 0.0).text("A")])
+                .text_size(2e99),
+            "source (marks).text_size",
+        ),
+        (
+            "a label that runs out of the coordinates",
+            Marks::new()
+                .points([PointMark::new(1e99, 0.0).text(long)])
+                .text_size(1e99),
+            "source (marks).text_size",
+        ),
+        (
+            "too many characters of labels on points only",
+            Marks::new().points(many_labels),
+            "source (marks).points",
+        ),
+        (
+            "too many points",
+            Marks::new().points(many_points),
+            "source (marks).points",
+        ),
+    ] {
+        let outcome = marks(options).shapes(&Values::new());
+        assert!(outcome.is_err(), "{case}: succeeded");
+        let (parameter, message) = parameter_refusal(outcome)?;
+        assert_eq!(parameter, named, "{case}: {message}");
+    }
+    Ok(())
+}

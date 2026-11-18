@@ -2,7 +2,7 @@
 //! optional label on a leader line.
 
 use super::{Args, Context, Inputs, Node};
-use crate::geometry::MAX_COORDINATE;
+use crate::geometry::{MAX_COORDINATE, coordinate as within};
 use crate::limits::{MAX_GLYPHS, MAX_MARKS};
 use crate::r#type::{Vertical, string};
 use crate::{Arg, Domain, Error, Kind, Literal, Path, Point, Reads, Role, Shape, Verb};
@@ -129,25 +129,28 @@ pub(crate) static MARKS: Verb = Verb {
     check: Some(marks_fit),
 };
 
-/// At most `MAX_MARKS` marks, with at most `MAX_GLYPHS` characters of labels between them.
+/// At most `MAX_MARKS` marks, with at most `MAX_GLYPHS` characters of texts between them: the list that takes the
+/// running total past a limit is the argument the error names.
 fn marks_fit(args: &Args) -> Result<(), Error> {
-    let (boxes, points) = (args.records("boxes")?, args.records("points")?);
-    let count = boxes.len() + points.len();
-    if count > MAX_MARKS {
-        return Err(Error::parameter(
-            "boxes",
-            format!("with the points are {count} marks, but MAX_MARKS {MAX_MARKS} is the most accepted"),
-        ));
-    }
-    let mut characters = 0_usize;
-    for record in boxes.iter().chain(points) {
-        characters += record.text_opt("text")?.map_or(0, |label| label.chars().count());
-    }
-    if characters > MAX_GLYPHS {
-        return Err(Error::parameter(
-            "boxes",
-            format!("labels have {characters} characters, but MAX_GLYPHS {MAX_GLYPHS} is the most accepted"),
-        ));
+    let (mut count, mut characters) = (0_usize, 0_usize);
+    for list in ["boxes", "points"] {
+        for record in args.records(list)? {
+            count += 1;
+            characters += record.text_opt("text")?.map_or(0, |text| text.chars().count());
+            for (total, limit, limit_name, what) in [
+                (count, MAX_MARKS, "MAX_MARKS", "marks"),
+                (characters, MAX_GLYPHS, "MAX_GLYPHS", "characters of texts"),
+            ] {
+                if total > limit {
+                    return Err(Error::parameter(
+                        list,
+                        format!(
+                            "with the marks before it has more than {limit} {what}, but {limit_name} {limit} is the most accepted"
+                        ),
+                    ));
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -178,63 +181,62 @@ impl Node for MarksNode {
 
     #[expect(clippy::cast_possible_truncation, reason = "at most MAX_MARKS marks, far below 2^32")]
     fn evaluate(&self, args: &Args, _: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
-        let placed = |error: Error| error.at_argument(&cx.place, None);
+        // `own` places an error of this call's own arguments and is applied to nothing else: what takes `cx` (the
+        // work charges, the text layout) returns errors placed already
+        let own = |error: Error| error.at_argument(&cx.place, None);
         let look = Look {
-            bracket: args.once_number(cx, "bracket").map_err(placed)?,
-            cross: args.once_number(cx, "cross").map_err(placed)?,
-            text_size: args.once_number(cx, "text_size").map_err(placed)?,
+            bracket: args.once_number(cx, "bracket").map_err(own)?,
+            cross: args.once_number(cx, "cross").map_err(own)?,
+            text_size: args.once_number(cx, "text_size").map_err(own)?,
         };
         let font = &args.font_or_monospaced("font")?;
         let (boxes, points) = (args.records("boxes")?, args.records("points")?);
         // the lines are charged before any is made; a label charges its own glyphs
         cx.work.made_shapes(boxes.len() * 5 + points.len() * 3, &cx.place)?;
         let cap = Vertical::of(font).cap * look.text_size;
+        // every coordinate a line has is one of these sums, each checked against the argument that added to it
+        let reached = |argument: &str, base: f64, by: f64| within(argument, base + by).map_err(own);
+        let lead = reached("text_size", look.cross, look.text_size)?;
         let mut made = Vec::new();
         for (mark, record) in boxes.iter().chain(points).enumerate() {
-            let number = |name: &str| record.once_number(cx, name).map_err(placed);
+            let number = |name: &str| record.once_number(cx, name).map_err(own);
             let mark = mark as u32;
             let (x, y) = (number("x")?, number("y")?);
             let anchor = if mark as usize >= boxes.len() {
-                for (from, to) in [
-                    ((-look.cross, 0.0), (look.cross, 0.0)),
-                    ((0.0, -look.cross), (0.0, look.cross)),
-                ] {
-                    made.push(
-                        line(
-                            &[Point::new(x + from.0, y + from.1), Point::new(x + to.0, y + to.1)],
-                            "cross",
-                            mark,
-                        )
-                        .map_err(placed)?,
-                    );
-                }
+                let (west, east) = (reached("cross", x, -look.cross)?, reached("cross", x, look.cross)?);
+                let (north, south) = (reached("cross", y, -look.cross)?, reached("cross", y, look.cross)?);
+                made.push(line(&[Point::new(west, y), Point::new(east, y)], "cross", mark)?);
+                made.push(line(&[Point::new(x, north), Point::new(x, south)], "cross", mark)?);
                 Point::new(x, y)
             } else {
                 let (width, height) = (number("width")?, number("height")?);
+                let (right, bottom) = (reached("width", x, width)?, reached("height", y, height)?);
                 let arm = look.bracket * width.min(height);
                 for (corner, across, down) in [
                     (Point::new(x, y), arm, arm),
-                    (Point::new(x + width, y), -arm, arm),
-                    (Point::new(x + width, y + height), -arm, -arm),
-                    (Point::new(x, y + height), arm, -arm),
+                    (Point::new(right, y), -arm, arm),
+                    (Point::new(right, bottom), -arm, -arm),
+                    (Point::new(x, bottom), arm, -arm),
                 ] {
                     let points = [
                         Point::new(corner.x + across, corner.y),
                         corner,
                         Point::new(corner.x, corner.y + down),
                     ];
-                    made.push(line(&points, "bracket", mark).map_err(placed)?);
+                    made.push(line(&points, "bracket", mark)?);
                 }
-                Point::new(x + width, y)
+                Point::new(right, y)
             };
-            let Some(label) = record.text_opt("text")?.filter(|label| !label.is_empty()) else {
+            let Some(text) = record.text_opt("text").map_err(own)?.filter(|text| !text.is_empty()) else {
                 continue;
             };
-            let reach = look.cross + look.text_size;
-            let end = Point::new(anchor.x + reach, anchor.y - reach);
-            made.push(line(&[anchor, end], "leader", mark).map_err(placed)?);
+            let end = Point::new(
+                reached("text_size", anchor.x, lead)?,
+                reached("text_size", anchor.y, -lead)?,
+            );
+            made.push(line(&[anchor, end], "leader", mark)?);
             let pen = Point::new(end.x + LABEL_GAP * look.text_size, end.y + cap / 2.0);
-            for mut glyph in string(font, label, look.text_size, pen, cx)? {
+            for mut glyph in string(font, text, ("text_size", look.text_size), pen, cx)? {
                 glyph.attributes_mut().role = Some("text".into());
                 glyph.attributes_mut().mark = Some(mark);
                 made.push(glyph);

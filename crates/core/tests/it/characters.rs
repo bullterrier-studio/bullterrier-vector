@@ -279,3 +279,34 @@ fn a_font_left_out_is_the_bundled_monospaced_one() -> Outcome {
     assert!(!left_out.to_json()?.contains("\"font\""), "a default is not written");
     Ok(())
 }
+
+#[test]
+fn a_refusal_names_the_argument_the_caller_gave_once_whatever_the_cause() -> Outcome {
+    let font = mono()?;
+    for (case, drawing, named) in [
+        (
+            "a grid whose cells run past the coordinates",
+            characters("A".repeat(1000), Characters::new(1e98)),
+            "source (characters).cell",
+        ),
+        (
+            "a size that takes a glyph out of the coordinates",
+            characters("A", Characters::new(8.0).size(1e200)),
+            "source (characters).size",
+        ),
+        (
+            "a size that, with the cells, takes a glyph out of the coordinates",
+            characters("AA", Characters::new(5e99).size(1e99)),
+            "source (characters).size",
+        ),
+        (
+            "a size that no glyph of the font could be set at",
+            characters("A", Characters::new(8.0).font(&font).size(1e300)),
+            "source (characters).size",
+        ),
+    ] {
+        let (parameter, message) = parameter_refusal(drawing.shapes(&Values::new()))?;
+        assert_eq!(parameter, named, "{case}: {message}");
+    }
+    Ok(())
+}

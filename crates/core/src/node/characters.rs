@@ -1,7 +1,7 @@
 //! `characters`: a grid of characters, one outlined glyph in each cell.
 
 use super::{Args, Context, Inputs, Node};
-use crate::geometry::MAX_COORDINATE;
+use crate::geometry::{MAX_COORDINATE, coordinate as within};
 use crate::limits::MAX_GLYPHS;
 use crate::r#type::{Vertical, string};
 use crate::{Arg, Domain, Error, Font, Kind, Paint, Point, Reads, Role, Shape, Verb};
@@ -60,7 +60,19 @@ pub(crate) static CHARACTERS: Verb = Verb {
     check: Some(grid_fits),
 };
 
-/// The rows are at most `MAX_GLYPHS` characters with no control character, and `colors` has a colour for each.
+/// How far the lattice of `lines` reaches right and down, in the cell's own terms: a grid whose last cell lies beyond the
+/// coordinates a path holds is refused naming `cell`.
+fn lattice_reach(lines: &[Vec<char>], (width, height): (f64, f64)) -> Result<(f64, f64), Error> {
+    let columns = lines.iter().map(Vec::len).max().unwrap_or(0);
+    #[expect(clippy::cast_precision_loss, reason = "at most MAX_GLYPHS cells, far below 2^53")]
+    let reach = (width * columns as f64, height * lines.len() as f64);
+    within("cell", reach.0)?;
+    within("cell", reach.1)?;
+    Ok(reach)
+}
+
+/// The rows are at most `MAX_GLYPHS` characters with no control character, `colors` has a colour for each, and the
+/// lattice stays within the coordinates.
 fn grid_fits(args: &Args) -> Result<(), Error> {
     let rows = args.text("content")?;
     let characters = rows.chars().count();
@@ -71,6 +83,11 @@ fn grid_fits(args: &Args) -> Result<(), Error> {
         ));
     }
     let lines = lines(rows);
+    lattice_reach(
+        &lines,
+        args.literal_pair("cell")?
+            .ok_or_else(|| Error::parameter("cell", "is missing"))?,
+    )?;
     for (row, line) in lines.iter().enumerate() {
         if let Some(column) = line.iter().position(|character| character.is_control()) {
             return Err(Error::parameter(
@@ -120,7 +137,13 @@ impl Glyphs<'_> {
     /// The shapes of `character` at the origin, set once.
     fn of(&mut self, character: char, cx: &Context<'_>) -> Result<&[Shape], Error> {
         if !self.shapes.contains_key(&character) {
-            let set = string(self.font, &character.to_string(), self.size, Point::new(0.0, 0.0), cx)?;
+            let set = string(
+                self.font,
+                &character.to_string(),
+                ("size", self.size),
+                Point::new(0.0, 0.0),
+                cx,
+            )?;
             self.shapes.insert(character, set);
         }
         Ok(&self.shapes[&character])
@@ -162,17 +185,21 @@ impl Node for CharactersNode {
         reason = "a grid has at most MAX_GLYPHS cells, far below 2^32 and 2^53"
     )]
     fn evaluate(&self, args: &Args, _: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
-        let placed = |error: Error| error.at_argument(&cx.place, None);
-        let lines = lines(args.text("content")?);
-        let font = &args.font_or_monospaced("font")?;
+        // `own` places an error of this call's own arguments and is applied to nothing else: what takes `cx` (the glyph
+        // layout, the work charges) returns errors placed already, and placing one twice would name the step twice
+        let own = |error: Error| error.at_argument(&cx.place, None);
+        let lines = lines(args.text("content").map_err(own)?);
+        let font = &args.font_or_monospaced("font").map_err(own)?;
         let (width, height) = args
-            .literal_pair("cell")?
-            .ok_or_else(|| Error::parameter("cell", "is missing"))?;
-        let colors = args.colors("colors")?;
+            .literal_pair("cell")
+            .map_err(own)?
+            .ok_or_else(|| own(Error::parameter("cell", "is missing")))?;
+        let colors = args.colors("colors").map_err(own)?;
+        let reach = lattice_reach(&lines, (width, height)).map_err(own)?;
         let used: std::collections::BTreeSet<char> = lines.iter().flatten().copied().collect();
-        let size = match args.once_number_opt(cx, "size").map_err(placed)? {
+        let size = match args.once_number_opt(cx, "size").map_err(own)? {
             Some(size) => size,
-            None => fitted(font, used.iter().copied(), (width, height), cx).map_err(placed)?,
+            None => fitted(font, used.iter().copied(), (width, height), cx)?,
         };
         let mut glyphs = Glyphs {
             font,
@@ -180,13 +207,23 @@ impl Node for CharactersNode {
             shapes: BTreeMap::new(),
         };
         // charge every shape and outline segment before any is made
-        let (mut shapes, mut segments) = (0_usize, 0_usize);
+        let (mut shapes, mut segments, mut extent) = (0_usize, 0_usize, 0.0_f64);
         for character in lines.iter().flatten() {
-            for shape in glyphs.of(*character, cx).map_err(placed)? {
+            for shape in glyphs.of(*character, cx)? {
                 shapes += 1;
                 segments += shape.path().weight();
+                if let Ok(bounds) = shape.path().bounds() {
+                    extent = extent
+                        .max(bounds.x.abs())
+                        .max((bounds.x + bounds.width).abs())
+                        .max(bounds.y.abs())
+                        .max((bounds.y + bounds.height).abs());
+                }
             }
         }
+        // a glyph stands at its cell: no coordinate leaves the range if the lattice and the glyph (twice, for its own
+        // `origin` taken off) are within it, which the size can break and the cell alone cannot
+        within("size", reach.0.max(reach.1) + 2.0 * extent).map_err(own)?;
         cx.work.made_shapes(shapes, &cx.place)?;
         cx.work.made_outline(segments, &cx.place)?;
         let mut made = Vec::with_capacity(shapes);
@@ -195,10 +232,7 @@ impl Node for CharactersNode {
                 let centre = Point::new(width * (column as f64 + 0.5), height * (row as f64 + 0.5));
                 for shape in &glyphs.shapes[character] {
                     let origin = shape.attributes().origin().unwrap_or(centre);
-                    let path = shape
-                        .path()
-                        .translate(centre.x - origin.x, centre.y - origin.y)
-                        .map_err(placed)?;
+                    let path = shape.path().translate(centre.x - origin.x, centre.y - origin.y)?;
                     let mut one = shape.with_path(path).at(made.len());
                     let attributes = one.attributes_mut();
                     attributes.glyph = None;

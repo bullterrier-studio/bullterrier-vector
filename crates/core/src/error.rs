@@ -59,6 +59,22 @@ impl Error {
         }
     }
 
+    /// This error, if it is a [`Error::Parameter`] whose name ends in `.from`, naming `.to` instead: a shared kernel
+    /// calls an argument by its own name and the caller by another.
+    #[must_use]
+    pub(crate) fn renamed(self, from: &str, to: &str) -> Self {
+        match self {
+            Self::Parameter { parameter, message } => match parameter.strip_suffix(&format!(".{from}")) {
+                Some(place) => Self::Parameter {
+                    parameter: format!("{place}.{to}"),
+                    message,
+                },
+                None => Self::Parameter { parameter, message },
+            },
+            other => other,
+        }
+    }
+
     /// An [`Error::Geometry`] from `verb`.
     pub(crate) fn geometry(verb: &str, message: impl Into<String>) -> Self {
         Self::Geometry {

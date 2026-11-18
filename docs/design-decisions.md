@@ -1930,6 +1930,14 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   A label is therefore right of its box and beyond its own crosshair's reach by construction (a test), whatever the sizes.
   Two close marks can overlap labels; placing them apart is a solver the library does not have (a caller moves the boxes).
   The quarter em (`LABEL_GAP`) is a documented constant that only keeps the leader's end off the first glyph.
+- **A refusal names the argument the caller gave, once.** Every coordinate a grid or a mark makes is a sum (a cell times
+  its columns, a corner plus a width, a point plus a cross, a leader plus a text size) checked in one owner against the
+  argument that added to it (`cell`, `size`, `width`, `height`, `cross`, `text_size`), so the geometry below never fails
+  on its own `dx` or `point`. A limit names the list that took the running total over it (`boxes` or `points`). The
+  shared glyph entry (`string`) renames the layout's `size` to the caller's own (`text_size` in `marks`). A step is placed
+  once: errors of the call's own arguments are placed at one closure, applied to nothing else, and whatever takes the
+  `Context` (layout, work charges) returns errors placed already. Typing that difference (a placed and an unplaced
+  `Error`) would change the public `Error`, so it is a convention with a test over the refusals instead.
 - **The font: JetBrains Mono.** The `[wght]` variable font of `google/fonts` (`6e4b84c976ca`), SIL OFL 1.1 with no Reserved
   Font Name, made into WOFF2 by fontTools as the others (nothing removed or changed): 72 KB as WOFF2 (187 KB as TrueType),
   one axis (`wght` 100 to 800), every glyph 0.6 em wide, 976 glyphs, drawn for code, so `#@.:-=+*%` are distinct at small
