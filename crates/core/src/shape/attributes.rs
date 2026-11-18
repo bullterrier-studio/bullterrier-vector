@@ -16,6 +16,10 @@ pub struct Attributes {
     pub(crate) part: Option<u32>,
     pub(crate) copy: Option<u32>,
     pub(crate) label: Option<u32>,
+    pub(crate) row: Option<u32>,
+    pub(crate) column: Option<u32>,
+    pub(crate) mark: Option<u32>,
+    pub(crate) role: Option<Arc<str>>,
     pub(crate) level: Option<f64>,
     pub(crate) order: Option<f64>,
     pub(crate) origin: Option<Point>,
@@ -60,9 +64,9 @@ pub(crate) enum Holds {
     Text,
 }
 
-/// The attributes a selection can ask about, by name: the shape's `index`, the eleven a generator writes and
-/// the three an SVG import writes.
-pub(crate) const SELECTABLE: [(&str, Holds); 15] = [
+/// The attributes a selection can ask about, by name: the shape's `index`, the fifteen a generator writes (`role`
+/// is text) and the three an SVG import writes.
+pub(crate) const SELECTABLE: [(&str, Holds); 19] = [
     ("index", Holds::Whole),
     ("glyph", Holds::Whole),
     ("char", Holds::Char),
@@ -72,6 +76,10 @@ pub(crate) const SELECTABLE: [(&str, Holds); 15] = [
     ("part", Holds::Whole),
     ("copy", Holds::Whole),
     ("label", Holds::Whole),
+    ("row", Holds::Whole),
+    ("column", Holds::Whole),
+    ("mark", Holds::Whole),
+    ("role", Holds::Text),
     ("level", Holds::Real),
     ("order", Holds::Real),
     ("origin", Holds::Point),
@@ -105,6 +113,10 @@ impl Attributes {
             "part" => self.part.map(|n| Single::Number(f64::from(n))),
             "copy" => self.copy.map(|n| Single::Number(f64::from(n))),
             "label" => self.label.map(|n| Single::Number(f64::from(n))),
+            "row" => self.row.map(|n| Single::Number(f64::from(n))),
+            "column" => self.column.map(|n| Single::Number(f64::from(n))),
+            "mark" => self.mark.map(|n| Single::Number(f64::from(n))),
+            "role" => self.role.as_deref().map(|text| Single::Text(text.to_owned())),
             "level" => self.level.map(Single::Number),
             "order" => self.order.map(Single::Number),
             "origin" => self.origin.map(Single::Point),
@@ -161,6 +173,30 @@ impl Attributes {
     #[must_use]
     pub fn label(&self) -> Option<u32> {
         self.label
+    }
+
+    /// The row of a character grid a glyph stands in, from 0.
+    #[must_use]
+    pub fn row(&self) -> Option<u32> {
+        self.row
+    }
+
+    /// The column of a character grid a glyph stands in, from 0.
+    #[must_use]
+    pub fn column(&self) -> Option<u32> {
+        self.column
+    }
+
+    /// The overlay mark a shape belongs to, from 0: the boxes in order, then the points.
+    #[must_use]
+    pub fn mark(&self) -> Option<u32> {
+        self.mark
+    }
+
+    /// What a shape of an overlay mark is: `bracket`, `cross`, `leader` or `label`.
+    #[must_use]
+    pub fn role(&self) -> Option<&str> {
+        self.role.as_deref()
     }
 
     /// The level of a shape traced at a tone.
@@ -227,7 +263,8 @@ impl Keyed for Single {
 impl Keyed for Attributes {
     fn write_key(&self, key: &mut Key) {
         for whole in [
-            self.glyph, self.word, self.line, self.run, self.part, self.copy, self.label,
+            self.glyph, self.word, self.line, self.run, self.part, self.copy, self.label, self.row, self.column,
+            self.mark,
         ] {
             key.of(&whole.map(u64::from));
         }
@@ -235,7 +272,7 @@ impl Keyed for Attributes {
         key.of(&self.level);
         key.of(&self.order);
         key.of(&self.origin);
-        for text in [&self.id, &self.class, &self.group] {
+        for text in [&self.id, &self.class, &self.group, &self.role] {
             match text {
                 None => key.word(0),
                 Some(text) => {

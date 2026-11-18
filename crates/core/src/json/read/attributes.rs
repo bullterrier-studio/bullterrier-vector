@@ -5,7 +5,7 @@ use crate::json::value::Json;
 use crate::shape::{Holds, SELECTABLE, Single};
 use crate::{Attributes, Error, Point, Select, Wanted};
 
-/// The attributes a `shape` carries: each of the twelve a generator or an import writes, and nothing else.
+/// The attributes a `shape` carries: each of the sixteen a generator or an import writes, and nothing else.
 pub(super) fn attributes(pointer: &str, json: &Json) -> Result<Attributes, Error> {
     let Json::Object(members) = json else {
         return Err(refuse(pointer, format!("must be an object, not {}", json.describe())));
@@ -30,6 +30,10 @@ pub(super) fn attributes(pointer: &str, json: &Json) -> Result<Attributes, Error
             "part" => written.part = Some(whole()?),
             "copy" => written.copy = Some(whole()?),
             "label" => written.label = Some(whole()?),
+            "row" => written.row = Some(whole()?),
+            "column" => written.column = Some(whole()?),
+            "mark" => written.mark = Some(whole()?),
+            "role" => written.role = Some(string(&here, json)?.into()),
             "char" => written.char = Some(one_character(&here, json)?),
             "level" => written.level = Some(number_at(&here, json)?),
             "order" => written.order = Some(number_at(&here, json)?),
@@ -40,7 +44,7 @@ pub(super) fn attributes(pointer: &str, json: &Json) -> Result<Attributes, Error
             _ => {
                 return Err(refuse(
                     &here,
-                    "is not an attribute a shape carries (glyph, char, word, line, run, part, copy, label, level, order, origin, id, class, group)",
+                    "is not an attribute a shape carries (glyph, char, word, line, run, part, copy, label, row, column, mark, role, level, order, origin, id, class, group)",
                 ));
             }
         }

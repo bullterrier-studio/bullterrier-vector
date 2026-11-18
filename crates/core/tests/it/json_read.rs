@@ -472,7 +472,7 @@ fn an_expression_the_library_does_not_have_is_refused_naming_it_and_the_library_
 #[test]
 fn a_shape_has_a_path_and_the_attributes_a_generator_writes() -> Outcome {
     let good = format!(
-        r#"{{"version":1,"root":[{{"shape":{{"path":"{TRIANGLE}","attributes":{{"glyph":2,"char":"O","word":1,"line":0,"part":3,"copy":4,"level":0.5,"order":1,"origin":[1,2]}}}}}}]}}"#
+        r#"{{"version":1,"root":[{{"shape":{{"path":"{TRIANGLE}","attributes":{{"glyph":2,"char":"O","word":1,"line":0,"part":3,"copy":4,"row":5,"column":6,"mark":7,"role":"leader","level":0.5,"order":1,"origin":[1,2]}}}}}}]}}"#
     );
     let drawing = Drawing::from_json(&good, &Inputs::new())?;
     let shape = drawing.shapes(&bullterrier_vector::Values::new())?.remove(0);
@@ -496,6 +496,10 @@ fn a_shape_has_a_path_and_the_attributes_a_generator_writes() -> Outcome {
         (Some(3), Some(4), Some(0.5), Some(1.0))
     );
     assert_eq!(attributes.origin().map(|point| (point.x, point.y)), Some((1.0, 2.0)));
+    assert_eq!(
+        (attributes.row(), attributes.column(), attributes.mark(), attributes.role()),
+        (Some(5), Some(6), Some(7), Some("leader"))
+    );
     for (case, shape, pointer) in [
         ("no path", r#"{"attributes":{}}"#, "/root/0/shape"),
         ("an extra field", r#"{"path":"","style":1}"#, "/root/0/shape/style"),
