@@ -7,7 +7,7 @@ use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{Drawing, Size, Values};
 
 /// (name, the shipped text): written here, apart from the library's own table, so a table that loses a file fails.
-const SHIPPED: [(&str, &str); 8] = [
+const SHIPPED: [(&str, &str); 9] = [
     ("bent_type", include_str!("../../presets/bent_type.json")),
     ("draw_on", include_str!("../../presets/draw_on.json")),
     ("flow_hatch", include_str!("../../presets/flow_hatch.json")),
@@ -16,6 +16,7 @@ const SHIPPED: [(&str, &str); 8] = [
     ("gradient_type", include_str!("../../presets/gradient_type.json")),
     ("ring", include_str!("../../presets/ring.json")),
     ("two_fonts", include_str!("../../presets/two_fonts.json")),
+    ("waves", include_str!("../../presets/waves.json")),
 ];
 
 /// The number of `path` elements in the SVG of `drawing` with these Param values.
