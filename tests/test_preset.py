@@ -77,3 +77,7 @@ def test_every_shipped_file_has_a_program_and_every_program_a_file() -> None:
 def test_a_shipped_file_is_the_json_of_its_program(name: str) -> None:
     drawing = runpy.run_path(str(PROGRAMS / f"{name}.py"), run_name="__main__")["drawing"]
     assert (FILES / f"{name}.json").read_text(encoding="utf-8") == drawing.to_json()
+
+
+def test_at_least_twelve_presets_ship() -> None:
+    assert len(btvec.Drawing.preset_names()) >= 12  # the promise of the gallery batch
