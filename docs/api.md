@@ -27,7 +27,7 @@ import bullterrier_vector as btvec
 | [cut_paper.py](examples/cut_paper.py) | reference piece 2: a traced mask, offset layers, shadows, a draw-on outline, a sequence of maps |
 | [hatched_poster.py](examples/hatched_poster.py) | reference piece 3: flow-field hatching by tone, rings of a distance field, a plotter file |
 | [star.py](../examples/star.py) | building and measuring a `Path` |
-| [ring.py](../examples/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
+| [ring.py](../examples/presets/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
 | [cutout.py](../examples/cutout.py) | `resolve`, `subtract`, `intersect` and `exclude`: a headline cut out of a plate, the lens of two circles |
 | [cut_paper_layers.py](../examples/cut_paper_layers.py) | `offset` layers of a headline nesting by a `step` Param, an `outline` cut line round them |
 | [text_on_path.py](../examples/text_on_path.py) | text bent along a path, moving round it |
@@ -46,7 +46,7 @@ import bullterrier_vector as btvec
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
 | [halftone.py](../examples/halftone.py), [.rs](../crates/core/examples/halftone.rs), [.mjs](../crates/wasm/examples/halftone.mjs) | discs with a tone each, and four panels that are each a dot shape on a screen with a ramp `Field` for the tone, over paper, in all three languages |
 | [cut_type.py](../examples/cut_type.py) | a headline faded by one mask, over stripes clipped to a circular window |
-| [gradient_type.py](../examples/gradient_type.py) | a headline filled with one gradient across the frame, a glow and a ring with radial ones |
+| [gradient_type.py](../examples/gradient_type.py) | a headline filled with one gradient across the frame, a glow and a ring with radial ones; the preset `gradient_type` (and `bent_type`, above) is a tuned variant of its example, which is the documented teaching program |
 | [duotone.py](examples/duotone.py) | a gradient map and posterize on colours |
 | [series_bars.py](../examples/series_bars.py) | a series of numbers as bars, with plain code |
 | [frame_export.py](examples/frame_export.py) | a transparent PNG sequence and a clip from a function of time; a knockout |

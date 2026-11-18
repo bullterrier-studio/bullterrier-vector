@@ -521,7 +521,7 @@ State: V9 is done (Rust, Python, through JSON): `offset(distance, join=, miter_l
 join=, cap=, miter_limit=, tolerance=)`, on a `Path` and as steps on a `Drawing` (`path/offset.rs` over `i_overlay`,
 `node/offset.rs`, `drawing/offset.rs`; `distance` and `width` are per-item numbers). A `miter` past the limit is clipped
 flat, where `stroke` bevels (design-decisions.md, "Offsets (V9)"); the limits are in api.md, "Offsets".
-`examples/cut_paper_layers.py` stacks offset layers of a headline under an outline cut line, `examples/ring.py` makes a
+`examples/cut_paper_layers.py` stacks offset layers of a headline under an outline cut line, `examples/presets/ring.py` makes a
 ring of two offsets; the WebAssembly differential has 104 drawings (44 paths, 17 texts, 2 bends, 9 per-item, 16
 booleans, 16 offsets).
 

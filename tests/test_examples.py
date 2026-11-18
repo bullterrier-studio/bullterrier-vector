@@ -480,10 +480,10 @@ def test_cut_paper_layers_nest_each_one_a_step_wider_than_the_last_inside_a_ring
 
 
 def test_ring_is_a_band_round_the_circle_that_widens_with_the_half_width(run):
-    found = run("ring")
+    found = run("presets/ring")
     assert found["on_band"] is True
     ring = found["ring"]
-    live = found["live"]
+    live = found["drawing"]
     assert isinstance(ring, btvec.Path)
     assert isinstance(live, btvec.Drawing)
     assert not ring.contains((200, 200))  # the centre is in the hole

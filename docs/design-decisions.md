@@ -1740,8 +1740,10 @@ eyes' catchlights are placed by hand (a hint of where the eyes are), the glue be
   has no use for one). One helper owns the lookup and the refusal, so `preset` and `preset_description` cannot differ.
 - **Presets come from programs.** `examples/presets/<name>.py` leaves a `drawing`; `tools/write_presets.py` writes the JSON;
   a test compares each file with its program's `to_json()` (the Python builder, an independent route to the same text).
-  The documented examples (`ring.py`, `gradient_type.py`, `bent_type.py`) stay: docs and tests refer to them by name,
-  and an example explains where a preset is shipped as a bare drawing.
+  `ring` is one file, preset and example both (`examples/presets/ring.py` also teaches the eager `Path` against the
+  `Drawing` steps). `gradient_type` and `bent_type` are tuned variants of their examples (other centring and defaults,
+  for a headline that stands alone): the preset is the shipped look, the example in `examples/` the documented teaching
+  program, and docs and tests refer to the example by name.
 
 ## Command line (V18)
 
