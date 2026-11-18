@@ -5,11 +5,16 @@
 use crate::{Drawing, Error, Inputs};
 
 /// The names, one-sentence descriptions and texts, sorted by name.
-const PRESETS: [(&str, &str, &str); 12] = [
+const PRESETS: [(&str, &str, &str); 13] = [
     (
         "bent_type",
         "A line of heavy type that arches, ripples, twists and shakes as it bends.",
         include_str!("../presets/bent_type.json"),
+    ),
+    (
+        "brush_taper",
+        "A heavy serif word with a red brush stroke beneath it that swells from nothing and thins to a point.",
+        include_str!("../presets/brush_taper.json"),
     ),
     (
         "draw_on",
