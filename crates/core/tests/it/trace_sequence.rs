@@ -197,12 +197,13 @@ fn a_clip_the_caller_holds_runs_in_one_call_and_an_unbounded_request_is_refused(
     let got = Field::smooth_maps(&frames, 1.5)?;
     assert_eq!(got.len(), 30);
     let middle = got[15].to_map(w, h, None, 0.0, 1.0)?;
-    assert!(middle.iter().all(|&b| b == middle[0]) && middle[0] == 120, "{}", middle[0]);
+    assert!(
+        middle.iter().all(|&b| b == middle[0]) && middle[0] == 120,
+        "{}",
+        middle[0]
+    );
     // sixteen frames of 4096 by 4096 at sigma 2 reach 13 maps a frame: 2.2e8 reads for each output frame
     let big = Field::map(4096, 4096, &vec![0; 4096 * 4096], None, None)?;
-    assert_eq!(
-        parameter_refusal(Field::smooth_maps(&vec![big; 16], 2.0))?.0,
-        "sigma"
-    );
+    assert_eq!(parameter_refusal(Field::smooth_maps(&vec![big; 16], 2.0))?.0, "sigma");
     Ok(())
 }
