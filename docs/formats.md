@@ -156,14 +156,14 @@ default paint, and draws as it did.
 | `morph` | `target` (drawing: an array of calls, as the `other` of a boolean; its shapes pair with the drawing's by index and are not united), `fraction` (per-item number, any finite value; required) |
 | `hatch` | `spacing` (pair), `tone` (number or field), `flow` (flow), `avoid` (drawing), `below` (number, read once; needs `tone`) |
 | `rows` | `spacing` (number, read once), `tone` (number or field, required), `amplitude` (number, read once) |
-| `bands` | `spacing`, `tone`, `width` (pair of numbers, each from 0 to 1e100; read once), `family` (`lines`, `waves`, `rings`, `spiral`, `rays`; default `lines`), `angle` (number; 0 when left out; not for `rings`), `wavelength` (number above 0) and `amplitude` (number), both needed for `waves` and refused for any other family, `centre` (point, default the middle of the region's box; not for `lines` and `waves`); an argument the family does not read is refused naming it |
+| `bands` | `spacing`, `tone`, `width` (pair of numbers, each from 0 to 1e100; read once), `family` (`lines`, `waves`, `rings`, `spiral`, `rays`; default `lines`), `angle` (number; 0 when left out; not for `rings`), `wavelength` (number above 0) and `amplitude` (number), both in rows (multiples of `spacing`), needed for `waves` and refused for any other family, `centre` (point, default the middle of the region's box; not for `lines` and `waves`); an argument the family does not read is refused naming it |
 | `stipple` | `spacing`, `tone`, `radius` (numbers above 0, read once), `density` (pair from 0 to 1, default `[1, 0]`), `seed` (number, a whole number when drawn, default 0) |
 | `merge` | `by` (an attribute name) |
 | `only`, `without` | attribute names to a value or a list of values: `{"only": {"char": "O"}}` |
 | `repeat` | `count` (whole number), `translate` (point), `rotate`, `scale` (pair), `about` (point) |
 | `fill` | `color` (colour, `"none"` or gradient) |
 | `stroke` | `color` (colour or gradient), `width`, `join`, `cap`, `miter_limit`, `profile` (as `outline`'s: pairs `[position, factor]`, each a per-item number; `join` and `cap` must be `"round"`) |
-| `halftone` | `color` (colour), `tone` (a per-item number or a field), `pitch`, `angle` (per-item numbers), `shape` (`"dot"` (default), `"square"`, `"ellipse"`, `"diamond"`, `"euclidean"` or `"path"`), `mark` (path data: the closed outline of a dot, given with `"shape": "path"` and only then), `aspect` (per-item number, at least 1, default 1: an ellipse's length to width), `screen` (`"grid"` (default), `"wave"`, `"rings"`, `"spiral"`, `"rays"`), `centre` (point, per item: for `"rings"`, `"spiral"` and `"rays"` only; default the middle of the shape's bounds), `amplitude` (per-item number, default 1) and `wavelength` (per-item number above 0, default 6): a wave's, in pitches. A tone that is a number or an expression is that number for each shape; a field object (`{"Field.ramp": ..}`) is read at each dot's centre |
+| `halftone` | `color` (colour), `tone` (a per-item number or a field), `pitch` (per-item number, default 8), `shape` (a word, `"dot"` (default), `"square"`, `"ellipse"`, `"diamond"` or `"euclidean"`, or `{"path": "<path data>"}`: the closed outline of the caller's dot), `screen` (`"grid"` (default), `"wave"`, `"rings"`, `"spiral"`, `"rays"`) and the arguments the layout and the dot read, each left out for its default and refused when given and not read: `angle` (per-item number, default 45; not for `"rings"`), `aspect` (per-item number, at least 1, default 1: an ellipse's length to width; for `"ellipse"` only), `centre` (point, per item: for `"rings"`, `"spiral"` and `"rays"` only; default the middle of the shape's bounds), `amplitude` (per-item number, default 1) and `wavelength` (per-item number above 0, default 6): a wave's, in pitches, for `"wave"` only. A tone that is a number or an expression is that number for each shape; a field object (`{"Field.ramp": ..}`) is read at each dot's centre |
 | `opacity` | `alpha` |
 | `clip` | `region` (drawing: an array of calls, as the `other` of a boolean; all its shapes united once) |
 | `mask` | `source` (drawing; its shapes are written as painted and hold no mask) |
@@ -427,7 +427,7 @@ node that reads one adds an input kind ("Extension").
 can address a cache. Two documents are the same drawing when their canonical forms are equal. A reader accepts any
 spelling the schema allows; canonical form is what the library writes:
 
-1. **Defaults.** An argument equal to its default is left out (`"angle": 45` on `halftone`, `"tolerance": 0.5` on
+1. **Defaults.** An argument equal to its default is left out (`"pitch": 8` on `halftone`, `"tolerance": 0.5` on
    `trace_levels`); so are empty `params`, `inputs` and `drawings`.
 2. **Paths** in the form under "Values"; a `Path` where a drawing is expected as `[{"path": "..."}]`; `Drawing(x)` of
    one item and no size as `x`.

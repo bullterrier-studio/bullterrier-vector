@@ -1804,12 +1804,18 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
 ## Halftone screens (4a)
 
 - **One owner of the rows.** `bands` and the halftone screens both lay things along straight rows, waves, rings, a spiral or
-  rays, so the maths that says where a row is, which rows cover a box and how a turn is read lives once, in
-  `lines/layout.rs` (`Layout`, `Family`, `Distances`). The move was done first, as a structure-only step, against a pinned
-  SVG hash of every family at a spread of settings (`tests/it/lines_bands_pinned.rs`): not one byte of `bands` changed. A
-  screen is therefore the same layout a `bands` of the same family draws its lines along, by construction, not by a test that
-  compares two copies of the formulas. *Alternative:* copy the five formulas into the screen; refused, because the two would
-  drift (the spiral's radius and the rays' count are exactly the ones a reader compares across the two).
+  rays, so the maths that says where a row is, which rows cover a box, how many cells a ring has and how a turn is read
+  lives once, in `lines/layout.rs` (`Layout`, `Family`, `Distances`, `RoundRows`, `ring_cells`, `ray_wedges`). The move was
+  done first, as a structure-only step, against a pinned SVG hash of every family at a spread of settings
+  (`tests/it/lines_bands_pinned.rs`): not one byte of `bands` changed. A screen is therefore the same layout a `bands` of the
+  same family draws its lines along, by construction, not by a test that compares two copies of the formulas.
+  *Alternative:* copy the five formulas into the screen; refused, because the two would drift.
+- **Rows are walked by index, and their work is bounded without subtraction.** A screen first subtracted two squares to bound
+  the cells of its rings; for a centre 1e20 away the squares cancelled, the bound passed the work charge, and the loop
+  `k += 1.0` never advanced. `Layout::round_rows` is now the one function that says which rows reach a box: it refuses a
+  centre so far that a step would not move there (as `bands` always did), bounds the work as rows times the cells of the
+  outermost row (a product of non-negative numbers, no difference), and hands back the row indices, which are walked as
+  integers. A bound that cannot cancel and a loop that cannot stall leave no input that hangs, so no timeout or clamp.
 - **A cell has an area, and a dot covers `1 - tone` of it.** The invariant in the brief is stated per cell, so the engine is
   built from it: a screen yields cells (centre, direction of the row, length along it, width across), the mark gives the
   polygon of area `1 - tone` of a unit cell, and the dot is that polygon stretched by the cell's two sides, turned to the
@@ -1830,19 +1836,31 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
 - **A caller's outline is one closed sub-path, centred on its centroid.** The centre of its bounds would put a heart or a
   triangle's mass off the lattice point; the centroid keeps the mass on it. Several sub-paths would need a hole's winding to
   survive the nonzero fill of separate dots, and the mesh draws each dot as a polygon of its own, so one outline is the rule
-  and a second is refused naming `mark`. Its winding is made clockwise whichever way it was drawn.
+  and a second is refused naming `shape`. Its winding is made clockwise whichever way it was drawn.
 - **`tone` is a number or a field, as one argument.** A number stays a number per shape (a Param, `by_index`): `Tone::Level`;
   a field is read at each dot's centre and held to 0 to 1 (`Tone::Field`). In a document the argument is the `Field`
   kind that reads one number per shape: a number or an expression is the per-shape number, an object is a field. The style
-  keeps what it was given, so `Style.halftone.tone` is a float or a `Field`. Two fields compare by their keys, a distance
-  field (whose drawing a key does not hold) by the digest of its outline, so the cache cannot take two different distance fields for one.
-- **`shape` is a word or a `Path`; in a document the path is its own argument `mark`.** One argument that is a word or path
-  data would be told apart by its first letter; two arguments (`"shape": "path"`, `"mark": "M0 0 ..."`) are checked by the
-  schema, and `mark` given for another shape is refused. Python and Rust take the `Path` where the word goes.
-- **Rays merge towards the centre; image's rule.** Cells a pitch wide at the farthest corner narrow towards the centre
-  until a blob forms, so the rays merge in pairs until none is narrower than half a pitch (image's `NARROWEST_RAY`). Merging
-  floors the wedge count, so a cell is between half a pitch and a pitch wide at its middle (the rays test measures both
-  ends); the work charge assumes twice that, to leave room.
+  keeps what it was given, so `Style.halftone.tone` is a float or a `Field`; Rust's `Halftone::new` takes either, as Python's
+  `tone=` does. Two fields compare by their keys; a distance field's key holds the digest of the outline it was bound to,
+  worked out once when it is bound, so the cache cannot take two different distance fields for one and a style that is
+  put back into a drawing (which binds the field again) equals itself.
+- **`shape` is a word or a path, in a document too.** One argument in every language: Python and Rust take the `Path` where
+  the word goes, a document writes `"shape": "ellipse"` or `"shape": {"path": "M0 0 ..."}` (a word or an object, told apart
+  by JSON type, so the schema is an `anyOf`). An earlier document had `"shape": "path"` plus `"mark"`, an argument Python does
+  not have, and its errors named `mark`; they name `shape` now.
+- **One table of what a layout reads.** `Family::reads` (in `lines/layout.rs`) says which of `angle`, `centre`, `wavelength`
+  and `amplitude` a layout reads; `bands` asks it by family, a halftone by `Screen::family`, and both refuse an argument given
+  and unread through `Family::refuse_unread`. A mark's one rule, that only an ellipse reads `aspect` (a caller's path does not:
+  it has its own shape), is `Mark::refuse_unread`. Left out, an argument takes its default and is not refused, so the optional
+  arguments of `halftone` have no declared default (the summary says it), as `bands`' have none. A drawn style put back into
+  a drawing (`From<&HalftoneStyle>`) gives only what is read, by the same table.
+- **Rays are image's: a ring's worth of cells half way to the nearest side.** The count is `ring_cells` of the radius half
+  way to the nearest side of the shape's box (`2 * round(pi r)` for `r` in pitches), not the farthest corner's; the rays merge
+  in pairs, a power of two at a time, until none is narrower than half a pitch (image's `NARROWEST_RAY`), so a row has
+  `rays / step` cells, fractional when `rays` is not a multiple of `step`: the last is narrower and fills the rest of the
+  turn, its dot covering `1 - tone` of its own smaller cell. The test counts the dots of each row against a hand
+  computation (4, 16, 31, 31, 31, 62 ... for a square of 100 at a pitch of 5). `bands` keeps its own count of rays, one
+  every spacing at the farthest corner, since its lines are drawn out to it.
 - **A dot is not tilted on a wave.** A dot sits on the displaced row but keeps the direction of the layout, as an ellipse
   or a diamond is easy to read against the grid; tilting it by the row's slope would turn a round-looking ellipse of aspect 1
   into a mark that changes along the wave. *Consequence:* on a steep wave a dot's cell is a sheared one and the dot does not
@@ -1850,18 +1868,12 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
 - **`line` and `matrix` are left out.** `bands` draws lines along these layouts, with the width carrying the tone; a caller's
   `Path` is the matrix. Image has both because it has no path.
 - **Work.** The cells near the shape are counted before any is made: an upper bound per layout (a rectangle of the lattice,
-  the rings' `pi (b^2 - a^2)`, the rays' rows times rays), each times the outline's edges plus a dot's corners, charged to
+  the rows times the cells of the outermost, `Layout::round_rows`), each times the outline's edges plus a dot's corners, charged to
   `MAX_SEGMENTS`, so a tiny pitch, a far centre or an `aspect` of 1e100 is refused naming `pitch` before an allocation. A
   dot's reach is worked out from the mark, never from a polygon made for the purpose: the first version made one to measure,
   and a huge `aspect` allocated 4 GB before the charge ran (found by the adversarial test, which now stays).
 - **Plotter output.** `to_plot_svg` draws a halftone as its dots, hatched at the pen width like any solid: the region is the
   dots wholly inside and the crossing ones cut by one boolean, as the mesh makes it, from the one screen answer. It refused a
   halftone before.
-- **Distance-field tones are keyed by their outline.** A style that holds a distance field must not collide in the cache
-  with another, and must equal itself after being put back into a drawing (which binds the field again): the key holds a
-  SHA-256 of the outline's edges. An earlier key by address failed the second test (found by `a_distance_field_tone_survives..`).
-- **`shape` and `mark` in a document.** The brief asked for one name per argument; a document has two (`"shape": "path"` plus
-  `"mark": "<path data>"`), because one argument that is a word or path data would be told apart by its first letter. Python
-  and Rust take the `Path` as `shape`; this is the one place the names differ.
 - **The work charge sizes a cell per screen.** A grid and a wave have cells of one pitch; only the wedge screens are charged for
   cells up to two pitches.
