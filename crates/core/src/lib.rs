@@ -21,6 +21,7 @@ mod noise;
 mod output;
 mod param;
 mod path;
+mod preset;
 mod registry;
 mod shape;
 mod svg;

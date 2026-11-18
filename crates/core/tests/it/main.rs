@@ -100,6 +100,7 @@ mod path_twist;
 mod path_wave;
 mod path_wobble;
 mod png;
+mod preset;
 mod raster;
 mod raster_boundary;
 mod raster_composite;
