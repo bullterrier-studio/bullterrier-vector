@@ -19,6 +19,12 @@ const WAIT_MS = 10000; // the longest the page gets to draw again or become read
 const WINDOW = { width: 1200, height: 900 }; // wide enough for the two-column layout and tall enough to scroll
 const SIZES = [360, 720, 1080]; // the page's size select, in CSS pixels
 const SHOT_PRESET = "waves"; // the drawing the screenshot shows
+const CLOCK_SETTLE_MS = 100; // the longest a frame asked for before the clock was dropped may take to draw
+const CLOCK_QUIET_MS = 300; // how long the page must stay still once nothing moves a Param
+const BURST_EVENTS = 50; // input events in one task: a fast drag
+const MAX_DRAWS_PER_BURST = 2; // one frame for the burst; one more if a frame was already asked for
+const MAX_DEVICE_PIXEL_RATIO = 2; // the page's own cap; a 3x screen must draw no more than this
+const NARROW = { width: 360, height: 640 }; // a phone: one column, so the controls sit under the drawing
 const TIMED_MOVES = 5; // slider moves timed per size
 
 const server = createServer(async (request, response) => {
@@ -111,6 +117,24 @@ try {
   const setSelect = (id, value) => `(() => { const s = document.getElementById("${id}"); s.value = ${JSON.stringify(value)}; s.dispatchEvent(new Event("change")); })()`;
   const sourceOf = (index, source) => `(() => { const s = document.querySelectorAll("#params select")[${index}]; s.value = "${source}"; s.dispatchEvent(new Event("change")); })()`;
   const valueOf = (index) => evaluate(`Number(document.querySelectorAll("#params output")[${index}].dataset.value)`);
+  // the Params of a preset as the package itself reports them, read apart from the page's own code
+  const paramsOf = (preset) => evaluate(`(async () => (await import("./pkg/bullterrier_vector_wasm.js")).Drawing.preset(${JSON.stringify(preset)}).parameters())()`);
+  // the page's controls against the Params of its preset: each slider spans the Param's range, is named, and the
+  // first drawing is the default pose (the value shown is the Param's own default, not a step of the slider)
+  const controlsMatch = async (preset) => {
+    const params = await paramsOf(preset);
+    const shown = await evaluate(`[...document.querySelectorAll("#params input[type=range]")].map((s, i) => ({
+      min: Number(s.min), max: Number(s.max), step: Number(s.step), value: Number(s.value), named: s.labels.length > 0 || Boolean(s.ariaLabel),
+      shown: Number(document.querySelectorAll("#params output")[i].dataset.value) }))`);
+    check(shown.length === params.length, `${preset}: ${shown.length} sliders for ${params.length} Params`);
+    params.forEach((param, i) => {
+      const at = `${preset}.${param.name}`;
+      check(shown[i].min === param.min && shown[i].max === param.max, `${at}: slider spans ${shown[i].min} to ${shown[i].max}, the Param ${param.min} to ${param.max}`);
+      check(shown[i].named, `${at}: the slider has no accessible name`);
+      check(shown[i].shown === param.default, `${at}: shows ${shown[i].shown}, the Param's default is ${param.default}`);
+      check(Math.abs(shown[i].value - param.default) <= shown[i].step, `${at}: the slider sits at ${shown[i].value}, not at the default ${param.default}`);
+    });
+  };
   const mouseTo = (x, y) => page("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
 
   await page("Runtime.enable");
@@ -124,6 +148,7 @@ try {
   console.log("browser:", await evaluate("navigator.userAgent"));
   console.log(`first render: ${await evaluate("document.body.dataset.firstRender")} ms from page start (module load included); .wasm ${(wasmBytes / 1e6).toFixed(2)} MB`);
   await sound("first render");
+  await controlsMatch(await evaluate("document.getElementById('preset').value"));
 
   // every preset: every slider at its ends
   const presets = await evaluate(`[...document.querySelectorAll("#preset option")].map((o) => o.value).filter(Boolean)`);
@@ -132,6 +157,7 @@ try {
   for (const preset of presets) {
     await redrawn(`choosing ${preset}`, setSelect("preset", preset));
     await sound(`${preset} chosen`);
+    await controlsMatch(preset);
     const description = await evaluate("document.getElementById('description').textContent");
     check(description.length > 0, `${preset}: no description shown`);
     const sliders = await evaluate(`document.querySelectorAll("#params input[type=range]").length`);
@@ -178,6 +204,16 @@ try {
   check((await valueOf(0)) !== tick, "clock: the Param did not change in 300 ms");
   await sound("clock running");
   await evaluate(sourceOf(0, "manual"));
+  await pause(CLOCK_SETTLE_MS); // a frame already asked for still draws
+  const stopped = await renders();
+  await pause(CLOCK_QUIET_MS);
+  check((await renders()) === stopped, `clock: the page kept drawing after the Param went back to manual (${stopped} to ${await renders()})`);
+  // a burst of moves inside one task draws once, not once per move
+  const beforeBurst = await renders();
+  await evaluate(`(() => { const s = document.querySelector("#params input[type=range]"); for (let i = 0; i < BURST; i++) { s.value = s.min; s.dispatchEvent(new Event("input")); } })()`.replace("BURST", String(BURST_EVENTS)));
+  await pause(CLOCK_QUIET_MS);
+  const drawnForBurst = (await renders()) - beforeBurst;
+  check(drawnForBurst >= 1 && drawnForBurst <= MAX_DRAWS_PER_BURST, `${BURST_EVENTS} moves in one task drew ${drawnForBurst} times, expected at most ${MAX_DRAWS_PER_BURST}`);
 
   // documents
   await evaluate(`document.querySelector("details").open = true`);
@@ -194,6 +230,29 @@ try {
   check(good === "", `a good document was refused: ${good}`);
   await until("document.getElementById('preset').selectedOptions[0].textContent.startsWith('document')", "the document to show in the picker");
   await sound("a document opened");
+
+  // markup in what a document says is shown as text: in a Param's meaning and in an error message
+  const MARKUP = "<img src=x onerror=window.__pwned=1>";
+  const withMeaning = JSON.stringify({ version: 1, params: [{ name: "spin", default: 0, min: 0, max: 360, unit: "deg", meaning: MARKUP }],
+    root: [{ stack: { items: [[{ path: "M150 150 L250 150 L250 250 L150 250 Z" }, { fill: { color: "#ff4f9a" } }, { rotate: { angle: { param: "spin" }, about: [200, 200] } }]], size: [400, 400] } }] });
+  check((await open(withMeaning)) === "", "a document with markup in a meaning was refused");
+  await redrawn("a Param with markup in its meaning", `document.getElementById("open").click()`);
+  const refusedMarkup = await open(JSON.stringify({ version: 1, [MARKUP]: 1, root: [] }));
+  await pause(100);
+  check(refusedMarkup.includes(MARKUP), `an error naming markup must show it as text, got ${JSON.stringify(refusedMarkup)}`);
+  check((await evaluate(`document.querySelector("#params .meaning")?.textContent`)) === MARKUP, "a Param's meaning must show as the literal text");
+  check((await evaluate(`document.querySelectorAll("img").length`)) === 0, "markup in a document became an element");
+  check((await evaluate("window.__pwned")) === undefined, "markup in a document ran");
+  console.log("documents: markup in a meaning and in an error shows as text");
+
+  // a very tall document fits the stage by height too
+  const tall = JSON.stringify({ version: 1, root: [{ stack: { items: [[{ path: "M0 0 L10 0 L10 100000 L0 100000 Z" }, { fill: { color: "#c8183f" } }]], size: [10, 100000] } }] });
+  check((await open(tall)) === "", "a tall document was refused");
+  await redrawn("a tall document", `document.getElementById("open").click()`);
+  const tallError = await evaluate("document.getElementById('error').textContent"); // not `sound`: a canvas one pixel wide is one colour
+  check(tallError === "" && thrown.length === 0, `a tall document: the page shows an error: ${tallError || thrown[0]}`);
+  const tallHeight = await evaluate(`document.getElementById("view").getBoundingClientRect().height`);
+  check(tallHeight <= WINDOW.height, `a tall document gives a canvas ${tallHeight} px high in a ${WINDOW.height} px window`);
   console.log("documents: bad JSON and a document needing an input are refused in one line; a good one opens");
 
   // render time by size (CSS pixels, device pixel ratio 1), on one drawing
@@ -210,6 +269,26 @@ try {
     bySize.push(`${size} px: ${median(times)} ms`);
   }
   console.log(`${SHOT_PRESET} render ms per slider move (median) by size: ${bySize.join(", ")}`);
+
+  // a screen of three device pixels per CSS pixel draws at most the page's cap
+  await page("Emulation.setDeviceMetricsOverride", { ...WINDOW, deviceScaleFactor: 3, mobile: false });
+  await redrawn("a 3x screen", setSelect("size", String(SIZES[1])));
+  const [pixels, cssWidth] = await evaluate(`(() => { const v = document.getElementById("view"); return [v.width, v.getBoundingClientRect().width]; })()`);
+  check(pixels <= MAX_DEVICE_PIXEL_RATIO * cssWidth, `a 3x screen: canvas ${pixels} px wide for ${cssWidth} CSS px, more than ${MAX_DEVICE_PIXEL_RATIO}x`);
+  await page("Emulation.setDeviceMetricsOverride", { ...WINDOW, deviceScaleFactor: 1, mobile: false });
+
+  // one column: the drawing does not stay over the slider being used
+  await page("Emulation.setDeviceMetricsOverride", { ...NARROW, deviceScaleFactor: 1, mobile: false });
+  await redrawn("choosing a preset at 360 px", setSelect("preset", SHOT_PRESET));
+  const covered = await evaluate(`(() => {
+    const slider = document.querySelector("#params input[type=range]");
+    slider.scrollIntoView({ block: "start" }); // the label at the top edge, where a sticky drawing would sit
+    slider.focus({ preventScroll: true });
+    return slider.labels[0].getBoundingClientRect().top < document.getElementById("view").getBoundingClientRect().bottom;
+  })()`);
+  check(!covered, "at 360 px the drawing covers the label of the focused slider");
+  await evaluate("window.scrollTo(0, 0)");
+  await page("Emulation.setDeviceMetricsOverride", { ...WINDOW, deviceScaleFactor: 1, mobile: false });
 
   await redrawn("size for the screenshot", setSelect("size", String(SIZES[1])));
   await pause(200);

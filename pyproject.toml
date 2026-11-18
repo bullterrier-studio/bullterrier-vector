@@ -96,7 +96,7 @@ playground = { sequence = [
     { cmd = "cargo build -p bullterrier-vector-wasm --target wasm32-unknown-unknown --release --locked --quiet", env = { RUSTFLAGS = "-C target-feature=+simd128" } },
     "wasm-bindgen --target web --out-dir playground/pkg ${CARGO_TARGET_DIR:-target}/wasm32-unknown-unknown/release/bullterrier_vector_wasm.wasm",
 ], default_item_type = "cmd", help = "Build the browser playground's WebAssembly package (simd128) into playground/pkg/" }
-playground-serve = { cmd = "python -m http.server 8000 --directory playground", help = "Serve the playground at http://localhost:8000 (after `poe playground`)" }
+playground-serve = { cmd = "python -m http.server 8000 --bind 127.0.0.1 --directory playground", help = "Serve the playground at http://localhost:8000 (after `poe playground`)" }
 playground-check = { cmd = "node playground/check.mjs", help = "Open the playground in headless Chrome and check it (after `poe playground`; CHROME=/path/to/chrome)" }
 # The stack tests (crates/core/tests/stack.rs) unoptimised, so the 256 KB stack bound is proved on the largest frames.
 rust-test-stack = { cmd = "python tools/run_capped.py -- cargo test -p bullterrier-vector --profile stack --test stack --locked --quiet", help = "Run the stack tests unoptimised under the memory cap" }

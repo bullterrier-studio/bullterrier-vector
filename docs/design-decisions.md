@@ -1749,7 +1749,7 @@ eyes' catchlights are placed by hand (a hint of where the eyes are), the glue be
 
 - **A static page, no framework.** `playground/` is HTML, one module for the page and one for the slider maths: nothing to
   install, nothing to build but the WebAssembly glue, readable end to end. A page that loads a `.wasm` needs http, so
-  `playground-serve` is `python3 -m http.server`. *Alternative:* a framework and a bundler: more to keep working than the page does.
+  `playground-serve` is `python -m http.server`, bound to 127.0.0.1. *Alternative:* a framework and a bundler: more to keep working than the page does.
 - **The slider maths is its own module.** `params.mjs` (a Param to a slider, a source reading to a value, the sources) has no
   DOM, so Node tests it on every preset of the real package inside `wasm-test`; the page only wires it to elements.
 - **The Chrome check is a named task, not part of `check`.** It needs a browser and a built page, and a gate that needs one fails

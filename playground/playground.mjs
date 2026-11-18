@@ -2,10 +2,12 @@
 // slider driven by hand or by a source (clock, pointer, scroll). The slider maths is in params.mjs. Everything the library
 // or a document says (names, descriptions, meanings, errors) goes into the page as text, never as markup.
 import init, { Drawing } from "./pkg/bullterrier_vector_wasm.js";
-import { SOURCES, sliderSpec, valueFrom } from "./params.mjs";
+import { FRAME, SOURCES, sliderSpec, valueFrom } from "./params.mjs";
 
 // Pixels above twice the CSS size cost four times the work for a difference the eye does not see on today's screens.
 const MAX_DEVICE_PIXEL_RATIO = 2;
+// The space kept above and below the drawing, as the stylesheet's `.stage` offset.
+const STAGE_MARGIN = 16;
 // A document without a design size is drawn at this shape (the preset shape).
 const FALLBACK_SIZE = [1080, 560];
 
@@ -21,8 +23,14 @@ const context = view.getContext("2d");
 const started = performance.now();
 
 let drawing; // the Drawing on show
-let rows = []; // one per Param: { param, spec, slider, source, output }
+let rows = []; // one per Param: { param, spec, value, slider, source, output }; `value` is the Param's value, from its default
 const state = { now: 0, pointerX: 0.5, pointerY: 0.5, scroll: 0 };
+// What each event the SOURCES wake on does to `state`.
+const TRACKERS = {
+  pointermove: (event) => { state.pointerX = event.clientX / innerWidth; state.pointerY = event.clientY / innerHeight; },
+  scroll: () => { const room = document.documentElement.scrollHeight - innerHeight; state.scroll = room > 0 ? scrollY / room : 0; },
+};
+const sourceOf = (row) => SOURCES.find((candidate) => candidate.id === row.source.value);
 
 function oneLine(error) {
   return `${error.name}: ${String(error.message).split("\n")[0]}`;
@@ -52,35 +60,40 @@ function buildRows() {
     box.title = param.meaning;
     box.append(head, meaning, row);
     holder.append(box);
-    const entry = { param, spec, slider, source, output };
-    slider.addEventListener("input", ask);
+    const entry = { param, spec, value: spec.default, slider, source, output };
+    slider.addEventListener("input", () => { entry.value = Number(slider.value); ask(); });
     source.addEventListener("change", ask);
     return entry;
   });
 }
 
-// The value of each Param as this frame has it: the slider's own, or what its source reads.
+// The value of each Param as this frame has it: the one the user set, or what its source reads. The slider only shows it
+// (it snaps to its steps, so it cannot hold a default exactly).
 function currentValues() {
   const values = {};
   for (const row of rows) {
-    const source = SOURCES.find((candidate) => candidate.id === row.source.value);
+    const source = sourceOf(row);
     row.slider.disabled = source.id !== "manual";
-    if (source.id !== "manual") row.slider.value = valueFrom(row.param, source.read(state));
-    values[row.param.name] = Number(row.slider.value);
-    row.output.value = values[row.param.name].toFixed(3).replace(/\.?0+$/, "");
-    row.output.dataset.value = String(values[row.param.name]);
+    if (source.id !== "manual") row.value = valueFrom(row.param, source.read(state));
+    row.slider.value = row.value;
+    values[row.param.name] = row.value;
+    row.output.value = row.value.toFixed(3).replace(/\.?0+$/, "");
+    row.output.dataset.value = String(row.value);
   }
   return values;
 }
 
 function render() {
   const [designWidth, designHeight] = drawing.size ?? FALLBACK_SIZE;
-  const cssWidth = Number($("size").value);
+  // as wide as asked and as the column allows, and never taller than the window leaves room for
+  const fit = Math.min(Math.min(Number($("size").value), view.parentElement.clientWidth) / designWidth, (innerHeight - 2 * STAGE_MARGIN) / designHeight);
+  const cssWidth = designWidth * fit;
+  const cssHeight = designHeight * fit;
   view.style.width = `${cssWidth}px`;
-  view.style.aspectRatio = `${designWidth} / ${designHeight}`;
+  view.style.height = `${cssHeight}px`;
   const scale = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO);
-  const width = Math.round(view.clientWidth * scale);
-  const height = Math.round((width * designHeight) / designWidth);
+  const width = Math.max(1, Math.round(view.clientWidth * scale)); // the library draws whole pixels, at least one
+  const height = Math.max(1, Math.round(view.clientHeight * scale));
   const values = currentValues();
   const before = performance.now();
   try {
@@ -108,7 +121,7 @@ function ask() {
     scheduled = false;
     state.now = now;
     render();
-    if (rows.some((row) => row.source.value === "clock")) ask();
+    if (rows.some((row) => sourceOf(row).wakes === FRAME)) ask();
   });
 }
 
@@ -143,16 +156,12 @@ $("file").addEventListener("change", async () => {
   const file = $("file").files[0];
   if (file) openDocument(await file.text(), file.name);
 });
-addEventListener("pointermove", (event) => {
-  state.pointerX = event.clientX / innerWidth;
-  state.pointerY = event.clientY / innerHeight;
-  if (rows.some((row) => row.source.value.startsWith("pointer"))) ask();
-});
-addEventListener("scroll", () => {
-  const room = document.documentElement.scrollHeight - innerHeight;
-  state.scroll = room > 0 ? scrollY / room : 0;
-  if (rows.some((row) => row.source.value === "scroll")) ask();
-});
+for (const event of new Set(SOURCES.map((source) => source.wakes).filter((wakes) => wakes && wakes !== FRAME))) {
+  addEventListener(event, (occurred) => {
+    TRACKERS[event](occurred);
+    if (rows.some((row) => sourceOf(row).wakes === event)) ask();
+  });
+}
 addEventListener("resize", ask);
 
 const first = Drawing.presetNames()[0];

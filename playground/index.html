@@ -14,7 +14,9 @@
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; min-height: 150vh; /* room to scroll: the scroll source reads it */ }
   main { display: grid; grid-template-columns: minmax(0, 1fr) 21rem; gap: 1.5rem; max-width: 74rem; margin: 0 auto; padding: 1.5rem 16px; align-items: start; }
   @media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
-  .stage { position: sticky; top: 16px; }
+  .stage { position: static; }
+  /* two columns: the drawing stays in view beside the sliders; in one column it would cover the slider being used */
+  @media (min-width: 761px) { .stage { position: sticky; top: 16px; } }
   canvas { display: block; max-width: 100%; border: 1px solid var(--line); background: var(--panel); }
   h1 { font-size: 1.15rem; margin: 0 0 .25rem; }
   p { margin: .25rem 0 1rem; color: var(--muted); }
