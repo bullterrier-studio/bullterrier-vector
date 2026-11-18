@@ -935,10 +935,11 @@ fn the_svg_and_the_pixels_agree_on_every_shape_and_screen() -> Outcome {
         let dotted = Drawing::from(Path::circle((60.0, 60.0), 52.0)?).halftone(screened);
         let drawing = Drawing::new([paper, dotted]).with_size(120.0, 120.0);
         let agreement = svg_agrees(&drawing, 120, 120)?;
-        // a different dot anywhere would differ by 255; the two renderers cover the sharp corner of a turned square or a
-        // sub-pixel diamond differently by up to 10 levels
+        // this checks the two writers (the SVG through resvg, the pixels through vello_cpu) against each other, not the
+        // geometry of a dot (the tests above do): a different dot anywhere would differ by 255; the two renderers cover
+        // the sharp corner of a turned square or a sub-pixel diamond differently by 5 levels at the worst (measured)
         assert!(
-            agreement.interior <= 12 && agreement.edge_over_40 * 100 <= agreement.edge_pixels,
+            agreement.interior <= 6 && agreement.edge_over_40 * 100 <= agreement.edge_pixels,
             "{name}: {agreement:?}"
         );
     }
