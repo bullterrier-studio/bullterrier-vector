@@ -103,7 +103,7 @@ def test_equal_screens_are_equal_and_hash_alike():
 @pytest.mark.parametrize("screen", ["grid", "wave", "rings", "spiral", "rays"])
 @pytest.mark.parametrize("shape", ["dot", "square", "ellipse", "diamond", "euclidean", TRIANGLE])
 def test_every_shape_on_every_screen_draws_in_svg_and_pixels(screen: str, shape: Any):
-    options = {"aspect": 1.5} if shape == "ellipse" else {}
+    options: dict[str, Any] = {"aspect": 1.5} if shape == "ellipse" else {}
     drawing = Drawing(INSET).halftone(INK, tone=0.6, pitch=9, shape=shape, screen=screen, **options)
     assert "<path" in drawing.to_svg(100, 100)
     assert coverage(drawing) > 100
