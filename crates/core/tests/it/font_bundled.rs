@@ -49,7 +49,10 @@ const FONTS: [Row; 3] = [
 
 #[test]
 fn the_bundled_fonts_are_listed_by_name() {
-    assert_eq!(Font::bundled_names(), ["bricolage_grotesque", "fraunces", "jetbrains_mono"]);
+    assert_eq!(
+        Font::bundled_names(),
+        ["bricolage_grotesque", "fraunces", "jetbrains_mono"]
+    );
 }
 
 #[test]
@@ -100,7 +103,10 @@ fn a_name_that_is_not_bundled_is_refused_naming_it_and_the_choices() -> Outcome 
         let (parameter, message) = parameter_refusal(Font::bundled(wrong))?;
         assert_eq!(parameter, "name", "{wrong:?}");
         assert!(message.contains(&format!("{wrong:?}")), "{message}");
-        assert!(message.contains("bricolage_grotesque, fraunces, jetbrains_mono"), "{message}");
+        assert!(
+            message.contains("bricolage_grotesque, fraunces, jetbrains_mono"),
+            "{message}"
+        );
     }
     Ok(())
 }

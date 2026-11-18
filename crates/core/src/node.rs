@@ -42,6 +42,7 @@
 //! | rect ([`Kind::Rect`]) | four expressions, `x, y, width, height`, each read as one number would be: `envelope`'s `frame` |
 //! | pairs ([`Kind::Pairs`]) | a list of pairs of expressions, each read as one number would be: `outline`'s `profile` |
 //! | features ([`Kind::Features`]) | tags to whole numbers, constants: `text`'s `features` |
+//! | colors ([`Kind::Colors`]) | a list of rows, each a list of colours: `characters`'s `colors` |
 //! | runs ([`Kind::Runs`]) | a list of `run` records, each checked as a call of its own arguments: `text`'s `runs` |
 //! | drawing ([`Kind::Drawing`]) | one drawing, evaluated with the caller's Param values and handed over as the node's `taken`: the `other` of a boolean |
 //!
@@ -51,6 +52,7 @@
 
 mod args;
 pub(crate) mod boolean;
+pub(crate) mod characters;
 pub(crate) mod clip;
 pub(crate) mod hatch;
 pub(crate) mod items;
@@ -207,6 +209,9 @@ pub enum Kind {
     Rect,
     /// A colour: `"#rgb"`, `"#rrggbb"`, `"#rrggbbaa"` or `"none"`.
     Color,
+    /// Rows of colours, each a list of `"#rrggbb"` texts (or `"none"`): a colour for each character of a grid, in the
+    /// shape bullterrier-image's `characters` returns, so its output goes in as it is (`characters`'s `colors`).
+    Colors,
     /// A colour as `Color` has it, or a gradient: `{"gradient": "linear", "stops": [[0, "#ff0066"], [1, "#ffcc00"]],
     /// "from": [0, 0], "to": [0, 400]}`, or `"radial"` with `"center"` and `"radius"` in place of `"from"` and `"to"`.
     Paint,

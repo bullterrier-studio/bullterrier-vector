@@ -168,6 +168,7 @@ impl<'a> Builder<'a> {
             ),
             Value::Text(text) => Given::Text(text.clone()),
             Value::Color(color) => Given::Color(*color),
+            Value::Colors(rows) => Given::Colors(rows.clone()),
             Value::Paint(paint) => Given::Paint(paint.clone()),
             Value::Field(field) => Given::Field(self.field(field)?),
             Value::Flow(flow) => Given::Flow(self.flow(flow)?),

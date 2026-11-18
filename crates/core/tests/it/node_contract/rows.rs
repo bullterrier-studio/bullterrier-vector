@@ -1357,5 +1357,6 @@ pub(super) fn rows() -> Vec<Row> {
         },
     ];
     table.extend(super::rows_style::rows());
+    table.extend(super::rows_glyphs::rows());
     table
 }

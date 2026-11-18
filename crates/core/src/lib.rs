@@ -48,5 +48,5 @@ pub use shape::{
     Shape, StrokeStyle, Style, Tone,
 };
 pub use trace::Trace;
-pub use r#type::{Align, Content, Font, Run, Text, text};
+pub use r#type::{Align, Characters, Content, Font, Run, Text, characters, text};
 pub use values::{Value, Values};

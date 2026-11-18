@@ -94,6 +94,8 @@ pub(super) enum Value {
     Axes(Vec<Setting<Ex>>),
     /// Feature values by tag, in tag order.
     Features(Vec<Setting<u32>>),
+    /// Rows of colours.
+    Colors(Vec<Vec<Color>>),
     /// The runs of a `text`: the arguments of each, as a call's are.
     Records(&'static Verb, Vec<Vec<(&'static str, Value)>>),
 }

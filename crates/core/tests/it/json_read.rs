@@ -497,7 +497,12 @@ fn a_shape_has_a_path_and_the_attributes_a_generator_writes() -> Outcome {
     );
     assert_eq!(attributes.origin().map(|point| (point.x, point.y)), Some((1.0, 2.0)));
     assert_eq!(
-        (attributes.row(), attributes.column(), attributes.mark(), attributes.role()),
+        (
+            attributes.row(),
+            attributes.column(),
+            attributes.mark(),
+            attributes.role()
+        ),
         (Some(5), Some(6), Some(7), Some("leader"))
     );
     for (case, shape, pointer) in [

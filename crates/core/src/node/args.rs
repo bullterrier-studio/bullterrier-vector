@@ -71,6 +71,8 @@ pub(crate) enum Given {
     Axes(Vec<(String, Expr)>),
     /// OpenType feature values by four-character tag, in tag order.
     Features(Vec<(String, u32)>),
+    /// Rows of colours.
+    Colors(Vec<Vec<Color>>),
     /// Records: the arguments of one `run` (a `text`) or one box or point (`marks`) call each.
     Records(Vec<Args>),
     /// Left out.
@@ -282,6 +284,16 @@ impl Args {
                 Given::Paint(paint) => {
                     key.word(14);
                     key.of(paint);
+                }
+                Given::Colors(rows) => {
+                    key.word(20);
+                    key.count(rows.len());
+                    for row in rows {
+                        key.count(row.len());
+                        for color in row {
+                            key.of(color);
+                        }
+                    }
                 }
                 Given::Records(runs) => {
                     key.word(15);
@@ -658,6 +670,15 @@ impl Args {
         match self.find(name)? {
             (_, Given::Color(color)) => Ok(*color),
             _ => Err(self.misread(name, "a colour")),
+        }
+    }
+
+    /// The rows of colours of `name`, or `None` if the call left it out.
+    pub(crate) fn colors(&self, name: &str) -> Result<Option<&[Vec<Color>]>, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Ok(None),
+            (_, Given::Colors(rows)) => Ok(Some(rows)),
+            _ => Err(self.misread(name, "rows of colours")),
         }
     }
 

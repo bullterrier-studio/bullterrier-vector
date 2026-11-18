@@ -263,7 +263,15 @@ impl Keyed for Single {
 impl Keyed for Attributes {
     fn write_key(&self, key: &mut Key) {
         for whole in [
-            self.glyph, self.word, self.line, self.run, self.part, self.copy, self.label, self.row, self.column,
+            self.glyph,
+            self.word,
+            self.line,
+            self.run,
+            self.part,
+            self.copy,
+            self.label,
+            self.row,
+            self.column,
             self.mark,
         ] {
             key.of(&whole.map(u64::from));

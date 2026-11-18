@@ -5,6 +5,7 @@
 mod common;
 
 mod blend_modes;
+mod characters;
 mod clip_mask;
 mod drawing_along;
 mod drawing_boolean;

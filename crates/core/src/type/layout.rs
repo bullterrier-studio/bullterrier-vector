@@ -23,6 +23,11 @@ pub(super) const LEADING: f64 = 1.2;
 // constant: the cap height of the common text faces is 0.68 to 0.72 em; it only places the `origin` attribute
 const CAP_HEIGHT: f64 = 0.7;
 
+/// The ascender and descender depth, in ems, of a font that states no line box.
+// constant: the common text faces reach about 0.8 em above the baseline and 0.2 below; it only sizes a character grid
+const LINE_ABOVE: f64 = 0.8;
+const LINE_BELOW: f64 = 0.2;
+
 /// One run of a text as drawn: a stretch of its characters with a font, a size and the settings of that font.
 #[derive(Debug, Clone)]
 pub(crate) struct RunSettings {
@@ -203,6 +208,47 @@ fn runs(line: &str, of_character: &[usize]) -> Vec<(Range<usize>, usize)> {
     runs
 }
 
+/// The height of a capital in font units: the font's, or `CAP_HEIGHT` ems if it states none.
+fn cap_height_units(font: &Font) -> f64 {
+    let metrics = font.model().metrics();
+    metrics
+        .cap_height
+        .map(read_fonts::types::F48Dot16::to_f64)
+        .filter(|height| *height > 0.0)
+        .unwrap_or(CAP_HEIGHT * f64::from(metrics.units_per_em))
+}
+
+/// What a font stands on and reaches, in ems: the height of a capital and the line box above and below the baseline.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Vertical {
+    /// The height of a capital.
+    pub(crate) cap: f64,
+    /// The ascender, above the baseline.
+    pub(crate) above: f64,
+    /// The descender's depth, below the baseline (positive).
+    pub(crate) below: f64,
+}
+
+impl Vertical {
+    /// The vertical measures of `font`: the `hhea` line box, else the `OS/2` one, else the shared guess of ascender
+    /// and descender.
+    pub(crate) fn of(font: &Font) -> Self {
+        let metrics = font.model().metrics();
+        let units = f64::from(metrics.units_per_em);
+        let (above, below) = metrics
+            .hhea_line
+            .or(metrics.typo_line)
+            .map_or((LINE_ABOVE, LINE_BELOW), |line| {
+                (line.ascender.to_f64() / units, -line.descender.to_f64() / units)
+            });
+        Self {
+            cap: cap_height_units(font) / units,
+            above,
+            below,
+        }
+    }
+}
+
 /// The sizes that follow from a line's size in pixels to the em.
 #[derive(Debug, Clone)]
 pub(super) struct Em {
@@ -220,18 +266,11 @@ impl Em {
     /// # Errors
     /// [`Error::Parameter`] naming `tracking` if the gap comes out beyond the coordinates a path holds.
     pub(super) fn new(font: &Font, size: f64, tracking: f64) -> Result<Self, Error> {
-        let metrics = font.model().metrics();
-        let units_per_em = f64::from(metrics.units_per_em);
-        let scale = size / units_per_em;
+        let scale = size / f64::from(font.model().metrics().units_per_em);
         Ok(Self {
             scale,
             gap: within("tracking", tracking, tracking * size / 1000.0)?,
-            cap_height: metrics
-                .cap_height
-                .map(read_fonts::types::F48Dot16::to_f64)
-                .filter(|height| *height > 0.0)
-                .unwrap_or(CAP_HEIGHT * units_per_em)
-                * scale,
+            cap_height: cap_height_units(font) * scale,
         })
     }
 

@@ -3,7 +3,9 @@
 //! `harfrust`) are used only inside this module, and none of their types is part of the API.
 
 mod bundled;
+mod characters;
 mod font;
+mod glyphs;
 mod layout;
 mod lines;
 mod outline;
@@ -11,8 +13,10 @@ mod shaping;
 mod text;
 mod unpack;
 
+pub use characters::{Characters, characters};
 pub use font::Font;
 pub(crate) use font::is_tag;
-pub(crate) use layout::{RunSettings, Settings, typeset};
+pub(crate) use glyphs::string;
+pub(crate) use layout::{RunSettings, Settings, Vertical, typeset};
 pub(crate) use lines::{Boundary, Fit, Wrap};
 pub use text::{Align, Content, Run, Text, text};

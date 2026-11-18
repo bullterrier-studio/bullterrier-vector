@@ -191,6 +191,7 @@ fn mark(arg: &Arg) -> Json {
     ])
 }
 
+#[expect(clippy::too_many_lines, reason = "one arm for each kind of argument")]
 fn argument(arg: &Arg) -> Json {
     let schema = match arg.kind {
         Kind::Number => value(arg),
@@ -227,6 +228,19 @@ fn argument(arg: &Arg) -> Json {
             Domain::Painting => reference("color"),
             _ => any_of(vec![reference("color"), Json::object([("const", Json::text("none"))])]),
         },
+        Kind::Colors => Json::object([
+            ("type", Json::text("array")),
+            (
+                "items",
+                Json::object([
+                    ("type", Json::text("array")),
+                    (
+                        "items",
+                        any_of(vec![reference("color"), Json::object([("const", Json::text("none"))])]),
+                    ),
+                ]),
+            ),
+        ]),
         Kind::Paint => match arg.domain {
             Domain::Painting => any_of(vec![reference("color"), reference("gradient")]),
             _ => any_of(vec![

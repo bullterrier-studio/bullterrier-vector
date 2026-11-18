@@ -412,6 +412,7 @@ impl Reader {
                 })
                 .collect::<Result<_, Error>>()
                 .map(Value::Features),
+            Kind::Colors => Self::colors(pointer, json),
             Kind::Runs => self.records(arg, pointer, json),
             Kind::Font => match json {
                 Json::String(name) if is_name(name) => Ok(Value::Font {
@@ -424,6 +425,32 @@ impl Reader {
                 )),
             },
         }
+    }
+
+    /// Rows of colours: an array of arrays of colour texts.
+    fn colors(pointer: &str, json: &Json) -> Result<Value, Error> {
+        fn items<'j>(pointer: &str, json: &'j Json) -> Result<&'j [Json], Error> {
+            match json {
+                Json::Array(items) => Ok(items),
+                other => Err(refuse(pointer, format!("must be an array, not {}", other.describe()))),
+            }
+        }
+        items(pointer, json)?
+            .iter()
+            .enumerate()
+            .map(|(row, json)| {
+                let here = format!("{pointer}/{row}");
+                items(&here, json)?
+                    .iter()
+                    .enumerate()
+                    .map(|(at, json)| {
+                        let here = format!("{here}/{at}");
+                        Color::parse(string(&here, json)?).map_err(|error| refuse(&here, reason(&error)))
+                    })
+                    .collect::<Result<Vec<_>, Error>>()
+            })
+            .collect::<Result<_, _>>()
+            .map(Value::Colors)
     }
 
     /// The records of a call (the runs of a `text`, the boxes or points of `marks`), written as an array of objects,

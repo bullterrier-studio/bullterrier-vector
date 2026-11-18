@@ -231,6 +231,11 @@ impl<'a> Writer<'a> {
             ),
             Given::Text(text) => Json::text(text),
             Given::Color(color) => Json::String(color_text(*color)),
+            Given::Colors(rows) => Json::Array(
+                rows.iter()
+                    .map(|row| Json::Array(row.iter().map(|color| Json::String(color_text(*color))).collect()))
+                    .collect(),
+            ),
             Given::Paint(paint) => paint_json(paint),
             Given::Field(field) => self.field_json(field, taken)?,
             Given::Flow(flow) => self.flow_json(flow, taken)?,
