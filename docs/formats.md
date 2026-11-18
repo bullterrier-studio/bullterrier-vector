@@ -423,6 +423,12 @@ SVG and series are not inputs of a drawing in version 1. `Path.from_svg_path` co
 saved as its path data; a series becomes paths in the caller's code ([series_bars.py](../examples/series_bars.py)). A
 node that reads one adds an input kind ("Extension").
 
+## Presets
+
+A preset is a drawing that ships with the library, by name (`Drawing.preset`). Each is a document of this format in canonical
+form, written by `to_json` from a program in `examples/`; it declares no input except a bundled font by its `sha256`, so it
+loads with no bytes, and each of its Params has a meaning.
+
 ## Canonical form
 
 `to_json` writes one text for one drawing, so the same drawing gives the same bytes in every language, and the text

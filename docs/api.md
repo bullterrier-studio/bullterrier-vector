@@ -1038,6 +1038,8 @@ opens nothing.
 | `to_mesh` | `to_mesh(width, height, /, *, into=None, **values)` | triangles for the picture (below) |
 | `to_json` | `to_json()` | the drawing as JSON: the same tree written down |
 | `Drawing.from_json` | `Drawing.from_json(text, *, inputs=None)` | the drawing back, given the bytes (`bytes` or `bytearray`) of its inputs by name, a dict; it draws to identical bytes. A static method. In Rust `Drawing::from_json(text, &Inputs::new().set("anybody", bytes))`, in JavaScript `Drawing.fromJson(text, { anybody: bytes })` with a `Uint8Array` each |
+| `Drawing.preset` | `Drawing.preset(name)` (Rust: `Drawing::preset(name)?`, JavaScript: `Drawing.preset(name)`) | a drawing that comes with the library: `"bent_type"`, `"gradient_type"` or `"ring"`. It is an ordinary drawing: `parameters()` describes its sliders and it needs no bytes. A static method | `name` not a preset (the message lists them) |
+| `Drawing.preset_names` | `Drawing.preset_names()` (Rust: `Drawing::preset_names()`, JavaScript: `Drawing.presetNames()`) | the names `Drawing.preset` takes, sorted | |
 | `drawing_schema` | `btvec.drawing_schema()` | the JSON Schema of the format, as text, generated from the registered calls |
 
 In JavaScript (the package built from `crates/wasm`) a document loads with `Drawing.fromJson(text, inputs?)` (`inputs` an object of names to `Uint8Array`s, none for a document without fonts); a drawing has

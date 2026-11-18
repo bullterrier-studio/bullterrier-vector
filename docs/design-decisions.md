@@ -1724,6 +1724,15 @@ photo has a dark fur that fills the lowest sheets, so the face read only once th
 eyes' catchlights are placed by hand (a hint of where the eyes are), the glue between image and vector is the demo's own
 `dogmaps.py`.
 
+## Presets (V17)
+
+- **A preset is a whole drawing, as a JSON document.** It mirrors `Font::bundled`: a sorted table of names and texts in
+  `preset.rs`, texts included with `include_str!`, loaded by `from_json` with no inputs, so a preset is not a second
+  format or loader. The files are `to_json` output, generated from the example programs, never edited by hand. A preset
+  has no description key (the format has none); descriptions wait for the command line and the gallery.
+- **The word differs from the image library's.** There a preset is a set of parameters for one effect; here it is a whole
+  drawing with its own Params, because a drawing's look is its shapes, not one setting.
+
 ## Engineering
 
 - **Rust is the source of truth** (2026-10-28). Parameters are declared once in Rust; Python and JavaScript are thin

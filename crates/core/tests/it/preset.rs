@@ -35,7 +35,10 @@ fn every_preset_loads_without_inputs_draws_shapes_and_is_the_shipped_text() -> O
     for (name, text) in SHIPPED {
         let drawing = Drawing::preset(name)?;
         assert!(paths(&drawing, &Values::new())? > 0, "{name} draws no shape");
-        assert!(drawing.to_json()? == text, "{name}: to_json differs from the shipped text");
+        assert!(
+            drawing.to_json()? == text,
+            "{name}: to_json differs from the shipped text"
+        );
     }
     Ok(())
 }
@@ -45,7 +48,11 @@ fn every_param_has_a_meaning_and_draws_at_its_minimum_default_and_maximum() -> O
     for name in Drawing::preset_names() {
         let drawing = Drawing::preset(name)?;
         for param in drawing.parameters()? {
-            assert!(!param.meaning_of().is_empty(), "{name}: {} has no meaning", param.name());
+            assert!(
+                !param.meaning_of().is_empty(),
+                "{name}: {} has no meaning",
+                param.name()
+            );
             for value in [param.min(), param.default(), param.max()] {
                 let values = Values::new().set(param.name(), value);
                 assert!(paths(&drawing, &values)? > 0, "{name} at {}={value}", param.name());
@@ -65,8 +72,7 @@ fn an_unknown_name_is_refused_naming_every_preset() -> Outcome {
 }
 
 #[test]
-fn a_text_that_needs_bytes_the_caller_has_not_supplied_does_not_load() -> Outcome {
+fn a_text_that_needs_bytes_the_caller_has_not_supplied_does_not_load() {
     let undeclared = r#"{"version":1,"root":[{"text":{"content":"Hi","font":"anybody"}}]}"#;
     assert!(Drawing::from_json(undeclared, &Inputs::new()).is_err());
-    Ok(())
 }
