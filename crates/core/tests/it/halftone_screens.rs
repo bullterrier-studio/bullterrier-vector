@@ -745,3 +745,29 @@ fn the_svg_and_the_pixels_agree_on_every_shape_and_screen() -> Outcome {
     }
     Ok(())
 }
+
+#[test]
+fn the_reference_document_reads_its_tone_from_a_map_and_draws_dots_that_follow_it() -> Outcome {
+    // docs/examples/json/halftone.json: a portrait map for a tone; here a ramp, dark at the left and bright at the right
+    let text = include_str!("../../../../docs/examples/json/halftone.json");
+    let bytes: Vec<u8> = (0..675_u32)
+        .flat_map(|_| (0..540_u32).map(|column| u8::try_from(column * 255 / 539).unwrap_or(255)))
+        .collect();
+    let drawing = Drawing::from_json(text, &Inputs::new().set("portrait", bytes))?;
+    let svg = drawing.to_svg(Size::px(1080.0, 1350.0), &Values::new())?;
+    let found = dots_of(&svg)?;
+    assert!(found.len() > 2000, "{} dots", found.len());
+    // darker (lower tone) dots are bigger: the mean area of the dots in the left fifth against the right fifth
+    let mean_area = |from: f64, to: f64| {
+        let chosen: Vec<f64> = found
+            .iter()
+            .filter(|dot| (from..to).contains(&mean(dot).0))
+            .map(|dot| shoelace_area(dot))
+            .collect();
+        #[expect(clippy::cast_precision_loss, reason = "a few thousand dots")]
+        let count = chosen.len() as f64;
+        chosen.iter().sum::<f64>() / count
+    };
+    assert!(mean_area(150.0, 330.0) > 3.0 * mean_area(750.0, 930.0));
+    Ok(())
+}
