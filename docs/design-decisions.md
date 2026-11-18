@@ -1542,8 +1542,7 @@ holds.
   for a map's pixel centres stays on them.
 - **A stack test for the new nesting.** Drawings nested 15 levels through the field and the flow of a hatch step are
   drawn, saved, loaded and dropped on the 256 KB stack (passes at 112 KB).
-- **Limit: halftone's tone is still a number.** `halftone(tone=)` takes no field; the reference `halftone.json` (a map as the
-  tone) waits for a later batch.
+- **Limit: halftone's tone was still a number.** Lifted by 4a (below): `halftone(tone=)` takes a field.
 
 ## Line families, plotter output and tidy contours (V15c)
 
@@ -1801,3 +1800,59 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   and is joined by scene (C5, an effect on a drawing layer). *Reason:* vector never links a raster library. Vector's part is the
   distance field of a shape as a grayscale map (V15). Settled with the scene agent: the first version needs no map (`relight` with
   `field="light"` on a light fill); the distance field is a later refinement.
+
+## Halftone screens (4a)
+
+- **One owner of the rows.** `bands` and the halftone screens both lay things along straight rows, waves, rings, a spiral or
+  rays, so the maths that says where a row is, which rows cover a box and how a turn is read lives once, in
+  `lines/layout.rs` (`Layout`, `Family`, `Distances`). The move was done first, as a structure-only step, against a pinned
+  SVG hash of every family at a spread of settings (`tests/it/lines_bands_pinned.rs`): not one byte of `bands` changed. A
+  screen is therefore the same layout a `bands` of the same family draws its lines along, by construction, not by a test that
+  compares two copies of the formulas. *Alternative:* copy the five formulas into the screen; refused, because the two would
+  drift (the spiral's radius and the rays' count are exactly the ones a reader compares across the two).
+- **A cell has an area, and a dot covers `1 - tone` of it.** The invariant in the brief is stated per cell, so the engine is
+  built from it: a screen yields cells (centre, direction of the row, length along it, width across), the mark gives the
+  polygon of area `1 - tone` of a unit cell, and the dot is that polygon stretched by the cell's two sides, turned to the
+  row and put on the centre. An affine map multiplies every area by the cell's, so the invariant holds for every mark and
+  every screen with no per-case code. The cell's area is exact: a wedge of a ring is the mean radius times its angle times
+  the pitch (an annular sector), the cell of a wave is the grid's cell moved, so the maths of the areas is two lines each.
+- **Exact area by solving the corners, not by the circle.** A round dot used to be the polygon inscribed in the circle of the
+  right area, a percent short at the flatness of 0.01 pixels. The corners are now solved for the polygon's own shoelace area
+  (`r^2 = 2 A / (n sin(2 pi / n))`), so a dot's area is `(1 - tone)` of its cell to rounding, and the oracle in the tests is the
+  shoelace formula itself. The euclidean mark has no closed form (the level sets of `(cos 2 pi x + cos 2 pi y) / 2` are not
+  elementary), so a table of 129 outlines at equal steps of cover is built once for a call, two neighbours blended for a dot,
+  and the blend scaled to the exact area: the table only has to be close, the scale makes it right.
+- **Which marks stay in their cell.** The square, the diamond and the euclidean mark are confined to the cell (past half the
+  cover the diamond and the euclidean mark become the cell less its corners, as a print screen does, and tone 0 is the whole
+  cell), so they tile; the dot, the ellipse and a caller's path are not (they overlap at low tone, as the round dot always
+  did, documented). *Alternative:* clip the round ones to the cell too; refused, because the overlap is what the earlier
+  halftone did and changing it would change every existing picture.
+- **A caller's outline is one closed sub-path, centred on its centroid.** The centre of its bounds would put a heart or a
+  triangle's mass off the lattice point; the centroid keeps the mass on it. Several sub-paths would need a hole's winding to
+  survive the nonzero fill of separate dots, and the mesh draws each dot as a polygon of its own, so one outline is the rule
+  and a second is refused naming `mark`. Its winding is made clockwise whichever way it was drawn.
+- **`tone` is a number or a field, as one argument.** A number stays a number per shape (a Param, `by_index`): `Tone::Level`;
+  a field is read at each dot's centre and held to 0 to 1 (`Tone::Field`). In a document the argument is the `Field`
+  kind that reads one number per shape: a number or an expression is the per-shape number, an object is a field. The style
+  keeps what it was given, so `Style.halftone.tone` is a float or a `Field`. Two fields compare by their keys, a distance
+  field (whose drawing a key does not hold) by identity, so the cache cannot take two different distance fields for one.
+- **`shape` is a word or a `Path`; in a document the path is its own argument `mark`.** One argument that is a word or path
+  data would be told apart by its first letter; two arguments (`"shape": "path"`, `"mark": "M0 0 ..."`) are checked by the
+  schema, and `mark` given for another shape is refused. Python and Rust take the `Path` where the word goes.
+- **Rays merge towards the centre; image's rule.** Cells a pitch wide at the farthest corner narrow towards the centre
+  until a blob forms, so the rays merge in pairs until none is narrower than half a pitch (image's `NARROWEST_RAY`). Merging
+  floors the wedge count, so a cell is between half a pitch and a pitch wide at its middle (the rays test measures both
+  ends); the work charge assumes twice that, to leave room.
+- **A dot is not tilted on a wave.** A dot sits on the displaced row but keeps the direction of the layout, as an ellipse
+  or a diamond is easy to read against the grid; tilting it by the row's slope would turn a round-looking ellipse of aspect 1
+  into a mark that changes along the wave. *Consequence:* on a steep wave a dot's cell is a sheared one and the dot does not
+  fill it.
+- **`line` and `matrix` are left out.** `bands` draws lines along these layouts, with the width carrying the tone; a caller's
+  `Path` is the matrix. Image has both because it has no path.
+- **Work.** The cells near the shape are counted before any is made: an upper bound per layout (a rectangle of the lattice,
+  the rings' `pi (b^2 - a^2)`, the rays' rows times rays), each times the outline's edges plus a dot's corners, charged to
+  `MAX_SEGMENTS`, so a tiny pitch, a far centre or an `aspect` of 1e100 is refused naming `pitch` before an allocation. A
+  dot's reach is worked out from the mark, never from a polygon made for the purpose: the first version made one to measure,
+  and a huge `aspect` allocated 4 GB before the charge ran (found by the adversarial test, which now stays).
+- **Plotter output.** `to_plot_svg` still refuses a halftone, naming the shape: a pen draws strokes. Halftone dots as pen
+  outlines are a `from_svg` away; making them natively waits for someone to want them.

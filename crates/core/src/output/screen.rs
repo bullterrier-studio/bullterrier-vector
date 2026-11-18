@@ -30,8 +30,8 @@ use crate::{Error, Rect};
 use std::f64::consts::{PI, TAU};
 
 /// The widest a cell may be, in pitches, that the reach of a dot and the corners of a curve are worked out for: a
-/// wedge of the rays near their centre, which are at most a pitch and a quarter wide.
-// constant: the widest ray cell is under 1.3 pitches (tests/it/halftone_screens.rs checks it), and 2 leaves room
+/// wedge of the rays near their centre, which are at most a pitch wide.
+// constant: the widest ray cell is a pitch (tests/it/halftone_screens.rs measures it), and 2 leaves room
 const WIDEST_CELL: f64 = 2.0;
 
 /// The narrowest a ray cell may be at its middle, in pitches: the rays merge in pairs (a power of two at a time) until

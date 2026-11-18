@@ -44,8 +44,7 @@ import bullterrier_vector as btvec
 | [glyph_morph.py](../examples/glyph_morph.py), [.rs](../crates/core/examples/glyph_morph.rs), [.mjs](../crates/wasm/examples/glyph_morph.mjs) | a letter that turns into a circle and CAT into HORSE on one `progress`, in all three languages |
 | [glyph_scatter.py](../examples/glyph_scatter.py) | letters split into parts, scattered by seeded random numbers |
 | [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
-| [halftone.py](examples/halftone.py) | halftone dots from a tone map (a `Field` tone: a later batch reads fields in `halftone`) |
-| [halftone.py](../examples/halftone.py) | discs filled with a screen of dots, a tone each, over paper |
+| [halftone.py](../examples/halftone.py), [.rs](../crates/core/examples/halftone.rs), [.mjs](../crates/wasm/examples/halftone.mjs) | discs with a tone each, and four panels that are each a dot shape on a screen with a ramp `Field` for the tone, over paper, in all three languages |
 | [cut_type.py](../examples/cut_type.py) | a headline faded by one mask, over stripes clipped to a circular window |
 | [gradient_type.py](../examples/gradient_type.py) | a headline filled with one gradient across the frame, a glow and a ring with radial ones |
 | [duotone.py](examples/duotone.py) | a gradient map and posterize on colours |
@@ -573,7 +572,7 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | `stroke` | `stroke(paint, *, width=2, join="round", cap="round", miter_limit=4, profile=None)` | strokes each outline with a colour or a gradient; with a `profile` (a list of `[position, factor]` pairs as `outline` takes, "Tapered strokes" above) the width follows it along each sub-path and the stroke is drawn as a filled region by SVG, pixels and mesh, `width` and each number of the profile per-item numbers (Rust: `Stroke::new(c).width(24).profile([(0, 0), (0.15, 1), (0.85, 1), (1, 0)])`; `Style.profile` gives it back) | as `fill`; a paint of `"none"`; `width` not above 0; `miter_limit` below 1; with a `profile`: as `outline`'s (at the step: `join` or `cap` not `"round"`, no stops or over `MAX_PROFILE_STOPS`, a position outside 0..1 or going back, a factor outside 0..1e100), and when drawn a region over `MAX_SEGMENTS` |
 | `linear_gradient` | `linear_gradient(stops, *, start, end)` | a paint for `fill` and `stroke`: `stops` are `(offset, color)`, the colour along the line from `start` to `end`, held at the end colours beyond it | fewer than 2 stops; an offset outside 0..1 or below the one before; a stop colour of `"none"`; `start` equal to `end`; a coordinate beyond ±1e100 |
 | `radial_gradient` | `radial_gradient(stops, *, center, radius)` | a paint: offset 0 at `center`, offset 1 at `radius`, held beyond | as `linear_gradient`; `radius` not above 0 |
-| `halftone` | `halftone(color, *, tone, pitch=8, angle=45)` | fills each shape with a dot screen: dots `pitch` pixels apart on a grid at `angle`, each covering what `tone` asks (a number; a `Field` waits for a later batch; 0 solid, 1 none) | `color` of `"none"`; `tone` outside 0..1; `pitch` not above 0; `angle` not finite; the limit below |
+| `halftone` | `halftone(color, *, tone, pitch=8, angle=45, shape="dot", aspect=1, screen="grid", centre=None, amplitude=1, wavelength=6)` | fills each shape with a screen of dots, one in each cell of a layout `pitch` pixels apart; a dot covers `1 - tone` of its own cell (0 solid, 1 none): `tone` is a number (a Param, a number for each shape) or a `Field`, read at the dot's centre; `shape` is `"dot"`, `"square"`, `"ellipse"` (`aspect` times as long as wide), `"diamond"`, `"euclidean"` or a `Path`; `screen` is `"grid"` (turned by `angle`), `"wave"` (rows swung `amplitude` pitches over `wavelength` pitches), `"rings"`, `"spiral"` or `"rays"` (about `centre`) | `color` of `"none"`; `tone` outside 0..1; `pitch` not above 0; `angle` not finite; an unknown `shape` or `screen` (the valid ones are listed); `aspect` below 1; a `centre` for a grid or a wave; a `wavelength` not above 0; a `Path` that is not one closed outline with an area (`mark`); the limit below |
 | `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | `alpha` outside 0..1 |
 | `blend` | `blend(mode)` | paints over what is below with a CSS blend `mode`: `"normal"`, `"multiply"`, `"screen"`, `"overlay"`, `"darken"`, `"lighten"`, `"color-dodge"`, `"color-burn"`, `"hard-light"`, `"soft-light"`, `"difference"` or `"exclusion"`; it applies to a shape with its shadow once | another word, the non-separable `"hue"`, `"saturation"`, `"color"` and `"luminosity"` included; a mesh: any mode but normal and multiply |
 | `shadow` | `shadow(*, dx=0, dy=8, blur=16, color="#00000059")` | a drop shadow under each shape: the silhouette of its fill and stroke, moved by `dx` and `dy`, blurred and tinted `color`; the last call wins | `blur` below 0; `dx`, `dy` or `blur` not finite; `color` of `"none"`; pixel outputs: a blur past the limits below |
@@ -611,23 +610,53 @@ the canvas, grown by the reach) total at most 2^27 pixels in a draw, else `Param
 `MAX_FILTER_PIXELS`. The pixels' blur is an 8-bit filter: within 2 to 4 levels of the Gaussian from a deviation of 1
 output pixel up, and not a Gaussian below it (up to 22 levels off at 0.3 pixel); that is not worked around.
 `halftone` is a fill of its own: it replaces a `fill`, and a `fill` after it replaces the screen (a shape has one fill, and
-`Style.fill` is `None` while it is a screen, `Style.halftone` has the colour, tone, pitch and angle). The lattice is square,
-`pitch` apart, turned `angle` degrees clockwise on the screen about the origin of the design frame, with a dot on each
-point: anchored to the frame and not to the shape, so the dots stay put when a shape moves and neighbouring shapes share
-one screen. `pitch` is in design pixels and is not scaled by `scale` (like a stroke width). A dot is a regular polygon
-of the area `(1 - tone)` of a cell (its radius `pitch * sqrt((1 - tone) / pi)`, as many corners as keep it within 0.01
-design pixels of the circle), clipped to the shape; its colour's alpha is that of every dot, once where dots overlap. A
-tone below `1 - pi / 4` (about 0.21) makes neighbours overlap, where the union covers less than `(1 - tone)` of a cell. A
-tone of 0 is the solid fill of the colour (circles cannot cover a cell's corners), a tone of 1 draws nothing. A stroke is
+`Style.fill` is `None` while it is a screen, `Style.halftone` has everything the step was given: `color`, `tone`, `pitch`,
+`angle`, `shape`, `aspect`, `screen`, `centre`, `amplitude`, `wavelength`; in Rust `HalftoneStyle`, whose `tone()` is a
+`Tone`, `Level(f64)` or `Field`). `Style.halftone.tone` is the number, or the `Field` the step was given (the same field
+everywhere, as drawn: a Param in it is already read); `shape` is the word, or the `Path` the caller gave.
+A screen is a layout of cells with a dot in each, and a dot covers `1 - tone` of the area of *its own cell*, for every shape
+and every screen. The cells are the rows `bands` lays lines along (one layout module serves both):
+- `"grid"`: rows `pitch` apart, a cell a square of the pitch, turned `angle` degrees clockwise on the screen about the origin
+  of the design frame, a dot on each lattice point: anchored to the frame and not to the shape, so the dots stay put when a
+  shape moves and neighbouring shapes share one screen. `pitch` is in design pixels and is not scaled by `scale` (like a
+  stroke width).
+- `"wave"`: the grid, each row swung across by `amplitude` pitches as a sine of `wavelength` pitches along it (in phase at
+  the origin); the cell is the grid's cell moved with its row, so its area is the pitch squared and the dot is not tilted.
+- `"rings"`: rings about `centre` (default the middle of the shape's bounding box), ring `k` at radius `(k + 1/2)` pitches,
+  a cell the wedge of a ring, `2 round(pi (k + 1/2))` to the ring; `angle` does nothing.
+- `"spiral"`: one row, an Archimedean spiral out of `centre` a pitch further out each turn, the first arm at `angle`; the
+  cell is a wedge of an arm, `2 round(pi (k + 1))` to the turn of arm `k`.
+- `"rays"`: rows straight out of `centre` starting at `angle`, a cell a pitch long: as many rays as are a pitch apart round
+  the farthest corner of the shape's box, merged in pairs (a power of two at a time) towards the centre so that no cell is
+  narrower than half a pitch at its middle; a cell is a wedge, wider outward.
+`shape` is the dot: `"dot"` (a regular polygon of as many corners as keep it within 0.01 design pixels of the circle),
+`"square"` (its sides along the rows), `"ellipse"` (its long axis along the rows, `aspect` times its short one, `aspect` at
+least 1), `"diamond"` (a square turned 45 degrees to the rows: its corners on the axes of the row, touching its neighbours at
+tone 0.5, past it the cell with its corners cut), `"euclidean"` (the cosine spot function of print screens: round at low cover,
+a diamond at tone 0.5, past it the cell less four round holes at its corners; 128 corners) or a `Path`: the first and only
+closed sub-path of the caller's outline, centred on its centroid (the centre of its area), scaled to the dot's area, its x
+axis along the row and its winding made clockwise on the screen whichever way it was drawn. Image's `line` and `matrix` shapes
+are not here: `bands` draws lines along these same layouts, and a caller's `Path` is the matrix. The area of each dot is exact:
+the corners of a round shape are solved for the polygon's own area, not taken from the circle. A dot is cut to the shape's
+outline. A round mark (dot, ellipse, a caller's outline) of a tone below `1 - pi / 4` (about 0.21) makes neighbours overlap,
+where the union covers less than `(1 - tone)` of a cell; the square, the diamond and the euclidean mark stay in their cell.
+Their colour's alpha is that of every dot, once where dots overlap. A tone of the number 0 is the solid fill of the colour
+(circles cannot cover a cell's corners), a tone of 1 draws nothing; a field is read at each dot's centre and held to 0 to 1, a
+dot of tone 1 is left out and one of tone 0 fills its cell as its shape does. A stroke is
 drawn over the dots; opacity, blend and shadow apply to dots and stroke together, and a shadow is the dots moved and tinted.
+The plotter output refuses a halftone, as it refuses any fill that is not a pen's: draw the dots as outlines (`from_svg` of
+`to_svg`) or make them with `stipple` and `bands`.
 `to_svg` writes a `<clipPath id="halftone-N">` of the shape's outline and a `<g clip-path>` holding all the dots as one
 `<path>`, then the stroke; pixels clip one path of the dots to the outline; neither makes a boolean per dot (the
 prototypes' did, about 500 ms for 3,000 dots; [benchmarks.md](benchmarks.md)). `to_mesh` makes the dots wholly inside the
 shape plain polygons, leaves out those wholly outside and cuts only the dots that cross the outline, all together by one
-boolean. Limit: before any dot is made, the lattice points near the shape, each times the edges of the outline and the
-corners of a dot, are charged to `MAX_SEGMENTS`, so a pitch too small for its shape (about 50,000 dots for a disc) is
-refused with `ParameterError` naming the shape and its `pitch`, in every output.
-The lattice is laid over the whole shape, not the part on the canvas: a shape far larger than the canvas (a 20,000 by
+boolean. Limit: before any dot is made, the cells near the shape (an upper bound worked out from the layout: for rings,
+a spiral and rays, the annulus the shape's box and the farthest dot reach), each times the edges of the outline and the
+corners of a dot, are charged to `MAX_SEGMENTS`, so a pitch too small for its shape (about 50,000 dots for a disc) or an
+`aspect` that would make a dot a thousand pitches long is refused with `ParameterError` naming the shape and its `pitch`, on
+every screen and in every output; a field tone is also charged to the field's read limit. A centre far from the shape
+stretches its rings and rays out: it costs cells like a small pitch does.
+The layout is laid over the whole shape, not the part on the canvas: a shape far larger than the canvas (a 20,000 by
 20,000 square at pitch 8) is refused though few of its dots would show; use a larger pitch or a smaller shape.
 `knockout` is the style form of a cut: it keeps both shapes and cuts through everything below, shadows included;
 `subtract` makes new geometry (for a plotter, or for further verbs). Every style reaches SVG and pixels alike. Called on
@@ -679,7 +708,7 @@ drawing with their style and attributes.
 | Member | Type | Promise |
 |---|---|---|
 | `shape.path` | `Path` | its outline |
-| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, a `Gradient`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch and angle, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`), `clip` (a `Path` or `None`) and `mask` (the mask's shapes, a list of `Shape`, or `None`) |
+| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, a `Gradient`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch, angle, shape, aspect, screen, centre, amplitude and wavelength, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`), `clip` (a `Path` or `None`) and `mask` (the mask's shapes, a list of `Shape`, or `None`) |
 | `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `run` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`); from `Drawing.from_svg`: `id`, `class`, `group` (`str`) |
 
 ## Generators

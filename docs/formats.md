@@ -163,7 +163,7 @@ default paint, and draws as it did.
 | `repeat` | `count` (whole number), `translate` (point), `rotate`, `scale` (pair), `about` (point) |
 | `fill` | `color` (colour, `"none"` or gradient) |
 | `stroke` | `color` (colour or gradient), `width`, `join`, `cap`, `miter_limit`, `profile` (as `outline`'s: pairs `[position, factor]`, each a per-item number; `join` and `cap` must be `"round"`) |
-| `halftone` | `color` (colour), `tone` (number or field), `pitch`, `angle` |
+| `halftone` | `color` (colour), `tone` (a per-item number or a field), `pitch`, `angle` (per-item numbers), `shape` (`"dot"` (default), `"square"`, `"ellipse"`, `"diamond"`, `"euclidean"` or `"path"`), `mark` (path data: the closed outline of a dot, given with `"shape": "path"` and only then), `aspect` (per-item number, at least 1, default 1: an ellipse's length to width), `screen` (`"grid"` (default), `"wave"`, `"rings"`, `"spiral"`, `"rays"`), `centre` (point, per item: for `"rings"`, `"spiral"` and `"rays"` only; default the middle of the shape's bounds), `amplitude` (per-item number, default 1) and `wavelength` (per-item number above 0, default 6): a wave's, in pitches. A tone that is a number or an expression is that number for each shape; a field object (`{"Field.ramp": ..}`) is read at each dot's centre |
 | `opacity` | `alpha` |
 | `clip` | `region` (drawing: an array of calls, as the `other` of a boolean; all its shapes united once) |
 | `mask` | `source` (drawing; its shapes are written as painted and hold no mask) |

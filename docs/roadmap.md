@@ -696,6 +696,13 @@ lines in three pens). Reasons and limits: `design-decisions.md`, "Line families,
 After the owner's review (2026-11-17): `rows` keeps to its region once lifted and reads the tone over each point's share of
 the rows, so a photo's fine detail no longer chops them.
 
+**4a, done 2026-11-18 (effects track).** `halftone` reads a `Field` tone (a number stays a number per shape), takes a dot
+`shape` (dot, square, ellipse with `aspect`, diamond, euclidean or a caller's `Path`) and a `screen` (grid, wave, rings,
+spiral, rays; `centre`, `amplitude`, `wavelength`), each dot covering `1 - tone` of its own cell on every screen; `bands` and
+the screens share one layout module; in Rust, Python and documents (so WebAssembly), `examples/halftone.py` in the three
+languages. Reasons and limits: `design-decisions.md`, "Halftone screens (4a)". Not built: image's `line` and `matrix` shapes
+(`bands` and a caller's `Path` do the same), a halftone in the plotter output.
+
 Distance fields have a second job: a signed, normalised distance field of letters or shapes is the relief that
 image's `relight`, and later `glass`, light. Written out as a grayscale map (`field.to_map`, V15b: bytes, the input form of `Field.map`), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link
 between image and vector. Chrome type already works without it: scene's C5 example lights the headline's own brightness (`relight` with `field="light"`, a light fill). The distance field is a later refinement, and gives a bevel that also reaches outside the letters only if image lets a look change alpha.
