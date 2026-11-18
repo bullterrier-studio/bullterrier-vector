@@ -3,7 +3,8 @@
 //! Anti-aliased edges are not compared closely: the two renderers cover a curved edge differently by up to a quarter
 //! of the range (measured), where inside a smooth area they agree to a few levels.
 
-use bullterrier_vector::{Drawing, Size, Values};
+use super::{Ring, rings};
+use bullterrier_vector::{Drawing, Path, Size, Values};
 use resvg::tiny_skia::{Pixmap, Transform};
 use resvg::usvg;
 use std::collections::BTreeMap;
@@ -144,4 +145,21 @@ pub(crate) fn svg_agrees(
         edge_over_40,
         edge_pixels,
     })
+}
+
+/// The dots of the SVG: the polygons of the `<path>` that the `<g clip-path>` holds.
+pub(crate) fn dots_of(svg: &str) -> Result<Vec<Ring>, Box<dyn std::error::Error>> {
+    let document = roxmltree::Document::parse(svg)?;
+    let mut found = Vec::new();
+    for group in document.descendants().filter(|node| {
+        node.attribute("clip-path")
+            .is_some_and(|clip| clip.starts_with("url(#halftone-"))
+    }) {
+        for path in group.children().filter(roxmltree::Node::is_element) {
+            found.extend(rings(&Path::from_svg_path(
+                path.attribute("d").ok_or("a dot path without data")?,
+            )?)?);
+        }
+    }
+    Ok(found)
 }

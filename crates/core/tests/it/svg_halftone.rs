@@ -3,8 +3,8 @@
 //! drawn by a second renderer (`resvg`).
 
 use crate::common::fonts::fraunces;
-use crate::common::svg_oracle::{body, element, svg_agrees};
-use crate::common::{Outcome, Ring, net_area, parameter_refusal, rings};
+use crate::common::svg_oracle::{body, dots_of, element, svg_agrees};
+use crate::common::{Outcome, Ring, net_area, parameter_refusal};
 use bullterrier_vector::{Color, Deg, Drawing, Error, Halftone, Path, Shadow, Size, Stroke, Text, Values, text};
 use std::f64::consts::PI;
 
@@ -22,23 +22,6 @@ fn rect(left: f64, top: f64, width: f64, height: f64) -> Result<Path, Error> {
 /// The SVG of `drawing` at `side` by `side`.
 fn svg(drawing: &Drawing, side: f64) -> Result<String, Error> {
     drawing.to_svg(Size::px(side, side), &Values::new())
-}
-
-/// The dots of the SVG: the polygons of the `<path>` that the `<g clip-path>` holds.
-fn dots_of(svg: &str) -> Result<Vec<Ring>, Box<dyn std::error::Error>> {
-    let document = roxmltree::Document::parse(svg)?;
-    let mut found = Vec::new();
-    for group in document.descendants().filter(|node| {
-        node.attribute("clip-path")
-            .is_some_and(|clip| clip.starts_with("url(#halftone-"))
-    }) {
-        for path in group.children().filter(roxmltree::Node::is_element) {
-            found.extend(rings(&Path::from_svg_path(
-                path.attribute("d").ok_or("a dot path without data")?,
-            )?)?);
-        }
-    }
-    Ok(found)
 }
 
 /// The centre of a regular polygon: the mean of its corners.

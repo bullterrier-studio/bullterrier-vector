@@ -37,6 +37,11 @@ impl Family {
         Self::NAMES[self as usize]
     }
 
+    /// Whether the rows run about a centre.
+    pub(crate) fn is_round(self) -> bool {
+        matches!(self, Self::Rings | Self::Spiral | Self::Rays)
+    }
+
     /// Whether this family reads the optional argument `argument` (`angle`, `centre`, `wavelength`, `amplitude`).
     pub(crate) fn reads(self, argument: &str) -> bool {
         match argument {

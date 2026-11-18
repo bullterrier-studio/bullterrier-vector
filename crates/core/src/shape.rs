@@ -2,6 +2,7 @@
 
 mod attributes;
 mod color;
+mod dot;
 mod halftone;
 mod paint;
 mod style;
@@ -9,6 +10,7 @@ mod style;
 pub use attributes::Attributes;
 pub(crate) use attributes::{Holds, SELECTABLE, Single, holds};
 pub use color::Color;
+pub(crate) use dot::Dot;
 pub use halftone::{HalftoneStyle, Mark, Screen, Tone};
 pub use paint::{Gradient, GradientKind, Paint};
 pub use style::{Blend, Cap, Join, ShadowStyle, StrokeStyle, Style};

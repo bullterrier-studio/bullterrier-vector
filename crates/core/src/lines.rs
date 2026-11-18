@@ -9,7 +9,7 @@ mod within;
 
 pub use bands::Bands;
 pub(crate) use bands::Plan;
-pub(crate) use layout::Family;
+pub(crate) use layout::{Distances, Family, Layout, corners, middle, polar};
 pub use rows::Rows;
 pub(crate) use stipple::Plan as StipplePlan;
 pub use stipple::Stipple;

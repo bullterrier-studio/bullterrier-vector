@@ -6,7 +6,7 @@ use crate::field::Shapes;
 use crate::geometry::MAX_COORDINATE;
 use crate::path::check_profile;
 use crate::shape::{
-    Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, HalftoneStyle, Join, Mark, Screen,
+    Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, Dot, HalftoneStyle, Join, Mark, Screen,
     ShadowStyle, StrokeStyle, Tone,
 };
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
@@ -345,6 +345,10 @@ fn halftone_reads_what_it_is_given(args: &Args) -> Result<(), Error> {
         (true, false) => return Err(Error::parameter("mark", "is needed when `shape` is \"path\"")),
         (false, true) => return Err(Error::parameter("mark", "is read only when `shape` is \"path\"")),
         _ => {}
+    }
+    if shape == "path" {
+        // the outline is checked where it is given, not where the first output draws it
+        Dot::new(&Mark::path(args.path("mark")?.clone()), 1.0)?;
     }
     let screen = args.text("screen")?;
     if args.given("centre")?

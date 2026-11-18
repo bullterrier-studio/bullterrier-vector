@@ -42,6 +42,7 @@ mod flow;
 mod flow_axis;
 mod font_bundled;
 mod font_woff2;
+mod halftone_screens;
 mod json_axes;
 mod json_checks;
 mod json_hostile;
