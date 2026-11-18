@@ -812,25 +812,37 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   two differ at a sharp corner. Measured on a corner of ratio 16 at `miter_limit=4`, width 10, vertex at y=40: the
   pixels and the mesh of the stroke reach y=39.5 (a bevel), the outline y=20.2 (cut 20 above the vertex, half the width
   times the limit); at limit 30 both reach the full tip. The SVG text of a stroke only says `stroke-linejoin="miter"`.
-- **The round arc step comes from `tolerance`** (2026-11-08): `2 acos(1 - tolerance / r)` for radius `r`, the widest step
-  whose chord strays by at most `tolerance`. *Reason:* the number that shapes the result is a parameter in its own terms
-  (rule 1), and `tolerance` already is.
+- **The round arc step comes from `tolerance`** (2026-11-08): `2 acos(1 - e / r)` for radius `r`, the widest step
+  whose chord strays by at most `e`, the arcs' share of `tolerance` (all of it until 2026-11-18, half since). *Reason:*
+  the number that shapes the result is a parameter in its own terms (rule 1), and `tolerance` already is.
 - **`Path.subpaths()`, not `contours`** (2026-11-18): `Field.contours()` already means the lines of a field, and
   `docs/formats.md` calls these sub-paths; one name keeps one meaning. Unlike `split`, holes are not kept with their outline.
-- **Offsets and outlines drop the corners `tolerance` makes invisible** (2026-11-18). *Cause:* the engine joins each vertex
-  of the flattened input with an arc of its own, so a smooth outline came back with two corners per corner it had (a circle
-  of 383 gave 767, then 1,535, 3,071...; one letter 55, 1,929, 3,337, 5,560, 9,624, 17,640 over five calls of 4), and
-  repeated offsets grew without bound. *Fix:* `thin` in `path/offset.rs`, Douglas and Peucker on each contour of the
-  result before it is made canonical, at half of `tolerance`; arcs take the other half (`tolerance / 2`), so a round
-  join still strays by at most `tolerance`. Booleans and the tapered outline are untouched. *Changed:* offset and
-  outline bytes (fewer corners, within `tolerance` of the old ones); the radius where the engine's 1.8 degree arc floor
-  bites moves from 80 to 40 times `tolerance`. A thinner than `tolerance` sliver can vanish.
+- **Offsets and outlines drop the corners `tolerance` hides from their input, in one pass** (2026-11-18). *Cause:* the
+  engine joins each vertex of the flattened input with an offset pair of its own, so a smooth outline came back with two
+  corners per corner it had (a circle of 383 gave 767, then 1,535, 3,071...; one letter 55, 1,929, 3,337, 5,560, 9,624,
+  17,640 over five calls of 4), and repeated offsets grew without bound. *Fix:* `thinned` in `path/offset.rs` drops,
+  from each flattened contour and line before the engine, every corner within half of `tolerance` of the edge kept in
+  its place (a cone of allowed directions from the last corner kept, one pass, each corner looked at at most twice;
+  the proof is beside it); the arcs take the other half (`Spend`, the one owner of the split). Thinning the result
+  instead (tried first) let a hole cross its outline in `outline` (the engine no longer had the last word on the
+  edges) and its Douglas and Peucker search went quadratic on regular shapes (a saw of 80,000 corners 7 s against
+  0.16 s). *Bound:* thinning moves the outline by at most half of `tolerance`, and a round join or cap moves no more
+  than the outline it follows, so a round-joined result lies within `tolerance` of the offset of the flattened path. A
+  miter or bevel follows the direction of the edges beside it, which a dropped corner changes: there the result is the
+  exact offset of the thinned path, and a nick that half of `tolerance` hides throws no point of its own. A closed
+  contour that would keep fewer than 3 corners stays as it was, and an open line keeps its first two and last two (they
+  set its caps), so thin shapes still paint. *Changed:* offset and outline bytes: old and new results each lie within
+  `tolerance` of the exact offset of the flattened path, so they can differ by up to twice it;
+  repeated offsets keep their size (the letter: 1,741, 1,715, 1,511, 1,340, 1,216 points over five calls of 4).
 - **Limits of the engine found when it was built in** (2026-11-08), kept, not worked around: a `miter_limit` above about 23
-  acts as 23 (the engine takes the corner angle in integer maths); its arcs run from 1.8 to 45 degrees, so a round join of
-  a radius above about 40 times `tolerance` strays by up to 0.00012 of the radius (and, since 2026-11-18, half of `tolerance` more); a turn under 5 degrees is bevelled; a
-  `distance` beyond about 1e19 times the size of the shape silently gives an empty path, and so does a `width` far below
-  the integer grid; a one-point sub-path paints nothing in `outline` though `stroke` draws a dot. *Reason:* each is far
-  outside what a drawing asks of it, and a guard would be code for a case no one meets (rule 2).
+  acts as 23 (the engine takes the corner angle in integer maths); its arcs run from 1.8 to 45 degrees, and a step of 1.8
+  degrees strays from its arc by `1 - cos(0.9 degrees)` = 0.000123 of the radius, so a round join of a radius above the
+  arcs' share of `tolerance` over 0.000123 (about 4,000 times `tolerance` at half of it) strays by up to 0.000123 of the
+  radius (measured at `tolerance` 0.01 on a square: 0.0048 at a radius of 40, 0.0112 at 100, 0.0449 at 400); a turn
+  under 5 degrees is bevelled; a `distance` beyond about 1e19 times the size of the shape silently gives an empty path,
+  and so does a `width` far below the integer grid; a one-point sub-path paints nothing in `outline` though `stroke`
+  draws a dot. *Reason:* each is far outside what a drawing asks of it, and a guard would be code for a case no one
+  meets (rule 2).
 - **`distance` and `width` are per-item numbers on a `Drawing`; `join`, `cap`, `miter_limit` and `tolerance` are
   literals** (2026-11-08). *Reason:* a list of shapes grown by different amounts is the use (a stagger, `by_index`); the
   rest choose a kind of corner or a precision, which one step does not vary per shape, as `tolerance` does not for the

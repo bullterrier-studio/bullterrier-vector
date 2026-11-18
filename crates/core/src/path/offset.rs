@@ -1,7 +1,12 @@
 //! Offsets on paths: `offset` (the region a path fills, grown or shrunk) and `outline` (the region a stroke paints).
 //! With `boolean.rs`, the only user of `i_overlay`.
 //!
-//! `offset` resolves the path first (the region it fills by the nonzero rule, as the booleans do), so the engine sees
+//! Both verbs drop the corners of the flattened path that half of `tolerance` hides (`thinned`, one pass) before the
+//! engine sees it. The engine joins every vertex of a flattened curve with an offset pair of its own, so without this a
+//! smooth outline came back with about two corners for each it had, and repeated offsets doubled at every call; dropping
+//! them before the engine, not after, leaves any crossing it could make to the engine, which resolves it.
+//!
+//! `offset` then resolves the path (the region it fills by the nonzero rule, as the booleans do), so the engine sees
 //! simple polygons: outer contours clockwise on a `y`-down screen and holes counter-clockwise, which is the direction
 //! it takes as filled. `outline` strokes each flattened sub-path on its own (open or closed) and unites the strokes.
 //! Both results go through the canonical form of the booleans.
@@ -9,8 +14,9 @@
 //! The engine rounds to an integer grid it picks from the bounding box of its input and the reach of the offset, so a
 //! feature much smaller than the offset or the shape is lost to rounding. Its miter join is cut to a bevel below a
 //! turn of 5 degrees' worth of angle in integer maths: a `miter_limit` above about 23 (the ratio of a 5 degree
-//! corner) acts as 23. Its arcs are steps of 1.8 to 45 degrees, so a round join or cap of a radius above about
-//! 80 times `tolerance` strays by more than it (at most 0.00012 of the radius).
+//! corner) acts as 23. Its arcs are steps of 1.8 to 45 degrees; a step of 1.8 degrees strays from its arc by
+//! `1 - cos(0.9 degrees)` = 0.000123 of the radius, so a round join or cap of a radius above about 4,000 times
+//! `tolerance` (the arcs' half of it over 0.000123) strays by more than its share, by up to 0.000123 of the radius.
 
 use super::Path;
 use super::boolean::{Contour, canonical, checked_tolerance, contours, largest, overlay};
@@ -29,12 +35,18 @@ impl Path {
     /// contours grow and holes shrink; a region that shrinks past nothing is an empty path. A `distance` of 0 gives the
     /// resolved path. The result is in canonical form and straight-edged.
     ///
+    /// Curves are flattened to `tolerance`, then every corner within half of `tolerance` of the edge between the corners
+    /// kept on either side is dropped (a corner no farther from that edge is not one), so offsetting a result again does
+    /// not double its corners; the result is the offset of what is left. With round joins it lies within `tolerance` of
+    /// the offset of the flattened path. With miter and bevel joins a dropped corner throws no point of its own, and the
+    /// joins beside it follow the edge that replaced it.
+    ///
     /// `join` shapes the corners that stick out: `Round` an arc of the radius `distance`, cut into steps that stray from
-    /// it by at most `tolerance` (the engine's arc steps run from 1.8 to 45 degrees, so a radius above about 80 times
-    /// `tolerance` strays by up to 0.00012 of itself), `Bevel` a flat cut, `Miter` a point, cut to a bevel where the
-    /// corner is sharper than `miter_limit`, SVG's ratio of the length of the point to the half-width (the corner angle
-    /// `2 asin(1 / miter_limit)`). A `miter_limit` above about 23 acts as 23. Corners that point inward are sharp
-    /// whatever the join. Curves are flattened to `tolerance`; an open sub-path fills as if closed.
+    /// it by at most half of `tolerance` (the engine's arc steps run from 1.8 to 45 degrees, so a radius above about
+    /// 4,000 times `tolerance` strays by up to 0.000123 of itself), `Bevel` a flat cut, `Miter` a point, cut to a bevel
+    /// where the corner is sharper than `miter_limit`, SVG's ratio of the length of the point to the half-width (the
+    /// corner angle `2 asin(1 / miter_limit)`). A `miter_limit` above about 23 acts as 23. Corners that point inward
+    /// are sharp whatever the join. An open sub-path fills as if closed.
     ///
     /// # Errors
     /// [`Error::Parameter`] if `distance` is not a number within ±1e100, `miter_limit` is not a number from 1 up,
@@ -47,7 +59,9 @@ impl Path {
     /// (a closed one into a ring) and the strokes are united. `join` and `miter_limit` shape the corners as in
     /// [`Path::offset`], with the radius `width / 2`; `cap` finishes the ends of open sub-paths: `Butt` flat at the end,
     /// `Round` an arc of the same radius and steps as a round join, `Square` flat, half a width past the end. A
-    /// sub-path of one point (a lone move) paints nothing. The result is in canonical form and straight-edged.
+    /// sub-path of one point (a lone move) paints nothing. Corners are dropped as in [`Path::offset`], except the first
+    /// two and last two of an open sub-path, which set the direction of its caps. The result is in canonical form and
+    /// straight-edged.
     ///
     /// # Errors
     /// [`Error::Parameter`] if `width` is not a number above 0 and within ±1e100, or as [`Path::offset`] for
@@ -151,11 +165,9 @@ impl Spend {
 }
 
 /// `points` (a closed contour when `closed`, its last corner joined to its first) without the corners that lie within
-/// `within` of the edge between the corners kept on either side. The engine joins every vertex of a flattened curve with
-/// an offset pair of its own, so a smooth outline comes back with about two corners for each it had; dropping the ones
-/// `within` hides before the next offset is what keeps repeated offsets from growing. The first corner is kept, and an
-/// open line keeps its first two and last two (they set the direction of its caps); a closed contour that would keep
-/// fewer than 3 corners is a sliver thinner than `within` and stays as it is.
+/// `within` of the edge between the corners kept on either side. The first corner is kept, and an open line keeps its
+/// first two and last two (they set the direction of its caps); a closed contour that would keep fewer than 3 corners
+/// (a sliver no wider than twice `within`) stays as it is, so it still offsets and strokes.
 ///
 /// One pass, each corner looked at no more than twice. From a kept corner `a`, the edge reaches forward while the next
 /// corner `q` lies in the cone of directions every corner passed allows and is no nearer `a` than any of them. A corner
