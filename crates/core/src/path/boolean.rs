@@ -140,10 +140,21 @@ pub(super) fn overlay(
     rule: OverlayRule,
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Path, Error> {
+    let shapes = overlay_shapes(subject, clip, rule, charge)?;
+    canonical(shapes, largest(subject).max(largest(clip)))
+}
+
+/// What [`overlay`] makes of the engine's result before it is made canonical.
+pub(super) fn overlay_shapes(
+    subject: &[Contour],
+    clip: &[Contour],
+    rule: OverlayRule,
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+) -> Result<Vec<Vec<Contour>>, Error> {
     charge(box_pairs(subject, clip))?;
     let shapes = subject.overlay_as::<i64>(&clip, rule, FillRule::NonZero);
     charge(shapes.iter().flatten().map(Vec::len).sum())?;
-    canonical(shapes, largest(subject).max(largest(clip)))
+    Ok(shapes)
 }
 
 /// The largest coordinate of `contours`: the size the engine's frame, and so the rounding of its result, follows.
@@ -319,7 +330,7 @@ fn by_top(a: &Contour, b: &Contour) -> std::cmp::Ordering {
 }
 
 /// `contour` turned to start at its topmost corner, the leftmost of those.
-fn start_at_top(contour: &mut Contour) {
+pub(super) fn start_at_top(contour: &mut Contour) {
     let top = contour
         .iter()
         .enumerate()

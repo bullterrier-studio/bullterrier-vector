@@ -10,10 +10,12 @@
 //! feature much smaller than the offset or the shape is lost to rounding. Its miter join is cut to a bevel below a
 //! turn of 5 degrees' worth of angle in integer maths: a `miter_limit` above about 23 (the ratio of a 5 degree
 //! corner) acts as 23. Its arcs are steps of 1.8 to 45 degrees, so a round join or cap of a radius above about
-//! 80 times `tolerance` strays by more than it (at most 0.00012 of the radius).
+//! 40 times `tolerance` strays by more than it (at most 0.00012 of the radius, and half of `tolerance` more).
+//! It joins every vertex of a flattened curve with an arc of its own, which would double the corners at each call:
+//! `thin` drops the ones `tolerance` makes invisible, so repeated offsets of a smooth outline keep their size.
 
 use super::Path;
-use super::boolean::{Contour, canonical, checked_tolerance, contours, largest, overlay};
+use super::boolean::{Contour, canonical, checked_tolerance, contours, largest, overlay, overlay_shapes, start_at_top};
 use crate::Error;
 use crate::geometry::coordinate;
 use crate::math;
@@ -27,11 +29,13 @@ impl Path {
     /// The region this path fills (as in [`Path::resolve`]) moved outward by `distance`, inward when negative: every
     /// point within `distance` of the region is added, every point within `-distance` of its outside removed. Outer
     /// contours grow and holes shrink; a region that shrinks past nothing is an empty path. A `distance` of 0 gives the
-    /// resolved path. The result is in canonical form and straight-edged.
+    /// resolved path. The result is in canonical form and straight-edged, with no corner that a line between its
+    /// neighbours misses by less than half of `tolerance`, so offsetting again and again does not make it grow.
     ///
     /// `join` shapes the corners that stick out: `Round` an arc of the radius `distance`, cut into steps that stray from
-    /// it by at most `tolerance` (the engine's arc steps run from 1.8 to 45 degrees, so a radius above about 80 times
-    /// `tolerance` strays by up to 0.00012 of itself), `Bevel` a flat cut, `Miter` a point, cut to a bevel where the
+    /// it by at most half of `tolerance`, the other half spent on dropping corners (the engine's arc steps run from
+    /// 1.8 to 45 degrees, so a radius above about 40 times `tolerance` strays by up to 0.00012 of itself more),
+    /// `Bevel` a flat cut, `Miter` a point, cut to a bevel where the
     /// corner is sharper than `miter_limit`, SVG's ratio of the length of the point to the half-width (the corner angle
     /// `2 asin(1 / miter_limit)`). A `miter_limit` above about 23 acts as 23. Corners that point inward are sharp
     /// whatever the join. Curves are flattened to `tolerance`; an open sub-path fills as if closed.
@@ -69,15 +73,17 @@ impl Path {
         let tolerance = checked_tolerance(tolerance)?;
         let distance = coordinate("distance", distance)?;
         let miter_limit = checked_miter_limit(miter_limit)?;
+        let half = tolerance / 2.0; // the arcs and the thinning of the result spend half of `tolerance` each
         let region = self.resolved(tolerance, charge)?;
         if distance == 0.0 {
             return Ok(region);
         }
-        let style = OutlineStyle::new(distance).line_join(line_join(join, miter_limit, distance.abs(), tolerance));
+        let style = OutlineStyle::new(distance).line_join(line_join(join, miter_limit, distance.abs(), half));
         // the region is lines, so there is nothing to flatten or charge
         let region = contours(&region, tolerance, &mut |_| Ok(()))?;
-        let shapes = region.outline_as::<i64>(&style);
+        let mut shapes = region.outline_as::<i64>(&style);
         charge(shapes.iter().flatten().map(Vec::len).sum())?;
+        thin(&mut shapes, half);
         canonical(shapes, largest(&region))
     }
 
@@ -102,13 +108,14 @@ impl Path {
         let width = coordinate("width", width)?;
         let miter_limit = checked_miter_limit(miter_limit)?;
         let radius = width / 2.0;
+        let half = tolerance / 2.0; // the arcs and the thinning of the result spend half of `tolerance` each
         let cap = match cap {
             Cap::Butt => LineCap::Butt,
-            Cap::Round => LineCap::Round(arc_step(radius, tolerance)),
+            Cap::Round => LineCap::Round(arc_step(radius, half)),
             Cap::Square => LineCap::Square,
         };
         let style = StrokeStyle::new(width)
-            .line_join(line_join(join, miter_limit, radius, tolerance))
+            .line_join(line_join(join, miter_limit, radius, half))
             .start_cap(cap.clone())
             .end_cap(cap);
         let mut strokes: Vec<Contour> = Vec::new();
@@ -123,8 +130,63 @@ impl Path {
                 );
             }
         }
-        overlay(&strokes, &[], OverlayRule::Subject, charge)
+        let mut shapes = overlay_shapes(&strokes, &[], OverlayRule::Subject, charge)?;
+        thin(&mut shapes, half);
+        canonical(shapes, largest(&strokes))
     }
+}
+
+/// Drops the corners of every contour of `shapes` that lie within `tolerance` of the line between the corners kept
+/// (Douglas and Peucker, without recursion, from the topmost corner and the one farthest from it, so a real corner is
+/// always kept). The engine joins every vertex of a flattened curve with an arc of its own, so a smooth outline comes
+/// back with about two corners for each it had, and the next offset doubles them again: the corners this removes are
+/// the ones `tolerance` makes invisible, which is what keeps repeated offsets from growing.
+fn thin(shapes: &mut [Vec<Contour>], tolerance: f64) {
+    for contour in shapes.iter_mut().flatten() {
+        start_at_top(contour);
+        let far = (1..contour.len())
+            .map(|k| (k, squared_distance(contour[k], contour[0])))
+            .fold((0, -1.0), |best, next| if next.1 > best.1 { next } else { best })
+            .0;
+        if far == 0 {
+            continue;
+        }
+        // the two chains between them, the first corner repeated at the end of the second
+        let mut chain = contour.clone();
+        chain.push(chain[0]);
+        let mut keep = vec![false; chain.len()];
+        (keep[0], keep[far], keep[chain.len() - 1]) = (true, true, true);
+        let mut pending = vec![(0, far), (far, chain.len() - 1)];
+        while let Some((low, high)) = pending.pop() {
+            let (farthest, away) = (low + 1..high)
+                .map(|k| (k, distance_to_segment(chain[k], chain[low], chain[high])))
+                .fold((low, -1.0), |best, next| if next.1 > best.1 { next } else { best });
+            if away > tolerance {
+                keep[farthest] = true;
+                pending.push((low, farthest));
+                pending.push((farthest, high));
+            }
+        }
+        chain.pop();
+        let mut kept = keep.iter();
+        chain.retain(|_| kept.next().copied().unwrap_or(false));
+        *contour = chain;
+    }
+}
+
+fn squared_distance(a: [f64; 2], b: [f64; 2]) -> f64 {
+    (a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)
+}
+
+/// The distance from `p` to the segment `a` to `b`.
+fn distance_to_segment(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
+    let squared = squared_distance(a, b);
+    let share = if squared == 0.0 {
+        0.0
+    } else {
+        (((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / squared).clamp(0.0, 1.0)
+    };
+    squared_distance(p, [a[0] + (b[0] - a[0]) * share, a[1] + (b[1] - a[1]) * share]).sqrt()
 }
 
 /// The union of closed `polygons` that all turn the same way, in canonical form (the taper's hulls).

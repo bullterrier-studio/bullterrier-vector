@@ -265,12 +265,16 @@ of shapes grows by different amounts; `join`, `cap`, `miter_limit` and `toleranc
 Rust: `path.offset(2.0, Join::Round, 4.0, 0.01)?`, `drawing.offset(2.0, Join::Round, 4.0, 0.01)`,
 `drawing.outline(2.0, Join::Round, Cap::Round, 4.0, 0.01)`.
 
+Output size: a result drops every corner that lies within half of `tolerance` of the line between its neighbours, so
+offsetting a smooth outline again and again keeps its point count (five offsets of a letter by 4 stay near the first
+result's size); real corners (miter, bevel, round arcs wider than `tolerance`) stay.
+
 Errors: `ParameterError` as the rows say; a `Drawing` names the step and the argument (`step 2 (offset).join`) and a draw
 past `MAX_SEGMENTS` is refused as for the booleans. No offset raises `GeometryError`.
 
 Known limits (the engine's, `docs/design-decisions.md`, "Offsets (V9)"): a `miter_limit` above about 23 acts as 23; a turn
-under 5 degrees is bevelled; a round join or cap of a radius above about 80 times `tolerance` strays by up to 0.00012 of
-the radius; a feature far below the extent of the shape or the offset is lost to rounding, so a `width` far below the
+under 5 degrees is bevelled; a round join or cap of a radius above about 40 times `tolerance` strays by up to 0.00012 of
+the radius more; a feature far below the extent of the shape or the offset is lost to rounding, so a `width` far below the
 grid, or a `distance` beyond about 1e19 times the size of the shape, gives an empty path; a one-point sub-path paints
 nothing in `outline` (`stroke` draws a dot).
 

@@ -345,3 +345,18 @@ def test_a_stroke_profile_the_rules_refuse_is_a_parameter_error(kwargs, match):
     options = {"profile": [(0, 1)], **kwargs}
     with pytest.raises(ParameterError, match=match):
         Drawing(LINE).stroke("#000000", **options).to_svg(20, 20)
+
+
+def test_repeated_offsets_of_a_letter_keep_its_size() -> None:
+    """Five offsets of 4 leave about the points of the first (they once doubled each time, 55 to 17,640)."""
+    font = btvec.Font.bundled("fraunces")
+    letter = btvec.text("S", font=font, size=300).shapes()[0].path
+
+    def points(path: btvec.Path) -> int:
+        return sum(path.to_svg_path().count(command) for command in "LCQ")
+
+    grown = letter.offset(4)
+    first = points(grown)
+    for _ in range(4):
+        grown = grown.offset(4)
+    assert points(grown) <= 1.5 * first

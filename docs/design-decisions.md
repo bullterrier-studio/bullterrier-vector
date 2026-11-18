@@ -815,9 +815,17 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **The round arc step comes from `tolerance`** (2026-11-08): `2 acos(1 - tolerance / r)` for radius `r`, the widest step
   whose chord strays by at most `tolerance`. *Reason:* the number that shapes the result is a parameter in its own terms
   (rule 1), and `tolerance` already is.
+- **Offsets and outlines drop the corners `tolerance` makes invisible** (2026-11-18). *Cause:* the engine joins each vertex
+  of the flattened input with an arc of its own, so a smooth outline came back with two corners per corner it had (a circle
+  of 383 gave 767, then 1,535, 3,071...; one letter 55, 1,929, 3,337, 5,560, 9,624, 17,640 over five calls of 4), and
+  repeated offsets grew without bound. *Fix:* `thin` in `path/offset.rs`, Douglas and Peucker on each contour of the
+  result before it is made canonical, at half of `tolerance`; arcs take the other half (`tolerance / 2`), so a round
+  join still strays by at most `tolerance`. Booleans and the tapered outline are untouched. *Changed:* offset and
+  outline bytes (fewer corners, within `tolerance` of the old ones); the radius where the engine's 1.8 degree arc floor
+  bites moves from 80 to 40 times `tolerance`. A thinner than `tolerance` sliver can vanish.
 - **Limits of the engine found when it was built in** (2026-11-08), kept, not worked around: a `miter_limit` above about 23
   acts as 23 (the engine takes the corner angle in integer maths); its arcs run from 1.8 to 45 degrees, so a round join of
-  a radius above about 80 times `tolerance` strays by up to 0.00012 of the radius; a turn under 5 degrees is bevelled; a
+  a radius above about 40 times `tolerance` strays by up to 0.00012 of the radius (and, since 2026-11-18, half of `tolerance` more); a turn under 5 degrees is bevelled; a
   `distance` beyond about 1e19 times the size of the shape silently gives an empty path, and so does a `width` far below
   the integer grid; a one-point sub-path paints nothing in `outline` though `stroke` draws a dot. *Reason:* each is far
   outside what a drawing asks of it, and a guard would be code for a case no one meets (rule 2).

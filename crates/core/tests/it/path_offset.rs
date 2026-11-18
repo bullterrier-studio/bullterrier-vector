@@ -721,3 +721,68 @@ fn glyphs_of_both_bundled_fonts_survive_offsets_and_outlines() -> Outcome {
     assert!(runs > 400, "{runs} runs");
     Ok(())
 }
+
+// Repeated outward offsets of a smooth outline keep its size. The first call may add the points of the grown outline
+// (the engine joins every flattened vertex with its own arc), but a smooth outline needs about as many points at
+// radius R + 4 as at R, so after five calls the count stays within 1.5 times the first result's (a count that
+// doubles each call is 16 times it by the fifth).
+// The shape stays right: five offsets of 4 are one offset of 20 (round joins compose), and each call may stray by the
+// TOLERANCE (arcs and thinning half each), so every vertex of the repeated result lies within 6 * TOLERANCE (five
+// calls and the single one) of the single offset's outline, and the single offset's vertices within that of the
+// repeated one.
+fn points(path: &Path) -> Result<usize, Box<dyn std::error::Error>> {
+    Ok(rings(path)?.iter().map(Vec::len).sum())
+}
+
+fn assert_repeated_offsets_stay_small(outline: &Path, what: &str) -> Outcome {
+    let mut grown = outline.offset(4.0, Join::Round, LIMIT, TOLERANCE)?;
+    let first = points(&grown)?;
+    for _ in 1..5 {
+        grown = grown.offset(4.0, Join::Round, LIMIT, TOLERANCE)?;
+    }
+    let last = points(&grown)?;
+    #[expect(clippy::cast_precision_loss, reason = "counts of points")]
+    {
+        assert!(
+            last as f64 <= 1.5 * first as f64,
+            "{what}: {first} points after one offset, {last} after five"
+        );
+    }
+    let once = outline.offset(20.0, Join::Round, LIMIT, TOLERANCE)?;
+    let (repeated, single) = (rings(&grown)?, rings(&once)?);
+    let slack = 6.0 * TOLERANCE;
+    for (from, to, label) in [(&repeated, &single, "repeated"), (&single, &repeated, "single")] {
+        for ring in from {
+            for &vertex in ring {
+                let away = nearest_edge(to, vertex);
+                assert!(
+                    away <= slack,
+                    "{what}: a {label} vertex {vertex:?} lies {away} from the other"
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn repeated_offsets_of_a_circle_keep_the_point_count_and_the_radius() -> Outcome {
+    let circle = Path::circle((0.0, 0.0), 100.0)?.resolve(TOLERANCE)?;
+    assert_repeated_offsets_stay_small(&circle, "circle")?;
+    let mut grown = circle;
+    for _ in 0..5 {
+        grown = grown.offset(4.0, Join::Round, LIMIT, TOLERANCE)?;
+    }
+    // the exact radius is 120; each call strays by at most TOLERANCE
+    for &(x, y) in &rings(&grown)?[0] {
+        assert_near(x.hypot(y), 120.0, 5.0 * TOLERANCE, "radius of a corner");
+    }
+    Ok(())
+}
+
+#[test]
+fn repeated_offsets_of_a_glyph_keep_the_point_count_and_the_shape() -> Outcome {
+    let font = Font::bundled("fraunces")?;
+    let letters = text("S", Text::new(&font).size(300.0)).shapes(&Values::new())?;
+    assert_repeated_offsets_stay_small(letters[0].path(), "S")
+}
