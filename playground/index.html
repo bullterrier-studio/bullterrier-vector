@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bullterrier-vector playground</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg: #f6f3ec; --panel: #fffdf8; --ink: #1d1c20; --muted: #615d52; --line: #d6cfbd; --accent: #c8183f; --focus: #0b57d0; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151518; --panel: #1d1d21; --ink: #eeeadf; --muted: #a8a392; --line: #37373d; --accent: #ff6b86; --focus: #8ab4ff; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; min-height: 150vh; /* room to scroll: the scroll source reads it */ }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 21rem; gap: 1.5rem; max-width: 74rem; margin: 0 auto; padding: 1.5rem 16px; align-items: start; }
+  @media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
+  .stage { position: sticky; top: 16px; }
+  canvas { display: block; max-width: 100%; border: 1px solid var(--line); background: var(--panel); }
+  h1 { font-size: 1.15rem; margin: 0 0 .25rem; }
+  p { margin: .25rem 0 1rem; color: var(--muted); }
+  label { font-weight: 600; }
+  select, textarea, button, input[type=file] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: .3rem .4rem; max-width: 100%; }
+  button { cursor: pointer; }
+  textarea { width: 100%; min-height: 6rem; font: 13px/1.4 ui-monospace, monospace; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .field { margin: 0 0 1rem; }
+  .field > label { display: block; margin-bottom: .25rem; }
+  .param { margin: 0 0 1rem; padding: .6rem .7rem; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+  .param .head { display: flex; justify-content: space-between; gap: .5rem; }
+  .param small { color: var(--muted); font-weight: 400; }
+  .param .meaning { margin: .1rem 0 .4rem; font-size: 13px; }
+  .param .row { display: flex; gap: .5rem; align-items: center; }
+  input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+  output { font-variant-numeric: tabular-nums; }
+  #time { padding: .6rem .7rem; border: 1px solid var(--line); border-radius: 6px; font-variant-numeric: tabular-nums; background: var(--panel); }
+  #time b { font-size: 1.4rem; }
+  .error { color: var(--accent); min-height: 1.4em; margin: .3rem 0; overflow-wrap: anywhere; }
+  summary { cursor: pointer; font-weight: 600; margin-bottom: .5rem; }
+</style>
+</head>
+<body>
+<main>
+  <div class="stage">
+    <canvas id="view" width="1" height="1" role="img" aria-label="The drawing"></canvas>
+  </div>
+  <div>
+    <h1>bullterrier-vector playground</h1>
+    <p>One Rust core, built for WebAssembly: pick a drawing, move a slider, and it is drawn again here.</p>
+    <div class="field">
+      <label for="preset">Drawing</label>
+      <select id="preset"><option id="document-option" value="" hidden></option></select>
+      <p id="description"></p>
+    </div>
+    <div class="field">
+      <label for="size">Size on the page</label>
+      <select id="size">
+        <option value="360">small (360 px)</option>
+        <option value="720" selected>medium (720 px)</option>
+        <option value="1080">large (1080 px)</option>
+      </select>
+    </div>
+    <div id="params"></div>
+    <div id="time" role="status" aria-live="off">loading</div>
+    <p id="error" class="error" role="alert"></p>
+    <details>
+      <summary>Open a document</summary>
+      <div class="field">
+        <label for="file">A JSON file</label>
+        <input id="file" type="file" accept=".json,application/json">
+      </div>
+      <div class="field">
+        <label for="paste">or paste the JSON</label>
+        <textarea id="paste" spellcheck="false"></textarea>
+        <button id="open" type="button">Open</button>
+      </div>
+      <p id="document-error" class="error" role="alert"></p>
+    </details>
+  </div>
+</main>
+<script type="module" src="playground.mjs"></script>
+</body>
+</html>
