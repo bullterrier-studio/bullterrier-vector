@@ -357,7 +357,7 @@ pub fn text(content: impl Into<Content>, options: impl Into<Text>) -> Drawing {
     let mut given = Vec::new();
     match content.into() {
         Content::Plain(content) => given.push(("content", Given::Text(content))),
-        Content::Runs(runs) => given.push(("runs", Given::Runs(runs.into_iter().map(Run::args).collect()))),
+        Content::Runs(runs) => given.push(("runs", Given::Records(runs.into_iter().map(Run::args).collect()))),
     }
     if let Some(font) = options.font {
         given.push(("font", Given::Font(font)));

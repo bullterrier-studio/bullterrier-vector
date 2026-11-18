@@ -273,7 +273,7 @@ impl<'a> Writer<'a> {
                     .map(|(tag, value)| (tag.clone(), Json::Number(f64::from(*value))))
                     .collect(),
             ),
-            Given::Runs(runs) => Json::Array(
+            Given::Records(runs) => Json::Array(
                 runs.iter()
                     .map(|run| Ok(Json::object(self.members(run, &mut std::iter::empty())?)))
                     .collect::<Result<_, Error>>()?,
@@ -355,7 +355,7 @@ fn input_names(graph: &Graph) -> Result<Vec<(String, &'static str, String)>, Err
     };
     for node in &graph.nodes {
         let runs = node.args().declared().flat_map(|(_, given)| match given {
-            Given::Runs(runs) => runs.iter().flat_map(Args::declared).collect::<Vec<_>>(),
+            Given::Records(runs) => runs.iter().flat_map(Args::declared).collect::<Vec<_>>(),
             _ => Vec::new(),
         });
         for (_, given) in node.args().declared().chain(runs) {

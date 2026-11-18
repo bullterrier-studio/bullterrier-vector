@@ -208,14 +208,14 @@ impl<'a> Builder<'a> {
                     .map(|feature| (feature.tag.clone(), feature.value))
                     .collect(),
             ),
-            Value::Runs(runs) => Given::Runs(
+            Value::Records(table, runs) => Given::Records(
                 runs.iter()
                     .map(|run| {
                         let given = run
                             .iter()
                             .map(|(name, value)| Ok((*name, self.given(value)?)))
                             .collect::<Result<Vec<_>, Error>>()?;
-                        Ok(Args::new(&crate::node::text::RUN, given))
+                        Ok(Args::new(table, given))
                     })
                     .collect::<Result<_, Error>>()?,
             ),

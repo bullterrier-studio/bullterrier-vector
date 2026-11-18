@@ -343,7 +343,7 @@ pub(super) fn fonts(doc: &Doc, fonts: &BTreeMap<String, Font>) -> Result<(), Err
         let What::Verb(verb) = &call.what else { return Ok(()) };
         // the call's own arguments, then each run's: each has its own font
         let runs = verb.args.iter().filter_map(|(_, value)| match value {
-            Value::Runs(runs) => Some(runs),
+            Value::Records(_, runs) => Some(runs),
             _ => None,
         });
         for group in std::iter::once(&verb.args).chain(runs.flatten()) {

@@ -245,6 +245,17 @@ pub enum Kind {
     Runs,
 }
 
+impl Kind {
+    /// The table of the records a list of this kind holds (each record is read and checked as a call of the table's
+    /// verb, which is never registered), or `None` for a kind that is no list of records.
+    pub(crate) fn records(self) -> Option<&'static Verb> {
+        match self {
+            Self::Runs => Some(&text::RUN),
+            _ => None,
+        }
+    }
+}
+
 /// How an argument's value is read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Reads {

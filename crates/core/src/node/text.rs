@@ -190,7 +190,7 @@ fn face_fits(args: &Args) -> Result<(), Error> {
 /// What a text is made of, as the arguments that carry a font: its runs, or the call itself if it has none.
 fn faces(args: &Args) -> Result<Vec<&Args>, Error> {
     if args.given("runs")? {
-        Ok(args.runs("runs")?.iter().collect())
+        Ok(args.records("runs")?.iter().collect())
     } else {
         Ok(vec![args])
     }

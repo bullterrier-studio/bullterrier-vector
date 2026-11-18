@@ -412,7 +412,7 @@ impl Reader {
                 })
                 .collect::<Result<_, Error>>()
                 .map(Value::Features),
-            Kind::Runs => self.runs(pointer, json),
+            Kind::Runs => self.records(arg, pointer, json),
             Kind::Font => match json {
                 Json::String(name) if is_name(name) => Ok(Value::Font {
                     name: name.clone(),
@@ -426,20 +426,21 @@ impl Reader {
         }
     }
 
-    /// The runs of a `text`, written as an array of objects, each the arguments of a `run`.
-    fn runs(&mut self, pointer: &str, json: &Json) -> Result<Value, Error> {
-        let Json::Array(items) = json else {
+    /// The records of a call (the runs of a `text`, the boxes or points of `marks`), written as an array of objects,
+    /// each the arguments of the table its kind names.
+    fn records(&mut self, arg: &'static Arg, pointer: &str, json: &Json) -> Result<Value, Error> {
+        let (Json::Array(items), Some(table)) = (json, arg.kind.records()) else {
             return Err(refuse(
                 pointer,
-                format!("must be an array of runs, not {}", json.describe()),
+                format!("must be an array of records, not {}", json.describe()),
             ));
         };
         items
             .iter()
             .enumerate()
-            .map(|(at, item)| self.arguments(&crate::node::text::RUN, &format!("{pointer}/{at}"), item))
+            .map(|(at, item)| self.arguments(table, &format!("{pointer}/{at}"), item))
             .collect::<Result<_, _>>()
-            .map(Value::Runs)
+            .map(|records| Value::Records(table, records))
     }
 
     /// A scale factor: one number for both directions, or `[x, y]`.

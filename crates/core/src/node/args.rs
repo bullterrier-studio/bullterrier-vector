@@ -71,8 +71,8 @@ pub(crate) enum Given {
     Axes(Vec<(String, Expr)>),
     /// OpenType feature values by four-character tag, in tag order.
     Features(Vec<(String, u32)>),
-    /// The runs of a `text`: the arguments of one `run` call each.
-    Runs(Vec<Args>),
+    /// Records: the arguments of one `run` (a `text`) or one box or point (`marks`) call each.
+    Records(Vec<Args>),
     /// Left out.
     Unset,
 }
@@ -283,7 +283,7 @@ impl Args {
                     key.word(14);
                     key.of(paint);
                 }
-                Given::Runs(runs) => {
+                Given::Records(runs) => {
                     key.word(15);
                     key.count(runs.len());
                     for run in runs {
@@ -392,7 +392,7 @@ impl Args {
                     flow.collect_params(&mut reads.all);
                     flow.collect_params(&mut reads.free);
                 }
-                Given::Runs(runs) => {
+                Given::Records(runs) => {
                     for run in runs {
                         let read = run.reads()?;
                         reads.all.extend(read.all);
@@ -454,11 +454,11 @@ impl Args {
             }
         }
         for (arg, given) in self.declared() {
-            if let Given::Runs(runs) = given {
+            if let Given::Records(runs) = given {
                 for (at, run) in runs.iter().enumerate() {
                     run.validate().map_err(|error| match error {
                         Error::Parameter { parameter, message } => {
-                            Error::parameter(arg.name, format!("run {at}: {parameter}: {message}"))
+                            Error::parameter(arg.name, format!("{} {at}: {parameter}: {message}", run.verb.name))
                         }
                         other => other,
                     })?;
@@ -789,12 +789,12 @@ impl Args {
         }
     }
 
-    /// The arguments of each run of `name`, in order; none if the call left the argument out.
-    pub(crate) fn runs(&self, name: &str) -> Result<&[Args], Error> {
+    /// The arguments of each record of `name`, in order; none if the call left the argument out.
+    pub(crate) fn records(&self, name: &str) -> Result<&[Args], Error> {
         match self.find(name)? {
             (_, Given::Unset) => Ok(&[]),
-            (_, Given::Runs(runs)) => Ok(runs),
-            _ => Err(self.misread(name, "runs")),
+            (_, Given::Records(runs)) => Ok(runs),
+            _ => Err(self.misread(name, "records")),
         }
     }
 
