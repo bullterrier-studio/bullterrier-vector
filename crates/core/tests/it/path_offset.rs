@@ -775,7 +775,7 @@ fn repeated_offsets_of_a_circle_keep_the_point_count_and_the_radius() -> Outcome
     }
     // the exact radius is 120; each call strays by at most TOLERANCE
     for &(x, y) in &rings(&grown)?[0] {
-        assert_near(x.hypot(y), 120.0, 5.0 * TOLERANCE, "radius of a corner");
+        assert_near((x * x + y * y).sqrt(), 120.0, 5.0 * TOLERANCE, "radius of a corner");
     }
     Ok(())
 }

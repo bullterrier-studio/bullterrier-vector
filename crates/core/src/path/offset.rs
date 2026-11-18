@@ -175,7 +175,7 @@ fn thin(shapes: &mut [Vec<Contour>], tolerance: f64) {
 }
 
 fn squared_distance(a: [f64; 2], b: [f64; 2]) -> f64 {
-    (a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)
+    (a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1])
 }
 
 /// The distance from `p` to the segment `a` to `b`.

@@ -284,6 +284,15 @@ def test_split_gives_each_open_line_alone_and_an_empty_path_no_parts():
     assert Path().split() == []
 
 
+def test_subpaths_give_every_sub_path_alone_and_joined_again_draw_the_whole():
+    ring = Path.from_svg_path("M0 0 L10 0 L10 10 L0 10 Z M3 3 L3 7 L7 7 L7 3 Z")
+    outer, counter = ring.subpaths()
+    assert (outer.bounds, counter.bounds) == (Rect(0, 0, 10, 10), Rect(3, 3, 4, 4))
+    assert Path.from_svg_path(f"{outer.to_svg_path()} {counter.to_svg_path()}").to_svg_path() == ring.to_svg_path()
+    assert [part.to_svg_path() for part in line().subpaths()] == ["M0 0 L10 0"]
+    assert Path().subpaths() == []
+
+
 # --- cutting and turning -------------------------------------------------------------------------------------------
 
 

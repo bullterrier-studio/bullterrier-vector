@@ -452,6 +452,11 @@ impl PyPath {
         raised(self.0.contains(point.0))
     }
 
+    /// The sub-paths, each as a path of its own: an outline and its counters come apart.
+    fn subpaths(&self) -> Vec<Self> {
+        self.0.subpaths().into_iter().map(Self).collect()
+    }
+
     /// The separate parts: each closed outline with the holes inside it, and each open line.
     fn split(&self) -> Vec<Self> {
         self.0.split().into_iter().map(Self).collect()

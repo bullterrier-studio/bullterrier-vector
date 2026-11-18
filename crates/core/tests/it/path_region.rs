@@ -2,7 +2,9 @@
 //! `contains` is checked against a different method than the library's: the sum of the signed angles a closed
 //! polyline turns through round the point, which is 2 pi times the winding number.
 
-use crate::common::{Corners, Outcome, build, clearance, distance, log_uniform, parameter_refusal, step, winding};
+use crate::common::{
+    Corners, Outcome, build, clearance, distance, log_uniform, parameter_refusal, rings, shoelace_area, step, winding,
+};
 use bullterrier_vector::Path;
 use proptest::prelude::*;
 use std::f64::consts::PI;
@@ -296,5 +298,56 @@ proptest! {
         prop_assert_eq!(found, expected);
         let total: f64 = pieces.iter().map(Path::length).sum();
         prop_assert!((total - whole.length()).abs() <= 1e-9 * (whole.length() + 1.0), "{} against {}", total, whole.length());
+    }
+}
+
+// `subpaths`: each sub-path alone and as written, so the parts joined again draw the whole. The oracle for the sides of
+// an O is the shoelace sum (the outer ring and its counter wind in opposite directions).
+const RING: &str = "M0 0 L10 0 L10 10 L0 10 Z M3 3 L3 7 L7 7 L7 3 Z";
+
+#[test]
+fn an_o_gives_its_outline_and_its_counter_apart_winding_opposite_ways() -> Outcome {
+    let o = Path::from_svg_path(RING)?;
+    let found = o.subpaths();
+    assert_eq!(found.len(), 2);
+    let signed: Vec<f64> = found
+        .iter()
+        .map(|part| Ok(shoelace_area(&rings(part)?[0])))
+        .collect::<Result<_, Box<dyn std::error::Error>>>()?;
+    assert_eq!(signed, [100.0, -16.0]);
+    Ok(())
+}
+
+#[test]
+fn an_open_polyline_is_one_sub_path_and_an_empty_path_has_none() -> Outcome {
+    let open = Path::from_svg_path("M0 0 L5 5 L10 0")?;
+    assert_eq!(open.subpaths(), std::slice::from_ref(&open));
+    assert_eq!(Path::new().subpaths().len(), 0);
+    Ok(())
+}
+
+proptest! {
+    // Joining the sub-paths back (as path data, the public way to put paths together) draws the whole.
+    #[test]
+    fn the_sub_paths_joined_draw_the_whole(
+        size in log_uniform(0.0, 4.0),
+        start in (-1.0f64..1.0, -1.0f64..1.0),
+        steps in prop::collection::vec(step((-1.0f64..1.0, -1.0f64..1.0)), 0..14),
+    ) {
+        let scale = |(x, y): (f64, f64)| (x * size, y * size);
+        let steps: Vec<_> = steps.into_iter().map(|step| match step {
+            crate::common::Step::Move(p) => crate::common::Step::Move(scale(p)),
+            crate::common::Step::Line(p) => crate::common::Step::Line(scale(p)),
+            crate::common::Step::Quad(c, p) => crate::common::Step::Quad(scale(c), scale(p)),
+            crate::common::Step::Curve(a, b, p) => crate::common::Step::Curve(scale(a), scale(b), scale(p)),
+            crate::common::Step::Close => crate::common::Step::Close,
+        }).collect();
+        let whole = build(scale(start), &steps).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let data: Vec<String> = whole.subpaths().iter().map(Path::to_svg_path).collect();
+        for part in whole.subpaths() {
+            prop_assert_eq!(sub_paths(&part.to_svg_path()).len(), 1);
+        }
+        let again = Path::from_svg_path(&data.join(" ")).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        prop_assert_eq!(again.to_svg_path(), whole.to_svg_path());
     }
 }

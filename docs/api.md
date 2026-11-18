@@ -127,6 +127,7 @@ Measuring and hit-testing (on `Path` only):
 | `tangent_at` | `tangent_at(at, *, near=None)` | the unit direction of travel there | as `point_at`; `GeometryError` also for a path with no length |
 | `locate` | `locate(point, *, near=None)` | the position 0..1 of the point on the path nearest `point` | `GeometryError`: an empty path |
 | `contains` | `contains(point)` | whether `point` is inside the filled region (nonzero rule; an open sub-path fills as if closed; a point exactly on the outline may be either) | `ParameterError`: `point` not finite |
+| `subpaths` | `subpaths()` | a `list[Path]` of its sub-paths, in path order, each alone exactly as written (closed or open): an outline and its counters come apart, so an O gives two, winding opposite ways; joined again in order they draw the path. An empty path gives `[]`. Rust `subpaths()`; not in JavaScript (`Path` is not exposed there) | |
 | `split` | `split()` | a `list[Path]` of its parts, in path order: each closed outline with the holes inside it, and each open line; a closed sub-path inside an odd number of others is a hole of the innermost, inside an even number it is a part of its own | |
 | `map_points` | `map_points(fn)` | the path with every point, on and off the curve, passed through `fn(point) -> point` | what `fn` raises |
 | `to_svg_path` | `to_svg_path()` | SVG path data for the path | |

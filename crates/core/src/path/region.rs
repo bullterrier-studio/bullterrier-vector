@@ -23,6 +23,20 @@ impl Path {
         Ok(winding != 0)
     }
 
+    /// The sub-paths of the path, in path order, each as a path of its own exactly as written (closed or open): an
+    /// outline and the counters inside it come apart, so an O gives two, winding opposite ways. Put back together in
+    /// order (as path data, say), they draw the path. An empty path has none; [`Path::split`] keeps holes with their
+    /// outlines.
+    #[must_use]
+    pub fn subpaths(&self) -> Vec<Self> {
+        self.subpaths
+            .iter()
+            .map(|subpath| Self {
+                subpaths: vec![subpath.clone()],
+            })
+            .collect()
+    }
+
     /// The separate parts of the path, in path order: each closed outline together with the holes inside it (a
     /// closed sub-path whose start lies inside the outline), and each open sub-path alone. An outline inside a hole
     /// is a part of its own, and holes inside it are its. A hole written before its outline stays with it, and a part

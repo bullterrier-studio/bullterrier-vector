@@ -815,6 +815,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **The round arc step comes from `tolerance`** (2026-11-08): `2 acos(1 - tolerance / r)` for radius `r`, the widest step
   whose chord strays by at most `tolerance`. *Reason:* the number that shapes the result is a parameter in its own terms
   (rule 1), and `tolerance` already is.
+- **`Path.subpaths()`, not `contours`** (2026-11-18): `Field.contours()` already means the lines of a field, and
+  `docs/formats.md` calls these sub-paths; one name keeps one meaning. Unlike `split`, holes are not kept with their outline.
 - **Offsets and outlines drop the corners `tolerance` makes invisible** (2026-11-18). *Cause:* the engine joins each vertex
   of the flattened input with an arc of its own, so a smooth outline came back with two corners per corner it had (a circle
   of 383 gave 767, then 1,535, 3,071...; one letter 55, 1,929, 3,337, 5,560, 9,624, 17,640 over five calls of 4), and
