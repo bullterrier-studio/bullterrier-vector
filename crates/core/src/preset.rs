@@ -27,11 +27,6 @@ const PRESETS: [(&str, &str, &str); 13] = [
         include_str!("../presets/flow_hatch.json"),
     ),
     (
-        "glyph_morph",
-        "A letter that turns into a circle while one word turns into another.",
-        include_str!("../presets/glyph_morph.json"),
-    ),
-    (
         "glyph_scatter",
         "A heavy word whose letters are broken apart, tipped and bounced by seeded random amounts.",
         include_str!("../presets/glyph_scatter.json"),
@@ -60,6 +55,11 @@ const PRESETS: [(&str, &str, &str); 13] = [
         "stipple",
         "A ball shaded only by dots, dense in its shadow and bare where the light falls.",
         include_str!("../presets/stipple.json"),
+    ),
+    (
+        "text_on_path",
+        "A word that rides round a ring and travels half way round it as the slider moves.",
+        include_str!("../presets/text_on_path.json"),
     ),
     (
         "two_fonts",
