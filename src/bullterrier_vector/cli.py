@@ -42,7 +42,7 @@ def _pairs(texts: list[str], what: str) -> list[tuple[str, str]]:
     pairs = []
     for text in texts:
         name, separator, value = text.partition("=")
-        if not separator or not name:
+        if not separator:
             raise _RefusalError(f"{text}: {what} is written NAME={'FILE' if what == '--input' else 'NUMBER'}")
         pairs.append((name, value))
     return pairs
