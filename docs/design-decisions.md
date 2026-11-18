@@ -820,20 +820,21 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **Offsets and outlines drop the corners `tolerance` hides from their input, in one pass** (2026-11-18). *Cause:* the
   engine joins each vertex of the flattened input with an offset pair of its own, so a smooth outline came back with two
   corners per corner it had (a circle of 383 gave 767, then 1,535, 3,071...; one letter 55, 1,929, 3,337, 5,560, 9,624,
-  17,640 over five calls of 4), and repeated offsets grew without bound. *Fix:* `thinned` in `path/offset.rs` drops,
-  from each flattened contour and line before the engine, every corner within half of `tolerance` of the edge kept in
-  its place (a cone of allowed directions from the last corner kept, one pass, each corner looked at at most twice;
-  the proof is beside it); the arcs take the other half (`Spend`, the one owner of the split). Thinning the result
-  instead (tried first) let a hole cross its outline in `outline` (the engine no longer had the last word on the
-  edges) and its Douglas and Peucker search went quadratic on regular shapes (a saw of 80,000 corners 7 s against
-  0.16 s). *Bound:* thinning moves the outline by at most half of `tolerance`, and a round join or cap moves no more
-  than the outline it follows, so a round-joined result lies within `tolerance` of the offset of the flattened path. A
-  miter or bevel follows the direction of the edges beside it, which a dropped corner changes: there the result is the
-  exact offset of the thinned path, and a nick that half of `tolerance` hides throws no point of its own. A closed
-  contour that would keep fewer than 3 corners stays as it was, and an open line keeps its first two and last two (they
-  set its caps), so thin shapes still paint. *Changed:* offset and outline bytes: old and new results each lie within
-  `tolerance` of the exact offset of the flattened path, so they can differ by up to twice it;
-  repeated offsets keep their size (the letter: 1,741, 1,715, 1,511, 1,340, 1,216 points over five calls of 4).
+  17,640 over five calls of 4), and repeated offsets grew without bound. *Fix:* `thinned` in `path/offset.rs` drops
+  corners from each flattened contour and line before the engine, each only where it lies within half of `tolerance` of
+  the edge kept in its place (a greedy cone of allowed directions from the last corner kept, one pass, each corner
+  looked at at most three times; the proof is beside it); the arcs take the other half (`Spend`, the one owner of the
+  split). Thinning the result instead (tried first) let a hole cross its outline in `outline` (the engine no longer had
+  the last word on the edges) and its Douglas and Peucker search went quadratic on regular shapes (a saw of 80,000
+  corners 7 s against 0.16 s). *Bound:* thinning moves the outline by at most half of `tolerance`, which changes a
+  point's distance to it by no more, and the chords cut inside the arcs by at most the other half, so a round-joined
+  result lies between the offsets of the flattened path by `distance` less and more `tolerance`. A miter or bevel
+  follows the direction of the edges beside it, which a dropped corner changes: there the result is the exact offset of
+  the thinned path, and a dropped corner throws no point of its own. A closed contour that would keep fewer than 3
+  corners stays as it was, and an open line keeps its first two and last two (they set its caps), so thin shapes still
+  paint. *Changed:* offset and outline bytes: old and new round-joined results both lie in that band, so they can differ
+  by up to twice `tolerance`; repeated offsets keep their size (the letter: 1,741, 1,715, 1,511, 1,340, 1,216 points
+  over five calls of 4).
 - **Limits of the engine found when it was built in** (2026-11-08), kept, not worked around: a `miter_limit` above about 23
   acts as 23 (the engine takes the corner angle in integer maths); its arcs run from 1.8 to 45 degrees, and a step of 1.8
   degrees strays from its arc by `1 - cos(0.9 degrees)` = 0.000123 of the radius, so a round join of a radius above the

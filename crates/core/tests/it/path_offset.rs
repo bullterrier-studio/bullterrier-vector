@@ -531,19 +531,18 @@ fn shapes_thinner_than_the_tolerance_still_paint() -> Outcome {
 // small throws no miter or bevel of its own: the square with a nick of 0.0049 grows into exactly the square without it.
 #[test]
 fn a_nick_the_tolerance_hides_is_not_a_corner() -> Outcome {
-    let nicked = polygons_path(&[vec![
-        (0.0, 0.0),
-        (9.99, -0.0049),
-        (10.0, 0.0),
-        (10.0, 10.0),
-        (0.0, 10.0),
-    ]])?;
-    for join in [Join::Miter, Join::Bevel, Join::Round] {
-        assert_eq!(
-            nicked.offset(4.0, join, LIMIT, TOLERANCE)?.to_svg_path(),
-            square(10.0)?.offset(4.0, join, LIMIT, TOLERANCE)?.to_svg_path(),
-            "{join:?}"
-        );
+    // the same square written from each of its five corners, one of them the nick
+    let mut corners = vec![(0.0, 0.0), (9.99, -0.0049), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    for start in 0..5 {
+        let nicked = polygons_path(std::slice::from_ref(&corners))?;
+        for join in [Join::Miter, Join::Bevel, Join::Round] {
+            assert_eq!(
+                nicked.offset(4.0, join, LIMIT, TOLERANCE)?.to_svg_path(),
+                square(10.0)?.offset(4.0, join, LIMIT, TOLERANCE)?.to_svg_path(),
+                "{join:?} written from corner {start}"
+            );
+        }
+        corners.rotate_left(1);
     }
     Ok(())
 }

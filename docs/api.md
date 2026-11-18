@@ -266,11 +266,12 @@ of shapes grows by different amounts; `join`, `cap`, `miter_limit` and `toleranc
 Rust: `path.offset(2.0, Join::Round, 4.0, 0.01)?`, `drawing.offset(2.0, Join::Round, 4.0, 0.01)`,
 `drawing.outline(2.0, Join::Round, Cap::Round, 4.0, 0.01)`.
 
-Corners: curves are flattened to `tolerance`, then every corner within half of `tolerance` of the edge kept in its
-place is dropped before the offset, so offsetting a result again does not double its corners (five offsets of a letter
-by 4 stay near the first result's size). Round joins and caps are cut to within the other half, so a round-joined
-result lies within `tolerance` of the offset of the flattened path; with `miter` and `bevel` a corner that small throws
-no point of its own and the joins beside it follow the edge that replaced it. An open line keeps its first two and last
+Corners: curves are flattened to `tolerance`, then corners are dropped before the offset, each only where it lies within
+half of `tolerance` of the edge kept in its place, so offsetting a result again does not double its corners (five
+offsets of a letter by 4 stay near the first result's size). Round joins and caps are cut to within the other half, so
+a round-joined result lies between the offsets of the flattened path by `distance` (or half the `width`) less and more
+`tolerance`; with `miter` and `bevel` a dropped corner throws no point of its own and the joins beside it follow the
+edge that replaced it. An open line keeps its first two and last
 two corners (they set its caps), and a shape thinner than `tolerance` still paints.
 
 Errors: `ParameterError` as the rows say; a `Drawing` names the step and the argument (`step 2 (offset).join`) and a draw

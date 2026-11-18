@@ -35,11 +35,11 @@ impl Path {
     /// contours grow and holes shrink; a region that shrinks past nothing is an empty path. A `distance` of 0 gives the
     /// resolved path. The result is in canonical form and straight-edged.
     ///
-    /// Curves are flattened to `tolerance`, then every corner within half of `tolerance` of the edge between the corners
-    /// kept on either side is dropped (a corner no farther from that edge is not one), so offsetting a result again does
-    /// not double its corners; the result is the offset of what is left. With round joins it lies within `tolerance` of
-    /// the offset of the flattened path. With miter and bevel joins a dropped corner throws no point of its own, and the
-    /// joins beside it follow the edge that replaced it.
+    /// Curves are flattened to `tolerance`, then corners are dropped, each only where it lies within half of `tolerance`
+    /// of the edge between the corners kept on either side, so offsetting a result again does not double its corners;
+    /// the result is the offset of what is left. With round joins it lies between the offsets of the flattened path by
+    /// `distance` less and more `tolerance`. With miter and bevel joins a dropped corner throws no point of its own, and
+    /// the joins beside it follow the edge that replaced it.
     ///
     /// `join` shapes the corners that stick out: `Round` an arc of the radius `distance`, cut into steps that stray from
     /// it by at most half of `tolerance` (the engine's arc steps run from 1.8 to 45 degrees, so a radius above about
@@ -148,8 +148,9 @@ impl Path {
 }
 
 /// How a verb spends `tolerance` beyond flattening: on dropping the corners of the flattened input it cannot see, and on
-/// cutting arcs into chords. Each moves the outline by at most its share, so a round-joined result lies within
-/// `tolerance` of the exact offset of the flattened path.
+/// cutting arcs into chords. Dropping corners moves the outline by at most its share, which moves a point's distance to
+/// it by no more, and the chords cut inside the arcs by at most theirs, so a round-joined result lies between the
+/// exact offsets of the flattened path by `distance` less and more `tolerance`.
 struct Spend {
     corners: f64,
     arcs: f64,
@@ -165,30 +166,30 @@ impl Spend {
 }
 
 /// `points` (a closed contour when `closed`, its last corner joined to its first) without the corners that lie within
-/// `within` of the edge between the corners kept on either side. The first corner is kept, and an open line keeps its
-/// first two and last two (they set the direction of its caps); a closed contour that would keep fewer than 3 corners
-/// (a sliver no wider than twice `within`) stays as it is, so it still offsets and strokes.
+/// `within` of the edge between the corners kept on either side (a greedy pass: it drops no corner farther than that,
+/// but may keep some it could drop). An open line keeps its first two and last two corners (they set the direction of
+/// its caps); a closed contour that would keep fewer than 3 corners (a sliver no wider than twice `within`) stays as it
+/// is, so it still offsets and strokes.
 ///
-/// One pass, each corner looked at no more than twice. From a kept corner `a`, the edge reaches forward while the next
-/// corner `q` lies in the cone of directions every corner passed allows and is no nearer `a` than any of them. A corner
-/// `p` at `r = |p - a|` above `within` allows the directions within `asin(within / r)` of its own: `p` is then within
-/// `r sin(asin(within / r)) = within` of the line from `a` towards `q`, on the side of `a` that `q` is (the angle is
-/// under 90 degrees), and no farther along than `|q - a|`, which is at least `r`; so `p` is within `within` of the edge
-/// `a`-`q` itself. A corner within `within` of `a` is within it of the edge already.
+/// One pass, each corner looked at no more than twice, and once more round the start of a closed contour; the corners
+/// are those flattening charged, so nothing more is charged. From a kept corner `a`, the edge reaches forward while the
+/// next corner `q` lies in the cone of directions every corner passed allows and is no nearer `a` than any of them. A
+/// corner `p` at `r = |p - a|` above `within` allows the directions within `asin(within / r)` of its own: `p` is then
+/// within `r sin(asin(within / r)) = within` of the line from `a` towards `q`, on the side of `a` that `q` is (the
+/// angle is under 90 degrees), and no farther along than `|q - a|`, which is at least `r`; so `p` is within `within` of
+/// the edge `a`-`q` itself. A corner within `within` of `a` is within it of the edge already.
 fn thinned(points: &[[f64; 2]], closed: bool, within: f64) -> Contour {
     let count = points.len();
     let at = |k: usize| points[k % count];
-    let last = if closed { count } else { count - 1 };
     let fixed = |k: usize| !closed && (k == 1 || k + 2 == count);
-    let mut kept = vec![points[0]];
-    let mut anchor = 0;
-    while anchor < last {
+    // the farthest corner up to `stop` that the edge from `anchor` may reach
+    let reach = |anchor: usize, stop: usize| {
         let a = at(anchor);
         let mut end = anchor + 1;
         // the directions every corner passed allows, from `low` round to `high` (counter-clockwise, under a half turn)
         let mut cone: Option<([f64; 2], [f64; 2])> = None;
-        let mut reach = 0.0_f64; // the largest squared distance from `a` of a corner passed
-        while end < last && !fixed(end) {
+        let mut farthest = 0.0_f64; // the largest squared distance from `a` of a corner passed
+        while end < stop && !fixed(end) {
             let p = sub(at(end), a);
             let r = dot(p, p);
             if r > within * within {
@@ -203,24 +204,32 @@ fn thinned(points: &[[f64; 2]], closed: bool, within: f64) -> Contour {
                     ),
                 });
             }
-            reach = reach.max(r);
+            farthest = farthest.max(r);
             let q = sub(at(end + 1), a);
             let inside = cone.is_none_or(|(low, high)| cross(low, q) >= 0.0 && cross(q, high) >= 0.0);
-            if !inside || dot(q, q) < reach {
+            if !inside || dot(q, q) < farthest {
                 break;
             }
             end += 1;
         }
-        kept.push(at(end));
-        anchor = end;
+        end
+    };
+    let last = if closed { count } else { count - 1 };
+    let mut kept = vec![0];
+    while kept[kept.len() - 1] < last {
+        kept.push(reach(kept[kept.len() - 1], last));
     }
     if closed {
-        kept.pop();
+        kept.pop(); // the first corner again
+        // the first corner was kept only because the pass started there: drop it if the edge round it reaches over it
+        if kept.len() > 3 && reach(kept[kept.len() - 1], kept[1] + count) == kept[1] + count {
+            kept.remove(0);
+        }
         if kept.len() < 3 {
             return points.to_vec();
         }
     }
-    kept
+    kept.into_iter().map(at).collect()
 }
 
 fn sub(a: [f64; 2], b: [f64; 2]) -> [f64; 2] {
