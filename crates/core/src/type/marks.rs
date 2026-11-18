@@ -23,10 +23,10 @@ impl BoxMark {
         }
     }
 
-    /// This box with `label`, one line of printable characters, on a leader from its top right corner. An empty label
+    /// This box with `text`, one line of printable characters, on a leader from its top right corner. An empty label
     /// is none.
     #[must_use]
-    pub fn label(mut self, label: impl Into<String>) -> Self {
+    pub fn text(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
     }
@@ -39,7 +39,7 @@ impl BoxMark {
             ("width", Given::Number(width)),
             ("height", Given::Number(height)),
         ];
-        given.extend(self.label.map(|label| ("label", Given::Text(label))));
+        given.extend(self.label.map(|label| ("text", Given::Text(label))));
         Args::new(&BOX, given)
     }
 }
@@ -61,9 +61,9 @@ impl PointMark {
         }
     }
 
-    /// This point with `label`, one line of printable characters, on a leader from the point. An empty label is none.
+    /// This point with `text`, one line of printable characters, on a leader from the point. An empty label is none.
     #[must_use]
-    pub fn label(mut self, label: impl Into<String>) -> Self {
+    pub fn text(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
     }
@@ -71,34 +71,34 @@ impl PointMark {
     fn args(self) -> Args {
         let [x, y] = self.numbers;
         let mut given = vec![("x", Given::Number(x)), ("y", Given::Number(y))];
-        given.extend(self.label.map(|label| ("label", Given::Text(label))));
+        given.extend(self.label.map(|label| ("text", Given::Text(label))));
         Args::new(&POINT, given)
     }
 }
 
 /// The options of [`marks`]: the font of the labels, the marks, and what is not the default of the rest.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Marks {
-    font: Font,
+    font: Option<Font>,
     boxes: Vec<BoxMark>,
     points: Vec<PointMark>,
     bracket: Option<Expr>,
     cross: Option<Expr>,
-    label_size: Option<Expr>,
+    text_size: Option<Expr>,
 }
 
 impl Marks {
-    /// No marks yet; labels are set in `font`.
+    /// No marks yet; labels are set in the bundled monospaced font (`JetBrains Mono`).
     #[must_use]
-    pub fn new(font: &Font) -> Self {
-        Self {
-            font: font.clone(),
-            boxes: Vec::new(),
-            points: Vec::new(),
-            bracket: None,
-            cross: None,
-            label_size: None,
-        }
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// These marks with labels set in `font` instead of the bundled monospaced one.
+    #[must_use]
+    pub fn font(mut self, font: &Font) -> Self {
+        self.font = Some(font.clone());
+        self
     }
 
     /// These marks with `boxes`, each bracketed in its four corners.
@@ -131,10 +131,10 @@ impl Marks {
         self
     }
 
-    /// These marks with labels `label_size` pixels to the em: above 0. Default 12.
+    /// These marks with labels `text_size` pixels to the em: above 0. Default 12.
     #[must_use]
-    pub fn label_size(mut self, label_size: impl Into<Expr>) -> Self {
-        self.label_size = Some(label_size.into());
+    pub fn text_size(mut self, text_size: impl Into<Expr>) -> Self {
+        self.text_size = Some(text_size.into());
         self
     }
 }
@@ -144,14 +144,14 @@ impl Marks {
 /// Each box has a bracket in each corner: an open line of three points (arm, corner, arm) whose arms are `bracket`
 /// times the box's smaller side long. Each point has a crosshair: two open lines through it, each `cross` either way.
 /// A mark with a label has a leader, an open line from the box's top right corner or from the point, up and to the
-/// right by `cross` plus `label_size` in each direction, and the label, `label_size` pixels to the em in the font of
+/// right by `cross` plus `text_size` in each direction, and the label, `text_size` pixels to the em in the font of
 /// the options, one line: the glyphs `text` makes of it, standing to the right of the leader's end with the middle of
 /// a capital on its height. So a label never lies on its own box (it is to the right of the corner) or crosshair (it
 /// is beyond its reach). No layout is solved: two labels can overlap.
 ///
-/// Every shape has `role` (`bracket`, `cross`, `leader` or `label`) and `mark` (which mark it is of: the boxes in the
-/// order given, then the points), and no paint, so `only(Select::new().attribute("role", "label"))` picks what to
-/// style; a label's glyphs also have what `text` writes. Brackets, crosshairs and leaders are open lines, ready for
+/// Every shape has `role` (`bracket`, `cross`, `leader` or `text`) and `mark` (which mark it is of: the boxes in the
+/// order given, then the points), and no paint, so `only(Select::new().attribute("role", "text"))` picks what to
+/// style; the text's glyphs also have what `text` writes. Brackets, crosshairs and leaders are open lines, ready for
 /// a plotter.
 ///
 /// A bracket not above 0 and at most 0.5, a cross or label size not above 0, a box with a width or height not above
@@ -160,7 +160,10 @@ impl Marks {
 /// `Param` the draw is refused.
 #[must_use]
 pub fn marks(options: Marks) -> Drawing {
-    let mut given = vec![("font", Given::Font(options.font))];
+    let mut given = Vec::new();
+    if let Some(font) = options.font {
+        given.push(("font", Given::Font(font)));
+    }
     if !options.boxes.is_empty() {
         given.push((
             "boxes",
@@ -176,7 +179,7 @@ pub fn marks(options: Marks) -> Drawing {
     for (name, number) in [
         ("bracket", options.bracket),
         ("cross", options.cross),
-        ("label_size", options.label_size),
+        ("text_size", options.text_size),
     ] {
         if let Some(number) = number {
             given.push((name, Given::Number(number)));

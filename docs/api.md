@@ -439,7 +439,7 @@ the shapes carry no paint (paint each with `only(level=..).fill(..)`, or `only(l
 |---|---|---|
 | `Drawing.trace_levels(map, levels, *, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)` | one shape for each of `levels` (0 black to 1 white; a number or a list) the map reaches, in the order given: the region where the map is at or above it | `smooth` is the standard deviation, in design pixels, of a Gaussian that blurs the map first; `close`, then `open` (design pixels) fill and remove what is narrower than twice the radius; `min_hole` and `min_area` (square pixels) fill small holes and drop small parts; `tolerance` fits curves within that many design pixels of the traced polyline (0 keeps it). `levels` and each number is a number, a `Param` or an expression, read once |
 | `Drawing.trace_labels(map, *, max_colors=32, ...)` | one shape for each byte the map holds, attribute `label` the byte; the shapes tile the frame and its padding: no overlap, no gap, whatever the tidying | the tidying of `trace_levels`. The commonest label (the lowest byte of a tie) comes first and is whatever the others leave; the others follow in order of the byte, each cut by the labels after it, so a tidied shape is a polyline within 0.01 pixels of its curve. Cutting too many outlines apart is refused naming `max_colors` |
-| `Drawing.trace_cells(map, cell_size, *, max_colors=32)` | one shape (one outline with all its regions) for each colour, in order of the byte, attribute `label`, exactly | the map is cells of `cell_size` map pixels, each one byte (a dithered picture scaled by `cell_size`); cells of one colour that touch are merged, edges lie on cell sides, no fitting; areas are the cells' and the shapes tile the map |
+| `Drawing.trace_cells(map, cell, *, max_colors=32)` | one shape (one outline with all its regions) for each colour, in order of the byte, attribute `label`, exactly | the map is cells of `cell` map pixels, each one byte (a dithered picture scaled by `cell`); cells of one colour that touch are merged, edges lie on cell sides, no fitting; areas are the cells' and the shapes tile the map |
 
 A shape that meets the map's border goes on past it and closes outside the frame, so no edge lies along the border. The
 overhang is the larger of `open` and `close` plus `tolerance` (in map pixels, rounded up), plus two map pixels. For a plotter
@@ -463,7 +463,7 @@ Errors: `ParameterError` naming `levels` (none, over 256, not finite, or passes 
 over 1e100; the largest of `open`, `close` and `tolerance` also when the padded lattice passes 2^25 nodes (a 4096 by 4096
 map holds hundreds of pixels of padding), `smooth` also when the blur passes 2e9 steps), `max_colors` (not a whole number from
 1 to 256, fewer than the map's colours, or labels whose outlines are too many to cut apart within the draw's segment
-budget), `cell_size` (not a whole number from 1, not dividing the map, or a cell of more than one byte) and `map` (not a
+budget), `cell` (not a whole number from 1, not dividing the map, or a cell of more than one byte) and `map` (not a
 `Field.map`). From Python a count that is not whole (2.5) or below 0 raises `ParameterError` naming it.
 [trace.py](../examples/trace.py) traces a relief and a dithered strip.
 
@@ -814,14 +814,14 @@ well, or a plain text without a `font`. In Python `content` that is neither a `s
 
 ### characters
 
-`characters(rows, *, cell, font=None, size=None, colors=None)`: a grid of characters, one outlined glyph in each cell. Rust:
-`characters(rows, Characters::new(&font, cell).size(10.0).colors(colors))`.
+`characters(content, *, cell, font=None, size=None, colors=None)`: a grid of characters, one outlined glyph in each cell. Rust:
+`characters(content, Characters::new(cell).size(10.0).colors(colors))` (`.font(&font)` for another font).
 
 | Argument | Meaning |
 |---|---|
-| `rows` | the text: a `str` with `"\n"` between its rows, or a list of `str`, one for each row (Python). A row may be shorter than another |
+| `content` | the text (named as in `text`): a `str` with `"\n"` between its rows, or a list of `str`, one for each row (Python). A row may be shorter than another |
 | `cell` | the width and height of a cell in design pixels: one number for a square cell, or `(width, height)`; above 0 and finite, a literal |
-| `font` | a `Font`; default the bundled `jetbrains_mono` (Rust: no default, `Characters::new` takes it) |
+| `font` | a `Font`; default the bundled `jetbrains_mono` in Rust, Python and documents |
 | `size` | pixels to the em, a number, `Param` or expression read once; default the largest at which the widest glyph of the grid fits the cell across and the font's line box (ascender to descender) fits it down |
 | `colors` | rows of colour texts, one for each character of each row, spaces included: what bullterrier-image's `characters(...).colors` returns, so its output goes in as it is (`btvec.characters(art.text, cell=(6, 12), colors=art.colors)`). Each shape is filled with its colour; without `colors` the shapes have no paint |
 
@@ -833,42 +833,42 @@ and a full stop, a comma or an underscore keep their place on the baseline of th
 `char`, `row` and `column` (from 0), `order` (the shape's place among the shapes, 0 to 1) and `origin` (the middle of its
 cell, so a rotation or a scale turns each glyph about its own cell); `only(char="#")` picks a character, `only(row=3)` a row.
 
-Errors (`ParameterError`): a `cell` not above 0 or not finite, a `size` not above 0, a control character in `rows` (the
+Errors (`ParameterError`): a `cell` not above 0 or not finite, a `size` not above 0, a control character in `content` (the
 message names its row and column), more than `MAX_GLYPHS` characters (refused before anything is drawn), `colors` that do
 not match the rows (the message names the row and the counts), a colour that is not `#rgb`, `#rrggbb`, `#rrggbbaa` or
-`none`; the outlines are charged to `MAX_SHAPES` and `MAX_OUTLINE_SEGMENTS` before any is made. In Python `rows` that is
+`none`; the outlines are charged to `MAX_SHAPES` and `MAX_OUTLINE_SEGMENTS` before any is made. In Python `content` that is
 neither a `str` nor a list of `str` and a `cell` that is not a number or a pair are a `TypeError`.
 
 ### marks
 
-`marks(boxes=(), points=(), *, bracket=0.25, cross=12, label_size=12, font=None)`: overlay marks in the look of a
-heads-up display, in design pixels. Rust: `marks(Marks::new(&font).boxes([BoxMark::new(40.0, 60.0, 120.0, 80.0).label("EAR L")])
-.points([PointMark::new(200.0, 90.0).label("NOSE")]).bracket(0.3))`.
+`marks(boxes=(), points=(), *, bracket=0.25, cross=12, text_size=12, font=None)`: overlay marks in the look of a
+heads-up display, in design pixels. Rust: `marks(Marks::new().boxes([BoxMark::new(40.0, 60.0, 120.0, 80.0).text("EAR L")])
+.points([PointMark::new(200.0, 90.0).text("NOSE")]).bracket(0.3))` (`.font(&font)` for another font).
 
 | Argument | Meaning |
 |---|---|
-| `boxes` | boxes to bracket: `(x, y, width, height)` or `(x, y, width, height, label)` (the top left corner; width and height above 0); numbers, `Param`s or expressions, read once |
-| `points` | points to mark with a crosshair: `(x, y)` or `(x, y, label)` |
+| `boxes` | boxes to bracket: `(x, y, width, height)` or `(x, y, width, height, text)` (the top left corner; width and height above 0); numbers, `Param`s or expressions, read once |
+| `points` | points to mark with a crosshair: `(x, y)` or `(x, y, text)` |
 | `bracket` | the length of a bracket's arm, in times the smaller side of its box: above 0, at most 0.5 |
 | `cross` | how far each line of a crosshair reaches either side of its point, in pixels: above 0 |
-| `label_size` | pixels to the em of the labels: above 0 |
-| `font` | the labels' font; default the bundled `jetbrains_mono` |
+| `text_size` | pixels to the em of the texts: above 0 |
+| `font` | the texts' font; default the bundled `jetbrains_mono` in Rust, Python and documents |
 
 A box has an open bracket (arm, corner, arm: three points) in each of its four corners. A point has two open lines through
-it, each `2 * cross` long. A mark with a label (a non-empty one line of printable characters) has a leader, an open line
-from the box's top right corner or from the point, up and to the right by `cross + label_size` in each direction, and the
-label: the glyphs of `text` at `label_size`, the pen a quarter em right of the leader's end and the middle of a capital on
+it, each `2 * cross` long. A mark with a `text` (a non-empty one line of printable characters) has a leader, an open line
+from the box's top right corner or from the point, up and to the right by `cross + text_size` in each direction, and the
+label: the glyphs of `text` at `text_size`, the pen a quarter em right of the leader's end and the middle of a capital on
 its height. That fixed rule keeps a label clear of its own box (it lies right of the corner) and of its own crosshair (it
 lies beyond its reach); no layout is solved, so labels of marks that lie close can overlap each other. A label is shaped
 as a string (a ligature of the font joins its characters).
 
-Every shape has `role` (`"bracket"`, `"cross"`, `"leader"` or `"label"`) and `mark` (which mark it belongs to, from 0: the
-boxes in order, then the points), none has a paint: select to style (`marks.only(role="label").fill(c)`,
-`marks.without(role="label").stroke(c, width=1.5)`). Brackets, crosshairs and leaders are open lines of two or three points,
+Every shape has `role` (`"bracket"`, `"cross"`, `"leader"` or `"text"`) and `mark` (which mark it belongs to, from 0: the
+boxes in order, then the points), none has a paint: select to style (`marks.only(role="text").fill(c)`,
+`marks.without(role="text").stroke(c, width=1.5)`). Brackets, crosshairs and leaders are open lines of two or three points,
 so `to_plot_svg` plots them as they are. The label's shapes also carry what `text` writes (`char`, `glyph`, `word`...).
 No box and no point is an empty drawing.
 
-Errors (`ParameterError`): a `bracket` not above 0 or past 0.5, a `cross`, `label_size`, `width` or `height` not above 0, a
+Errors (`ParameterError`): a `bracket` not above 0 or past 0.5, a `cross`, `text_size`, `width` or `height` not above 0, a
 number that is not finite or lies so far out that a line passes ±1e100, a label with a control character (a line break
 included), more than `MAX_MARKS` marks or `MAX_GLYPHS` characters of labels. In Python a box or a point that is not a
 tuple of the right length of numbers (and a label) is a `TypeError`.

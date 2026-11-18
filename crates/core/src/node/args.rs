@@ -770,6 +770,14 @@ impl Args {
         }
     }
 
+    /// The font of `name`, or the bundled monospaced one if the call left it out.
+    pub(crate) fn font_or_monospaced(&self, name: &str) -> Result<Font, Error> {
+        match self.find(name)? {
+            (_, Given::Unset) => Font::monospaced(),
+            _ => self.font(name).cloned(),
+        }
+    }
+
     /// The axis values of `name` for each of `count` items, by tag: the number each expression has for item `i` (a
     /// Param given a list reads entry `i`), within the argument's domain. Nothing if the call left the argument out.
     pub(crate) fn axes(&self, cx: &Context<'_>, name: &str, count: usize) -> Result<Vec<(String, Vec<f64>)>, Error> {

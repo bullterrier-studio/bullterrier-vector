@@ -32,7 +32,7 @@ const fn extent(name: &'static str) -> Arg {
 }
 
 const LABEL: Arg = Arg {
-    name: "label",
+    name: "text",
     kind: Kind::Text,
     default: Some(Literal::Unset),
     reads: Reads::Literal,
@@ -51,7 +51,7 @@ pub(crate) static BOX: Verb = Verb {
         extent("height"),
         LABEL,
     ],
-    check: Some(label_fits),
+    check: Some(text_fits),
 };
 
 /// One point of `marks`: the arguments of a record of `points`, not a call of its own. It is never registered.
@@ -60,14 +60,14 @@ pub(crate) static POINT: Verb = Verb {
     role: Role::Source,
     summary: "a point to mark with a crosshair: where it is, and an optional label",
     args: &[coordinate("x"), coordinate("y"), LABEL],
-    check: Some(label_fits),
+    check: Some(text_fits),
 };
 
 /// A label is one line of printable characters.
-fn label_fits(args: &Args) -> Result<(), Error> {
-    match args.text_opt("label")? {
+fn text_fits(args: &Args) -> Result<(), Error> {
+    match args.text_opt("text")? {
         Some(label) if label.chars().any(char::is_control) => Err(Error::parameter(
-            "label",
+            "text",
             format!("is {label:?}, but a label is one line of printable characters"),
         )),
         _ => Ok(()),
@@ -81,7 +81,7 @@ pub(crate) struct MarksNode;
 pub(crate) static MARKS: Verb = Verb {
     name: "marks",
     role: Role::Source,
-    summary: "overlay marks in the look of a heads-up display, in design pixels: a corner bracket in each corner of each of `boxes` (records of `x`, `y`, `width`, `height` and an optional `label`; an arm is `bracket` times the smaller side long, `bracket` up to a half), a crosshair on each of `points` (records of `x`, `y` and an optional `label`; each of its two lines reaches `cross` either side of the point), and for a mark with a label a leader line and the label: the leader runs from the box's top right corner, or the point, up and to the right by `cross` plus `label_size` each way, and the label (`label_size` pixels to the em, in `font`, one line) stands to the right of the leader's end with the middle of a capital on its height, so a label lies clear of its own box and crosshair; brackets, crosshairs and leaders are open lines of two or three points (set a stroke on them), the label is the glyphs of `text`; every shape has `role` (`bracket`, `cross`, `leader` or `label`) and `mark` (which mark: the boxes in order, then the points), none has a paint; at most 10,000 marks",
+    summary: "overlay marks in the look of a heads-up display, in design pixels: a corner bracket in each corner of each of `boxes` (records of `x`, `y`, `width`, `height` and an optional `text`; an arm is `bracket` times the smaller side long, `bracket` up to a half), a crosshair on each of `points` (records of `x`, `y` and an optional `text`; each of its two lines reaches `cross` either side of the point), and for a mark with a `text` a leader line and the label: the leader runs from the box's top right corner, or the point, up and to the right by `cross` plus `text_size` each way, and the label (`text_size` pixels to the em, in `font`, one line; `font` is the bundled monospaced JetBrains Mono unless given) stands to the right of the leader's end with the middle of a capital on its height, so a label lies clear of its own box and crosshair; brackets, crosshairs and leaders are open lines of two or three points (set a stroke on them), a label's glyphs are the ones the `text` verb makes; every shape has `role` (`bracket`, `cross`, `leader` or `text`) and `mark` (which mark: the boxes in order, then the points), none has a paint; at most 10,000 marks",
     args: &[
         Arg {
             name: "boxes",
@@ -112,7 +112,7 @@ pub(crate) static MARKS: Verb = Verb {
             domain: Domain::PositiveUpTo(MAX_COORDINATE),
         },
         Arg {
-            name: "label_size",
+            name: "text_size",
             kind: Kind::Number,
             default: Some(Literal::Number(12.0)),
             reads: Reads::Once,
@@ -121,7 +121,7 @@ pub(crate) static MARKS: Verb = Verb {
         Arg {
             name: "font",
             kind: Kind::Font,
-            default: None,
+            default: Some(Literal::Unset),
             reads: Reads::Literal,
             domain: Domain::Any,
         },
@@ -141,7 +141,7 @@ fn marks_fit(args: &Args) -> Result<(), Error> {
     }
     let mut characters = 0_usize;
     for record in boxes.iter().chain(points) {
-        characters += record.text_opt("label")?.map_or(0, |label| label.chars().count());
+        characters += record.text_opt("text")?.map_or(0, |label| label.chars().count());
     }
     if characters > MAX_GLYPHS {
         return Err(Error::parameter(
@@ -156,7 +156,7 @@ fn marks_fit(args: &Args) -> Result<(), Error> {
 struct Look {
     bracket: f64,
     cross: f64,
-    label_size: f64,
+    text_size: f64,
 }
 
 /// The open line through `points`, as a shape of `role` for mark `mark`.
@@ -182,13 +182,13 @@ impl Node for MarksNode {
         let look = Look {
             bracket: args.once_number(cx, "bracket").map_err(placed)?,
             cross: args.once_number(cx, "cross").map_err(placed)?,
-            label_size: args.once_number(cx, "label_size").map_err(placed)?,
+            text_size: args.once_number(cx, "text_size").map_err(placed)?,
         };
-        let font = args.font("font")?;
+        let font = &args.font_or_monospaced("font")?;
         let (boxes, points) = (args.records("boxes")?, args.records("points")?);
         // the lines are charged before any is made; a label charges its own glyphs
         cx.work.made_shapes(boxes.len() * 5 + points.len() * 3, &cx.place)?;
-        let cap = Vertical::of(font).cap * look.label_size;
+        let cap = Vertical::of(font).cap * look.text_size;
         let mut made = Vec::new();
         for (mark, record) in boxes.iter().chain(points).enumerate() {
             let number = |name: &str| record.once_number(cx, name).map_err(placed);
@@ -227,15 +227,15 @@ impl Node for MarksNode {
                 }
                 Point::new(x + width, y)
             };
-            let Some(label) = record.text_opt("label")?.filter(|label| !label.is_empty()) else {
+            let Some(label) = record.text_opt("text")?.filter(|label| !label.is_empty()) else {
                 continue;
             };
-            let reach = look.cross + look.label_size;
+            let reach = look.cross + look.text_size;
             let end = Point::new(anchor.x + reach, anchor.y - reach);
             made.push(line(&[anchor, end], "leader", mark).map_err(placed)?);
-            let pen = Point::new(end.x + LABEL_GAP * look.label_size, end.y + cap / 2.0);
-            for mut glyph in string(font, label, look.label_size, pen, cx)? {
-                glyph.attributes_mut().role = Some("label".into());
+            let pen = Point::new(end.x + LABEL_GAP * look.text_size, end.y + cap / 2.0);
+            for mut glyph in string(font, label, look.text_size, pen, cx)? {
+                glyph.attributes_mut().role = Some("text".into());
                 glyph.attributes_mut().mark = Some(mark);
                 made.push(glyph);
             }

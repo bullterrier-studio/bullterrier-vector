@@ -4,7 +4,7 @@
 //! `... --example overlay -- still` writes the SVG to standard output.
 
 use bullterrier_vector::{
-    BoxMark, Characters, Color, Drawing, Error, Font, Marks, PointMark, Select, Size, Stroke, Values, characters, marks,
+    BoxMark, Characters, Color, Drawing, Marks, PointMark, Select, Size, Stroke, Values, characters, marks,
 };
 use std::io::Write;
 
@@ -25,33 +25,32 @@ fn tone(column: i64, row: i64) -> char {
         .map_or(' ', |byte| char::from(*byte))
 }
 
-fn overlay() -> Result<Drawing, Error> {
+fn overlay() -> Drawing {
     let rows = (0..ROWS)
         .map(|row| (0..COLUMNS).map(|column| tone(column, row)).collect::<String>())
         .collect::<Vec<_>>()
         .join("\n");
-    let font = Font::bundled("jetbrains_mono")?;
     let (ink, green) = (Color::hex(0x1f_2a_24), Color::hex(0x1c_9b_5a));
-    let grid = characters(rows, Characters::new(&font, CELL)).fill(ink);
+    let grid = characters(rows, Characters::new(CELL)).fill(ink);
     let hud = marks(
-        Marks::new(&font)
-            .boxes([BoxMark::new(96.0, 60.0, 240.0, 240.0).label("DISC")])
-            .points([PointMark::new(216.0, 180.0).label("CENTRE")])
+        Marks::new()
+            .boxes([BoxMark::new(96.0, 60.0, 240.0, 240.0).text("DISC")])
+            .points([PointMark::new(216.0, 180.0).text("CENTRE")])
             .bracket(0.2)
             .cross(10.0)
-            .label_size(14.0),
+            .text_size(14.0),
     );
-    let label = Select::new().attribute("role", "label");
-    Ok(Drawing::new([
+    let text = Select::new().attribute("role", "text");
+    Drawing::new([
         grid,
-        hud.only(label.clone()).fill(green),
-        hud.without(label).stroke(Stroke::new(green).width(1.5)),
+        hud.only(text.clone()).fill(green),
+        hud.without(text).stroke(Stroke::new(green).width(1.5)),
     ])
-    .with_size(WIDTH, HEIGHT))
+    .with_size(WIDTH, HEIGHT)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let drawing = overlay()?;
+    let drawing = overlay();
     let svg = drawing.to_svg(Size::px(WIDTH, HEIGHT), &Values::new())?;
     let mut out = std::io::stdout();
     match std::env::args().nth(1).as_deref() {

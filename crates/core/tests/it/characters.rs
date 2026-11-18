@@ -18,7 +18,7 @@ fn mono() -> Result<Font, bullterrier_vector::Error> {
 }
 
 fn grid(rows: &str) -> Result<Vec<Shape>, Box<dyn std::error::Error>> {
-    Ok(characters(rows, Characters::new(&mono()?, CELL)).shapes(&Values::new())?)
+    Ok(characters(rows, Characters::new(CELL)).shapes(&Values::new())?)
 }
 
 fn near(left: f64, right: f64) -> bool {
@@ -67,7 +67,7 @@ fn a_capital_is_centred_in_its_cell_and_a_full_stop_stands_on_its_baseline() -> 
     let size = 10.0;
     let font = mono()?;
     // two rows of two cells: H, . / ., H
-    let drawing = characters("H.\n.H", Characters::new(&font, CELL).size(size));
+    let drawing = characters("H.\n.H", Characters::new(CELL).font(&font).size(size));
     let shapes = drawing.shapes(&Values::new())?;
     let units = size / 1000.0;
     for shape in &shapes {
@@ -113,10 +113,10 @@ fn the_default_size_fits_the_line_box_of_the_font_in_the_cell() -> Outcome {
     let bounds = shapes[0].path().bounds()?;
     assert!(near(bounds.height, 0.730 * FIT_SIZE_6X12), "{}", bounds.height);
     // 12 by 6: across 20, down 6 / 1.33: the height decides again
-    let wide = characters("H", Characters::new(&mono()?, (12.0, 6.0))).shapes(&Values::new())?;
+    let wide = characters("H", Characters::new((12.0, 6.0))).shapes(&Values::new())?;
     assert!(near(wide[0].path().bounds()?.height, 0.730 * 6.0 / 1.33));
     // 3 by 30: across decides, 3 / 0.6 = 5
-    let narrow = characters("H", Characters::new(&mono()?, (3.0, 30.0))).shapes(&Values::new())?;
+    let narrow = characters("H", Characters::new((3.0, 30.0))).shapes(&Values::new())?;
     assert!(near(narrow[0].path().bounds()?.height, 0.730 * 5.0));
     Ok(())
 }
@@ -135,8 +135,7 @@ fn colours_land_on_the_cell_they_are_given_for() -> Outcome {
             Color::hex(0x0033_3333),
         ],
     ];
-    let shapes =
-        characters("a b\ncde", Characters::new(&mono()?, CELL).colors(colors.clone())).shapes(&Values::new())?;
+    let shapes = characters("a b\ncde", Characters::new(CELL).colors(colors.clone())).shapes(&Values::new())?;
     assert_eq!(shapes.len(), 5, "the space makes no shape but keeps its colour");
     for shape in &shapes {
         let attributes = shape.attributes();
@@ -157,7 +156,7 @@ fn colours_that_do_not_match_the_rows_are_refused_naming_the_row() -> Outcome {
         ("ab\ncd", vec![vec![Color::hex(0); 2], one.clone()], "row 1"),
         ("ab", vec![vec![Color::hex(0); 3]], "row 0"),
     ] {
-        let drawing = characters(rows, Characters::new(&mono()?, CELL).colors(colors));
+        let drawing = characters(rows, Characters::new(CELL).colors(colors));
         let (parameter, message) = parameter_refusal(drawing.shapes(&Values::new()))?;
         assert_eq!(parameter, "source (characters).colors");
         assert!(message.contains(row), "{message}");
@@ -172,9 +171,8 @@ fn control_characters_are_refused_with_their_place() -> Outcome {
         ("\u{7}", "row 0, column 0"),
         ("a\r\nb", "row 0, column 1"),
     ] {
-        let (parameter, message) =
-            parameter_refusal(characters(rows, Characters::new(&mono()?, CELL)).shapes(&Values::new()))?;
-        assert_eq!(parameter, "source (characters).rows");
+        let (parameter, message) = parameter_refusal(characters(rows, Characters::new(CELL)).shapes(&Values::new()))?;
+        assert_eq!(parameter, "source (characters).content");
         assert!(message.contains(place), "{message}");
     }
     Ok(())
@@ -183,7 +181,7 @@ fn control_characters_are_refused_with_their_place() -> Outcome {
 #[test]
 fn a_character_the_font_lacks_is_the_notdef_glyph_as_text_draws_it() -> Outcome {
     let font = mono()?;
-    let lacking = characters("\u{2603}", Characters::new(&font, CELL).size(10.0)).shapes(&Values::new())?;
+    let lacking = characters("\u{2603}", Characters::new(CELL).font(&font).size(10.0)).shapes(&Values::new())?;
     assert_eq!(lacking.len(), 1);
     assert_eq!(lacking[0].attributes().char(), Some('\u{2603}'));
     let as_text =
@@ -224,8 +222,7 @@ fn a_ragged_grid_places_each_row_from_the_left() -> Outcome {
 #[test]
 fn a_cell_that_is_not_a_positive_finite_pair_is_refused_naming_cell() -> Outcome {
     for cell in [(0.0, 12.0), (6.0, -1.0), (f64::NAN, 12.0), (6.0, f64::INFINITY)] {
-        let (parameter, _) =
-            parameter_refusal(characters("H", Characters::new(&mono()?, cell)).shapes(&Values::new()))?;
+        let (parameter, _) = parameter_refusal(characters("H", Characters::new(cell)).shapes(&Values::new()))?;
         assert_eq!(parameter, "source (characters).cell");
     }
     Ok(())
@@ -234,9 +231,8 @@ fn a_cell_that_is_not_a_positive_finite_pair_is_refused_naming_cell() -> Outcome
 #[test]
 fn a_grid_of_more_characters_than_a_text_may_hold_is_refused_before_anything_is_drawn() -> Outcome {
     let rows = "@".repeat(100_001);
-    let (parameter, message) =
-        parameter_refusal(characters(rows, Characters::new(&mono()?, CELL)).shapes(&Values::new()))?;
-    assert_eq!(parameter, "source (characters).rows");
+    let (parameter, message) = parameter_refusal(characters(rows, Characters::new(CELL)).shapes(&Values::new()))?;
+    assert_eq!(parameter, "source (characters).content");
     assert!(message.contains("MAX_GLYPHS"), "{message}");
     Ok(())
 }
@@ -244,10 +240,7 @@ fn a_grid_of_more_characters_than_a_text_may_hold_is_refused_before_anything_is_
 #[test]
 fn a_grid_saves_to_json_and_loads_the_same_drawing() -> Outcome {
     let colors = vec![vec![Color::hex(0x00aa_bbcc), Color::hex(0x0001_0203)]];
-    let drawing = characters(
-        "a\u{e9}",
-        Characters::new(&mono()?, (7.0, 9.0)).size(8.0).colors(colors),
-    );
+    let drawing = characters("a\u{e9}", Characters::new((7.0, 9.0)).size(8.0).colors(colors));
     let json = drawing.to_json()?;
     let loaded = Drawing::from_json(&json, &Inputs::new())?;
     assert_eq!(loaded.to_json()?, json);
@@ -259,10 +252,30 @@ fn a_grid_saves_to_json_and_loads_the_same_drawing() -> Outcome {
 
 #[test]
 fn a_selection_by_char_finds_the_glyphs_and_a_translation_turns_about_the_cell_centre() -> Outcome {
-    let drawing = characters("#.#\n.#.", Characters::new(&mono()?, CELL));
+    let drawing = characters("#.#\n.#.", Characters::new(CELL));
     let hashes = drawing.only(bullterrier_vector::Select::new().attribute("char", '#'));
     let shapes = hashes.shapes(&Values::new())?;
     assert_eq!(shapes.len(), 3);
     assert!(shapes.iter().all(|shape| shape.attributes().char() == Some('#')));
+    Ok(())
+}
+
+#[test]
+fn a_document_reads_the_text_of_the_grid_as_content() -> Outcome {
+    let json = r#"{"version":1,"root":[{"characters":{"content":"a\nb","cell":[7,9]}}]}"#;
+    let drawing = Drawing::from_json(json, &Inputs::new())?;
+    assert_eq!(drawing.shapes(&Values::new())?.len(), 2);
+    assert!(drawing.to_json()?.contains(r#""content":"a\nb""#));
+    Ok(())
+}
+
+#[test]
+fn a_font_left_out_is_the_bundled_monospaced_one() -> Outcome {
+    let left_out = characters("#.\nab", Characters::new(CELL));
+    assert_eq!(
+        left_out.shapes(&Values::new())?,
+        characters("#.\nab", Characters::new(CELL).font(&mono()?)).shapes(&Values::new())?
+    );
+    assert!(!left_out.to_json()?.contains("\"font\""), "a default is not written");
     Ok(())
 }

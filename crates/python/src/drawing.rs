@@ -558,18 +558,14 @@ impl PyDrawing {
         checked(vector::Drawing::trace_labels(&map.0, colors(max_colors)?, &trace))
     }
 
-    /// A map of square cells (`cell_size` map pixels, each one byte, a palette index) traced exactly: one shape for each
+    /// A map of square cells (`cell` map pixels, each one byte, a palette index) traced exactly: one shape for each
     /// colour (attribute `label` the byte) with straight edges on the cell sides, touching cells merged, holes kept;
     /// the areas are the cells' and the shapes neither overlap nor leave a gap. At most `max_colors` colours.
     #[staticmethod]
-    #[pyo3(signature = (map, cell_size, *, max_colors=None), text_signature = "(map, cell_size, *, max_colors=32)")]
-    fn trace_cells(
-        map: &PyField,
-        cell_size: &Bound<'_, PyAny>,
-        max_colors: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<Self> {
-        let (cell_size, colors) = (whole("cell_size", cell_size)?, colors(max_colors)?);
-        checked(vector::Drawing::trace_cells(&map.0, cell_size, colors))
+    #[pyo3(signature = (map, cell, *, max_colors=None), text_signature = "(map, cell, *, max_colors=32)")]
+    fn trace_cells(map: &PyField, cell: &Bound<'_, PyAny>, max_colors: Option<&Bound<'_, PyAny>>) -> PyResult<Self> {
+        let (cell, colors) = (whole("cell", cell)?, colors(max_colors)?);
+        checked(vector::Drawing::trace_cells(&map.0, cell, colors))
     }
 
     /// Every shape run the other way, as `Path.reverse`: `text(...).reverse().slice(0, progress)` draws on from the

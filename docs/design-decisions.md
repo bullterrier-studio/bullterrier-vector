@@ -1679,7 +1679,7 @@ the traced paths.
   most `MAX_READ_WORK` (2e8), at most 256 levels, `max_colors` at most 256 (default 32), the cracks of a cell trace, every
   traced point and every edge, edge-box pair and vertex of the label cuts against `MAX_SEGMENTS`, the blur against its
   work bound. Each refusal names the argument: `levels`, `max_colors` (also when the cuts pass the budget), `smooth`,
-  `cell_size`, and for a padded lattice past 2^25 nodes the largest of `open`, `close` and `tolerance`. `max_colors`, `cell_size`
+  `cell`, and for a padded lattice past 2^25 nodes the largest of `open`, `close` and `tolerance`. `max_colors`, `cell`
   are whole numbers in the schema too (`Domain::WholeBetween`); `levels` takes numbers, Params or expressions in Rust,
   Python and documents (read once, as `dash`'s `pattern`); `max_colors` is a plain argument of the two verbs, not a field of
   `Trace`, which holds only the tidying.
@@ -1901,10 +1901,20 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   within the cell down: descenders never reach the next row. For JetBrains Mono (advance 0.6 em, line box 1.32 em) a cell of 6
   by 12 gets 9 pixels, the height deciding; the caller's `size` overrides it. A font with no line box takes 0.8 and 0.2 em
   (`LINE_ABOVE`, `LINE_BELOW`).
-- **`colors` are rows of colours, as image returns them.** Image's `characters` data has a list of colour texts for each line
-  (spaces included), so it plugs in as it is in Python, Rust and JSON (`Kind::Colors`, an array of arrays); a mismatch is
-  refused naming the row and the counts. *Alternative:* a flat list, which only Python could have fed from image without a
+- **`colors` are rows of colours, as image's Python and JSON data have them.** Image's `characters(...).colors` in Python is a
+  list of colour texts for each line (spaces included), so it plugs in as it is in Python and JSON (`Kind::Colors`, an array of
+  arrays). Image's Rust `Characters::colors()` is one flat `&[[f32; 3]]`, row after row: in Rust the caller cuts it with
+  `chunks(columns)` and converts each triple to a `Color` (vector does not link image; the doc of `Characters::colors` shows it).
+  A mismatch is refused naming the row and the counts. *Alternative:* a flat list, which only Python could have fed from image without a
   step, and which could not name a row.
+- **One meaning per name across vector and image** (2026-11-18). `characters(content, ...)` names its text as `text` does
+  (image's `Characters.rows` is a count of lines and its text is `.text`). A mark's text is `text` (record field, `role`
+  value and `text_size`), because `label` is already an integer attribute that `trace_labels` and `trace_cells` write
+  (`only(label=3)`). The spacing of cells is `cell` in `characters`, `trace_cells` and image's `ascii`. *Deliberate
+  exception:* `halftone` keeps `pitch` (its own history, and image's halftone calls it `pitch` too); it is the distance of
+  dots on a lattice that can be turned, not the size of a cell of text.
+- **The font is optional everywhere** (Rust `.font(&font)`, Python `font=None`, JSON no `font`): a left-out font is the
+  bundled JetBrains Mono, so marks with no text need none, and a document that uses the default lists no font input.
 - **Records for marks, one mechanism.** `boxes` and `points` are lists of records read like the arguments of a call from a
   table that is never registered (`BOX`, `POINT`), as the `runs` of a `text` are (`RUN`). The one list-of-records machinery
   was generalised first, as a structure-only step (`Given::Records`, `Value::Records` with its table, `Kind::records()`);
@@ -1913,9 +1923,9 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
 - **A mark's attributes are `role` and `mark`, not `part` and `index`** (deviation from the brief). `part` already means the
   index of a part of a `split` shape (a whole number) and `index` is the shape's own place in the list, renumbered by every
   step, so neither can name which mark a shape belongs to. `mark` counts the marks (boxes in order, then points) and `role` is
-  text (`bracket`, `cross`, `leader`, `label`), so `only(role="label")` styles the glyphs and `without(role="label")` the
+  text (`bracket`, `cross`, `leader`, `text`), so `only(role="text")` styles the glyphs and `without(role="text")` the
   lines. `class` was not used: it is the SVG import's attribute, and `class` is a keyword in Python.
-- **A label's place is a rule, not a solver.** The leader runs `cross + label_size` up and to the right from the box's top
+- **A label's place is a rule, not a solver.** The leader runs `cross + text_size` up and to the right from the box's top
   right corner or from the point; the label's pen is a quarter em past its end and the middle of a capital is on its height.
   A label is therefore right of its box and beyond its own crosshair's reach by construction (a test), whatever the sizes.
   Two close marks can overlap labels; placing them apart is a solver the library does not have (a caller moves the boxes).

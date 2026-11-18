@@ -1,19 +1,15 @@
 //! The rows of the verbs that stand glyphs on a lattice or beside a mark: `characters` and `marks`.
 
 use super::rows::{Row, unknown};
-use bullterrier_vector::{BoxMark, Characters, Drawing, Font, Marks, PointMark, characters, marks};
-
-fn mono() -> Result<Font, bullterrier_vector::Error> {
-    Font::bundled("jetbrains_mono")
-}
+use bullterrier_vector::{BoxMark, Characters, Drawing, Marks, PointMark, characters, marks};
 
 pub(super) fn rows() -> Vec<Row> {
     vec![
         Row {
             verb: "characters",
-            sample: || Ok(characters("#@\n.#", Characters::new(&mono()?, (6.0, 12.0)))),
+            sample: || Ok(characters("#@\n.#", Characters::new((6.0, 12.0)))),
             with: Some(|argument, value| match argument {
-                "size" => Ok(characters("#@\n.#", Characters::new(&mono()?, (6.0, 12.0)).size(value))),
+                "size" => Ok(characters("#@\n.#", Characters::new((6.0, 12.0)).size(value))),
                 _ => Err(unknown("characters", argument)),
             }),
             ranges: &[
@@ -28,13 +24,13 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "marks",
-            sample: || Ok(sample(Marks::new(&mono()?))),
+            sample: || Ok(sample(Marks::new())),
             with: Some(|argument, value| {
-                let options = Marks::new(&mono()?);
+                let options = Marks::new();
                 match argument {
                     "bracket" => Ok(sample(options.bracket(value))),
                     "cross" => Ok(sample(options.cross(value))),
-                    "label_size" => Ok(sample(options.label_size(value))),
+                    "text_size" => Ok(sample(options.text_size(value))),
                     _ => Err(unknown("marks", argument)),
                 }
             }),
@@ -48,9 +44,9 @@ pub(super) fn rows() -> Vec<Row> {
                 ("cross", 0.0, false),
                 ("cross", -1.0, false),
                 ("cross", f64::INFINITY, false),
-                ("label_size", 1.0, true),
-                ("label_size", 0.0, false),
-                ("label_size", f64::NAN, false),
+                ("text_size", 1.0, true),
+                ("text_size", 0.0, false),
+                ("text_size", f64::NAN, false),
             ],
             geometry: None,
         },
@@ -61,7 +57,7 @@ pub(super) fn rows() -> Vec<Row> {
 fn sample(options: Marks) -> Drawing {
     marks(
         options
-            .boxes([BoxMark::new(10.0, 10.0, 40.0, 30.0).label("A")])
-            .points([PointMark::new(80.0, 20.0).label("B")]),
+            .boxes([BoxMark::new(10.0, 10.0, 40.0, 30.0).text("A")])
+            .points([PointMark::new(80.0, 20.0).text("B")]),
     )
 }

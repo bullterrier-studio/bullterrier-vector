@@ -89,7 +89,7 @@ def test_a_cell_that_is_not_positive_and_finite_is_a_parameter_error(cell: objec
 
 
 def test_wrong_kinds_of_arguments_are_type_errors() -> None:
-    with pytest.raises(TypeError, match="rows"):
+    with pytest.raises(TypeError, match="content"):
         btvec.characters(5, cell=8)  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="cell"):
         btvec.characters("a", cell="big")  # type: ignore[arg-type]
@@ -103,9 +103,9 @@ def test_characters_save_and_load_as_the_same_document() -> None:
 
 
 def test_a_box_and_a_point_with_labels_make_the_documented_lines() -> None:
-    shapes = btvec.marks([(40, 60, 120, 80, "H")], [(200, 90)], bracket=0.25, cross=10, label_size=12).shapes()
+    shapes = btvec.marks([(40, 60, 120, 80, "H")], [(200, 90)], bracket=0.25, cross=10, text_size=12).shapes()
     roles = [(s.attributes["role"], s.attributes["mark"]) for s in shapes]
-    assert roles == [("bracket", 0)] * 4 + [("leader", 0), ("label", 0), ("cross", 1), ("cross", 1)]
+    assert roles == [("bracket", 0)] * 4 + [("leader", 0), ("text", 0), ("cross", 1), ("cross", 1)]
     assert shapes[0].path.to_svg_path() == "M60 60 L40 60 L40 80"
     assert shapes[4].path.to_svg_path() == "M160 60 L182 38"
     assert shapes[6].path.to_svg_path() == "M190 90 L210 90"
@@ -114,8 +114,8 @@ def test_a_box_and_a_point_with_labels_make_the_documented_lines() -> None:
 
 def test_marks_accept_param_numbers_and_styling_is_by_role() -> None:
     x = btvec.Param("x", default=5, min=0, max=100)
-    drawing = btvec.marks(points=[(x, 20, "A")]).only(role="label")
-    assert drawing.shapes(x=30)[0].attributes["role"] == "label"
+    drawing = btvec.marks(points=[(x, 20, "A")]).only(role="text")
+    assert drawing.shapes(x=30)[0].attributes["role"] == "text"
     assert drawing.shapes(x=30)[0].path.bounds.x > 30
 
 
@@ -129,7 +129,7 @@ def test_nothing_to_mark_is_an_empty_drawing() -> None:
         (lambda: btvec.marks([(0, 0, 0, 5)]), "width"),
         (lambda: btvec.marks([(0, 0, 5, 5)], bracket=0.6), "bracket"),
         (lambda: btvec.marks(points=[(float("nan"), 0)]), "x"),
-        (lambda: btvec.marks(points=[(0, 0, "a\tb")]), "label"),
+        (lambda: btvec.marks(points=[(0, 0, "a\tb")]), "text"),
         (lambda: btvec.marks(points=[(0, 0)] * 10_001), "MAX_MARKS"),
     ],
 )

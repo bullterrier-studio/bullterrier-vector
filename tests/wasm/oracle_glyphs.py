@@ -19,8 +19,8 @@ def glyphs() -> list[Entry]:
     scale = btvec.Param("scale", default=9, min=2, max=14, unit="px", meaning="the size of the characters")
     left = btvec.Param("left", default=10, min=0, max=40, unit="px", meaning="where the box starts")
     colors = [["#cc2200", "#1a1a1a", "#336699"], ["#1a1a1a", "#ffcc33", "#cc2200"]]
-    hud = btvec.marks([(10, 12, 50, 36, "EAR L")], [(72, 70, "NOSE"), (30, 80)], bracket=0.3, cross=8, label_size=9)
-    param_hud = btvec.marks([(left, 20, 40, 40, "BOX")], label_size=8)
+    hud = btvec.marks([(10, 12, 50, 36, "EAR L")], [(72, 70, "NOSE"), (30, 80)], bracket=0.3, cross=8, text_size=9)
+    param_hud = btvec.marks([(left, 20, 40, 40, "BOX")], text_size=8)
     drawings = {
         "characters_grid": btvec.Drawing(btvec.characters("#@.:\n -=+\nHg%!", cell=(12, 16)).fill(INK), size=FRAME),
         "characters_colored": btvec.Drawing(
@@ -34,10 +34,10 @@ def glyphs() -> list[Entry]:
         ),
         "characters_ligatures": btvec.Drawing(btvec.characters("->==!=<=", cell=(11, 14)).fill(INK), size=FRAME),
         "marks_hud": btvec.Drawing(
-            hud.only(role="label").fill(INK), hud.without(role="label").stroke(RED, width=1), size=FRAME
+            hud.only(role="text").fill(INK), hud.without(role="text").stroke(RED, width=1), size=FRAME
         ),
         "marks_param_box": btvec.Drawing(
-            param_hud.only(role="label").fill(INK), param_hud.without(role="label").stroke(INK, width=1), size=FRAME
+            param_hud.only(role="text").fill(INK), param_hud.without(role="text").stroke(INK, width=1), size=FRAME
         ),
     }
     draws: dict[str, list[Draw]] = {

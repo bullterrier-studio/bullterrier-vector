@@ -19,10 +19,10 @@ pub(crate) struct CharactersNode;
 pub(crate) static CHARACTERS: Verb = Verb {
     name: "characters",
     role: Role::Source,
-    summary: "a grid of characters, one outlined glyph in each cell: `rows` is the text, a row to a line (`\\n`), `cell` the width and height of a cell (one number for a square one); each character that has an outline becomes one shape (the glyph as `text` draws it, a character the font lacks as its notdef glyph; a space has none) standing in its cell with the middle of its advance on the middle of the cell across and the middle of a capital on the middle of the cell down, so a full stop stays on the baseline of the row; every shape has `char`, `row`, `column` (from 0), `order` (its place among the shapes, 0 to 1) and `origin` (the middle of its cell), and no paint unless `colors` gives one (rows of colours, one for each character of each row, spaces included: what bullterrier-image's `characters` returns); every character is set alone, so no ligature joins two cells; `size` is pixels to the em, by default the largest at which the widest glyph is within the cell across and the line box of the font (ascender to descender) within the cell down; a control character, more than 100,000 characters or colours that do not match the rows are refused",
+    summary: "a grid of characters, one outlined glyph in each cell: `rows` is the text, a row to a line (`\\n`), `cell` the width and height of a cell (one number for a square one); each character that has an outline becomes one shape (the glyph as `text` draws it, a character the font lacks as its notdef glyph; a space has none) standing in its cell with the middle of its advance on the middle of the cell across and the middle of a capital on the middle of the cell down, so a full stop stays on the baseline of the row; every shape has `char`, `row`, `column` (from 0), `order` (its place among the shapes, 0 to 1) and `origin` (the middle of its cell), and no paint unless `colors` gives one (rows of colours, one for each character of each row, spaces included: what bullterrier-image's `characters` returns); `font` is the bundled monospaced JetBrains Mono unless given; every character is set alone, so no ligature joins two cells; `size` is pixels to the em, by default the largest at which the widest glyph is within the cell across and the line box of the font (ascender to descender) within the cell down; a control character, more than 100,000 characters or colours that do not match the rows are refused",
     args: &[
         Arg {
-            name: "rows",
+            name: "content",
             kind: Kind::Text,
             default: None,
             reads: Reads::Literal,
@@ -38,7 +38,7 @@ pub(crate) static CHARACTERS: Verb = Verb {
         Arg {
             name: "font",
             kind: Kind::Font,
-            default: None,
+            default: Some(crate::Literal::Unset),
             reads: Reads::Literal,
             domain: Domain::Any,
         },
@@ -62,11 +62,11 @@ pub(crate) static CHARACTERS: Verb = Verb {
 
 /// The rows are at most `MAX_GLYPHS` characters with no control character, and `colors` has a colour for each.
 fn grid_fits(args: &Args) -> Result<(), Error> {
-    let rows = args.text("rows")?;
+    let rows = args.text("content")?;
     let characters = rows.chars().count();
     if characters > MAX_GLYPHS {
         return Err(Error::parameter(
-            "rows",
+            "content",
             format!("has {characters} characters, but MAX_GLYPHS {MAX_GLYPHS} is the most accepted"),
         ));
     }
@@ -74,7 +74,7 @@ fn grid_fits(args: &Args) -> Result<(), Error> {
     for (row, line) in lines.iter().enumerate() {
         if let Some(column) = line.iter().position(|character| character.is_control()) {
             return Err(Error::parameter(
-                "rows",
+                "content",
                 format!(
                     "has the control character {:?} at row {row}, column {column}: a row has printable characters only",
                     line[column]
@@ -163,8 +163,8 @@ impl Node for CharactersNode {
     )]
     fn evaluate(&self, args: &Args, _: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         let placed = |error: Error| error.at_argument(&cx.place, None);
-        let lines = lines(args.text("rows")?);
-        let font = args.font("font")?;
+        let lines = lines(args.text("content")?);
+        let font = &args.font_or_monospaced("font")?;
         let (width, height) = args
             .literal_pair("cell")?
             .ok_or_else(|| Error::parameter("cell", "is missing"))?;

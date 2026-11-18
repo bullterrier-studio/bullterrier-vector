@@ -290,15 +290,15 @@ pub(super) fn rows() -> Vec<Row> {
                 let count = literal(argument, &value)? as usize;
                 let map = Field::map(4, 2, &[0, 0, 1, 1, 0, 0, 1, 1], None, None)?;
                 match argument {
-                    "cell_size" => Ok(Drawing::trace_cells(&map, count, 8)),
+                    "cell" => Ok(Drawing::trace_cells(&map, count, 8)),
                     "max_colors" => Ok(Drawing::trace_cells(&map, 2, count)),
                     other => Err(unknown("trace_cells", other)),
                 }
             }),
             ranges: &[
-                ("cell_size", 1.0, true),
-                ("cell_size", 2.0, true),
-                ("cell_size", 0.0, false),
+                ("cell", 1.0, true),
+                ("cell", 2.0, true),
+                ("cell", 0.0, false),
                 ("max_colors", 256.0, true),
                 ("max_colors", 2.0, true),
                 ("max_colors", 0.0, false),

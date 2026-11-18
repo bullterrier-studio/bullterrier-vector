@@ -8,23 +8,30 @@ use crate::{Color, Drawing, Expr, Scale};
 /// The options of [`characters`]: the font and the size of a cell, and what is not the default of the rest.
 #[derive(Debug, Clone)]
 pub struct Characters {
-    font: Font,
+    font: Option<Font>,
     cell: Scale,
     size: Option<Expr>,
     colors: Option<Vec<Vec<Color>>>,
 }
 
 impl Characters {
-    /// A grid in `font` of cells `cell` wide and high: one number for square cells or an `(x, y)` pair. A glyph is
-    /// sized to fit its cell.
+    /// A grid of cells `cell` wide and high: one number for square cells or an `(x, y)` pair, in the bundled
+    /// monospaced font (`JetBrains Mono`). A glyph is sized to fit its cell.
     #[must_use]
-    pub fn new(font: &Font, cell: impl Into<Scale>) -> Self {
+    pub fn new(cell: impl Into<Scale>) -> Self {
         Self {
-            font: font.clone(),
+            font: None,
             cell: cell.into(),
             size: None,
             colors: None,
         }
+    }
+
+    /// These characters in `font` instead of the bundled monospaced one.
+    #[must_use]
+    pub fn font(mut self, font: &Font) -> Self {
+        self.font = Some(font.clone());
+        self
     }
 
     /// These characters `size` pixels to the em, above 0, instead of the size that fits the cell. A number, a
@@ -36,8 +43,20 @@ impl Characters {
     }
 
     /// These characters filled with `colors`, a row of colours for each row of the text with a colour for each of its
-    /// characters (spaces included): the shape bullterrier-image's `characters` returns its colours in. Rows or
-    /// colours that do not match leave the drawing with an [`error`](Drawing::error) naming `colors`.
+    /// characters (spaces included): the rows of colour texts bullterrier-image's Python `characters(...).colors` and a
+    /// document hold. Rows or colours that do not match leave the drawing with an [`error`](Drawing::error) naming
+    /// `colors`.
+    ///
+    /// Image's Rust `Characters::colors()` is one flat slice, row after row; cut it by `columns()` and convert each
+    /// triple of `f32` channels (0 to 1) to a [`Color`]:
+    ///
+    /// ```text
+    /// let byte = |channel: f32| (channel.clamp(0.0, 1.0) * 255.0).round() as u32;
+    /// let rows = art.colors().chunks(art.columns()).map(|row| {
+    ///     row.iter().map(|[r, g, b]| Color::hex(byte(*r) << 16 | byte(*g) << 8 | byte(*b)))
+    /// });
+    /// let grid = characters(art.text(), Characters::new(cell).colors(rows));
+    /// ```
     #[must_use]
     pub fn colors<R, C>(mut self, colors: R) -> Self
     where
@@ -63,13 +82,15 @@ impl Characters {
 #[must_use]
 pub fn characters(rows: impl Into<String>, options: Characters) -> Drawing {
     let mut given = vec![
-        ("rows", Given::Text(rows.into())),
+        ("content", Given::Text(rows.into())),
         (
             "cell",
             Given::Pair(Expr::from(options.cell.x), Expr::from(options.cell.y)),
         ),
-        ("font", Given::Font(options.font)),
     ];
+    if let Some(font) = options.font {
+        given.push(("font", Given::Font(font)));
+    }
     if let Some(size) = options.size {
         given.push(("size", Given::Number(size)));
     }

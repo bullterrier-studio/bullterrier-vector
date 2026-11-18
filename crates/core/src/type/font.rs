@@ -13,7 +13,7 @@ use read_fonts::types::{NameId, Tag};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::fmt;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// A TrueType or OpenType font, variable or not, with outlines in `glyf` or `CFF`. It is made from the bytes of the
 /// font file by [`Font::new`], which reads them once: a `Font` that exists is one the library can shape and draw with.
@@ -116,6 +116,16 @@ impl Font {
             ));
         };
         Self::new(*bytes)?.named(name)
+    }
+
+    /// The bundled monospaced font, the default of the sources that stand glyphs on a lattice or beside a mark. It is
+    /// unpacked once for the process.
+    ///
+    /// # Errors
+    /// Never in a build that passes its tests: the bundled bytes are a valid font.
+    pub(crate) fn monospaced() -> Result<Self, Error> {
+        static MONOSPACED: OnceLock<Result<Font, Error>> = OnceLock::new();
+        MONOSPACED.get_or_init(|| Self::bundled("jetbrains_mono")).clone()
     }
 
     /// The names of the fonts that come with the library, in order: what [`Font::bundled`] takes.

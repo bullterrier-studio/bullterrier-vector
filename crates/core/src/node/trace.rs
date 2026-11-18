@@ -94,11 +94,11 @@ pub(crate) struct TraceCells;
 pub(crate) static TRACE_CELLS: Verb = Verb {
     name: "trace_cells",
     role: Role::Source,
-    summary: "traces a map of square cells exactly: the `map` (a Field.map) is read as a lattice of cells of `cell_size` map pixels, each one colour (its byte, a palette index), and every colour becomes one shape (attribute `label` the colour byte, in order of the byte) whose straight edges lie on cell sides, cells that touch along a side merged, holes kept; nothing is fitted, so the shapes' areas are the cells' and they neither overlap nor leave a gap; more than `max_colors` colours is refused",
+    summary: "traces a map of square cells exactly: the `map` (a Field.map) is read as a lattice of cells of `cell` map pixels, each one colour (its byte, a palette index), and every colour becomes one shape (attribute `label` the colour byte, in order of the byte) whose straight edges lie on cell sides, cells that touch along a side merged, holes kept; nothing is fitted, so the shapes' areas are the cells' and they neither overlap nor leave a gap; more than `max_colors` colours is refused",
     args: &[
         MAP,
         Arg {
-            name: "cell_size",
+            name: "cell",
             kind: Kind::Number,
             default: None,
             reads: Reads::Literal,
@@ -118,7 +118,7 @@ impl Node for TraceCells {
         let place = cx.place.to_string();
         let mut charge = |count| cx.work.made_segments(count, &place);
         let outlines = (|| {
-            let (cell, colors) = (whole(args, cx, "cell_size")?, whole(args, cx, "max_colors")?);
+            let (cell, colors) = (whole(args, cx, "cell")?, whole(args, cx, "max_colors")?);
             crate::trace::trace_cells(map_of(args)?, cell, colors, &mut charge)
         })()
         .map_err(|error| placed(error, cx))?;

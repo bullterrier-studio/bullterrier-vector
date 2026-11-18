@@ -33,12 +33,12 @@ hud = btvec.marks(
     [(216, 180, "CENTRE")],
     bracket=0.2,
     cross=10,
-    label_size=14,
+    text_size=14,
 )
 drawing = btvec.Drawing(
     grid,
-    hud.only(role="label").fill(GREEN),
-    hud.without(role="label").stroke(GREEN, width=1.5),
+    hud.only(role="text").fill(GREEN),
+    hud.without(role="text").stroke(GREEN, width=1.5),
     size=(WIDTH, HEIGHT),
 )
 

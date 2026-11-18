@@ -505,7 +505,7 @@ class Drawing:
     @staticmethod
     def trace_cells(
         map: Field,  # noqa: A002  api.md names the arguments `map` and `open`
-        cell_size: int,
+        cell: int,
         *,
         max_colors: int = 32,
     ) -> Drawing: ...
@@ -644,7 +644,7 @@ def text(
     inside: Path | None = None,
 ) -> Drawing: ...
 def characters(
-    rows: str | Sequence[str],
+    content: str | Sequence[str],
     *,
     cell: float | tuple[float, float],
     font: Font | None = None,
@@ -657,7 +657,7 @@ def marks(
     *,
     bracket: _Num | None = None,
     cross: _Num | None = None,
-    label_size: _Num | None = None,
+    text_size: _Num | None = None,
     font: Font | None = None,
 ) -> Drawing: ...
 def by_index(first: _Num, last: _Num) -> Expr: ...

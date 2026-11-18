@@ -9,25 +9,14 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
-/// The font a grid or a label is set in unless the caller gives one.
-const MONOSPACED: &str = "jetbrains_mono";
-
-/// `font`, or the bundled monospaced one.
-fn font_of(font: Option<&Bound<'_, PyFont>>) -> PyResult<vector::Font> {
-    match font {
-        Some(font) => Ok(font.get().0.clone()),
-        None => raised(vector::Font::bundled(MONOSPACED)),
-    }
-}
-
 /// The text of a grid: a `str` with `\n` between its rows, or a sequence of `str`, one for each row.
 fn rows_of(rows: &Bound<'_, PyAny>) -> PyResult<String> {
     if let Ok(text) = rows.cast::<PyString>() {
-        return Ok(utf8("rows", text)?.to_owned());
+        return Ok(utf8("content", text)?.to_owned());
     }
     let wrong = || {
         PyTypeError::new_err(format!(
-            "rows: expected a str or a list of str, got {}",
+            "content: expected a str or a list of str, got {}",
             rows.repr().map_or_else(|_| String::new(), |text| text.to_string())
         ))
     };
@@ -35,7 +24,7 @@ fn rows_of(rows: &Bound<'_, PyAny>) -> PyResult<String> {
     for line in rows.try_iter().map_err(|_| wrong())? {
         let line = line?;
         let text = line.cast::<PyString>().map_err(|_| wrong())?;
-        lines.push(utf8("rows", text)?.to_owned());
+        lines.push(utf8("content", text)?.to_owned());
     }
     Ok(lines.join("\n"))
 }
@@ -63,29 +52,32 @@ fn colors_of(colors: &Bound<'_, PyAny>) -> PyResult<Vec<Vec<vector::Color>>> {
         .collect()
 }
 
-/// A drawing of a grid of characters, one outlined glyph in each cell. `rows` is the text (a `str` with `\n` between
+/// A drawing of a grid of characters, one outlined glyph in each cell. `content` is the text (a `str` with `\n` between
 /// its rows, or a list of `str`), `cell` the width and height of a cell (one number for a square one). A character
 /// that has an outline becomes one shape standing in its cell, with `char`, `row` and `column` attributes; a space
 /// makes none. `size` is pixels to the em, by default the size that fits a glyph to its cell. `colors` is a list of
 /// rows of colour texts, one for each character (what bullterrier-image's `characters` returns as `colors`), and
 /// fills each shape; without it the shapes have no paint. `font` defaults to the bundled `jetbrains_mono`.
 #[pyfunction]
-#[pyo3(signature = (rows, *, cell, font=None, size=None, colors=None))]
+#[pyo3(signature = (content, *, cell, font=None, size=None, colors=None))]
 pub(crate) fn characters(
-    rows: &Bound<'_, PyAny>,
+    content: &Bound<'_, PyAny>,
     cell: &Bound<'_, PyAny>,
     font: Option<&Bound<'_, PyFont>>,
     size: Option<Num>,
     colors: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyDrawing> {
-    let mut options = vector::Characters::new(&font_of(font)?, cell_of(cell)?);
+    let mut options = vector::Characters::new(cell_of(cell)?);
+    if let Some(font) = font {
+        options = options.font(&font.get().0);
+    }
     if let Some(size) = size {
         options = options.size(size.0);
     }
     if let Some(colors) = colors {
         options = options.colors(colors_of(colors)?);
     }
-    checked(vector::characters(rows_of(rows)?, options))
+    checked(vector::characters(rows_of(content)?, options))
 }
 
 /// The items of a mark given as a tuple: `N` numbers, then optionally a label.
@@ -101,7 +93,7 @@ fn parts<'py, const N: usize>(item: &Bound<'py, PyAny>, what: &str) -> PyResult<
         return Err(wrong());
     }
     let label = match items.get(N) {
-        Some(label) => Some(utf8("label", label.cast::<PyString>().map_err(|_| wrong())?)?.to_owned()),
+        Some(label) => Some(utf8("text", label.cast::<PyString>().map_err(|_| wrong())?)?.to_owned()),
         None => None,
     };
     let numbers = items
@@ -114,23 +106,26 @@ fn parts<'py, const N: usize>(item: &Bound<'py, PyAny>, what: &str) -> PyResult<
 }
 
 /// Drawings of overlay marks in the look of a heads-up display, in design pixels. `boxes` are `(x, y, width, height)`
-/// or `(x, y, width, height, label)` tuples, each bracketed in its four corners, an arm `bracket` times the smaller
-/// side long (up to 0.5, default 0.25); `points` are `(x, y)` or `(x, y, label)` tuples, each a crosshair whose
-/// lines reach `cross` pixels either way (default 12). A label stands on a leader line from the box's top right corner
-/// or from the point, up and to the right by `cross` plus `label_size` each way (default 12), set in `font` (default
-/// the bundled `jetbrains_mono`). Every shape has `role` (`bracket`, `cross`, `leader` or `label`) and `mark` (the
+/// or `(x, y, width, height, text)` tuples, each bracketed in its four corners, an arm `bracket` times the smaller
+/// side long (up to 0.5, default 0.25); `points` are `(x, y)` or `(x, y, text)` tuples, each a crosshair whose
+/// lines reach `cross` pixels either way (default 12). A text stands on a leader line from the box's top right corner
+/// or from the point, up and to the right by `cross` plus `text_size` each way (default 12), set in `font` (default
+/// the bundled `jetbrains_mono`). Every shape has `role` (`bracket`, `cross`, `leader` or `text`) and `mark` (the
 /// boxes in order, then the points); none has a paint.
 #[pyfunction]
-#[pyo3(signature = (boxes=None, points=None, *, bracket=None, cross=None, label_size=None, font=None))]
+#[pyo3(signature = (boxes=None, points=None, *, bracket=None, cross=None, text_size=None, font=None))]
 pub(crate) fn marks(
     boxes: Option<&Bound<'_, PyAny>>,
     points: Option<&Bound<'_, PyAny>>,
     bracket: Option<Num>,
     cross: Option<Num>,
-    label_size: Option<Num>,
+    text_size: Option<Num>,
     font: Option<&Bound<'_, PyFont>>,
 ) -> PyResult<PyDrawing> {
-    let mut options = vector::Marks::new(&font_of(font)?);
+    let mut options = vector::Marks::new();
+    if let Some(font) = font {
+        options = options.font(&font.get().0);
+    }
     if let Some(boxes) = boxes {
         let items: Vec<Bound<'_, PyAny>> = boxes.extract()?;
         let mut found = Vec::new();
@@ -138,7 +133,7 @@ pub(crate) fn marks(
             let ([x, y, width, height], label) = parts(item, "boxes")?;
             let mut mark = vector::BoxMark::new(x, y, width, height);
             if let Some(label) = label {
-                mark = mark.label(label);
+                mark = mark.text(label);
             }
             found.push(mark);
         }
@@ -151,7 +146,7 @@ pub(crate) fn marks(
             let ([x, y], label) = parts(item, "points")?;
             let mut mark = vector::PointMark::new(x, y);
             if let Some(label) = label {
-                mark = mark.label(label);
+                mark = mark.text(label);
             }
             found.push(mark);
         }
@@ -163,7 +158,7 @@ pub(crate) fn marks(
             vector::Marks::bracket as fn(vector::Marks, vector::Expr) -> vector::Marks,
         ),
         (cross, vector::Marks::cross),
-        (label_size, vector::Marks::label_size),
+        (text_size, vector::Marks::text_size),
     ] {
         if let Some(number) = number {
             options = set(options, number.0);
