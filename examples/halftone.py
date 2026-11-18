@@ -1,23 +1,47 @@
-"""A halftone: discs filled with a screen of dots, one tone per disc, over paper.
+"""A halftone: discs and panels filled with a screen of dots, over paper.
 
-The dots sit on a square lattice anchored to the origin of the design frame, turned 45 degrees, so they keep their place
-when a shape moves; `tone` runs from 0 (solid) to 1 (no dots) and may differ per shape. Run it with
-`uv run poe look examples/halftone.py`.
+The dots sit on a layout anchored to the origin of the design frame (a grid, turned 45 degrees by default), so they keep
+their place when a shape moves. `tone` runs from 0 (solid) to 1 (no dots): a number, which may differ per shape (the
+row of discs), or a `Field` read at the centre of each dot (the panels, whose tone is a ramp). Each panel is a dot shape
+on a screen: ellipses on a grid, euclidean dots on rings, diamonds on a wave, a triangle of the caller's on rays. Every
+dot covers `1 - tone` of its own cell, so a ramp from solid to bare fades evenly on every screen.
+Run it with `uv run poe look examples/halftone.py`.
+The same program in Rust and JavaScript: `crates/core/examples/halftone.rs`, `crates/wasm/examples/halftone.mjs`.
 """
+
+from typing import Any
 
 import bullterrier_vector as btvec
 
+WIDTH, HEIGHT = 640, 520
+INK = "#1a1a1a"
 COUNT = 7
 
-paper = btvec.Drawing(btvec.Path.rect(0, 0, 640, 360)).fill("#f4ecd8")
+paper = btvec.Drawing(btvec.Path.rect(0, 0, WIDTH, HEIGHT)).fill("#f4ecd8")
 
 # a row of discs whose tone steps from nearly solid to nearly bare
-row = btvec.Drawing(*(btvec.Path.circle((60 + 90 * i, 90), 38) for i in range(COUNT)))
-ramp = row.halftone("#1a1a1a", tone=btvec.by_index(0.1, 0.9), pitch=6)
+row = btvec.Drawing(*(btvec.Path.circle((60 + 90 * i, 60), 38) for i in range(COUNT)))
+ramp = row.halftone(INK, tone=btvec.by_index(0.1, 0.9), pitch=6)
+
+# four panels, each a shape of dot on a screen, the tone a ramp from solid to bare
+TRIANGLE = btvec.Path.from_svg_path("M0 -1 L1 1 L-1 1 Z")
+PANELS: list[tuple[str | btvec.Path, dict[str, Any], tuple[tuple[int, int], tuple[int, int]]]] = [
+    ("ellipse", {"aspect": 2, "angle": 20, "pitch": 7}, ((0, 0), (1, 0))),
+    ("euclidean", {"screen": "rings", "pitch": 6}, ((0, 0), (0, 1))),
+    ("diamond", {"screen": "wave", "amplitude": 1, "wavelength": 6, "angle": 0, "pitch": 7}, ((0, 0), (1, 1))),
+    (TRIANGLE, {"screen": "rays", "pitch": 8}, ((0, 1), (1, 0))),
+]
+panels = []
+for i, (shape, options, (start, end)) in enumerate(PANELS):
+    left, top = 30 + 150 * i, 130
+    tone = btvec.Field.ramp((left + 120 * start[0], top + 120 * start[1]), (left + 120 * end[0], top + 120 * end[1]))
+    panel = btvec.Drawing(btvec.Path.rect(left, top, 120, 120)).halftone(INK, tone=tone, shape=shape, **options)
+    panels.append(panel)
 
 # one big disc with a coarser screen turned another way, and a stroke over its dots
-big = btvec.Path.circle((320, 250), 90).halftone("#c4372b", tone=0.45, pitch=9, angle=15).stroke("#c4372b", width=3)
+big = btvec.Path.circle((320, 390), 100).halftone("#c4372b", tone=0.45, pitch=9, angle=15).stroke("#c4372b", width=3)
 
-drawing = btvec.Drawing(paper, ramp, big, size=(640, 360))
-svg = drawing.to_svg(640, 360)
+drawing = btvec.Drawing(paper, ramp, *panels, big, size=(WIDTH, HEIGHT))
+svg = drawing.to_svg(WIDTH, HEIGHT)
+frames = {"still": svg}
 tones = [halftone.tone for shape in ramp.shapes() if (halftone := shape.style.halftone)]  # 0.1 up to 0.9 in equal steps

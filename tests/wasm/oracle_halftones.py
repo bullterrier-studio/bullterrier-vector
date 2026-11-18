@@ -49,6 +49,27 @@ def halftones() -> list[Entry]:
         "halftone_param": framed(disc.halftone(BLUE, tone=tone, pitch=6)),
         "halftone_solid": framed(disc.halftone(RED, tone=0)),
         "halftone_bare": framed(disc.halftone(RED, tone=1).stroke(INK, width=2)),
+        "halftone_ellipse_rings": framed(
+            disc.halftone(INK, tone=0.55, pitch=6, shape="ellipse", aspect=2, screen="rings", centre=(40, 45))
+        ),
+        "halftone_euclidean_spiral": framed(disc.halftone(RED, tone=0.4, pitch=7, shape="euclidean", screen="spiral")),
+        "halftone_diamond_wave": framed(
+            ring.halftone(
+                BLUE, tone=0.6, pitch=7, angle=15, shape="diamond", screen="wave", amplitude=1.5, wavelength=7
+            )
+        ),
+        "halftone_square_rays": framed(disc.halftone(INK, tone=0.5, pitch=8, angle=20, shape="square", screen="rays")),
+        "halftone_path_grid": framed(
+            disc.halftone(RED, tone=0.45, pitch=9, angle=30, shape=btvec.Path.from_svg_path("M0 0 L4 0 L0 2 Z"))
+        ),
+        "halftone_ramp_field": framed(
+            disc.halftone(INK, tone=btvec.Field.ramp((10, 10), (90, 90)), pitch=6, angle=0, shape="square")
+        ),
+        "halftone_distance_field": framed(
+            btvec.Path.rect(5, 5, 90, 90).halftone(
+                BLUE, tone=btvec.Field.distance(disc, normalized=False), pitch=5, shape="dot", screen="rings"
+            )
+        ),
     }
     draws: dict[str, list[Draw]] = {
         "halftone_param": [(100, 100, {"tone": 0.3}), (200, 200, {"tone": 0.8})],

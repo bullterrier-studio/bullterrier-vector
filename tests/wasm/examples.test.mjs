@@ -12,6 +12,7 @@ const EXAMPLES = {
   bent_type: "calm, half or bent",
   flow_hatch: "still or light",
   glyph_morph: "start, half or end",
+  halftone: "still",
   kinetic_type: "hairlines, kick, bend or morph",
   line_families: "still or plot",
   trace: "still",

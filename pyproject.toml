@@ -203,6 +203,7 @@ project-triggers = [
     "examples/glyph_morph.py",
     "examples/flow_hatch.py",
     "examples/line_families.py",
+    "examples/halftone.py",
     "examples/trace.py",
     "examples/kinetic_type.py",
     "examples/fonts/*",

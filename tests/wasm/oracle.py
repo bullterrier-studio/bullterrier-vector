@@ -1399,6 +1399,7 @@ def main(output: Path) -> None:
         "glyph_morph": example_everywhere("glyph_morph"),
         "flow_hatch": example_everywhere("flow_hatch"),
         "line_families": example_everywhere("line_families"),
+        "halftone": example_everywhere("halftone"),
         "trace": example_everywhere("trace"),
         "kinetic_type": example_everywhere("kinetic_type"),
         "plots": plots(),

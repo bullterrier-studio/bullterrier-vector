@@ -496,15 +496,16 @@ def test_ring_is_a_band_round_the_circle_that_widens_with_the_half_width(run):
         assert not band.path.contains((200, 200 - 120 - half_width - 1))
 
 
-def test_halftone_draws_a_row_of_discs_of_rising_tone_and_a_big_disc_with_its_stroke(run):
+def test_halftone_draws_a_row_of_discs_four_panels_and_a_big_disc_with_its_stroke(run):
     found = run("halftone")
     assert found["tones"] == pytest.approx([0.1, 0.2333333333, 0.3666666667, 0.5, 0.6333333333, 0.7666666667, 0.9])
     root = ET.fromstring(found["svg"])  # noqa: S314  our own output
     svg = "{http://www.w3.org/2000/svg}"
-    # a clip path and a group of dots for each of the eight discs, the paper and the big disc's stroke are plain paths
-    assert len(root.findall(f"{svg}clipPath")) == 8
+    # a clip path and a group of dots for each of the seven discs, the four panels and the big disc; the paper and the
+    # big disc's stroke are plain paths
+    assert len(root.findall(f"{svg}clipPath")) == 12
     groups = [group for group in root.iter(f"{svg}g") if "clip-path" in group.attrib]
-    assert len(groups) == 8
+    assert len(groups) == 12
     # a disc of radius 38 on a lattice of 6 holds pi * 38^2 / 6^2 = about 126 dots, more with the ones on its edge
     dots = [path for group in groups[:7] if (path := group.find(f"{svg}path")) is not None]
     counts = [path.attrib["d"].count("M") for path in dots]
@@ -512,6 +513,25 @@ def test_halftone_draws_a_row_of_discs_of_rising_tone_and_a_big_disc_with_its_st
     assert all(110 < count < 200 for count in counts), counts
     big = root.findall(f"{svg}path")[-1]
     assert (big.attrib["fill"], big.attrib["stroke"], big.attrib["stroke-width"]) == ("none", "#c4372b", "3")
+    # the panels are a shape of dot on a screen each, with a ramp for a tone: solid at one corner, bare at the other
+    seen = []
+    for panel in found["panels"]:
+        (shape,) = panel.shapes()
+        halftone = shape.style.halftone
+        assert halftone is not None
+        assert isinstance(halftone.tone, btvec.Field)
+        seen.append((halftone.shape if isinstance(halftone.shape, str) else "path", halftone.screen))
+        box = shape.path.bounds
+        tones = [halftone.tone.at(x, y) for x in (box.x, box.x + box.width) for y in (box.y, box.y + box.height)]
+        assert (min(tones), max(tones)) == (0.0, 1.0)
+    assert seen == [("ellipse", "grid"), ("euclidean", "rings"), ("diamond", "wave"), ("path", "rays")]
+    assert found["frames"]["still"] == found["svg"]
+
+
+def test_the_node_example_of_halftone_carries_the_document_of_the_python_drawing(run):
+    drawing = run("halftone")["drawing"]
+    document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "halftone.json"
+    assert document.read_text(encoding="utf-8") == drawing.to_json()
 
 
 def test_gradient_type_fills_the_letters_with_one_gradient_across_the_frame_and_the_svg_names_each_gradient(run):
