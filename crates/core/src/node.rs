@@ -212,6 +212,9 @@ pub enum Kind {
     Paint,
     /// One of a fixed set of words ([`Domain::Choice`]).
     Text,
+    /// One of a fixed set of words ([`Domain::Choice`]), or a path written `{"path": "M0 0 L4 0 L0 2 Z"}`: the `shape` of
+    /// a `halftone`, a word for a dot or a path for the caller's own.
+    Mark,
     /// One number for both directions, or an `(x, y)` pair (a scale factor).
     Factor,
     /// A path.

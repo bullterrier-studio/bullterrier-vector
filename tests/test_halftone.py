@@ -103,7 +103,8 @@ def test_equal_screens_are_equal_and_hash_alike():
 @pytest.mark.parametrize("screen", ["grid", "wave", "rings", "spiral", "rays"])
 @pytest.mark.parametrize("shape", ["dot", "square", "ellipse", "diamond", "euclidean", TRIANGLE])
 def test_every_shape_on_every_screen_draws_in_svg_and_pixels(screen: str, shape: Any):
-    drawing = Drawing(INSET).halftone(INK, tone=0.6, pitch=9, shape=shape, screen=screen, aspect=1.5)
+    options = {"aspect": 1.5} if shape == "ellipse" else {}
+    drawing = Drawing(INSET).halftone(INK, tone=0.6, pitch=9, shape=shape, screen=screen, **options)
     assert "<path" in drawing.to_svg(100, 100)
     assert coverage(drawing) > 100
 
@@ -120,8 +121,7 @@ def test_a_document_saves_and_reads_back_every_argument():
         assert again.to_json() == text
         assert again.shapes() == drawing.shapes()
     text = Drawing(INSET).halftone(INK, tone=0.4, shape=TRIANGLE).to_json()
-    assert '"mark":"M0 0 L4 0 L0 2 Z"' in text
-    assert '"shape":"path"' in text
+    assert '"shape":{"path":"M0 0 L4 0 L0 2 Z"}' in text
 
 
 @pytest.mark.parametrize(
@@ -134,18 +134,25 @@ def test_a_document_saves_and_reads_back_every_argument():
         ),
         pytest.param(lambda: Drawing(INSET).halftone(INK, tone=0.5, centre=(1, 1)), "centre", id="a centre on a grid"),
         pytest.param(
+            lambda: Drawing(INSET).halftone(INK, tone=0.5, amplitude=3), "amplitude", id="an amplitude on a grid"
+        ),
+        pytest.param(lambda: Drawing(INSET).halftone(INK, tone=0.5, aspect=3), "aspect", id="an aspect of a dot"),
+        pytest.param(
+            lambda: Drawing(INSET).halftone(INK, tone=0.5, screen="rings", angle=10), "angle", id="an angle on rings"
+        ),
+        pytest.param(
             lambda: Drawing(INSET).halftone(INK, tone=0.5, screen="wave", wavelength=0),
             "wavelength",
             id="a wavelength of 0",
         ),
         pytest.param(
             lambda: Drawing(INSET).halftone(INK, tone=0.5, shape=btvec.Path.line((0, 0), (5, 5))),
-            "mark",
+            "shape",
             id="an open outline",
         ),
         pytest.param(
             lambda: Drawing(INSET).halftone(INK, tone=0.5, shape=btvec.Path.from_svg_path("M0 0 L4 0 L8 0 Z")),
-            "mark",
+            "shape",
             id="no area",
         ),
     ],

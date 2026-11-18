@@ -45,7 +45,7 @@ impl Dot {
     /// The dot of `mark`, `aspect` as long as wide if it is an ellipse.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `mark` if the caller's outline is not one closed outline with an area.
+    /// [`Error::Parameter`] naming `shape` if the caller's outline is not one closed outline with an area.
     pub(crate) fn new(mark: &Mark, aspect: f64) -> Result<Self, Error> {
         let kind = match mark {
             Mark::Dot => Kind::Round,
@@ -164,16 +164,16 @@ fn diamond(area: f64) -> Vec<(f64, f64)> {
 
 /// The outline of `path` at area 1 about its centroid, clockwise on the screen.
 fn outline(path: &Path) -> Result<Vec<(f64, f64)>, Error> {
-    let polylines = path.flattened(&mut crate::field::segment_budget("mark"))?;
+    let polylines = path.flattened(&mut crate::field::segment_budget("shape"))?;
     let [only] = polylines.as_slice() else {
         return Err(Error::parameter(
-            "mark",
+            "shape",
             format!("must be one closed outline, this has {} sub-paths", polylines.len()),
         ));
     };
     if !only.closed || only.points.len() < 3 {
         return Err(Error::parameter(
-            "mark",
+            "shape",
             "must be a closed outline of at least 3 points",
         ));
     }
@@ -194,7 +194,7 @@ fn outline(path: &Path) -> Result<Vec<(f64, f64)>, Error> {
         .map(|p| (p.x - origin.x).abs().max((p.y - origin.y).abs()))
         .fold(0.0, f64::max);
     if !(area.is_finite() && area.abs() > 1e-9 * span * span) {
-        return Err(Error::parameter("mark", "must enclose an area"));
+        return Err(Error::parameter("shape", "must enclose an area"));
     }
     let (centre_x, centre_y) = (x / (3.0 * area), y / (3.0 * area));
     let scale = 1.0 / (area.abs() / 2.0).sqrt();

@@ -51,6 +51,23 @@ impl Family {
             _ => true,
         }
     }
+
+    /// The refusal of `argument` if this family does not read it, worded for what the caller calls it: `kind` (a
+    /// family, a screen) and its `word`. The one place a layout's unread arguments are refused, for `bands` and the
+    /// screens of `halftone` alike.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `argument` if the family does not read it.
+    pub(crate) fn refuse_unread(self, argument: &str, kind: &str, word: &str) -> Result<(), Error> {
+        if self.reads(argument) {
+            Ok(())
+        } else {
+            Err(Error::parameter(
+                argument,
+                format!("is not read by the {kind} \"{word}\""),
+            ))
+        }
+    }
 }
 
 /// A family with its turn and, for waves, their size, in design pixels.

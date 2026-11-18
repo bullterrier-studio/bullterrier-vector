@@ -234,6 +234,7 @@ impl<'a> Writer<'a> {
             Given::Paint(paint) => paint_json(paint),
             Given::Field(field) => self.field_json(field, taken)?,
             Given::Flow(flow) => self.flow_json(flow, taken)?,
+            Given::Path(path) if arg.kind == Kind::Mark => Json::object([("path", Json::String(path.to_svg_path()))]),
             Given::Path(path) => Json::String(path.to_svg_path()),
             Given::Shape(shape) => shape_json(shape),
             Given::Drawings(items) => {

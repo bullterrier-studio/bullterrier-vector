@@ -69,7 +69,7 @@ pub(crate) fn halftone_of(
     let color = raised(vector::Color::parse(color))?;
     let mut halftone = match tone {
         ToneArg::Number(number) => vector::Halftone::new(color, number.0),
-        ToneArg::Field(field) => vector::Halftone::field(color, field),
+        ToneArg::Field(field) => vector::Halftone::new(color, field),
     };
     if let Some(pitch) = pitch {
         halftone = halftone.pitch(pitch.0);

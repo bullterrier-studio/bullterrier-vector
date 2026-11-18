@@ -6,7 +6,7 @@ use crate::geometry::{coordinate, finite, fraction};
 use crate::key::Key;
 use crate::limits::MAX_DEPTH;
 use crate::{
-    Color, Drawing, Error, Expr, Field, Flow, Font, Literal, Paint, Param, Path, Point, Select, Shape, Values,
+    Color, Drawing, Error, Expr, Field, Flow, Font, Literal, Mark, Paint, Param, Path, Point, Select, Shape, Values,
 };
 
 /// The place of a shape in the list a step works on, and how long the list is.
@@ -682,6 +682,14 @@ impl Args {
         match self.find(name)? {
             (_, Given::Text(text)) => Ok(text),
             _ => Err(self.misread(name, "a word")),
+        }
+    }
+
+    /// The dot of `name`: a word of the set, or the caller's path.
+    pub(crate) fn mark(&self, name: &str) -> Result<Mark, Error> {
+        match self.find(name)? {
+            (_, Given::Path(path)) => Ok(Mark::path(path.clone())),
+            _ => Mark::parse(self.text(name)?),
         }
     }
 

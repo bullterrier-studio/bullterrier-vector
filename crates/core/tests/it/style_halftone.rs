@@ -212,20 +212,19 @@ fn the_registry_declares_the_arguments_with_their_defaults_and_ranges() -> Outco
             ("color", "None Painting".to_owned()),
             ("tone", "None Fraction".to_owned()),
             ("pitch", "Some(Number(8.0)) Positive".to_owned()),
-            ("angle", "Some(Number(45.0)) Finite".to_owned()),
+            ("angle", "Some(Unset) Finite".to_owned()),
             (
                 "shape",
-                r#"Some(Text("dot")) Choice(["dot", "square", "ellipse", "diamond", "euclidean", "path"])"#.to_owned()
+                r#"Some(Text("dot")) Choice(["dot", "square", "ellipse", "diamond", "euclidean"])"#.to_owned()
             ),
-            ("mark", "Some(Unset) Any".to_owned()),
-            ("aspect", "Some(Number(1.0)) AtLeast(1.0)".to_owned()),
+            ("aspect", "Some(Unset) AtLeast(1.0)".to_owned()),
             (
                 "screen",
                 r#"Some(Text("grid")) Choice(["grid", "wave", "rings", "spiral", "rays"])"#.to_owned()
             ),
             ("centre", "Some(Unset) Coordinate".to_owned()),
-            ("amplitude", "Some(Number(1.0)) Coordinate".to_owned()),
-            ("wavelength", "Some(Number(6.0)) PositiveUpTo(1e100)".to_owned()),
+            ("amplitude", "Some(Unset) Coordinate".to_owned()),
+            ("wavelength", "Some(Unset) PositiveUpTo(1e100)".to_owned()),
         ]
     );
     Ok(())

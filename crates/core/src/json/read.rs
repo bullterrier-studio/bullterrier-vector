@@ -345,7 +345,24 @@ impl Reader {
             }
             Kind::Field => self.field(pointer, json).map(Value::Field),
             Kind::Flow => self.flow(pointer, json).map(Value::Flow),
-            Kind::Text => {
+            // a word of the set, or the object that holds a path
+            Kind::Mark if matches!(json, Json::Object(_)) => {
+                let Json::Object(members) = json else {
+                    unreachable!("matched above")
+                };
+                if let Some(unknown) = members.keys().find(|key| *key != "path") {
+                    return Err(refuse(&at(pointer, unknown), "is not a field of a shape (path)"));
+                }
+                let Some(path) = members.get("path") else {
+                    return Err(refuse(pointer, "is missing `path`"));
+                };
+                let path_pointer = at(pointer, "path");
+                Ok(Value::Path {
+                    data: string(&path_pointer, path)?.to_owned(),
+                    pointer: path_pointer,
+                })
+            }
+            Kind::Text | Kind::Mark => {
                 let text = string(pointer, json)?;
                 if let Domain::Choice(words) = arg.domain
                     && !words.contains(&text)

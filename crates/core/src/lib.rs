@@ -30,7 +30,7 @@ mod values;
 
 pub use drawing::{
     Along, Arch, Bulge, Deg, Drawing, Envelope, Halftone, Pivot, PlaceAlong, Rotate, ScaleBy, Select, Shadow, Stats,
-    Stroke, Twist, Wanted,
+    Stroke, ToneGiven, Twist, Wanted,
 };
 pub use error::Error;
 pub use expr::{Expr, Random, Stagger, by_index, by_order};

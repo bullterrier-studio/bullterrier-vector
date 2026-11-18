@@ -59,6 +59,18 @@ pub(super) const fn number(name: &'static str, default: Option<f64>, domain: Dom
     }
 }
 
+/// A number read for each shape, within `domain`, that a call may leave out: the step then does what its summary says,
+/// and a call that gives it where nothing reads it is refused.
+const fn optional_number(name: &'static str, domain: Domain) -> Arg {
+    Arg {
+        name,
+        kind: Kind::Number,
+        default: Some(Literal::Unset),
+        reads: Reads::PerItem,
+        domain,
+    }
+}
+
 /// Fills every shape.
 #[derive(Debug)]
 pub(crate) struct Fill;
@@ -299,7 +311,7 @@ pub(crate) static HALFTONE: Verb = Verb {
               rays (about `centre`, default the middle of the shape's bounds); each dot covers (1 - tone) of its own \
               cell, tone from 0 (solid) to 1 (no dot), a number or a field read at the dot's centre; `shape` is the dot: \
               dot, square, ellipse (`aspect` times as long as wide), diamond, euclidean (round, diamond at 0.5, round hole) or \
-              path (the closed outline `mark`); replaces any fill before, as fill replaces it",
+              path (a closed outline of the caller's, `{\"path\": data}`); replaces any fill before, as fill replaces it",
     args: &[
         color(Domain::Painting),
         Arg {
@@ -310,16 +322,15 @@ pub(crate) static HALFTONE: Verb = Verb {
             domain: Domain::Fraction,
         },
         number("pitch", Some(DEFAULT_HALFTONE_PITCH), Domain::Positive),
-        number("angle", Some(DEFAULT_HALFTONE_ANGLE), Domain::Finite),
-        word("shape", Some("dot"), Mark::NAMES),
+        optional_number("angle", Domain::Finite),
         Arg {
-            name: "mark",
-            kind: Kind::Path,
-            default: Some(Literal::Unset),
+            name: "shape",
+            kind: Kind::Mark,
+            default: Some(Literal::Text("dot")),
             reads: Reads::Literal,
-            domain: Domain::Any,
+            domain: Domain::Choice(Mark::NAMES),
         },
-        number("aspect", Some(1.0), Domain::AtLeast(1.0)),
+        optional_number("aspect", Domain::AtLeast(1.0)),
         word("screen", Some("grid"), Screen::NAMES),
         Arg {
             name: "centre",
@@ -328,37 +339,26 @@ pub(crate) static HALFTONE: Verb = Verb {
             reads: Reads::PerItem,
             domain: Domain::Coordinate,
         },
-        number("amplitude", Some(DEFAULT_HALFTONE_AMPLITUDE), Domain::Coordinate),
-        number(
-            "wavelength",
-            Some(DEFAULT_HALFTONE_WAVELENGTH),
-            Domain::PositiveUpTo(MAX_COORDINATE),
-        ),
+        optional_number("amplitude", Domain::Coordinate),
+        optional_number("wavelength", Domain::PositiveUpTo(MAX_COORDINATE)),
     ],
     check: Some(halftone_reads_what_it_is_given),
 };
 
-/// The caller's outline goes with the shape `"path"` and no other, and a centre goes with a screen that has one.
+/// An argument goes with what reads it: the layout of the screen reads `angle`, `centre`, `amplitude` and `wavelength` as
+/// `bands` does, and only an ellipse reads `aspect`; one left out takes its default, one given and unread is refused.
 fn halftone_reads_what_it_is_given(args: &Args) -> Result<(), Error> {
-    let shape = args.text("shape")?;
-    match (shape == "path", args.given("mark")?) {
-        (true, false) => return Err(Error::parameter("mark", "is needed when `shape` is \"path\"")),
-        (false, true) => return Err(Error::parameter("mark", "is read only when `shape` is \"path\"")),
-        _ => {}
+    let mark = args.mark("shape")?;
+    // the outline is checked where it is given, not where the first output draws it
+    Dot::new(&mark, 1.0)?;
+    let screen = Screen::parse(args.text("screen")?)?;
+    for name in ["angle", "centre", "amplitude", "wavelength"] {
+        if args.given(name)? {
+            screen.refuse_unread(name)?;
+        }
     }
-    if shape == "path" {
-        // the outline is checked where it is given, not where the first output draws it
-        Dot::new(&Mark::path(args.path("mark")?.clone()), 1.0)?;
-    }
-    let screen = args.text("screen")?;
-    if args.given("centre")?
-        && let Some(known) = Screen::from_name(screen)
-        && !known.reads("centre")
-    {
-        return Err(Error::parameter(
-            "centre",
-            format!("is not read by the screen \"{screen}\""),
-        ));
+    if args.given("aspect")? {
+        mark.refuse_unread("aspect")?;
     }
     Ok(())
 }
@@ -371,14 +371,8 @@ impl Node for Halftone {
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         let placed = |error: Error| error.at_argument(&cx.place, None);
         let color = args.color("color")?;
-        let shape = args.text("shape")?;
-        let mark = if shape == "path" {
-            Mark::path(args.path("mark")?.clone())
-        } else {
-            Mark::from_name(shape).ok_or_else(|| Error::parameter("shape", "is not one of the dots"))?
-        };
-        let screen = Screen::from_name(args.text("screen")?)
-            .ok_or_else(|| Error::parameter("screen", "is not one of the screens"))?;
+        let mark = args.mark("shape")?;
+        let screen = Screen::parse(args.text("screen")?)?;
         // a field is bound once, with the values and the drawings of this draw, and shared by every shape
         let field = args
             .field_if_given("tone")?
@@ -394,13 +388,17 @@ impl Node for Halftone {
                 color,
                 tone,
                 pitch: args.number(cx, "pitch", item)?,
-                angle: args.number(cx, "angle", item)?,
+                angle: args.number_opt(cx, "angle", item)?.unwrap_or(DEFAULT_HALFTONE_ANGLE),
                 mark: mark.clone(),
-                aspect: args.number(cx, "aspect", item)?,
+                aspect: args.number_opt(cx, "aspect", item)?.unwrap_or(1.0),
                 screen,
                 centre: args.point(cx, "centre", item)?,
-                amplitude: args.number(cx, "amplitude", item)?,
-                wavelength: args.number(cx, "wavelength", item)?,
+                amplitude: args
+                    .number_opt(cx, "amplitude", item)?
+                    .unwrap_or(DEFAULT_HALFTONE_AMPLITUDE),
+                wavelength: args
+                    .number_opt(cx, "wavelength", item)?
+                    .unwrap_or(DEFAULT_HALFTONE_WAVELENGTH),
             };
             let mut shape = shape.clone();
             shape.style_mut().set_halftone(halftone);

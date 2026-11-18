@@ -6,7 +6,9 @@
 use crate::common::shoelace_area;
 use crate::common::svg_oracle::{dots_of, svg_agrees};
 use crate::common::{Outcome, Ring, parameter_refusal};
-use bullterrier_vector::{Color, Deg, Drawing, Error, Field, Halftone, Inputs, Mark, Path, Rect, Screen, Size, Values};
+use bullterrier_vector::{
+    Bands, Color, Deg, Drawing, Error, Field, Halftone, Inputs, Mark, Path, Rect, Screen, Size, Values,
+};
 use std::f64::consts::{PI, TAU};
 
 const BLACK: Color = Color::hex(0x00_00_00);
@@ -78,13 +80,14 @@ fn every_shape_covers_one_minus_tone_of_its_own_cell_on_a_grid() -> Outcome {
     for mark in marks {
         for tone in [0.9, 0.7, 0.5, 0.3, 0.1] {
             for angle in [0.0, 30.0] {
+                let screened = black(tone).pitch(10.0).angle(Deg(angle)).shape(mark.clone());
                 let found = dots(
                     200.0,
-                    black(tone)
-                        .pitch(10.0)
-                        .angle(Deg(angle))
-                        .shape(mark.clone())
-                        .aspect(2.5),
+                    if mark == Mark::Ellipse {
+                        screened.aspect(2.5)
+                    } else {
+                        screened
+                    },
                 )?;
                 assert!(found.len() > 100, "{}: {} dots", mark.name(), found.len());
                 for dot in &found {
@@ -376,7 +379,7 @@ fn a_ramp_tone_gives_each_dot_the_tone_at_its_centre() -> Outcome {
     let ramp = Field::ramp((0.0, 0.0), (300.0, 0.0))?;
     let found = dots(
         300.0,
-        Halftone::field(BLACK, ramp)
+        Halftone::new(BLACK, ramp)
             .pitch(10.0)
             .angle(Deg(0.0))
             .shape(Mark::Square),
@@ -414,7 +417,7 @@ fn a_map_tone_is_read_at_the_centre_of_each_dot_on_every_screen() -> Outcome {
     for screen in [Screen::Grid, Screen::Wave, Screen::Rings, Screen::Spiral, Screen::Rays] {
         let found = dots(
             200.0,
-            Halftone::field(BLACK, map.clone())
+            Halftone::new(BLACK, map.clone())
                 .pitch(8.0)
                 .shape(Mark::Square)
                 .screen(screen),
@@ -440,10 +443,7 @@ fn a_map_tone_is_read_at_the_centre_of_each_dot_on_every_screen() -> Outcome {
         assert!(mean_of(&dark) > 1.5 * mean_of(&light), "{}", screen.name());
     }
     // on a grid the invariant is exact
-    for dot in &dots(
-        200.0,
-        Halftone::field(BLACK, map.clone()).pitch(8.0).shape(Mark::Square),
-    )? {
+    for dot in &dots(200.0, Halftone::new(BLACK, map.clone()).pitch(8.0).shape(Mark::Square))? {
         let (x, y) = mean(dot);
         near(
             shoelace_area(dot),
@@ -461,7 +461,7 @@ fn a_constant_field_and_the_number_it_holds_draw_the_same_dots() -> Outcome {
         let number = dots(120.0, black(0.4).shape(Mark::Euclidean).screen(screen))?;
         let field = dots(
             120.0,
-            Halftone::field(BLACK, Field::constant(0.4)?)
+            Halftone::new(BLACK, Field::constant(0.4)?)
                 .shape(Mark::Euclidean)
                 .screen(screen),
         )?;
@@ -482,7 +482,7 @@ fn the_style_of_a_drawn_shape_says_what_the_tone_is() -> Outcome {
     assert_eq!(style.centre().map(|c| (c.x, c.y)), Some((10.0, 20.0)));
     assert_eq!((style.aspect(), style.amplitude(), style.wavelength()), (1.0, 1.0, 6.0));
     let ramp = Field::ramp((0.0, 0.0), (0.0, 50.0))?;
-    let by_field = Drawing::from(rect(50.0)?).halftone(Halftone::field(BLACK, ramp));
+    let by_field = Drawing::from(rect(50.0)?).halftone(Halftone::new(BLACK, ramp));
     let shapes = by_field.shapes(&Values::new())?;
     let style = shapes[0].style().halftone().ok_or("no halftone")?;
     assert_eq!(style.tone().level(), None);
@@ -709,7 +709,7 @@ fn what_the_screens_cannot_draw_is_refused_naming_the_argument() -> Outcome {
 }
 
 #[test]
-fn a_caller_outline_that_cannot_be_a_dot_is_refused_naming_the_mark() -> Outcome {
+fn a_caller_outline_that_cannot_be_a_dot_is_refused_naming_the_shape() -> Outcome {
     let base = Drawing::from(rect(100.0)?);
     let cases = [
         ("a line", "M0 0 L5 5"),
@@ -723,7 +723,72 @@ fn a_caller_outline_that_cannot_be_a_dot_is_refused_naming_the_mark() -> Outcome
         let drawing = base.halftone(black(0.5).shape(Mark::path(Path::from_svg_path(data)?)));
         let error = drawing.error().cloned().ok_or(format!("{case}: no error"))?;
         let (name, _) = parameter_refusal(Err::<(), _>(error))?;
-        assert!(name.contains("mark"), "{case}: {name}");
+        assert!(name.contains("shape"), "{case}: {name}");
+    }
+    Ok(())
+}
+
+/// `halftone` with the optional argument `argument` set to a value the argument accepts.
+fn with_argument(halftone: Halftone, argument: &str) -> Halftone {
+    match argument {
+        "angle" => halftone.angle(Deg(10.0)),
+        "centre" => halftone.centre((50.0, 50.0)),
+        "amplitude" => halftone.amplitude(2.0),
+        "wavelength" => halftone.wavelength(8.0),
+        _ => halftone.aspect(2.0),
+    }
+}
+
+#[test]
+fn an_argument_nothing_reads_is_refused_as_bands_refuses_it_by_one_table() -> Outcome {
+    let base = Drawing::from(rect(100.0)?);
+    let screens = [
+        (Screen::Grid, "lines"),
+        (Screen::Wave, "waves"),
+        (Screen::Rings, "rings"),
+        (Screen::Spiral, "spiral"),
+        (Screen::Rays, "rays"),
+    ];
+    for (screen, family) in screens {
+        for argument in ["angle", "centre", "amplitude", "wavelength"] {
+            let drawing = base.halftone(with_argument(black(0.5).screen(screen), argument));
+            let read = Bands::refuse_unread(family, argument).is_ok();
+            assert_eq!(drawing.error().is_none(), read, "{screen:?} {argument}");
+            if let Some(error) = drawing.error() {
+                let (name, _) = parameter_refusal(Err::<(), _>(error.clone()))?;
+                assert!(name.ends_with(argument), "{screen:?}: {name}");
+            }
+        }
+    }
+    for (mark, read) in [
+        (Mark::Dot, false),
+        (Mark::Square, false),
+        (Mark::Diamond, false),
+        (Mark::Euclidean, false),
+        (Mark::path(triangle(true)?), false),
+        (Mark::Ellipse, true),
+    ] {
+        let drawing = base.halftone(with_argument(black(0.5).shape(mark.clone()), "aspect"));
+        assert_eq!(drawing.error().is_none(), read, "{}", mark.name());
+    }
+    Ok(())
+}
+
+#[test]
+fn a_drawn_screen_put_back_into_a_drawing_draws_the_same_dots_on_every_screen_and_shape() -> Outcome {
+    let size = Size::px(100.0, 100.0);
+    for screen in [Screen::Grid, Screen::Wave, Screen::Rings, Screen::Spiral, Screen::Rays] {
+        for mark in [Mark::Dot, Mark::Ellipse, Mark::path(triangle(true)?)] {
+            let first = Drawing::from(rect(100.0)?).halftone(black(0.5).pitch(9.0).shape(mark).screen(screen));
+            let shapes = first.shapes(&Values::new())?;
+            let style = shapes[0].style().halftone().ok_or("no halftone")?;
+            let again = Drawing::from(rect(100.0)?).halftone(Halftone::from(style));
+            assert_eq!(
+                again.to_svg(size, &Values::new())?,
+                first.to_svg(size, &Values::new())?,
+                "{screen:?}"
+            );
+        }
     }
     Ok(())
 }
@@ -779,7 +844,7 @@ fn a_document_with_every_argument_reads_back_and_writes_the_same_text() -> Outco
         ),
         Drawing::from(rect(50.0)?).halftone(black(0.4).screen(Screen::Wave).amplitude(2.0).wavelength(9.0)),
         Drawing::from(rect(50.0)?)
-            .halftone(Halftone::field(BLACK, Field::ramp((0.0, 0.0), (0.0, 50.0))?).shape(Mark::Euclidean)),
+            .halftone(Halftone::new(BLACK, Field::ramp((0.0, 0.0), (0.0, 50.0))?).shape(Mark::Euclidean)),
         Drawing::from(rect(50.0)?).halftone(black(0.4).shape(Mark::path(triangle(true)?)).screen(Screen::Spiral)),
     ];
     for drawing in drawings {
@@ -791,10 +856,34 @@ fn a_document_with_every_argument_reads_back_and_writes_the_same_text() -> Outco
     let text = Drawing::from(rect(50.0)?)
         .halftone(black(0.4).shape(Mark::path(triangle(true)?)))
         .to_json()?;
-    assert!(
-        text.contains(r#""mark":"M0 0 L4 0 L0 2 Z""#) && text.contains(r#""shape":"path""#),
-        "{text}"
-    );
+    assert!(text.contains(r#""shape":{"path":"M0 0 L4 0 L0 2 Z"}"#), "{text}");
+    Ok(())
+}
+
+#[test]
+fn a_document_writes_a_shape_as_a_word_or_as_a_path_object_and_names_shape_in_its_errors() -> Outcome {
+    let open = r#"{"version":1,"root":[{"path":"M0 0 L9 0 L9 9 L0 9 Z"},"#;
+    let ok =
+        format!(r##"{open}{{"halftone":{{"color":"#000000","tone":0.5,"shape":{{"path":"M0 0 L4 0 L0 2 Z"}}}}}}]}}"##);
+    assert!(Drawing::from_json(&ok, &Inputs::new()).is_ok());
+    for (case, shape, pointer_ends) in [
+        ("a bad path", r#"{"path":"M0 0 L"}"#, "shape/path"),
+        (
+            "an unknown key",
+            r#"{"path":"M0 0 L4 0 L0 2 Z","extra":1}"#,
+            "shape/extra",
+        ),
+        ("a number", "3", "shape"),
+    ] {
+        let text = format!(r##"{open}{{"halftone":{{"color":"#000000","tone":0.5,"shape":{shape}}}}}]}}"##);
+        let Err(Error::Format { pointer, .. }) = Drawing::from_json(&text, &Inputs::new()) else {
+            return Err(format!("{case}: accepted").into());
+        };
+        assert!(pointer.ends_with(pointer_ends), "{case}: {pointer}");
+    }
+    // `mark` is no argument any more
+    let old = format!(r##"{open}{{"halftone":{{"color":"#000000","tone":0.5,"mark":"M0 0 L4 0 L0 2 Z"}}}}]}}"##);
+    assert!(Drawing::from_json(&old, &Inputs::new()).is_err());
     Ok(())
 }
 
@@ -835,7 +924,12 @@ fn the_svg_and_the_pixels_agree_on_every_shape_and_screen() -> Outcome {
         let name = format!("{} on {}", mark.name(), screen.name());
         let paper = Drawing::from(rect(120.0)?).fill(Color::hex(0xff_ff_ff));
         // the round screens are about a point off the disc: the sub-pixel dots at a centre are where two renderers differ
-        let screened = black(0.7).pitch(7.0).shape(mark).aspect(1.4).screen(screen);
+        let screened = black(0.7).pitch(7.0).shape(mark.clone()).screen(screen);
+        let screened = if mark == Mark::Ellipse {
+            screened.aspect(1.4)
+        } else {
+            screened
+        };
         let screened = if matches!(screen, Screen::Grid | Screen::Wave) {
             screened
         } else {
@@ -884,13 +978,13 @@ fn the_reference_document_reads_its_tone_from_a_map_and_draws_dots_that_follow_i
 fn a_distance_field_tone_survives_being_put_back_into_a_drawing() -> Outcome {
     let tone = Field::distance(Drawing::from(Path::circle((25.0, 25.0), 20.0)?), true)?;
     let shapes = Drawing::from(rect(50.0)?)
-        .halftone(Halftone::field(BLACK, tone).pitch(5.0))
+        .halftone(Halftone::new(BLACK, tone).pitch(5.0))
         .shapes(&Values::new())?;
     assert_eq!(Drawing::new(shapes.clone()).shapes(&Values::new())?, shapes);
     // and two different distance fields are two different tones
     let other = Field::distance(Drawing::from(Path::circle((10.0, 10.0), 5.0)?), true)?;
     let others = Drawing::from(rect(50.0)?)
-        .halftone(Halftone::field(BLACK, other).pitch(5.0))
+        .halftone(Halftone::new(BLACK, other).pitch(5.0))
         .shapes(&Values::new())?;
     assert_ne!(others, shapes);
     Ok(())

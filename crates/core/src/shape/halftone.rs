@@ -4,6 +4,7 @@ use super::color::Color;
 use super::style::refused;
 use crate::geometry::Point;
 use crate::key::{Key, Keyed};
+use crate::lines::Family;
 use crate::{Error, Field, Path};
 use std::sync::Arc;
 
@@ -73,8 +74,8 @@ pub enum Mark {
 }
 
 impl Mark {
-    /// The words a document uses for the marks that are words, in the order of the variants (a path is `"path"`).
-    pub(crate) const NAMES: &'static [&'static str] = &["dot", "square", "ellipse", "diamond", "euclidean", "path"];
+    /// The words a document uses for the marks that are words, in the order of the variants; a caller's outline is no word.
+    pub(crate) const NAMES: &'static [&'static str] = &["dot", "square", "ellipse", "diamond", "euclidean"];
 
     /// The mark of the caller's outline `path`.
     #[must_use]
@@ -99,7 +100,21 @@ impl Mark {
     /// # Errors
     /// [`Error::Parameter`] naming `shape` and listing the words.
     pub fn parse(name: &str) -> Result<Self, Error> {
-        Self::from_name(name).ok_or_else(|| refused("shape", &Self::NAMES[..5], name))
+        Self::from_name(name).ok_or_else(|| refused("shape", Self::NAMES, name))
+    }
+
+    /// The refusal of the optional argument `argument` (`aspect`) if this dot does not read it: only an ellipse does.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `argument`.
+    pub(crate) fn refuse_unread(&self, argument: &str) -> Result<(), Error> {
+        if argument == "aspect" && *self != Self::Ellipse {
+            return Err(Error::parameter(
+                argument,
+                format!("is not read by the shape \"{}\"", self.name()),
+            ));
+        }
+        Ok(())
     }
 
     /// The word a document uses.
@@ -157,12 +172,24 @@ impl Screen {
         Self::NAMES[self as usize]
     }
 
-    /// Whether the screen reads the optional argument `argument` (`centre`): the one place the rule lives.
-    pub(crate) fn reads(self, argument: &str) -> bool {
-        match argument {
-            "centre" => matches!(self, Self::Rings | Self::Spiral | Self::Rays),
-            _ => true,
+    /// The layout the screen lays its cells in: what `bands` calls a family, and the one table of what a layout reads.
+    pub(crate) fn family(self) -> Family {
+        match self {
+            Self::Grid => Family::Lines,
+            Self::Wave => Family::Waves,
+            Self::Rings => Family::Rings,
+            Self::Spiral => Family::Spiral,
+            Self::Rays => Family::Rays,
         }
+    }
+
+    /// The refusal of the optional argument `argument` (`angle`, `centre`, `amplitude`, `wavelength`) if the screen's
+    /// layout does not read it.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `argument`.
+    pub(crate) fn refuse_unread(self, argument: &str) -> Result<(), Error> {
+        self.family().refuse_unread(argument, "screen", self.name())
     }
 }
 

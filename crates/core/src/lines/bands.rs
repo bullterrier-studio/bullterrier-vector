@@ -67,13 +67,7 @@ impl Bands {
     /// # Errors
     /// [`Error::Parameter`] naming `argument` if the family does not read it.
     pub fn refuse_unread(family: &str, argument: &str) -> Result<(), Error> {
-        match Family::from_name(family) {
-            Some(known) if !known.reads(argument) => Err(Error::parameter(
-                argument,
-                format!("is not read by the family \"{family}\""),
-            )),
-            _ => Ok(()),
-        }
+        Family::from_name(family).map_or(Ok(()), |known| known.refuse_unread(argument, "family", family))
     }
 
     /// Straight lines `spacing` design pixels apart, along the direction of [`Bands::angle`] (0: left to right), the

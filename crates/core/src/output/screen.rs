@@ -74,7 +74,7 @@ impl Dots {
 /// The work is charged to `charge` before any dot is made, as [`charged`] does.
 ///
 /// # Errors
-/// What `charge` returns, and [`Error::Parameter`] naming `mark` for an outline that cannot be a dot.
+/// What `charge` returns, and [`Error::Parameter`] naming `shape` for an outline that cannot be a dot.
 pub(super) fn screen(
     halftone: &HalftoneStyle,
     outline: &[Polyline],
@@ -186,21 +186,12 @@ fn plan(
     let reach = dot.reach();
     let reach_px = reach * size;
     let screen = halftone.screen();
+    let family = screen.family();
     let layout = Layout {
-        family: match screen {
-            Arrangement::Grid => Family::Lines,
-            Arrangement::Wave => Family::Waves,
-            Arrangement::Rings => Family::Rings,
-            Arrangement::Spiral => Family::Spiral,
-            Arrangement::Rays => Family::Rays,
-        },
+        family,
         spacing: pitch,
-        // rings have no direction
-        angle: if screen == Arrangement::Rings {
-            0.0
-        } else {
-            halftone.angle()
-        },
+        // a layout that has no direction is laid at 0
+        angle: if family.reads("angle") { halftone.angle() } else { 0.0 },
         wave: Some((halftone.wavelength() * pitch, halftone.amplitude() * pitch)),
     };
     let rect = Rect {

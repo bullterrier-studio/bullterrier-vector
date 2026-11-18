@@ -21,7 +21,7 @@ pub use cache::Stats;
 pub(crate) use graph::Graph;
 pub use place::PlaceAlong;
 pub use select::{Select, Wanted};
-pub use style::{Halftone, Shadow, Stroke};
+pub use style::{Halftone, Shadow, Stroke, ToneGiven};
 pub use transform::{Along, Arch, Bulge, Deg, Envelope, Pivot, Rotate, ScaleBy, Twist};
 
 use self::cache::Shared;

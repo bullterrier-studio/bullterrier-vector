@@ -140,25 +140,29 @@ pub struct Halftone {
     wavelength: Option<Expr>,
 }
 
-/// The tone as the caller gave it.
+/// The tone of a [`Halftone`] as the caller gives it: a number, an expression of Params (which a per-item number may
+/// be), or a [`Field`] read at the centre of each dot (held to 0 to 1).
 #[derive(Debug, Clone)]
-enum ToneGiven {
-    Number(Expr),
-    Field(Field),
+pub struct ToneGiven(Given);
+
+impl<T: Into<Expr>> From<T> for ToneGiven {
+    fn from(tone: T) -> Self {
+        Self(Given::Number(tone.into()))
+    }
+}
+
+impl From<Field> for ToneGiven {
+    fn from(field: Field) -> Self {
+        Self(Given::Field(field))
+    }
 }
 
 impl Halftone {
     /// A screen of dots of `color`, `tone` from 0 (solid) to 1 (no dots): the share of each cell left bare. A number or
-    /// an expression, which a per-item number may be.
+    /// an expression, which a per-item number may be, or a [`Field`] read at the centre of each dot.
     #[must_use]
-    pub fn new(color: Color, tone: impl Into<Expr>) -> Self {
-        Self::of(color, ToneGiven::Number(tone.into()))
-    }
-
-    /// A screen of dots of `color` whose tone is `tone`, a [`Field`] read at the centre of each dot (held to 0 to 1).
-    #[must_use]
-    pub fn field(color: Color, tone: Field) -> Self {
-        Self::of(color, ToneGiven::Field(tone))
+    pub fn new(color: Color, tone: impl Into<ToneGiven>) -> Self {
+        Self::of(color, tone.into())
     }
 
     fn of(color: Color, tone: ToneGiven) -> Self {
@@ -236,21 +240,28 @@ impl Halftone {
 }
 
 impl From<&HalftoneStyle> for Halftone {
-    /// The screen a drawn style holds, to put into a drawing again.
+    /// The screen a drawn style holds, to put into a drawing again: what its screen and dot read, as a drawing refuses
+    /// the rest.
     fn from(style: &HalftoneStyle) -> Self {
         let tone = match style.tone() {
-            Tone::Level(level) => ToneGiven::Number(Expr::from(*level)),
-            Tone::Field(field) => ToneGiven::Field((**field).clone()),
+            Tone::Level(level) => ToneGiven::from(*level),
+            Tone::Field(field) => ToneGiven::from((**field).clone()),
         };
         let mut halftone = Self::of(style.color(), tone);
+        let screen = style.screen();
         halftone.pitch = Some(Expr::from(style.pitch()));
-        halftone.angle = Some(Expr::from(style.angle()));
         halftone.shape = Some(style.shape().clone());
-        halftone.aspect = Some(Expr::from(style.aspect()));
-        halftone.screen = Some(style.screen());
-        halftone.centre = style.centre();
-        halftone.amplitude = Some(Expr::from(style.amplitude()));
-        halftone.wavelength = Some(Expr::from(style.wavelength()));
+        halftone.screen = Some(screen);
+        let reads = |argument| screen.refuse_unread(argument).is_ok();
+        halftone.angle = reads("angle").then(|| Expr::from(style.angle()));
+        halftone.centre = style.centre().filter(|_| reads("centre"));
+        halftone.amplitude = reads("amplitude").then(|| Expr::from(style.amplitude()));
+        halftone.wavelength = reads("wavelength").then(|| Expr::from(style.wavelength()));
+        halftone.aspect = style
+            .shape()
+            .refuse_unread("aspect")
+            .is_ok()
+            .then(|| Expr::from(style.aspect()));
         halftone
     }
 }
@@ -338,16 +349,7 @@ impl Drawing {
     /// [`error`](Drawing::error), or, when they read a Param, are refused when the drawing is drawn.
     #[must_use]
     pub fn halftone(&self, halftone: Halftone) -> Self {
-        let mut given = vec![
-            ("color", Given::Color(halftone.color)),
-            (
-                "tone",
-                match halftone.tone {
-                    ToneGiven::Number(tone) => Given::Number(tone),
-                    ToneGiven::Field(field) => Given::Field(field),
-                },
-            ),
-        ];
+        let mut given = vec![("color", Given::Color(halftone.color)), ("tone", halftone.tone.0)];
         for (name, number) in [
             ("pitch", halftone.pitch),
             ("angle", halftone.angle),
@@ -360,10 +362,7 @@ impl Drawing {
             }
         }
         match halftone.shape {
-            Some(Mark::Path(path)) => {
-                given.push(("shape", Given::Text("path".to_owned())));
-                given.push(("mark", Given::Path((*path).clone())));
-            }
+            Some(Mark::Path(path)) => given.push(("shape", Given::Path((*path).clone()))),
             Some(other) => given.push(("shape", Given::Text(other.name().to_owned()))),
             None => {}
         }

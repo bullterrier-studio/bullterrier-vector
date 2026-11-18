@@ -875,7 +875,7 @@ AGREED = [
         id="a halftone of a field tone, an ellipse and rings",
     ),
     pytest.param(
-        square_with({"halftone": {"color": "#000000", "tone": 0.5, "shape": "path", "mark": "M0 0 L4 0 L0 2 Z"}}),
+        square_with({"halftone": {"color": "#000000", "tone": 0.5, "shape": {"path": "M0 0 L4 0 L0 2 Z"}}}),
         True,
         id="a halftone of a caller's outline",
     ),
