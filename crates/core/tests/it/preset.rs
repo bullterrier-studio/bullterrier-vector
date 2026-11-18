@@ -1,10 +1,14 @@
 //! The drawings that come with the library (`Drawing::preset`): the names, that each loads with no inputs and draws, that
 //! it is the canonical text shipped (`to_json` of the loaded drawing equals the file), that each Param says what it
-//! means and draws at its three poses, and that an unknown name is refused naming the choices. The oracle for the SVG
-//! is a parse with roxmltree; the oracle for the text is the file itself.
+//! means, draws its subject at its default and maximum and changes the picture, and that an unknown name is refused
+//! naming the choices. The oracle for the picture is its own pixels against the frame's corner, and the SVG compared
+//! as text; the oracle for the text is the file itself.
 
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Drawing, Size, Values};
+use bullterrier_vector::{Drawing, Size, Unit, Values};
+
+/// A drawing has a subject if at least this share of its pixels differs from the frame's corner.
+const MIN_INK: f64 = 0.01;
 
 /// (name, the shipped text): written here, apart from the library's own table, so a table that loses a file fails.
 const SHIPPED: [(&str, &str); 13] = [
@@ -23,11 +27,38 @@ const SHIPPED: [(&str, &str); 13] = [
     ("waves", include_str!("../../presets/waves.json")),
 ];
 
-/// The number of `path` elements in the SVG of `drawing` with these Param values.
-fn paths(drawing: &Drawing, values: &Values) -> Result<usize, Box<dyn std::error::Error>> {
-    let svg = drawing.to_svg(Size::px(200.0, 200.0), values)?;
-    let document = roxmltree::Document::parse(&svg)?;
-    Ok(document.descendants().filter(|node| node.has_tag_name("path")).count())
+/// The share of pixels, at a quarter of the design frame, that differ from the pixel at its top left corner.
+fn ink(drawing: &Drawing, values: &Values) -> Result<f64, Box<dyn std::error::Error>> {
+    let (width, height) = drawing.size().ok_or("a preset has a frame")?;
+    let (width, height) = ((width / 4.0).round(), (height / 4.0).round());
+    let pixels = drawing.to_rgba(Size::px(width, height), values)?;
+    let differing = pixels
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|pixel| **pixel != pixels[..4])
+        .count();
+    Ok(f64::from(u32::try_from(differing)?) / (width * height))
+}
+
+/// The SVG of `drawing` with these Param values: the picture, as text.
+fn picture(drawing: &Drawing, values: &Values) -> Result<String, Box<dyn std::error::Error>> {
+    Ok(drawing.to_svg(Size::px(200.0, 200.0), values)?)
+}
+
+/// One sentence: ends with a full stop, on one line, and no other sentence ending (`!`, `?`, or a full stop and a
+/// space before a capital).
+fn is_one_sentence(text: &str) -> bool {
+    let Some(body) = text.strip_suffix('.') else {
+        return false;
+    };
+    !text.contains('\n')
+        && !body.trim().is_empty()
+        && !body.contains(['!', '?'])
+        && !body
+            .split(". ")
+            .skip(1)
+            .any(|rest| rest.starts_with(char::is_uppercase))
 }
 
 #[test]
@@ -41,10 +72,10 @@ fn the_names_are_sorted_unique_and_the_shipped_ones() {
 }
 
 #[test]
-fn every_preset_loads_without_inputs_draws_shapes_and_is_the_shipped_text() -> Outcome {
+fn every_preset_loads_without_inputs_draws_its_subject_and_is_the_shipped_text() -> Outcome {
     for (name, text) in SHIPPED {
         let drawing = Drawing::preset(name)?;
-        assert!(paths(&drawing, &Values::new())? > 0, "{name} draws no shape");
+        assert!(ink(&drawing, &Values::new())? >= MIN_INK, "{name} draws no subject");
         assert!(
             drawing.to_json()? == text,
             "{name}: to_json differs from the shipped text"
@@ -54,30 +85,34 @@ fn every_preset_loads_without_inputs_draws_shapes_and_is_the_shipped_text() -> O
 }
 
 #[test]
-fn every_preset_has_params_that_mean_something_and_move_the_picture_between_their_extremes() -> Outcome {
+fn every_preset_has_params_that_mean_something_draw_the_subject_and_move_the_picture() -> Outcome {
     for name in Drawing::preset_names() {
         let drawing = Drawing::preset(name)?;
         let params = drawing.parameters()?;
         assert!(!params.is_empty(), "{name} has no Param to play with");
-        let mut moves_the_picture = false;
         for param in &params {
             assert!(
                 !param.meaning_of().is_empty(),
                 "{name}: {} has no meaning",
                 param.name()
             );
-            for value in [param.min(), param.default(), param.max()] {
+            // Not at the minimum: a reveal (`draw_on`'s progress) is bare there, by design.
+            for value in [param.default(), param.max()] {
                 let values = Values::new().set(param.name(), value);
-                assert!(paths(&drawing, &values)? > 0, "{name} at {}={value}", param.name());
+                assert!(ink(&drawing, &values)? >= MIN_INK, "{name} at {}={value}", param.name());
             }
-            let at = |value| drawing.to_svg(Size::px(200.0, 200.0), &Values::new().set(param.name(), value));
-            moves_the_picture |= at(param.min())? != at(param.max())?;
+            // A cyclic Param ends where it starts, so it is compared with a quarter turn; any other, with its far end.
+            let far = match param.unit_of() {
+                Unit::Deg | Unit::Cycle => param.min() + (param.max() - param.min()) / 4.0,
+                Unit::None | Unit::Px | Unit::Fraction => param.max(),
+            };
+            let at = |value| picture(&drawing, &Values::new().set(param.name(), value));
+            assert!(
+                at(param.min())? != at(far)?,
+                "{name}: {} does not change the picture",
+                param.name()
+            );
         }
-        // A phase loops, so it can look alike at both ends; some Param of the preset must change the picture.
-        assert!(
-            moves_the_picture,
-            "{name}: no Param changes the picture between its minimum and maximum"
-        );
     }
     Ok(())
 }
@@ -95,15 +130,32 @@ fn an_unknown_name_is_refused_naming_every_preset() -> Outcome {
 fn every_preset_has_a_one_sentence_description() -> Outcome {
     for name in Drawing::preset_names() {
         let text = Drawing::preset_description(name)?;
-        assert!(text.ends_with('.'), "{name}: {text:?} does not end with a full stop");
-        assert!(!text.contains('\n'), "{name}: the description has a line break");
-        assert!(text.trim().len() > 1, "{name}: the description is blank");
         assert!(
-            !text[..text.len() - 1].contains(". "),
-            "{name}: {text:?} is more than one sentence"
+            is_one_sentence(text),
+            "{name}: {text:?} is not one sentence ending in a full stop"
         );
     }
     Ok(())
+}
+
+#[test]
+fn the_one_sentence_rule_tells_known_good_from_known_bad() {
+    let rows = [
+        ("A ring.", true),
+        ("Type set at approx. 200 px.", true),
+        ("A ring, with a slider; a wide one.", true),
+        ("A ring! Its width is a slider.", false),
+        ("A ring? Yes, a wide one.", false),
+        ("A ring. Its width is a slider.", false),
+        ("A ring!", false),
+        ("A ring", false),
+        ("A ring.\n", false),
+        ("A ring\nand a disc.", false),
+        (" .", false),
+    ];
+    for (text, one_sentence) in rows {
+        assert_eq!(is_one_sentence(text), one_sentence, "{text:?}");
+    }
 }
 
 #[test]
