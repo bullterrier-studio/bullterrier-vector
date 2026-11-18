@@ -1,14 +1,14 @@
 """Command line `bt-vector`: render, describe and check drawings without writing code.
 
     bt-vector list
-    bt-vector describe SOURCE
+    bt-vector describe SOURCE [--input NAME=FILE ...]
     bt-vector render SOURCE -o OUT.png|OUT.svg [--size WxH] [--input NAME=FILE ...] [NAME=VALUE ...]
     bt-vector validate FILE.json [FILE.json ...] [--input NAME=FILE ...]
 
 SOURCE is a preset name (`ring`) or, when it ends in `.json`, a document file. `render` picks the format from the
 suffix of OUT, draws at the drawing's own design size unless `--size` says otherwise (800x600 for a drawing with none),
-and sets Params with `NAME=VALUE`; `--input` gives a document the bytes of an input it names (a font or a map that
-is not bundled).
+and sets Params with `NAME=VALUE` (a name the drawing has no Param of is refused);
+`--input` (also on `describe`) gives a document the bytes of an input it names (a font or a map that is not bundled).
 
 Exit codes: 0 done; 1 refused, one line `bt-vector: <what is wrong>` on stderr (`validate` prints one
 `FILE: <message>` line for each bad file); 2 wrong usage (argparse explains). Results go to stdout, errors to stderr.
@@ -55,7 +55,11 @@ def _load(source: str, inputs: list[str]) -> Drawing:
     """The drawing of a `.json` document file, else of the preset called `source`."""
     named = _inputs(inputs)
     if source.endswith(".json"):
-        return Drawing.from_json(Path(source).read_text(encoding="utf-8"), inputs=named)
+        try:
+            text = Path(source).read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            raise _RefusalError(f"{source}: cannot be read as UTF-8 text") from None
+        return Drawing.from_json(text, inputs=named)
     return Drawing.preset(source)
 
 
@@ -66,9 +70,14 @@ def _size(text: str) -> tuple[int, int]:
     return int(found[1]), int(found[2])
 
 
-def _values(texts: list[str]) -> dict[str, float]:
+def _values(texts: list[str], drawing: Drawing) -> dict[str, float]:
+    """The Param values written `NAME=VALUE`; a name the drawing does not read is refused, so no name can reach a
+    keyword of `to_png` itself (`window`)."""
+    known = [param.name for param in drawing.parameters()]
     values = {}
     for name, value in _pairs(texts, "a Param value"):
+        if name not in known:
+            raise _RefusalError(f"{name}: not a Param of this drawing, whose Params are {', '.join(known) or 'none'}")
         try:
             values[name] = float(value)
         except ValueError:
@@ -84,7 +93,7 @@ def _list(_: argparse.Namespace) -> None:
 
 
 def _describe(arguments: argparse.Namespace) -> None:
-    drawing = _load(arguments.source, [])
+    drawing = _load(arguments.source, arguments.input)
     width, height = drawing.size or _DEFAULT_SIZE
     print(f"size {width:g}x{height:g}" + ("" if drawing.size else " (none of its own: the default)"))
     print("name default min max unit meaning")
@@ -98,7 +107,7 @@ def _render(arguments: argparse.Namespace) -> None:
         raise _RefusalError(f"{out}: the output must end in {' or '.join(_FORMATS)}")
     drawing = _load(arguments.source, arguments.input)
     width, height = _size(arguments.size) if arguments.size else (drawing.size or _DEFAULT_SIZE)
-    values = _values(arguments.values)
+    values = _values(arguments.values, drawing)
     if out.suffix == ".png":
         out.write_bytes(drawing.to_png(round(width), round(height), **values))  # type: ignore[arg-type]
     else:
@@ -142,19 +151,19 @@ def _command_parser(name: str) -> argparse.ArgumentParser:
         parser.add_argument("values", nargs="*", metavar="NAME=VALUE", help="a value for a Param")
     if name == "validate":
         parser.add_argument("files", nargs="+", metavar="FILE.json")
-    if name in ("render", "validate"):
+    if name != "list":
         parser.add_argument("--input", action="append", default=[], metavar="NAME=FILE", help="bytes of a named input")
     return parser
 
 
 def run(argv: list[str]) -> int:
     """Run the command in `argv` (without the program name); the exit code, see the module docstring."""
-    chosen = _parsers().parse_args(argv)
-    # intermixed: older 3.12s reject NAME=VALUE after an option
-    arguments = _command_parser(chosen.command).parse_intermixed_args(chosen.arguments)
     try:
+        chosen = _parsers().parse_args(argv)
+        # intermixed: older 3.12s reject NAME=VALUE after an option
+        arguments = _command_parser(chosen.command).parse_intermixed_args(chosen.arguments)
         _COMMANDS[chosen.command](arguments)
-    except SystemExit as stop:  # `validate` has said its lines already
+    except SystemExit as stop:  # argparse's usage error (2) or -h (0), or `validate`, which has said its lines already
         return int(stop.code or 0)
     except (_RefusalError, BullterrierVectorError, OSError, UnicodeDecodeError) as error:
         print(f"bt-vector: {error}", file=sys.stderr)

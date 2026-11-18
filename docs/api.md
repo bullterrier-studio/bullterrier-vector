@@ -1227,12 +1227,13 @@ when it ends in `.json`, a document file.
 | Command | What it does |
 |---|---|
 | `bt-vector list` | one line per preset: `name  WxH  param, param` |
-| `bt-vector describe SOURCE` | the design size, then each `Param`: name, default, min, max, unit (`-` for none), meaning |
+| `bt-vector describe SOURCE [--input NAME=FILE ...]` | the design size, then each `Param`: name, default, min, max, unit (`-` for none), meaning |
 | `bt-vector render SOURCE -o OUT [--size WxH] [--input NAME=FILE ...] [NAME=VALUE ...]` | writes `OUT` (`.png` or `.svg`, by its suffix) and prints its path |
 | `bt-vector validate FILE.json [FILE.json ...] [--input NAME=FILE ...]` | prints `ok FILE` for each document that loads, `FILE: <message>` on stderr for each that does not |
 
 `render` draws at the drawing's design size, 800x600 when it has none, unless `--size` is given. `NAME=VALUE` sets a
-Param. `--input` gives `from_json` the bytes of an input the document names (a font or a map that is not bundled).
+Param (a name the drawing has no Param of is refused, listing its Params). `--input` (on `describe`, `render` and
+`validate`) gives `from_json` the bytes of an input the document names (a font or a map that is not bundled).
 Exit codes: 0 done; 1 refused, one line `bt-vector: <what is wrong>` on stderr (never a traceback); 2 wrong usage.
 Results go to stdout, errors to stderr. The same in Python: `bullterrier_vector.cli.run(argv)` returns the exit code.
 

@@ -84,6 +84,10 @@ def test_list_prints_every_preset_once(capsys: pytest.CaptureFixture[str]) -> No
     assert run(["list"]) == 0
     lines = capsys.readouterr().out.splitlines()
     assert [line.split()[0] for line in lines] == btvec.Drawing.preset_names()
+    for name, line in zip(btvec.Drawing.preset_names(), lines, strict=True):
+        drawing = btvec.Drawing.preset(name)
+        size = "x".join(f"{side:g}" for side in drawing.size) if drawing.size else "-"
+        assert line.split("  ", 2) == [name, size, ", ".join(param.name for param in drawing.parameters())]
 
 
 def test_describe_prints_every_param(capsys: pytest.CaptureFixture[str]) -> None:
@@ -97,6 +101,7 @@ def test_describe_prints_every_param(capsys: pytest.CaptureFixture[str]) -> None
         for number in (param.default, param.min, param.max):
             assert f"{number:g}" in row
         assert param.meaning in " ".join(row)
+        assert row[4] == (param.unit or "-")
 
 
 def test_describe_reads_a_document(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -104,6 +109,26 @@ def test_describe_reads_a_document(tmp_path: Path, capsys: pytest.CaptureFixture
     source.write_text(btvec.Drawing.preset("ring").to_json(), encoding="utf-8")
     assert run(["describe", str(source)]) == 0
     assert "half_width" in capsys.readouterr().out
+
+
+def test_describe_takes_inputs(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    source = map_document(tmp_path)
+    assert run(["describe", str(source)]) == 1
+    assert "photo" in capsys.readouterr().err
+    data = tmp_path / "photo.bin"
+    data.write_bytes(BYTES)
+    assert run(["describe", str(source), "--input", f"photo={data}"]) == 0
+    assert "name default min max unit meaning" in capsys.readouterr().out
+
+
+def test_a_name_that_is_no_param_is_refused_with_the_params(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    for name in ("window", "bogus"):  # `window` is a keyword of `to_png`, which a Param can never be named
+        assert run(["render", "ring", "-o", str(tmp_path / "a.png"), f"{name}=1"]) == 1
+        err = capsys.readouterr().err
+        assert err.startswith(f"bt-vector: {name}: ")
+        assert len(err.splitlines()) == 1
+        assert "half_width" in err
+    assert not (tmp_path / "a.png").exists()
 
 
 def test_validate_reports_each_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -163,15 +188,21 @@ def test_a_file_that_is_not_utf8_is_a_refusal(tmp_path: Path, capsys: pytest.Cap
     source = tmp_path / "latin.json"
     source.write_bytes(b"\xff\xfe\x00")
     assert run(["describe", str(source)]) == 1
-    assert "Traceback" not in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert str(source) in err
+    assert "Traceback" not in err
 
 
 @pytest.mark.parametrize(
     "argv",
     [pytest.param(["frobnicate"], id="unknown command"), pytest.param(["render", "ring"], id="no output")],
 )
-def test_wrong_usage_exits_2(argv: list[str], capsys: pytest.CaptureFixture[str]) -> None:
-    with pytest.raises(SystemExit) as stop:
-        run(argv)
-    assert stop.value.code == 2
+def test_wrong_usage_returns_2(argv: list[str], capsys: pytest.CaptureFixture[str]) -> None:
+    assert run(argv) == 2
     assert capsys.readouterr().err
+
+
+def test_help_returns_0(capsys: pytest.CaptureFixture[str]) -> None:
+    assert run(["-h"]) == 0
+    assert run(["render", "-h"]) == 0
+    assert "NAME=VALUE" in capsys.readouterr().out
