@@ -5,6 +5,8 @@
     bt-vector render SOURCE -o OUT.png|OUT.svg [--size WxH] [--input NAME=FILE ...] [NAME=VALUE ...]
     bt-vector validate FILE.json [FILE.json ...] [--input NAME=FILE ...]
 
+`list` prints a line `name  WxH  description` for each preset; `describe` prints a preset's description, then its size
+and a table of its Params.
 SOURCE is a preset name (`ring`) or, when it ends in `.json`, a document file. `render` picks the format from the
 suffix of OUT, draws at the drawing's own design size unless `--size` says otherwise (800x600 for a drawing with none),
 and sets Params with `NAME=VALUE` (a name the drawing has no Param of is refused);
@@ -90,11 +92,13 @@ def _list(_: argparse.Namespace) -> None:
     for name in Drawing.preset_names():
         drawing = Drawing.preset(name)
         size = "x".join(f"{side:g}" for side in drawing.size) if drawing.size else "-"
-        print(f"{name}  {size}  {', '.join(param.name for param in drawing.parameters())}")
+        print(f"{name}  {size}  {Drawing.preset_description(name)}")
 
 
 def _describe(arguments: argparse.Namespace) -> None:
     drawing = _load(arguments.source, arguments.input)
+    if not arguments.source.endswith(".json"):  # a document has no description
+        print(Drawing.preset_description(arguments.source))
     width, height = drawing.size or _DEFAULT_SIZE
     print(f"size {width:g}x{height:g}" + ("" if drawing.size else " (none of its own: the default)"))
     print("name default min max unit meaning")

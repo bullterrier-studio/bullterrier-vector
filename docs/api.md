@@ -1226,8 +1226,8 @@ when it ends in `.json`, a document file.
 
 | Command | What it does |
 |---|---|
-| `bt-vector list` | one line per preset: `name  WxH  param, param` |
-| `bt-vector describe SOURCE [--input NAME=FILE ...]` | the design size, then each `Param`: name, default, min, max, unit (`-` for none), meaning |
+| `bt-vector list` | one line per preset: `name  WxH  description` |
+| `bt-vector describe SOURCE [--input NAME=FILE ...]` | a preset's description, then the design size and each `Param`: name, default, min, max, unit (`-` for none), meaning |
 | `bt-vector render SOURCE -o OUT [--size WxH] [--input NAME=FILE ...] [NAME=VALUE ...]` | writes `OUT` (`.png` or `.svg`, by its suffix) and prints its path |
 | `bt-vector validate FILE.json [FILE.json ...] [--input NAME=FILE ...]` | prints `ok FILE` for each document that loads, `FILE: <message>` on stderr for each that does not |
 

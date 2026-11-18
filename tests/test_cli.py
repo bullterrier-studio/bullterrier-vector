@@ -80,14 +80,14 @@ def test_an_input_is_read_from_a_file(tmp_path: Path, capsys: pytest.CaptureFixt
     assert out.read_text(encoding="utf-8") == expected.to_svg(30, 20)
 
 
-def test_list_prints_every_preset_once(capsys: pytest.CaptureFixture[str]) -> None:
+def test_list_prints_name_size_and_description_for_every_preset(capsys: pytest.CaptureFixture[str]) -> None:
     assert run(["list"]) == 0
     lines = capsys.readouterr().out.splitlines()
     assert [line.split()[0] for line in lines] == btvec.Drawing.preset_names()
     for name, line in zip(btvec.Drawing.preset_names(), lines, strict=True):
         drawing = btvec.Drawing.preset(name)
         size = "x".join(f"{side:g}" for side in drawing.size) if drawing.size else "-"
-        assert line.split("  ", 2) == [name, size, ", ".join(param.name for param in drawing.parameters())]
+        assert line.split("  ", 2) == [name, size, btvec.Drawing.preset_description(name)]
 
 
 def test_describe_prints_every_param(capsys: pytest.CaptureFixture[str]) -> None:
@@ -102,6 +102,11 @@ def test_describe_prints_every_param(capsys: pytest.CaptureFixture[str]) -> None
             assert f"{number:g}" in row
         assert param.meaning in " ".join(row)
         assert row[4] == (param.unit or "-")
+
+
+def test_describe_of_a_preset_starts_with_its_description(capsys: pytest.CaptureFixture[str]) -> None:
+    assert run(["describe", "ring"]) == 0
+    assert capsys.readouterr().out.splitlines()[0] == btvec.Drawing.preset_description("ring")
 
 
 def test_describe_reads_a_document(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
