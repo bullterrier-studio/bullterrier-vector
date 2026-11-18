@@ -186,22 +186,6 @@ impl Field {
         Ok(())
     }
 
-    /// What tells this field from another with the same key: a distance field's drawing is not in its key, so the
-    /// digest of the outline it measures to is; every other field is its key, and gives zeros.
-    pub(crate) fn identity(&self) -> [u64; 4] {
-        match &self.bound {
-            Bound::Distance { parts, .. } => {
-                let digest = parts.whole.digest();
-                std::array::from_fn(|at| {
-                    digest[at * 8..at * 8 + 8]
-                        .iter()
-                        .fold(0, |word, byte| word << 8 | u64::from(*byte))
-                })
-            }
-            _ => [0; 4],
-        }
-    }
-
     pub(crate) fn kind(&self) -> &FieldKind {
         &self.kind
     }
@@ -224,6 +208,13 @@ impl Keyed for Field {
             FieldKind::Distance { normalized, .. } => {
                 key.word(3);
                 key.word(u64::from(*normalized));
+                // the drawing is not in the key, the outline it was bound to is: two bindings of one call to two
+                // different drawings are two fields
+                if let Bound::Distance { parts, .. } = &self.bound {
+                    for word in parts.identity {
+                        key.word(word);
+                    }
+                }
             }
             FieldKind::Map(map) => {
                 key.word(4);
@@ -259,12 +250,20 @@ struct Part {
 struct Parts {
     whole: Outline,
     parts: Vec<Part>,
+    /// The digest of the outline's edges, worked out once when the field is bound, as four words.
+    identity: [u64; 4],
 }
 
 impl Parts {
     fn new(whole: Outline, polylines: &[Polyline], normalized: bool) -> Result<Self, Error> {
         let parts = if normalized { split(polylines)? } else { Vec::new() };
-        Ok(Self { whole, parts })
+        let digest = whole.digest();
+        let identity = std::array::from_fn(|at| {
+            digest[at * 8..at * 8 + 8]
+                .iter()
+                .fold(0, |word, byte| word << 8 | u64::from(*byte))
+        });
+        Ok(Self { whole, parts, identity })
     }
 
     fn at(&self, point: Point, normalized: bool) -> f64 {

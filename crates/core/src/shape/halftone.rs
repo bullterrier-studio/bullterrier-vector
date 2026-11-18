@@ -282,10 +282,6 @@ impl Keyed for Tone {
             Self::Field(field) => {
                 key.word(1);
                 key.of(&**field);
-                // a distance field's drawing is not in its key: the outline it measures to tells it apart
-                for word in field.identity() {
-                    key.word(word);
-                }
             }
         }
     }
