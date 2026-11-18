@@ -34,7 +34,8 @@ const server = createServer(async (request, response) => {
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const profile = await mkdtemp(join(tmpdir(), "bt-playground-"));
 const chrome = spawn(CHROME, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", `--window-size=${WINDOW.width},${WINDOW.height}`, "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
-const chromeGone = new Promise((resolve) => chrome.once("exit", resolve));
+const chromeGone = new Promise((resolve) => { chrome.once("exit", resolve); chrome.once("error", resolve); });
+const chromeMissing = new Promise((resolve) => chrome.once("error", resolve)); // spawn failed: no such file, not executable
 
 class Failure extends Error {}
 const check = (condition, what) => {
@@ -45,12 +46,16 @@ const median = (numbers) => [...numbers].sort((a, b) => a - b)[Math.floor(number
 
 let socket;
 try {
-  let endpoint = "";
-  for await (const chunk of chrome.stderr) {
-    endpoint += chunk;
-    const found = /ws:\/\/\S+/.exec(endpoint);
-    if (found) { endpoint = found[0]; break; }
-  }
+  const endpointFound = (async () => {
+    let endpoint = "";
+    for await (const chunk of chrome.stderr) {
+      endpoint += chunk;
+      const found = /ws:\/\/\S+/.exec(endpoint);
+      if (found) return found[0];
+    }
+  })();
+  const endpoint = await Promise.race([endpointFound, chromeMissing.then(() => undefined)]);
+  check(endpoint, `Chrome not found at ${CHROME}: set CHROME`);
   socket = new WebSocket(endpoint);
   await new Promise((resolve) => (socket.onopen = resolve));
   let next = 0;
@@ -219,6 +224,6 @@ try {
   socket?.close();
   chrome.kill();
   server.close();
-  await chromeGone;
-  await rm(profile, { recursive: true, force: true });
+  await Promise.race([chromeGone, pause(WAIT_MS)]); // Chrome writes to the profile until it is gone
+  await rm(profile, { recursive: true, force: true, maxRetries: 5 });
 }
