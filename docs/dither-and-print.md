@@ -1,9 +1,10 @@
 # Dither, halftone and print looks
 
-Planned 2026-11-15, not scheduled. The vector side of looks that dither and halftone tools in common use draw in pixels:
-here they are paths, so they print at any size, plot with a pen and stay editable as SVG. Vector never links a raster
-library: a photo arrives as a map of plain numbers (the map input of V14), and a caller joins it with bullterrier-image.
-The ecosystem view is the design repository's `dither-and-print.md`.
+This file records what shipped. Planned work is tracked outside this repository.
+
+The vector side of looks that dither and halftone tools in common use draw in pixels: here they are paths, so they print at
+any size, plot with a pen and stay editable as SVG. Vector never links a raster library: a photo arrives as a map of plain
+numbers (the map input of V14), and a caller joins it with bullterrier-image.
 
 | Item | What it is | Batch |
 |---|---|---|

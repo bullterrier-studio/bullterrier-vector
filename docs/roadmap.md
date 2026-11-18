@@ -1,8 +1,10 @@
 # Roadmap
 
+This file records what shipped. Planned work is tracked outside this repository.
+
 Status: draft for review, 2026-10-28. What the batches build: [design.md](design.md).
 
-Small batches of work, in order. Each batch gets its own plan before work starts, ends merged into `main` with the
+Small batches of work. Each batch gets its own plan before work starts, ends merged into `main` with the
 whole gate green and, for M and L batches, an independent review done, and leaves the worked examples it names passing. From V2, a batch
 that adds calls is done only when they round-trip through JSON and the generated schema agrees with the hand-written
 draft on them (formats.md, "Extension"). Sizes: **S** about one working session, **M** two or three, **L** four or
@@ -31,7 +33,7 @@ stays as in CLAUDE.md.
 
 Order: a short feedback loop first (the gate, a walking skeleton through every target), then the code API and the core,
 a way to see a drawing (with two spikes that measure a GPU display), a way to export frames, then type, then the risky
-geometry, then the generative layer in the order the reference pieces need it, then an open-ended effects track. The
+geometry, then the generative layer in the order the reference pieces need it, then an effects track. The
 prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 
 | # | Batch | Size | Milestone |
@@ -66,18 +68,15 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V16 | SVG import (logos) | S | Done 2026-11-11, trimmed |
 | V17 | Presets as JSON | S | Done 2026-11-18 |
 | V18 | Command line: `render`, `describe`, `list`, `validate` | S | Done 2026-11-18 |
-| V19 | Presets and gallery | M | In progress: descriptions, `list`/`describe` and `examples/presets/` done; the 13 presets are in, the gallery sheet follows |
-| V20 | Browser playground and a live page example | M | |
-| V21 | Reference pieces rebuilt on the library | M | |
-| V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
-| E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
+| V19 | Presets and gallery | M | Done 2026-11-18 |
+| E | Effects track: one effect and its gallery piece per batch, from V15 on; 4a and 4b are done ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done and V14a (trace of a single map) is done; V14 (with V14b) is done and M4 is reached; the effects track's 4a (halftone screens) and 4b (character grids and overlay marks) are done; V17 (presets as JSON) and V18 (command line) are done; next in the order above: V19 (presets and gallery). Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
+unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done and V14a (trace of a single map) is done; V14 (with V14b) is done and M4 is reached; the effects track's 4a (halftone screens) and 4b (character grids and overlay marks) are done; V17 (presets as JSON), V18 (command line) and V19 (presets and gallery) are done. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
-Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12, V13 and M3 are done; V15 (before V14) follows.
+Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12, V13 and M3 are done.
 
-"V2" in the documents means V2a to V2c together. V13 (morph) builds on V2 and V5, and V16 (SVG import) on V2; either can move earlier if a piece needs it.
+"V2" in the documents means V2a to V2c together.
 
 ## V0 Taste prototype
 
@@ -323,7 +322,7 @@ At 960x540 the draw is 0.3 ms and `toRgba` 30 ms; at 3840x2160 the draw is 0.6 m
 Not measured: a blurred shadow (no step for it yet, so no shader), other GPUs, other browsers, a windowed page with the compositor and vsync, a rendering of the mesh to a texture and back, and any 2D-canvas comparison other than `putImageData`. One machine, headless.
 
 **Proposal.**
-- Add no GPU display to the core. It is about 60 lines in the page (shaders, one buffer pair, a loop over the ranges); the mesh format needs no change. Put it in the V20 playground and give `mesh_upload.js` a complete shader and the multiply form above.
+- Add no GPU display to the core. It is about 60 lines in the page (shaders, one buffer pair, a loop over the ranges); the mesh format needs no change. Put it in a browser page and give `mesh_upload.js` a complete shader and the multiply form above.
 - Say in `api.md` that a mesh drawn with `blendFunc` is a preview: the pixels stay the reference. Differences: edge anti-aliasing (a few levels of 255 on average, more at hairlines), and two-layer shapes under opacity or multiply (by design).
 - Fix the multiply line in `api.md` and `mesh_upload.js`: the single `blendFunc` is exact only over an opaque ground; use the two-pass form otherwise.
 - A GPU display helps the live preview only where the mesh is kept between frames; for a drawing that changes every frame the time is the re-meshing, which X2 measures.
@@ -451,9 +450,8 @@ and the per-frame cost of type in `docs/benchmarks.md`. V5d is done: `Font::new`
 decompression bomb refused at `MAX_FONT_BYTES`) and refuses WOFF, answering the question above; `Font::bundled(name)` and
 `Font::bundled_names()` (`btvec.Font.bundled`) give Bricolage Grotesque and Fraunces (OFL 1.1, compiled in as WOFF2), a
 document names them by `sha256` and loads without bytes, the licences ship in the crate, the sdist and the wheel
-(`build-check` fails without them), `examples/bundled_type.py`. V5 is done. The npm package does not exist yet: V22
-publishes it with the `OFL.txt` of each font in `files` and `license` `MIT AND OFL-1.1` (the `wasm-bindgen` output takes the
-licence from the crate).
+(`build-check` fails without them), `examples/bundled_type.py`. V5 is done. The npm package is not published yet; it will carry the `OFL.txt` of each font in `files` and `license`
+`MIT AND OFL-1.1` (the `wasm-bindgen` output takes the licence from the crate).
 
 ## V6 Layout
 
@@ -632,7 +630,7 @@ the print thins back to hairlines.
 
 Done when: `examples/kinetic_type.py`, `crates/core/examples/kinetic_type.rs` and `crates/wasm/examples/kinetic_type.mjs`
 run, draw four frames that are the same SVG text in all three (`poe wasm-test`), and `btvec.frames` writes the clip
-(Python). A live page is V20, not this.
+(Python).
 
 State: done 2026-11-16 (`design-decisions.md`, "Kinetic type piece (M3)"). A frame costs about 25 ms at 1080x1350.
 
@@ -679,10 +677,7 @@ squares: open lines at the frame, closed loops inside), Params in the numbers of
 `fraction`) and a drawing in `Field.distance` and `Flow.contour` (a `hatch` step reads both with the values it draws with),
 `hatch(below=)` (crosshatch and tone levels are stacked steps), and a `Flow.contour` direction blended across the middle of a
 stroke; in Rust, Python and documents (so WebAssembly), with `examples/flow_hatch.py` in the three languages following the
-headline's weight. Reasons and limits: `design-decisions.md`, "Fields and lines (V15b)". Left for V15c or later: a
-document verb for contour lines (V14's `trace` takes a field), a field in `halftone`'s `tone`, Params in a ramp's points, and the stubs the
-demo still shows where two strokes meet at a right angle (the line field has a defect there: a few ticks 6 to 8 px long at the F's
-stem and arm, a diagonal seam at outer corners): a join along the bisector, or dropping chord ticks near corners.
+headline's weight. Reasons and limits: `design-decisions.md`, "Fields and lines (V15b)". The halftone `tone` reads a field since 4a.
 
 **V15c, done 2026-11-17; V15 done and M5 reached.** `rows` (ridgelines with hidden lines removed), `bands` (lines whose width
 carries a tone along straight lines, waves, rings, a spiral or rays) and `stipple` (dots whose density follows a tone), each
@@ -731,115 +726,41 @@ ids and groups (a designer already names layers); vector adds no sidecar format 
 **Done (2026-11-11), trimmed:** `Drawing.from_svg(text)` reads `svg`, `g` and the shape elements; the limits are in
 `docs/api.md`, "SVG import". Not in the first version: `evenodd`, `use`, gradients, clip paths, masks, text, CSS stylesheets.
 
-Deferred importer features, each refused with an error today, and what each needs:
-
-- `fill-rule="evenodd"`: the rasteriser is hard-wired nonzero (`output/raster.rs`, `output/mesh.rs`); needs a `Style`
-  fill-rule field, then the rasteriser, mesh, SVG writer, JSON and the WebAssembly oracle.
-- CSS `<style>` and `class` rules: needs a CSS parser; minimal class and tag selectors are feasible.
-- Gradients: the model exists (`Gradient`); needs `defs`, `url(#id)` lookup, `gradientUnits` and `gradientTransform`.
-- `use`: needs an id map and a cycle guard.
-- `<!DOCTYPE>` (Illustrator and Inkscape headers): refused because `roxmltree` does not cap entity expansion
-  (`design-decisions.md`, "`roxmltree` reads SVG"); needs a pre-scan that refuses `<!ENTITY` and lets a bare DOCTYPE
-  through, or a parser with an expansion cap.
-
 Done when: an SVG with ids on a logo of 40 or more contours imports, `only(id=...)` selects each part, nested groups give the
 group path, and the JSON round trip keeps the attributes.
 
-## V17 to V20
+## V17 to V19
 
-Presets as JSON; the command line; presets and a gallery that look good with no tuning; a browser page that loads a
-drawing and builds sliders from its parameter descriptions, and a live page example: a drawing redrawn on a canvas from
-values the page supplies (the clock, scroll, pointer).
+**V17, done 2026-11-18.** Presets as JSON: `Drawing.preset(name)` and `Drawing.preset_names()` (JavaScript `Drawing.preset`,
+`presetNames`; Rust `Drawing::preset`) give whole drawings that ship with the library, each a JSON document written from a
+program in `examples/presets/`. Reasons: `design-decisions.md`, "Presets (V17)".
 
-## V21 Reference pieces
+**V18, done 2026-11-18.** The command line, `bt-vector`, in the Python package: `list`, `describe`, `render` and `validate`.
+Reasons and what it leaves out: `design-decisions.md`, "Command line (V18)".
 
-The three pieces rebuilt on the library, animated by a script that sets values per frame, exported with V4.
+**V19, done 2026-11-18.** Presets and a gallery that look good with no tuning: 13 presets (`bent_type`, `brush_taper`,
+`draw_on`, `flow_hatch`, `glyph_scatter`, `gradient_type`, `halftone_screen`, `marching_dashes`, `ring`, `stipple`,
+`text_on_path`, `two_fonts`, `waves`), each with a one-sentence description (`Drawing.preset_description(name)`,
+`presetDescription` in JavaScript) kept in the `PRESETS` table and shown by `bt-vector list` and `describe`; each program in
+`examples/presets/` is checked against its JSON file, its subject, its Params and the sentence rule; demo 36 is a gallery
+sheet of the 13. Reasons: `design-decisions.md`, "Preset descriptions (V19)".
 
 ## E Effects track
 
-Open-ended, from V15 on, alongside V16 to V22. One effect per small batch, merged with its gallery piece. Candidates,
-and what each builds on: [effects-roadmap.md](effects-roadmap.md).
+One effect per small batch, merged with its gallery piece, from V15 on. What shipped, and the effects the track draws
+from: [effects-roadmap.md](effects-roadmap.md).
 
-## V22 First release
+## Asks from scene (2026-11-14), as shipped
 
-Names reserved and published on crates.io, PyPI and npm; changelog; README with a scenario and a "what gap does it
-fill" section, claims about other projects checked again.
+What `bullterrier-scene` asked of vector while building real pieces, and where each stands.
 
-Also:
-- The `Development Status :: 3 - Alpha` classifier overstates a skeleton: revisit.
-- The README's relative links will not work on the PyPI page: use absolute URLs.
-- The crate packages must include `LICENSE`.
-
-## Later, with a trigger
-
-- Command line: a Rust `cargo install` CLI without Python (trigger: someone needs it); `render --plot` (a pen width),
-  `describe --json` and a `schema` command (trigger: a tool that wants them).
-
-- Kinetic type: the mid-turn frames of `A` and `M` (E into A, P into M) are the roughest of the piece; a pairing or a
-  target chosen for shape, or a smarter vertex pairing in `morph`, would calm them.
-- A per-character list (axes) counts the line break while a per-item number counts shapes, so one `pulse` list cannot
-  drive both a weight and a per-letter scale; a way to ask for one shape per character, or a list per shape for axes.
-- Whole-number arguments (a `Random` seed) take an `f64` in Rust (`seed(7.0)`): `Expr` has no `From` for integers.
-- Morph: the start of a closed pair is the least-distance shift of 128 samples, so it can jump when an animated target
-  changes shape (open decision D7); keep a start across frames only if a piece shows the jump.
-- Morph: style (a colour or a gradient) does not morph with the outline; a shape keeps the source's style.
-- Morph: position-aware pairing of the shapes of two words (today by index, so a longer word grows its last letters in
-  place) and a `resolve` option inside `morph` for glyphs made of overlapping contours (today `resolve` first).
-- Morph: a per-shape `order` that follows the result's list, so `stagger` also staggers a shape that grows (today each
-  shape reads its own `order`, the source's for a pair).
-- Morph: thin hairs where two matched contours cross over on the way (a `C` into an `H` at about 0.5), and a notch where
-  a letter with a counter meets one without (`T` into `R`): a smarter start or vertex pairing would calm them.
-- Mesh fills of self-crossing outlines can emit overlapping triangles (`lyon_tessellation`, nonzero fill, f32): about 1 failing case in 70,000 of the `mesh_fill` property test, e.g. polygons `[(81,5),(63,18),(33,49)]`, `[(26,41),(45,75),(40,53),(0,44)]`, `[(30,54),(61,51),(55,0),(47,24)]` cover the point (40.77, 49.52) three times where the nonzero rule says once. Resolving crossing outlines before tessellating (`Path::resolve`) fixed the first case but costs time (3.4 times on stroked scenes, see design-decisions, "Output") and changes every fill's triangulation: its own batch, perhaps resolving only outlines that cross themselves. Until then the test fails about once in 700 runs; its regression seed is committed with the fix.
-- `frame="reference"` for `envelope` and `arch`: calm-pose bounds, so an animated weight does not make the arch breathe.
-- A per-line frame helper: regroup a text's shapes by `line` so each line can take its own `frame=` (the demo split the
-  text per line by hand).
-- `arch` in pixels of rise: the lift is a share of the frame width, so a long word lifts far.
-- The same wording of refusals on `Path` and `Drawing` for the other `Domain` checks (`radius` and `wavelength` print 1e100 as 101 digits on a `Drawing`).
-- Cut deformer edges by their extent along the map's axis instead of their length: tall thin shapes are cut finer than needed.
-- `Param` in the Python `frame=` argument (JSON accepts it).
-- A warning, beyond the note in `api.md`, on big `wobble` and `twist` amounts that fuse outlines.
-- A tapered stroke whose width reads as the profile at steep slopes: the sweep of a disc is wider across than its factor near a short taper (16.4 against 8.7 at 5 px of a 100 px line); a profile that sets the width across the stroke, not the disc radius, would fix it (found by the V11 demo).
-- `simplify(corner_angle=)`: if noisy hand-drawn lines keep their kinks (found by the V11 demo).
-- A `Path.points()` or corners accessor: the V11 demo parsed `to_svg_path()` to dot the corners.
-- A clearer error when `place_along` is called on a `Path`: say it takes the stamp as a `Drawing` and hint to wrap the shape.
-- `outline` and `stroke` with a `profile` and miter or butt joins and caps (today round only).
-- Dash: merge a closed sub-path's last and first dash into one piece.
-- Dash: zero-length entries, for dotted lines with round caps.
-- GPU rendering: when the CPU path is too slow for a live preview.
-- Text-editing support (cursor, selection, hit testing within text): when an editor is started.
-- Multi-threaded rendering: when batch rendering needs it.
-- Custom nodes in Python or JavaScript (D6): when a user wants one.
-- Colour and bitmap fonts: after v1, when a piece needs them.
-- Stateful simulation (D5).
-- Memory per shape: measure the bytes of a shape and what the result cache keeps (the million-shape limit test in
-  `drawing_limits.rs` peaks at 2 to 3 GB), and lower `MAX_SHAPES` or shrink a shape if a server or the browser needs
-  less: before V22.
-- Gate lints for hidden tunables and swallowed errors: ruff `PLR2004` and clippy's `let_underscore_must_use`,
-  `map_err_ignore`, `allow_attributes`, tried on a short branch with the hits counted, keeping those that are quiet or
-  find real problems; `// constant:` stays a reviewed rule (no tool tells a tunable from a harmless literal).
-- Wrapping tests for right-to-left text, ligatures across a break and combining marks, and right-to-left text inside a
-  shape: when a test font for them exists or a piece needs them.
-
-## From scene and the future directions (2026-11-14)
-
-Asked by `bullterrier-scene` while building real pieces, and by the three directions in the design repository's `future.md`
-(animated posters, websites, an editor).
-
-- **`Path.dash` (V11).** Listed in `api.md` ("Verbs on Path and Drawing") and `formats.md` but not built: the source has no `dash`, and
-  `design-decisions.md` ("Wow gaps") says so. *Why:* stitching, dashed outlines and the marching dash. *Evidence:* the Conan poster
-  drew stitching as many `slice` pieces (`dashes()` in its `poster.py`, four lines; `bullterrier-demos/feedback/scene-conan.md`, 1).
-  Build it, or take the row out of `api.md` until it exists.
-- **A gradient fill for text, reachable from scene.** Vector already fills text with a gradient (`examples/gradient_type.py`), and a
-  gradient is plain data in a document (`formats.md`, the `fill` and `stroke` rows). The gap is in scene: `Layer.text` takes a flat colour
-  only, so the composed-world piece (M2) called `btvec.text` directly. *Check first:* whether scene can pass the paint as the plain
-  data vector already reads, with no vector change. *Evidence:* scene's `docs/future.md`, polish item 6.
-- **An exact-fit raster option.** A frame is drawn at one uniform scale, `min(width / frame width, height / frame height)`,
-  centred, in a raster whose short side is rounded up, which leaves a quarter to a half pixel of slack and cannot draw a frame
-  at two scales. *Why:* scene wraps the document in a frame that is exactly the raster to work around it. *Wanted:* a frame
-  drawn to the raster exactly, non-uniform scale allowed. *Evidence:* scene's `docs/api.md`, "Drawings" (a translucent border of
-  alpha 0.749 at 1,920 by 1,080 drawn at 1,000).
+- **`Path.dash` (V11)**: built (`crates/core/src/path/dash.rs`, `examples/marching_dashes.py`). The Conan poster had drawn
+  stitching as many `slice` pieces.
+- **A gradient fill for text, reachable from scene**: vector already fills text with a gradient (`examples/gradient_type.py`),
+  and a gradient is plain data in a document (`formats.md`, the `fill` and `stroke` rows); scene passes the paint on its own
+  side, so vector changed nothing.
 - **`#rgb` colours on fills and strokes** (done 2026-11-16). `Color::parse` is the one parser (the SVG reader calls it) and
   reads `#rgb`, `#rrggbb`, `#rrggbbaa` and `none`; image and the SVG reader have no `#rgba`, so neither has vector.
-- **Window render (V10e) exists** (done 2026-11-13, Rust, Python and WebAssembly): scene B1 (bands) can use it, for every drawing, the same bytes as the whole render's rows and columns (2026-11-15). Nothing to build.
-- **WebAssembly builds already.** A scene editor or a web export (direction 2) may draw vector in the page. Nothing to build
-  until a page needs it.
+- **Window render (V10e)** (done 2026-11-13, Rust, Python and WebAssembly): for every drawing, the same bytes as the whole
+  render's rows and columns.
+- **WebAssembly builds** already, so a scene editor or a web export can draw vector in the page.

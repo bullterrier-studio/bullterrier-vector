@@ -169,7 +169,7 @@ and draws again:
 - **Frame export** (V4, Python). A small helper loops a caller's function (time in, a drawing with its values out) over
   frames and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. It is the only part
   that knows frames; it has no timeline, keyframes or mixing, and it lives outside the core.
-- **Live in a page** (planned: the package in V3, an example in V20). The WebAssembly package redraws on a canvas from
+- **Live in a page** (the package is V3). The WebAssembly package redraws on a canvas from
   values the page supplies: the clock, scroll, the pointer, a Web Audio level; or hands the page a mesh to draw with the
   GPU (V3; spikes X1 and X2 measured both, `roadmap.md`: about 100 shapes remesh at 60 Hz today). A piece too heavy to redraw live is exported
   with frame export instead.
@@ -180,8 +180,8 @@ Placement that stays stable as values change, for animated hatching, is open (D7
 ## Effects
 
 An effect is a finished look built from the library's primitives: named, with described parameters and good defaults,
-and added only with a gallery piece that uses it. They come in an open-ended effects track (planned, from V15);
-candidates: [effects-roadmap.md](effects-roadmap.md).
+and added only with a gallery piece that uses it. They come in an effects track, one effect per batch, from V15;
+those built: [effects-roadmap.md](effects-roadmap.md).
 
 Effects usually applied to pixels that must stay vector (duotone, gradient maps, posterize, halftone dots, glitch
 slices, misregistration) are the library's own: operations on fill and stroke colours and on geometry, not SVG filters.
