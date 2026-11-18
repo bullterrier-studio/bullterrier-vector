@@ -1,6 +1,7 @@
 """The drawings that come with the library (`Drawing.preset`). The oracles are the shipped text files
 (`crates/core/presets/`) read directly, and ElementTree parsing the SVG."""
 
+import runpy
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -8,7 +9,9 @@ import pytest
 
 import bullterrier_vector as btvec
 
-FILES = Path(__file__).resolve().parents[1] / "crates" / "core" / "presets"
+ROOT = Path(__file__).resolve().parents[1]
+FILES = ROOT / "crates" / "core" / "presets"
+PROGRAMS = ROOT / "examples" / "presets"
 NAMES = sorted(p.stem for p in FILES.glob("*.json"))
 
 
@@ -64,3 +67,13 @@ def test_an_unknown_name_has_no_description_and_the_same_refusal_as_preset() -> 
     with pytest.raises(btvec.ParameterError) as described:
         btvec.Drawing.preset_description("nope")
     assert str(described.value) == str(asked.value)
+
+
+def test_every_shipped_file_has_a_program_and_every_program_a_file() -> None:
+    assert sorted(p.stem for p in PROGRAMS.glob("*.py")) == NAMES
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_a_shipped_file_is_the_json_of_its_program(name: str) -> None:
+    drawing = runpy.run_path(str(PROGRAMS / f"{name}.py"), run_name="__main__")["drawing"]
+    assert (FILES / f"{name}.json").read_text(encoding="utf-8") == drawing.to_json()

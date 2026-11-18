@@ -93,6 +93,7 @@ rust-test-stack = { cmd = "python tools/run_capped.py -- cargo test -p bullterri
 # look at: `uv run poe look examples/star.py [--size 800x600] [name=value ...]`; poe hands everything after the task name
 # to the tool. tests/tools/test_look.py shows it working and failing.
 look = { cmd = "uv run python tools/look.py", help = "Draw a .json or .py drawing to dist/look/<name>.png and .svg: look FILE [--size WxH] [name=value ...]" }
+presets = { cmd = "uv run python tools/write_presets.py", help = "Write crates/core/presets/<name>.json from the programs in examples/presets/" }
 # Not a gate and not in `check` or `fast`: time `to_rgba` and `to_mesh` on one reference drawing, natively and (after
 # `poe wasm-test` built pkg/) in Node, and print a table: `uv run poe bench [--shapes N] [--size WxH] [--repeats N]
 # [--warmups N] [--require-node]`. Nothing asserts on time; the numbers are recorded by hand in docs/benchmarks.md.
