@@ -245,6 +245,23 @@ try {
   check((await evaluate("window.__pwned")) === undefined, "markup in a document ran");
   console.log("documents: markup in a meaning and in an error shows as text");
 
+  // a draw-time refusal: the document opens, but a wavelength of 0.0001 on a 400 px square is refused by the core
+  const refusing = JSON.stringify({ version: 1, params: [{ name: "wl", default: 60, min: 0.0001, max: 100, unit: "px", meaning: "wavelength" }],
+    root: [{ stack: { items: [[{ path: "M0 0 L400 0 L400 400 L0 400 Z" }, { wave: { amplitude: 4, wavelength: { param: "wl" } } }, { fill: { color: "#c8183f" } }]], size: [400, 400] } }] });
+  check((await open(refusing)) === "", "a document that fails at one end of its slider was refused when opened");
+  await redrawn("a document that can fail", `document.getElementById("open").click()`);
+  const picture = () => evaluate(`document.getElementById("view").toDataURL()`);
+  const lastGood = await picture();
+  const lowest = await evaluate(`document.querySelector("#params input[type=range]").min`);
+  await redrawn("the slider at the refused end", setSlider(0, lowest));
+  const refused = await evaluate("document.getElementById('error').textContent");
+  check(/ParameterError/.test(refused) && /wave/.test(refused) && !refused.includes("\n"), `a refused render must show one line naming the step, got ${JSON.stringify(refused)}`);
+  check((await picture()) === lastGood, "a refused render must leave the last good picture");
+  await redrawn("the slider back to a good value", setSlider(0, 30));
+  check((await evaluate("document.getElementById('error').textContent")) === "", "the error stayed after a render that succeeded");
+  check((await picture()) !== lastGood, "the canvas did not redraw after the slider came back");
+  console.log("a render the core refuses shows one line and keeps the picture; the next good render clears it");
+
   // a very tall document fits the stage by height too
   const tall = JSON.stringify({ version: 1, root: [{ stack: { items: [[{ path: "M0 0 L10 0 L10 100000 L0 100000 Z" }, { fill: { color: "#c8183f" } }]], size: [10, 100000] } }] });
   check((await open(tall)) === "", "a tall document was refused");
