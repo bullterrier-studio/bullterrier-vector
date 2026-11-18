@@ -117,6 +117,7 @@ impl PyField {
     /// itself and its neighbours, `sigma` in maps (frames up to `ceil(3 * sigma)` away; the ends are not padded), as a list
     /// of unnamed maps. A static sequence is unchanged, `sigma` 0 gives the maps back.
     #[staticmethod]
+    #[expect(clippy::needless_pass_by_value, reason = "pyo3 extracts the list as an owned Vec")]
     #[pyo3(signature = (maps, *, sigma))]
     fn smooth_maps(py: Python<'_>, maps: Vec<PyRef<'_, PyField>>, sigma: f64) -> PyResult<Vec<Self>> {
         let maps: Vec<vector::Field> = maps.iter().map(|map| map.0.clone()).collect();
@@ -129,6 +130,7 @@ impl PyField {
     /// `at_least` of the maps within `reach` (itself counted, the number cut to the frames the window holds), else raised
     /// to the lowest tone round it. Run it on the output of `smooth_maps`.
     #[staticmethod]
+    #[expect(clippy::needless_pass_by_value, reason = "pyo3 extracts the list as an owned Vec")]
     #[pyo3(signature = (maps, levels, *, reach=1, at_least=2))]
     fn persist_holes(
         py: Python<'_>,
