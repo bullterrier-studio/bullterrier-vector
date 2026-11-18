@@ -1,0 +1,151 @@
+//! Where the rows of a layout lie: straight lines, waves, rings, a spiral or rays. The one owner of the maths that turns
+//! a row and a place along it into a point of the design frame, and of the range of rows that cover a box. `bands` lays
+//! lines along these rows and the halftone screens lay a dot in each cell of them, so a screen and the bands of the
+//! same family agree by construction.
+//!
+//! The straight family sits in a frame turned by `angle`: `along` runs with the rows, `across` runs over them. The round
+//! ones sit about a centre, a row a ring or an arm or a ray. A turn is clockwise on the screen (`y` down).
+
+use crate::geometry::Point;
+use crate::math::{sin_cos, sin_cos_deg};
+use crate::{Rect, field::length};
+use std::f64::consts::TAU;
+
+/// What carries the tone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Family {
+    Lines,
+    Waves,
+    Rings,
+    Spiral,
+    Rays,
+}
+
+impl Family {
+    /// The words a document uses, in the order of the variants.
+    pub(crate) const NAMES: &'static [&'static str] = &["lines", "waves", "rings", "spiral", "rays"];
+
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        [Self::Lines, Self::Waves, Self::Rings, Self::Spiral, Self::Rays]
+            .into_iter()
+            .zip(Self::NAMES)
+            .find(|(_, word)| **word == name)
+            .map(|(family, _)| family)
+    }
+
+    pub(crate) fn name(self) -> &'static str {
+        Self::NAMES[self as usize]
+    }
+
+    /// Whether this family reads the optional argument `argument` (`angle`, `centre`, `wavelength`, `amplitude`).
+    pub(crate) fn reads(self, argument: &str) -> bool {
+        match argument {
+            "angle" => self != Self::Rings,
+            "centre" => matches!(self, Self::Rings | Self::Spiral | Self::Rays),
+            "wavelength" | "amplitude" => self == Self::Waves,
+            _ => true,
+        }
+    }
+}
+
+/// A family with its turn and, for waves, their size, in design pixels.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Layout {
+    pub(crate) family: Family,
+    /// The distance between rows.
+    pub(crate) spacing: f64,
+    /// The turn in degrees.
+    pub(crate) angle: f64,
+    /// The `(wavelength, amplitude)` of waves.
+    pub(crate) wave: Option<(f64, f64)>,
+}
+
+/// The middle of `bounds`: where rings, a spiral and rays are about by default.
+pub(crate) fn middle(bounds: Rect) -> Point {
+    Point::new(bounds.x + bounds.width / 2.0, bounds.y + bounds.height / 2.0)
+}
+
+/// The four corners of `bounds`.
+pub(crate) fn corners(bounds: Rect) -> [Point; 4] {
+    [
+        Point::new(bounds.x, bounds.y),
+        Point::new(bounds.x + bounds.width, bounds.y),
+        Point::new(bounds.x, bounds.y + bounds.height),
+        Point::new(bounds.x + bounds.width, bounds.y + bounds.height),
+    ]
+}
+
+/// The point at `radius` and `angle` (radians, clockwise on the screen from the x axis) about `centre`.
+pub(crate) fn polar(centre: Point, radius: f64, angle: f64) -> Point {
+    let (sin, cos) = sin_cos(angle);
+    Point::new(centre.x + radius * cos, centre.y + radius * sin)
+}
+
+/// How far a box lies from a centre: the nearest and the farthest point of it, in design pixels.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Distances {
+    pub(crate) near: f64,
+    pub(crate) far: f64,
+}
+
+impl Distances {
+    /// The distances from `centre` to the box `bounds` with these `corners`.
+    pub(crate) fn of(centre: Point, bounds: Rect, corners: &[Point; 4]) -> Self {
+        let near = Point::new(
+            centre.x.clamp(bounds.x, bounds.x + bounds.width),
+            centre.y.clamp(bounds.y, bounds.y + bounds.height),
+        );
+        Self {
+            near: length(near.x - centre.x, near.y - centre.y),
+            far: corners
+                .iter()
+                .map(|p| length(p.x - centre.x, p.y - centre.y))
+                .fold(0.0, f64::max),
+        }
+    }
+}
+
+impl Layout {
+    /// The turn in radians.
+    pub(crate) fn turn(&self) -> f64 {
+        self.angle.to_radians()
+    }
+
+    /// The place of `point` in the frame of the straight rows: `(along, across)`.
+    pub(crate) fn frame(&self, point: Point) -> (f64, f64) {
+        let (sin, cos) = sin_cos_deg(self.angle);
+        (point.x * cos + point.y * sin, -point.x * sin + point.y * cos)
+    }
+
+    /// The point `along` the rows of the straight family and `across` them, a wave's lift added across.
+    pub(crate) fn straight(&self, along: f64, across: f64) -> Point {
+        let (sin, cos) = sin_cos_deg(self.angle);
+        let lift = match self.wave {
+            Some((length, height)) if self.family == Family::Waves => height * sin_cos(TAU * along / length).0,
+            _ => 0.0,
+        };
+        let n = across + lift;
+        Point::new(along * cos - n * sin, along * sin + n * cos)
+    }
+
+    /// The radius of ring `k`, counting from 0 at the centre: the first is half a spacing out.
+    pub(crate) fn ring_radius(&self, k: f64) -> f64 {
+        (k + 0.5) * self.spacing
+    }
+
+    /// The rings `(first, last)` whose radius lies within `distances` of the centre; none if `last < first`.
+    pub(crate) fn rings_within(&self, distances: Distances) -> (f64, f64) {
+        let (low, high) = (distances.near / self.spacing, distances.far / self.spacing);
+        ((low - 0.5).ceil().max(0.0), (high - 0.5).floor())
+    }
+
+    /// The radius of the spiral at `theta` radians of turn from where it leaves the centre: a spacing more each turn.
+    pub(crate) fn spiral_radius(&self, theta: f64) -> f64 {
+        self.spacing / TAU * theta
+    }
+
+    /// How many rays are a spacing apart at `high` spacings from the centre, at least 1.
+    pub(crate) fn ray_count(high: f64) -> f64 {
+        (TAU * high).ceil().max(1.0)
+    }
+}

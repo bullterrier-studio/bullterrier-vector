@@ -8,9 +8,9 @@
     reason = "the counts of lines and samples are checked against MAX_SAMPLES before they are used"
 )]
 
+use super::layout::{Distances, Family, Layout, corners, middle, polar};
 use crate::field::{Field, length, once, read};
 use crate::geometry::{MAX_COORDINATE, Point, coordinate_point};
-use crate::math::{sin_cos, sin_cos_deg};
 use crate::path::Path;
 use crate::{Error, Expr, Values};
 use std::f64::consts::TAU;
@@ -27,43 +27,6 @@ const RING_POINTS: f64 = 32.0;
 // constant: 2 million points are made, cut and outlined, a few hundred MB at the most; a print at 300 dpi of a
 // letter page at a 0.25 spacing step stays under it
 const MAX_SAMPLES: f64 = 2_000_000.0;
-
-/// What carries the tone.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Family {
-    Lines,
-    Waves,
-    Rings,
-    Spiral,
-    Rays,
-}
-
-impl Family {
-    /// The words a document uses, in the order of the variants.
-    pub(crate) const NAMES: &'static [&'static str] = &["lines", "waves", "rings", "spiral", "rays"];
-
-    pub(crate) fn from_name(name: &str) -> Option<Self> {
-        [Self::Lines, Self::Waves, Self::Rings, Self::Spiral, Self::Rays]
-            .into_iter()
-            .zip(Self::NAMES)
-            .find(|(_, word)| **word == name)
-            .map(|(family, _)| family)
-    }
-
-    pub(crate) fn name(self) -> &'static str {
-        Self::NAMES[self as usize]
-    }
-
-    /// Whether this carrier reads the optional argument `argument` (`angle`, `centre`, `wavelength`, `amplitude`).
-    fn reads(self, argument: &str) -> bool {
-        match argument {
-            "angle" => self != Self::Rings,
-            "centre" => matches!(self, Self::Rings | Self::Spiral | Self::Rays),
-            "wavelength" | "amplitude" => self == Self::Waves,
-            _ => true,
-        }
-    }
-}
 
 /// What to draw: a carrier, the spacing between its lines, the tone that sets their width and the width at tone 0 and 1.
 #[derive(Debug, Clone)]
@@ -286,6 +249,16 @@ pub(crate) struct Plan {
 }
 
 impl Plan {
+    /// Where the rows of this plan lie.
+    fn layout(&self) -> Layout {
+        Layout {
+            family: self.family,
+            spacing: self.spacing,
+            angle: self.angle,
+            wave: self.wavelength.zip(self.amplitude),
+        }
+    }
+
     fn check(&self) -> Result<(), Error> {
         if !(self.spacing.is_finite() && self.spacing > 0.0 && self.spacing <= MAX_COORDINATE) {
             return Err(Error::parameter(
@@ -395,12 +368,7 @@ fn carrier(
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Path, Error> {
     let step = STEP * plan.spacing;
-    let corners = [
-        Point::new(bounds.x, bounds.y),
-        Point::new(bounds.x + bounds.width, bounds.y),
-        Point::new(bounds.x, bounds.y + bounds.height),
-        Point::new(bounds.x + bounds.width, bounds.y + bounds.height),
-    ];
+    let corners = corners(bounds);
     let reach = corners.iter().map(|p| p.x.abs().max(p.y.abs())).fold(0.0, f64::max);
     if reach + step <= reach {
         return Err(Error::parameter(
@@ -422,11 +390,9 @@ fn carrier(
 
 /// Lines or waves across the box with these `corners`.
 fn straight(plan: &Plan, corners: &[Point; 4], step: f64) -> Result<Vec<Carried>, Error> {
-    let (sin, cos) = sin_cos_deg(plan.angle);
-    let along = |p: &Point| p.x * cos + p.y * sin;
-    let across = |p: &Point| -p.x * sin + p.y * cos;
-    let (u_min, u_max) = range(corners.iter().map(along));
-    let (n_min, n_max) = range(corners.iter().map(across));
+    let layout = plan.layout();
+    let (u_min, u_max) = range(corners.iter().map(|p| layout.frame(*p).0));
+    let (n_min, n_max) = range(corners.iter().map(|p| layout.frame(*p).1));
     let count = ((n_max - n_min - plan.spacing / 2.0) / plan.spacing).floor() + 1.0;
     let samples = ((u_max - u_min) / step).ceil() + 1.0;
     let points = count.max(1.0) * samples;
@@ -437,17 +403,7 @@ fn straight(plan: &Plan, corners: &[Point; 4], step: f64) -> Result<Vec<Carried>
     for k in 0..count.max(0.0) as usize {
         let offset = n_min + plan.spacing / 2.0 + k as f64 * plan.spacing;
         let points = (0..samples as usize)
-            .map(|j| {
-                let s = (u_min + j as f64 * step).min(u_max);
-                let lift = match (plan.wavelength, plan.amplitude) {
-                    (Some(length), Some(height)) if plan.family == Family::Waves => {
-                        height * sin_cos(TAU * s / length).0
-                    }
-                    _ => 0.0,
-                };
-                let n = offset + lift;
-                Point::new(s * cos - n * sin, s * sin + n * cos)
-            })
+            .map(|j| layout.straight((u_min + j as f64 * step).min(u_max), offset))
             .collect();
         lines.push((points, false));
     }
@@ -456,18 +412,10 @@ fn straight(plan: &Plan, corners: &[Point; 4], step: f64) -> Result<Vec<Carried>
 
 /// Rings, a spiral or rays about the centre.
 fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> Result<Vec<Carried>, Error> {
-    let centre = plan
-        .centre
-        .unwrap_or_else(|| Point::new(bounds.x + bounds.width / 2.0, bounds.y + bounds.height / 2.0));
-    let near = Point::new(
-        centre.x.clamp(bounds.x, bounds.x + bounds.width),
-        centre.y.clamp(bounds.y, bounds.y + bounds.height),
-    );
-    let d_min = length(near.x - centre.x, near.y - centre.y);
-    let d_max = corners
-        .iter()
-        .map(|p| length(p.x - centre.x, p.y - centre.y))
-        .fold(0.0, f64::max);
+    let layout = plan.layout();
+    let centre = plan.centre.unwrap_or_else(|| middle(bounds));
+    let distances = Distances::of(centre, bounds, corners);
+    let (d_min, d_max) = (distances.near, distances.far);
     // the points of a far ring or arm cannot be told apart at a step
     let reach = centre.x.abs().max(centre.y.abs()) + d_max;
     if reach + step <= reach {
@@ -479,7 +427,7 @@ fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> R
     let (low, high) = (d_min / plan.spacing, d_max / plan.spacing);
     // the rings are k = first..=last at radius (k + 1/2) spacing, each of TAU radius / step points at least RING_POINTS;
     // counted in f64 and before any is made, with no difference of squares to cancel
-    let (first, last) = ((low - 0.5).ceil().max(0.0), (high - 0.5).floor());
+    let (first, last) = layout.rings_within(distances);
     let rings = (last - first + 1.0).max(0.0);
     let samples = match plan.family {
         Family::Rings => rings * RING_POINTS + TAU / STEP * rings * (first + last + 1.0) / 2.0,
@@ -495,16 +443,13 @@ fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> R
         };
         return Err(too_many(name));
     }
-    let at = |radius: f64, angle: f64| {
-        let (sin, cos) = sin_cos(angle);
-        Point::new(centre.x + radius * cos, centre.y + radius * sin)
-    };
-    let turn = plan.angle.to_radians();
+    let at = |radius: f64, angle: f64| polar(centre, radius, angle);
+    let turn = layout.turn();
     let mut lines = Vec::new();
     match plan.family {
         Family::Rings => {
             for k in first as usize.. {
-                let radius = (k as f64 + 0.5) * plan.spacing;
+                let radius = layout.ring_radius(k as f64);
                 if radius > d_max {
                     break;
                 }
@@ -520,7 +465,7 @@ fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> R
             let mut theta = low * TAU;
             let mut points = Vec::new();
             while theta < high * TAU {
-                let radius = pitch * theta;
+                let radius = layout.spiral_radius(theta);
                 points.push(at(radius, theta + turn));
                 theta += step / length(radius, pitch);
             }
@@ -528,7 +473,7 @@ fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> R
             lines.push((points, false));
         }
         _ => {
-            let count = (TAU * high).ceil().max(1.0) as usize;
+            let count = Layout::ray_count(high) as usize;
             let along = ((d_max - d_min) / step).ceil() + 1.0;
             for j in 0..count {
                 let angle = turn + TAU * j as f64 / count as f64;
