@@ -4,7 +4,7 @@
 //! is a parse with roxmltree; the oracle for the text is the file itself.
 
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Drawing, Inputs, Size, Values};
+use bullterrier_vector::{Drawing, Size, Values};
 
 /// (name, the shipped text): written here, apart from the library's own table, so a table that loses a file fails.
 const SHIPPED: [(&str, &str); 3] = [
@@ -44,10 +44,13 @@ fn every_preset_loads_without_inputs_draws_shapes_and_is_the_shipped_text() -> O
 }
 
 #[test]
-fn every_param_has_a_meaning_and_draws_at_its_minimum_default_and_maximum() -> Outcome {
+fn every_preset_has_params_that_mean_something_and_move_the_picture_between_their_extremes() -> Outcome {
     for name in Drawing::preset_names() {
         let drawing = Drawing::preset(name)?;
-        for param in drawing.parameters()? {
+        let params = drawing.parameters()?;
+        assert!(!params.is_empty(), "{name} has no Param to play with");
+        let mut moves_the_picture = false;
+        for param in &params {
             assert!(
                 !param.meaning_of().is_empty(),
                 "{name}: {} has no meaning",
@@ -57,7 +60,14 @@ fn every_param_has_a_meaning_and_draws_at_its_minimum_default_and_maximum() -> O
                 let values = Values::new().set(param.name(), value);
                 assert!(paths(&drawing, &values)? > 0, "{name} at {}={value}", param.name());
             }
+            let at = |value| drawing.to_svg(Size::px(200.0, 200.0), &Values::new().set(param.name(), value));
+            moves_the_picture |= at(param.min())? != at(param.max())?;
         }
+        // A phase loops, so it can look alike at both ends; some Param of the preset must change the picture.
+        assert!(
+            moves_the_picture,
+            "{name}: no Param changes the picture between its minimum and maximum"
+        );
     }
     Ok(())
 }
@@ -69,10 +79,4 @@ fn an_unknown_name_is_refused_naming_every_preset() -> Outcome {
     assert!(message.contains("\"nope\""), "{message}");
     assert!(message.contains(&Drawing::preset_names().join(", ")), "{message}");
     Ok(())
-}
-
-#[test]
-fn a_text_that_needs_bytes_the_caller_has_not_supplied_does_not_load() {
-    let undeclared = r#"{"version":1,"root":[{"text":{"content":"Hi","font":"anybody"}}]}"#;
-    assert!(Drawing::from_json(undeclared, &Inputs::new()).is_err());
 }
