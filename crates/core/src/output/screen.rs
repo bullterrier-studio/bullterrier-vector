@@ -186,7 +186,7 @@ fn plan(
         spacing: pitch,
         // a layout that has no direction is laid at 0
         angle: if family.reads("angle") { halftone.angle() } else { 0.0 },
-        wave: Some((halftone.wavelength() * pitch, halftone.amplitude() * pitch)),
+        wave: Some((halftone.wavelength(), halftone.amplitude())),
     };
     let rect = Rect {
         x: bounds.0,
@@ -235,7 +235,7 @@ fn rows(layout: &Layout, rect: Rect, centre: Point, reach_px: f64) -> Result<(Ro
         let swing = layout
             .wave
             .filter(|_| layout.family == Family::Waves)
-            .map_or(0.0, |(_, height)| height.abs());
+            .map_or(0.0, |(_, height)| height.abs() * pitch);
         let span = |select: fn(&(f64, f64)) -> f64, reach: f64| {
             let least = found.iter().map(select).fold(f64::INFINITY, f64::min);
             let most = found.iter().map(select).fold(f64::NEG_INFINITY, f64::max);

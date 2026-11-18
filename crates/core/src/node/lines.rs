@@ -85,7 +85,7 @@ pub(crate) struct BandsStep;
 pub(crate) static BANDS: Verb = Verb {
     name: "bands",
     role: Role::Step,
-    summary: "lines whose width follows a tone: replaces every shape by closed outlines of lines laid over the region it fills and cut to it (as Path.bands), as wide at each point as the `tone` field says: `width` is a pair, the width where the tone is 0 and where it is 1; `family` is the carrier: `lines` `spacing` apart along `angle` degrees, `waves` (`wavelength` long and `amplitude` high), `rings` round `centre`, a `spiral` out of `centre` with arms `spacing` apart, or `rays` out of `centre` as many as are `spacing` apart at the farthest corner; `centre` defaults to the middle of the region's bounding box; the result is closed outlines, so set the fill after it",
+    summary: "lines whose width follows a tone: replaces every shape by closed outlines of lines laid over the region it fills and cut to it (as Path.bands), as wide at each point as the `tone` field says: `width` is a pair, the width where the tone is 0 and where it is 1; `family` is the carrier: `lines` `spacing` apart along `angle` degrees, `waves` (`wavelength` long and `amplitude` high, in rows: multiples of `spacing`), `rings` round `centre`, a `spiral` out of `centre` with arms `spacing` apart, or `rays` out of `centre` as many as are `spacing` apart at the farthest corner; `centre` defaults to the middle of the region's bounding box; the result is closed outlines, so set the fill after it",
     args: &[
         once("spacing", Domain::PositiveUpTo(MAX_COORDINATE)),
         required_field("tone"),

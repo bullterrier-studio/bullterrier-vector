@@ -120,7 +120,8 @@ fn rays_are_as_many_as_fit_round_the_farthest_corner() -> Outcome {
 
 #[test]
 fn waves_follow_a_sine_across_the_lines() -> Outcome {
-    let bands = Bands::waves(20.0, Field::constant(0.5)?, (2.0, 2.0), 40.0, 3.0)?;
+    // a wave is measured in rows: 2 rows long (40 px) and 0.15 of a row high (3 px)
+    let bands = Bands::waves(20.0, Field::constant(0.5)?, (2.0, 2.0), 2.0, 0.15)?;
     let drawn = rect(120.0, 40.0)?.bands(&bands)?;
     for k in 2..58 {
         let x = f64::from(k) * 2.0;

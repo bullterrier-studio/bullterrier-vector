@@ -49,11 +49,15 @@ fn cases() -> Result<Vec<(&'static str, Path, Bands)>, bullterrier_vector::Error
             disc.clone(),
             Bands::lines(6.0, t()?, (1.0, 3.0))?.angle(-70.0)?,
         ),
-        ("waves", rect.clone(), Bands::waves(9.0, t()?, (0.5, 4.0), 30.0, 3.0)?),
+        (
+            "waves",
+            rect.clone(),
+            Bands::waves(9.0, t()?, (0.5, 4.0), 30.0 / 9.0, 3.0 / 9.0)?,
+        ),
         (
             "waves angle",
             disc.clone(),
-            Bands::waves(8.0, t()?, (0.5, 4.0), 22.0, 4.0)?.angle(40.0)?,
+            Bands::waves(8.0, t()?, (0.5, 4.0), 22.0 / 8.0, 4.0 / 8.0)?.angle(40.0)?,
         ),
         ("rings", rect.clone(), Bands::rings(9.0, t()?, (0.5, 4.0))?),
         (
