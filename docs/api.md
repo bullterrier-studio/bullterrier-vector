@@ -784,19 +784,12 @@ well, or a plain text without a `font`. In Python `content` that is neither a `s
 
 ### trace
 
-`trace(field, *, levels=(0.5,), tolerance=1, before=(), after=(), sigma=1.2)`: one shape per level, outlining where
-`field` is at or above it, with curves fitted within `tolerance` pixels. The edge of the field is padded, so a subject
-cut by the frame gets no false edge. Writes `level` and `order`.
+Tracing a map is `Drawing.trace_levels`, `Drawing.trace_labels` and `Drawing.trace_cells` (see "Trace" above for their
+arguments, errors and the shape attributes they write). For a sequence of maps, make each map steady with
+`Field.smooth_maps(maps, *, sigma)` first and trace the result (see "A sequence of maps (V14b)"). The library keeps no
+sequence.
 
-For a sequence of maps, pass the neighbouring maps in sequence order: `before` (up to this one) and `after` (from the
-next). The edge is then averaged over them, nearer maps counting more and `sigma` (in maps) setting how far the
-averaging reaches, and a hole or a part shows
-only if a neighbour has it too. The library keeps no sequence.
-
-Errors (`ParameterError`): levels not increasing, a neighbour of a different size or box, `tolerance` or `sigma` not
-above 0.
-
-To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Field.contours` and stroke the result; `trace` is for the filled regions a map's levels enclose, with curves fitted.
+To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Field.contours` and stroke the result; `trace_levels` is for the filled regions a map's levels enclose, with curves fitted.
 
 ## Inputs
 
@@ -1233,11 +1226,11 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 |---|---|---|
 | 1 | Per-glyph variable-font layout that re-flows; tracking, stacked lines, fitting at a reference pose, outlines cached by axis location | `text(axes=..., tracking=, leading=, width=, fit=)`, per-item numbers in `axes`; caching is internal |
 | 2 | Evenly spaced streamlines with spacing from a tone, region masks, obstacles, closed loops; line fields and distance fields | `hatch(spacing=(a, b), tone=, flow=, avoid=)` inside each shape; `Flow.noise`, `Flow.contour`, `flow.mix`; `Field.distance` ([flow_hatch.py](../examples/flow_hatch.py)) |
-| 3 | Steady tracing over a sequence of maps: smoothing and hole persistence | `trace(before=, after=, sigma=)` |
+| 3 | Steady tracing over a sequence of maps: smoothing in time | `Field.smooth_maps(maps, sigma=)`, then `trace_levels` / `trace_labels` |
 | 4 | Booleans that hold on overlapping, rotated glyphs; ink layers from them | `union`, `subtract`, `intersect`, `exclude`; glyph overlaps removed by `resolve`; inks as drawings with `blend("multiply")` ([kinetic_type.py](../examples/kinetic_type.py)) |
 | 5 | Shrink and grow per layer; dropping small parts and filling small holes | `offset(r).offset(-r)`, `offset(-r).offset(r)`; `drop_parts`, `fill_holes` |
 | 6 | Per-item transforms about a typographic origin; seeded randomness and stagger by index as one mechanism | `translate`, `rotate`, `scale` about each shape's origin; `by_index`, `by_order`, `random`, `stagger`; lists at draw time |
-| 7 | Curve fitting through dense polylines | `simplify`; `trace(tolerance=)` |
+| 7 | Curve fitting through dense polylines | `simplify`; `trace_levels(tolerance=)` |
 | 8 | One picture to both pixels and SVG, every effect kept | `to_svg`, `to_png`, `to_rgba` |
 | 9 | A fast halftone fill | `halftone` |
 | 10 | Plotter export: stroke only, ordered, simplified, solids hatched, a layer per pen | `to_plot_svg` |
