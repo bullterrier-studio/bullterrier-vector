@@ -1,9 +1,10 @@
 //! The halftone fill of a shape as the style holds it: the dots' colour and tone, and the lattice they sit on.
 
 use super::color::Color;
+use super::style::refused;
 use crate::geometry::Point;
 use crate::key::{Key, Keyed};
-use crate::{Field, Path};
+use crate::{Error, Field, Path};
 use std::sync::Arc;
 
 /// The tone of a halftone: how much of each cell the dot leaves bare, from 0 (solid) to 1 (no dot).
@@ -92,6 +93,15 @@ impl Mark {
         }
     }
 
+    /// The mark a word names: `"dot"`, `"square"`, `"ellipse"`, `"diamond"` or `"euclidean"`. A caller's outline is
+    /// [`Mark::path`].
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `shape` and listing the words.
+    pub fn parse(name: &str) -> Result<Self, Error> {
+        Self::from_name(name).ok_or_else(|| refused("shape", &Self::NAMES[..5], name))
+    }
+
     /// The word a document uses.
     #[must_use]
     pub fn name(&self) -> &'static str {
@@ -131,6 +141,14 @@ impl Screen {
             .zip(Self::NAMES)
             .find(|(_, word)| **word == name)
             .map(|(screen, _)| screen)
+    }
+
+    /// The screen a word names.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `screen` and listing the words.
+    pub fn parse(name: &str) -> Result<Self, Error> {
+        Self::from_name(name).ok_or_else(|| refused("screen", Self::NAMES, name))
     }
 
     /// The word a document uses.

@@ -1,5 +1,6 @@
 //! `Shape` and `Style`: what a drawing draws, to read.
 
+use crate::halftone::PyHalftone;
 use crate::{Pt, PyPath, PyPoint, raised};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
@@ -196,55 +197,6 @@ impl PyShadow {
     }
 }
 
-/// A halftone fill, as it is drawn: a screen of dots in a colour (`"#rrggbbaa"`), the tone (0 solid, 1 no dots), the pitch
-/// in design pixels and the angle in degrees of the lattice.
-#[pyclass(name = "Halftone", module = "bullterrier_vector", frozen, eq)]
-#[derive(Clone, PartialEq)]
-pub(crate) struct PyHalftone(vector::HalftoneStyle);
-
-#[pymethods]
-impl PyHalftone {
-    /// The colour of the dots, `"#rrggbbaa"`.
-    #[getter]
-    fn color(&self) -> String {
-        self.0.color().to_string()
-    }
-
-    /// The share of each lattice cell the dot leaves bare, 0 (solid) to 1 (no dots).
-    #[getter]
-    fn tone(&self) -> f64 {
-        self.0.tone()
-    }
-
-    /// The distance between neighbouring dots in design pixels.
-    #[getter]
-    fn pitch(&self) -> f64 {
-        self.0.pitch()
-    }
-
-    /// The turn of the lattice in degrees, clockwise on the screen about the origin of the design frame.
-    #[getter]
-    fn angle(&self) -> f64 {
-        self.0.angle()
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "Halftone(color='{}', tone={:?}, pitch={:?}, angle={:?})",
-            self.color(),
-            self.tone(),
-            self.pitch(),
-            self.angle()
-        )
-    }
-
-    fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
-        (self.color(), self.tone(), self.pitch(), self.angle())
-            .into_pyobject(py)?
-            .hash()
-    }
-}
-
 /// What a fill or stroke is in Python: the colour text, a `Gradient`, or `None` where nothing is painted.
 fn paint_object(py: Python<'_>, paint: &vector::Paint) -> PyResult<Option<Py<PyAny>>> {
     Ok(match paint {
@@ -338,7 +290,7 @@ impl PyStyle {
     /// The screen of dots the shape is filled with, or `None` (`fill` is then `None` too).
     #[getter]
     fn halftone(&self) -> Option<PyHalftone> {
-        self.0.halftone().copied().map(PyHalftone)
+        self.0.halftone().cloned().map(PyHalftone)
     }
 
     /// Whether the shape removes what is below it in its drawing instead of painting.
@@ -367,7 +319,7 @@ impl PyStyle {
             "Style(fill={}, halftone={}, stroke={}, stroke_width={}, opacity={:?}, blend='{}', shadow={}, knockout={}, clip={}, mask={})",
             paint_repr(self.0.fill()),
             self.halftone()
-                .map_or_else(|| "None".to_owned(), |halftone| halftone.__repr__()),
+                .map_or_else(|| "None".to_owned(), |halftone| halftone.describe()),
             self.0
                 .stroke()
                 .map_or_else(|| "None".to_owned(), |stroke| paint_repr(stroke.paint())),

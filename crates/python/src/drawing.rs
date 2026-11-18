@@ -1,13 +1,14 @@
 //! `Drawing`: a tree of steps that draws shapes.
 
 use crate::expr::{Num, PyExpr, PyParam};
-use crate::inputs::{By, Item, Pair};
 use crate::field::{PyField, PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
+use crate::halftone::{ShapeArg, ToneArg, halftone_of};
+use crate::inputs::{By, Item, Pair};
 use crate::mesh::PyMesh;
 use crate::shape::{PaintArg, PyShape};
 use crate::text::{bytes_of, entries};
 use crate::trace::{Levels, colors, trace_of, whole};
-use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, Frame, PyPath, PyPoint, PyRect, exception, raised};
+use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, Frame, Pt, PyPath, PyPoint, PyRect, exception, raised};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -644,19 +645,33 @@ impl PyDrawing {
         checked(self.0.shadow(shadow))
     }
 
-    /// Every shape filled with a screen of dots of `color` (replacing any fill, as `fill` replaces it): `tone` from 0
-    /// (solid) to 1 (no dots) is the share of each cell left bare, `pitch` (8) the distance between dots in design
-    /// pixels and `angle` (45) the turn of the lattice in degrees, which is anchored to the origin of the design frame.
-    #[pyo3(signature = (color, *, tone, pitch=None, angle=None))]
-    pub(crate) fn halftone(&self, color: &str, tone: Num, pitch: Option<Num>, angle: Option<Num>) -> PyResult<Self> {
-        let mut halftone = vector::Halftone::new(raised(vector::Color::parse(color))?, tone.0);
-        if let Some(pitch) = pitch {
-            halftone = halftone.pitch(pitch.0);
-        }
-        if let Some(angle) = angle {
-            halftone = halftone.angle(vector::Deg(angle.0));
-        }
-        checked(self.0.halftone(halftone))
+    /// Every shape filled with a screen of dots of `color` (replacing any fill, as `fill` replaces it). Each dot covers
+    /// `1 - tone` of its own cell: `tone` from 0 (solid) to 1 (no dots) is a number (a `Param`, a number for each shape)
+    /// or a `Field` read at the centre of each dot. `pitch` (8) is the distance between rows and dots in design pixels
+    /// and `angle` (45) the turn of the layout in degrees about the origin of the design frame. `shape` is the dot:
+    /// `"dot"`, `"square"`, `"ellipse"` (`aspect` times as long as wide, at least 1), `"diamond"`, `"euclidean"` (round,
+    /// a diamond at tone 0.5, then a round hole) or a closed `Path` (its first sub-path, on its centroid, scaled to the
+    /// area). `screen` is the layout: `"grid"`, `"wave"` (rows swung `amplitude` pitches (1) over `wavelength` pitches
+    /// (6)), `"rings"`, `"spiral"` or `"rays"` (about `centre`, default the middle of the shape's bounds). The grid and
+    /// the wave are anchored to the design frame.
+    #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
+    #[pyo3(signature = (color, *, tone, pitch=None, angle=None, shape=None, aspect=None, screen=None, centre=None, amplitude=None, wavelength=None))]
+    pub(crate) fn halftone(
+        &self,
+        color: &str,
+        tone: ToneArg,
+        pitch: Option<Num>,
+        angle: Option<Num>,
+        shape: Option<ShapeArg>,
+        aspect: Option<Num>,
+        screen: Option<&str>,
+        centre: Option<Pt>,
+        amplitude: Option<Num>,
+        wavelength: Option<Num>,
+    ) -> PyResult<Self> {
+        checked(self.0.halftone(halftone_of(
+            color, tone, pitch, angle, shape, aspect, screen, centre, amplitude, wavelength,
+        )?))
     }
 
     /// Every shape removing what is below it in the drawing instead of painting: the area its fill and stroke cover is

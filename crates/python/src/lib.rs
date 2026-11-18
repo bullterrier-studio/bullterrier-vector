@@ -5,6 +5,7 @@
 mod drawing;
 mod expr;
 mod field;
+mod halftone;
 mod inputs;
 mod mesh;
 mod shape;
@@ -17,9 +18,10 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
 
 use crate::drawing::{PyDrawing, refuse_expr, refuse_expr_in_pair};
-use crate::inputs::{Item, Pair};
 use crate::expr::Num;
 use crate::field::{PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
+use crate::halftone::{ShapeArg, ToneArg};
+use crate::inputs::{Item, Pair};
 use crate::shape::PaintArg;
 
 pyo3::import_exception!(bullterrier_vector.errors, BullterrierVectorError);
@@ -37,9 +39,11 @@ mod _core {
     #[pymodule_export]
     use super::field::{PyField, PyFlow};
     #[pymodule_export]
+    use super::halftone::PyHalftone;
+    #[pymodule_export]
     use super::mesh::PyMesh;
     #[pymodule_export]
-    use super::shape::{PyGradient, PyHalftone, PyShadow, PyShape, PyStyle, linear_gradient, radial_gradient};
+    use super::shape::{PyGradient, PyShadow, PyShape, PyStyle, linear_gradient, radial_gradient};
     #[pymodule_export]
     use super::text::{PyFont, PyRun, run, text};
     #[pymodule_export]
@@ -776,11 +780,25 @@ impl PyPath {
         PyDrawing::of(self).blend(mode)
     }
 
-    /// A drawing of this path filled with a screen of dots of `color`; `tone` is 0 (solid) to 1 (no dots), `pitch` (8)
-    /// the distance between dots and `angle` (45) the turn of the lattice in degrees.
-    #[pyo3(signature = (color, *, tone, pitch=None, angle=None))]
-    fn halftone(&self, color: &str, tone: Num, pitch: Option<Num>, angle: Option<Num>) -> PyResult<PyDrawing> {
-        PyDrawing::of(self).halftone(color, tone, pitch, angle)
+    /// A drawing of this path filled with a screen of dots of `color`; see `Drawing.halftone`.
+    #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
+    #[pyo3(signature = (color, *, tone, pitch=None, angle=None, shape=None, aspect=None, screen=None, centre=None, amplitude=None, wavelength=None))]
+    fn halftone(
+        &self,
+        color: &str,
+        tone: ToneArg,
+        pitch: Option<Num>,
+        angle: Option<Num>,
+        shape: Option<ShapeArg>,
+        aspect: Option<Num>,
+        screen: Option<&str>,
+        centre: Option<Pt>,
+        amplitude: Option<Num>,
+        wavelength: Option<Num>,
+    ) -> PyResult<PyDrawing> {
+        PyDrawing::of(self).halftone(
+            color, tone, pitch, angle, shape, aspect, screen, centre, amplitude, wavelength,
+        )
     }
 
     /// A drawing of this path as a knockout: it removes what is below it in a drawing instead of painting.

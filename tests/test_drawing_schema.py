@@ -858,6 +858,47 @@ AGREED = [
         True,
         id="a halftone tone per shape",
     ),
+    pytest.param(
+        square_with(
+            {
+                "halftone": {
+                    "color": "#000000",
+                    "tone": {"Field.ramp": {"start": [0, 0], "end": [0, 10]}},
+                    "shape": "ellipse",
+                    "aspect": 2,
+                    "screen": "rings",
+                    "centre": [3, 4],
+                }
+            }
+        ),
+        True,
+        id="a halftone of a field tone, an ellipse and rings",
+    ),
+    pytest.param(
+        square_with({"halftone": {"color": "#000000", "tone": 0.5, "shape": "path", "mark": "M0 0 L4 0 L0 2 Z"}}),
+        True,
+        id="a halftone of a caller's outline",
+    ),
+    pytest.param(
+        square_with({"halftone": {"color": "#000000", "tone": 0.5, "screen": "wave", "amplitude": 2, "wavelength": 9}}),
+        True,
+        id="a halftone on a wave",
+    ),
+    pytest.param(
+        square_with({"halftone": {"color": "#000000", "tone": 0.5, "shape": "star"}}),
+        False,
+        id="a halftone shape of no name",
+    ),
+    pytest.param(
+        square_with({"halftone": {"color": "#000000", "tone": 0.5, "screen": "line"}}),
+        False,
+        id="a halftone screen of no name",
+    ),
+    pytest.param(
+        square_with({"halftone": {"color": "#000000", "tone": 0.5, "aspect": 0.5}}),
+        False,
+        id="a halftone aspect below 1",
+    ),
     pytest.param(square_with({"halftone": {"color": "#000000"}}), False, id="a halftone without its tone"),
     pytest.param(square_with({"halftone": {"tone": 0.5}}), False, id="a halftone without its colour"),
     pytest.param(square_with({"halftone": {"color": "none", "tone": 0.5}}), False, id="a halftone of no colour"),

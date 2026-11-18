@@ -1,7 +1,7 @@
 //! `Field` and `Flow`: a number and a direction at every point, the inputs of `hatch`.
 
-use crate::inputs::Item;
 use crate::expr::Num;
+use crate::inputs::Item;
 use crate::{Frame, Pt, PyPath, raised};
 use bullterrier_vector as vector;
 use pyo3::buffer::PyBuffer;

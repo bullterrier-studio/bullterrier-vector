@@ -805,7 +805,14 @@
             "color": { "$ref": "#/$defs/color" },
             "tone": { "$ref": "#/$defs/tone" },
             "pitch": { "$ref": "#/$defs/positive" },
-            "angle": { "$ref": "#/$defs/number" }
+            "angle": { "$ref": "#/$defs/number" },
+            "shape": { "enum": ["dot", "square", "ellipse", "diamond", "euclidean", "path"] },
+            "mark": { "$ref": "#/$defs/path_data" },
+            "aspect": { "anyOf": [{ "type": "number", "minimum": 1 }, { "$ref": "#/$defs/expression" }] },
+            "screen": { "enum": ["grid", "wave", "rings", "spiral", "rays"] },
+            "centre": { "$ref": "#/$defs/coordinate_point" },
+            "amplitude": { "$ref": "#/$defs/number" },
+            "wavelength": { "$ref": "#/$defs/positive" }
           },
           "required": ["color", "tone"]
         },
