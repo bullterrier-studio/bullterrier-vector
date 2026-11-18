@@ -710,7 +710,7 @@ drawing with their style and attributes.
 |---|---|---|
 | `shape.path` | `Path` | its outline |
 | `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, a `Gradient`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch, angle, shape, aspect, screen, centre, amplitude and wavelength, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`), `clip` (a `Path` or `None`) and `mask` (the mask's shapes, a list of `Shape`, or `None`) |
-| `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `run` (`int`), `part` (`int`), `copy` (`int`), `level` (`float`), `order` (`float`), `origin` (`Point`); from `Drawing.from_svg`: `id`, `class`, `group` (`str`) |
+| `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `run` (`int`), `part` (`int`), `copy` (`int`), `label` (`int`), `row` and `column` (`int`, of a character grid), `mark` (`int`) and `role` (`str`) of overlay marks, `level` (`float`), `order` (`float`), `origin` (`Point`); from `Drawing.from_svg`: `id`, `class`, `group` (`str`) |
 
 ## Generators
 
@@ -812,6 +812,67 @@ the axis reaches, and the axis value there; for `"size"`, a line of no width), `
 `MAX_GLYPHS` baselines tried; and, for runs, none or more than `MAX_RUNS`, a `font`, `axes` or `features` on the text as
 well, or a plain text without a `font`. In Python `content` that is neither a `str` nor a list of `Run` is a `TypeError`.
 
+### characters
+
+`characters(rows, *, cell, font=None, size=None, colors=None)`: a grid of characters, one outlined glyph in each cell. Rust:
+`characters(rows, Characters::new(&font, cell).size(10.0).colors(colors))`.
+
+| Argument | Meaning |
+|---|---|
+| `rows` | the text: a `str` with `"\n"` between its rows, or a list of `str`, one for each row (Python). A row may be shorter than another |
+| `cell` | the width and height of a cell in design pixels: one number for a square cell, or `(width, height)`; above 0 and finite, a literal |
+| `font` | a `Font`; default the bundled `jetbrains_mono` (Rust: no default, `Characters::new` takes it) |
+| `size` | pixels to the em, a number, `Param` or expression read once; default the largest at which the widest glyph of the grid fits the cell across and the font's line box (ascender to descender) fits it down |
+| `colors` | rows of colour texts, one for each character of each row, spaces included: what bullterrier-image's `characters(...).colors` returns, so its output goes in as it is (`btvec.characters(art.text, cell=(6, 12), colors=art.colors)`). Each shape is filled with its colour; without `colors` the shapes have no paint |
+
+One shape for each character that has an outline (a space has none). Every character is set alone by the layout of `text`,
+so no kerning and no ligature joins two cells (`->` is two cells although the font has a ligature for it); the glyph is
+the outline `text` draws, a character the font lacks is its notdef glyph, as in `text`. A glyph stands with the middle of
+its advance on the middle of its cell across and the middle of a capital on the middle of the cell down: capitals centre,
+and a full stop, a comma or an underscore keep their place on the baseline of their row, as in a printed grid. Attributes:
+`char`, `row` and `column` (from 0), `order` (the shape's place among the shapes, 0 to 1) and `origin` (the middle of its
+cell, so a rotation or a scale turns each glyph about its own cell); `only(char="#")` picks a character, `only(row=3)` a row.
+
+Errors (`ParameterError`): a `cell` not above 0 or not finite, a `size` not above 0, a control character in `rows` (the
+message names its row and column), more than `MAX_GLYPHS` characters (refused before anything is drawn), `colors` that do
+not match the rows (the message names the row and the counts), a colour that is not `#rgb`, `#rrggbb`, `#rrggbbaa` or
+`none`; the outlines are charged to `MAX_SHAPES` and `MAX_OUTLINE_SEGMENTS` before any is made. In Python `rows` that is
+neither a `str` nor a list of `str` and a `cell` that is not a number or a pair are a `TypeError`.
+
+### marks
+
+`marks(boxes=(), points=(), *, bracket=0.25, cross=12, label_size=12, font=None)`: overlay marks in the look of a
+heads-up display, in design pixels. Rust: `marks(Marks::new(&font).boxes([BoxMark::new(40.0, 60.0, 120.0, 80.0).label("EAR L")])
+.points([PointMark::new(200.0, 90.0).label("NOSE")]).bracket(0.3))`.
+
+| Argument | Meaning |
+|---|---|
+| `boxes` | boxes to bracket: `(x, y, width, height)` or `(x, y, width, height, label)` (the top left corner; width and height above 0); numbers, `Param`s or expressions, read once |
+| `points` | points to mark with a crosshair: `(x, y)` or `(x, y, label)` |
+| `bracket` | the length of a bracket's arm, in times the smaller side of its box: above 0, at most 0.5 |
+| `cross` | how far each line of a crosshair reaches either side of its point, in pixels: above 0 |
+| `label_size` | pixels to the em of the labels: above 0 |
+| `font` | the labels' font; default the bundled `jetbrains_mono` |
+
+A box has an open bracket (arm, corner, arm: three points) in each of its four corners. A point has two open lines through
+it, each `2 * cross` long. A mark with a label (a non-empty one line of printable characters) has a leader, an open line
+from the box's top right corner or from the point, up and to the right by `cross + label_size` in each direction, and the
+label: the glyphs of `text` at `label_size`, the pen a quarter em right of the leader's end and the middle of a capital on
+its height. That fixed rule keeps a label clear of its own box (it lies right of the corner) and of its own crosshair (it
+lies beyond its reach); no layout is solved, so labels of marks that lie close can overlap each other. A label is shaped
+as a string (a ligature of the font joins its characters).
+
+Every shape has `role` (`"bracket"`, `"cross"`, `"leader"` or `"label"`) and `mark` (which mark it belongs to, from 0: the
+boxes in order, then the points), none has a paint: select to style (`marks.only(role="label").fill(c)`,
+`marks.without(role="label").stroke(c, width=1.5)`). Brackets, crosshairs and leaders are open lines of two or three points,
+so `to_plot_svg` plots them as they are. The label's shapes also carry what `text` writes (`char`, `glyph`, `word`...).
+No box and no point is an empty drawing.
+
+Errors (`ParameterError`): a `bracket` not above 0 or past 0.5, a `cross`, `label_size`, `width` or `height` not above 0, a
+number that is not finite or lies so far out that a line passes ±1e100, a label with a control character (a line break
+included), more than `MAX_MARKS` marks or `MAX_GLYPHS` characters of labels. In Python a box or a point that is not a
+tuple of the right length of numbers (and a label) is a `TypeError`.
+
 ### trace
 
 Tracing a map is `Drawing.trace_levels`, `Drawing.trace_labels` and `Drawing.trace_cells` (see "Trace" above for their
@@ -826,7 +887,7 @@ To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Fie
 | Input | Signature | Promise | Errors |
 |---|---|---|---|
 | `Font` | `Font(data, *, name=None)` | a TrueType, OpenType or WOFF2 font, variable or not, from bytes (WOFF2 is unpacked; a saved drawing names the bytes given); `name` is what a saved drawing calls it | `data` not a font the library reads, a WOFF font, a damaged WOFF2 file, a font or an unpacked WOFF2 over 32 MiB |
-| `Font.bundled` | `Font.bundled(name)` (Rust: `Font::bundled(name)?`) | a font that comes with the library, called `name` in a saved drawing: `"bricolage_grotesque"` or `"fraunces"`, SIL OFL 1.1. Its axes are the font file's, at its defaults (`fraunces` opens at `wght` 900, `opsz` 9, `WONK` 1; `bricolage_grotesque` at `wght` 800, `opsz` 96). A document that names it by `sha256` loads with no bytes supplied | `name` not bundled (the message lists them) |
+| `Font.bundled` | `Font.bundled(name)` (Rust: `Font::bundled(name)?`) | a font that comes with the library, called `name` in a saved drawing: `"bricolage_grotesque"`, `"fraunces"` or `"jetbrains_mono"` (a monospaced face, every glyph 0.6 em wide: the default of `characters` and `marks`), SIL OFL 1.1. Its axes are the font file's, at its defaults (`fraunces` opens at `wght` 900, `opsz` 9, `WONK` 1; `bricolage_grotesque` at `wght` 800, `opsz` 96; `jetbrains_mono` at `wght` 400 of 100 to 800). A document that names it by `sha256` loads with no bytes supplied | `name` not bundled (the message lists them) |
 | `Font.bundled_names` | `Font.bundled_names()` (Rust: `Font::bundled_names()`) | the names `Font.bundled` takes, in order | |
 | `font.axes` | property | its variable axes by tag, each a `Param` named by the tag, with the font's range, default and name, in the font's order (Python: a new dict each time; Rust: `Font::axes()`, a list). Only an axis that can vary and is named by a `Param` name is listed: one pinned (minimum equal to maximum), with a tag that is not a name or a repeat of an earlier tag is left out, and is still set by its tag, and a refusal names it | |
 | `font.features` | property | the OpenType feature tags its `GSUB` and `GPOS` tables list, sorted (Rust: `Font::features()`) | |

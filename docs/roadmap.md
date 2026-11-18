@@ -73,7 +73,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done and V14a (trace of a single map) is done; V14 (with V14b) is done and M4 is reached; next in the order above: V17 (presets as JSON). Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
+unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done and V14a (trace of a single map) is done; V14 (with V14b) is done and M4 is reached; the effects track's 4a (halftone screens) and 4b (character grids and overlay marks) are done; next in the order above: V17 (presets as JSON). Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
 Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12, V13 and M3 are done; V15 (before V14) follows.
 
@@ -702,6 +702,12 @@ spiral, rays; `centre`, `amplitude`, `wavelength`), each dot covering `1 - tone`
 the screens share one layout module; in Rust, Python and documents (so WebAssembly), `examples/halftone.py` in the three
 languages. Reasons and limits: `design-decisions.md`, "Halftone screens (4a)". Not built: image's `line` and `matrix` shapes
 (`bands` and a caller's `Path` do the same).
+
+**4b, done 2026-11-18 (effects track).** `characters(rows, *, cell, font, size, colors)` (a character grid as outlined glyphs, with
+`char`, `row`, `column`, image's `colors` accepted as they come) and `marks(boxes, points, *, bracket, cross, label_size, font)`
+(corner brackets, crosshairs, labels on leader lines; open strokes; `role` and `mark`), with the monospaced JetBrains Mono
+bundled (`jetbrains_mono`); in Rust, Python and documents (so WebAssembly), `examples/overlay.py` in the three languages.
+Reasons and limits: `design-decisions.md`, "Character grids and overlay marks (4b)".
 
 Distance fields have a second job: a signed, normalised distance field of letters or shapes is the relief that
 image's `relight`, and later `glass`, light. Written out as a grayscale map (`field.to_map`, V15b: bytes, the input form of `Field.map`), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link

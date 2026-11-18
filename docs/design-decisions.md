@@ -557,7 +557,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   1.x); it is refused with the way out. *Bomb:* the decoder stops at 128 MiB and a ratio of 100 to 1; `Font::new` then
   refuses an unpacked font over `MAX_FONT_BYTES` (32 MiB), the limit of a file, so one number bounds both. The unpacking
   allocates its output up front, so a hostile file costs up to 128 MiB for a moment, then an error naming `data`.
-- **Two fonts bundled as WOFF2, compiled in** (2026-11-01). Bricolage Grotesque (axes `opsz`, `wght`, `wdth`) and Fraunces
+- **Two fonts bundled as WOFF2, compiled in** (2026-11-01; JetBrains Mono, a third, was added in 4b: "Character grids and overlay marks (4b)"). Bricolage Grotesque (axes `opsz`, `wght`, `wdth`) and Fraunces
   (`opsz`, `wght`, `SOFT`, `WONK`) are the upstream `google/fonts` files, both SIL OFL 1.1 with no Reserved Font Name,
   made into WOFF2 by fontTools and nothing else removed or changed (`recalcTimestamp=False`): the name table with the
   copyright and licence text is intact, so the files are not Modified Versions. The core does no IO, so `include_bytes!`
@@ -1877,3 +1877,54 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   halftone before.
 - **The work charge sizes a cell per screen.** A grid and a wave have cells of one pitch; only the wedge screens are charged for
   cells up to two pitches.
+
+## Character grids and overlay marks (4b)
+
+- **A character grid is outlined glyphs, not SVG `<text>`** (owner's decision, 2026-11-18). `characters` makes one shape
+  for each character with the layout `text` uses, so SVG, pixels, the mesh and the plotter show the same shapes. `<text>`
+  would be a second renderer (the viewer's font engine, its fallback and shaping) that the pixels, the mesh and the plotter
+  could not share. The text stays as data: every shape carries `char`, `row` and `column`, so `only(char="#")`, a colour
+  for each cell and a search work as they would on text. *Cost:* a grid is as heavy as its glyph outlines (a 36 by 18 grid
+  is about 0.5 MB of SVG); `text` is the same.
+- **One text path.** A character is set by `typeset`, once for each distinct character of the grid, alone: its `origin`
+  attribute is the middle of its advance and of a capital, so a cell's shape is that shape moved by the cell's middle minus
+  its `origin`. No second shaping or outline code, and no ligature crosses a cell (JetBrains Mono ligates `->`, `==` and
+  `!=`, and a grid of ASCII art is full of them): a test sets `->==!=<=` and counts eight cells. A character the font
+  lacks is its notdef glyph, as in `text`; a space makes no shape (no outline). A control character is refused naming its
+  row and column (a tab has no width in a grid).
+- **Advance and capital, not ink, are centred** (deviation from "bounds centred in the cell"). Centring each glyph's ink
+  would put a full stop, a hyphen and an underscore in the middle of their cell and read as a different picture; centring
+  the pen box keeps the row's baseline, which is what a grid of characters is. Symmetric capitals (`H`, `O`, `#`) are
+  centred by ink as well, which the tests check against the font's own numbers.
+- **The default size fits the line box.** The largest size at which the widest advance of the grid is within the cell across
+  and the font's line box (the `hhea` ascender above the baseline and descender below it, about the middle of a capital) is
+  within the cell down: descenders never reach the next row. For JetBrains Mono (advance 0.6 em, line box 1.32 em) a cell of 6
+  by 12 gets 9 pixels, the height deciding; the caller's `size` overrides it. A font with no line box takes 0.8 and 0.2 em
+  (`LINE_ABOVE`, `LINE_BELOW`).
+- **`colors` are rows of colours, as image returns them.** Image's `characters` data has a list of colour texts for each line
+  (spaces included), so it plugs in as it is in Python, Rust and JSON (`Kind::Colors`, an array of arrays); a mismatch is
+  refused naming the row and the counts. *Alternative:* a flat list, which only Python could have fed from image without a
+  step, and which could not name a row.
+- **Records for marks, one mechanism.** `boxes` and `points` are lists of records read like the arguments of a call from a
+  table that is never registered (`BOX`, `POINT`), as the `runs` of a `text` are (`RUN`). The one list-of-records machinery
+  was generalised first, as a structure-only step (`Given::Records`, `Value::Records` with its table, `Kind::records()`);
+  a new kind of record is a new table and a new `Kind`, nothing else. Every number of a record is read once, so a Param
+  moves a box.
+- **A mark's attributes are `role` and `mark`, not `part` and `index`** (deviation from the brief). `part` already means the
+  index of a part of a `split` shape (a whole number) and `index` is the shape's own place in the list, renumbered by every
+  step, so neither can name which mark a shape belongs to. `mark` counts the marks (boxes in order, then points) and `role` is
+  text (`bracket`, `cross`, `leader`, `label`), so `only(role="label")` styles the glyphs and `without(role="label")` the
+  lines. `class` was not used: it is the SVG import's attribute, and `class` is a keyword in Python.
+- **A label's place is a rule, not a solver.** The leader runs `cross + label_size` up and to the right from the box's top
+  right corner or from the point; the label's pen is a quarter em past its end and the middle of a capital is on its height.
+  A label is therefore right of its box and beyond its own crosshair's reach by construction (a test), whatever the sizes.
+  Two close marks can overlap labels; placing them apart is a solver the library does not have (a caller moves the boxes).
+  The quarter em (`LABEL_GAP`) is a documented constant that only keeps the leader's end off the first glyph.
+- **The font: JetBrains Mono.** The `[wght]` variable font of `google/fonts` (`6e4b84c976ca`), SIL OFL 1.1 with no Reserved
+  Font Name, made into WOFF2 by fontTools as the others (nothing removed or changed): 72 KB as WOFF2 (187 KB as TrueType),
+  one axis (`wght` 100 to 800), every glyph 0.6 em wide, 976 glyphs, drawn for code, so `#@.:-=+*%` are distinct at small
+  sizes. *Alternatives:* Noto Sans Mono and IBM Plex Mono are larger or have more axes or weights to carry for the same job.
+  The three bundled fonts are 472 KB as WOFF2 (the wasm module grows by what the font file weighs: it is compiled in).
+- **Limits.** A grid is at most `MAX_GLYPHS` characters (refused before anything is drawn) and charges its shapes and the
+  segments of every cell's outline to `MAX_SHAPES` and `MAX_OUTLINE_SEGMENTS` before making any. `MAX_MARKS` 10,000 boxes
+  and points, each at most a few dozen shapes, with `MAX_GLYPHS` characters of labels between them.
