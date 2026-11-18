@@ -75,6 +75,13 @@ def test_a_refused_number_names_its_argument(call: object, argument: str) -> Non
         call()  # type: ignore[operator]
 
 
+def test_a_refused_negative_number_reports_the_given_value() -> None:
+    with pytest.raises(btvec.ParameterError, match="got -1"):
+        btvec.Drawing.trace_cells(ramp_map(), -1)
+    with pytest.raises(btvec.ParameterError, match="got -3"):
+        btvec.Drawing.trace_cells(ramp_map(), 2, max_colors=-3)
+
+
 def test_a_trace_is_a_document_that_loads_back_to_the_same_shapes() -> None:
     data = bytes(range(64))
     drawing = btvec.Drawing.trace_levels(btvec.Field.map(8, 8, data, name="photo"), [0.3, 0.6], smooth=0.5, min_area=2)

@@ -33,7 +33,13 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Levels {
 /// call refuses naming `name`; a number with a fraction, or that is not finite, is refused here naming it.
 pub(crate) fn whole(name: &str, value: &Bound<'_, PyAny>) -> PyResult<usize> {
     if let Ok(number) = value.extract::<i128>() {
-        return Ok(usize::try_from(number).unwrap_or(if number < 0 { 0 } else { usize::MAX }));
+        if number < 0 {
+            return Err(exception(&vector::Error::Parameter {
+                parameter: name.to_owned(),
+                message: format!("must be a whole number from 1, got {number}"),
+            }));
+        }
+        return Ok(usize::try_from(number).unwrap_or(usize::MAX));
     }
     match value.extract::<f64>() {
         Ok(number) if number.fract() == 0.0 && number.is_finite() => {
