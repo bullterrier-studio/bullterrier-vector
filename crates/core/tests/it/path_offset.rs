@@ -482,6 +482,72 @@ fn the_outline_of_a_line_is_a_bar_with_the_caps_it_is_given() -> Outcome {
     Ok(())
 }
 
+// A line of 10 that ends in a hook of 0.004 turned 45 degrees: the hook's corner is within half the tolerance of the
+// line from the start to the end, but the last edge sets the butt cap, which stays square to it, so the point 0.5 along
+// the cap from the hook's corner is painted (it is 0.71 to the side of the hook, inside the half-width of 1, and level
+// with the hook's corner along it). Dropping the corner would square the cap to the whole line, ending the stroke at
+// x = 10.003. The same with the hook at the start.
+#[test]
+fn a_butt_cap_stays_square_to_the_last_edge_however_short() -> Outcome {
+    let hooked = [(0.0, 0.0), (10.0, 0.0), (10.003, 0.003)];
+    let backwards: Vec<(f64, f64)> = hooked.iter().rev().copied().collect();
+    for (what, line) in [("end", hooked.to_vec()), ("start", backwards)] {
+        let stroked = Path::polyline(line, false)?.outline(2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE)?;
+        assert!(
+            stroked.contains((10.5, -0.5))?,
+            "{what}: the cap is not square to the hook"
+        );
+    }
+    Ok(())
+}
+
+// A line that runs out to 10 and back along itself to 4 keeps its far end: every corner lies on the line between its
+// neighbours, but the edge that skipped the turn would stop at 5. Stroked 2 wide with butt caps it reaches x = 10.
+#[test]
+fn a_line_that_doubles_back_keeps_its_far_end() -> Outcome {
+    let line = Path::polyline(vec![(0.0, 0.0), (1.0, 0.0), (10.0, 0.0), (5.0, 0.0), (4.0, 0.0)], false)?;
+    let stroked = line.outline(2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE)?;
+    assert_extent(&stroked, (0.0, -1.0, 10.0, 1.0), 1e-6, "out and back")
+}
+
+// Shapes thinner than the tolerance are not lost: a line of 50 stroked 0.004 wide is a bar of 0.2, and a triangle 20 long
+// and 0.001 high grown by 1 is about the stadium round its base (40 plus a circle of 1, less what the arcs cut).
+#[test]
+fn shapes_thinner_than_the_tolerance_still_paint() -> Outcome {
+    let line = Path::line((0.0, 0.0), (50.0, 0.0))?;
+    let hairline = line.outline(0.004, Join::Round, Cap::Butt, LIMIT, TOLERANCE)?;
+    assert_near(area(&hairline)?, 0.2, 1e-6, "a hairline");
+    let sliver = polygons_path(&[vec![(0.0, 0.0), (10.0, 0.001), (20.0, 0.0)]])?;
+    let grown = area(&sliver.offset(1.0, Join::Round, LIMIT, TOLERANCE)?)?;
+    let stadium = 40.0 + PI;
+    assert!(
+        grown <= stadium + 0.03 && grown >= stadium - 2.0 * PI * TOLERANCE,
+        "a sliver grown: {grown}"
+    );
+    Ok(())
+}
+
+// Corners within half the tolerance of the edge between their neighbours are dropped before the offset, so a nick that
+// small throws no miter or bevel of its own: the square with a nick of 0.0049 grows into exactly the square without it.
+#[test]
+fn a_nick_the_tolerance_hides_is_not_a_corner() -> Outcome {
+    let nicked = polygons_path(&[vec![
+        (0.0, 0.0),
+        (9.99, -0.0049),
+        (10.0, 0.0),
+        (10.0, 10.0),
+        (0.0, 10.0),
+    ]])?;
+    for join in [Join::Miter, Join::Bevel, Join::Round] {
+        assert_eq!(
+            nicked.offset(4.0, join, LIMIT, TOLERANCE)?.to_svg_path(),
+            square(10.0)?.offset(4.0, join, LIMIT, TOLERANCE)?.to_svg_path(),
+            "{join:?}"
+        );
+    }
+    Ok(())
+}
+
 // An open L (10 right, 10 down) stroked 2 wide with butt caps: the joins differ by the corner square.
 #[test]
 fn the_outline_of_a_corner_has_the_area_its_join_leaves() -> Outcome {
@@ -722,23 +788,22 @@ fn glyphs_of_both_bundled_fonts_survive_offsets_and_outlines() -> Outcome {
     Ok(())
 }
 
-// Repeated outward offsets of a smooth outline keep its size. The first call may add the points of the grown outline
-// (the engine joins every flattened vertex with its own arc), but a smooth outline needs about as many points at
-// radius R + 4 as at R, so after five calls the count stays within 1.5 times the first result's (a count that
-// doubles each call is 16 times it by the fifth).
-// The shape stays right: five offsets of 4 are one offset of 20 (round joins compose), and each call may stray by the
-// TOLERANCE (arcs and thinning half each), so every vertex of the repeated result lies within 6 * TOLERANCE (five
-// calls and the single one) of the single offset's outline, and the single offset's vertices within that of the
-// repeated one.
+// Repeated offsets of a smooth outline keep its size. The first call may add the points of the grown outline (the
+// engine joins every flattened vertex with its own arc), but a smooth outline needs about as many points at radius R + 4
+// as at R, so after five calls the count stays within 1.5 times the first result's (a count that doubles each call is 16
+// times it by the fifth). An inset grows the holes, so it checks that the counters are thinned too.
+// The shape stays right: five offsets of `distance` are one offset of five times it (round joins compose), and each
+// call may stray by the TOLERANCE, so every vertex of the repeated result lies within 6 * TOLERANCE (five calls and the
+// single one) of the single offset's outline, and the single offset's vertices within that of the repeated one.
 fn points(path: &Path) -> Result<usize, Box<dyn std::error::Error>> {
     Ok(rings(path)?.iter().map(Vec::len).sum())
 }
 
-fn assert_repeated_offsets_stay_small(outline: &Path, what: &str) -> Outcome {
-    let mut grown = outline.offset(4.0, Join::Round, LIMIT, TOLERANCE)?;
+fn assert_repeated_offsets_stay_small(outline: &Path, distance: f64, what: &str) -> Outcome {
+    let mut grown = outline.offset(distance, Join::Round, LIMIT, TOLERANCE)?;
     let first = points(&grown)?;
     for _ in 1..5 {
-        grown = grown.offset(4.0, Join::Round, LIMIT, TOLERANCE)?;
+        grown = grown.offset(distance, Join::Round, LIMIT, TOLERANCE)?;
     }
     let last = points(&grown)?;
     #[expect(clippy::cast_precision_loss, reason = "counts of points")]
@@ -748,7 +813,7 @@ fn assert_repeated_offsets_stay_small(outline: &Path, what: &str) -> Outcome {
             "{what}: {first} points after one offset, {last} after five"
         );
     }
-    let once = outline.offset(20.0, Join::Round, LIMIT, TOLERANCE)?;
+    let once = outline.offset(5.0 * distance, Join::Round, LIMIT, TOLERANCE)?;
     let (repeated, single) = (rings(&grown)?, rings(&once)?);
     let slack = 6.0 * TOLERANCE;
     for (from, to, label) in [(&repeated, &single, "repeated"), (&single, &repeated, "single")] {
@@ -768,7 +833,7 @@ fn assert_repeated_offsets_stay_small(outline: &Path, what: &str) -> Outcome {
 #[test]
 fn repeated_offsets_of_a_circle_keep_the_point_count_and_the_radius() -> Outcome {
     let circle = Path::circle((0.0, 0.0), 100.0)?.resolve(TOLERANCE)?;
-    assert_repeated_offsets_stay_small(&circle, "circle")?;
+    assert_repeated_offsets_stay_small(&circle, 4.0, "circle")?;
     let mut grown = circle;
     for _ in 0..5 {
         grown = grown.offset(4.0, Join::Round, LIMIT, TOLERANCE)?;
@@ -783,6 +848,150 @@ fn repeated_offsets_of_a_circle_keep_the_point_count_and_the_radius() -> Outcome
 #[test]
 fn repeated_offsets_of_a_glyph_keep_the_point_count_and_the_shape() -> Outcome {
     let font = Font::bundled("fraunces")?;
-    let letters = text("S", Text::new(&font).size(300.0)).shapes(&Values::new())?;
-    assert_repeated_offsets_stay_small(letters[0].path(), "S")
+    let letter = |c: &str| -> Result<Path, Error> {
+        Ok(text(c, Text::new(&font).size(300.0)).shapes(&Values::new())?[0]
+            .path()
+            .clone())
+    };
+    assert_repeated_offsets_stay_small(&letter("S")?, 4.0, "S")?;
+    assert_repeated_offsets_stay_small(&letter("O")?, -1.0, "O inset")
+}
+
+// The outline of an outline keeps the points of each ring: a circle of 100 stroked 3 wide is two dense rings (the engine
+// gives each flattened corner a pair of its own), stroking those 1 wide makes four and those 0.3 wide eight, apart from
+// each other, that each need about as many points as one of the two (unthinned they grow by half at each stroke).
+#[test]
+fn the_outline_of_an_outline_keeps_the_points_of_each_ring() -> Outcome {
+    let average = |path: &Path| -> Result<f64, Box<dyn std::error::Error>> {
+        let found = rings(path)?;
+        #[expect(clippy::cast_precision_loss, reason = "counts of points")]
+        let share = points(path)? as f64 / found.len() as f64;
+        Ok(share)
+    };
+    let first = Path::circle((0.0, 0.0), 100.0)?.outline(3.0, Join::Round, Cap::Round, LIMIT, TOLERANCE)?;
+    let second = first.outline(1.0, Join::Round, Cap::Round, LIMIT, TOLERANCE)?.outline(
+        0.3,
+        Join::Round,
+        Cap::Round,
+        LIMIT,
+        TOLERANCE,
+    )?;
+    assert_eq!((rings(&first)?.len(), rings(&second)?.len()), (2, 8));
+    let (before, after) = (average(&first)?, average(&second)?);
+    assert!(after <= 1.5 * before, "{before} points a ring, then {after}");
+    Ok(())
+}
+
+// A round join is cut into chords that stray from the arc by at most half of the tolerance (the other half goes to
+// dropping corners): a square of 10 grown by 10, every chord's middle at least 10 less half the TOLERANCE from the square
+// (the exact distance of the arc), every corner of the result 10 from it, both within the engine's grid (1e-6 is a
+// thousand times what it rounds by at this size).
+#[test]
+fn a_round_join_strays_from_its_arc_by_at_most_half_the_tolerance() -> Outcome {
+    let source = corners_square(10.0);
+    let grown = square(10.0)?.offset(10.0, Join::Round, LIMIT, TOLERANCE)?;
+    let ring = &rings(&grown)?[0];
+    for (index, &vertex) in ring.iter().enumerate() {
+        assert_near(
+            nearest_edge(std::slice::from_ref(&source), vertex),
+            10.0,
+            1e-6,
+            "a corner",
+        );
+        let next = ring[(index + 1) % ring.len()];
+        let middle = (vertex.0.midpoint(next.0), vertex.1.midpoint(next.1));
+        let away = nearest_edge(std::slice::from_ref(&source), middle);
+        assert!(
+            away >= 10.0 - TOLERANCE / 2.0 - 1e-6,
+            "chord {vertex:?}-{next:?} comes within {away}"
+        );
+    }
+    Ok(())
+}
+
+/// A saw of `teeth` corners one apart, one high, on a bar 10 deep: every corner is real.
+fn saw(teeth: u32) -> Corners {
+    let mut corners: Corners = (0..teeth).map(|k| (f64::from(k), f64::from(k % 2))).collect();
+    corners.extend([(f64::from(teeth), -10.0), (0.0, -10.0)]);
+    corners
+}
+
+/// A staircase of `steps` unit steps (two corners each) down to the right, closed by its corner at the bottom left.
+fn staircase(steps: u32) -> Corners {
+    let mut corners: Corners = (0..steps)
+        .flat_map(|k| [(f64::from(k), f64::from(k)), (f64::from(k + 1), f64::from(k))])
+        .collect();
+    corners.push((0.0, f64::from(steps)));
+    corners
+}
+
+// A shape of 20,000 real corners keeps them through an offset (each sharp corner a corner, each round one an arc of a
+// few), and twice the corners make about twice the result. This bounds the size and that the call ends; the time is not
+// asserted (no clock in tests): dropping corners once ran 7 seconds on 80,000 of them, a 20th of that on 20,000.
+#[test]
+fn shapes_of_many_real_corners_keep_them_and_grow_in_step() -> Outcome {
+    type Shape = fn(u32) -> Corners;
+    let rows: [(&str, Shape, Join, usize); 2] = [
+        ("saw", saw, Join::Miter, 1),
+        ("staircase", |n| staircase(n / 2), Join::Round, 3),
+    ];
+    for (what, shape, join, most) in rows {
+        let mut counts = Vec::new();
+        for corners in [20_000, 40_000] {
+            let source = shape(corners);
+            let result = polygons_path(std::slice::from_ref(&source))?.offset(0.1, join, LIMIT, TOLERANCE)?;
+            let found = points(&result)?;
+            assert!(
+                found >= source.len() - 4 && found <= most * source.len() + 8,
+                "{what} of {}: {found} points",
+                source.len()
+            );
+            counts.push(found);
+        }
+        assert!(counts[1] <= 2 * counts[0] + 8, "{what}: {counts:?}");
+    }
+    Ok(())
+}
+
+/// A fixed xorshift, so a failing case is found again.
+struct Dice(u64);
+
+impl Dice {
+    fn next(&mut self) -> f64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        #[expect(clippy::cast_precision_loss, reason = "the top 53 bits")]
+        let share = (self.0 >> 11) as f64 / (1_u64 << 53) as f64;
+        share
+    }
+}
+
+// 300 closed scribbles of 19 to 22 corners over a 1 by 1 square (their edges cross), stroked and offset by about the
+// tolerance: every result is canonical and no two of its edges cross. Thin strokes put many corners within the tolerance
+// of each other, where dropping corners after the engine once made a hole cross its outline.
+#[test]
+fn thin_offsets_and_outlines_of_random_scribbles_are_canonical() -> Outcome {
+    let mut dice = Dice(7);
+    for case in 0..300 {
+        #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "0 to 3")]
+        let count = 19 + (dice.next() * 4.0) as usize;
+        let corners: Corners = (0..count).map(|_| (dice.next(), dice.next())).collect();
+        let width = 0.003 + 0.017 * dice.next();
+        let path = polygons_path(&[corners])?;
+        let results = [
+            (
+                "outline",
+                path.outline(width, Join::Round, Cap::Round, LIMIT, TOLERANCE)?,
+            ),
+            ("grown", path.offset(width, Join::Round, LIMIT, TOLERANCE)?),
+            ("shrunk", path.offset(-width, Join::Round, LIMIT, TOLERANCE)?),
+        ];
+        for (what, result) in &results {
+            let found = rings(result)?;
+            assert_eq!(canonical_fault(&found), None, "case {case}, {what} {width}");
+            assert_eq!(crossing_fault(&found, 1e-9), None, "case {case}, {what} {width}");
+        }
+    }
+    Ok(())
 }
