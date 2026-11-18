@@ -118,5 +118,9 @@ fn an_unknown_name_has_no_description_and_the_same_refusal_as_preset() -> Outcom
 #[test]
 fn at_least_twelve_presets_ship() {
     // The promise of the gallery batch: a starting point for each look.
-    assert!(Drawing::preset_names().len() >= 12, "only {} presets", Drawing::preset_names().len());
+    assert!(
+        Drawing::preset_names().len() >= 12,
+        "only {} presets",
+        Drawing::preset_names().len()
+    );
 }
