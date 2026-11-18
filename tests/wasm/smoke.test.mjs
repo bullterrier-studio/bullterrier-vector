@@ -141,3 +141,20 @@ test("a document without inputs loads with an empty inputs object or none", () =
   const { json } = native.documents.star;
   assert.equal(Drawing.fromJson(json, {}).toJson(), Drawing.fromJson(json).toJson());
 });
+
+test("presetNames lists the native presets", () => {
+  assert.deepEqual(Drawing.presetNames(), native.presets.names);
+});
+
+for (const [name, svg] of Object.entries(native.presets.svg)) {
+  test(`preset ${name}: toSvg writes the text the native extension writes`, () => {
+    assert.ok(Drawing.preset(name).toSvg(300, 200) === svg);
+  });
+}
+
+test("an unknown preset is refused with the native ParameterError", () => {
+  assert.throws(
+    () => Drawing.preset("nope"),
+    (error) => error.name === "ParameterError" && error.message === native.presets.refusal,
+  );
+});

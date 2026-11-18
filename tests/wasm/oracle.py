@@ -1376,6 +1376,19 @@ def example_everywhere(name: str) -> dict[str, Any]:
     }
 
 
+def presets() -> dict[str, Any]:
+    """The names, the SVG of each preset at its defaults, and the refusal of an unknown name."""
+    try:
+        btvec.Drawing.preset("nope")
+    except btvec.ParameterError as error:
+        refusal = str(error)
+    return {
+        "names": btvec.Drawing.preset_names(),
+        "svg": {name: btvec.Drawing.preset(name).to_svg(300, 200) for name in btvec.Drawing.preset_names()},
+        "refusal": refusal,
+    }
+
+
 def main(output: Path) -> None:
     """Write the answers to `output`, and the native pixels of the corpus to a folder beside it."""
     star_json = star_drawing().to_json()
@@ -1406,6 +1419,7 @@ def main(output: Path) -> None:
         "overlay": example_everywhere("overlay"),
         "kinetic_type": example_everywhere("kinetic_type"),
         "plots": plots(),
+        "presets": presets(),
         "refusals": [
             refused("fromJson", "not a document"),
             refused("fromJson", '{"version": 1, "drawings": {"a": [{"nope": 1}]}}'),

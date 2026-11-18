@@ -234,6 +234,22 @@ impl Drawing {
         raised(vector::Drawing::from_json(&text, &read_inputs(inputs)?)).map(Self)
     }
 
+    /// A drawing that comes with the library, by name; `Drawing.presetNames()` lists them.
+    ///
+    /// # Errors
+    /// Throws an `Error` named `ParameterError` naming `name` if no preset has it (the message lists the names).
+    #[wasm_bindgen(js_name = preset)]
+    pub fn preset(name: &str) -> Result<Drawing, JsValue> {
+        raised(vector::Drawing::preset(name)).map(Self)
+    }
+
+    /// The names of the drawings that come with the library, sorted.
+    #[wasm_bindgen(js_name = presetNames)]
+    #[must_use]
+    pub fn preset_names() -> Vec<String> {
+        vector::Drawing::preset_names().into_iter().map(str::to_owned).collect()
+    }
+
     /// The drawing as JSON in the canonical form.
     ///
     /// # Errors
