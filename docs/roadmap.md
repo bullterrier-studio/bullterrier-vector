@@ -704,7 +704,7 @@ languages. Reasons and limits: `design-decisions.md`, "Halftone screens (4a)". N
 (`bands` and a caller's `Path` do the same).
 
 **4b, done 2026-11-18 (effects track).** `characters(content, *, cell, font, size, colors)` (a character grid as outlined glyphs, with
-`char`, `row`, `column`, image's `colors` accepted as they come) and `marks(boxes, points, *, bracket, cross, text_size, font)`
+`char`, `row`, `column`, image's `colors` accepted as they come in Python and JSON) and `marks(boxes, points, *, bracket, cross, text_size, font)`
 (corner brackets, crosshairs, labels on leader lines; open strokes; `role` and `mark`), with the monospaced JetBrains Mono
 bundled (`jetbrains_mono`); in Rust, Python and documents (so WebAssembly), `examples/overlay.py` in the three languages.
 Reasons and limits: `design-decisions.md`, "Character grids and overlay marks (4b)".

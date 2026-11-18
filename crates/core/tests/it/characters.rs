@@ -251,7 +251,7 @@ fn a_grid_saves_to_json_and_loads_the_same_drawing() -> Outcome {
 }
 
 #[test]
-fn a_selection_by_char_finds_the_glyphs_and_a_translation_turns_about_the_cell_centre() -> Outcome {
+fn a_selection_by_char_finds_the_glyphs() -> Outcome {
     let drawing = characters("#.#\n.#.", Characters::new(CELL));
     let hashes = drawing.only(bullterrier_vector::Select::new().attribute("char", '#'));
     let shapes = hashes.shapes(&Values::new())?;
@@ -308,5 +308,38 @@ fn a_refusal_names_the_argument_the_caller_gave_once_whatever_the_cause() -> Out
         let (parameter, message) = parameter_refusal(drawing.shapes(&Values::new()))?;
         assert_eq!(parameter, named, "{case}: {message}");
     }
+    Ok(())
+}
+
+#[test]
+fn a_grid_of_dense_glyphs_is_refused_for_its_outline_segments_before_any_cell_is_made() -> Outcome {
+    // one medium shade outlines hundreds of segments (a stipple of its own): 100,000 of them pass 10,000,000
+    let one = grid("\u{2592}")?;
+    let weight = one
+        .iter()
+        .map(|shape| shape.path().to_svg_path().matches(['L', 'C']).count())
+        .sum::<usize>();
+    assert!(weight > 100, "the glyph is dense: {weight} segments");
+    let (parameter, message) =
+        parameter_refusal(characters("\u{2592}".repeat(100_000), Characters::new(CELL)).shapes(&Values::new()))?;
+    assert_eq!(parameter, "source (characters)");
+    assert!(message.contains("MAX_OUTLINE_SEGMENTS"), "{message}");
+    Ok(())
+}
+
+#[test]
+fn order_runs_from_0_to_1_over_the_shapes_and_a_lone_shape_is_0() -> Outcome {
+    // the spaces make no shape and take no place in the order
+    let orders = |rows: &str| -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+        Ok(grid(rows)?
+            .iter()
+            .map(|shape| shape.attributes().order().unwrap_or(f64::NAN))
+            .collect())
+    };
+    let four = orders("A B\nCD")?;
+    for (found, wanted) in four.iter().zip([0.0, 1.0 / 3.0, 2.0 / 3.0, 1.0]) {
+        assert!(near(*found, wanted), "{four:?}");
+    }
+    assert_eq!(orders(" A ")?, [0.0]);
     Ok(())
 }

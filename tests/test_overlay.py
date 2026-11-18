@@ -159,3 +159,9 @@ def test_a_refusal_names_the_argument_the_caller_gave_once(make: Callable[[], bt
         make().shapes()
     assert str(caught.value).count("source (") == 1
     assert f".{argument}" in str(caught.value)
+
+
+def test_order_runs_from_0_to_1_over_the_shapes_and_a_lone_shape_is_0() -> None:
+    four = [shape.attributes["order"] for shape in btvec.characters("A B\nCD", cell=8).shapes()]
+    assert four == pytest.approx([0, 1 / 3, 2 / 3, 1])
+    assert [shape.attributes["order"] for shape in btvec.characters(" A ", cell=8).shapes()] == [0]

@@ -841,7 +841,7 @@ neither a `str` nor a list of `str` and a `cell` that is not a number or a pair 
 
 ### marks
 
-`marks(boxes=(), points=(), *, bracket=0.25, cross=12, text_size=12, font=None)`: overlay marks in the look of a
+`marks(boxes=None, points=None, *, bracket=None, cross=None, text_size=None, font=None)` (`None` is the default: no marks, 0.25, 12, 12, the bundled font): overlay marks in the look of a
 heads-up display, in design pixels. Rust: `marks(Marks::new().boxes([BoxMark::new(40.0, 60.0, 120.0, 80.0).text("EAR L")])
 .points([PointMark::new(200.0, 90.0).text("NOSE")]).bracket(0.3))` (`.font(&font)` for another font).
 
@@ -849,9 +849,9 @@ heads-up display, in design pixels. Rust: `marks(Marks::new().boxes([BoxMark::ne
 |---|---|
 | `boxes` | boxes to bracket: `(x, y, width, height)` or `(x, y, width, height, text)` (the top left corner; width and height above 0); numbers, `Param`s or expressions, read once |
 | `points` | points to mark with a crosshair: `(x, y)` or `(x, y, text)` |
-| `bracket` | the length of a bracket's arm, in times the smaller side of its box: above 0, at most 0.5 |
-| `cross` | how far each line of a crosshair reaches either side of its point, in pixels: above 0 |
-| `text_size` | pixels to the em of the texts: above 0 |
+| `bracket` | the length of a bracket's arm, in times the smaller side of its box: above 0, at most 0.5; default 0.25 |
+| `cross` | how far each line of a crosshair reaches either side of its point, in pixels: above 0; default 12 |
+| `text_size` | pixels to the em of the texts: above 0; default 12 |
 | `font` | the texts' font; default the bundled `jetbrains_mono` in Rust, Python and documents |
 
 A box has an open bracket (arm, corner, arm: three points) in each of its four corners. A point has two open lines through

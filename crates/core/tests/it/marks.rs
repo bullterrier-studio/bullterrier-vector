@@ -307,3 +307,38 @@ fn a_refusal_names_the_argument_the_caller_gave_and_the_place_once() -> Outcome 
     }
     Ok(())
 }
+
+#[test]
+fn the_characters_of_point_texts_count_towards_the_limit_with_those_of_boxes() -> Outcome {
+    let half = "N".repeat(50_001);
+    for (case, options, named) in [
+        (
+            "two points",
+            Marks::new().points([
+                PointMark::new(0.0, 0.0).text(half.clone()),
+                PointMark::new(1.0, 0.0).text(half.clone()),
+            ]),
+            "source (marks).points",
+        ),
+        (
+            "a box then a point",
+            Marks::new()
+                .boxes([BoxMark::new(0.0, 0.0, 9.0, 9.0).text(half.clone())])
+                .points([PointMark::new(1.0, 0.0).text(half.clone())]),
+            "source (marks).points",
+        ),
+        (
+            "two boxes",
+            Marks::new().boxes([
+                BoxMark::new(0.0, 0.0, 9.0, 9.0).text(half.clone()),
+                BoxMark::new(1.0, 0.0, 9.0, 9.0).text(half.clone()),
+            ]),
+            "source (marks).boxes",
+        ),
+    ] {
+        let (parameter, message) = parameter_refusal(marks(options).shapes(&Values::new()))?;
+        assert_eq!(parameter, named, "{case}: {message}");
+        assert!(message.contains("MAX_GLYPHS"), "{case}: {message}");
+    }
+    Ok(())
+}
