@@ -130,6 +130,49 @@ fn an_ellipse_is_aspect_times_as_long_as_wide_along_the_rows() -> Outcome {
 }
 
 #[test]
+fn an_ellipse_lies_along_the_ring_and_the_spiral_and_out_along_a_ray() -> Outcome {
+    // (screen, the least and the most the long axis may lean along the radius, as a cosine)
+    let cases = [
+        (Screen::Rings, 0.0, 0.05),
+        (Screen::Spiral, 0.0, 0.15),
+        (Screen::Rays, 0.95, 1.0 + 1e-9),
+    ];
+    for (screen, least, most) in cases {
+        let found = dots(
+            100.0,
+            black(0.5)
+                .pitch(5.0)
+                .shape(Mark::Ellipse)
+                .aspect(3.0)
+                .screen(screen)
+                .centre((50.0, 50.0)),
+        )?;
+        let mut checked = 0;
+        for dot in &found {
+            let at = centroid(dot);
+            let radius = libm::hypot(at.0 - 50.0, at.1 - 50.0);
+            if radius < 20.0 {
+                continue;
+            }
+            // the corner farthest from the middle of the dot is the end of its long axis
+            let end = dot
+                .iter()
+                .max_by(|a, b| libm::hypot(a.0 - at.0, a.1 - at.1).total_cmp(&libm::hypot(b.0 - at.0, b.1 - at.1)))
+                .ok_or("a dot without corners")?;
+            let long = libm::hypot(end.0 - at.0, end.1 - at.1);
+            let lean = ((end.0 - at.0) * (at.0 - 50.0) + (end.1 - at.1) * (at.1 - 50.0)) / (long * radius);
+            assert!(
+                (least..=most).contains(&lean.abs()),
+                "{screen:?}: the long axis of the dot at {at:?} has {lean} of the radius in it"
+            );
+            checked += 1;
+        }
+        assert!(checked > 20, "{screen:?}: only {checked} dots were checked");
+    }
+    Ok(())
+}
+
+#[test]
 fn a_diamond_has_its_corners_on_the_axes_of_the_rows_and_stays_in_its_cell() -> Outcome {
     for angle in [0.0_f64, 30.0, 75.0] {
         let (sin, cos) = (libm::sin(angle.to_radians()), libm::cos(angle.to_radians()));
@@ -229,6 +272,58 @@ fn euclidean_is_round_at_low_cover_a_diamond_at_half_and_a_round_hole_at_high_co
         assert!(polygon.contains((centre.0, centre.1 - 4.99))?);
         assert!(!polygon.contains((centre.0 + 4.99, centre.1 + 4.99))?);
         assert!(!polygon.contains((centre.0 - 4.99, centre.1 + 4.99))?);
+    }
+    Ok(())
+}
+
+/// The spot function of print screens at `(x, y)` in cell units.
+fn spot(x: f64, y: f64) -> f64 {
+    f64::midpoint(libm::cos(TAU * x), libm::cos(TAU * y))
+}
+
+#[test]
+fn every_corner_of_a_euclidean_dot_lies_on_one_level_of_the_spot_function_and_that_level_covers_the_area() -> Outcome {
+    // the oracle is the function, not the library: a dot of cover c is the set where (cos 2 pi x + cos 2 pi y) / 2 is at
+    // least a level, held to the cell, so its corners share that level (a corner on the cell's side only stands higher)
+    const PITCH: f64 = 10.0;
+    const STEPS: u32 = 400;
+    for tone in [0.9, 0.7, 0.55, 0.45, 0.3, 0.1] {
+        for dot in dots(60.0, black(tone).pitch(PITCH).angle(Deg(0.0)).shape(Mark::Euclidean))?
+            .iter()
+            .take(6)
+        {
+            let centre = centroid(dot);
+            let cell: Vec<(f64, f64)> = dot
+                .iter()
+                .map(|p| ((p.0 - centre.0) / PITCH, (p.1 - centre.1) / PITCH))
+                .collect();
+            let level = cell.iter().map(|p| spot(p.0, p.1)).fold(f64::MAX, f64::min);
+            for &(x, y) in &cell {
+                let on_the_side = x.abs().max(y.abs()) > 0.5 - 1e-6;
+                assert!(
+                    (spot(x, y) - level).abs() < 0.02 || (on_the_side && spot(x, y) > level),
+                    "tone {tone}: the corner ({x}, {y}) stands at {} where the level is {level}",
+                    spot(x, y)
+                );
+            }
+            // the cover of that level, counted over the cell
+            let mut inside = 0_u32;
+            for i in 0..STEPS {
+                for j in 0..STEPS {
+                    let (x, y) = (
+                        (f64::from(i) + 0.5) / f64::from(STEPS) - 0.5,
+                        (f64::from(j) + 0.5) / f64::from(STEPS) - 0.5,
+                    );
+                    inside += u32::from(spot(x, y) >= level);
+                }
+            }
+            near(
+                f64::from(inside) / f64::from(STEPS * STEPS),
+                1.0 - tone,
+                0.01,
+                &format!("tone {tone}: the cover of the level the corners stand on"),
+            );
+        }
     }
     Ok(())
 }
