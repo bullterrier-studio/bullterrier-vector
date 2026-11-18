@@ -643,7 +643,11 @@ State: done 2026-11-16 (`design-decisions.md`, "Kinetic type piece (M3)"). A fra
 `trace_cells`, in Rust, Python and documents so WebAssembly; `examples/trace.py` in the three languages): filled shapes per level
 with the level as an attribute, per label, and an exactly traced dithered cell map (one shape per colour, a cap on colours);
 curve fitting, edge padding, `open`/`close` in design pixels, `min_area`/`min_hole`. Reasons and limits: `design-decisions.md`,
-"Trace (V14a)". **V14b** (below, the last two bullets) and the M4 piece remain.
+"Trace (V14a)".
+
+**V14b and M4, done 2026-11-18; V14 done and M4 reached.** `Field.smooth_maps` and `Field.persist_holes` (Rust and Python; maps in, maps out, no
+document verb), `examples/trace_sequence.{py,rs}`, and the M4 piece: the owner's dog as a cut-paper poster in the demos folder
+(`design-decisions.md`, "Trace sequences (V14b)" and "Cut-paper piece (M4)").
 
 - A grayscale map in (width, height, bytes), outlines at chosen levels out; each level a shape with its level as an
   attribute.

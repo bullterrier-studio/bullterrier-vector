@@ -1686,7 +1686,44 @@ the traced paths.
   `Trace`, which holds only the tidying.
 - **Known limits.** Tracing a binary indicator cuts the corner of every one-pixel step by an eighth of a pixel
   (curve fitting hides it; the labels' cuts keep a corner's gap to the commonest label); the raw trace of a map winds the other way round than the canonical form (fill is nonzero, so
-  it does not matter); sequences of maps (V14b) are left to the caller.
+  it does not matter); sequences of maps are V14b, below.
+
+## Trace sequences (V14b)
+
+A video traced frame by frame flickers: shapes move with the grain and holes pop in and out. Two helpers on `Field` make a
+caller's list of maps steady before each is traced.
+
+- **Maps in, maps out, on the whole list.** `Field.smooth_maps(maps, *, sigma)` and `Field.persist_holes(maps, levels, *, reach,
+  at_least)` each take the list and give a list of `Field.map`s. *Reason:* the result is what every V14a verb and every
+  document already reads, so there is no new verb, `Kind`, schema entry or WebAssembly call, and the library keeps no sequence.
+  A per-frame call (`at=i`) was rejected: persistence must run on the smoothed maps, so the caller would build the whole
+  smoothed list first anyway. *Cost:* both are Rust and Python only; JavaScript loads documents and does not build fields.
+- **Smoothing is a truncated Gaussian over the maps** (`ceil(3 sigma)` either way, weights renormalised where the sequence
+  ends, bytes rounded): the oracle is a hand-computed weighted mean, and a static sequence is exactly itself.
+- **Hole persistence works on the map, at the levels the trace will use.** A hole is a 4-connected part below the level that
+  cannot reach the map's edge (what meets the edge goes on past it and is no hole). A hole of one map is kept when it overlaps
+  a hole at that level in `at_least` maps of its window (itself counted, the number cut to the window so ends and short
+  sequences keep what a static one keeps). A dropped hole is raised to the lowest tone round it (at or above the level, so the
+  trace's own blur does not reopen it). A hole that persists at a level persists at every lower one, so filling each level
+  independently keeps the nesting and the order of `levels` does not matter. *Rejected:* working on traced shapes (booleans
+  over every frame's rings, a new argument kind for a list of maps) and a pixel vote (it erodes thin holes).
+- **Limits, charged before work:** at most 2^28 pixels over the maps, 256 levels, 2e8 reads. All refusals name `maps`,
+  `sigma`, `levels` or `at_least`. The walks are iterative (a worklist), so a 4096 by 4096 map needs no stack.
+- **Measured (the cut-paper demo, nine frames of the owner's dog drifting and zooming, grain of 36 grey levels):** see the demos
+  folder's `30-vector-m4-cut-paper` README; smoothing in time also smooths the motion, so the flicker of steadied frames can fall
+  below that of the clean frames traced alone. *Known limits:* the ends average fewer frames; islands (specks) are not handled,
+  `min_area` drops them; a fast motion lags.
+
+## Cut-paper piece (M4)
+
+M4 is the demos folder's poster of the owner's dog as cut paper (like M5, it uses his photo, so it is not in `examples/`;
+`examples/trace.py` and `examples/trace_sequence.py` are the public parts of the recipe). Each tone level is a sheet cut to the
+dog's own traced silhouette; the lowest sheet is the whole silhouette, so a tone darker than the first level is never a hole;
+the darkest tones (the map inverted, traced at a high level, finer tidying) are an accent sheet glued on top so eyes and nose read,
+with small catchlights; every sheet has a `shadow` (V10), the sun, hills and headline are paper too. Reasons: a level trace of a
+photo has a dark fur that fills the lowest sheets, so the face read only once the darkest sheet was separate. Limit: the
+eyes' catchlights are placed by hand (a hint of where the eyes are), the glue between image and vector is the demo's own
+`dogmaps.py`.
 
 ## Engineering
 
