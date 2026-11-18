@@ -16,8 +16,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from oracle_halftones import halftones
-
 import bullterrier_vector as btvec
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,6 +48,8 @@ BUNDLED_FRAUNCES = btvec.Font.bundled("fraunces")
 
 Draw = tuple[int, int, dict[str, Any]]
 Entry = tuple[str, btvec.Drawing, list[Draw]]
+# the halftone drawings are in their own file (the size budget): loaded as the examples are, so that mypy needs no path
+halftones: Callable[[], list[Entry]] = runpy.run_path(str(Path(__file__).with_name("oracle_halftones.py")))["halftones"]
 
 GOLD = "#ffcc33"
 TAPER = [(0, 0), (0.15, 1), (0.85, 1), (1, 0)]
