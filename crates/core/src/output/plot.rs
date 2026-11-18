@@ -2,12 +2,13 @@
 
 use super::Size;
 use super::order::{Stroke, nearest_neighbour};
+use super::screen::{Screen, screen};
 use super::view::View;
 use crate::field::length;
 use crate::geometry::{MAX_COORDINATE, Point};
 use crate::limits::Work;
-use crate::path::{Polyline, number};
-use crate::{Blend, Drawing, Error, Flow, Hatch, Paint, Shape, Values};
+use crate::path::{Combine, FLATNESS, Polyline, number};
+use crate::{Blend, Drawing, Error, Flow, Hatch, Paint, Path, Shape, Values};
 use std::fmt::Write as _;
 
 /// The most distance tests the simplification of one call may make.
@@ -131,7 +132,7 @@ impl Drawing {
     /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 100,000 (in
     /// millimetres or inches: a number above 0 up to 100,000);
     /// naming `tolerance` if it is not at least 0 or the simplification would take over a billion distance tests;
-    /// naming the shape (`shape 3`) if it has a gradient fill or stroke, a halftone, a shadow, a clip, a mask, a
+    /// naming the shape (`shape 3`) if it has a gradient fill or stroke, a shadow, a clip, a mask, a
     /// knockout or a blend, which a pen cannot draw; naming `pen_width` past `MAX_SEGMENTS` points; otherwise what
     /// [`Drawing::shapes`] raises.
     pub fn to_plot_svg(&self, size: Size, values: &Values, plot: &Plot) -> Result<String, Error> {
@@ -178,20 +179,27 @@ impl Drawing {
                 }
                 Ok(())
             };
-            if let Paint::Color(colour) = style.fill()
-                && let Some(rgba) = colour.rgba().filter(|rgba| rgba[3] > 0)
+            // what the fill covers: the shape, or for a halftone its dots cut to it
+            let (fill, region) = match style.halftone() {
+                Some(halftone) => (halftone.color(), halftone_region(shape, &place, &work)?),
+                None => match style.fill() {
+                    Paint::Color(colour) => (*colour, Some(shape.path().clone())),
+                    Paint::Gradient(_) => (crate::Color::NONE, None),
+                },
+            };
+            if let Some(region) = region
+                && let Some(rgba) = fill.rgba().filter(|rgba| rgba[3] > 0)
             {
                 let hatch = Hatch::new(plot.pen_width).flow(Flow::fixed(45.0));
                 // the hatching is the pen's, so a spacing it cannot make is the pen width
-                let lines = shape
-                    .path()
+                let lines = region
                     .hatch_charged(&hatch, &[], &mut charge)
                     .map_err(as_pen_width)?
                     .flattened(&mut charge)?;
                 let lines = if lines.iter().any(|line| line.drawn) {
                     lines
                 } else {
-                    shape.path().flattened(&mut charge)?
+                    region.flattened(&mut charge)?
                 };
                 add([rgba[0], rgba[1], rgba[2]], lines)?;
             }
@@ -231,6 +239,42 @@ impl Drawing {
     }
 }
 
+/// The region a halftone covers, for the pen to hatch: the whole shape for a solid one, else its dots, those wholly inside as
+/// they are and those that cross the outline cut to it by one boolean; `None` if no dot touches the shape. The work is
+/// charged to `MAX_SEGMENTS` as the mesh charges it, naming the shape's `pitch`.
+fn halftone_region(shape: &Shape, place: &str, work: &Work) -> Result<Option<Path>, Error> {
+    let Some(halftone) = shape.style().halftone() else {
+        return Ok(None);
+    };
+    let outline = shape.path().flattened(&mut |count| work.made_segments(count, place))?;
+    let found = match screen(halftone, &outline, &mut |count| {
+        work.made_segments(count, &format!("{place} pitch"))
+    })? {
+        Screen::Solid => return Ok(Some(shape.path().clone())),
+        Screen::Dots(found) if found.is_empty() => return Ok(None),
+        Screen::Dots(found) => found,
+    };
+    let polygon = |dot: &Vec<Point>| Path::polyline(dot.clone(), true);
+    let mut pieces = found.inside.iter().map(polygon).collect::<Result<Vec<_>, _>>()?;
+    if !found.crossing.is_empty() {
+        let crossing = Path::joined(
+            found
+                .crossing
+                .iter()
+                .map(polygon)
+                .collect::<Result<Vec<_>, _>>()?
+                .iter(),
+        );
+        let mut charge = |count| work.made_segments(count, place);
+        pieces.push(
+            shape
+                .path()
+                .combined(&crossing, Combine::Intersect, FLATNESS, &mut charge)?,
+        );
+    }
+    Ok(Some(Path::joined(pieces.iter())))
+}
+
 /// `error` with the hatching's `spacing` called what the caller gave it: the `pen_width`.
 fn as_pen_width(error: Error) -> Error {
     match error {
@@ -249,8 +293,6 @@ fn refuse_what_a_pen_cannot_draw(shape: &Shape, place: &str) -> Result<(), Error
         || matches!(style.stroke().map(crate::StrokeStyle::paint), Some(Paint::Gradient(_)))
     {
         "a gradient"
-    } else if style.halftone().is_some() {
-        "a halftone"
     } else if style.shadow().is_some() {
         "a shadow"
     } else if style.clip().is_some() {

@@ -139,7 +139,7 @@ impl PyHalftone {
     /// What a dot is: `"dot"`, `"square"`, `"ellipse"`, `"diamond"` or `"euclidean"`, or the `Path` of the caller's outline.
     #[getter]
     fn shape(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        Ok(match self.0.mark() {
+        Ok(match self.0.shape() {
             vector::Mark::Path(path) => Bound::new(py, PyPath((**path).clone()))?.into_any().unbind(),
             other => other.name().into_pyobject(py)?.into_any().unbind(),
         })
@@ -189,7 +189,7 @@ impl PyHalftone {
             self.0.tone().level(),
             self.pitch(),
             self.angle(),
-            self.0.mark().name(),
+            self.0.shape().name(),
             self.aspect(),
             self.screen(),
             self.0.centre().map(|centre| (centre.x, centre.y)),
@@ -209,7 +209,7 @@ impl PyHalftone {
             .tone()
             .level()
             .map_or_else(|| "Field(...)".to_owned(), |level| format!("{level:?}"));
-        let shape = match self.0.mark() {
+        let shape = match self.0.shape() {
             vector::Mark::Path(path) => format!("Path({:?})", path.to_svg_path()),
             other => format!("'{}'", other.name()),
         };

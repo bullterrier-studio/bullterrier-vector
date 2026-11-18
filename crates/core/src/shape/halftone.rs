@@ -46,8 +46,8 @@ impl Tone {
 }
 
 impl PartialEq for Tone {
-    /// Two numbers are equal when the numbers are; two fields when they are made alike, a distance field only when it
-    /// is the same field (its drawing is held by reference).
+    /// Two numbers are equal when the numbers are; two fields when they are made alike, a distance field when the
+    /// outline it measures to is the same.
     fn eq(&self, other: &Self) -> bool {
         crate::key::key_of(self) == crate::key::key_of(other)
     }
@@ -210,7 +210,7 @@ impl HalftoneStyle {
 
     /// What a dot is.
     #[must_use]
-    pub fn mark(&self) -> &Mark {
+    pub fn shape(&self) -> &Mark {
         &self.mark
     }
 
@@ -255,8 +255,10 @@ impl Keyed for Tone {
             Self::Field(field) => {
                 key.word(1);
                 key.of(&**field);
-                // a distance field's drawing is not in its key: the one field it is tells it apart
-                key.word(field.identity());
+                // a distance field's drawing is not in its key: the outline it measures to tells it apart
+                for word in field.identity() {
+                    key.word(word);
+                }
             }
         }
     }

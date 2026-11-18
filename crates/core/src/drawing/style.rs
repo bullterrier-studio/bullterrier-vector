@@ -245,7 +245,7 @@ impl From<&HalftoneStyle> for Halftone {
         let mut halftone = Self::of(style.color(), tone);
         halftone.pitch = Some(Expr::from(style.pitch()));
         halftone.angle = Some(Expr::from(style.angle()));
-        halftone.shape = Some(style.mark().clone());
+        halftone.shape = Some(style.shape().clone());
         halftone.aspect = Some(Expr::from(style.aspect()));
         halftone.screen = Some(style.screen());
         halftone.centre = style.centre();

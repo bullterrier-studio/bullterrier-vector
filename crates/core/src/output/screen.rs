@@ -174,8 +174,14 @@ fn plan(
         return Ok(Plan::Bare);
     };
     let pitch = halftone.pitch();
-    let dot = Dot::new(halftone.mark(), halftone.aspect())?;
-    let size = pitch * WIDEST_CELL;
+    let dot = Dot::new(halftone.shape(), halftone.aspect())?;
+    // a cell of a grid or a wave is a pitch across; a wedge of the others may be wider
+    let size = pitch
+        * if matches!(halftone.screen(), Arrangement::Grid | Arrangement::Wave) {
+            1.0
+        } else {
+            WIDEST_CELL
+        };
     let corners_of_dot = dot.corners(size);
     let reach = dot.reach();
     let reach_px = reach * size;

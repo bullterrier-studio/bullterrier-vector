@@ -186,12 +186,19 @@ impl Field {
         Ok(())
     }
 
-    /// Tells this field from another that has the same key: a distance field's drawing is held by reference, so the
-    /// address of what it holds is the field; every other field is its key, and gives 0.
-    pub(crate) fn identity(&self) -> u64 {
+    /// What tells this field from another with the same key: a distance field's drawing is not in its key, so the
+    /// digest of the outline it measures to is; every other field is its key, and gives zeros.
+    pub(crate) fn identity(&self) -> [u64; 4] {
         match &self.bound {
-            Bound::Distance { parts, .. } => Arc::as_ptr(parts) as usize as u64,
-            _ => 0,
+            Bound::Distance { parts, .. } => {
+                let digest = parts.whole.digest();
+                std::array::from_fn(|at| {
+                    digest[at * 8..at * 8 + 8]
+                        .iter()
+                        .fold(0, |word, byte| word << 8 | u64::from(*byte))
+                })
+            }
+            _ => [0; 4],
         }
     }
 

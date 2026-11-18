@@ -1835,7 +1835,7 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   a field is read at each dot's centre and held to 0 to 1 (`Tone::Field`). In a document the argument is the `Field`
   kind that reads one number per shape: a number or an expression is the per-shape number, an object is a field. The style
   keeps what it was given, so `Style.halftone.tone` is a float or a `Field`. Two fields compare by their keys, a distance
-  field (whose drawing a key does not hold) by identity, so the cache cannot take two different distance fields for one.
+  field (whose drawing a key does not hold) by the digest of its outline, so the cache cannot take two different distance fields for one.
 - **`shape` is a word or a `Path`; in a document the path is its own argument `mark`.** One argument that is a word or path
   data would be told apart by its first letter; two arguments (`"shape": "path"`, `"mark": "M0 0 ..."`) are checked by the
   schema, and `mark` given for another shape is refused. Python and Rust take the `Path` where the word goes.
@@ -1854,5 +1854,14 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   `MAX_SEGMENTS`, so a tiny pitch, a far centre or an `aspect` of 1e100 is refused naming `pitch` before an allocation. A
   dot's reach is worked out from the mark, never from a polygon made for the purpose: the first version made one to measure,
   and a huge `aspect` allocated 4 GB before the charge ran (found by the adversarial test, which now stays).
-- **Plotter output.** `to_plot_svg` still refuses a halftone, naming the shape: a pen draws strokes. Halftone dots as pen
-  outlines are a `from_svg` away; making them natively waits for someone to want them.
+- **Plotter output.** `to_plot_svg` draws a halftone as its dots, hatched at the pen width like any solid: the region is the
+  dots wholly inside and the crossing ones cut by one boolean, as the mesh makes it, from the one screen answer. It refused a
+  halftone before.
+- **Distance-field tones are keyed by their outline.** A style that holds a distance field must not collide in the cache
+  with another, and must equal itself after being put back into a drawing (which binds the field again): the key holds a
+  SHA-256 of the outline's edges. An earlier key by address failed the second test (found by `a_distance_field_tone_survives..`).
+- **`shape` and `mark` in a document.** The brief asked for one name per argument; a document has two (`"shape": "path"` plus
+  `"mark": "<path data>"`), because one argument that is a word or path data would be told apart by its first letter. Python
+  and Rust take the `Path` as `shape`; this is the one place the names differ.
+- **The work charge sizes a cell per screen.** A grid and a wave have cells of one pitch; only the wedge screens are charged for
+  cells up to two pitches.

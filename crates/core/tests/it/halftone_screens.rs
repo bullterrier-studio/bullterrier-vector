@@ -383,7 +383,7 @@ fn the_style_of_a_drawn_shape_says_what_the_tone_is() -> Outcome {
     assert_eq!(style.tone().level(), Some(0.3));
     assert!(style.tone().field().is_none());
     assert_eq!(style.screen(), Screen::Rings);
-    assert_eq!(style.mark(), &Mark::Dot);
+    assert_eq!(style.shape(), &Mark::Dot);
     assert_eq!(style.centre().map(|c| (c.x, c.y)), Some((10.0, 20.0)));
     assert_eq!((style.aspect(), style.amplitude(), style.wavelength()), (1.0, 1.0, 6.0));
     let ramp = Field::ramp((0.0, 0.0), (0.0, 50.0))?;
@@ -769,5 +769,21 @@ fn the_reference_document_reads_its_tone_from_a_map_and_draws_dots_that_follow_i
         chosen.iter().sum::<f64>() / count
     };
     assert!(mean_area(150.0, 330.0) > 3.0 * mean_area(750.0, 930.0));
+    Ok(())
+}
+
+#[test]
+fn a_distance_field_tone_survives_being_put_back_into_a_drawing() -> Outcome {
+    let tone = Field::distance(Drawing::from(Path::circle((25.0, 25.0), 20.0)?), true)?;
+    let shapes = Drawing::from(rect(50.0)?)
+        .halftone(Halftone::field(BLACK, tone).pitch(5.0))
+        .shapes(&Values::new())?;
+    assert_eq!(Drawing::new(shapes.clone()).shapes(&Values::new())?, shapes);
+    // and two different distance fields are two different tones
+    let other = Field::distance(Drawing::from(Path::circle((10.0, 10.0), 5.0)?), true)?;
+    let others = Drawing::from(rect(50.0)?)
+        .halftone(Halftone::field(BLACK, other).pitch(5.0))
+        .shapes(&Values::new())?;
+    assert_ne!(others, shapes);
     Ok(())
 }

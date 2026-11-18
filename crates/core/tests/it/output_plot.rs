@@ -7,7 +7,9 @@
 use std::fmt::Write as _;
 
 use crate::common::{Outcome, parameter_refusal, to_segment};
-use bullterrier_vector::{Color, Drawing, Error, Path, Plot, PlotUnit, Shadow, Size, Stroke, Values};
+use bullterrier_vector::{
+    Color, Deg, Drawing, Error, Halftone, Mark, Path, Plot, PlotUnit, Shadow, Size, Stroke, Values,
+};
 
 type Line = Vec<(f64, f64)>;
 
@@ -452,5 +454,42 @@ fn strokes_crowded_into_a_corner_are_all_plotted_in_time_and_each_once() -> Outc
     let found = pens(&plot(&drawing, 2000.0, &Plot::new(1.0)?.tolerance(0.0))?)?;
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].lines.len(), count + 1, "every stroke once");
+    Ok(())
+}
+
+#[test]
+fn a_halftone_is_its_dots_hatched_at_the_pen_width() -> Outcome {
+    // 81 squares of 5 by 5 (tone 0.75, pitch 10, no turn) inside the rectangle: 2025 square pixels of ink
+    let region = Path::rect(5.0, 5.0, 90.0, 90.0, 0.0)?;
+    let drawing = Drawing::from(region).halftone(
+        Halftone::new(red()?, 0.75)
+            .pitch(10.0)
+            .angle(Deg(0.0))
+            .shape(Mark::Square),
+    );
+    let found = pens(&plot(&drawing, 100.0, &Plot::new(0.5)?)?)?;
+    let length: f64 = found[0]
+        .lines
+        .iter()
+        .map(|line| line.windows(2).map(|w| dist(w[0], w[1])).sum::<f64>())
+        .sum();
+    assert!((length - 2025.0 / 0.5).abs() < 0.1 * 4050.0, "{length}");
+    // every point of the hatching is in a dot: 2.5 either side of a multiple of 10
+    for line in &found[0].lines {
+        for p in line {
+            for at in [p.0, p.1] {
+                let off = (at / 10.0 - (at / 10.0).round()).abs() * 10.0;
+                assert!(off <= 2.5 + 1e-6, "{p:?}");
+            }
+        }
+    }
+    // a pitch too small for the shape is refused naming it, as in the other outputs
+    let crowded =
+        Drawing::from(Path::rect(0.0, 0.0, 1000.0, 1000.0, 0.0)?).halftone(Halftone::new(red()?, 0.5).pitch(0.001));
+    assert!(
+        parameter_refusal(plot(&crowded, 100.0, &Plot::new(1.0)?))?
+            .0
+            .contains("pitch")
+    );
     Ok(())
 }

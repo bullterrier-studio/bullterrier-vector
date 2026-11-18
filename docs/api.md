@@ -644,8 +644,8 @@ Their colour's alpha is that of every dot, once where dots overlap. A tone of th
 (circles cannot cover a cell's corners), a tone of 1 draws nothing; a field is read at each dot's centre and held to 0 to 1, a
 dot of tone 1 is left out and one of tone 0 fills its cell as its shape does. A stroke is
 drawn over the dots; opacity, blend and shadow apply to dots and stroke together, and a shadow is the dots moved and tinted.
-The plotter output refuses a halftone, as it refuses any fill that is not a pen's: draw the dots as outlines (`from_svg` of
-`to_svg`) or make them with `stipple` and `bands`.
+`to_plot_svg` draws a halftone as its dots hatched at the pen width, like any solid (the dots wholly inside as they are, those
+that cross the outline cut to it by one boolean), from the same screen the other outputs draw.
 `to_svg` writes a `<clipPath id="halftone-N">` of the shape's outline and a `<g clip-path>` holding all the dots as one
 `<path>`, then the stroke; pixels clip one path of the dots to the outline; neither makes a boolean per dot (the
 prototypes' did, about 500 ms for 3,000 dots; [benchmarks.md](benchmarks.md)). `to_mesh` makes the dots wholly inside the
@@ -1063,7 +1063,7 @@ JavaScript `toPlotSvg(width, height, values, { penWidth, tolerance, unit })`) wr
   (100,000 strokes packed into a corner of a big page) is counted, and past 2e8 entries scanned the strokes left keep their
   drawing order. Measured on small cases the
   travel is at most 1.41 times the best order over twelve seeds of seven strokes.
-- **Refused, naming the shape** (`shape 3`): a gradient, halftone, shadow, clip, mask, knockout or blend mode, which a pen
+- **Refused, naming the shape** (`shape 3`): a gradient, shadow, clip, mask, knockout or blend mode, which a pen
   cannot draw. A plot draws only what the picture shows: a shape with opacity 0, or a fill or stroke that is fully transparent, is not
   plotted; a translucent colour is its opaque pen. A shape drawn later does not hide one drawn earlier. A fill the pen is too wide
   to hatch, or a `pen_width` or `tolerance` past 1e100, is a `ParameterError` naming it.

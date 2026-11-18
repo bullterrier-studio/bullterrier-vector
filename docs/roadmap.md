@@ -701,7 +701,7 @@ the rows, so a photo's fine detail no longer chops them.
 spiral, rays; `centre`, `amplitude`, `wavelength`), each dot covering `1 - tone` of its own cell on every screen; `bands` and
 the screens share one layout module; in Rust, Python and documents (so WebAssembly), `examples/halftone.py` in the three
 languages. Reasons and limits: `design-decisions.md`, "Halftone screens (4a)". Not built: image's `line` and `matrix` shapes
-(`bands` and a caller's `Path` do the same), a halftone in the plotter output.
+(`bands` and a caller's `Path` do the same).
 
 Distance fields have a second job: a signed, normalised distance field of letters or shapes is the relief that
 image's `relight`, and later `glass`, light. Written out as a grayscale map (`field.to_map`, V15b: bytes, the input form of `Field.map`), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link
