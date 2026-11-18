@@ -149,6 +149,12 @@ pub(crate) struct RoundRows {
 
 impl RoundRows {
     /// The rows' indices, first to last: loop over these, never add 1 to a float (past 2^53 that does not advance).
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss,
+        reason = "the rows are counted in floats and the work charge, which bounds them, comes before any loop over them"
+    )]
     pub(crate) fn indices(&self) -> impl Iterator<Item = f64> {
         let first = self.first;
         (0..self.rows as usize).map(move |at| first + at as f64)
@@ -163,12 +169,6 @@ impl Layout {
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `centre` if it lies so far from the box that a step would not move there.
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        clippy::cast_precision_loss,
-        reason = "the row indices are counted in floats and loops over them are charged before they run"
-    )]
     pub(crate) fn round_rows(
         &self,
         centre: Point,

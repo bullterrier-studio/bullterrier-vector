@@ -175,6 +175,22 @@ fn verb_schema(verb: &Verb) -> Json {
 }
 
 /// The schema of one argument's value, with its default if it has one.
+/// A word of the argument's set, or `{"path": data}`.
+fn mark(arg: &Arg) -> Json {
+    let Domain::Choice(words) = arg.domain else {
+        unreachable!("a mark is declared with its words")
+    };
+    any_of(vec![
+        Json::object([("enum", Json::Array(words.iter().map(|word| Json::text(word)).collect()))]),
+        Json::object([
+            ("type", Json::text("object")),
+            ("additionalProperties", Json::Bool(false)),
+            ("properties", Json::object([("path", reference("path_data"))])),
+            ("required", Json::Array(vec![Json::text("path")])),
+        ]),
+    ])
+}
+
 fn argument(arg: &Arg) -> Json {
     let schema = match arg.kind {
         Kind::Number => value(arg),
@@ -225,20 +241,7 @@ fn argument(arg: &Arg) -> Json {
             }
             _ => typed("string"),
         },
-        Kind::Mark => {
-            let Domain::Choice(words) = arg.domain else {
-                unreachable!("a mark is declared with its words")
-            };
-            any_of(vec![
-                Json::object([("enum", Json::Array(words.iter().map(|word| Json::text(word)).collect()))]),
-                Json::object([
-                    ("type", Json::text("object")),
-                    ("additionalProperties", Json::Bool(false)),
-                    ("properties", Json::object([("path", reference("path_data"))])),
-                    ("required", Json::Array(vec![Json::text("path")])),
-                ]),
-            ])
-        }
+        Kind::Mark => mark(arg),
         Kind::Field if arg.reads == Reads::PerItem => any_of(vec![value(arg), reference("field")]),
         Kind::Field => any_of(vec![reference("number"), reference("field")]),
         Kind::Flow => reference("flow"),

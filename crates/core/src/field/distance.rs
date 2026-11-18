@@ -249,7 +249,7 @@ struct Part {
 #[derive(Debug)]
 struct Parts {
     whole: Outline,
-    parts: Vec<Part>,
+    pieces: Vec<Part>,
     /// The digest of the outline's edges, worked out once when the field is bound, as four words.
     identity: [u64; 4],
 }
@@ -263,7 +263,11 @@ impl Parts {
                 .iter()
                 .fold(0, |word, byte| word << 8 | u64::from(*byte))
         });
-        Ok(Self { whole, parts, identity })
+        Ok(Self {
+            whole,
+            pieces: parts,
+            identity,
+        })
     }
 
     fn at(&self, point: Point, normalized: bool) -> f64 {
@@ -276,7 +280,7 @@ impl Parts {
             };
         }
         let mut best = 0.0_f64;
-        for part in &self.parts {
+        for part in &self.pieces {
             let (l, t, r, b) = part.extent;
             if point.x < l || point.x > r || point.y < t || point.y > b || !part.region.contains(point) {
                 continue;

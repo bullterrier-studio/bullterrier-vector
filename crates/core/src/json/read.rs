@@ -346,22 +346,7 @@ impl Reader {
             Kind::Field => self.field(pointer, json).map(Value::Field),
             Kind::Flow => self.flow(pointer, json).map(Value::Flow),
             // a word of the set, or the object that holds a path
-            Kind::Mark if matches!(json, Json::Object(_)) => {
-                let Json::Object(members) = json else {
-                    unreachable!("matched above")
-                };
-                if let Some(unknown) = members.keys().find(|key| *key != "path") {
-                    return Err(refuse(&at(pointer, unknown), "is not a field of a shape (path)"));
-                }
-                let Some(path) = members.get("path") else {
-                    return Err(refuse(pointer, "is missing `path`"));
-                };
-                let path_pointer = at(pointer, "path");
-                Ok(Value::Path {
-                    data: string(&path_pointer, path)?.to_owned(),
-                    pointer: path_pointer,
-                })
-            }
+            Kind::Mark if matches!(json, Json::Object(_)) => Self::mark_path(pointer, json),
             Kind::Text | Kind::Mark => {
                 let text = string(pointer, json)?;
                 if let Domain::Choice(words) = arg.domain
@@ -661,6 +646,24 @@ impl Reader {
             })
             .collect::<Result<_, Error>>()?;
         Ok(Ex::Item(word, operands))
+    }
+
+    /// The caller's dot, written `{"path": data}`.
+    fn mark_path(pointer: &str, json: &Json) -> Result<Value, Error> {
+        let Json::Object(members) = json else {
+            return Err(refuse(pointer, format!("must be an object, not {}", json.describe())));
+        };
+        if let Some(unknown) = members.keys().find(|key| *key != "path") {
+            return Err(refuse(&at(pointer, unknown), "is not a field of a shape (path)"));
+        }
+        let Some(path) = members.get("path") else {
+            return Err(refuse(pointer, "is missing `path`"));
+        };
+        let path_pointer = at(pointer, "path");
+        Ok(Value::Path {
+            data: string(&path_pointer, path)?.to_owned(),
+            pointer: path_pointer,
+        })
     }
 
     /// The value of a `shape` source: its path and the attributes its generators wrote.

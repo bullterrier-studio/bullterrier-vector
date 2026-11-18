@@ -31,7 +31,7 @@ fn halftone() -> Result<Drawing, Error> {
         let tone = Field::ramp(at(start), at(end))?;
         Ok::<_, Error>(Drawing::from(Path::rect(left, top, 120.0, 120.0, 0.0)?).halftone(dots(tone)))
     };
-    let dots = |tone: Field| Halftone::field(ink, tone);
+    let dots = |tone: Field| Halftone::new(ink, tone);
     let panels = [
         panel(0, ((0.0, 0.0), (1.0, 0.0)), &|tone| {
             dots(tone).shape(Mark::Ellipse).aspect(2.0).angle(Deg(20.0)).pitch(7.0)
