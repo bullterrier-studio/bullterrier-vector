@@ -52,6 +52,8 @@ def workspace(tmp_path_factory, copy_tree) -> Path:
         shutil.copy(ROOT / name, root)
     copy_tree(ROOT / "crates", root / "crates")
     copy_tree(ROOT / "tests" / "wasm", root / "tests" / "wasm", ignore=shutil.ignore_patterns("__pycache__"))
+    (root / "playground").mkdir()  # tests/wasm/playground.test.mjs imports the page's slider logic
+    shutil.copy(ROOT / "playground" / "params.mjs", root / "playground" / "params.mjs")
     # the oracle reads an example document of the format and the examples it draws (star, bent type, morph, flow hatch,
     # kinetic type); the last one reads its font, and so does its Rust program
     (root / "examples" / "fonts").mkdir(parents=True)

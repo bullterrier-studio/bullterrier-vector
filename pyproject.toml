@@ -203,6 +203,7 @@ triggers = [
 # The project's own: files its own proofs copy or match (the template never changes this line)
 project-triggers = [
     "tests/wasm/*",
+    "playground/params.mjs",
     "tests/conftest.py",
     "examples/star.py",
     "examples/bent_type.py",
