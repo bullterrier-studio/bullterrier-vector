@@ -65,7 +65,9 @@ def parse_values(texts: list[str], drawing: btvec.Drawing) -> dict[str, float]:
     known = [param.name for param in drawing.parameters()]
     values: dict[str, float] = {}
     for text in texts:
-        name, _, value = text.partition("=")
+        name, separator, value = text.partition("=")
+        if not separator:
+            raise LookError(f"{text}: a Param value is written NAME=NUMBER")
         if name not in known:
             raise LookError(f"{text}: not a Param of this drawing, whose Params are {', '.join(known) or 'none'}")
         try:

@@ -160,6 +160,7 @@ def test_a_picture_of_the_same_name_is_overwritten(layout, look, decode_png):
         pytest.param({}, [SERIES_BARS, "--size", "0x10"], "width", id="a size of zero"),
         pytest.param({}, [SERIES_BARS, "elsewhere=3"], "elsewhere", id="a value for no Param"),
         pytest.param({}, [SERIES_BARS, "elsewhere"], "NAME=NUMBER", id="a value with no number"),
+        pytest.param({}, [SERIES_BARS, "window=1"], "window", id="a name that is a keyword of the render, not a Param"),
         pytest.param({"slider.py": SLIDER}, ["slider.py", "shift=900"], "shift", id="a value out of range"),
     ],
 )
