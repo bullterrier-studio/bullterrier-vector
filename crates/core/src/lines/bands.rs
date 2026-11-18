@@ -416,19 +416,12 @@ fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> R
     let centre = plan.centre.unwrap_or_else(|| middle(bounds));
     let distances = Distances::of(centre, bounds, corners);
     let (d_min, d_max) = (distances.near, distances.far);
-    // the points of a far ring or arm cannot be told apart at a step
-    let reach = centre.x.abs().max(centre.y.abs()) + d_max;
-    if reach + step <= reach {
-        return Err(Error::parameter(
-            "centre",
-            format!("is too far from the region: a step of the spacing would not move at {reach}"),
-        ));
-    }
-    let (low, high) = (d_min / plan.spacing, d_max / plan.spacing);
-    // the rings are k = first..=last at radius (k + 1/2) spacing, each of TAU radius / step points at least RING_POINTS;
+    // the rows are k = first..=last at radius (k + 1/2) spacing, each of TAU radius / step points at least RING_POINTS;
     // counted in f64 and before any is made, with no difference of squares to cancel
-    let (first, last) = layout.rings_within(distances);
-    let rings = (last - first + 1.0).max(0.0);
+    let round = layout.round_rows(centre, bounds, 0.0, step)?;
+    let (first, rings) = (round.first, round.rows);
+    let last = first + rings - 1.0;
+    let (low, high) = (d_min / plan.spacing, d_max / plan.spacing);
     let samples = match plan.family {
         Family::Rings => rings * RING_POINTS + TAU / STEP * rings * (first + last + 1.0) / 2.0,
         Family::Spiral => std::f64::consts::PI * (d_max - d_min) * (d_max + d_min) / plan.spacing / step,

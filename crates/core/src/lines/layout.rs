@@ -8,7 +8,7 @@
 
 use crate::geometry::Point;
 use crate::math::{sin_cos, sin_cos_deg};
-use crate::{Rect, field::length};
+use crate::{Error, Rect, field::length};
 use std::f64::consts::TAU;
 
 /// What carries the tone.
@@ -110,7 +110,77 @@ impl Distances {
     }
 }
 
+/// The rows of a round layout that can reach a box, and a bound of the work they are.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RoundRows {
+    /// The index of the first row.
+    pub(crate) first: f64,
+    /// How many rows there are, 0 if none reaches the box.
+    pub(crate) rows: f64,
+    /// An upper bound of the cells of the outermost row: for rays, how many rays there are.
+    pub(crate) outermost: f64,
+    /// An upper bound of the cells of every row together: the rows times the cells of the outermost, with no difference
+    /// of squares to cancel.
+    pub(crate) work: f64,
+}
+
+impl RoundRows {
+    /// The rows' indices, first to last: loop over these, never add 1 to a float (past 2^53 that does not advance).
+    pub(crate) fn indices(&self) -> impl Iterator<Item = f64> {
+        let first = self.first;
+        (0..self.rows as usize).map(move |at| first + at as f64)
+    }
+}
+
 impl Layout {
+    /// The rows of this round layout about `centre` that can reach the box `bounds` with something that reaches `reach`
+    /// design pixels (0 for a line), and a bound of their work. `step` is the smallest distance a point of a row must
+    /// move at the coordinates in play: where it would not, no row can be told from the next.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `centre` if it lies so far from the box that a step would not move there.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss,
+        reason = "the row indices are counted in floats and loops over them are charged before they run"
+    )]
+    pub(crate) fn round_rows(&self, centre: Point, bounds: Rect, reach: f64, step: f64) -> Result<RoundRows, Error> {
+        let box_corners = corners(bounds);
+        let distances = Distances::of(centre, bounds, &box_corners);
+        let furthest = centre.x.abs().max(centre.y.abs()) + distances.far;
+        if furthest + step <= furthest {
+            return Err(Error::parameter(
+                "centre",
+                format!("is too far from the region: a step of the spacing would not move at {furthest}"),
+            ));
+        }
+        let widened = Distances {
+            near: (distances.near - reach).max(0.0),
+            far: distances.far + reach,
+        };
+        let (first, last) = if self.family == Family::Spiral {
+            (
+                (widened.near / self.spacing - 1.5).floor().max(0.0),
+                (widened.far / self.spacing - 0.5).floor(),
+            )
+        } else {
+            self.rings_within(widened)
+        };
+        let rows = (last - first + 1.0).max(0.0);
+        let outermost = match self.family {
+            Family::Rays => Self::ray_count(distances.far / self.spacing),
+            // a ring or arm of radius (k + 1/2) has at most 2 pi (k + 1/2) + 2 cells
+            _ => TAU * (last + 1.0) + 2.0,
+        };
+        Ok(RoundRows {
+            first,
+            rows,
+            outermost,
+            work: if rows > 0.0 { rows * outermost } else { 0.0 },
+        })
+    }
+
     /// The turn in radians.
     pub(crate) fn turn(&self) -> f64 {
         self.angle.to_radians()

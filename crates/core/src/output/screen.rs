@@ -22,7 +22,7 @@
 )]
 
 use crate::geometry::Point;
-use crate::lines::{Distances, Family, Layout, corners, middle, polar};
+use crate::lines::{Family, Layout, RoundRows, corners, middle, polar};
 use crate::math::sin_cos_deg;
 use crate::path::Polyline;
 use crate::shape::{Dot, HalftoneStyle, Screen as Arrangement};
@@ -122,12 +122,12 @@ enum Rows {
         across: usize,
         down: usize,
     },
-    /// Rings `first` to `last`.
-    Rings { first: f64, last: f64 },
-    /// The arms of the spiral `first` to `last`.
-    Spiral { first: f64, last: f64 },
-    /// The cells `first` to `last` out along `rays` rays at the widest.
-    Rays { first: f64, last: f64, rays: f64 },
+    /// The rings.
+    Rings(RoundRows),
+    /// The arms of the spiral.
+    Spiral(RoundRows),
+    /// The cells out along `rays` rays at the widest.
+    Rays { rows: RoundRows, rays: f64 },
 }
 
 /// The polygon of a dot made for an area and a size (their bits): a number's dots are all one.
@@ -210,7 +210,7 @@ fn plan(
         height: bounds.3 - bounds.1,
     };
     let centre = halftone.centre().unwrap_or_else(|| middle(rect));
-    let (rows, cells) = rows(&layout, rect, centre, reach_px);
+    let (rows, cells) = rows(&layout, rect, centre, reach_px)?;
     // a cell is a lattice point or a wedge: the work is its edges tested and its corners made
     let work = if cells.is_finite() {
         (cells * (edges.len() + corners_of_dot) as f64) as usize
@@ -234,7 +234,10 @@ fn plan(
 
 /// The rows of cells of `layout` that can reach the box `rect` with a dot that reaches `reach_px`, and an upper bound of
 /// how many cells there are (not a number if the work is not).
-fn rows(layout: &Layout, rect: Rect, centre: Point, reach_px: f64) -> (Rows, f64) {
+///
+/// # Errors
+/// [`Error::Parameter`] naming `centre` if it is too far from the box for a pitch to move there.
+fn rows(layout: &Layout, rect: Rect, centre: Point, reach_px: f64) -> Result<(Rows, f64), Error> {
     let pitch = layout.spacing;
     let box_corners = corners(rect);
     if !layout.family.is_round() {
@@ -266,50 +269,28 @@ fn rows(layout: &Layout, rect: Rect, centre: Point, reach_px: f64) -> (Rows, f64
             } else {
                 f64::INFINITY
             };
-        return (
+        return Ok((
             Rows::Straight {
                 first: (first_i, first_j),
                 across: across as usize,
                 down: down as usize,
             },
             cells,
-        );
+        ));
     }
-    let distances = Distances::of(centre, rect, &box_corners);
-    let widened = Distances {
-        near: (distances.near - reach_px).max(0.0),
-        far: distances.far + reach_px,
-    };
-    let (first, last) = layout.rings_within(widened);
-    let rows = (last - first + 1.0).max(0.0);
-    match layout.family {
-        Family::Rings => (
-            Rows::Rings { first, last },
-            // a ring of radius (k + 1/2) has at most 2 pi (k + 1/2) + 2 cells
-            if rows > 0.0 {
-                PI * ((last + 1.0) * (last + 1.0) - first * first) + 2.0 * rows
-            } else {
-                0.0
+    // a dot is no smaller than a pitch's step at the coordinates in play, or its cells cannot be told apart
+    let round = layout.round_rows(centre, rect, reach_px, pitch)?;
+    Ok(match layout.family {
+        Family::Rings => (Rows::Rings(round), round.work),
+        Family::Spiral => (Rows::Spiral(round), round.work),
+        _ => (
+            Rows::Rays {
+                rows: round,
+                rays: round.outermost,
             },
+            round.work,
         ),
-        Family::Spiral => {
-            let first = (widened.near / pitch - 1.5).floor().max(0.0);
-            let last = (widened.far / pitch - 0.5).floor();
-            let arms = (last - first + 1.0).max(0.0);
-            (
-                Rows::Spiral { first, last },
-                if arms > 0.0 {
-                    PI * ((last + 1.0) * (last + 2.0) - first * (first + 1.0)) + 2.0 * arms
-                } else {
-                    0.0
-                },
-            )
-        }
-        _ => {
-            let rays = Layout::ray_count(distances.far / pitch);
-            (Rows::Rays { first, last, rays }, rows * rays)
-        }
-    }
+    })
 }
 
 /// The cells of the ring or arm whose cells are about a cell long when it is `middle` pitches out: an even number, so
@@ -352,9 +333,8 @@ impl Cells {
                     }
                 }
             }
-            Rows::Rings { first, last } => {
-                let mut k = first;
-                while k <= last {
+            Rows::Rings(rows) => {
+                for k in rows.indices() {
                     let (radius, count) = (layout.ring_radius(k), ring_cells(k + 0.5));
                     for at in 0..count {
                         let angle = TAU * (at as f64 + 0.5) / count as f64;
@@ -366,12 +346,10 @@ impl Cells {
                             true,
                         ));
                     }
-                    k += 1.0;
                 }
             }
-            Rows::Spiral { first, last } => {
-                let mut k = first;
-                while k <= last {
+            Rows::Spiral(rows) => {
+                for k in rows.indices() {
                     let count = ring_cells(k + 1.0);
                     for at in 0..count {
                         let turns = (at as f64 + 0.5) / count as f64;
@@ -385,12 +363,10 @@ impl Cells {
                             true,
                         ));
                     }
-                    k += 1.0;
                 }
             }
-            Rows::Rays { first, last, rays } => {
-                let mut m = first;
-                while m <= last {
+            Rows::Rays { rows, rays } => {
+                for m in rows.indices() {
                     let radius = layout.ring_radius(m);
                     let count = wedges(rays, m + 0.5);
                     for at in 0..count {
@@ -403,7 +379,6 @@ impl Cells {
                             false,
                         ));
                     }
-                    m += 1.0;
                 }
             }
         }

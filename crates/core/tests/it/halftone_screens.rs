@@ -649,6 +649,19 @@ fn a_pitch_too_small_for_the_shape_is_refused_before_any_dot_is_made_on_every_sc
 }
 
 #[test]
+fn a_centre_too_far_from_the_shape_is_refused_on_every_round_screen_not_looped_on() -> Outcome {
+    // at 1e20 a step of a pitch does not move: the rows' bound cancelled and the rows never ended
+    for screen in [Screen::Rings, Screen::Spiral, Screen::Rays] {
+        for centre in [(1e20, 0.0), (0.0, -1e20), (1e300, 1e300)] {
+            let drawing = Drawing::from(rect(100.0)?).halftone(black(0.5).screen(screen).centre(centre));
+            let (name, _) = parameter_refusal(drawing.to_svg(Size::px(100.0, 100.0), &Values::new()))?;
+            assert!(name.contains("centre"), "{screen:?} {centre:?}: {name}");
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn a_huge_aspect_is_refused_by_the_work_it_would_take() -> Outcome {
     let drawing = Drawing::from(rect(100.0)?).halftone(black(0.5).shape(Mark::Ellipse).aspect(1e100));
     let (name, _) = parameter_refusal(drawing.to_svg(Size::px(100.0, 100.0), &Values::new()))?;
