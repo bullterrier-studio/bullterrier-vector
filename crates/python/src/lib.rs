@@ -5,6 +5,7 @@
 mod drawing;
 mod expr;
 mod field;
+mod inputs;
 mod mesh;
 mod shape;
 mod text;
@@ -15,7 +16,8 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
 
-use crate::drawing::{Item, Pair, PyDrawing, refuse_expr, refuse_expr_in_pair};
+use crate::drawing::{PyDrawing, refuse_expr, refuse_expr_in_pair};
+use crate::inputs::{Item, Pair};
 use crate::expr::Num;
 use crate::field::{PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
 use crate::shape::PaintArg;

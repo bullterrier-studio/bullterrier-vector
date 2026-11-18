@@ -17,6 +17,7 @@ use proptest::prelude::*;
 use std::collections::BTreeSet;
 
 mod rows;
+mod rows_style;
 
 use rows::*;
 
