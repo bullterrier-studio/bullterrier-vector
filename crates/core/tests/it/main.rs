@@ -126,3 +126,4 @@ mod text_layout;
 mod text_runs;
 mod trace_cells;
 mod trace_levels;
+mod trace_sequence;

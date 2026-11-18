@@ -9,6 +9,7 @@ mod hatch;
 mod map;
 mod outline;
 mod seeds;
+mod sequence;
 
 pub use contours::Tidy;
 pub(crate) use contours::{Grid, MAX_SMOOTH_WORK, blur, trace as trace_level};
