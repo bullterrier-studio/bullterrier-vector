@@ -25,8 +25,10 @@ __all__ = [
     "Style",
     "by_index",
     "by_order",
+    "characters",
     "drawing_schema",
     "linear_gradient",
+    "marks",
     "radial_gradient",
     "random",
     "run",
@@ -640,6 +642,23 @@ def text(
     width: _Num | None = None,
     fit: str | None = None,
     inside: Path | None = None,
+) -> Drawing: ...
+def characters(
+    rows: str | Sequence[str],
+    *,
+    cell: float | tuple[float, float],
+    font: Font | None = None,
+    size: _Num | None = None,
+    colors: Sequence[Sequence[str]] | None = None,
+) -> Drawing: ...
+def marks(
+    boxes: Sequence[tuple[_Num, _Num, _Num, _Num] | tuple[_Num, _Num, _Num, _Num, str]] | None = None,
+    points: Sequence[tuple[_Num, _Num] | tuple[_Num, _Num, str]] | None = None,
+    *,
+    bracket: _Num | None = None,
+    cross: _Num | None = None,
+    label_size: _Num | None = None,
+    font: Font | None = None,
 ) -> Drawing: ...
 def by_index(first: _Num, last: _Num) -> Expr: ...
 def by_order(first: _Num, last: _Num) -> Expr: ...

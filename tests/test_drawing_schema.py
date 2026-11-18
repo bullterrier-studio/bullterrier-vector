@@ -1044,6 +1044,8 @@ REGISTERED = {
     "offset",
     "outline",
     "text",
+    "characters",
+    "marks",
     "param",
     "add",
     "sub",

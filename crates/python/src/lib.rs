@@ -8,6 +8,7 @@ mod field;
 mod halftone;
 mod inputs;
 mod mesh;
+mod overlay;
 mod shape;
 mod text;
 mod trace;
@@ -42,6 +43,8 @@ mod _core {
     use super::halftone::PyHalftone;
     #[pymodule_export]
     use super::mesh::PyMesh;
+    #[pymodule_export]
+    use super::overlay::{characters, marks};
     #[pymodule_export]
     use super::shape::{PyGradient, PyShadow, PyShape, PyStyle, linear_gradient, radial_gradient};
     #[pymodule_export]

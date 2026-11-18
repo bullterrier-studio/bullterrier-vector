@@ -1046,8 +1046,9 @@ def registered_verbs() -> set[str]:
     found: set[str] = set()
     for source in (ROOT / "crates" / "core" / "src" / "node").glob("*.rs"):
         found |= set(re.findall(r'static \w+: Verb = Verb \{\s*name: "(\w+)"', source.read_text(encoding="utf-8")))
-    # `run` declares the arguments of one record of `text`'s `runs`: it is no call, so it is never registered
-    return found - {"run"}
+    # `run`, `box` and `point` declare the arguments of one record of `text`'s `runs`, `marks`'s `boxes` and `points`:
+    # they are no calls, so they are never registered
+    return found - {"run", "box", "point"}
 
 
 def summary(
@@ -1194,6 +1195,23 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
         lambda: Drawing.trace_cells(btvec.Field.map(2, 1, bytes([0, 1])), 1),
         {},
         [row("M0 0 L1 0 L1 1 L0 1 Z"), row("M1 0 L2 0 L2 1 L1 1 Z")],
+    ),
+    # synthetic.ttf again: the pen of C stands 100 left of the cell's middle (advance 500, so its middle is at 250
+    # and the cell's at 150), the baseline 350 (half a capital) below the cell's middle at 200
+    "characters": (
+        lambda: btvec.characters("C", cell=(300, 400), font=SYNTHETIC, size=1000),
+        {},
+        [row("M-50 530 L-50 430 L50 430 L50 530 Z")],
+    ),
+    "marks": (
+        lambda: btvec.marks([(0, 0, 40, 40)]),
+        {},
+        [
+            row("M10 0 L0 0 L0 10", None, BLACK),
+            row("M30 0 L40 0 L40 10", None, BLACK),
+            row("M30 40 L40 40 L40 30", None, BLACK),
+            row("M10 40 L0 40 L0 30", None, BLACK),
+        ],
     ),
     "fill": (lambda: Drawing(SQUARE).fill("#0000ff"), {}, [row(RECT, "#0000ffff")]),
     "stroke": (lambda: Drawing(SQUARE).stroke("#00ff00"), {}, [row(RECT, None, "#00ff00ff")]),

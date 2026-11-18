@@ -122,10 +122,12 @@ fn features_of(features: &Bound<'_, PyMapping>) -> PyResult<Vec<(String, u32)>> 
 }
 
 /// A `str` as UTF-8: one holding a lone surrogate has none, which is a problem in the argument, so a `ParameterError`.
-fn utf8<'a>(content: &'a Bound<'_, PyString>) -> PyResult<&'a str> {
-    content
-        .to_str()
-        .map_err(|_| ParameterError::new_err("content: the text is not valid UTF-8 (it holds a lone surrogate)"))
+pub(crate) fn utf8<'a>(what: &str, content: &'a Bound<'_, PyString>) -> PyResult<&'a str> {
+    content.to_str().map_err(|_| {
+        ParameterError::new_err(format!(
+            "{what}: the text is not valid UTF-8 (it holds a lone surrogate)"
+        ))
+    })
 }
 
 /// The runs of a list.
@@ -170,7 +172,7 @@ pub(crate) fn run(
     features: Option<&Bound<'_, PyMapping>>,
     tracking: Option<Num>,
 ) -> PyResult<PyRun> {
-    let mut run = vector::Run::new(utf8(content)?, &font.get().0);
+    let mut run = vector::Run::new(utf8("content", content)?, &font.get().0);
     if let Some(size) = size {
         run = run.size(size.0);
     }
@@ -211,7 +213,7 @@ pub(crate) fn text(
     inside: Option<&Bound<'_, PyPath>>,
 ) -> PyResult<PyDrawing> {
     let content: vector::Content = match content.cast::<PyString>() {
-        Ok(string) => utf8(string)?.into(),
+        Ok(string) => utf8("content", string)?.into(),
         Err(_) => runs_of(content)?.into(),
     };
     let mut options = font.map_or_else(vector::Text::default, |font| vector::Text::new(&font.get().0));
