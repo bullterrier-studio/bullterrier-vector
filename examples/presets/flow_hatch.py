@@ -14,7 +14,7 @@ word = btvec.text(
     anchor=(WIDTH / 2, 435),
     align="center",
 ).resolve()
-flow = btvec.Flow.contour(word).mix(btvec.Flow.noise(wavelength=900, seed=9), 0.1)
+flow = btvec.Flow.contour(word)
 tone = btvec.Field.distance(word, normalized=True)
 
 drawing = btvec.Drawing(
