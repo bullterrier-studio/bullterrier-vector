@@ -1690,29 +1690,29 @@ the traced paths.
 
 ## Trace sequences (V14b)
 
-A video traced frame by frame flickers: shapes move with the grain and holes pop in and out. Two helpers on `Field` make a
+A video traced frame by frame flickers: shapes move with the grain and holes pop in and out. One helper on `Field` makes a
 caller's list of maps steady before each is traced.
 
-- **Maps in, maps out, on the whole list.** `Field.smooth_maps(maps, *, sigma)` and `Field.persist_holes(maps, levels, *, reach,
-  at_least)` each take the list and give a list of `Field.map`s. *Reason:* the result is what every V14a verb and every
-  document already reads, so there is no new verb, `Kind`, schema entry or WebAssembly call, and the library keeps no sequence.
-  A per-frame call (`at=i`) was rejected: persistence must run on the smoothed maps, so the caller would build the whole
-  smoothed list first anyway. *Cost:* both are Rust and Python only; JavaScript loads documents and does not build fields.
+- **Maps in, maps out, on the whole list.** `Field.smooth_maps(maps, *, sigma)` takes the list and gives a list of
+  `Field.map`s. *Reason:* the result is what every V14a verb and every document already reads, so there is no new verb,
+  `Kind`, schema entry or WebAssembly call, and the library keeps no sequence. A per-frame call (`at=i`) was rejected: the
+  caller would build the whole list anyway. *Cost:* Rust and Python only; JavaScript loads documents and does not build
+  fields.
 - **Smoothing is a truncated Gaussian over the maps** (`ceil(3 sigma)` either way, weights renormalised where the sequence
-  ends, bytes rounded): the oracle is a hand-computed weighted mean, and a static sequence is exactly itself.
-- **Hole persistence works on the map, at the levels the trace will use.** A hole is a 4-connected part below the level that
-  cannot reach the map's edge (what meets the edge goes on past it and is no hole). A hole of one map is kept when it overlaps
-  a hole at that level in `at_least` maps of its window (itself counted, the number cut to the window so ends and short
-  sequences keep what a static one keeps). A dropped hole is raised to the lowest tone round it (at or above the level, so the
-  trace's own blur does not reopen it). A hole that persists at a level persists at every lower one, so filling each level
-  independently keeps the nesting and the order of `levels` does not matter. *Rejected:* working on traced shapes (booleans
-  over every frame's rings, a new argument kind for a list of maps) and a pixel vote (it erodes thin holes).
-- **Limits, charged before work:** at most 2^28 pixels over the maps, 256 levels, 2e8 reads. All refusals name `maps`,
-  `sigma`, `levels` or `at_least`. The walks are iterative (a worklist), so a 4096 by 4096 map needs no stack.
+  ends, bytes rounded): the oracle is a hand-computed weighted mean, and a static sequence is exactly itself. A `sigma` so
+  small that its taps reach no neighbour (`exp(-1/(2 sigma^2))` is 0) gives the maps back, never a NaN weight.
+- **Limits, charged before work:** the work is counted per output frame (pixels times the frames its window reaches, at most
+  2e8), so the cost of a clip grows with its frame count and any clip whose maps the caller already holds runs in one call;
+  the memory bound is the output the caller asked for, at most 2^28 pixels over the maps. Refusals name `maps` or `sigma`.
+- **Rejected: hole persistence** (`Field.persist_holes(maps, levels, reach, at_least)`: a hole survives only if
+  neighbouring maps have it, else it is raised to the tone round it). It was built, then measured on the demo's own nine
+  frames: smoothing alone left 148,999 changed pixels between consecutive traced frames, smoothing then persistence 156,845
+  (5% worse). It also made notches that touch the map's edge (which are not holes) flicker more, and it made the caller pass
+  the trace's levels twice. Smoothing in time already removes most of what it was for.
 - **Measured (the cut-paper demo, nine frames of the owner's dog drifting and zooming, grain of 36 grey levels):** see the demos
   folder's `30-vector-m4-cut-paper` README; smoothing in time also smooths the motion, so the flicker of steadied frames can fall
-  below that of the clean frames traced alone. *Known limits:* the ends average fewer frames; islands (specks) are not handled,
-  `min_area` drops them; a fast motion lags.
+  below that of the clean frames traced alone. *Known limits:* the ends average fewer frames; a hole or speck that lasts
+  across frames stays (`min_area` and `min_hole` drop small ones); a fast motion lags.
 
 ## Cut-paper piece (M4)
 

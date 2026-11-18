@@ -112,7 +112,7 @@ number of a field or a flow.
 | `trace_labels` | `Drawing.trace_labels(map, *, ...)` | `map`, `max_colors` (a whole number from 1 to 256, a literal; default 32), and the tidying numbers of `trace_levels` |
 | `trace_cells` | `Drawing.trace_cells(map, cell_size, *, ...)` | `map`, `cell_size` (a whole number from 1, a literal; map pixels), `max_colors` |
 
-A sequence of maps (V14b: `Field.smooth_maps`, `Field.persist_holes`) is not a verb: the caller makes each steady map and a document names it as a map input, so the format is unchanged.
+A sequence of maps (V14b: `Field.smooth_maps`) is not a verb: the caller makes each steady map and a document names it as a map input, so the format is unchanged.
 
 `text`'s `runs` is an array of one to `MAX_RUNS` objects, each a stretch of the text with a font of its own:
 `{"content": "N", "font": "serif", "size": 120, "axes": {"wght": 800}, "features": {"liga": 0}, "tracking": 20}`. `content`

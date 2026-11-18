@@ -1,6 +1,7 @@
 //! Trace a sequence of maps steadily: the program of `examples/trace_sequence.py` in Rust. A disc drifts across five
 //! frames, each a map with blocks of dropout; each frame traced alone shows the dropouts as holes that pop in and out, and
-//! `Field::smooth_maps` then `Field::persist_holes` leave the disc alone.
+//! `Field::smooth_maps` mostly averages them away (measured: 3 to 7 outlines a frame alone, 1 to 3 steadied; a dropout that
+//! persists across frames stays).
 //!
 //! `cargo run -p bullterrier-vector --example trace_sequence` prints the number of outlines in each frame traced alone
 //! and steadied; `... --example trace_sequence -- still` writes the SVG of the last steadied frame to standard output.
@@ -48,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let maps = (0..FRAMES)
         .map(|i| Field::map(SIDE, SIDE, &frame_bytes(i), Some(frame), Some("frame")))
         .collect::<Result<Vec<_>, _>>()?;
-    let steady = Field::persist_holes(&Field::smooth_maps(&maps, 1.5)?, &[0.5], 1, 2)?;
+    let steady = Field::smooth_maps(&maps, 1.5)?;
     let mut out = std::io::stdout();
     match std::env::args().nth(1).as_deref() {
         Some("still") => {

@@ -1,5 +1,5 @@
-"""`Field.smooth_maps` and `Field.persist_holes` through the public package: maps in, maps out, each a `Field.map`
-that traces as any other. Values are worked out by hand (a flat byte's weighted mean, a hole's bytes)."""
+"""`Field.smooth_maps` through the public package: maps in, maps out, each a `Field.map` that traces as any
+other. Values are worked out by hand (a flat byte's weighted mean)."""
 
 import math
 
@@ -38,18 +38,8 @@ def test_a_static_sequence_traces_as_the_single_map() -> None:
     one = holed()
     drawing = lambda m: btvec.Drawing.trace_levels(m, [0.5], smooth=1, tolerance=0.5)  # noqa: E731
     want = drawing(one).to_svg(W, H)
-    for field in btvec.Field.persist_holes(btvec.Field.smooth_maps([one] * 5, sigma=1.5), [0.5]):
+    for field in btvec.Field.smooth_maps([one] * 5, sigma=1.5):
         assert drawing(field).to_svg(W, H) == want
-
-
-def test_a_hole_in_one_frame_is_dropped_and_in_two_is_kept() -> None:
-    solid = flat(200)
-    lone = btvec.Field.persist_holes([solid, holed(), solid], [0.5])
-    assert bytes_of(lone[1]) == bytes_of(solid)
-    pair = btvec.Field.persist_holes([solid, holed(), holed(5), solid], [0.5], at_least=2)
-    assert bytes_of(pair[1]) == bytes_of(holed())
-    far = btvec.Field.persist_holes([solid, holed(), holed(5), solid], [0.5], at_least=3, reach=2)
-    assert bytes_of(far[1]) == bytes_of(solid)
 
 
 def test_refusals_name_the_argument() -> None:
@@ -57,7 +47,3 @@ def test_refusals_name_the_argument() -> None:
         btvec.Field.smooth_maps([flat(1)], sigma=-1)
     with pytest.raises(btvec.ParameterError, match="maps"):
         btvec.Field.smooth_maps([flat(1), btvec.Field.map(2, 2, bytes(4))], sigma=1)
-    with pytest.raises(btvec.ParameterError, match="at_least"):
-        btvec.Field.persist_holes([flat(1)], [0.5], at_least=0)
-    with pytest.raises(TypeError):
-        btvec.Field.persist_holes([flat(1), 3], [0.5])  # type: ignore[list-item]

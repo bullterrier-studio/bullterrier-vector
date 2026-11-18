@@ -280,10 +280,6 @@ class Field:
     ) -> bytes: ...
     @staticmethod
     def smooth_maps(maps: Sequence[Field], *, sigma: float) -> list[Field]: ...
-    @staticmethod
-    def persist_holes(
-        maps: Sequence[Field], levels: float | Sequence[float], *, reach: int = 1, at_least: int = 2
-    ) -> list[Field]: ...
     def contours(
         self,
         levels: float | Sequence[float],

@@ -38,7 +38,7 @@ import bullterrier_vector as btvec
 | [wobble_outline.py](../examples/wobble_outline.py) | a small noise wobble; a font axis as a described parameter |
 | [bent_type.py](../examples/bent_type.py), [.rs](../crates/core/examples/bent_type.rs), [.mjs](../crates/wasm/examples/bent_type.mjs) | the deformer half of piece 1, in all three languages: a line that arches, ripples, twists and wobbles on `progress` and `phase` |
 | [flow_hatch.py](../examples/flow_hatch.py), [.rs](../crates/core/examples/flow_hatch.rs), [.mjs](../crates/wasm/examples/flow_hatch.mjs) | a headline hatched along its own outline, closer at the edge, in all three languages |
-| [trace_sequence.py](../examples/trace_sequence.py), [.rs](../crates/core/examples/trace_sequence.rs) | a drifting disc with dropouts, five frames traced alone and steadied with `Field.smooth_maps` and `Field.persist_holes` (Python and Rust) |
+| [trace_sequence.py](../examples/trace_sequence.py), [.rs](../crates/core/examples/trace_sequence.rs) | a drifting disc with dropouts, five frames traced alone and steadied with `Field.smooth_maps` (Python and Rust) |
 | [trace.py](../examples/trace.py), [.rs](../crates/core/examples/trace.rs), [.mjs](../crates/wasm/examples/trace.mjs) | a relief traced into stacked cut-paper layers and a dithered strip traced exactly, in all three languages |
 | [line_families.py](../examples/line_families.py), [.rs](../crates/core/examples/line_families.rs), [.mjs](../crates/wasm/examples/line_families.mjs) | three hills drawn only from lines that follow a tone (ridgelines, rings, dots), and the plotter SVG of them, in all three languages |
 | [glyph_morph.py](../examples/glyph_morph.py), [.rs](../crates/core/examples/glyph_morph.rs), [.mjs](../crates/wasm/examples/glyph_morph.mjs) | a letter that turns into a circle and CAT into HORSE on one `progress`, in all three languages |
@@ -471,24 +471,23 @@ budget), `cell_size` (not a whole number from 1, not dividing the map, or a cell
 ### A sequence of maps (V14b)
 
 The library keeps no sequence: the caller holds a list of `Field.map`s (frames of a video, one size and box) and makes it
-steady before tracing each. Both helpers take the whole list and give a list of unnamed `Field.map`s, so every verb above
+steady before tracing each. `Field.smooth_maps` takes the whole list and gives a list of unnamed `Field.map`s, so every verb above
 reads the result, and a document names it as a map input like any other (there is no document verb and no JavaScript
 call: the browser package loads documents, it does not build fields).
 
 | Call | Does | Refuses |
 |---|---|---|
 | `Field.smooth_maps(maps, *, sigma)` (Rust: `Field::smooth_maps(&maps, sigma)?`) | each map becomes the Gaussian weighted mean of itself and its neighbours, `sigma` in maps: frame `j` weighs `exp(-(i-j)^2 / 2 sigma^2)` for `|i-j|` up to `ceil(3 sigma)`; the weights of the frames that exist add to 1 (the ends are not padded); bytes rounded; `sigma` 0 and a static sequence give the maps back | `maps` (not all `Field.map`s of one size and box, or over 2^28 pixels together); `sigma` (below 0, not finite, or the work, maps times frames reached times pixels, over 2e8) |
-| `Field.persist_holes(maps, levels, *, reach=1, at_least=2)` (Rust: `Field::persist_holes(&maps, &[0.5], 1, 2)?`) | at each level a hole is a part below it that does not reach the map's edge; it is kept when it overlaps a hole at that level in at least `at_least` of the maps within `reach` (itself counted; the number is cut to the frames the window holds, so the ends and a sequence of one keep what a static one keeps); any other hole is raised to the lowest tone round it, so it stays filled after the trace's own blur. A static sequence is unchanged | `maps` as above; `levels` (over 256 or not finite, or the work over 2e8); `at_least` (below 1) |
 
 ```python
 maps = [btvec.Field.map(w, h, frame, box=(0, 0, 1080, 1440)) for frame in frames]
-steady = btvec.Field.persist_holes(btvec.Field.smooth_maps(maps, sigma=1.5), [0.3, 0.6])
+steady = btvec.Field.smooth_maps(maps, sigma=1.5)
 shapes = [btvec.Drawing.trace_levels(m, [0.3, 0.6], smooth=4, close=6) for m in steady]
 ```
 
-Smooth first, then persist. Limits, measured and by design: the ends of a sequence average fewer frames, so they are
-the least steady; a speck that is not a hole (a bright island) is not handled (`min_area` drops it); smoothing in time
-also lags a fast motion; the hole test uses 4-connected pixels. [trace_sequence.py](../examples/trace_sequence.py) and
+Limits, measured and by design: the ends of a sequence average fewer frames, so they are the least steady; a hole or
+speck that lasts across frames stays (`min_area` and `min_hole` drop small ones); smoothing in time also lags a fast
+motion. [trace_sequence.py](../examples/trace_sequence.py) and
 [.rs](../crates/core/examples/trace_sequence.rs) trace five noisy frames alone and steadied.
 
 ## Drawing

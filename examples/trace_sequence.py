@@ -1,7 +1,7 @@
 """Trace a sequence of maps steadily: a disc drifts across five frames of a video, each frame a map with blocks of
 dropout, and tracing each frame alone makes the dropouts pop in and out as holes. `Field.smooth_maps` averages each map
-with its neighbours and `Field.persist_holes` fills a hole its neighbours do not share; the traces of the result do not
-flicker. The library keeps no sequence: the caller holds the list of maps and passes it in. Whole numbers only, so
+with its neighbours, which mostly averages the dropouts away (measured: 3 to 7 outlines a frame alone, 1 to 3
+steadied). The library keeps no sequence: the caller holds the list of maps and passes it in. Whole numbers only, so
 the Rust program (`crates/core/examples/trace_sequence.rs`) draws the same frames. Draw it with
 `uv run poe look examples/trace_sequence.py` (the last frame, in PNG and SVG in `dist/look/`).
 """
@@ -26,7 +26,7 @@ def frame_bytes(i: int) -> bytes:
 
 box = (0, 0, 640, 640)
 maps = [btvec.Field.map(SIDE, SIDE, frame_bytes(i), box=box, name="frame") for i in range(FRAMES)]
-steady = btvec.Field.persist_holes(btvec.Field.smooth_maps(maps, sigma=1.5), LEVELS, reach=1, at_least=2)
+steady = btvec.Field.smooth_maps(maps, sigma=1.5)
 
 
 def trace(field: btvec.Field) -> btvec.Drawing:

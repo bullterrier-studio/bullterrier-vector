@@ -73,8 +73,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | E | Effects track: one effect and its gallery piece per batch, open-ended, from V15 on ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
-unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done and V14a (trace of a single map) is done; next: V14b (sequences of maps, the M4 piece)
-(see below) before V14. Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
+unbuilt batches. V10e (render a window), V10f (text runs), V11 (path modifiers), V12 (deformers), V13 (morph) and the kinetic type piece (M3, the first public demo) and V15a (fields and streamlines), V15b (fields and lines) and V15c (line families, plotter output and the poster piece, M5) are done; V15 is done and V14a (trace of a single map) is done; V14 (with V14b) is done and M4 is reached; next in the order above: V17 (presets as JSON). Reasons: [design-decisions.md](design-decisions.md), "Wow gaps (2026-11-13)".
 
 Order decided 2026-10-31: after V3 the next batch is V5 (fonts). V4 and the spikes X1 and X2 were then done (2026-11-01), V5 the same day, V6 on 2026-11-04, V7 and V8 on 2026-11-07, V9 and V10 on 2026-11-08. `along`, listed under V11 until then, was built in V6 as the text-on-a-path piece (`design-decisions.md`, "Layout (V6)"); draw-on, listed under V11, was built in V7 as `Drawing.slice` ("Per-item variation (V7)"). V10, V10d, V10e, V10f, V11, V12, V13 and M3 are done; V15 (before V14) follows.
 
@@ -645,7 +644,7 @@ with the level as an attribute, per label, and an exactly traced dithered cell m
 curve fitting, edge padding, `open`/`close` in design pixels, `min_area`/`min_hole`. Reasons and limits: `design-decisions.md`,
 "Trace (V14a)".
 
-**V14b and M4, done 2026-11-18; V14 done and M4 reached.** `Field.smooth_maps` and `Field.persist_holes` (Rust and Python; maps in, maps out, no
+**V14b and M4, done 2026-11-18; V14 done and M4 reached.** `Field.smooth_maps` (Rust and Python; maps in, maps out, no
 document verb), `examples/trace_sequence.{py,rs}`, and the M4 piece: the owner's dog as a cut-paper poster in the demos folder
 (`design-decisions.md`, "Trace sequences (V14b)" and "Cut-paper piece (M4)").
 
@@ -658,8 +657,8 @@ document verb), `examples/trace_sequence.{py,rs}`, and the M4 piece: the owner's
 - Curves fitted through the traced edge (a raw polyline looks digital); edge padding, so a subject cut by the map's
   edge gets no false closed edge.
 - Per-layer shrink and grow (open, close) in output units; dropping parts and filling holes below an area.
-- Helpers for a sequence of maps from the caller: smoothing over neighbouring maps (a Gaussian, σ in maps), and hole
-  persistence (a hole shows only if neighbouring maps have it). The library keeps no sequence itself.
+- A helper for a sequence of maps from the caller: smoothing over neighbouring maps (a Gaussian, σ in maps). The library
+  keeps no sequence itself. (Hole persistence was built and removed: it made the flicker worse, `design-decisions.md`, "Trace sequences (V14b)".)
 
 With V9 this is the cut-paper piece.
 

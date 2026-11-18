@@ -772,9 +772,9 @@ def test_the_node_example_of_trace_carries_the_document_of_the_python_drawing(ru
     assert document.read_text(encoding="utf-8") == drawing.to_json()
 
 
-def test_trace_sequence_leaves_the_disc_alone_where_each_frame_alone_shows_the_dropouts(run):
+def test_trace_sequence_smoothing_removes_most_dropout_holes(run):
     found = run("trace_sequence")
     outlines = lambda drawing: drawing.to_svg(640, 640).count("M")  # noqa: E731
     alone, steady = [list(map(outlines, found[name])) for name in ("alone", "drawing")]
     assert alone == [5, 4, 3, 7, 7]  # the disc and a hole for each block of dropout that frame has
-    assert steady == [1, 1, 1, 3, 1]  # the disc, and where two frames' dropouts overlap, the one hole they share
+    assert steady == [1, 1, 2, 3, 1]  # the disc, and a hole where neighbouring frames' dropouts overlap
