@@ -47,3 +47,20 @@ def test_an_unknown_name_is_refused_naming_every_preset() -> None:
     with pytest.raises(btvec.ParameterError, match='"nope"') as raised:
         btvec.Drawing.preset("nope")
     assert ", ".join(NAMES) in str(raised.value)
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_a_description_is_one_sentence_ending_in_a_full_stop(name: str) -> None:
+    text = btvec.Drawing.preset_description(name)
+    assert text.endswith(".")
+    assert "\n" not in text
+    assert len(text.strip()) > 1
+    assert ". " not in text[:-1]
+
+
+def test_an_unknown_name_has_no_description_and_the_same_refusal_as_preset() -> None:
+    with pytest.raises(btvec.ParameterError) as asked:
+        btvec.Drawing.preset("nope")
+    with pytest.raises(btvec.ParameterError) as described:
+        btvec.Drawing.preset_description("nope")
+    assert str(described.value) == str(asked.value)

@@ -243,6 +243,15 @@ impl Drawing {
         raised(vector::Drawing::preset(name)).map(Self)
     }
 
+    /// The one-sentence description of the preset `name`, what its look is.
+    ///
+    /// # Errors
+    /// Throws the same `ParameterError` as `Drawing.preset` for an unknown name.
+    #[wasm_bindgen(js_name = presetDescription)]
+    pub fn preset_description(name: &str) -> Result<String, JsValue> {
+        raised(vector::Drawing::preset_description(name)).map(str::to_owned)
+    }
+
     /// The names of the drawings that come with the library, sorted.
     #[wasm_bindgen(js_name = presetNames)]
     #[must_use]

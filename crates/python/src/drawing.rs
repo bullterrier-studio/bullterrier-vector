@@ -756,6 +756,13 @@ impl PyDrawing {
         checked(raised(vector::Drawing::preset(name))?)
     }
 
+    /// The one-sentence description of the preset `name`, what its look is; an unknown name is refused as in
+    /// `Drawing.preset`.
+    #[staticmethod]
+    fn preset_description(name: &str) -> PyResult<&'static str> {
+        raised(vector::Drawing::preset_description(name))
+    }
+
     /// The names of the drawings that come with the library, sorted.
     #[staticmethod]
     fn preset_names() -> Vec<&'static str> {

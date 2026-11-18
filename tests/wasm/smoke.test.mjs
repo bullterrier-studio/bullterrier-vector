@@ -152,6 +152,19 @@ for (const [name, svg] of Object.entries(native.presets.svg)) {
   });
 }
 
+for (const [name, text] of Object.entries(native.presets.descriptions)) {
+  test(`preset ${name}: presetDescription is the native description`, () => {
+    assert.equal(Drawing.presetDescription(name), text);
+  });
+}
+
+test("an unknown preset has no description and the same refusal", () => {
+  assert.throws(
+    () => Drawing.presetDescription("nope"),
+    (error) => error.name === "ParameterError" && error.message === native.presets.refusal,
+  );
+});
+
 test("an unknown preset is refused with the native ParameterError", () => {
   assert.throws(
     () => Drawing.preset("nope"),
