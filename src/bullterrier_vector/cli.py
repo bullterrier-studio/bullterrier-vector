@@ -29,6 +29,7 @@ from bullterrier_vector.errors import BullterrierVectorError
 __all__ = ["main", "run"]
 
 # constant: the size of a drawing with no design frame, which has none of its own to draw at: 4:3, large enough to see
+# (the same value as `DEFAULT_SIZE` in tools/look.py, which cannot import it; change both together)
 _DEFAULT_SIZE = (800, 600)
 _FORMATS = (".png", ".svg")
 

@@ -5,8 +5,8 @@
 FILE is a `.json` document (read with `Drawing.from_json`) or a `.py` program (run; its module-level variable
 `drawing` is the drawing, as in examples/star.py). The size is the drawing's design frame when it has one, else 800x600.
 Each NAME=VALUE sets a Param. A picture of the same name is overwritten. Exit code 1, with one line on stderr, for a
-file that is missing or of another kind, a program without `drawing`, a bad size or value, or an error from the
-library. The pictures are for a person or an agent to open: the tool opens nothing.
+file that is missing or of another kind, a program without `drawing`, a bad size or value, a name that is no Param of
+the drawing, or an error from the library. The pictures are for a person or an agent to open: the tool opens nothing.
 
 Interface:
     main(argv) -> exit code: 0 the pictures were written, 1 they were not (the reason is on stderr)
@@ -23,6 +23,7 @@ from bullterrier_vector.errors import BullterrierVectorError
 
 OUTPUT = Path(__file__).resolve().parent.parent / "dist" / "look"
 # constant: the size of a drawing with no design frame, which has none of its own to draw at: 4:3, large enough to see
+# (the same value as `_DEFAULT_SIZE` in bullterrier_vector/cli.py, which is private; change both together)
 DEFAULT_SIZE = (800, 600)
 
 
@@ -58,11 +59,15 @@ def parse_size(text: str) -> tuple[float, float]:
     return int(found[1]), int(found[2])
 
 
-def parse_values(texts: list[str]) -> dict[str, float]:
-    """The Param values written `NAME=VALUE`."""
+def parse_values(texts: list[str], drawing: btvec.Drawing) -> dict[str, float]:
+    """The Param values written `NAME=VALUE`; a name the drawing does not read is refused, so no name can reach a
+    keyword of `to_png` itself (`window`)."""
+    known = [param.name for param in drawing.parameters()]
     values: dict[str, float] = {}
     for text in texts:
         name, _, value = text.partition("=")
+        if name not in known:
+            raise LookError(f"{text}: not a Param of this drawing, whose Params are {', '.join(known) or 'none'}")
         try:
             values[name] = float(value)
         except ValueError:
@@ -79,9 +84,9 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_intermixed_args(argv)  # older 3.12s reject NAME=VALUE after an option
     try:
         drawing = load(arguments.file)
-        values = parse_values(arguments.values)
+        values = parse_values(arguments.values, drawing)
         width, height = parse_size(arguments.size) if arguments.size else (drawing.size or DEFAULT_SIZE)
-        png = drawing.to_png(width, height, **values)  # type: ignore[arg-type]  # a Param cannot be named window
+        png = drawing.to_png(width, height, **values)  # type: ignore[arg-type]
         svg = drawing.to_svg(width, height, **values)
     except (LookError, BullterrierVectorError) as error:
         print(f"look: {error}", file=sys.stderr)
