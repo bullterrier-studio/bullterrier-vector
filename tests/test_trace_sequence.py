@@ -47,3 +47,9 @@ def test_refusals_name_the_argument() -> None:
         btvec.Field.smooth_maps([flat(1)], sigma=-1)
     with pytest.raises(btvec.ParameterError, match="maps"):
         btvec.Field.smooth_maps([flat(1), btvec.Field.map(2, 2, bytes(4))], sigma=1)
+
+
+def test_a_sigma_too_small_to_reach_a_neighbour_gives_the_maps_back() -> None:
+    maps = [flat(10), flat(100), flat(250)]
+    got = btvec.Field.smooth_maps(maps, sigma=1e-170)
+    assert [bytes_of(f) for f in got] == [bytes_of(f) for f in maps]

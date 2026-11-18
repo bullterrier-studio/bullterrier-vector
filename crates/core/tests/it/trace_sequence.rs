@@ -173,3 +173,36 @@ fn refusals_name_the_argument() -> Outcome {
     }
     Ok(())
 }
+
+#[test]
+fn a_sigma_too_small_to_reach_a_neighbour_gives_the_maps_back() -> Outcome {
+    let maps = [10, 100, 250].map(|v| field(&vec![v; W * H]));
+    let maps = maps.into_iter().collect::<Result<Vec<_>, _>>()?;
+    for sigma in [1e-170, 5e-324, 0.1] {
+        let got = Field::smooth_maps(&maps, sigma)?;
+        for (i, (g, m)) in got.iter().zip(&maps).enumerate() {
+            same(&bytes_of(g)?, &bytes_of(m)?, &format!("sigma {sigma} frame {i}"));
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn a_clip_the_caller_holds_runs_in_one_call_and_an_unbounded_request_is_refused() -> Outcome {
+    // thirty frames of 1920 by 1080 at sigma 1.5: the work is counted a frame at a time
+    let (w, h) = (1920, 1080);
+    let frames = (0..30_u8)
+        .map(|i| Field::map(w, h, &vec![i * 8; w * h], None, None))
+        .collect::<Result<Vec<_>, _>>()?;
+    let got = Field::smooth_maps(&frames, 1.5)?;
+    assert_eq!(got.len(), 30);
+    let middle = got[15].to_map(w, h, None, 0.0, 1.0)?;
+    assert!(middle.iter().all(|&b| b == middle[0]) && middle[0] == 120, "{}", middle[0]);
+    // sixteen frames of 4096 by 4096 at sigma 2 reach 13 maps a frame: 2.2e8 reads for each output frame
+    let big = Field::map(4096, 4096, &vec![0; 4096 * 4096], None, None)?;
+    assert_eq!(
+        parameter_refusal(Field::smooth_maps(&vec![big; 16], 2.0))?.0,
+        "sigma"
+    );
+    Ok(())
+}

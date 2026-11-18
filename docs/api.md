@@ -477,7 +477,7 @@ call: the browser package loads documents, it does not build fields).
 
 | Call | Does | Refuses |
 |---|---|---|
-| `Field.smooth_maps(maps, *, sigma)` (Rust: `Field::smooth_maps(&maps, sigma)?`) | each map becomes the Gaussian weighted mean of itself and its neighbours, `sigma` in maps: frame `j` weighs `exp(-(i-j)^2 / 2 sigma^2)` for `|i-j|` up to `ceil(3 sigma)`; the weights of the frames that exist add to 1 (the ends are not padded); bytes rounded; `sigma` 0 and a static sequence give the maps back | `maps` (not all `Field.map`s of one size and box, or over 2^28 pixels together); `sigma` (below 0, not finite, or the work, maps times frames reached times pixels, over 2e8) |
+| `Field.smooth_maps(maps, *, sigma)` (Rust: `Field::smooth_maps(&maps, sigma)?`) | each map becomes the Gaussian weighted mean of itself and its neighbours, `sigma` in maps: frame `j` weighs `exp(-(i-j)^2 / 2 sigma^2)` for `|i-j|` up to `ceil(3 sigma)`; the weights of the frames that exist add to 1 (the ends are not padded); bytes rounded; `sigma` 0, a `sigma` too small for any neighbour to weigh above 0, and a static sequence give the maps back | `maps` (not all `Field.map`s of one size and box, or over 2^28 pixels together); `sigma` (below 0, not finite, or the work for one output frame, the maps it reaches times pixels, over 2e8: a clip costs its frame count times that, so 30 frames of 1920 by 1080 at `sigma` 1.5 run in one call) |
 
 ```python
 maps = [btvec.Field.map(w, h, frame, box=(0, 0, 1080, 1440)) for frame in frames]

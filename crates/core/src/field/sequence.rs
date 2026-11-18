@@ -68,13 +68,14 @@ impl Field {
     /// Each map of `maps` (the frames of a sequence, every one a [`Field::map`] of one size and box) as the Gaussian
     /// weighted mean of itself and its neighbours, `sigma` in maps: frame `i` takes frame `j` with weight
     /// `exp(-(i - j)^2 / (2 sigma^2))` for `|i - j|` up to `ceil(3 sigma)`, the weights of the frames that exist
-    /// adding to 1 (the ends are not padded), each byte rounded to the nearest. `sigma` 0 gives the maps back. A static
+    /// adding to 1 (the ends are not padded), each byte rounded to the nearest. `sigma` 0, or so small that no neighbour has a
+    /// weight above 0, gives the maps back. A static
     /// sequence is unchanged. The maps come back unnamed, in order.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `maps` unless every one is a [`Field::map`] of the size and box of the first (and
-    /// together at most 2^28 pixels), naming `sigma` unless it is finite and from 0, and naming `sigma` when the work
-    /// (maps times frames reached times pixels) passes 2e8 reads.
+    /// together at most 2^28 pixels), naming `sigma` unless it is finite and from 0, and naming `sigma` when the work for
+    /// one output frame (the maps it reaches times pixels) passes 2e8 reads: a clip costs its frame count times that.
     pub fn smooth_maps(maps: &[Self], sigma: f64) -> Result<Vec<Self>, Error> {
         if !(sigma.is_finite() && sigma >= 0.0) {
             return Err(Error::parameter(
@@ -89,14 +90,16 @@ impl Field {
         let count = data.len();
         let reach = (sigma * 3.0).ceil().min(count as f64) as usize;
         let pixels = first.width * first.height;
-        if (count as f64) * ((2 * reach + 1).min(count) as f64) * (pixels as f64) > MAX_READ_WORK {
+        // each output frame reads its window of maps once: the work grows with the frame count, a frame's share is bounded
+        if ((2 * reach + 1).min(count) as f64) * (pixels as f64) > MAX_READ_WORK {
             return Err(Error::parameter("sigma", "reaches too many maps for this many pixels"));
         }
+        // the weight of a neighbour `d` away; d / sigma overflows to infinity for a tiny sigma, so its weight is 0, never NaN
         let weight = |d: usize| {
-            if sigma == 0.0 {
-                f64::from(d == 0)
+            if d == 0 {
+                1.0
             } else {
-                libm::exp(-((d * d) as f64) / (2.0 * sigma * sigma))
+                libm::exp(-0.5 * (d as f64 / sigma).powi(2))
             }
         };
         let mut out = Vec::with_capacity(count);
