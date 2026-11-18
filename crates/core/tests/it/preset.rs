@@ -7,8 +7,9 @@ use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{Drawing, Size, Values};
 
 /// (name, the shipped text): written here, apart from the library's own table, so a table that loses a file fails.
-const SHIPPED: [(&str, &str); 4] = [
+const SHIPPED: [(&str, &str); 5] = [
     ("bent_type", include_str!("../../presets/bent_type.json")),
+    ("draw_on", include_str!("../../presets/draw_on.json")),
     ("gradient_type", include_str!("../../presets/gradient_type.json")),
     ("ring", include_str!("../../presets/ring.json")),
     ("two_fonts", include_str!("../../presets/two_fonts.json")),
