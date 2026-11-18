@@ -1745,6 +1745,21 @@ eyes' catchlights are placed by hand (a hint of where the eyes are), the glue be
   for a headline that stands alone): the preset is the shipped look, the example in `examples/` the documented teaching
   program, and docs and tests refer to the example by name.
 
+## Browser playground (V20)
+
+- **A static page, no framework.** `playground/` is HTML, one module for the page and one for the slider maths: nothing to
+  install, nothing to build but the WebAssembly glue, readable end to end. A page that loads a `.wasm` needs http, so
+  `playground-serve` is `python3 -m http.server`. *Alternative:* a framework and a bundler: more to keep working than the page does.
+- **The slider maths is its own module.** `params.mjs` (a Param to a slider, a source reading to a value, the sources) has no
+  DOM, so Node tests it on every preset of the real package inside `wasm-test`; the page only wires it to elements.
+- **The Chrome check is a named task, not part of `check`.** It needs a browser and a built page, and a gate that needs one fails
+  on machines and CI images without it. `playground-check` is run by hand before a change to the page.
+- **`textContent` only.** Preset names, descriptions, Param meanings and a document's error messages come from the library or
+  from a pasted file: the page never builds markup from them.
+- **Left out:** a render worker (a move renders on the page's thread), a GPU mesh display, a hosted site, inputs for a document
+  from the page (a document that needs a font or a map is refused, naming it), Safari, Firefox and phones (the check runs Chrome
+  alone), and `wasm-opt` (the glue is as `wasm-bindgen` writes it).
+
 ## Command line (V18)
 
 - **`bt-vector` is Python, in the package (D4).** The CLI is argument parsing, file IO and one call into the core; `rules.md`

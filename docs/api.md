@@ -1043,6 +1043,12 @@ opens nothing.
 | `Drawing.preset_names` | `Drawing.preset_names()` (Rust: `Drawing::preset_names()`, JavaScript: `Drawing.presetNames()`) | the names `Drawing.preset` takes, sorted |
 | `drawing_schema` | `btvec.drawing_schema()` | the JSON Schema of the format, as text, generated from the registered calls |
 
+The browser playground (`playground/`) is a static page over the package built with `uv run poe playground`
+(`wasm-bindgen --target web` into the ignored `playground/pkg/`; the page needs http, `uv run poe playground-serve`): it
+lists `Drawing.presetNames()` with their descriptions, draws with `toRgba` at the canvas's size, makes a slider of each
+`parameters()` entry and can bind it to the clock, the pointer or the scroll; a JSON document opens by paste or file (one
+that names inputs is refused, naming the input). `uv run poe playground-check` drives it in headless Chrome.
+
 In JavaScript (the package built from `crates/wasm`) a document loads with `Drawing.fromJson(text, inputs?)` (`inputs` an object of names to `Uint8Array`s, none for a document without fonts); a drawing has
 `toJson()`, `parameters()` (plain objects `{ name, default, min, max, unit, meaning }`; `unit` is `""` for none), `size`
 (`[w, h]` or `undefined`) and the outputs, each `(width, height, values?)` (`toRgba` and `toPng` also `window?`) with `values` an object of Param names to a

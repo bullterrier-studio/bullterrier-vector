@@ -16,6 +16,13 @@ bt-vector render ring -o ring.png half_width=40
 bt-vector list
 ```
 
+## Try it
+
+```bash
+uv run poe playground          # builds the WebAssembly package for the browser into playground/pkg/
+uv run poe playground-serve    # then open http://localhost:8000: pick a preset, move the sliders
+```
+
 ## Install from source / Contribute
 
 Nothing is published yet. To build the package from a clone, or to contribute, see [CONTRIBUTING.md](CONTRIBUTING.md).

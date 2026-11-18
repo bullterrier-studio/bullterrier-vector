@@ -69,6 +69,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V17 | Presets as JSON | S | Done 2026-11-18 |
 | V18 | Command line: `render`, `describe`, `list`, `validate` | S | Done 2026-11-18 |
 | V19 | Presets and gallery | M | Done 2026-11-18 |
+| V20 | Browser playground | S | Done 2026-11-18 |
 | E | Effects track: one effect and its gallery piece per batch, from V15 on; 4a and 4b are done ([effects-roadmap.md](effects-roadmap.md)) | S each | |
 
 Order revised 2026-11-13: the missing "wow" capabilities (transforming type; lit, chrome-like type) come first among the
@@ -744,6 +745,20 @@ Reasons and what it leaves out: `design-decisions.md`, "Command line (V18)".
 `presetDescription` in JavaScript) kept in the `PRESETS` table and shown by `bt-vector list` and `describe`; each program in
 `examples/presets/` is checked against its JSON file, its subject, its Params and the sentence rule; demo 36 is a gallery
 sheet of the 13. Reasons: `design-decisions.md`, "Preset descriptions (V19)".
+
+## V20 Browser playground
+
+**V20, done 2026-11-18.** `playground/`: a static page (`index.html`, `playground.mjs`, no framework, no build step beyond the
+WebAssembly glue) over the package built by `uv run poe playground` (the release simd128 build of `wasm-test`, then
+`wasm-bindgen --target web` into the ignored `playground/pkg/`). A preset picker with the descriptions, a canvas drawn with
+`toRgba` at its CSS size times the device pixel ratio (at most 2), a size select, one slider per Param (name, unit, meaning),
+a source for each slider (manual, clock, pointer x, pointer y, scroll), the render and draw times, and a JSON document opened by
+paste or file (an input it needs is named and refused). Renders coalesce per animation frame; library and document text goes
+into the page as text. `playground/params.mjs` holds the slider maths; `tests/wasm/playground.test.mjs` (in `wasm-test`)
+checks it on every preset of the real package, each slider drawn at its min, default and max. `uv run poe playground-serve`
+serves the folder; `uv run poe playground-check` (`playground/check.mjs`, headless Chrome over the DevTools protocol, no
+packages; not part of `check`) moves every slider of every preset to both ends, binds the pointer, scroll and clock, opens bad
+documents and writes a screenshot. Reasons and what it leaves out: `design-decisions.md`, "Browser playground (V20)".
 
 ## E Effects track
 
