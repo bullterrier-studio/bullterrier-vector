@@ -1,7 +1,7 @@
 //! The fonts that come with the library (`Font::bundled`): the names, that each one loads with the axes and the
 //! advances its font file has, that an unknown name is refused naming the choices, and that a saved drawing in a
 //! bundled font loads again with no bytes supplied. The expected numbers are literals read with fontTools from the
-//! upstream files (`Fraunces[SOFT,WONK,opsz,wght].ttf`, `BricolageGrotesque[opsz,wdth,wght].ttf` of the Google Fonts
+//! upstream files (`Fraunces[SOFT,WONK,opsz,wght].ttf`, `BricolageGrotesque[opsz,wdth,wght].ttf`, `JetBrainsMono[wght].ttf` of the Google Fonts
 //! repository): the `fvar` axes (tag, minimum, default, maximum, name) in file order, and the `hmtx` advance of `H`
 //! (the advance at the file's default location).
 
@@ -17,7 +17,7 @@ type Row = (
     f64,
 );
 
-const FONTS: [Row; 2] = [
+const FONTS: [Row; 3] = [
     (
         "bricolage_grotesque",
         1000.0,
@@ -39,11 +39,17 @@ const FONTS: [Row; 2] = [
         ],
         1805.0,
     ),
+    (
+        "jetbrains_mono",
+        1000.0,
+        &[("wght", 100.0, 400.0, 800.0, "Weight")],
+        600.0,
+    ),
 ];
 
 #[test]
 fn the_bundled_fonts_are_listed_by_name() {
-    assert_eq!(Font::bundled_names(), ["bricolage_grotesque", "fraunces"]);
+    assert_eq!(Font::bundled_names(), ["bricolage_grotesque", "fraunces", "jetbrains_mono"]);
 }
 
 #[test]
@@ -94,7 +100,7 @@ fn a_name_that_is_not_bundled_is_refused_naming_it_and_the_choices() -> Outcome 
         let (parameter, message) = parameter_refusal(Font::bundled(wrong))?;
         assert_eq!(parameter, "name", "{wrong:?}");
         assert!(message.contains(&format!("{wrong:?}")), "{message}");
-        assert!(message.contains("bricolage_grotesque, fraunces"), "{message}");
+        assert!(message.contains("bricolage_grotesque, fraunces, jetbrains_mono"), "{message}");
     }
     Ok(())
 }

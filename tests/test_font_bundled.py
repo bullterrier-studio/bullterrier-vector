@@ -10,7 +10,7 @@ from fontTools.ttLib import TTFont
 import bullterrier_vector as btvec
 
 FONTS = Path(__file__).resolve().parents[1] / "crates" / "core" / "fonts"
-NAMES = ["bricolage_grotesque", "fraunces"]
+NAMES = ["bricolage_grotesque", "fraunces", "jetbrains_mono"]
 
 
 def reference(name: str) -> TTFont:
@@ -60,5 +60,5 @@ def test_a_saved_drawing_in_a_bundled_font_loads_again_with_no_bytes_supplied(na
 
 @pytest.mark.parametrize("wrong", ["Fraunces", "roboto_flex", ""])
 def test_a_name_that_is_not_bundled_is_refused_naming_it_and_the_choices(wrong: str) -> None:
-    with pytest.raises(btvec.ParameterError, match=rf'name.*"{wrong}".*bricolage_grotesque, fraunces'):
+    with pytest.raises(btvec.ParameterError, match=rf'name.*"{wrong}".*bricolage_grotesque, fraunces, jetbrains_mono'):
         btvec.Font.bundled(wrong)
