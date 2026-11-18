@@ -7,10 +7,11 @@ use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{Drawing, Size, Values};
 
 /// (name, the shipped text): written here, apart from the library's own table, so a table that loses a file fails.
-const SHIPPED: [(&str, &str); 3] = [
+const SHIPPED: [(&str, &str); 4] = [
     ("bent_type", include_str!("../../presets/bent_type.json")),
     ("gradient_type", include_str!("../../presets/gradient_type.json")),
     ("ring", include_str!("../../presets/ring.json")),
+    ("two_fonts", include_str!("../../presets/two_fonts.json")),
 ];
 
 /// The number of `path` elements in the SVG of `drawing` with these Param values.
@@ -103,4 +104,10 @@ fn an_unknown_name_has_no_description_and_the_same_refusal_as_preset() -> Outcom
     assert_eq!(parameter, "name");
     assert_eq!(message, parameter_refusal(Drawing::preset("nope"))?.1);
     Ok(())
+}
+
+#[test]
+fn at_least_twelve_presets_ship() {
+    // The promise of the gallery batch: a starting point for each look.
+    assert!(Drawing::preset_names().len() >= 12, "only {} presets", Drawing::preset_names().len());
 }
