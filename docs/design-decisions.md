@@ -1752,6 +1752,7 @@ eyes' catchlights are placed by hand (a hint of where the eyes are), the glue be
   `playground-serve` is `python -m http.server`, bound to 127.0.0.1. *Alternative:* a framework and a bundler: more to keep working than the page does.
 - **The slider maths is its own module.** `params.mjs` (a Param to a slider, a source reading to a value, the sources) has no
   DOM, so Node tests it on every preset of the real package inside `wasm-test`; the page only wires it to elements.
+  Each source in its table names what wakes it (a window event or the animation loop): a new source is one entry.
 - **The Chrome check is a named task, not part of `check`.** It needs a browser and a built page, and a gate that needs one fails
   on machines and CI images without it. `playground-check` is run by hand before a change to the page.
 - **`textContent` only.** Preset names, descriptions, Param meanings and a document's error messages come from the library or
