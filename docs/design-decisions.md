@@ -1729,9 +1729,19 @@ eyes' catchlights are placed by hand (a hint of where the eyes are), the glue be
 - **A preset is a whole drawing, as a JSON document.** It mirrors `Font::bundled`: a sorted table of names and texts in
   `preset.rs`, texts included with `include_str!`, loaded by `from_json` with no inputs, so a preset is not a second
   format or loader. The files are `to_json` output, generated from the example programs, never edited by hand. A preset
-  has no description key (the format has none); descriptions wait for the command line and the gallery.
+  has no description key (the format has none).
 - **The word differs from the image library's.** There a preset is a set of parameters for one effect; here it is a whole
   drawing with its own Params, because a drawing's look is its shapes, not one setting.
+
+## Preset descriptions (V19)
+
+- **A description lives in the `PRESETS` table, not in the document.** The table already owns the names, so a name and its
+  description cannot drift apart, and the format stays a drawing with no field that only presets use (a user's document
+  has no use for one). One helper owns the lookup and the refusal, so `preset` and `preset_description` cannot differ.
+- **Presets come from programs.** `examples/presets/<name>.py` leaves a `drawing`; `tools/write_presets.py` writes the JSON;
+  a test compares each file with its program's `to_json()` (the Python builder, an independent route to the same text).
+  The documented examples (`ring.py`, `gradient_type.py`, `bent_type.py`) stay: docs and tests refer to them by name,
+  and an example explains where a preset is shipped as a bare drawing.
 
 ## Command line (V18)
 

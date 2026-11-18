@@ -66,7 +66,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V16 | SVG import (logos) | S | Done 2026-11-11, trimmed |
 | V17 | Presets as JSON | S | Done 2026-11-18 |
 | V18 | Command line: `render`, `describe`, `list`, `validate` | S | Done 2026-11-18 |
-| V19 | Presets and gallery | M | |
+| V19 | Presets and gallery | M | In progress: descriptions, `list`/`describe` and `examples/presets/` done; the new presets and the gallery sheet follow |
 | V20 | Browser playground and a live page example | M | |
 | V21 | Reference pieces rebuilt on the library | M | |
 | V22 | First release: crates.io, PyPI, npm | S | **M6 release** |
