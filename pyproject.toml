@@ -28,6 +28,9 @@ classifiers = [
 ]
 dependencies = []
 
+[project.scripts]
+bt-vector = "bullterrier_vector.cli:main"
+
 [project.urls]
 Repository = "https://github.com/bullterrier-studio/bullterrier-vector"
 Issues = "https://github.com/bullterrier-studio/bullterrier-vector/issues"
@@ -294,6 +297,8 @@ convention = "google"
 "tests/**" = ["ANN", "D", "S101", "S603", "S607", "PLW", "N", "B011"]
 # scripts run by hand (the cargo-tools check): printing is their output
 "tools/**" = ["T20"]
+# the command line: printing is its output
+"src/bullterrier_vector/cli.py" = ["T20"]
 "**/__init__.py" = ["F401"]
 
 # `uv run mypy` checks src, tests, tools and examples; the gate (`poe check`) and the pre-push hook run it.
