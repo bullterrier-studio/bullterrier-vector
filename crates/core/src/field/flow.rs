@@ -16,9 +16,9 @@ use std::sync::Arc;
 // hand-written blend and keeps a loop of `mix` calls from making a flow that is slow to read
 pub(crate) const MAX_LEAVES: usize = 64;
 
-/// The deepest nesting of mixes.
-// constant: a document holds each nested mix two levels deep and has 40 in all (`MAX_DOCUMENT_DEPTH`), and reading
-// one recurses this deep: 16 mixes fit in a document beside the call that holds them
+/// The deepest nesting of mixes and turns.
+// constant: a document holds each nested mix or turn two levels deep and has 40 in all (`MAX_DOCUMENT_DEPTH`), and
+// reading one recurses this deep: 16 fit in a document beside the call that holds them
 pub(crate) const MAX_MIX_DEPTH: usize = 16;
 
 /// What a flow is made of, as a document writes it: the numbers as written (they may read Params) and the drawings
@@ -29,6 +29,7 @@ pub(crate) enum FlowKind {
     Noise { wavelength: Expr, phase: Expr, seed: f64 },
     Contour { drawing: Drawing },
     Mix { flow: Flow, other: Flow, fraction: Expr },
+    Rotate { flow: Flow, angle: Expr },
 }
 
 /// What reads a flow at a point: the made flow, with its numbers worked out and its drawings drawn.
@@ -51,6 +52,12 @@ enum Node {
         flow: Flow,
         other: Flow,
         fraction: f64,
+    },
+    /// A flow turned: the doubled-angle unit vector of the turn, which multiplies the flow's.
+    Rotate {
+        flow: Flow,
+        cos: f64,
+        sin: f64,
     },
 }
 
@@ -104,6 +111,12 @@ impl Flow {
                 let (flow, other) = (flow.bind(env, shapes)?, other.bind(env, shapes)?);
                 let (depth, leaves) = (flow.depth.max(other.depth) + 1, flow.leaves + other.leaves);
                 (Node::Mix { flow, other, fraction }, depth, leaves)
+            }
+            FlowKind::Rotate { flow, angle } => {
+                let (sin, cos) = sin_cos_deg(2.0 * (read("angle", angle, env)? % 180.0));
+                let flow = flow.bind(env, shapes)?;
+                let (depth, leaves) = (flow.depth + 1, flow.leaves);
+                (Node::Rotate { flow, cos, sin }, depth, leaves)
             }
         };
         Ok(Self {
@@ -180,17 +193,27 @@ impl Flow {
     /// than 64 flows or nest more than 16 mixes.
     pub fn mix(&self, other: &Self, fraction: impl Into<Expr>) -> Result<Self, Error> {
         let fraction = once("fraction", &fraction.into())?;
-        let (depth, leaves) = (self.depth.max(other.depth) + 1, self.leaves + other.leaves);
-        if depth > MAX_MIX_DEPTH || leaves > MAX_LEAVES {
-            return Err(Error::parameter(
-                "other",
-                format!("a flow mixes at most {MAX_LEAVES} flows and nest at most {MAX_MIX_DEPTH} mixes"),
-            ));
-        }
+        sized("other", self.depth.max(other.depth) + 1, self.leaves + other.leaves)?;
         Self::made(FlowKind::Mix {
             flow: self.clone(),
             other: other.clone(),
             fraction,
+        })
+    }
+
+    /// This flow turned `angle` degrees clockwise on screen at every point (a number or an expression of Params, read
+    /// once with the values of the draw); 0 and 180 change nothing, a quarter turn runs across: `Flow::contour(d)`
+    /// turned 90 runs across the outlines of `d`.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `angle` if it is NaN or infinite, or a per-item number; naming `flow` if the result
+    /// would nest more than 16 mixes and turns.
+    pub fn rotate(&self, angle: impl Into<Expr>) -> Result<Self, Error> {
+        let angle = once("angle", &angle.into())?;
+        sized("flow", self.depth + 1, self.leaves)?;
+        Self::made(FlowKind::Rotate {
+            flow: self.clone(),
+            angle,
         })
     }
 
@@ -203,6 +226,7 @@ impl Flow {
                 found.extend(other.drawings());
                 found
             }
+            FlowKind::Rotate { flow, .. } => flow.drawings(),
             _ => Vec::new(),
         }
     }
@@ -220,6 +244,10 @@ impl Flow {
                 fraction.collect_params(into);
                 flow.collect_params(into);
                 other.collect_params(into);
+            }
+            FlowKind::Rotate { flow, angle } => {
+                angle.collect_params(into);
+                flow.collect_params(into);
             }
         }
     }
@@ -267,6 +295,7 @@ impl Flow {
                     a.1 * (1.0 - fraction) + b.1 * fraction,
                 )
             }
+            Node::Rotate { flow, cos, sin } => turned(flow.sum(point), *cos, *sin),
         }
     }
 
@@ -274,6 +303,7 @@ impl Flow {
     fn first(&self, point: Point) -> (f64, f64) {
         match &*self.node {
             Node::Mix { flow, .. } => flow.first(point),
+            Node::Rotate { flow, cos, sin } => turned(flow.first(point), *cos, *sin),
             _ => self.sum(point),
         }
     }
@@ -290,13 +320,15 @@ impl Flow {
     }
 
     /// The cost of one read in units of `MAX_READ_WORK`, as a field's: an angle one unit, noise one octave
-    /// ([`NOISE_READ`]), a contour its outline's nearest-edge search, a mix one unit and both its flows'.
+    /// ([`NOISE_READ`]), a contour its outline's nearest-edge search, a mix one unit and both its flows', a turn one
+    /// unit and its flow's.
     pub(super) fn cost(&self) -> f64 {
         match &*self.node {
             Node::Angle { .. } => 1.0,
             Node::Noise { .. } => NOISE_READ,
             Node::Contour { outline } => outline.read_cost(),
             Node::Mix { flow, other, .. } => 1.0 + flow.cost() + other.cost(),
+            Node::Rotate { flow, .. } => 1.0 + flow.cost(),
         }
     }
 
@@ -304,6 +336,22 @@ impl Flow {
     pub(crate) fn kind(&self) -> &FlowKind {
         &self.kind
     }
+}
+
+/// Refuses, naming `parameter`, a flow `depth` mixes and turns deep or of more than [`MAX_LEAVES`] leaves.
+fn sized(parameter: &str, depth: usize, leaves: usize) -> Result<(), Error> {
+    if depth > MAX_MIX_DEPTH || leaves > MAX_LEAVES {
+        return Err(Error::parameter(
+            parameter,
+            format!("a flow mixes at most {MAX_LEAVES} flows and nests at most {MAX_MIX_DEPTH} mixes and turns"),
+        ));
+    }
+    Ok(())
+}
+
+/// The doubled-angle vector `(x, y)` turned by the doubled-angle unit vector `(cos, sin)`.
+fn turned((x, y): (f64, f64), cos: f64, sin: f64) -> (f64, f64) {
+    (x * cos - y * sin, x * sin + y * cos)
 }
 
 impl Node {
@@ -339,6 +387,11 @@ impl Keyed for Flow {
                 key.of(flow);
                 key.of(other);
             }
+            FlowKind::Rotate { flow, angle } => {
+                key.word(5);
+                key.of(angle);
+                key.of(flow);
+            }
         }
     }
 }
@@ -370,6 +423,7 @@ impl fmt::Display for Flow {
                 None => write!(f, "Flow.contour({drawing:?})"),
             },
             FlowKind::Mix { flow, other, fraction } => write!(f, "{flow}.mix({other}, {fraction})"),
+            FlowKind::Rotate { flow, angle } => write!(f, "{flow}.rotate({angle})"),
         }
     }
 }

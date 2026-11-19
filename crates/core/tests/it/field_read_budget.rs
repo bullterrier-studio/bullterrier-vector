@@ -165,6 +165,25 @@ fn hatch_charges_the_reads_of_a_line_that_makes_no_step() -> Outcome {
 }
 
 #[test]
+fn a_turn_costs_a_unit_a_read_on_top_of_its_flow() -> Outcome {
+    // 300 by 300 islands: 90,000 starts of no step, each charged 6 reads of the flow and nothing else (no tone). A mix of
+    // 64 angles costs 127 units a read: 69 million units, inside the budget of 200 million. Each of its angles turned ten
+    // times costs 64 * 11 + 63 = 767 units a read: 414 million, refused (a turn charged nothing would be 127 again)
+    let region = islands(300, 4.0)?;
+    let plain = balanced_flow(&Flow::angle(30.0)?, 64)?;
+    assert_eq!(region.hatch(&Hatch::new(4.0).flow(plain), None)?.to_svg_path(), "");
+    let mut leaf = Flow::angle(30.0)?;
+    for _ in 0..10 {
+        leaf = leaf.rotate(18.0)?;
+    }
+    let turned = balanced_flow(&leaf, 64)?;
+    let (named, message) = parameter_refusal(region.hatch(&Hatch::new(4.0).flow(turned), None))?;
+    assert_eq!(named, "spacing");
+    assert!(message.contains("units of work"), "{message}");
+    Ok(())
+}
+
+#[test]
 fn a_normal_hatch_over_a_noise_tone_draws() -> Outcome {
     let tone = Field::noise(60.0, 0.0, 2.0, 3)?
         .mul(&Field::constant(0.5)?)?

@@ -446,6 +446,13 @@ impl Writer<'_> {
                     ("fraction", self.expression(fraction)?),
                 ]),
             )]),
+            FlowKind::Rotate { flow, angle } => Json::object([(
+                "Flow.rotate",
+                Json::object([
+                    ("flow", self.flow_json(flow, taken)?),
+                    ("angle", self.expression(angle)?),
+                ]),
+            )]),
         })
     }
 

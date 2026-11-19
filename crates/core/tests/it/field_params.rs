@@ -176,3 +176,24 @@ fn a_param_a_document_does_not_declare_is_refused_where_the_field_reads_it() -> 
     );
     Ok(())
 }
+
+#[test]
+fn a_turn_by_a_param_is_read_with_the_values_of_the_step() -> Outcome {
+    let turn = Param::new("turn", 0.0, -90.0, 90.0)?;
+    let drawing = rect()?.hatch(&Hatch::new(8.0).flow(Flow::angle(0.0)?.rotate(&turn)?), None);
+    // 0 degrees turned 0 are horizontal lines (one height each), turned 90 vertical ones (one x each)
+    for (value, horizontal) in [(0.0, true), (90.0, false)] {
+        let drawn = drawing.shapes(&Values::new().set("turn", value))?;
+        let found = lines(drawn[0].path())?;
+        assert_ne!(found.len(), 0);
+        for (points, _) in found {
+            let along = |p: &(f64, f64)| if horizontal { p.1 } else { p.0 };
+            assert!(
+                points.iter().all(|p| (along(p) - along(&points[0])).abs() < 1e-6),
+                "turn {value}: a line is not straight along its direction"
+            );
+        }
+    }
+    assert_eq!(drawing.parameters()?.len(), 1);
+    Ok(())
+}
