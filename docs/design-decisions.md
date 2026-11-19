@@ -830,7 +830,13 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   point's distance to it by no more, and the chords cut inside the arcs by at most the other half, so a round-joined
   result lies between the offsets of the flattened path by `distance` less and more `tolerance`. A miter or bevel
   follows the direction of the edges beside it, which a dropped corner changes: there the result is the exact offset of
-  the thinned path, and a dropped corner throws no point of its own. A closed contour that would keep fewer than 3
+  the thinned path, and a dropped corner throws no point of its own. *Accepted size* (2026-11-19): a miter at a hidden corner is lost with it, so
+  a miter result can differ from the exact offset of the unflattened polygon by up to `miter_limit` times `distance`. A
+  square of 10 with a spike 0.0049 high on an edge, its apex just wider than the miter cut-off: lowest y before and
+  after at `tolerance` 0.01 is -39.34 and -10.00 (limit 4, distance 10), -209.05 and -10.00 (limit 23, distance 10),
+  -38.34 and -4.00 (limit 10, distance 4); bevel joins match. Polygons and polylines are hit too. Dropping a 200 px miter
+  thrown by a 0.005 px nick is the better result; an input whose every tiny corner must keep its miter is expressed
+  with a smaller `tolerance`. Pinned by `a_hidden_spike_throws_no_miter_and_a_visible_one_does`. A closed contour that would keep fewer than 3
   corners stays as it was, and an open line keeps its first two and last two (they set its caps), so thin shapes still
   paint. *Changed:* offset and outline bytes: old and new round-joined results both lie in that band, so they can differ
   by up to twice `tolerance`; repeated offsets keep their size (the letter: 1,741, 1,715, 1,511, 1,340, 1,216 points

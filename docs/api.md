@@ -274,6 +274,14 @@ a round-joined result lies between the offsets of the flattened path by `distanc
 edge that replaced it. An open line keeps its first two and last
 two corners (they set its caps), and a shape thinner than `tolerance` still paints.
 
+A miter at a hidden corner is lost with it: a corner that a line between its kept neighbours hides within half of
+`tolerance` throws no miter point, so the result can differ from the exact offset of the unflattened polygon by up to
+`miter_limit` times `distance` there (a square of 10 with a spike 0.0049 high on an edge, its apex just wider than the
+miter cut-off, at `tolerance` 0.01: the lowest y of the result is -10.00, where the exact offset reaches -39.34 for
+limit 4 and distance 10, -209.05 for limit 23 and distance 10, -38.34 for limit 10 and distance 4). It hits polygons
+and polylines too: their tiny real corners are dropped like any. Bevel joins are not affected. An input whose every
+tiny corner must keep its miter is expressed with a smaller `tolerance`.
+
 Errors: `ParameterError` as the rows say; a `Drawing` names the step and the argument (`step 2 (offset).join`) and a draw
 past `MAX_SEGMENTS` is refused as for the booleans. No offset raises `GeometryError`.
 

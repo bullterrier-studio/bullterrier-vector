@@ -41,6 +41,14 @@ impl Path {
     /// `distance` less and more `tolerance`. With miter and bevel joins a dropped corner throws no point of its own, and
     /// the joins beside it follow the edge that replaced it.
     ///
+    /// A miter at a hidden corner is lost with it: a corner that a line between its kept neighbours hides within half
+    /// of `tolerance` throws no miter point, so with miter joins the result can differ from the exact offset of the
+    /// unflattened polygon by up to `miter_limit` times `distance` there (a square of 10 with a spike 0.0049 high on an
+    /// edge, its apex just wider than the miter cut-off, at `tolerance` 0.01: the lowest y is -10.00, where the exact
+    /// offset reaches -39.34 for limit 4 and distance 10, -209.05 for limit 23 and distance 10, -38.34 for limit 10 and
+    /// distance 4). Polygons and polylines lose their tiny real corners the same way; bevel joins are not affected. An
+    /// input whose every tiny corner must keep its miter is expressed with a smaller `tolerance`.
+    ///
     /// `join` shapes the corners that stick out: `Round` an arc of the radius `distance`, cut into steps that stray from
     /// it by at most half of `tolerance` (the engine's arc steps run from 1.8 to 45 degrees, so a radius above about
     /// 4,000 times `tolerance` strays by up to 0.000123 of itself), `Bevel` a flat cut, `Miter` a point, cut to a bevel
@@ -62,6 +70,11 @@ impl Path {
     /// sub-path of one point (a lone move) paints nothing. Corners are dropped as in [`Path::offset`], except the first
     /// two and last two of an open sub-path, which set the direction of its caps. The result is in canonical form and
     /// straight-edged.
+    ///
+    /// A miter at a hidden corner is lost with it: as for [`Path::offset`], with miter joins the result can differ from
+    /// the exact outline of the unflattened path by up to `miter_limit` times `width / 2` at a corner that half of
+    /// `tolerance` hides (numbers there). An input whose every tiny corner must keep its miter is expressed with a smaller
+    /// `tolerance`.
     ///
     /// # Errors
     /// [`Error::Parameter`] if `width` is not a number above 0 and within ±1e100, or as [`Path::offset`] for
