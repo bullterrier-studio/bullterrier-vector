@@ -11,12 +11,14 @@ const DECISIONS: &str = include_str!("../../../../docs/design-decisions.md");
 /// Argument names that may differ in kind, read rule or words between verbs, each with the heading that says why.
 const ALLOWED: &[(&str, &str)] = &[];
 
-/// The names the conventions ban, read from the sentence in api.md that bans them (`never `strength`, ... or `k``).
+/// The names the conventions ban, read from the sentence in api.md that bans them ("never `strength`, ... or `k`").
 fn banned_names() -> Vec<String> {
-    let start = API.find("never `").expect("the conventions ban names");
-    let sentence = &API[start..];
-    let sentence = &sentence[..sentence.find(". ").expect("the sentence ends")];
-    sentence.split('`').skip(1).step_by(2).map(str::to_owned).collect()
+    // a missing sentence gives no names, which `the_banned_names_are_the_ones_the_conventions_list` reports
+    let Some(sentence) = API.split_once("never `").and_then(|(_, rest)| rest.split_once(". ")) else {
+        return Vec::new();
+    };
+    // after the opening backtick, so the names are the even pieces
+    sentence.0.split('`').step_by(2).map(str::to_owned).collect()
 }
 
 /// Every way the arguments break the conventions, one line each; empty when they keep them.
