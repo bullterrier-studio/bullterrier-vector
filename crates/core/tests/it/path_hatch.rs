@@ -253,3 +253,19 @@ fn a_line_across_a_small_shape_is_kept_where_a_stub_against_other_lines_is_not()
     assert_eq!(result.len(), 2, "{result:?}");
     Ok(())
 }
+
+#[test]
+fn parallel_lines_start_from_a_lattice_through_the_origin() -> Outcome {
+    // a box from y = 3: the first line starts at (k + 1/2) spacings from y = 0, so the lines are at 5, 15, .. not 8, 18
+    let region = Path::rect(0.0, 3.0, 400.0, 300.0, 0.0)?;
+    let result = made(&region, &Hatch::new(10.0).flow(Flow::angle(0.0)?), None)?;
+    assert!(result.len() >= 29, "{} lines", result.len());
+    for (points, _) in &result {
+        let height = points[0].1;
+        assert!(
+            ((height - 5.0) / 10.0 - ((height - 5.0) / 10.0).round()).abs() < 1e-6,
+            "a line at {height}"
+        );
+    }
+    Ok(())
+}

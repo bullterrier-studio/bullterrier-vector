@@ -67,19 +67,20 @@ def test_a_drawn_shape_says_what_its_halftone_is():
     ramp = btvec.Field.ramp((0, 0), (0, 10))
     halftone = the_halftone(
         Drawing(btvec.Path.rect(0, 0, 10, 10)).halftone(
-            INK, tone=ramp, pitch=6, shape="ellipse", aspect=2, screen="rings", center=(3, 4)
+            INK, tone=ramp, spacing=6, shape="ellipse", aspect=2, family="rings", center=(3, 4)
         )
     )
     assert isinstance(halftone.tone, btvec.Field)
     assert halftone.tone == ramp
-    assert (halftone.shape, halftone.aspect, halftone.screen) == ("ellipse", 2.0, "rings")
+    assert (halftone.spacing, halftone.shape, halftone.aspect, halftone.family) == (6.0, "ellipse", 2.0, "rings")
     assert halftone.center == btvec.Point(3, 4)
-    assert (halftone.amplitude, halftone.wavelength) == (1.0, 6.0)
+    # a wave left at its defaults is 8 design pixels high and 48 long, whatever the spacing
+    assert (halftone.amplitude, halftone.wavelength) == (8.0, 48.0)
     plain = the_halftone(Drawing(btvec.Path.rect(0, 0, 10, 10)).halftone(INK, tone=0.5))
-    assert (plain.tone, plain.shape, plain.screen, plain.center, plain.aspect) == (0.5, "dot", "grid", None, 1.0)
+    assert (plain.tone, plain.shape, plain.family, plain.center, plain.aspect) == (0.5, "dot", "lines", None, 1.0)
     assert repr(plain) == (
-        "Halftone(color='#000000ff', tone=0.5, pitch=8.0, angle=45.0, shape='dot', aspect=1.0, screen='grid', "
-        "center=None, amplitude=1.0, wavelength=6.0)"
+        "Halftone(color='#000000ff', tone=0.5, spacing=8.0, angle=45.0, shape='dot', aspect=1.0, family='lines', "
+        "center=None, amplitude=8.0, wavelength=48.0)"
     )
 
 

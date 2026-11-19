@@ -826,6 +826,82 @@ fn a_huge_aspect_is_refused_by_the_work_it_would_take() -> Outcome {
     Ok(())
 }
 
+#[test]
+fn a_straight_screen_lies_on_a_lattice_through_the_design_origin_wherever_the_shape_is() -> Outcome {
+    // a square at (3, 7), drawn into outputs of two sizes: the dots stay on multiples of the pitch in design pixels
+    for side in [61.0, 97.0] {
+        let svg = Drawing::from(Path::rect(3.0, 7.0, 50.0, 50.0, 0.0)?)
+            .halftone(black(0.5).pitch(10.0).angle(Deg(0.0)))
+            .to_svg(Size::px(side, side), &Values::new())?;
+        let found = dots_of(&svg)?;
+        assert!(found.len() >= 25, "{} dots", found.len());
+        for dot in &found {
+            let (x, y) = mean(dot);
+            near(x / 10.0, (x / 10.0).round(), 1e-9, "on a column through x = 0");
+            near(y / 10.0, (y / 10.0).round(), 1e-9, "on a row through y = 0");
+        }
+    }
+    Ok(())
+}
+
+/// The dots of a document's `halftone` (its arguments after the colour, as JSON) over a square of `side` at the origin.
+fn document_dots(side: f64, arguments: &str) -> Result<Vec<Ring>, Box<dyn std::error::Error>> {
+    let text = format!(
+        r##"{{"version":1,"root":[{{"path":"M0 0 L{side} 0 L{side} {side} L0 {side} Z"}},{{"halftone":{{"color":"#000000",{arguments}}}}}]}}"##
+    );
+    let svg = Drawing::from_json(&text, &Inputs::new())?.to_svg(Size::px(side, side), &Values::new())?;
+    dots_of(&svg)
+}
+
+#[test]
+fn a_halftone_takes_its_layout_as_family_and_its_row_distance_as_spacing_as_bands_does() -> Outcome {
+    // lines: a dot on every multiple of the spacing; rings: dots at (k + 1/2) spacings from the middle
+    let found = document_dots(100.0, r#""tone":0.5,"spacing":10,"angle":0,"family":"lines""#)?;
+    assert!(found.len() >= 81, "{} dots", found.len());
+    for dot in &found {
+        let (x, y) = mean(dot);
+        near(x / 10.0, (x / 10.0).round(), 1e-9, "a column every spacing");
+        near(y / 10.0, (y / 10.0).round(), 1e-9, "a row every spacing");
+    }
+    for dot in &document_dots(100.0, r#""tone":0.5,"spacing":10,"family":"rings""#)? {
+        let (radius, _) = polar(mean(dot), (50.0, 50.0));
+        near(
+            radius / 10.0 - 0.5,
+            (radius / 10.0 - 0.5).round(),
+            1e-9,
+            "a ring every spacing",
+        );
+    }
+    for old in [r#""tone":0.5,"pitch":10"#, r#""tone":0.5,"screen":"grid""#] {
+        assert!(document_dots(100.0, old).is_err(), "{old} is no argument");
+    }
+    Ok(())
+}
+
+#[test]
+fn a_wave_halftone_swings_its_rows_by_design_pixels() -> Outcome {
+    // (arguments, spacing, amplitude and wavelength in pixels); left out, a wave is 8 px high and 48 px long
+    for (arguments, spacing, amplitude, wavelength) in [
+        (r#""spacing":10,"amplitude":3,"wavelength":40"#, 10.0, 3.0, 40.0),
+        (r#""spacing":8"#, 8.0, 8.0, 48.0),
+    ] {
+        let found = document_dots(200.0, &format!(r#""tone":0.5,"angle":0,"family":"waves",{arguments}"#))?;
+        assert!(found.len() > 200, "{arguments}: {} dots", found.len());
+        for dot in &found {
+            let (x, y) = mean(dot);
+            near(x / spacing, (x / spacing).round(), 1e-9, "a dot every spacing along");
+            let row = (y - amplitude * libm::sin(TAU * x / wavelength)) / spacing;
+            near(
+                row,
+                row.round(),
+                1e-9,
+                &format!("{arguments}: on a row swung by the sine"),
+            );
+        }
+    }
+    Ok(())
+}
+
 // Documents -----------------------------------------------------------------------------------------------------------
 
 #[test]

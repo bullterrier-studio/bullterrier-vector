@@ -58,3 +58,31 @@ fn a_region_that_fills_nothing_gives_an_empty_path_in_every_verb() -> Outcome {
     }
     Ok(())
 }
+
+#[test]
+fn a_small_shape_far_from_the_origin_lays_only_the_rows_near_it() -> Outcome {
+    // the lattice runs through the origin, but only its rows inside the box are made: 10 at spacing 1, not a million
+    let far = Path::rect(1e6, 1e6, 10.0, 10.0, 0.0)?;
+    assert_eq!(
+        far.bands(&Bands::lines(1.0, flat()?, (0.2, 0.2))?)?
+            .to_svg_path()
+            .matches('M')
+            .count(),
+        10
+    );
+    assert_eq!(
+        far.rows(&Rows::new(1.0, flat()?, 0.0)?)?
+            .to_svg_path()
+            .matches('M')
+            .count(),
+        10
+    );
+    assert_eq!(
+        far.stipple(&Stipple::new(1.0, Field::constant(0.0)?, (0.1, 0.1))?)?
+            .to_svg_path()
+            .matches('M')
+            .count(),
+        100
+    );
+    Ok(())
+}
