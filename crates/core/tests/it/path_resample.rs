@@ -59,7 +59,14 @@ fn a_closed_path_written_from_elsewhere_is_resampled_from_its_top_as_point_at_me
     // is 60 up it, at (36, 52)
     let triangle = Path::from_svg_path("M0 100 L60 20 L60 100 Z")?;
     let resampled = triangle.resample(40.0)?;
-    let wanted = [(60.0, 20.0), (60.0, 60.0), (60.0, 100.0), (20.0, 100.0), (12.0, 84.0), (36.0, 52.0)];
+    let wanted = [
+        (60.0, 20.0),
+        (60.0, 60.0),
+        (60.0, 100.0),
+        (20.0, 100.0),
+        (12.0, 84.0),
+        (36.0, 52.0),
+    ];
     let found = corners(&resampled)?;
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].len(), wanted.len(), "{found:?}");

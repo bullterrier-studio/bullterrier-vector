@@ -5,7 +5,7 @@
 use crate::common::fonts::fraunces;
 use crate::common::region::{canonical_fault, sampled};
 use crate::common::{Outcome, net_area, rings, shoelace_area};
-use bullterrier_vector::{Drawing, Error, Path, Shape, Values, by_index, text};
+use bullterrier_vector::{Drawing, Error, Merge, Path, Shape, Values, by_index, text};
 
 const TOLERANCE: f64 = 0.01;
 
@@ -64,7 +64,7 @@ fn resolve_leaves_separate_parts_and_holes_as_they_are() -> Outcome {
 
 #[test]
 fn merge_joins_the_contours_it_is_given_without_uniting_them() -> Outcome {
-    let merged = drawn(&text("H", &fraunces()?).split().merge())?;
+    let merged = drawn(&text("H", &fraunces()?).split().merge(Merge::new()))?;
     assert_eq!((merged.len(), subpaths(&merged[0])), (1, 3));
     Ok(())
 }

@@ -5,7 +5,8 @@
 //! `... --example threads -- half` writes the SVG of one to standard output.
 
 use bullterrier_vector::{
-    Align, Branch, Color, Deg, Drawing, Error, Expr, Font, Param, Path, Select, Size, Text, Values, text,
+    Align, Branch, Color, Deg, Drawing, Error, Expr, Font, Outline, Param, Path, Select, Size, Slice, Text, Values,
+    text,
 };
 use std::io::Write;
 
@@ -37,12 +38,12 @@ fn threads() -> Result<Drawing, Error> {
     let trunk = || Select::new().attribute("forks", 0_u32);
     let forked = threads
         .without(trunk())
-        .slice(0.0, &growth)
-        .tapered_outline(3.0, TAPER, 0.01);
+        .slice(0.0, &growth, Slice::new())
+        .outline(3.0, Outline::new().profile(TAPER));
     let trunks = threads
         .only(trunk())
-        .slice(0.0, &growth)
-        .tapered_outline(6.0, TAPER, 0.01);
+        .slice(0.0, &growth, Slice::new())
+        .outline(6.0, Outline::new().profile(TAPER));
     Ok(Drawing::new([
         Path::rect(0.0, 0.0, WIDTH, HEIGHT, 0.0)?.fill(Color::hex(0xf2_c2_30)),
         Drawing::new([letter, forked, trunks]).fill(Color::hex(0x14_14_14)),

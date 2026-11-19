@@ -2,7 +2,7 @@
 //! back), hand-worked coordinates for the transforms, and hand-written documents for ids and groups.
 
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Color, Drawing, Error, Paint, Path, Point, Select, Shape, Size, Stroke, Values};
+use bullterrier_vector::{Color, Drawing, Error, Merge, Paint, Path, Point, Select, Shape, Size, Stroke, Values};
 
 const OPEN: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">"#;
 
@@ -180,7 +180,7 @@ fn split_and_merge_keep_the_ids() -> Outcome {
         .shapes(&Values::new())?;
     assert_eq!(pair.len(), 2);
     assert_eq!(pair[0].attributes().group(), Some("two"));
-    let merged = split.merge_by("id").shapes(&Values::new())?;
+    let merged = split.merge(Merge::new().by("id")).shapes(&Values::new())?;
     let ids: Vec<_> = merged
         .iter()
         .map(|shape| shape.attributes().id().map(str::to_owned))

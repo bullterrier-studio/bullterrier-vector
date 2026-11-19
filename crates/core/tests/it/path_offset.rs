@@ -144,6 +144,7 @@ fn spike_tip(limit: f64, outlined: bool) -> Result<f64, Error> {
             Cap::Butt,
             limit,
             TOLERANCE,
+            None,
         )?
     } else {
         polygons_path(&[vec![(0.0, 0.0), (100.0, -half), (100.0, half)]])?.offset(1.0, Join::Miter, limit, TOLERANCE)?
@@ -211,8 +212,8 @@ fn the_tolerance_sets_how_many_edges_a_round_join_and_cap_become() -> Outcome {
     );
     assert!(fine > 4 * coarse, "offset: {fine} edges at 0.01 against {coarse} at 2");
     let (fine, coarse) = (
-        edges(&line.outline(20.0, Join::Round, Cap::Round, LIMIT, 0.01)?),
-        edges(&line.outline(20.0, Join::Round, Cap::Round, LIMIT, 2.0)?),
+        edges(&line.outline(20.0, Join::Round, Cap::Round, LIMIT, 0.01, None)?),
+        edges(&line.outline(20.0, Join::Round, Cap::Round, LIMIT, 2.0, None)?),
     );
     assert!(
         fine > 4 * coarse,
@@ -220,8 +221,8 @@ fn the_tolerance_sets_how_many_edges_a_round_join_and_cap_become() -> Outcome {
     );
     let bend = Path::from_svg_path("M0 0 L40 0 L40 40")?;
     let (fine, coarse) = (
-        edges(&bend.outline(20.0, Join::Round, Cap::Butt, LIMIT, 0.01)?),
-        edges(&bend.outline(20.0, Join::Round, Cap::Butt, LIMIT, 2.0)?),
+        edges(&bend.outline(20.0, Join::Round, Cap::Butt, LIMIT, 0.01, None)?),
+        edges(&bend.outline(20.0, Join::Round, Cap::Butt, LIMIT, 2.0, None)?),
     );
     assert!(
         fine > 2 * coarse,
@@ -437,10 +438,13 @@ fn the_same_call_twice_writes_the_same_path_data() -> Outcome {
             path.offset(1.5, join, LIMIT, TOLERANCE)?.to_svg_path(),
             "offset, {join:?}"
         );
-        let once = line.outline(3.0, join, Cap::Round, LIMIT, TOLERANCE)?.to_svg_path();
+        let once = line
+            .outline(3.0, join, Cap::Round, LIMIT, TOLERANCE, None)?
+            .to_svg_path();
         assert_eq!(
             once,
-            line.outline(3.0, join, Cap::Round, LIMIT, TOLERANCE)?.to_svg_path(),
+            line.outline(3.0, join, Cap::Round, LIMIT, TOLERANCE, None)?
+                .to_svg_path(),
             "outline, {join:?}"
         );
     }
@@ -464,7 +468,7 @@ fn the_outline_of_a_line_is_a_bar_with_the_caps_it_is_given() -> Outcome {
         ),
     ];
     for (cap, wanted, arcs, bounds) in rows {
-        let result = line.outline(4.0, Join::Round, cap, LIMIT, TOLERANCE)?;
+        let result = line.outline(4.0, Join::Round, cap, LIMIT, TOLERANCE, None)?;
         let found = area(&result)?;
         assert!(
             found <= wanted + 1e-6 && found >= wanted - arcs - 1e-6,
@@ -492,7 +496,7 @@ fn a_butt_cap_stays_square_to_the_last_edge_however_short() -> Outcome {
     let hooked = [(0.0, 0.0), (10.0, 0.0), (10.003, 0.003)];
     let backwards: Vec<(f64, f64)> = hooked.iter().rev().copied().collect();
     for (what, line) in [("end", hooked.to_vec()), ("start", backwards)] {
-        let stroked = Path::polyline(line, false)?.outline(2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE)?;
+        let stroked = Path::polyline(line, false)?.outline(2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE, None)?;
         assert!(
             stroked.contains((10.5, -0.5))?,
             "{what}: the cap is not square to the hook"
@@ -506,7 +510,7 @@ fn a_butt_cap_stays_square_to_the_last_edge_however_short() -> Outcome {
 #[test]
 fn a_line_that_doubles_back_keeps_its_far_end() -> Outcome {
     let line = Path::polyline(vec![(0.0, 0.0), (1.0, 0.0), (10.0, 0.0), (5.0, 0.0), (4.0, 0.0)], false)?;
-    let stroked = line.outline(2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE)?;
+    let stroked = line.outline(2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE, None)?;
     assert_extent(&stroked, (0.0, -1.0, 10.0, 1.0), 1e-6, "out and back")
 }
 
@@ -515,7 +519,7 @@ fn a_line_that_doubles_back_keeps_its_far_end() -> Outcome {
 #[test]
 fn shapes_thinner_than_the_tolerance_still_paint() -> Outcome {
     let line = Path::line((0.0, 0.0), (50.0, 0.0))?;
-    let hairline = line.outline(0.004, Join::Round, Cap::Butt, LIMIT, TOLERANCE)?;
+    let hairline = line.outline(0.004, Join::Round, Cap::Butt, LIMIT, TOLERANCE, None)?;
     assert_near(area(&hairline)?, 0.2, 1e-6, "a hairline");
     let sliver = polygons_path(&[vec![(0.0, 0.0), (10.0, 0.001), (20.0, 0.0)]])?;
     let grown = area(&sliver.offset(1.0, Join::Round, LIMIT, TOLERANCE)?)?;
@@ -557,7 +561,7 @@ fn the_outline_of_a_corner_has_the_area_its_join_leaves() -> Outcome {
         (Join::Round, 40.0 - (1.0 - PI / 4.0), 2.0 * PI * 0.5 * TOLERANCE),
     ];
     for (join, wanted, arcs) in rows {
-        let result = corner.outline(2.0, join, Cap::Butt, LIMIT, TOLERANCE)?;
+        let result = corner.outline(2.0, join, Cap::Butt, LIMIT, TOLERANCE, None)?;
         let found = area(&result)?;
         assert!(
             found <= wanted + 1e-6 && found >= wanted - arcs - 1e-6,
@@ -572,14 +576,14 @@ fn a_closed_outline_is_stroked_into_a_ring_whichever_way_it_runs() -> Outcome {
     let forward = square(10.0)?;
     let backward = polygons_path(&[corners_square(10.0).into_iter().rev().collect()])?;
     for path in [forward, backward] {
-        let result = path.outline(2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE)?;
+        let result = path.outline(2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE, None)?;
         let found = rings(&result)?;
         assert_eq!(found.len(), 2, "an outer ring and a hole");
         assert_near(net_area(&found), 12.0 * 12.0 - 8.0 * 8.0, 1e-6, "the ring");
         assert_extent(&result, (-1.0, -1.0, 11.0, 11.0), 1e-6, "the ring")?;
         assert_eq!(canonical_fault(&found), None);
     }
-    let circle = Path::circle((0.0, 0.0), 10.0)?.outline(2.0, Join::Round, Cap::Round, LIMIT, TOLERANCE)?;
+    let circle = Path::circle((0.0, 0.0), 10.0)?.outline(2.0, Join::Round, Cap::Round, LIMIT, TOLERANCE, None)?;
     // the outer and inner edge each stray from the circles by at most the tolerance
     assert_near(
         area(&circle)?,
@@ -596,7 +600,7 @@ fn the_strokes_of_separate_sub_paths_are_united() -> Outcome {
     let cross = Path::line((0.0, 5.0), (10.0, 5.0))?
         .move_to((5.0, 0.0))?
         .line_to((5.0, 10.0))?;
-    let result = cross.outline(2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE)?;
+    let result = cross.outline(2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE, None)?;
     assert_near(area(&result)?, 20.0 + 20.0 - 4.0, 1e-6, "the cross");
     assert_eq!(rings(&result)?.len(), 1);
     Ok(())
@@ -645,7 +649,8 @@ fn the_parameters_outside_what_the_verbs_accept_are_refused_by_name() -> Outcome
         ("tolerance", 1.0, LIMIT, f64::NAN),
     ];
     for (parameter, width, limit, tolerance) in outlines {
-        let (named, message) = parameter_refusal(shape.outline(width, Join::Round, Cap::Round, limit, tolerance))?;
+        let (named, message) =
+            parameter_refusal(shape.outline(width, Join::Round, Cap::Round, limit, tolerance, None))?;
         let value = match parameter {
             "width" => width,
             "miter_limit" => limit,
@@ -663,7 +668,7 @@ fn the_parameters_outside_what_the_verbs_accept_are_refused_by_name() -> Outcome
         "distance"
     );
     assert_eq!(
-        parameter_refusal(Path::new().outline(0.0, Join::Round, Cap::Butt, LIMIT, TOLERANCE))?.0,
+        parameter_refusal(Path::new().outline(0.0, Join::Round, Cap::Butt, LIMIT, TOLERANCE, None))?.0,
         "width"
     );
     // a miter limit of exactly 1 is the least allowed
@@ -681,7 +686,7 @@ fn a_shape_near_the_limit_of_the_numbers_is_grown_refused_or_gone() -> Outcome {
         assert_extent(&grown, (-9e99, -9e99, 9e99, 9e99), 1e84, &format!("{join:?}"))?;
         parameter_refusal(big.offset(9.5e99, join, LIMIT, TOLERANCE))?;
         assert_eq!(big.offset(-2e99, join, LIMIT, TOLERANCE)?, Path::new(), "{join:?}");
-        let stroked = big.outline(1e99, join, Cap::Square, LIMIT, TOLERANCE)?;
+        let stroked = big.outline(1e99, join, Cap::Square, LIMIT, TOLERANCE, None)?;
         assert_extent(&stroked, (-1.5e99, -1.5e99, 1.5e99, 1.5e99), 1e84, &format!("{join:?}"))?;
     }
     Ok(())
@@ -766,11 +771,11 @@ fn glyphs_of_both_bundled_fonts_survive_offsets_and_outlines() -> Outcome {
                     ("bevel in", path.offset(-3.0, Join::Bevel, LIMIT, TOLERANCE)?),
                     (
                         "miter stroke",
-                        path.outline(6.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE)?,
+                        path.outline(6.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE, None)?,
                     ),
                     (
                         "round stroke",
-                        path.outline(6.0, Join::Round, Cap::Round, LIMIT, TOLERANCE)?,
+                        path.outline(6.0, Join::Round, Cap::Round, LIMIT, TOLERANCE, None)?,
                     ),
                 ];
                 for (what, result) in &results {
@@ -867,14 +872,10 @@ fn the_outline_of_an_outline_keeps_the_points_of_each_ring() -> Outcome {
         let share = points(path)? as f64 / found.len() as f64;
         Ok(share)
     };
-    let first = Path::circle((0.0, 0.0), 100.0)?.outline(3.0, Join::Round, Cap::Round, LIMIT, TOLERANCE)?;
-    let second = first.outline(1.0, Join::Round, Cap::Round, LIMIT, TOLERANCE)?.outline(
-        0.3,
-        Join::Round,
-        Cap::Round,
-        LIMIT,
-        TOLERANCE,
-    )?;
+    let first = Path::circle((0.0, 0.0), 100.0)?.outline(3.0, Join::Round, Cap::Round, LIMIT, TOLERANCE, None)?;
+    let second = first
+        .outline(1.0, Join::Round, Cap::Round, LIMIT, TOLERANCE, None)?
+        .outline(0.3, Join::Round, Cap::Round, LIMIT, TOLERANCE, None)?;
     assert_eq!((rings(&first)?.len(), rings(&second)?.len()), (2, 8));
     let (before, after) = (average(&first)?, average(&second)?);
     assert!(after <= 1.5 * before, "{before} points a ring, then {after}");
@@ -981,7 +982,7 @@ fn thin_offsets_and_outlines_of_random_scribbles_are_canonical() -> Outcome {
         let results = [
             (
                 "outline",
-                path.outline(width, Join::Round, Cap::Round, LIMIT, TOLERANCE)?,
+                path.outline(width, Join::Round, Cap::Round, LIMIT, TOLERANCE, None)?,
             ),
             ("grown", path.offset(width, Join::Round, LIMIT, TOLERANCE)?),
             ("shrunk", path.offset(-width, Join::Round, LIMIT, TOLERANCE)?),

@@ -1,14 +1,14 @@
 //! `stroke(profile=)`: a stroke whose width follows a profile along each sub-path, drawn as a filled outline by the SVG,
-//! the pixels and the mesh alike. The oracles: the region `Path::tapered_outline` paints (proven in `path_taper`) by its
-//! area and a point test, a second renderer (`resvg`) for the SVG, and what a plain round stroke paints at the same
-//! places (a pixel at a zero-factor tip is background, where a plain stroke covers it).
+//! the pixels and the mesh alike. The oracles: the region `Path::outline` with that profile paints (proven in
+//! `path_taper`) by its area and a point test, a second renderer (`resvg`) for the SVG, and what a plain round stroke
+//! paints at the same places (a pixel at a zero-factor tip is background, where a plain stroke covers it).
 
 use crate::common::mesh::{area, covering, mesh_of, triangles};
 use crate::common::pixels::render;
 use crate::common::svg_oracle::{body, element, svg_agrees};
 use crate::common::{Outcome, format_refusal, net_area, parameter_refusal, rings};
 use bullterrier_vector::{
-    Blend, Color, Drawing, Expr, Font, Inputs, Join, Param, Path, Shadow, Size, Stroke, Text, Values, text,
+    Blend, Cap, Color, Drawing, Expr, Font, Inputs, Join, Param, Path, Shadow, Size, Slice, Stroke, Text, Values, text,
 };
 
 const BLACK: Color = Color::hex(0);
@@ -28,7 +28,7 @@ fn brush() -> Result<Drawing, bullterrier_vector::Error> {
 }
 
 fn region() -> Result<Path, bullterrier_vector::Error> {
-    line()?.tapered_outline(20.0, &TAPER, TOLERANCE)
+    line()?.outline(20.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&TAPER[..]))
 }
 
 // The pixels --------------------------------------------------------------------------------------------------------
@@ -92,7 +92,7 @@ fn the_fill_is_below_the_stroke_and_a_hole_of_a_letter_stays_open() -> Outcome {
 #[test]
 fn a_sliced_path_tapers_at_the_cut_whichever_step_comes_first() -> Outcome {
     let before = Drawing::from(line()?.slice(0.0, 0.5, None)?).stroke(Stroke::new(BLACK).width(20.0).profile(TAPER));
-    let after = brush()?.slice(0.0, 0.5);
+    let after = brush()?.slice(0.0, 0.5, Slice::new());
     let (a, b) = (render(&before, 100, 100)?, render(&after, 100, 100)?);
     assert_eq!(a.bytes, b.bytes);
     // the tip is where the path now ends, at x = 50; the unsliced stroke is widest there

@@ -1204,7 +1204,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   survives — a rotated start would change what `slice` and `dash` measure from.* The flattened edges are charged to
   `MAX_SEGMENTS` as `along` charges them, and the output never has more segments than that.
 
-- **Tapered outline (2026-11-16).** `Path::tapered_outline(width, &profile, tolerance)` in `path/taper.rs`, the kernel
+- **Tapered outline (2026-11-16).** `Path::outline(.., Some(profile))`, the kernel in `path/taper.rs` that
   `stroke(profile=)` calls; `outline(profile=)` is its Path and Drawing form. Built from the center line the measured
   walk gives, cut at the profile's stops so the radius is linear on each straight piece, and the union (one `i_overlay`
   run, via `offset.rs`) of the convex hulls of consecutive end discs, whose corners are on the circles: exactly the sweep
@@ -1221,7 +1221,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   union, so the larger shows) — a taper to 0 on a ring pinches it at its top (a brush stroke closing on itself), equal end factors give a
   seamless ring; cost if wrong: a ring that should have no seam shows a step unless the profile's ends are equal.*
   *Ruling: joins and caps are round, so `join` and `cap` other than `"round"` with a profile are a `ParameterError`
-  naming the argument (the verb check, the core's `require_round_stroke` for Python), and `miter_limit` is unused — the
+  naming the argument (the verb check, and `Path::outline`'s), and `miter_limit` is unused — the
   width changes the sweep of a disc; a mitre or square end of a changing width has no single definition; cost if wrong:
   a mitred taper needs a different kernel.*
   *Ruling: the center line is the walk of `length` (0.01 flattening), `tolerance` bounds the discs' polygons — one
@@ -2211,3 +2211,12 @@ Why not an existing call:
   leftmost of a tie). `slice`, `dash` and `point_at` cut at positions, so they take `near` to move the start where the
   top jumps; `resample`'s corners are evenly spaced whatever the start, and nothing needs a nonstandard start of its
   samples, so it takes none.
+- **Why one Rust method per step, its options in one value, and not `slice_near`, `dash_near`, `merge_by` or
+  `tapered_outline`.** Those were second names for `slice(near=)`, `dash(near=)`, `merge(by=)` and
+  `outline(profile=)`: two spellings of one step, and Rust names Python and the documents lack. A `Drawing` step now
+  takes its required arguments in place and its options last as one value named after it (`Slice`, `Dash`, `Merge`,
+  `Outline`, as `Along` and `Envelope` already did), `new()` alone the defaults the registry states; `near` and
+  `profile` are then the same setters as on `Along` and `Stroke`. Not a positional `Option` as on `Path`: that would
+  spell `near` and `profile` a second way on `Drawing` steps, and `None` for a generic profile needs a type. A `Path`
+  verb keeps plain positional arguments, `None` for the default (`Path::outline(.., Some(profile))`). Cost: a plain
+  `slice` in Rust writes `Slice::new()`.

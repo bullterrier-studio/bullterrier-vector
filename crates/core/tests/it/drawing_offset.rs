@@ -5,8 +5,8 @@
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, format_refusal, net_area, parameter_refusal, rings};
 use bullterrier_vector::{
-    Cap, Color, Drawing, Error, Expr, Inputs, Join, Param, Path, Shape, Size, Stroke, Values, by_index, drawing_schema,
-    text, verbs,
+    Cap, Color, Drawing, Error, Expr, Inputs, Join, Outline, Param, Path, Shape, Size, Stroke, Values, by_index,
+    drawing_schema, text, verbs,
 };
 use std::f64::consts::PI;
 
@@ -87,7 +87,16 @@ fn a_distance_for_each_shape_gives_every_shape_its_own_edge() -> Outcome {
     assert_extent(&grown[0], [-1.0, -1.0, 11.0, 11.0], "first, 1")?;
     assert_extent(&grown[1], [28.0, -2.0, 42.0, 12.0], "middle, 2")?;
     assert_extent(&grown[2], [57.0, -3.0, 73.0, 13.0], "last, 3")?;
-    let widths = drawn(&drawing.outline(by_index(2.0, 6.0), Join::Miter, Cap::Butt, LIMIT, TOLERANCE))?;
+    let widths = drawn(
+        &drawing.outline(
+            by_index(2.0, 6.0),
+            Outline::new()
+                .join(Join::Miter)
+                .cap(Cap::Butt)
+                .miter_limit(LIMIT)
+                .tolerance(TOLERANCE),
+        ),
+    )?;
     // the outline of a closed square reaches half its width out
     assert_extent(&widths[0], [-1.0, -1.0, 11.0, 11.0], "first, 2 wide")?;
     assert_extent(&widths[1], [28.0, -2.0, 42.0, 12.0], "middle, 4 wide")?;
@@ -120,7 +129,7 @@ fn outline_paints_the_region_a_stroke_covers_and_its_caps_and_joins_choose_the_e
         (Cap::Square, 56.0, "square"),
         (Cap::Round, 40.0 + 4.0 * PI, "round"),
     ] {
-        let outlined = drawn(&line.outline(4.0, Join::Round, cap, LIMIT, TOLERANCE))?;
+        let outlined = drawn(&line.outline(4.0, Outline::new().cap(cap).miter_limit(LIMIT).tolerance(TOLERANCE)))?;
         assert_near(area(&outlined[0])?, area_wanted, 0.1, name);
     }
     // two segments meeting at a right angle, 4 wide: the bodies (10 x 4 each) share a 2 x 2 box, and the outside corner
@@ -131,7 +140,16 @@ fn outline_paints_the_region_a_stroke_covers_and_its_caps_and_joins_choose_the_e
         (Join::Bevel, 2.0, "bevel"),
         (Join::Round, PI, "round"),
     ] {
-        let outlined = drawn(&bent.outline(4.0, join, Cap::Butt, LIMIT, TOLERANCE))?;
+        let outlined = drawn(
+            &bent.outline(
+                4.0,
+                Outline::new()
+                    .join(join)
+                    .cap(Cap::Butt)
+                    .miter_limit(LIMIT)
+                    .tolerance(TOLERANCE),
+            ),
+        )?;
         assert_near(area(&outlined[0])?, 76.0 + corner, 0.1, name);
     }
     Ok(())
@@ -152,7 +170,7 @@ fn each_step_keeps_the_style_attributes_and_order_of_every_shape() -> Outcome {
         ("offset", subject.offset(1.0, Join::Round, LIMIT, TOLERANCE)),
         (
             "outline",
-            subject.outline(1.0, Join::Round, Cap::Round, LIMIT, TOLERANCE),
+            subject.outline(1.0, Outline::new().miter_limit(LIMIT).tolerance(TOLERANCE)),
         ),
     ];
     for (name, step) in steps {
@@ -177,9 +195,9 @@ fn a_chain_of_steps_works_on_text_and_keeps_a_shape_for_each_glyph() -> Outcome 
     let word = text("Hi", &fraunces()?);
     let glyphs = drawn(&word)?;
     assert_eq!(glyphs.len(), 2);
-    let outlined =
-        word.offset(1.0, Join::Round, LIMIT, TOLERANCE)
-            .outline(0.5, Join::Round, Cap::Round, LIMIT, TOLERANCE);
+    let outlined = word
+        .offset(1.0, Join::Round, LIMIT, TOLERANCE)
+        .outline(0.5, Outline::new().miter_limit(LIMIT).tolerance(TOLERANCE));
     let shapes = drawn(&outlined)?;
     assert_eq!(shapes.len(), 2);
     for (shape, glyph) in shapes.iter().zip(&glyphs) {
@@ -213,19 +231,40 @@ fn a_number_the_library_refuses_leaves_the_step_with_an_error_naming_it() -> Out
         ),
         (
             "width zero",
-            base.outline(0.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE),
+            base.outline(
+                0.0,
+                Outline::new()
+                    .join(Join::Miter)
+                    .cap(Cap::Butt)
+                    .miter_limit(LIMIT)
+                    .tolerance(TOLERANCE),
+            ),
             "width",
             "0",
         ),
         (
             "width negative",
-            base.outline(-2.0, Join::Miter, Cap::Butt, LIMIT, TOLERANCE),
+            base.outline(
+                -2.0,
+                Outline::new()
+                    .join(Join::Miter)
+                    .cap(Cap::Butt)
+                    .miter_limit(LIMIT)
+                    .tolerance(TOLERANCE),
+            ),
             "width",
             "-2",
         ),
         (
             "outline limit",
-            base.outline(2.0, Join::Miter, Cap::Butt, 0.5, TOLERANCE),
+            base.outline(
+                2.0,
+                Outline::new()
+                    .join(Join::Miter)
+                    .cap(Cap::Butt)
+                    .miter_limit(0.5)
+                    .tolerance(TOLERANCE),
+            ),
             "miter_limit",
             "0.5",
         ),
@@ -247,7 +286,7 @@ fn a_width_read_from_a_param_is_refused_when_drawn_naming_the_step_and_the_shape
     let width = Param::new("width", 2.0, -5.0, 5.0)?;
     let drawing = Drawing::new([square(0.0, 10.0)?, square(30.0, 10.0)?])
         .translate(0.0, 0.0)
-        .outline(&width, Join::Round, Cap::Round, LIMIT, TOLERANCE);
+        .outline(&width, Outline::new().miter_limit(LIMIT).tolerance(TOLERANCE));
     assert_eq!(drawing.error(), None);
     let (place, message) = parameter_refusal(drawing.shapes(&Values::new().set("width", 0.0)))?;
     assert_eq!(place, "step 2 (outline).width");
@@ -264,7 +303,10 @@ fn a_step_is_charged_for_the_edges_it_flattens_and_refused_past_ten_million_segm
     let heavy = Drawing::from(Path::from_svg_path(&circles.join(" "))?);
     let steps = [
         ("offset", heavy.offset(1.0, Join::Round, LIMIT, 1.0e-6)),
-        ("outline", heavy.outline(1.0, Join::Round, Cap::Round, LIMIT, 1.0e-6)),
+        (
+            "outline",
+            heavy.outline(1.0, Outline::new().miter_limit(LIMIT).tolerance(1.0e-6)),
+        ),
     ];
     for (name, drawing) in steps {
         let (place, message) = parameter_refusal(drawing.shapes(&Values::new()))?;
@@ -283,8 +325,15 @@ fn the_steps_write_their_calls_leave_the_defaults_out_and_read_back_the_same_dra
     let drawing = Drawing::from(square(0.0, 10.0)?)
         .offset(2.0, Join::Round, LIMIT, TOLERANCE)
         .offset(by_index(1.0, 3.0), Join::Miter, 2.0, 0.05)
-        .outline(3.0, Join::Round, Cap::Round, LIMIT, TOLERANCE)
-        .outline(1.5, Join::Bevel, Cap::Square, 6.0, 0.25);
+        .outline(3.0, Outline::new().miter_limit(LIMIT).tolerance(TOLERANCE))
+        .outline(
+            1.5,
+            Outline::new()
+                .join(Join::Bevel)
+                .cap(Cap::Square)
+                .miter_limit(6.0)
+                .tolerance(0.25),
+        );
     let text = drawing.to_json()?;
     for expected in [
         r#"{"offset":{"distance":2}}"#,
@@ -415,8 +464,26 @@ fn the_miter_limit_clips_a_sharp_point_in_both_steps() -> Outcome {
     let kept = right(&thin.offset(1.0, Join::Miter, 10.0, TOLERANCE))?;
     let clipped = right(&thin.offset(1.0, Join::Miter, 2.0, TOLERANCE))?;
     assert!(kept > clipped + 1.0, "offset: {kept} against {clipped}");
-    let kept = right(&thin.outline(2.0, Join::Miter, Cap::Butt, 10.0, TOLERANCE))?;
-    let clipped = right(&thin.outline(2.0, Join::Miter, Cap::Butt, 2.0, TOLERANCE))?;
+    let kept = right(
+        &thin.outline(
+            2.0,
+            Outline::new()
+                .join(Join::Miter)
+                .cap(Cap::Butt)
+                .miter_limit(10.0)
+                .tolerance(TOLERANCE),
+        ),
+    )?;
+    let clipped = right(
+        &thin.outline(
+            2.0,
+            Outline::new()
+                .join(Join::Miter)
+                .cap(Cap::Butt)
+                .miter_limit(2.0)
+                .tolerance(TOLERANCE),
+        ),
+    )?;
     assert!(kept > clipped + 1.0, "outline: {kept} against {clipped}");
     Ok(())
 }
@@ -433,8 +500,8 @@ fn the_tolerance_sets_how_many_straight_edges_a_curve_and_a_round_join_become() 
     );
     assert!(fine > 2 * coarse, "offset: {fine} against {coarse}");
     let (fine, coarse) = (
-        edges(&disc.outline(5.0, Join::Round, Cap::Round, LIMIT, 0.01))?,
-        edges(&disc.outline(5.0, Join::Round, Cap::Round, LIMIT, 1.0))?,
+        edges(&disc.outline(5.0, Outline::new().miter_limit(LIMIT)))?,
+        edges(&disc.outline(5.0, Outline::new().miter_limit(LIMIT).tolerance(1.0)))?,
     );
     assert!(fine > 2 * coarse, "outline: {fine} against {coarse}");
     Ok(())
@@ -445,16 +512,23 @@ fn the_tolerance_sets_how_many_straight_edges_a_curve_and_a_round_join_become() 
 const TAPER: [(f64, f64); 3] = [(0.0, 0.0), (0.5, 1.0), (1.0, 0.0)];
 
 #[test]
-fn a_tapered_outline_step_is_the_path_verb_on_every_shape_with_a_width_for_each() -> Outcome {
+fn an_outline_step_with_a_profile_is_the_path_verb_on_every_shape_with_a_width_for_each() -> Outcome {
     let (long, short) = (
         Path::line((0.0, 0.0), (40.0, 0.0))?,
         Path::line((0.0, 9.0), (10.0, 9.0))?,
     );
-    let drawing = Drawing::new([long.clone(), short.clone()]).tapered_outline(by_index(6.0, 2.0), TAPER, TOLERANCE);
+    let drawing = Drawing::new([long.clone(), short.clone()])
+        .outline(by_index(6.0, 2.0), Outline::new().profile(TAPER).tolerance(TOLERANCE));
     let shapes = drawn(&drawing)?;
     assert_eq!(shapes.len(), 2);
-    assert_eq!(shapes[0].path(), &long.tapered_outline(6.0, &TAPER, TOLERANCE)?);
-    assert_eq!(shapes[1].path(), &short.tapered_outline(2.0, &TAPER, TOLERANCE)?);
+    assert_eq!(
+        shapes[0].path(),
+        &long.outline(6.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&TAPER[..]))?
+    );
+    assert_eq!(
+        shapes[1].path(),
+        &short.outline(2.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&TAPER[..]))?
+    );
     Ok(())
 }
 
@@ -462,17 +536,25 @@ fn a_tapered_outline_step_is_the_path_verb_on_every_shape_with_a_width_for_each(
 fn a_profile_that_reads_a_param_follows_the_value() -> Outcome {
     let peak = Param::new("peak", 1.0, 0.0, 1.0)?;
     let line = Path::line((0.0, 0.0), (40.0, 0.0))?;
-    let drawing = Drawing::from(line.clone()).tapered_outline(
+    let drawing = Drawing::from(line.clone()).outline(
         6.0,
-        [(Expr::from(0.0), Expr::from(0.0)), (Expr::from(1.0), Expr::from(&peak))],
-        TOLERANCE,
+        Outline::new()
+            .profile([(Expr::from(0.0), Expr::from(0.0)), (Expr::from(1.0), Expr::from(&peak))])
+            .tolerance(TOLERANCE),
     );
     let at = |value: f64| -> Result<Path, Box<dyn std::error::Error>> {
         Ok(drawing.shapes(&Values::new().set("peak", value))?[0].path().clone())
     };
     assert_eq!(
         at(0.5)?,
-        line.tapered_outline(6.0, &[(0.0, 0.0), (1.0, 0.5)], TOLERANCE)?
+        line.outline(
+            6.0,
+            Join::Round,
+            Cap::Round,
+            4.0,
+            TOLERANCE,
+            Some(&[(0.0, 0.0), (1.0, 0.5)][..])
+        )?
     );
     assert_ne!(at(0.5)?, at(1.0)?);
     Ok(())
@@ -480,7 +562,8 @@ fn a_profile_that_reads_a_param_follows_the_value() -> Outcome {
 
 #[test]
 fn the_profile_saves_as_pairs_and_loads_the_same_drawing_and_a_bad_one_is_refused_at_the_value() -> Outcome {
-    let drawing = Drawing::from(Path::line((0.0, 0.0), (40.0, 0.0))?).tapered_outline(6.0, TAPER, TOLERANCE);
+    let drawing = Drawing::from(Path::line((0.0, 0.0), (40.0, 0.0))?)
+        .outline(6.0, Outline::new().profile(TAPER).tolerance(TOLERANCE));
     let json = drawing.to_json()?;
     assert!(
         json.contains(r#"{"outline":{"profile":[[0,0],[0.5,1],[1,0]],"width":6}}"#),
@@ -508,13 +591,13 @@ fn a_profile_with_a_square_join_or_cap_or_too_many_stops_is_refused_in_the_step(
     let stops = vec![(0.5, 1.0); 1001];
     let base = Drawing::from(Path::line((0.0, 0.0), (40.0, 0.0))?);
     let error = base
-        .tapered_outline(6.0, stops, TOLERANCE)
+        .outline(6.0, Outline::new().profile(stops).tolerance(TOLERANCE))
         .error()
         .map(ToString::to_string);
     assert!(error.ok_or("no error")?.contains("profile"));
     // a position the kernel refuses comes when the drawing is drawn, naming the step
     let (place, _) = parameter_refusal(
-        base.tapered_outline(6.0, [(2.0, 1.0)], TOLERANCE)
+        base.outline(6.0, Outline::new().profile([(2.0, 1.0)]).tolerance(TOLERANCE))
             .shapes(&Values::new()),
     )?;
     assert!(place.contains("profile"), "{place}");

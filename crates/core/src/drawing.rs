@@ -21,10 +21,12 @@ mod values;
 pub use branch::Branch;
 pub use cache::Stats;
 pub(crate) use graph::Graph;
+pub use items::Merge;
+pub use offset::Outline;
 pub use place::PlaceAlong;
 pub use select::{Select, Wanted};
 pub use style::{Halftone, Shadow, Stroke, ToneGiven};
-pub use transform::{Along, Arch, Bulge, Deg, Envelope, Pivot, Rotate, ScaleBy, Twist};
+pub use transform::{Along, Arch, Bulge, Dash, Deg, Envelope, Pivot, Rotate, ScaleBy, Slice, Twist};
 
 use self::cache::Shared;
 use crate::limits::MAX_PARAMS;

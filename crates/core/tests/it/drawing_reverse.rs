@@ -2,7 +2,7 @@
 //! Expected values are by hand; the winding is measured by the shoelace sum, which does not use `reverse`.
 
 use crate::common::Outcome;
-use bullterrier_vector::{Color, Drawing, Inputs, Path, Values, text};
+use bullterrier_vector::{Color, Drawing, Inputs, Path, Slice, Values, text};
 
 fn drawn(drawing: &Drawing) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     Ok(drawing
@@ -35,9 +35,12 @@ fn an_open_line_swaps_its_ends() -> Outcome {
 #[test]
 fn reverse_then_slice_is_the_second_half_walked_backwards() -> Outcome {
     let ell = Drawing::from(Path::from_svg_path("M0 0 L10 0 L10 10")?);
-    assert_eq!(drawn(&ell.reverse().slice(0.0, 0.25))?, ["M10 10 L10 5"]);
-    assert_eq!(drawn(&ell.reverse().slice(0.0, 0.75))?, ["M10 10 L10 0 L5 0"]);
-    let half = drawn(&ell.reverse().slice(0.0, 0.5))?;
+    assert_eq!(drawn(&ell.reverse().slice(0.0, 0.25, Slice::new()))?, ["M10 10 L10 5"]);
+    assert_eq!(
+        drawn(&ell.reverse().slice(0.0, 0.75, Slice::new()))?,
+        ["M10 10 L10 0 L5 0"]
+    );
+    let half = drawn(&ell.reverse().slice(0.0, 0.5, Slice::new()))?;
     assert_eq!(half.len(), 1);
     assert!(half[0].starts_with("M10 10 L10 0"), "{half:?}");
     Ok(())

@@ -309,6 +309,59 @@ impl Along {
     }
 }
 
+/// How a [`Drawing::slice`] measures a closed outline: from its top, or from its point nearest a given one.
+/// `Slice::new()` alone measures from the top.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Slice {
+    near: Option<Pivot>,
+}
+
+impl Slice {
+    /// A slice measuring a closed outline from its top.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// This slice measuring a closed outline from its point nearest `point`, not from its top.
+    #[must_use]
+    pub fn near(mut self, point: impl Into<Pivot>) -> Self {
+        self.near = Some(point.into());
+        self
+    }
+}
+
+/// Where a [`Drawing::dash`] pattern falls: its `phase`, and from which point a closed outline is measured.
+/// `Dash::new()` alone is phase 0 from the top.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Dash {
+    phase: Option<Expr>,
+    near: Option<Pivot>,
+}
+
+impl Dash {
+    /// Dashes at phase 0, a closed outline measured from its top.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// These dashes moved `phase` cycles of the pattern forward: a number, a `Param` or an expression, read for each
+    /// shape; marching ants are `Dash::new().phase(&march)`.
+    #[must_use]
+    pub fn phase(mut self, phase: impl Into<Expr>) -> Self {
+        self.phase = Some(phase.into());
+        self
+    }
+
+    /// These dashes measuring a closed outline from its point nearest `point`, not from its top.
+    #[must_use]
+    pub fn near(mut self, point: impl Into<Pivot>) -> Self {
+        self.near = Some(point.into());
+        self
+    }
+}
+
 impl Drawing {
     /// This drawing with every shape, and its `origin` attribute, moved `dx` to the right and `dy` down, in design pixels.
     ///
@@ -371,19 +424,20 @@ impl Drawing {
     /// This drawing with every shape cut to the piece of its outline between the positions `start` and `end`
     /// (fractions 0 to 1 of its length, as [`Path::slice`] does): `slice(0, progress)` draws it on. A number, a
     /// `Param` or an expression, read for each shape, so a per-item number draws the shapes on one after another:
-    /// `text.slice(0, Stagger::new(&progress).spread(0.6))`. A closed outline is measured from its top. A shape with
-    /// nothing in it stays as it is.
+    /// `text.slice(0.0, Stagger::new(&progress).spread(0.6), Slice::new())`. A closed outline is measured from its
+    /// top, or with [`Slice::near`] from its point nearest that one. A shape with nothing in it stays as it is.
     ///
     /// A position outside 0 to 1 leaves the drawing with an [`error`](Drawing::error) naming the step
     /// (`step 2 (slice).end`); so does a number that reads a Param, when the drawing is drawn, and a `start` after
     /// the `end` of its shape.
     #[must_use]
-    pub fn slice(&self, start: impl Into<Expr>, end: impl Into<Expr>) -> Self {
+    pub fn slice(&self, start: impl Into<Expr>, end: impl Into<Expr>, options: Slice) -> Self {
         self.then(
             &transform::Slice,
             vec![
                 ("start", Given::Number(start.into())),
                 ("end", Given::Number(end.into())),
+                ("near", Pivot::given(options.near)),
             ],
         )
     }
@@ -578,53 +632,21 @@ impl Drawing {
     /// This drawing with every shape cut into the pieces a dash `pattern` (`[on, off, ...]` in design pixels) leaves, as
     /// [`Path::dash`](crate::Path::dash) does. Each number of `pattern` and the `phase` (in cycles of the pattern, which
     /// moves the dashes forward along the shape) is a number, a `Param` or an expression, read for each shape:
-    /// marching ants are `drawing.dash([10.0, 6.0], &phase)`. A closed outline is measured from its top. Each shape
-    /// keeps its style and attributes.
+    /// marching ants are `drawing.dash([10.0, 6.0], Dash::new().phase(&march))`. A closed outline is measured from
+    /// its top, or with [`Dash::near`] from its point nearest that one. Each shape keeps its style and attributes.
     ///
     /// A pattern that is empty, has more than 1,000 lengths or a length not above 0 and within 1e100 leaves the
     /// drawing with an [`error`](Drawing::error) naming the step (`step 2 (dash).pattern`), or, when it reads a Param, is
     /// refused when the drawing is drawn; so is a draw that would make more than `MAX_SEGMENTS` pieces.
     #[must_use]
-    pub fn dash<E: Into<Expr>>(&self, pattern: impl IntoIterator<Item = E>, phase: impl Into<Expr>) -> Self {
-        self.then(
-            &transform::Dash,
-            vec![
-                ("pattern", Given::Numbers(pattern.into_iter().map(Into::into).collect())),
-                ("phase", Given::Number(phase.into())),
-            ],
-        )
-    }
-
-    /// This drawing dashed as [`Drawing::dash`] does, with a closed outline measured from its point nearest `near`
-    /// instead of its top.
-    #[must_use]
-    pub fn dash_near<E: Into<Expr>>(
-        &self,
-        pattern: impl IntoIterator<Item = E>,
-        phase: impl Into<Expr>,
-        near: impl Into<Pivot>,
-    ) -> Self {
-        self.then(
-            &transform::Dash,
-            vec![
-                ("pattern", Given::Numbers(pattern.into_iter().map(Into::into).collect())),
-                ("phase", Given::Number(phase.into())),
-                ("near", Pivot::given(Some(near.into()))),
-            ],
-        )
-    }
-
-    /// This drawing sliced as [`Drawing::slice`] does, with a closed outline measured from its point nearest `near`
-    /// instead of its top.
-    #[must_use]
-    pub fn slice_near(&self, start: impl Into<Expr>, end: impl Into<Expr>, near: impl Into<Pivot>) -> Self {
-        self.then(
-            &transform::Slice,
-            vec![
-                ("start", Given::Number(start.into())),
-                ("end", Given::Number(end.into())),
-                ("near", Pivot::given(Some(near.into()))),
-            ],
-        )
+    pub fn dash<E: Into<Expr>>(&self, pattern: impl IntoIterator<Item = E>, options: Dash) -> Self {
+        let mut given = vec![
+            ("pattern", Given::Numbers(pattern.into_iter().map(Into::into).collect())),
+            ("near", Pivot::given(options.near)),
+        ];
+        if let Some(phase) = options.phase {
+            given.push(("phase", Given::Number(phase)));
+        }
+        self.then(&transform::Dash, given)
     }
 }

@@ -42,7 +42,7 @@ pub(crate) use polyline::Polyline;
 pub(crate) use radial::{STRONGEST_BULGE, STRONGEST_BULGE_RULE};
 pub(crate) use region::Region;
 pub(crate) use taper::check_profile;
-pub use taper::require_round_stroke;
+pub(crate) use taper::require_round_stroke;
 pub(crate) use transform::{rotate_point, scale_point};
 pub(crate) use write::number;
 

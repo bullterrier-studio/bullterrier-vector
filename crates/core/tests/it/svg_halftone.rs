@@ -5,7 +5,7 @@
 use crate::common::fonts::fraunces;
 use crate::common::svg_oracle::{body, dots_of, element, svg_agrees};
 use crate::common::{Outcome, Ring, net_area, parameter_refusal};
-use bullterrier_vector::{Color, Deg, Drawing, Error, Halftone, Path, Shadow, Size, Stroke, Text, Values, text};
+use bullterrier_vector::{Color, Deg, Drawing, Error, Halftone, Merge, Path, Shadow, Size, Stroke, Text, Values, text};
 use std::f64::consts::PI;
 
 const BLACK: Color = Color::hex(0x00_00_00);
@@ -409,7 +409,7 @@ fn a_frame_with_a_headline_cut_out_takes_the_screen_of_the_plain_frame() -> Outc
             "the cut-out frame",
             Drawing::from(frame.clone()).subtract(headline.clone(), 0.01),
         ),
-        ("the headline", headline.merge().resolve(0.01)),
+        ("the headline", headline.merge(Merge::new()).resolve(0.01)),
     ] {
         let region = drawing.shapes(&Values::new())?[0].path().clone();
         let edges: Vec<((f64, f64), (f64, f64))> = crate::common::rings(&region)?

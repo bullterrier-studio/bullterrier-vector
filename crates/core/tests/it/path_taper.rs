@@ -1,10 +1,10 @@
-//! `Path::tapered_outline` through the public API: the region a stroke whose width follows a profile along its length
-//! paints. The oracle is written here, independent of the library: a point is inside iff some point `c(s)` of a densely
+//! `Path::outline` with a `profile`, through the public API: the region a stroke whose width follows a profile along
+//! its length paints. The oracle is written here, independent of the library: a point is inside iff some point `c(s)` of a densely
 //! sampled center line has `|p - c(s)| <= r(s)`, with `r(s)` the profile's factor at `s / length` times half the width.
 //! Areas are computed by hand from the definition (a kite and a sector).
 
 use crate::common::{Outcome, net_area, parameter_refusal, rings};
-use bullterrier_vector::{Error, Font, Path, Text, Values, text};
+use bullterrier_vector::{Cap, Error, Font, Join, Path, Text, Values, text};
 
 const TOLERANCE: f64 = 0.01;
 /// A taper: 0 to 1 over the first 15 per cent, 1 to 0 over the last 15.
@@ -122,7 +122,7 @@ fn line(length: f64) -> Result<Path, Error> {
 #[test]
 fn example_one_a_brush_stroke_on_an_open_wavy_path_thins_to_points_at_both_ends() -> Outcome {
     let wave = Path::from_svg_path("M0 0 C30 40 70 -40 100 0")?;
-    let outline = wave.tapered_outline(12.0, &TAPER, TOLERANCE)?;
+    let outline = wave.outline(12.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&TAPER[..]))?;
     let sweep = Sweep::along(
         &cubic([(0.0, 0.0), (30.0, 40.0), (70.0, -40.0), (100.0, 0.0)]),
         false,
@@ -140,7 +140,14 @@ fn example_one_a_brush_stroke_on_an_open_wavy_path_thins_to_points_at_both_ends(
 fn example_two_each_dash_of_a_dashed_line_tapers_at_its_own_ends() -> Outcome {
     // dashes at 0..30, 40..70 and 80..100, each measured from its own start
     let dashed = line(100.0)?.dash(&[30.0, 10.0], 0.0, None)?;
-    let outline = dashed.tapered_outline(10.0, &[(0.0, 0.0), (0.5, 1.0), (1.0, 0.0)], TOLERANCE)?;
+    let outline = dashed.outline(
+        10.0,
+        Join::Round,
+        Cap::Round,
+        4.0,
+        TOLERANCE,
+        Some(&[(0.0, 0.0), (0.5, 1.0), (1.0, 0.0)][..]),
+    )?;
     // the second dash is 30 long: 0.5 along it (x = 55) it is full width, 0.5 pixel after its start it is a hair
     assert!(outline.contains((55.0, 4.0))?);
     assert!(
@@ -163,7 +170,7 @@ fn example_three_a_closed_ring_tapers_from_its_top_round_to_the_top_again() -> O
     let start = triangle.point_at(0.0, None)?;
     assert_eq!((start.x, start.y), (60.0, 20.0));
     let profile = [(0.0, 0.0), (0.5, 1.0), (1.0, 0.0)];
-    let ring = triangle.tapered_outline(6.0, &profile, TOLERANCE)?;
+    let ring = triangle.outline(6.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&profile[..]))?;
     // the seam: both ends of the profile meet at the top, where the ring pinches to a point; at the written start,
     // 140 along, the factor is 5/6 (radius 2.5); half way round it is full width
     assert!(!ring.contains((61.0, 19.0))?);
@@ -181,14 +188,8 @@ fn example_three_text_o_tapers_each_contour_at_its_own_start() -> Outcome {
     let o = letter.first().ok_or("no glyph")?.path();
     let contours = o.split().len();
     assert!(contours >= 1);
-    let tapered = o.tapered_outline(8.0, &TAPER, TOLERANCE)?;
-    let plain = o.outline(
-        8.0,
-        bullterrier_vector::Join::Round,
-        bullterrier_vector::Cap::Round,
-        4.0,
-        TOLERANCE,
-    )?;
+    let tapered = o.outline(8.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&TAPER[..]))?;
+    let plain = o.outline(8.0, Join::Round, Cap::Round, 4.0, TOLERANCE, None)?;
     // a taper paints less than the full width, and more than nothing
     let (thin, full) = (area(&tapered)?, area(&plain)?);
     assert!(thin > 0.5 * full && thin < 0.98 * full, "{thin} against {full}");
@@ -201,7 +202,14 @@ fn example_three_text_o_tapers_each_contour_at_its_own_start() -> Outcome {
 fn a_line_that_thins_to_a_point_paints_a_kite_and_the_sector_behind_it() -> Outcome {
     // a point at one end, a disc of radius r = 3 at the other, d = 5 apart (a 3-4-5 triangle): the tangent is t = 4
     // long, the kite is r t = 12, and the disc beyond it is a sector of angle pi + 2 asin(3/5)
-    let outline = line(5.0)?.tapered_outline(6.0, &[(0.0, 0.0), (1.0, 1.0)], 0.001)?;
+    let outline = line(5.0)?.outline(
+        6.0,
+        Join::Round,
+        Cap::Round,
+        4.0,
+        0.001,
+        Some(&[(0.0, 0.0), (1.0, 1.0)][..]),
+    )?;
     let wanted = 12.0 + 0.5 * 9.0 * (std::f64::consts::PI + 2.0 * 0.643_501_108_793_284_4);
     let found = area(&outline)?;
     assert!((found - wanted).abs() < 0.03, "{found} is not {wanted}");
@@ -212,12 +220,20 @@ fn a_line_that_thins_to_a_point_paints_a_kite_and_the_sector_behind_it() -> Outc
 
 #[test]
 fn a_profile_of_one_everywhere_paints_a_plain_round_capped_stroke() -> Outcome {
-    let found = area(&line(100.0)?.tapered_outline(10.0, &[(0.0, 1.0), (1.0, 1.0)], TOLERANCE)?)?;
+    let found = area(&line(100.0)?.outline(
+        10.0,
+        Join::Round,
+        Cap::Round,
+        4.0,
+        TOLERANCE,
+        Some(&[(0.0, 1.0), (1.0, 1.0)][..]),
+    )?)?;
     let wanted = 100.0 * 10.0 + std::f64::consts::PI * 25.0;
     // the corners are on the circles, so the polygon is inside by at most tolerance x the length of the arcs (31)
     assert!((found - wanted).abs() < 0.35, "{found} is not {wanted}");
     // and a single stop is the same
-    let single = area(&line(100.0)?.tapered_outline(10.0, &[(0.4, 1.0)], TOLERANCE)?)?;
+    let single =
+        area(&line(100.0)?.outline(10.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&[(0.4, 1.0)][..]))?)?;
     assert!((single - found).abs() < 1e-6, "{single} against {found}");
     Ok(())
 }
@@ -225,14 +241,15 @@ fn a_profile_of_one_everywhere_paints_a_plain_round_capped_stroke() -> Outcome {
 #[test]
 fn a_profile_of_one_everywhere_matches_the_plain_outline_of_a_curve() -> Outcome {
     let wave = Path::from_svg_path("M0 0 C30 40 70 -40 100 0")?;
-    let plain = area(&wave.outline(
+    let plain = area(&wave.outline(8.0, Join::Round, Cap::Round, 4.0, TOLERANCE, None)?)?;
+    let found = area(&wave.outline(
         8.0,
-        bullterrier_vector::Join::Round,
-        bullterrier_vector::Cap::Round,
+        Join::Round,
+        Cap::Round,
         4.0,
         TOLERANCE,
+        Some(&[(0.0, 1.0), (1.0, 1.0)][..]),
     )?)?;
-    let found = area(&wave.tapered_outline(8.0, &[(0.0, 1.0), (1.0, 1.0)], TOLERANCE)?)?;
     assert!((found - plain).abs() < 0.002 * plain, "{found} against {plain}");
     Ok(())
 }
@@ -240,7 +257,14 @@ fn a_profile_of_one_everywhere_matches_the_plain_outline_of_a_curve() -> Outcome
 #[test]
 fn the_factors_scale_the_width_and_the_end_values_hold_outside_the_listed_range() -> Outcome {
     // 0.5 times a width of 10 from x = 0 to 40, held past the first and last stop: a stadium of radius 2.5
-    let held = line(100.0)?.tapered_outline(10.0, &[(0.4, 0.5), (0.6, 0.5)], TOLERANCE)?;
+    let held = line(100.0)?.outline(
+        10.0,
+        Join::Round,
+        Cap::Round,
+        4.0,
+        TOLERANCE,
+        Some(&[(0.4, 0.5), (0.6, 0.5)][..]),
+    )?;
     let found = area(&held)?;
     let wanted = 100.0 * 5.0 + std::f64::consts::PI * 2.5 * 2.5;
     assert!((found - wanted).abs() < 0.2, "{found} is not {wanted}");
@@ -252,7 +276,14 @@ fn a_sloped_profile_holds_its_end_values_outside_the_range_and_does_not_extend_t
     // width 10 on a line of 100, factors 0.2 at 25 and 1 at 75: radius 1 up to x = 25, 1 to 5 over 50, then 5 to the end.
     // By hand: three hulls of two discs (stadium r 1 over 25, the slanted hull of discs 1 and 5 a distance 50 apart with
     // tangent t = sqrt(50^2 - 4^2) and half-angle a = asin(4 / 50), stadium r 5 over 25) less the two discs they share.
-    let outline = line(100.0)?.tapered_outline(10.0, &[(0.25, 0.2), (0.75, 1.0)], TOLERANCE)?;
+    let outline = line(100.0)?.outline(
+        10.0,
+        Join::Round,
+        Cap::Round,
+        4.0,
+        TOLERANCE,
+        Some(&[(0.25, 0.2), (0.75, 1.0)][..]),
+    )?;
     let a = libm::asin(4.0 / 50.0);
     let t = (50.0_f64 * 50.0 - 16.0).sqrt();
     let pi = std::f64::consts::PI;
@@ -268,7 +299,7 @@ fn a_sloped_profile_holds_its_end_values_outside_the_range_and_does_not_extend_t
 #[test]
 fn a_symmetric_profile_gives_a_mirror_symmetric_outline() -> Outcome {
     let profile = [(0.0, 0.2), (0.3, 1.0), (0.7, 1.0), (1.0, 0.2)];
-    let outline = line(100.0)?.tapered_outline(10.0, &profile, TOLERANCE)?;
+    let outline = line(100.0)?.outline(10.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&profile[..]))?;
     let mut x = -6.0;
     while x <= 106.0 {
         let mut y = 0.0;
@@ -293,7 +324,7 @@ fn a_symmetric_profile_gives_a_mirror_symmetric_outline() -> Outcome {
 #[test]
 fn a_step_in_the_profile_is_a_step_in_the_width() -> Outcome {
     let profile = [(0.0, 1.0), (0.5, 1.0), (0.5, 0.2), (1.0, 0.2)];
-    let outline = line(100.0)?.tapered_outline(10.0, &profile, TOLERANCE)?;
+    let outline = line(100.0)?.outline(10.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&profile[..]))?;
     assert!(outline.contains((40.0, 4.0))?);
     assert!(outline.contains((60.0, 0.9))?);
     assert!(!outline.contains((60.0, 1.3))?);
@@ -302,10 +333,16 @@ fn a_step_in_the_profile_is_a_step_in_the_width() -> Outcome {
 
 #[test]
 fn an_all_zero_profile_leaves_an_empty_path_and_a_lone_point_nothing() -> Outcome {
-    assert_eq!(line(10.0)?.tapered_outline(4.0, &[(0.0, 0.0)], TOLERANCE)?, Path::new());
-    assert_eq!(Path::new().tapered_outline(4.0, &[(0.0, 1.0)], TOLERANCE)?, Path::new());
     assert_eq!(
-        Path::from_svg_path("M3 4")?.tapered_outline(4.0, &[(0.0, 1.0)], TOLERANCE)?,
+        line(10.0)?.outline(4.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&[(0.0, 0.0)][..]))?,
+        Path::new()
+    );
+    assert_eq!(
+        Path::new().outline(4.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&[(0.0, 1.0)][..]))?,
+        Path::new()
+    );
+    assert_eq!(
+        Path::from_svg_path("M3 4")?.outline(4.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&[(0.0, 1.0)][..]))?,
         Path::new()
     );
     Ok(())
@@ -314,15 +351,12 @@ fn an_all_zero_profile_leaves_an_empty_path_and_a_lone_point_nothing() -> Outcom
 #[test]
 fn a_line_to_its_own_start_paints_nothing_as_the_plain_outline_does() -> Outcome {
     let dot = Path::line((5.0, 5.0), (5.0, 5.0))?;
-    let plain = dot.outline(
-        6.0,
-        bullterrier_vector::Join::Round,
-        bullterrier_vector::Cap::Round,
-        4.0,
-        TOLERANCE,
-    )?;
+    let plain = dot.outline(6.0, Join::Round, Cap::Round, 4.0, TOLERANCE, None)?;
     assert_eq!(plain, Path::new());
-    assert_eq!(dot.tapered_outline(6.0, &[(0.0, 1.0)], TOLERANCE)?, Path::new());
+    assert_eq!(
+        dot.outline(6.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&[(0.0, 1.0)][..]))?,
+        Path::new()
+    );
     Ok(())
 }
 
@@ -330,9 +364,16 @@ fn a_line_to_its_own_start_paints_nothing_as_the_plain_outline_does() -> Outcome
 fn positions_are_measured_along_each_sub_path_on_its_own() -> Outcome {
     // two lines of different lengths far apart: each tapers over its own length, so the whole is the two alone
     let both = Path::from_svg_path("M0 0 L100 0 M0 50 L20 50")?;
-    let found = area(&both.tapered_outline(10.0, &TAPER, TOLERANCE)?)?;
-    let alone = area(&line(100.0)?.tapered_outline(10.0, &TAPER, TOLERANCE)?)?
-        + area(&Path::line((0.0, 50.0), (20.0, 50.0))?.tapered_outline(10.0, &TAPER, TOLERANCE)?)?;
+    let found = area(&both.outline(10.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&TAPER[..]))?)?;
+    let alone = area(&line(100.0)?.outline(10.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&TAPER[..]))?)?
+        + area(&Path::line((0.0, 50.0), (20.0, 50.0))?.outline(
+            10.0,
+            Join::Round,
+            Cap::Round,
+            4.0,
+            TOLERANCE,
+            Some(&TAPER[..]),
+        )?)?;
     assert!((found - alone).abs() < 1e-6, "{found} against {alone}");
     Ok(())
 }
@@ -355,11 +396,22 @@ fn a_profile_the_rules_refuse_is_a_parameter_error_naming_it() -> Outcome {
         ("more than 1000 stops", &many),
     ];
     for (what, profile) in bad {
-        let (parameter, _) = parameter_refusal(line(10.0)?.tapered_outline(4.0, profile, TOLERANCE))?;
+        let (parameter, _) =
+            parameter_refusal(line(10.0)?.outline(4.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(profile)))?;
         assert_eq!(parameter, "profile", "{what}");
     }
     // 1000 stops are fine
-    assert!(line(10.0)?.tapered_outline(4.0, &many[..1000], TOLERANCE).is_ok());
+    assert!(
+        line(10.0)?
+            .outline(4.0, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&many[..1000]))
+            .is_ok()
+    );
+    // a stroke that varies along its length is the sweep of a round disc: no other join or cap
+    let stops = [(0.0, 1.0)];
+    for (join, cap, named) in [(Join::Miter, Cap::Round, "join"), (Join::Round, Cap::Butt, "cap")] {
+        let (parameter, _) = parameter_refusal(line(10.0)?.outline(4.0, join, cap, 4.0, TOLERANCE, Some(&stops[..])))?;
+        assert_eq!(parameter, named);
+    }
     Ok(())
 }
 
@@ -367,11 +419,13 @@ fn a_profile_the_rules_refuse_is_a_parameter_error_naming_it() -> Outcome {
 fn a_width_or_tolerance_the_rules_refuse_names_itself() -> Outcome {
     let profile = [(0.0, 1.0)];
     for width in [0.0, -1.0, f64::NAN, 1.1e100] {
-        let (parameter, _) = parameter_refusal(line(10.0)?.tapered_outline(width, &profile, TOLERANCE))?;
+        let (parameter, _) =
+            parameter_refusal(line(10.0)?.outline(width, Join::Round, Cap::Round, 4.0, TOLERANCE, Some(&profile[..])))?;
         assert_eq!(parameter, "width", "{width}");
     }
     for tolerance in [0.0, -1.0, f64::NAN, 1.1e100] {
-        let (parameter, _) = parameter_refusal(line(10.0)?.tapered_outline(4.0, &profile, tolerance))?;
+        let (parameter, _) =
+            parameter_refusal(line(10.0)?.outline(4.0, Join::Round, Cap::Round, 4.0, tolerance, Some(&profile[..])))?;
         assert_eq!(parameter, "tolerance", "{tolerance}");
     }
     Ok(())
@@ -380,11 +434,13 @@ fn a_width_or_tolerance_the_rules_refuse_names_itself() -> Outcome {
 #[test]
 fn a_huge_width_at_a_fine_tolerance_is_refused_before_anything_is_built() -> Outcome {
     // a disc of radius 5e8 within 1e-9 is about 1.4 billion corners
-    let (parameter, message) = parameter_refusal(line(10.0)?.tapered_outline(1e9, &[(0.0, 1.0)], 1e-9))?;
+    let (parameter, message) =
+        parameter_refusal(line(10.0)?.outline(1e9, Join::Round, Cap::Round, 4.0, 1e-9, Some(&[(0.0, 1.0)][..])))?;
     assert_eq!(parameter, "width");
     assert!(message.contains("MAX_SEGMENTS"), "{message}");
     // and a width that makes a coordinate past 1e100
-    let (parameter, _) = parameter_refusal(line(10.0)?.tapered_outline(1e100, &[(0.0, 1e100)], 1e98))?;
+    let (parameter, _) =
+        parameter_refusal(line(10.0)?.outline(1e100, Join::Round, Cap::Round, 4.0, 1e98, Some(&[(0.0, 1e100)][..])))?;
     assert_eq!(parameter, "width");
     Ok(())
 }

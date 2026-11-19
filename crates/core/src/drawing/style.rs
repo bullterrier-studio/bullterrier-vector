@@ -60,7 +60,7 @@ impl Stroke {
     }
 
     /// This stroke with its width `width` times the factor of `profile` at each place, as
-    /// [`Path::tapered_outline`](crate::Path::tapered_outline) has it: `(position, factor)` stops, each number a number,
+    /// [`Path::outline`](crate::Path::outline) takes it: `(position, factor)` stops, each number a number,
     /// a `Param` or an expression read for each shape. The stroke is then drawn as a filled region by every output,
     /// with round joins and ends (a miter or bevel join or a butt or square cap leaves the drawing with an
     /// [`error`](Drawing::error)). The outline is made from the path as it is when the drawing is drawn, so a later

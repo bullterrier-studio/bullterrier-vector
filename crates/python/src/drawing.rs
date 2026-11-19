@@ -278,14 +278,15 @@ impl PyDrawing {
         miter_limit: f64,
         tolerance: f64,
     ) -> PyResult<Self> {
-        let join = raised(vector::Join::parse(join))?;
-        let cap = raised(vector::Cap::parse(cap))?;
+        let mut options = vector::Outline::new()
+            .join(raised(vector::Join::parse(join))?)
+            .cap(raised(vector::Cap::parse(cap))?)
+            .miter_limit(miter_limit)
+            .tolerance(tolerance);
         if let Some(profile) = profile {
-            raised(vector::require_round_stroke(join, cap))?;
-            let stops = profile.into_iter().map(|Pair(at, factor)| (at, factor));
-            return checked(self.0.tapered_outline(width.0, stops, tolerance));
+            options = options.profile(profile.into_iter().map(|Pair(at, factor)| (at, factor)));
         }
-        checked(self.0.outline(width.0, join, cap, miter_limit, tolerance))
+        checked(self.0.outline(width.0, options))
     }
 
     /// Every shape turned into the region it covers moving `dx` to the right and `dy` down (numbers, Params or
@@ -300,10 +301,8 @@ impl PyDrawing {
     /// from its top, or from the point nearest `near`.
     #[pyo3(signature = (start, end, *, near=None))]
     fn slice(&self, start: Num, end: Num, near: Option<Pair>) -> PyResult<Self> {
-        checked(match near {
-            Some(Pair(x, y)) => self.0.slice_near(start.0, end.0, (x, y)),
-            None => self.0.slice(start.0, end.0),
-        })
+        let options = near.map_or_else(vector::Slice::new, |Pair(x, y)| vector::Slice::new().near((x, y)));
+        checked(self.0.slice(start.0, end.0, options))
     }
 
     /// Every shape cut into the pieces a dash `pattern` leaves (a list of numbers, Params or expressions, read per shape);
@@ -312,11 +311,14 @@ impl PyDrawing {
     #[pyo3(signature = (pattern, *, phase=None, near=None), text_signature = "($self, pattern, *, phase=0, near=None)")]
     fn dash(&self, pattern: Vec<Num>, phase: Option<Num>, near: Option<Pair>) -> PyResult<Self> {
         let pattern = pattern.into_iter().map(|Num(length)| length);
-        let phase = phase.map_or_else(|| vector::Expr::from(0.0), |Num(phase)| phase);
-        checked(match near {
-            Some(Pair(x, y)) => self.0.dash_near(pattern, phase, (x, y)),
-            None => self.0.dash(pattern, phase),
-        })
+        let mut options = vector::Dash::new();
+        if let Some(Num(phase)) = phase {
+            options = options.phase(phase);
+        }
+        if let Some(Pair(x, y)) = near {
+            options = options.near((x, y));
+        }
+        checked(self.0.dash(pattern, options))
     }
 
     /// Every shape as straight segments with corners `spacing` apart along it (a number, a Param or an expression, read
@@ -736,7 +738,8 @@ impl PyDrawing {
     /// united.
     #[pyo3(signature = (*, by=None))]
     fn merge(&self, by: Option<&str>) -> PyResult<Self> {
-        checked(by.map_or_else(|| self.0.merge(), |by| self.0.merge_by(by)))
+        let options = by.map_or_else(vector::Merge::new, |by| vector::Merge::new().by(by));
+        checked(self.0.merge(options))
     }
 
     /// The same drawing with these Params fixed to the numbers (or lists with a number per shape) given.

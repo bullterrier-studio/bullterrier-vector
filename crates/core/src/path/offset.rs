@@ -20,6 +20,7 @@
 
 use super::Path;
 use super::boolean::{Contour, canonical, checked_tolerance, contours, largest, overlay};
+use super::taper::require_round_stroke;
 use crate::Error;
 use crate::geometry::coordinate;
 use crate::math;
@@ -76,11 +77,41 @@ impl Path {
     /// `tolerance` hides (numbers there). An input whose every tiny corner must keep its miter is expressed with a smaller
     /// `tolerance`.
     ///
+    /// With a `profile` (`None` for none) the width is `width` times the factor of `profile` at each place.
+    /// `profile` is a list of `(position, factor)`: the position runs from 0 at the start of each sub-path to 1 at its
+    /// end, measured by arc length along that sub-path on its own (a closed one from its topmost point, as
+    /// [`Path::slice`] and [`Path::dash`] walk it), so every open sub-path tapers at its own ends, each piece of a
+    /// dashed line included. Factors are linear between stops and hold the first and last value outside them. Two
+    /// stops at one position make a step. A closed sub-path has no free ends: the profile runs once round it, and
+    /// where the end meets the start the width steps from the last factor to the first. The stroke is then the sweep
+    /// of a round disc of radius `width * factor / 2`, so `join` and `cap` must be round, `miter_limit` is unused, and
+    /// a factor of 0 at a free end closes the outline to a point. The curve is measured as [`Path::length`] measures
+    /// it (flattened to 0.01 design pixels); `tolerance` is how far the round parts stray from true circles; a
+    /// sub-path of no length paints nothing.
+    ///
     /// # Errors
     /// [`Error::Parameter`] if `width` is not a number above 0 and within ±1e100, or as [`Path::offset`] for
-    /// `miter_limit`, `tolerance` and the result.
-    pub fn outline(&self, width: f64, join: Join, cap: Cap, miter_limit: f64, tolerance: f64) -> Result<Self, Error> {
-        self.outline_charged(width, join, cap, miter_limit, tolerance, &mut |_| Ok(()))
+    /// `miter_limit`, `tolerance` and the result. With a `profile`: naming `join` or `cap` if it is not round;
+    /// naming `profile` if it is empty, has more than 1,000 stops, a position outside 0 to 1 or smaller than the one
+    /// before, or a factor not a number from 0 to 1e100; naming `width` if a radius is not within 1e100 or the
+    /// corners of the discs, over all the pieces, are more than `MAX_SEGMENTS` (10,000,000), which is checked before
+    /// any is made.
+    pub fn outline(
+        &self,
+        width: f64,
+        join: Join,
+        cap: Cap,
+        miter_limit: f64,
+        tolerance: f64,
+        profile: Option<&[(f64, f64)]>,
+    ) -> Result<Self, Error> {
+        match profile {
+            Some(profile) => {
+                require_round_stroke(join, cap)?;
+                self.tapered_outline(width, profile, tolerance)
+            }
+            None => self.outline_charged(width, join, cap, miter_limit, tolerance, &mut |_| Ok(())),
+        }
     }
 
     /// As [`Path::offset`], calling `charge` as [`Path::resolved`] does for the region, then with the number of

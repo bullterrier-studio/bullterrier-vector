@@ -76,10 +76,10 @@ pub(super) fn stroke_outline(
 /// The region a stroke with a profile paints along `center` (in design pixels), as straight-edged closed outlines the
 /// outputs fill with the stroke's paint; `None` for a stroke of one width, which the stroker draws. Every output makes it
 /// here, in design pixels and to one tolerance, so they draw the same polygon at any size; its edges are charged to
-/// `charge` as `Path::tapered_outline` charges them.
+/// `charge` as `Path::outline` charges them with a profile.
 ///
 /// # Errors
-/// What [`Path::tapered_outline`] raises.
+/// What [`Path::outline`] raises with a profile.
 pub(super) fn tapered_region(
     center: &Path,
     stroke: &StrokeStyle,

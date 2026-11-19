@@ -30,8 +30,8 @@ mod r#type;
 mod values;
 
 pub use drawing::{
-    Along, Arch, Branch, Bulge, Deg, Drawing, Envelope, Halftone, Pivot, PlaceAlong, Rotate, ScaleBy, Select, Shadow,
-    Stats, Stroke, ToneGiven, Twist, Wanted,
+    Along, Arch, Branch, Bulge, Dash, Deg, Drawing, Envelope, Halftone, Merge, Outline, Pivot, PlaceAlong, Rotate,
+    ScaleBy, Select, Shadow, Slice, Stats, Stroke, ToneGiven, Twist, Wanted,
 };
 pub use error::Error;
 pub use expr::{Expr, Random, Stagger, by_index, by_order};
@@ -43,7 +43,7 @@ pub use node::{Arg, Domain, Kind, Literal, Reads, Role, Verb};
 pub use noise::NOISE_WAVELENGTH;
 pub use output::{Mesh, Plot, PlotUnit, Size, Window};
 pub use param::{Param, Unit};
-pub use path::{Path, Spacing, require_round_stroke};
+pub use path::{Path, Spacing};
 pub use registry::verbs;
 pub use shape::{
     Attributes, Blend, Cap, Color, Gradient, GradientKind, HalftoneStyle, Join, Mark, Paint, Screen, ShadowStyle,

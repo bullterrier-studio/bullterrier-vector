@@ -21,26 +21,8 @@ use std::f64::consts::PI;
 const MAX_FACTOR: f64 = 1e100;
 
 impl Path {
-    /// The region a stroke along this path paints when its width is `width` times the factor of `profile` at each place,
-    /// as closed outlines. `profile` is a list of `(position, factor)`: the position runs from 0 at the start of each
-    /// sub-path to 1 at its end, measured by arc length along that sub-path on its own (a closed one from its topmost
-    /// point, as [`Path::slice`] and [`Path::dash`] walk it), so every open sub-path tapers at its own ends, each piece of a dashed
-    /// line included. Factors are linear between stops and hold the first and last value outside them. Two stops at
-    /// one position make a step. A closed sub-path has no free ends: the profile runs once round it, and where the
-    /// end meets the start the width steps from the last factor to the first.
-    ///
-    /// The stroke is the sweep of a round disc of radius `width * factor / 2`, so joins and caps are round, and a
-    /// factor of 0 at a free end closes the outline to a point. The curve is measured as [`Path::length`] measures it
-    /// (flattened to 0.01 design pixels); `tolerance` is how far the round parts stray from true circles. A sub-path
-    /// that is a lone move, or has no length (a line to its own start), paints nothing, as in [`Path::outline`]. The result is in canonical form and straight-edged.
-    ///
-    /// # Errors
-    /// [`Error::Parameter`] naming `profile` if it is empty, has more than 1,000 stops, a position outside 0 to 1
-    /// or smaller than the one before, or a factor not a number from 0 to 1e100; naming `width` if it is not above 0 and
-    /// within 1e100, if a radius is, or if the corners of the discs, over all the pieces, are more than `MAX_SEGMENTS`
-    /// (10,000,000), which is checked before any is made; naming `tolerance` if it is not above 0 and within 1e100;
-    /// or the result has a coordinate beyond ±1e100.
-    pub fn tapered_outline(&self, width: f64, profile: &[(f64, f64)], tolerance: f64) -> Result<Self, Error> {
+    /// The tapered outline [`Path::outline`] paints with a `profile`, its corners charged against `MAX_SEGMENTS`.
+    pub(super) fn tapered_outline(&self, width: f64, profile: &[(f64, f64)], tolerance: f64) -> Result<Self, Error> {
         self.tapered_outline_charged(width, profile, tolerance, &mut |count| {
             if count > MAX_SEGMENTS {
                 Err(Error::parameter("width", format!("MAX_SEGMENTS {MAX_SEGMENTS} passed")))
@@ -50,7 +32,7 @@ impl Path {
         })
     }
 
-    /// As [`Path::tapered_outline`], calling `charge` once with the most corners the hulls may have, before any is
+    /// As the outline of a `profile`, calling `charge` once with the most corners the hulls may have, before any is
     /// made, then as [`Path::resolved`] does for the pairs of edges and the vertices of the result.
     pub(crate) fn tapered_outline_charged(
         &self,
@@ -106,11 +88,11 @@ impl Path {
 }
 
 /// Checks that `join` and `cap` are round: a stroke that varies along its length is the sweep of a round disc, so
-/// [`Path::tapered_outline`] and a drawing's `outline` with a `profile` take no other.
+/// [`Path::outline`] and a drawing's `outline` with a `profile` take no other.
 ///
 /// # Errors
 /// [`Error::Parameter`] naming `join` or `cap` if it is not `Round`.
-pub fn require_round_stroke(join: Join, cap: Cap) -> Result<(), Error> {
+pub(crate) fn require_round_stroke(join: Join, cap: Cap) -> Result<(), Error> {
     if join != Join::Round {
         return Err(Error::parameter(
             "join",
@@ -126,10 +108,10 @@ pub fn require_round_stroke(join: Join, cap: Cap) -> Result<(), Error> {
     Ok(())
 }
 
-/// Checks a stroke's `profile` as [`Path::tapered_outline`] does, so that a step refuses it where it is read.
+/// Checks a stroke's `profile` as [`Path::outline`] does, so that a step refuses it where it is read.
 ///
 /// # Errors
-/// [`Error::Parameter`] naming `profile`, as `tapered_outline` does.
+/// [`Error::Parameter`] naming `profile`, as `outline` does.
 pub(crate) fn check_profile(stops: &[(f64, f64)]) -> Result<(), Error> {
     Profile::new(stops).map(|_| ())
 }

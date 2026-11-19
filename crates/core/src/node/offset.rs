@@ -7,7 +7,7 @@ use super::style::{number, word};
 use super::{Args, Context, Inputs, Node, choice, each_shape};
 use crate::geometry::MAX_COORDINATE;
 use crate::limits::MAX_PROFILE_STOPS;
-use crate::require_round_stroke;
+use crate::path::require_round_stroke;
 use crate::shape::{Cap, DEFAULT_MITER_LIMIT, Join};
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
 

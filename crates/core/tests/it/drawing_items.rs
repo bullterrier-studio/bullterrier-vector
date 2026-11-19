@@ -4,7 +4,7 @@
 
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, format_refusal, parameter_refusal};
-use bullterrier_vector::{Color, Drawing, Error, Inputs, Path, Point, Rect, Shape, Values, text};
+use bullterrier_vector::{Color, Drawing, Error, Inputs, Merge, Path, Point, Rect, Shape, Values, text};
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
 
@@ -182,7 +182,7 @@ fn split_of_a_path_without_attributes_adds_part_and_the_middle_as_origin() -> Ou
 
 /// `source` merged by `by`, or all of it.
 fn merged(source: &Drawing, by: Option<&str>) -> Drawing {
-    by.map_or_else(|| source.merge(), |by| source.merge_by(by))
+    by.map_or_else(|| source.merge(Merge::new()), |by| source.merge(Merge::new().by(by)))
 }
 
 /// `(by, the glyphs each shape it leaves is made of)`.
@@ -240,7 +240,7 @@ fn merge_takes_the_attributes_of_the_first_member_and_sits_where_the_first_membe
     // i H i: the two i are one shape, at the place of the first, and the H follows it
     let source = text("iHi", &fraunces()?);
     let before = drawn(&source)?;
-    let after = drawn(&source.merge_by("char"))?;
+    let after = drawn(&source.merge(Merge::new().by("char")))?;
     let seen: Vec<_> = after
         .iter()
         .map(|s| (s.attributes().char(), s.attributes().glyph(), subpaths(s)))
@@ -256,7 +256,7 @@ fn merge_takes_the_attributes_of_the_first_member_and_sits_where_the_first_membe
 fn merge_covers_what_its_members_covered() -> Outcome {
     let source = words()?;
     let before = drawn(&source)?;
-    let after = drawn(&source.merge_by("word"))?;
+    let after = drawn(&source.merge(Merge::new().by("word")))?;
     // "Hi" is the glyphs 0 and 1, "Tel" the glyphs 2 to 4
     let members: [&[usize]; 2] = [&[0, 1], &[2, 3, 4]];
     for (merged, members) in after.iter().zip(members) {
@@ -279,7 +279,7 @@ fn merge_refuses_a_name_that_is_no_attribute_and_an_attribute_no_shape_carries()
         ("level", false, "level"),
     ];
     for (by, at_call, named) in rows {
-        let drawing = source.merge_by(by);
+        let drawing = source.merge(Merge::new().by(by));
         let (name, message) = if at_call {
             parameter_refusal(Err::<(), _>(drawing.error().cloned().ok_or("no error at the call")?))?
         } else {
@@ -292,10 +292,13 @@ fn merge_refuses_a_name_that_is_no_attribute_and_an_attribute_no_shape_carries()
         );
     }
     // after a split every shape carries `part`: accepted; an empty list asks nothing
-    assert_eq!(drawn(&source.split().merge_by("part"))?.len(), 2);
-    assert_eq!(drawn(&Drawing::new(Vec::<Drawing>::new()).merge_by("part"))?.len(), 0);
+    assert_eq!(drawn(&source.split().merge(Merge::new().by("part")))?.len(), 2);
+    assert_eq!(
+        drawn(&Drawing::new(Vec::<Drawing>::new()).merge(Merge::new().by("part")))?.len(),
+        0
+    );
     // `origin` is carried by every glyph: all different, so nothing joins
-    assert_eq!(drawn(&source.merge_by("origin"))?.len(), 5);
+    assert_eq!(drawn(&source.merge(Merge::new().by("origin")))?.len(), 5);
     Ok(())
 }
 
@@ -308,7 +311,7 @@ fn shapes_that_lack_the_attribute_while_others_carry_it_are_one_group() -> Outco
         Drawing::from(square(9.0)?),
         text("i", &fraunces()?).split(),
     ]);
-    let shapes = drawn(&mixed.merge_by("part"))?;
+    let shapes = drawn(&mixed.merge(Merge::new().by("part")))?;
     let seen: Vec<_> = shapes.iter().map(|s| (s.attributes().part(), subpaths(s))).collect();
     assert_eq!(seen, vec![(None, 2), (Some(0), 1), (Some(1), 1)]);
     Ok(())
@@ -318,7 +321,7 @@ fn shapes_that_lack_the_attribute_while_others_carry_it_are_one_group() -> Outco
 fn merging_the_parts_of_each_glyph_gives_the_glyphs_back() -> Outcome {
     let source = words()?;
     let whole = drawn(&source)?;
-    let again = drawn(&source.split().merge_by("glyph"))?;
+    let again = drawn(&source.split().merge(Merge::new().by("glyph")))?;
     assert_eq!(again.len(), whole.len());
     for (again, whole) in again.iter().zip(&whole) {
         assert_eq!(subpaths(again), subpaths(whole));
@@ -344,7 +347,7 @@ proptest! {
         let whole = Drawing::from(path.clone());
         let split = drawn(&whole.split()).map_err(|e| TestCaseError::fail(e.to_string()))?;
         prop_assert_eq!(split.len(), count as usize);
-        let one = drawn(&whole.split().merge()).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let one = drawn(&whole.split().merge(Merge::new())).map_err(|e| TestCaseError::fail(e.to_string()))?;
         prop_assert_eq!(one.len(), 1);
         prop_assert_eq!(subpaths(&one[0]), count as usize);
         prop_assert_eq!(one[0].path().bounds().map_err(|e| TestCaseError::fail(e.to_string()))?, path.bounds().map_err(|e| TestCaseError::fail(e.to_string()))?);
@@ -353,7 +356,7 @@ proptest! {
 
 #[test]
 fn split_and_merge_draw_the_same_shapes_every_time() -> Outcome {
-    let build = || -> Result<Drawing, Error> { Ok(words()?.split().merge_by("word").split()) };
+    let build = || -> Result<Drawing, Error> { Ok(words()?.split().merge(Merge::new().by("word")).split()) };
     assert_eq!(drawn(&build()?)?, drawn(&build()?)?);
     Ok(())
 }
@@ -366,9 +369,9 @@ fn split_and_merge_are_written_with_their_arguments_and_read_back_to_the_same_sh
     // (the drawing, the call it writes)
     let rows = [
         (Drawing::from(two.clone()).split(), r#"{"split":{}}"#),
-        (Drawing::from(two.clone()).merge(), r#"{"merge":{}}"#),
+        (Drawing::from(two.clone()).merge(Merge::new()), r#"{"merge":{}}"#),
         (
-            Drawing::from(two.clone()).split().merge_by("part"),
+            Drawing::from(two.clone()).split().merge(Merge::new().by("part")),
             r#"{"merge":{"by":"part"}}"#,
         ),
     ];
@@ -385,7 +388,7 @@ fn split_and_merge_are_written_with_their_arguments_and_read_back_to_the_same_sh
 #[test]
 fn a_document_that_merges_by_a_name_that_is_no_attribute_is_refused() -> Outcome {
     let two = Path::from_svg_path("M0 0 L4 0 L4 4 Z M10 2 L16 2 L16 8 L10 8 Z")?;
-    let good = Drawing::from(two).split().merge_by("part").to_json()?;
+    let good = Drawing::from(two).split().merge(Merge::new().by("part")).to_json()?;
     assert!(Drawing::from_json(&good, &Inputs::new()).is_ok());
     let (_, message) = format_refusal(Drawing::from_json(
         &good.replace(r#""by":"part""#, r#""by":"nope""#),

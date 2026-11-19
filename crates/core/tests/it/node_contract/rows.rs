@@ -2,9 +2,9 @@
 
 use crate::common::fonts::fraunces;
 use bullterrier_vector::{
-    Along, Arch, Bands, Branch, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Field, Flow, Gradient, Hatch,
-    Join, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Spacing, Stipple, Text, Trace,
-    Twist, Values, text,
+    Along, Arch, Bands, Branch, Bulge, Cap, Color, Dash, Deg, Drawing, Envelope, Error, Expr, Field, Flow, Gradient,
+    Hatch, Join, Merge, Outline, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Slice,
+    Spacing, Stipple, Text, Trace, Twist, Values, text,
 };
 
 /// A drawing made of a verb with one argument set from an expression, or the reason the row has no such argument.
@@ -476,10 +476,10 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "slice",
-            sample: || Ok(square()?.slice(0.25, 0.75)),
+            sample: || Ok(square()?.slice(0.25, 0.75, Slice::new())),
             with: Some(|argument, value| match argument {
-                "start" => Ok(square()?.slice(value, 1.0)),
-                "end" => Ok(square()?.slice(0.0, value)),
+                "start" => Ok(square()?.slice(value, 1.0, Slice::new())),
+                "end" => Ok(square()?.slice(0.0, value, Slice::new())),
                 _ => Err(unknown("slice", argument)),
             }),
             ranges: &[
@@ -506,18 +506,18 @@ pub(super) fn rows() -> Vec<Row> {
                     Ok(vec![
                         (
                             "from the top",
-                            Drawing::from(path.clone()).slice(start, end),
+                            Drawing::from(path.clone()).slice(start, end, Slice::new()),
                             path.slice(start, end, None),
                         ),
                         (
                             "from the point nearest another",
-                            Drawing::from(path.clone()).slice_near(start, end, near),
+                            Drawing::from(path.clone()).slice(start, end, Slice::new().near(near)),
                             path.slice(start, end, Some(near)),
                         ),
                     ])
                 },
                 // the middle half of a line 10 long
-                by_hand: &[("M0 0 L10 0", |d| Ok(d.slice(0.25, 0.75)), "M2.5 0 L7.5 0")],
+                by_hand: &[("M0 0 L10 0", |d| Ok(d.slice(0.25, 0.75, Slice::new())), "M2.5 0 L7.5 0")],
             }),
         },
         Row {
@@ -598,10 +598,10 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "dash",
-            sample: || Ok(square()?.dash([4.0, 2.0], 0.25)),
+            sample: || Ok(square()?.dash([4.0, 2.0], Dash::new().phase(0.25))),
             with: Some(|argument, value| match argument {
-                "pattern" => Ok(square()?.dash([value], 0.0)),
-                "phase" => Ok(square()?.dash([4.0, 2.0], value)),
+                "pattern" => Ok(square()?.dash([value], Dash::new())),
+                "phase" => Ok(square()?.dash([4.0, 2.0], Dash::new().phase(value))),
                 _ => Err(unknown("dash", argument)),
             }),
             ranges: &[
@@ -623,12 +623,16 @@ pub(super) fn rows() -> Vec<Row> {
                     let phase = (a + b) % 3.0;
                     Ok(vec![(
                         "a pattern and a phase",
-                        Drawing::from(path.clone()).dash(pattern, phase),
+                        Drawing::from(path.clone()).dash(pattern, Dash::new().phase(phase)),
                         path.dash(&pattern, phase, None),
                     )])
                 },
                 // a line 16 long, dashes 4 long every 8
-                by_hand: &[("M0 0 L16 0", |d| Ok(d.dash([4.0, 4.0], 0.0)), "M0 0 L4 0 M8 0 L12 0")],
+                by_hand: &[(
+                    "M0 0 L16 0",
+                    |d| Ok(d.dash([4.0, 4.0], Dash::new())),
+                    "M0 0 L4 0 M8 0 L12 0",
+                )],
             }),
         },
         Row {
@@ -1175,7 +1179,7 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "merge",
-            sample: || Ok(Drawing::new([square()?, square()?.translate(20.0, 0.0)]).merge_by("order")),
+            sample: || Ok(Drawing::new([square()?, square()?.translate(20.0, 0.0)]).merge(Merge::new().by("order"))),
             with: None,
             ranges: &[],
             geometry: None,
@@ -1374,11 +1378,17 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "outline",
-            sample: || Ok(square()?.outline(2.0, Join::Miter, Cap::Butt, 4.0, 0.01)),
+            sample: || Ok(square()?.outline(2.0, Outline::new().join(Join::Miter).cap(Cap::Butt))),
             with: Some(|argument, value| match argument {
-                "width" => Ok(square()?.outline(value, Join::Round, Cap::Round, 4.0, 0.01)),
-                "miter_limit" => Ok(square()?.outline(1.0, Join::Miter, Cap::Butt, literal(argument, &value)?, 0.01)),
-                "tolerance" => Ok(square()?.outline(1.0, Join::Round, Cap::Round, 4.0, literal(argument, &value)?)),
+                "width" => Ok(square()?.outline(value, Outline::new())),
+                "miter_limit" => Ok(square()?.outline(
+                    1.0,
+                    Outline::new()
+                        .join(Join::Miter)
+                        .cap(Cap::Butt)
+                        .miter_limit(literal(argument, &value)?),
+                )),
+                "tolerance" => Ok(square()?.outline(1.0, Outline::new().tolerance(literal(argument, &value)?))),
                 _ => Err(unknown("outline", argument)),
             }),
             ranges: &[
@@ -1413,8 +1423,15 @@ pub(super) fn rows() -> Vec<Row> {
                         .map(|(cap, name)| {
                             (
                                 name,
-                                subject.outline(a, Join::Miter, cap, 3.0, tolerance),
-                                path.outline(a, Join::Miter, cap, 3.0, tolerance),
+                                subject.outline(
+                                    a,
+                                    Outline::new()
+                                        .join(Join::Miter)
+                                        .cap(cap)
+                                        .miter_limit(3.0)
+                                        .tolerance(tolerance),
+                                ),
+                                path.outline(a, Join::Miter, cap, 3.0, tolerance, None),
                             )
                         })
                         .collect())
@@ -1422,7 +1439,7 @@ pub(super) fn rows() -> Vec<Row> {
                 // a stroke 2 wide round the square: a ring, the outer outline clockwise, the inner one counter
                 by_hand: &[(
                     SQUARE,
-                    |d| Ok(d.outline(2.0, Join::Miter, Cap::Butt, 4.0, 0.01)),
+                    |d| Ok(d.outline(2.0, Outline::new().join(Join::Miter).cap(Cap::Butt))),
                     "M-1 -1 L11 -1 L11 11 L-1 11 Z M1 1 L1 9 L9 9 L9 1 Z",
                 )],
             }),

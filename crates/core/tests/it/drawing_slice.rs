@@ -5,7 +5,7 @@
 use crate::common::fonts::{FRAUNCES, fraunces};
 use crate::common::{Outcome, format_refusal, parameter_refusal};
 use bullterrier_vector::{
-    Color, Drawing, Error, Font, Inputs, Param, Path, Rect, Shape, Stagger, Stroke, Text, Values, by_index, text,
+    Color, Drawing, Error, Font, Inputs, Param, Path, Rect, Shape, Slice, Stagger, Stroke, Text, Values, by_index, text,
 };
 
 /// A horizontal line 80 long from x = 10, at height `y`.
@@ -38,7 +38,7 @@ fn slice_keeps_the_piece_of_a_line_between_the_two_positions() -> Outcome {
         (0.125, 0.125, 20.0, 20.0),
     ];
     for (start, end, left, right) in rows {
-        let shapes = drawn(&Drawing::from(line(0.0)?).slice(start, end))?;
+        let shapes = drawn(&Drawing::from(line(0.0)?).slice(start, end, Slice::new()))?;
         let found = bounds(&shapes[0])?;
         near(found.x, left, &format!("slice({start}, {end}) left"));
         near(found.x + found.width, right, &format!("slice({start}, {end}) right"));
@@ -50,7 +50,7 @@ fn slice_keeps_the_piece_of_a_line_between_the_two_positions() -> Outcome {
 #[test]
 fn slice_of_the_whole_of_a_line_is_the_line() -> Outcome {
     let whole = drawn(&Drawing::from(line(0.0)?))?;
-    let sliced = drawn(&Drawing::from(line(0.0)?).slice(0.0, 1.0))?;
+    let sliced = drawn(&Drawing::from(line(0.0)?).slice(0.0, 1.0, Slice::new()))?;
     assert_eq!(sliced[0].path().to_svg_path(), whole[0].path().to_svg_path());
     Ok(())
 }
@@ -58,7 +58,7 @@ fn slice_of_the_whole_of_a_line_is_the_line() -> Outcome {
 #[test]
 fn slice_keeps_the_style_and_attributes_of_the_shape() -> Outcome {
     let drawing = Drawing::from(line(0.0)?).stroke(Stroke::new(Color::hex(0x2a_5b_ff)));
-    let (before, after) = (drawn(&drawing)?, drawn(&drawing.slice(0.0, 0.5))?);
+    let (before, after) = (drawn(&drawing)?, drawn(&drawing.slice(0.0, 0.5, Slice::new()))?);
     assert_eq!(after[0].style(), before[0].style());
     assert_eq!(after[0].attributes(), before[0].attributes());
     Ok(())
@@ -69,10 +69,10 @@ fn near_chooses_where_a_closed_outline_is_measured_from() -> Outcome {
     let square = Path::from_svg_path("M0 0 L10 0 L10 10 L0 10 Z")?;
     let quarter = |drawing: Drawing| -> Result<Rect, Error> { bounds(&drawn(&drawing)?[0]) };
     // from the top, the first quarter lies along the top edge or the left edge, starting at a top corner
-    let from_top = quarter(Drawing::from(square.clone()).slice(0.0, 0.25))?;
+    let from_top = quarter(Drawing::from(square.clone()).slice(0.0, 0.25, Slice::new()))?;
     assert!(from_top.y.abs() < 1e-9, "{from_top:?}");
     // from the corner nearest (10, 10): the first quarter is a side that ends at that corner
-    let from_corner = quarter(Drawing::from(square).slice_near(0.0, 0.25, (10.0, 10.0)))?;
+    let from_corner = quarter(Drawing::from(square).slice(0.0, 0.25, Slice::new().near((10.0, 10.0))))?;
     assert!(
         from_corner.x + from_corner.width > 10.0 - 1e-9 && from_corner.y + from_corner.height > 10.0 - 1e-9,
         "{from_corner:?}"
@@ -88,7 +88,7 @@ fn near_chooses_where_a_closed_outline_is_measured_from() -> Outcome {
 
 #[test]
 fn a_shape_with_nothing_in_it_stays_and_the_list_keeps_its_numbering() -> Outcome {
-    let drawing = Drawing::new([Drawing::from(Path::new()), Drawing::from(line(0.0)?)]).slice(0.0, 0.5);
+    let drawing = Drawing::new([Drawing::from(Path::new()), Drawing::from(line(0.0)?)]).slice(0.0, 0.5, Slice::new());
     let shapes = drawn(&drawing)?;
     assert_eq!(shapes.len(), 2);
     assert_eq!(shapes[0].path().to_svg_path(), "");
@@ -104,12 +104,12 @@ fn each_shape_takes_its_own_end_from_a_per_item_number() -> Outcome {
     let widths = |drawing: &Drawing| -> Result<Vec<f64>, Error> {
         drawn(drawing)?.iter().map(|shape| Ok(bounds(shape)?.width)).collect()
     };
-    let found = widths(&lines.slice(0.0, by_index(0.0, 1.0)))?;
+    let found = widths(&lines.slice(0.0, by_index(0.0, 1.0), Slice::new()))?;
     for (found, expected) in found.iter().zip([0.0, 40.0, 80.0]) {
         near(*found, expected, "by_index(0, 1)");
     }
     // and a start per shape: 0, 1/2, 1 of an end at 1 leaves 80, 40, 0
-    let found = widths(&lines.slice(by_index(0.0, 1.0), 1.0))?;
+    let found = widths(&lines.slice(by_index(0.0, 1.0), 1.0, Slice::new()))?;
     for (found, expected) in found.iter().zip([80.0, 40.0, 0.0]) {
         near(*found, expected, "by_index(0, 1) as start");
     }
@@ -129,7 +129,7 @@ const ORDERS: [f64; 5] = [0.0, 0.25, 0.5, 0.75, 1.0];
 fn a_text_draws_on_letter_by_letter_with_a_staggered_end() -> Outcome {
     let progress = Param::new("progress", 0.0, 0.0, 1.0)?;
     let word = text("HIFIT", &fraunces()?);
-    let draw_on = word.slice(0.0, Stagger::new(&progress).spread(0.6));
+    let draw_on = word.slice(0.0, Stagger::new(&progress).spread(0.6), Slice::new());
     let whole = drawn(&word)?;
     let count = whole.len();
     assert_eq!(count, 5);
@@ -187,8 +187,8 @@ fn slice_refuses_positions_outside_0_to_1_start_after_end_and_a_near_that_is_not
     ];
     for (start, end, point, argument, accepted) in rows {
         let drawing = match point {
-            Some(point) => Drawing::from(line(0.0)?).slice_near(start, end, point),
-            None => Drawing::from(line(0.0)?).slice(start, end),
+            Some(point) => Drawing::from(line(0.0)?).slice(start, end, Slice::new().near(point)),
+            None => Drawing::from(line(0.0)?).slice(start, end, Slice::new()),
         };
         let case = format!("slice({start}, {end}, near {point:?})");
         if accepted {
@@ -208,7 +208,7 @@ fn slice_refuses_positions_outside_0_to_1_start_after_end_and_a_near_that_is_not
 #[test]
 fn a_per_item_number_past_the_range_is_refused_when_drawn_naming_the_shape() -> Outcome {
     // the third of three shapes gets 2
-    let drawing = Drawing::new([line(0.0)?, line(10.0)?, line(20.0)?]).slice(0.0, by_index(0.0, 2.0));
+    let drawing = Drawing::new([line(0.0)?, line(10.0)?, line(20.0)?]).slice(0.0, by_index(0.0, 2.0), Slice::new());
     assert_eq!(drawing.error(), None);
     let (name, message) = parameter_refusal(drawn(&drawing))?;
     assert!(
@@ -227,16 +227,19 @@ fn slice_round_trips_through_json_and_draws_the_same() -> Outcome {
     let named = Font::new(FRAUNCES)?.named("fraunces")?;
     let fonts = Inputs::new().set("fraunces", FRAUNCES);
     let drawings = [
-        (Drawing::from(line(0.0)?).slice(0.25, 0.75), Inputs::new()),
+        (Drawing::from(line(0.0)?).slice(0.25, 0.75, Slice::new()), Inputs::new()),
         (
-            Drawing::new([line(0.0)?, line(10.0)?]).slice(0.0, by_index(0.5, 1.0)),
+            Drawing::new([line(0.0)?, line(10.0)?]).slice(0.0, by_index(0.5, 1.0), Slice::new()),
             Inputs::new(),
         ),
         (
-            text("HIFIT", Text::new(&named)).slice(0.0, Stagger::new(&progress).spread(0.6)),
+            text("HIFIT", Text::new(&named)).slice(0.0, Stagger::new(&progress).spread(0.6), Slice::new()),
             fonts,
         ),
-        (Drawing::from(square).slice_near(0.1, 0.9, (10.0, 10.0)), Inputs::new()),
+        (
+            Drawing::from(square).slice(0.1, 0.9, Slice::new().near((10.0, 10.0))),
+            Inputs::new(),
+        ),
     ];
     for (drawing, inputs) in drawings {
         let document = drawing.to_json()?;
@@ -250,7 +253,7 @@ fn slice_round_trips_through_json_and_draws_the_same() -> Outcome {
 
 #[test]
 fn a_document_with_a_slice_past_the_range_is_refused_naming_the_argument() -> Outcome {
-    let good = Drawing::from(line(0.0)?).slice(0.25, 0.75).to_json()?;
+    let good = Drawing::from(line(0.0)?).slice(0.25, 0.75, Slice::new()).to_json()?;
     assert!(Drawing::from_json(&good, &Inputs::new()).is_ok());
     let (pointer, message) = format_refusal(Drawing::from_json(&good.replace("0.75", "1.5"), &Inputs::new()))?;
     assert!(
@@ -262,7 +265,7 @@ fn a_document_with_a_slice_past_the_range_is_refused_naming_the_argument() -> Ou
 
 #[test]
 fn slice_draws_the_same_bytes_every_time() -> Outcome {
-    let drawing = text("HIFIT", &fraunces()?).slice(0.0, Stagger::new(0.5).spread(0.6));
+    let drawing = text("HIFIT", &fraunces()?).slice(0.0, Stagger::new(0.5).spread(0.6), Slice::new());
     assert_eq!(drawn(&drawing)?, drawn(&drawing)?);
     assert_eq!(drawing.to_json()?, drawing.to_json()?);
     Ok(())
@@ -270,7 +273,7 @@ fn slice_draws_the_same_bytes_every_time() -> Outcome {
 
 #[test]
 fn equal_slices_built_apart_share_a_step_and_different_ones_do_not() -> Outcome {
-    let slice = |end: f64| -> Result<Drawing, Error> { Ok(Drawing::from(line(0.0)?).slice(0.0, end)) };
+    let slice = |end: f64| -> Result<Drawing, Error> { Ok(Drawing::from(line(0.0)?).slice(0.0, end, Slice::new())) };
     let same = Drawing::new([slice(0.5)?, slice(0.5)?]);
     same.shapes(&Values::new())?;
     // the path, the slice and the stack, once each
@@ -282,7 +285,7 @@ fn equal_slices_built_apart_share_a_step_and_different_ones_do_not() -> Outcome 
     near(bounds(&shapes[0])?.width, 40.0, "end 0.5");
     near(bounds(&shapes[1])?.width, 48.0, "end 0.6");
     // and the start counts too
-    let other_start = Drawing::new([slice(0.5)?, Drawing::from(line(0.0)?).slice(0.1, 0.5)]);
+    let other_start = Drawing::new([slice(0.5)?, Drawing::from(line(0.0)?).slice(0.1, 0.5, Slice::new())]);
     other_start.shapes(&Values::new())?;
     assert_eq!(other_start.stats().computed, 4);
     Ok(())

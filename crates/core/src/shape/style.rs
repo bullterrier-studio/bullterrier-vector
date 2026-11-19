@@ -267,7 +267,7 @@ impl StrokeStyle {
         self.miter_limit
     }
 
-    /// The `(position, factor)` stops the width follows along each sub-path (`Path::tapered_outline`), `None` for a
+    /// The `(position, factor)` stops the width follows along each sub-path (`Path::outline` with a profile), `None` for a
     /// stroke of one width. The stroke is then drawn as the filled region that function returns, round joins and ends.
     #[must_use]
     pub fn profile(&self) -> Option<&[(f64, f64)]> {

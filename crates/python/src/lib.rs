@@ -728,12 +728,12 @@ impl PyPath {
     ) -> PyResult<Self> {
         let join = raised(vector::Join::parse(join))?;
         let cap = raised(vector::Cap::parse(cap))?;
-        if let Some(profile) = profile {
-            raised(vector::require_round_stroke(join, cap))?;
-            let stops: Vec<(f64, f64)> = profile.iter().map(|stop| (stop.0.x, stop.0.y)).collect();
-            return Self::of(self.0.tapered_outline(width.0, &stops, tolerance.0));
-        }
-        Self::of(self.0.outline(width.0, join, cap, miter_limit.0, tolerance.0))
+        let stops: Option<Vec<(f64, f64)>> =
+            profile.map(|profile| profile.iter().map(|stop| (stop.0.x, stop.0.y)).collect());
+        Self::of(
+            self.0
+                .outline(width.0, join, cap, miter_limit.0, tolerance.0, stops.as_deref()),
+        )
     }
 
     /// The region the region this path fills covers as it moves `dx` to the right and `dy` down in a straight line, as

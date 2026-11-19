@@ -5,7 +5,7 @@
 
 use crate::common::fonts::fraunces;
 use crate::common::{Outcome, distance, geometry_refusal, parameter_refusal};
-use bullterrier_vector::{Color, Drawing, Inputs, Param, Path, PlaceAlong, Shape, Spacing, Text, Values, text};
+use bullterrier_vector::{Color, Drawing, Inputs, Param, Path, PlaceAlong, Shape, Slice, Spacing, Text, Values, text};
 
 fn line(length: f64) -> Result<Path, Box<dyn std::error::Error>> {
     Ok(Path::line((0.0, 0.0), (length, 0.0))?)
@@ -249,7 +249,7 @@ fn a_one_shape_stamp_gets_the_order_of_its_copy_so_by_order_varies_per_copy() ->
 #[test]
 fn the_origin_moves_with_the_copy_and_a_shared_origin_is_the_anchor() -> Outcome {
     // one glyph cut to its first third: `slice` leaves the origin where it was, so it is off the middle of what is left
-    let glyph = text("H", Text::new(&fraunces()?).size(100.0)).slice(0.0, 0.3);
+    let glyph = text("H", Text::new(&fraunces()?).size(100.0)).slice(0.0, 0.3, Slice::new());
     let flat = glyph.shapes(&Values::new())?;
     let origin = flat[0].attributes().origin().ok_or("a glyph has an origin")?;
     let middle = center(flat[0].path())?;

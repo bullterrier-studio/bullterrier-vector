@@ -9,7 +9,7 @@
 #[path = "it/common/mod.rs"]
 mod common;
 
-use bullterrier_vector::{Color, Drawing, Error, Param, Path, Values};
+use bullterrier_vector::{Color, Drawing, Error, Param, Path, Slice, Values};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 /// Held by the tests that draw a million shapes (2 GB each), so that two never hold theirs at once.
@@ -117,7 +117,7 @@ fn slices_are_charged_for_the_geometry_they_cut_and_refused_past_ten_million_seg
         .collect();
     let line = Path::from_svg_path(&line)?;
     let cuts: Vec<Drawing> = (0..=100)
-        .map(|cut| Drawing::from(line.clone()).slice(0.0, f64::from(cut) / 100.0))
+        .map(|cut| Drawing::from(line.clone()).slice(0.0, f64::from(cut) / 100.0, Slice::new()))
         .collect();
     let (name, message) = parameter_refusal(Drawing::new(cuts).shapes(&Values::new()))?;
     assert!(
