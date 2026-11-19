@@ -9,6 +9,7 @@ use super::doc::{Call, Doc, Ex, FieldDoc, FieldWhat, FlowDoc, FlowWhat, Value, V
 use super::read::reason;
 use super::value::pointer_token;
 use crate::expr::Op;
+use crate::field::FieldOp;
 use crate::node::{Args, Given};
 use crate::{Drawing, Error, Expr, Field, Flow, Font, Param, Path, Shape, Values, Verb};
 use std::collections::BTreeMap;
@@ -80,7 +81,7 @@ fn subject(parameter: &str) -> &str {
 /// `error` of a field's or flow's call at `call` as the error of the document, at the argument it names when the
 /// call has one of that name (`renamed` lists the arguments the document spells otherwise), else at the call.
 fn located(call: &str, error: &Error, renamed: &[(&str, &str)]) -> Error {
-    const ARGUMENTS: [&str; 14] = [
+    const ARGUMENTS: [&str; 15] = [
         "width",
         "height",
         "data",
@@ -92,6 +93,7 @@ fn located(call: &str, error: &Error, renamed: &[(&str, &str)]) -> Error {
         "wavelength",
         "phase",
         "seed",
+        "octaves",
         "flow",
         "other",
         "fraction",
@@ -244,6 +246,26 @@ impl<'a> Builder<'a> {
                     .get(name)
                     .ok_or_else(|| refuse(pointer, format!("{name:?} is not an entry of `inputs`")))?;
                 Field::map(*width, *height, bytes, *frame, Some(name))
+            }
+            FieldWhat::Noise {
+                wavelength,
+                phase,
+                seed,
+                octaves,
+            } => Field::noise(self.expr(wavelength)?, self.expr(phase)?, *seed, *octaves),
+            FieldWhat::Arithmetic { op, operands } => {
+                let fields = operands
+                    .iter()
+                    .map(|operand| self.field(operand))
+                    .collect::<Result<Vec<_>, _>>()?;
+                match (op, fields.as_slice()) {
+                    (FieldOp::Add, [a, b]) => a.add(b),
+                    (FieldOp::Mul, [a, b]) => a.mul(b),
+                    (FieldOp::Min, [a, b]) => a.min(b),
+                    (FieldOp::Max, [a, b]) => a.max(b),
+                    (_, [a, ..]) => a.abs(),
+                    (_, []) => Err(refuse(&doc.pointer, "has no operand")),
+                }
             }
         };
         made.map_err(|error| located(&doc.pointer, &error, &[]))

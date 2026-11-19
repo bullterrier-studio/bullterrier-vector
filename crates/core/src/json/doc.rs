@@ -166,19 +166,42 @@ pub(super) enum FieldWhat {
         height: usize,
         frame: Option<crate::Rect>,
     },
+    Noise {
+        wavelength: Ex,
+        phase: Ex,
+        seed: f64,
+        octaves: usize,
+    },
+    Arithmetic {
+        op: crate::field::FieldOp,
+        operands: Vec<FieldDoc>,
+    },
 }
 
 impl FieldDoc {
     pub(super) fn drawings(&self) -> Vec<&Vec<Call>> {
         match &self.what {
             FieldWhat::Distance { drawing, .. } => vec![drawing],
-            _ => Vec::new(),
+            FieldWhat::Arithmetic { operands, .. } => operands.iter().flat_map(Self::drawings).collect(),
+            FieldWhat::Constant(_) | FieldWhat::Ramp { .. } | FieldWhat::Map { .. } | FieldWhat::Noise { .. } => {
+                Vec::new()
+            }
         }
     }
 
     pub(super) fn params<'a>(&'a self, into: &mut Vec<(&'a str, &'a str)>) {
-        if let FieldWhat::Constant(ex) = &self.what {
-            ex.params(into);
+        match &self.what {
+            FieldWhat::Constant(ex) => ex.params(into),
+            FieldWhat::Noise { wavelength, phase, .. } => {
+                wavelength.params(into);
+                phase.params(into);
+            }
+            FieldWhat::Arithmetic { operands, .. } => {
+                for operand in operands {
+                    operand.params(into);
+                }
+            }
+            FieldWhat::Ramp { .. } | FieldWhat::Distance { .. } | FieldWhat::Map { .. } => {}
         }
     }
 }

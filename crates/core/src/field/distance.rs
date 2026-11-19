@@ -1,6 +1,8 @@
 //! `Field`: a number at every point.
 
+use super::arithmetic::{Op, sizes};
 use super::map::MapData;
+use super::octaves::{NOISE_READ, Octaves};
 use super::outline::Outline;
 use super::{Shapes, once, read, segment_budget};
 use crate::geometry::{Point, Rect, coordinate_point};
@@ -19,9 +21,25 @@ pub(crate) const MAX_READ_WORK: f64 = 2e8;
 #[derive(Debug, Clone)]
 pub(crate) enum FieldKind {
     Constant(Expr),
-    Ramp { start: Point, end: Point },
-    Distance { drawing: Drawing, normalized: bool },
+    Ramp {
+        start: Point,
+        end: Point,
+    },
+    Distance {
+        drawing: Drawing,
+        normalized: bool,
+    },
     Map(Arc<MapData>),
+    Noise {
+        wavelength: Expr,
+        phase: Expr,
+        seed: f64,
+        octaves: usize,
+    },
+    Arithmetic {
+        op: Op,
+        operands: Arc<[Field]>,
+    },
 }
 
 /// What reads a field at a point: the made field, with its numbers worked out and its drawings drawn.
@@ -31,15 +49,21 @@ enum Bound {
     Ramp { start: Point, end: Point },
     Distance { parts: Arc<Parts>, normalized: bool },
     Map(Arc<MapData>),
+    Noise(Octaves),
+    Arithmetic { op: Op, operands: Arc<[Field]> },
 }
 
-/// A number at every point: a constant, a ramp along a line, the distance to a drawing's outline, or a grayscale
-/// map. A value, built once and cheap to clone; `at` reads it, with any Param at its default. Tones for
+/// A number at every point: a constant, a ramp along a line, the distance to a drawing's outline, a grayscale map,
+/// smooth seeded noise, or arithmetic on fields (`add`, `mul`, `min`, `max`, `abs`). A value, built once and cheap to clone; `at` reads it, with any Param at its default. Tones for
 /// [`Hatch`](crate::Hatch) come from one, and a `hatch` step reads it again with the values it draws with.
 #[derive(Debug, Clone)]
 pub struct Field {
     kind: FieldKind,
     bound: Bound,
+    /// Levels of arithmetic below: 0 for a leaf.
+    pub(super) depth: usize,
+    /// The nodes a read visits, a shared operand counted each time it is reached.
+    pub(super) nodes: usize,
 }
 
 impl Field {
@@ -83,7 +107,7 @@ impl Field {
     }
 
     /// The field `kind` says, with its Params at their defaults.
-    fn made(kind: &FieldKind) -> Result<Self, Error> {
+    pub(super) fn made(kind: &FieldKind) -> Result<Self, Error> {
         Self::build(kind, &Values::new(), &mut Shapes::Defaults)
     }
 
@@ -105,10 +129,34 @@ impl Field {
                 }
             }
             FieldKind::Map(map) => Bound::Map(Arc::clone(map)),
+            FieldKind::Noise {
+                wavelength,
+                phase,
+                seed,
+                octaves,
+            } => Bound::Noise(Octaves::new(
+                read("wavelength", wavelength, env)?,
+                read("phase", phase, env)?,
+                *seed,
+                *octaves,
+            )?),
+            FieldKind::Arithmetic { op, operands } => Bound::Arithmetic {
+                op: *op,
+                operands: operands
+                    .iter()
+                    .map(|operand| operand.bind(env, shapes))
+                    .collect::<Result<_, _>>()?,
+            },
+        };
+        let (depth, nodes) = match kind {
+            FieldKind::Arithmetic { operands, .. } => sizes(operands),
+            _ => (0, 1),
         };
         Ok(Self {
             kind: kind.clone(),
             bound,
+            depth,
+            nodes,
         })
     }
 
@@ -122,6 +170,8 @@ impl Field {
         Self {
             kind: FieldKind::Map(Arc::clone(&map)),
             bound: Bound::Map(map),
+            depth: 0,
+            nodes: 1,
         }
     }
 
@@ -133,18 +183,29 @@ impl Field {
         }
     }
 
-    /// The drawings this field reads, in order.
+    /// The drawings this field reads, in order: an arithmetic's operands left to right.
     pub(crate) fn drawings(&self) -> Vec<&Drawing> {
         match &self.kind {
             FieldKind::Distance { drawing, .. } => vec![drawing],
-            _ => Vec::new(),
+            FieldKind::Arithmetic { operands, .. } => operands.iter().flat_map(Self::drawings).collect(),
+            FieldKind::Constant(_) | FieldKind::Ramp { .. } | FieldKind::Map(_) | FieldKind::Noise { .. } => Vec::new(),
         }
     }
 
     /// Adds the Params this field reads to `into`.
     pub(crate) fn collect_params(&self, into: &mut Vec<Param>) {
-        if let FieldKind::Constant(value) = &self.kind {
-            value.collect_params(into);
+        match &self.kind {
+            FieldKind::Constant(value) => value.collect_params(into),
+            FieldKind::Noise { wavelength, phase, .. } => {
+                wavelength.collect_params(into);
+                phase.collect_params(into);
+            }
+            FieldKind::Arithmetic { operands, .. } => {
+                for operand in operands.iter() {
+                    operand.collect_params(into);
+                }
+            }
+            FieldKind::Ramp { .. } | FieldKind::Distance { .. } | FieldKind::Map(_) => {}
         }
     }
 
@@ -160,21 +221,37 @@ impl Field {
             }
             Bound::Distance { parts, normalized } => parts.at(point, *normalized),
             Bound::Map(map) => map.sample(point),
+            Bound::Noise(octaves) => octaves.at(point),
+            Bound::Arithmetic { op, operands } => {
+                let mut values = operands.iter().map(|operand| operand.at(point));
+                op.apply(values.next().unwrap_or(0.0), values.next().unwrap_or(0.0))
+            }
+        }
+    }
+
+    /// The cost of one read in units of a read of a ramp: a constant, a ramp or a map is one unit, a distance a unit
+    /// and the square root of its edges (a nearest-edge search looks at about that many; measured: 2 microseconds a read
+    /// on a headline of 400 edges, 26 on a path of 200,000), three times that when `normalized`; noise
+    /// [`NOISE_READ`] units an octave; an arithmetic one unit and its operands' (a shared operand each time it is read).
+    fn cost(&self) -> f64 {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "an edge count and the octaves are far below 2^53"
+        )]
+        match &self.bound {
+            Bound::Distance { parts, normalized } => {
+                (1.0 + (parts.whole.edge_count() as f64).sqrt()) * if *normalized { 3.0 } else { 1.0 }
+            }
+            Bound::Noise(octaves) => NOISE_READ * octaves.count() as f64,
+            Bound::Arithmetic { operands, .. } => 1.0 + operands.iter().map(Self::cost).sum::<f64>(),
+            Bound::Constant(_) | Bound::Ramp { .. } | Bound::Map(_) => 1.0,
         }
     }
 
     /// Refuses, naming `parameter` and `call`, a call that would read this field `reads` times when that is more work
-    /// than [`MAX_READ_WORK`]: a read of a constant, a ramp or a map is one unit, of a distance a unit and the square
-    /// root of its edges (a nearest-edge search looks at about that many; measured: 2 microseconds a read on a
-    /// headline of 400 edges, 26 on a path of 200,000), three times that when `normalized`.
+    /// than [`MAX_READ_WORK`], each read costing what [`Field::cost`] says.
     pub(crate) fn charge_reads(&self, parameter: &'static str, call: &str, reads: f64) -> Result<(), Error> {
-        #[expect(clippy::cast_precision_loss, reason = "an edge count is far below 2^53")]
-        let each = match &self.bound {
-            Bound::Distance { parts, normalized } => {
-                (1.0 + (parts.whole.edge_count() as f64).sqrt()) * if *normalized { 3.0 } else { 1.0 }
-            }
-            _ => 1.0,
-        };
+        let each = self.cost();
         if reads * each > MAX_READ_WORK {
             return Err(Error::parameter(
                 parameter,
@@ -229,6 +306,26 @@ impl Keyed for Field {
                 key.text(map.name.as_deref().unwrap_or(""));
                 for chunk in map.sha256.chunks(8) {
                     key.word(chunk.iter().fold(0, |word, byte| word << 8 | u64::from(*byte)));
+                }
+            }
+            FieldKind::Noise {
+                wavelength,
+                phase,
+                seed,
+                octaves,
+            } => {
+                key.word(5);
+                key.of(wavelength);
+                key.of(phase);
+                key.number(*seed);
+                key.count(*octaves);
+            }
+            FieldKind::Arithmetic { op, operands } => {
+                key.word(6);
+                key.text(op.word());
+                key.count(operands.len());
+                for operand in operands.iter() {
+                    key.of(operand);
                 }
             }
         }
@@ -463,6 +560,16 @@ impl fmt::Display for Field {
                 }
                 write!(f, "{})", if *normalized { ", normalized=True" } else { "" })
             }
+            FieldKind::Noise {
+                wavelength,
+                phase,
+                seed,
+                octaves,
+            } => write!(
+                f,
+                "Field.noise({wavelength}, phase={phase}, seed={seed}, octaves={octaves})"
+            ),
+            FieldKind::Arithmetic { op, operands } => op.write(f, operands),
         }
     }
 }

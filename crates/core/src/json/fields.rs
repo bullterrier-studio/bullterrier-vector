@@ -10,10 +10,23 @@ use super::doc::{Call, FieldDoc, FieldWhat, FlowDoc, FlowWhat};
 use super::read::{Reader, at, number_at, refuse};
 use super::value::Json;
 use super::write::Writer;
-use crate::field::{FieldKind, FlowKind};
+use crate::field::{FieldKind, FieldOp, FlowKind};
 use crate::param::is_name;
 use crate::{Error, Field, Flow, Point, Reads, Rect};
 use std::collections::BTreeMap;
+
+/// The calls that make a field.
+const FIELD_CALLS: [&str; 9] = [
+    "Field.ramp",
+    "Field.distance",
+    "Field.map",
+    "Field.noise",
+    "Field.add",
+    "Field.mul",
+    "Field.min",
+    "Field.max",
+    "Field.abs",
+];
 
 /// The one call of `json`: its word and its arguments, the arguments an object that has only `allowed`.
 fn call<'a>(
@@ -118,12 +131,14 @@ impl Reader {
                 what: FieldWhat::Constant(value),
             });
         }
-        let (word, args, here) = call(
-            pointer,
-            json,
-            &["Field.ramp", "Field.distance", "Field.map"],
-            "a number or a field",
-        )?;
+        if let Json::Object(members) = json
+            && let Some((word, operands)) = members.iter().next()
+            && members.len() == 1
+            && let Some(op) = word.strip_prefix("Field.").and_then(FieldOp::of_word)
+        {
+            return self.arithmetic(pointer, word, op, operands);
+        }
+        let (word, args, here) = call(pointer, json, &FIELD_CALLS, "a number or a field")?;
         let what = match word {
             "Field.ramp" => {
                 only(&here, args, &["start", "end"])?;
@@ -144,6 +159,8 @@ impl Reader {
                     normalized,
                 }
             }
+            "Field.noise" => self.noise(&here, args)?,
+            // the arithmetic words were read above
             _ => {
                 only(&here, args, &["width", "height", "data", "box"])?;
                 let size = |name: &str| -> Result<usize, Error> {
@@ -197,6 +214,60 @@ impl Reader {
             }
         };
         Ok(FieldDoc { pointer: here, what })
+    }
+
+    /// The arguments of `Field.noise`: `wavelength` (required), `phase`, `seed` and `octaves`.
+    fn noise(&mut self, here: &str, args: &BTreeMap<String, Json>) -> Result<FieldWhat, Error> {
+        only(here, args, &["wavelength", "phase", "seed", "octaves"])?;
+        let octaves = literal(here, args, "octaves", Some(1.0))?;
+        // a whole number from 1, which Field::noise checks against its limit
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a whole number from 1 to 2^53, checked here"
+        )]
+        let octaves = if octaves.fract() == 0.0 && (1.0..=9_007_199_254_740_991.0).contains(&octaves) {
+            octaves as usize
+        } else {
+            return Err(refuse(
+                &at(here, "octaves"),
+                format!("must be a whole number from 1, got {octaves}"),
+            ));
+        };
+        Ok(FieldWhat::Noise {
+            wavelength: self.once_arg(here, args, "wavelength", None)?,
+            phase: self.once_arg(here, args, "phase", Some(0.0))?,
+            seed: literal(here, args, "seed", Some(0.0))?,
+            octaves,
+        })
+    }
+
+    /// An arithmetic on fields: `{"Field.abs": a}`, or `{"Field.add": [a, b]}` and the rest, two operands that are not
+    /// both numbers.
+    fn arithmetic(&mut self, pointer: &str, word: &str, op: FieldOp, operands: &Json) -> Result<FieldDoc, Error> {
+        let here = at(pointer, word);
+        let operands = match (op, operands) {
+            (FieldOp::Abs, one) => vec![self.field(&here, one)?],
+            (_, Json::Array(items)) if items.len() == 2 => {
+                if items.iter().all(|item| matches!(item, Json::Number(_))) {
+                    return Err(refuse(&here, "has two numbers: write the number it makes"));
+                }
+                vec![
+                    self.field(&at(&here, "0"), &items[0])?,
+                    self.field(&at(&here, "1"), &items[1])?,
+                ]
+            }
+            _ => {
+                return Err(refuse(
+                    &here,
+                    "must be an array of two operands, each a number or a field",
+                ));
+            }
+        };
+        Ok(FieldDoc {
+            pointer: here,
+            what: FieldWhat::Arithmetic { op, operands },
+        })
     }
 
     /// The flow a document holds at `pointer`.
@@ -303,6 +374,32 @@ impl Writer<'_> {
                     ));
                 }
                 Json::object([("Field.map", Json::object(args))])
+            }
+            FieldKind::Noise {
+                wavelength,
+                phase,
+                seed,
+                octaves,
+            } => Json::object([(
+                "Field.noise",
+                Json::object([
+                    ("wavelength", self.expression(wavelength)?),
+                    ("phase", self.expression(phase)?),
+                    ("seed", Json::Number(*seed)),
+                    ("octaves", Json::Number(*octaves as f64)),
+                ]),
+            )]),
+            FieldKind::Arithmetic { op, operands } => {
+                let mut written = operands
+                    .iter()
+                    .map(|operand| self.field_json(operand, taken))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let value = if *op == FieldOp::Abs && written.len() == 1 {
+                    written.remove(0)
+                } else {
+                    Json::Array(written)
+                };
+                Json::object([(format!("Field.{}", op.word()).as_str(), value)])
             }
         })
     }

@@ -438,7 +438,40 @@ GENERATED = json.loads(drawing_schema())
 
 # The documents that the draft and the generated schema must give one verdict on, beyond GOOD, BAD and the examples:
 # each states a rule the registered calls declare and the draft was loosened or tightened to match.
+NOISE = {"Field.noise": {"wavelength": 40, "seed": 3, "octaves": 3}}
 AGREED = [
+    pytest.param(
+        square_with(
+            {"hatch": {"spacing": [3, 9], "tone": {"Field.abs": {"Field.add": [2, {"Field.mul": [14, NOISE]}]}}}}
+        ),
+        True,
+        id="arithmetic on noise as a tone",
+    ),
+    pytest.param(
+        square_with({"hatch": {"spacing": [3, 9], "tone": {"Field.min": [NOISE, NOISE]}}}),
+        True,
+        id="the smaller of two fields",
+    ),
+    pytest.param(
+        square_with({"hatch": {"spacing": [3, 9], "tone": {"Field.add": [1, 2]}}}),
+        False,
+        id="arithmetic on two numbers",
+    ),
+    pytest.param(
+        square_with({"hatch": {"spacing": [3, 9], "tone": {"Field.add": [NOISE]}}}),
+        False,
+        id="arithmetic on one operand",
+    ),
+    pytest.param(
+        square_with({"hatch": {"spacing": [3, 9], "tone": {"Field.noise": {"wavelength": 40, "octaves": 9}}}}),
+        False,
+        id="nine octaves",
+    ),
+    pytest.param(
+        square_with({"hatch": {"spacing": [3, 9], "tone": {"Field.noise": {"seed": 1}}}}),
+        False,
+        id="noise without a wavelength",
+    ),
     pytest.param(
         square_with({"translate": {"dx": {"by_index": {"first": 0, "last": 20}}, "dy": 0}}), True, id="by_index"
     ),
@@ -1015,6 +1048,12 @@ REGISTERED = {
     "Field.ramp",
     "Field.distance",
     "Field.map",
+    "Field.noise",
+    "Field.add",
+    "Field.mul",
+    "Field.min",
+    "Field.max",
+    "Field.abs",
     "Flow.angle",
     "Flow.noise",
     "Flow.contour",

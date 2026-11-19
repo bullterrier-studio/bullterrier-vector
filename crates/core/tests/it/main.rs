@@ -38,6 +38,7 @@ mod expr;
 mod field;
 mod field_contours;
 mod field_map;
+mod field_noise;
 mod field_params;
 mod flow;
 mod flow_axis;

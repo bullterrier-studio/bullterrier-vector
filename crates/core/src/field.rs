@@ -2,15 +2,18 @@
 //! hatched lines. Each is a plain value built once from literal numbers and paths, read by `at`, and saved in a
 //! document by its parts.
 
+mod arithmetic;
 mod contours;
 mod distance;
 mod flow;
 mod hatch;
 mod map;
+mod octaves;
 mod outline;
 mod seeds;
 mod sequence;
 
+pub(crate) use arithmetic::Op as FieldOp;
 pub use contours::Tidy;
 pub(crate) use contours::{Grid, MAX_SMOOTH_WORK, blur, trace as trace_level};
 pub use distance::Field;

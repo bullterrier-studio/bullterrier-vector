@@ -79,7 +79,9 @@
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
-      "propertyNames": { "enum": ["Field.ramp", "Field.distance", "Field.map"] },
+      "propertyNames": {
+        "enum": ["Field.ramp", "Field.distance", "Field.map", "Field.noise", "Field.add", "Field.mul", "Field.min", "Field.max", "Field.abs"]
+      },
       "properties": {
         "Field.ramp": {
           "type": "object",
@@ -111,9 +113,34 @@
             }
           },
           "required": ["width", "height", "data"]
-        }
+        },
+        "Field.noise": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "wavelength": { "$ref": "#/$defs/number" },
+            "phase": { "$ref": "#/$defs/number" },
+            "seed": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+            "octaves": { "type": "integer", "minimum": 1, "maximum": 8 }
+          },
+          "required": ["wavelength"]
+        },
+        "Field.add": { "$ref": "#/$defs/field_operands" },
+        "Field.mul": { "$ref": "#/$defs/field_operands" },
+        "Field.min": { "$ref": "#/$defs/field_operands" },
+        "Field.max": { "$ref": "#/$defs/field_operands" },
+        "Field.abs": { "$ref": "#/$defs/field_operand" }
       },
-      "$comment": "a number or an expression of Params is the same value everywhere; the ramp's points are literals and differ; data names an input of kind map holding width times height bytes (the loader checks both); the box has a width and a height above 0"
+      "$comment": "a number or an expression of Params is the same value everywhere; the ramp's points are literals and differ; data names an input of kind map holding width times height bytes (the loader checks both); the box has a width and a height above 0; noise's wavelength is above 0 when drawn; arithmetic nests at most 16 deep and reads at most 10,000 fields and operations (the loader checks both)"
+    },
+    "field_operand": { "anyOf": [{ "$ref": "#/$defs/number" }, { "$ref": "#/$defs/field" }] },
+    "field_operands": {
+      "type": "array",
+      "prefixItems": [{ "$ref": "#/$defs/field_operand" }, { "$ref": "#/$defs/field_operand" }],
+      "minItems": 2,
+      "items": false,
+      "not": { "prefixItems": [{ "type": "number" }, { "type": "number" }] },
+      "$comment": "two operands that are not both numbers: write the number they make"
     },
     "literal_point": {
       "type": "array",

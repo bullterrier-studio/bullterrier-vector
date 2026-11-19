@@ -2022,3 +2022,41 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
 - **Limits.** A grid is at most `MAX_GLYPHS` characters (refused before anything is drawn) and charges its shapes and the
   segments of every cell's outline to `MAX_SHAPES` and `MAX_OUTLINE_SEGMENTS` before making any. `MAX_MARKS` 10,000 boxes
   and points, each at most a few dozen shapes, with `MAX_GLYPHS` characters of labels between them.
+
+## Noise and arithmetic on fields
+
+The gap: a letter eaten at the rim (a distance field plus seeded noise) and contour rings round it needed numpy and an 8-bit
+`Field.map` (quantised to about 1.4 pixels at the range a headline needs), which Rust and the browser cannot run.
+Added: `Field.noise` and five operations on fields; `trace_levels` reads any field.
+
+Why not an existing call:
+- **`Flow.noise`** is a direction (a number turned into an angle and doubled), not a number: its value cannot be added to a
+  distance. `Field.noise` reads the same kernel (`noise.rs`, stream 0) as a number, with `Flow.noise`'s names, order and
+  units (`wavelength` in design pixels, `phase` in cycles, a whole `seed`); `octaves` is its one new argument.
+- **`wobble`** moves points of a path; it cannot change a field's value or what a contour of it encloses. It is not rewritten
+  onto `Field.noise`: it reads two streams (across and down) at one octave, and moving it would change its bytes for no
+  new ability. A general `displace` (points moved by a field) was considered and not added: nothing asked for it yet, and
+  `wobble`, `wave` and `twist` cover the deformers in use.
+- **`Flow.mix`** blends two directions in doubled-angle space; `Field.ramp`, `Field.distance`, `Field.map` make leaves, not
+  combinations. **`Field.map`, `to_map`** carry a field through 8-bit bytes: the route that quantised the look and needs
+  numpy. **`hatch(tone=)`, `trace_levels`, `Field.contours`** read a field; they cannot make a new one. No existing verb
+  combines two fields, so arithmetic is new.
+- **Five operations, no more.** `add`, `mul`, `min`, `max`, `abs`; subtraction is `add` and `mul` by -1, negation `mul` by
+  -1, clamping `min` and `max`, so none is a node (a node derivable from the others would be a second spelling in documents).
+  No division: `x / n` and `x * (1 / n)` differ in the last bit, and a field crossing 0 would need a refusal at every point.
+- **Spelling as `Expr`'s.** Python: `+`, `-`, `*` with a field or a number on either side, unary `-`, `abs()`; `Expr` has no
+  minimum or maximum, so `min` and `max` are methods, as `Flow.mix` combines two flows (`a.min(b)`). Rust: the methods `add`,
+  `mul`, `min`, `max`, `abs`, each returning a `Result` (the depth is checked where the tree is built, as `Flow::mix` does; an
+  operator returning a `Result` reads worse than a method). JavaScript: in a document. A document writes `{"Field.add": [a,
+  b]}` (`mul`, `min`, `max` alike) and `{"Field.abs": a}`: the `Field.` prefix keeps them apart from the expression words.
+  A number operand is a constant field (Params allowed, read once); two numbers are folded to one, and a number is the
+  first operand of `add` and `mul` (formats.md, canonical form), which IEEE addition and multiplication allow bit for bit.
+- **Limits reused.** A tree nests at most `MAX_MIX_DEPTH` (16, two document levels a nesting, as a mix) and reads at most
+  `MAX_EXPR_NODES` (10,000) fields and operations, so a document written from one reads back under `MAX_CALLS`.
+  `charge_reads` counts a read as the sum of its leaves' costs plus one per operation; an octave of noise is one unit
+  (measured: about 10 ns, a tenth of what a unit of `MAX_READ_WORK` stands for).
+- **Octaves.** Each halves the wavelength and the amplitude (lacunarity 2, gain 0.5), the sum divided by the sum of the
+  amplitudes. Every octave reads stream 0 at doubled coordinates, so `octaves=n` is a sum of `octaves=1` reads at doubled
+  points (the test's oracle) and one octave is the kernel to the bit. At most 8: the eighth is 1/128 of the first.
+- **`wavelength` has no default.** `Flow.noise` defaults it to 400 and `wobble` to 80: one idea with two defaults, so the
+  new call takes none.
