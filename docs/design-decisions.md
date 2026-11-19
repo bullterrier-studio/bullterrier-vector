@@ -2047,7 +2047,8 @@ Why not an existing call:
   towards another flow, never turns one; mixing with `Flow.angle` does not add an angle) or an `angle` argument on
   `contour` (one leaf only, a second spelling of a turn of the others). A node multiplying the doubled-angle vector, nested
   under `MAX_MIX_DEPTH` with the mixes and charged a unit a read as a mix is; nothing folds, as a mix of two angles does
-  not.
+  not. It shares `rotate`'s name, `angle` and sense but takes no `about`: it turns the direction at each point and moves no
+  point (a flow turned as a picture is the turn of a flow of a turned drawing).
 - **Five operations, no more.** `add`, `mul`, `min`, `max`, `abs`; subtraction is `add` and `mul` by -1, negation `mul` by
   -1, clamping `min` and `max`, so none is a node (a node derivable from the others would be a second spelling in documents).
   No division: `x / n` and `x * (1 / n)` differ in the last bit, and a field crossing 0 would need a refusal at every point.
@@ -2073,7 +2074,7 @@ Why not an existing call:
   to 6 times its cost, on the safe side). `hatch` charges the same budget: the starts of its lattice before it draws (a
   tone too slow for them is refused at once), then each start and step as it is made, at the most reads of the tone and
   the flow one costs, counted from the code (a flow costs as a field: a unit an angle or octave, a contour its
-  nearest-edge search, a unit a mix).
+  nearest-edge search, a unit a mix or a turn).
 - **Octaves.** Each halves the wavelength and the amplitude (lacunarity 2, gain 0.5), the sum divided by the sum of the
   amplitudes. Every octave reads stream 0 at doubled coordinates, so `octaves=n` is a sum of `octaves=1` reads at doubled
   points (the test's oracle) and one octave is the kernel to the bit. At most 8: the eighth is 1/128 of the first.
