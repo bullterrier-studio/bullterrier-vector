@@ -61,6 +61,8 @@ def test_a_param_in_an_operand_is_read_when_the_step_draws() -> None:
 
 def test_a_number_operand_is_written_first() -> None:
     assert repr(NOISE * 14) == "14 * Field.noise(wavelength=40, phase=0, seed=3, octaves=3)"
+    # a number subtracted is the number negated, folded: `n - 2` is `-2 + n`, as `n + (-2)` is
+    assert repr(NOISE - 2) == repr(NOISE + (-2)) == "-2 + Field.noise(wavelength=40, phase=0, seed=3, octaves=3)"
 
 
 def test_field_noise_takes_the_arguments_of_flow_noise_and_the_same_default_wavelength() -> None:

@@ -281,6 +281,16 @@ fn a_small_tree_reads_as_the_hand_computation() -> Outcome {
 fn numbers_fold_and_a_number_operand_comes_first() -> Outcome {
     let folded = number(3.0)?.add(&number(4.0)?)?.mul(&number(2.0)?)?;
     assert_eq!(folded, number(14.0)?);
+    // every operation on two numbers is the number it makes, written as one
+    for (made, want) in [
+        (number(2.0)?.mul(&number(-1.0)?)?, "-2"),
+        (number(3.0)?.add(&number(4.0)?)?, "7"),
+        (number(1.0)?.min(&number(2.0)?)?, "1"),
+        (number(1.0)?.max(&number(2.0)?)?, "2"),
+        (number(-3.0)?.abs()?, "3"),
+    ] {
+        assert_eq!(made.to_string(), want);
+    }
     let ramp = Field::ramp((0.0, 0.0), (10.0, 0.0))?;
     assert_eq!(ramp.mul(&number(14.0)?)?, number(14.0)?.mul(&ramp)?);
     assert_eq!(

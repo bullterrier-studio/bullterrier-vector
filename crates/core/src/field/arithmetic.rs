@@ -133,9 +133,10 @@ impl Field {
     fn combined(&self, op: Op, other: &Self) -> Result<Self, Error> {
         if let (FieldKind::Constant(a), FieldKind::Constant(b)) = (self.kind(), other.kind()) {
             match (op, self.number(), other.number()) {
+                // two numbers are the number they make; an operand reading a Param keeps the expression
+                (_, Some(a), Some(b)) => return Self::constant(op.apply(a, b)),
                 (Op::Add, ..) => return Self::constant(a + b),
                 (Op::Mul, ..) => return Self::constant(a * b),
-                (_, Some(a), Some(b)) => return Self::constant(op.apply(a, b)),
                 _ => {}
             }
         }
