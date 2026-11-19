@@ -1111,11 +1111,9 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
         {},
         [row("M0 -1 L10 -1 L10 1 L0 1 Z")],
     ),
-    "branch": (
-        lambda: Drawing(SQUARE).branch(40, length=3, forks=0, wander=0),
-        {},
-        [row("M7.353591640297581 0 L7.353591640297581 -3", None, BLACK)],  # up out of the top edge, 3 long
-    ),
+    # a point has no outline length, so no root and no thread (where a root stands on a real outline is seeded: the
+    # threads of a square are checked by their lengths and directions below)
+    "branch": (lambda: Drawing(btvec.Path.from_svg_path("M5 5")).branch(40, length=3), {}, []),
     "place_along": (
         lambda: Drawing(SQUARE).place_along(EAST, count=2),
         {},
@@ -1323,3 +1321,28 @@ def test_branch_refuses_what_it_cannot_grow_naming_the_argument(options: dict[st
 def test_branch_takes_a_whole_number_of_forks() -> None:
     with pytest.raises(TypeError):
         Drawing(btvec.Path.rect(0, 0, 100, 100)).branch(50, length=40, forks=0.5)  # type: ignore[arg-type]  # a count is whole
+
+
+def test_branch_threads_leave_a_square_straight_out_of_an_edge_by_their_length() -> None:
+    # one root on the 10 by 10 square, no fork and no drift: 3 long, along the outward normal of the edge it stands on
+    (shape,) = Drawing(SQUARE).branch(40, length=3, forks=0, wander=0).shapes()
+    (x, y), (end_x, end_y) = shape.path.point_at(0), shape.path.point_at(1)
+    outward = {"top": (0, -1), "bottom": (0, 1), "left": (-1, 0), "right": (1, 0)}
+    edge = {"top": y == 0, "bottom": y == 10, "left": x == 0, "right": x == 10}
+    (side,) = [name for name, on in edge.items() if on and not (x in (0, 10) and y in (0, 10))]
+    assert (end_x - x, end_y - y) == pytest.approx((3 * outward[side][0], 3 * outward[side][1]), abs=1e-9)
+
+
+def test_branch_grows_equal_shapes_of_one_drawing_differently() -> None:
+    shapes = Drawing(SQUARE, SQUARE).branch(4, length=20, fork_spacing=5, seed=1).shapes()
+    half = len(shapes) // 2
+    assert half * 2 == len(shapes)
+    assert [s.path.to_svg_path() for s in shapes[:half]] != [s.path.to_svg_path() for s in shapes[half:]]
+
+
+def test_branch_orders_each_shapes_paths_by_their_share() -> None:
+    shapes = Drawing(SQUARE, SQUARE).branch(4, length=20, fork_spacing=5, seed=1).shapes()
+    half = len(shapes) // 2
+    for part in (shapes[:half], shapes[half:]):
+        orders = [shape.attributes["order"] for shape in part]
+        assert orders == pytest.approx([k / (len(part) - 1) for k in range(len(part))])

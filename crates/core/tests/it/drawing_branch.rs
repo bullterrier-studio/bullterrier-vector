@@ -326,7 +326,10 @@ fn a_path_of_one_point_past_the_limit_is_refused_by_the_bound_not_grown() -> Out
     let branch = Branch::new(1600.0, 10_000_000.0).forks(0).wavelength(24.0);
     let (name, message) = parameter_refusal(drawn(&Drawing::from(square()?).branch(&branch)))?;
     assert!(name.ends_with("wavelength"), "{name}");
-    assert!(message.contains("10000001 points"), "{message}");
+    assert_eq!(
+        message,
+        "shape 0: one path would have 1 path and 10000001 points, past MAX_SEGMENTS 10000000 points"
+    );
     Ok(())
 }
 
@@ -352,6 +355,148 @@ fn a_document_with_forks_that_are_not_a_whole_number_from_0_is_refused_naming_fo
         Drawing::from_json(&document("2"), &Inputs::new())
             .and_then(|d| drawn(&d))
             .is_ok()
+    );
+    Ok(())
+}
+
+/// The turn from `from` to `to` in degrees, from -180 to 180 (clockwise on screen is positive).
+fn signed(from: f64, to: f64) -> f64 {
+    let d = (to - from).rem_euclid(360.0);
+    if d > 180.0 { d - 360.0 } else { d }
+}
+
+/// A tree's trunk and, for each fork, its points, the index of the point it leaves the trunk at and that point's
+/// distance along the trunk (forks of one fork only).
+fn forks_of_a_root(
+    shapes: &[Shape],
+    root: u32,
+) -> Result<(Vec<(f64, f64)>, Vec<(usize, f64)>), Box<dyn std::error::Error>> {
+    let tree: Vec<&Shape> = shapes.iter().filter(|s| s.attributes().root() == Some(root)).collect();
+    let trunk = points(
+        tree.iter()
+            .find(|s| s.attributes().forks() == Some(0))
+            .ok_or("no trunk")?,
+    )?;
+    let mut leaves = Vec::new();
+    for fork in tree.iter().filter(|s| s.attributes().forks() == Some(1)) {
+        let fork = points(fork)?;
+        let at = fork.iter().zip(&trunk).take_while(|(a, b)| a == b).count() - 1;
+        let along: f64 = trunk[..=at]
+            .windows(2)
+            .map(|p| crate::common::distance(p[0], p[1]))
+            .sum();
+        leaves.push((at, along));
+    }
+    Ok((trunk, leaves))
+}
+
+#[test]
+fn a_fork_turns_by_the_angle_to_either_side_and_both_sides_occur() -> Outcome {
+    let branch = Branch::new(100.0, 240.0)
+        .fork_spacing(60.0)
+        .forks(1)
+        .angle(Deg(35.0))
+        .wander(Deg(25.0))
+        .seed(11.0);
+    let shapes = drawn(&Drawing::from(square()?).branch(&branch))?;
+    let (mut left, mut right) = (0, 0);
+    for root in 0..16 {
+        let (trunk, leaves) = forks_of_a_root(&shapes, root)?;
+        let tree: Vec<&Shape> = shapes.iter().filter(|s| s.attributes().root() == Some(root)).collect();
+        for (fork, (at, _)) in tree.iter().filter(|s| s.attributes().forks() == Some(1)).zip(&leaves) {
+            let fork = points(fork)?;
+            let turn = signed(heading(trunk[*at], trunk[*at + 1]), heading(fork[*at], fork[*at + 1]));
+            assert!((turn.abs() - 35.0).abs() < 1e-6, "the fork turns {turn}");
+            if turn > 0.0 { right += 1 } else { left += 1 }
+        }
+    }
+    assert_eq!(left + right, 16 * 4);
+    assert!(
+        left > 10 && right > 10,
+        "{left} forks to the left, {right} to the right"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_shorter_root_forks_inside_its_own_length_in_proportion_to_it() -> Outcome {
+    // 200 long, a fork every 50: 4 stretches of 50 at a factor of 1. A root of factor f is 200 f long and its stretches
+    // 50 f, so its fork in stretch k leaves the trunk between 50 f k and 50 f (k + 1), a step (80 / 24) earlier at most
+    let branch = Branch::new(100.0, 200.0)
+        .fork_spacing(50.0)
+        .forks(1)
+        .shorter(0.8)
+        .wander(Deg(0.0))
+        .seed(6.0);
+    let step = 80.0 / 24.0;
+    let shapes = drawn(&Drawing::from(square()?).branch(&branch))?;
+    let mut short = 0;
+    for root in 0..16 {
+        let (trunk, leaves) = forks_of_a_root(&shapes, root)?;
+        let length: f64 = trunk.windows(2).map(|p| crate::common::distance(p[0], p[1])).sum();
+        let each = 50.0 * length / 200.0;
+        short += usize::from(length < 150.0);
+        let mut along: Vec<f64> = leaves.iter().map(|(_, along)| *along).collect();
+        along.sort_by(f64::total_cmp);
+        assert_eq!(along.len(), 4);
+        for (k, found) in along.iter().enumerate() {
+            let (low, high) = (each * k as f64, each * (k + 1) as f64);
+            assert!(
+                *found >= low - step - 1e-9 && *found <= high + 1e-9,
+                "root {root} (length {length}): fork {k} at {found}, not in {low} to {high}"
+            );
+        }
+    }
+    assert!(short > 4, "{short} short roots");
+    Ok(())
+}
+
+#[test]
+fn equal_shapes_in_one_drawing_grow_different_threads() -> Outcome {
+    let branch = Branch::new(150.0, 120.0).fork_spacing(40.0).seed(4.0);
+    let twice = Drawing::new([Drawing::from(square()?), Drawing::from(square()?)]);
+    let found = drawn(&twice.branch(&branch))?;
+    let (first, second) = found.split_at(found.len() / 2);
+    assert_eq!(first.len(), second.len());
+    let paths = |shapes: &[Shape]| shapes.iter().map(|s| s.path().to_svg_path()).collect::<Vec<_>>();
+    assert_ne!(paths(first), paths(second));
+    Ok(())
+}
+
+#[test]
+fn the_order_of_a_path_is_its_share_of_the_paths_of_its_own_shape() -> Outcome {
+    let two = Drawing::new([
+        Drawing::from(square()?),
+        Drawing::from(Path::circle((900.0, 300.0), 80.0)?),
+    ]);
+    let found = drawn(&two.branch(&Branch::new(300.0, 100.0).fork_spacing(40.0).seed(1.0)))?;
+    // the square's: 5 roots of 1 + 2 + 1 paths; the circle's follow
+    let square_paths = 1600 / 300 * (1 + 2 + 1);
+    assert!(found.len() > square_paths);
+    for part in [&found[..square_paths], &found[square_paths..]] {
+        let orders: Vec<f64> = part.iter().filter_map(|s| s.attributes().order()).collect();
+        assert_eq!(orders.len(), part.len(), "a path with no order");
+        for (k, order) in orders.iter().enumerate() {
+            let expected = k as f64 / (orders.len() - 1) as f64;
+            assert!(
+                (order - expected).abs() < 1e-12,
+                "path {k} of {}: {order}",
+                orders.len()
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn a_request_for_more_paths_than_a_drawing_holds_is_refused_naming_the_paths() -> Outcome {
+    // 1,040,000 roots of 2 points each: 2 million points, far inside MAX_SEGMENTS, but past MAX_SHAPES
+    let branch = Branch::new(1600.0 / 1_040_000.0, 1.0).forks(0);
+    let (name, message) = parameter_refusal(drawn(&Drawing::from(square()?).branch(&branch)))?;
+    assert!(name.ends_with("spacing"), "{name}");
+    assert_eq!(
+        message,
+        "shape 0: all the roots' trees would have 1040000 paths and 2080000 points, past MAX_SHAPES 1000000 paths"
     );
     Ok(())
 }

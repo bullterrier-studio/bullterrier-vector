@@ -79,7 +79,8 @@ impl Branch {
 impl Drawing {
     /// This drawing with every shape replaced by forking threads grown out of the outline of the region it fills: one
     /// open shape per root-to-tip path, keeping the shape's style and attributes, with `root` (from 0 on the shape),
-    /// `forks` (the forks the path takes; 0 is the trunk), `order` and its root as `origin`. Every path of a root starts
+    /// `forks` (the forks the path takes; 0 is the trunk), `order` (the path's share 0 to 1 of its shape's paths, replacing the
+    /// shape's own) and its root as `origin`. Every path of a root starts
     /// on the outline and has the same length, so `slice(0, growth)` grows a tree from its root and a fork appears
     /// where its parent passes; paths of a tree share the points of their common part, so stroke them opaque or unite
     /// them first. Equal shapes at different places in the list grow different threads.

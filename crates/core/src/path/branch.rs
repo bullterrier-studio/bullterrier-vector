@@ -153,13 +153,14 @@ impl Path {
         let per_path = as_f64(steps(plan.length, step)) + 1.0;
         let (limit_points, limit_shapes) = (as_f64(MAX_SEGMENTS), as_f64(MAX_SHAPES));
         if per_path > limit_points {
-            return Err(too_many("wavelength", "a path would have", per_path));
+            return Err(too_many("wavelength", "one path", 1.0, per_path));
         }
         let per_root = tips(stretches, as_f64_u64(plan.forks), limit_shapes);
         if per_root > limit_shapes || per_root * per_path > limit_points {
             return Err(too_many(
                 "fork_spacing",
-                "one root's paths would have",
+                "one root's tree",
+                per_root,
                 per_root * per_path,
             ));
         }
@@ -170,7 +171,8 @@ impl Path {
         if roots * per_root > limit_shapes || roots * per_root * per_path > limit_points {
             return Err(too_many(
                 "spacing",
-                "the roots' paths would have",
+                "all the roots' trees",
+                roots * per_root,
                 roots * per_root * per_path,
             ));
         }
@@ -329,10 +331,22 @@ fn steps(length: f64, step: f64) -> usize {
     count
 }
 
-fn too_many(parameter: &str, what: &str, points: f64) -> Error {
+/// The refusal of a request of `paths` paths and `points` points in all, naming each limit it is past.
+fn too_many(parameter: &str, what: &str, paths: f64, points: f64) -> Error {
+    let mut past = Vec::new();
+    if paths > as_f64(MAX_SHAPES) {
+        past.push(format!("MAX_SHAPES {MAX_SHAPES} paths"));
+    }
+    if points > as_f64(MAX_SEGMENTS) {
+        past.push(format!("MAX_SEGMENTS {MAX_SEGMENTS} points"));
+    }
     Error::parameter(
         parameter,
-        format!("{what} {points:.0} points, past MAX_SEGMENTS {MAX_SEGMENTS} or MAX_SHAPES {MAX_SHAPES} paths"),
+        format!(
+            "{what} would have {paths:.0} path{} and {points:.0} points, past {}",
+            if paths == 1.0 { "" } else { "s" },
+            past.join(" and ")
+        ),
     )
 }
 
