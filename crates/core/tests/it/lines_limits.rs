@@ -27,6 +27,17 @@ fn a_wide_thin_region_is_refused_before_its_lattice_is_made() -> Outcome {
 }
 
 #[test]
+fn a_tall_thin_region_between_two_lattice_columns_is_refused_by_its_row_count_first() -> Outcome {
+    // 0.3 wide at x 0.1 holds no column at spacing 1, but 2e7 tall holds 2e7 rows of two points each: refused by the
+    // count of points the rows would make, before any row is built
+    let region = Path::rect(0.1, 0.0, 0.3, 2e7, 0.0)?;
+    let (name, message) = parameter_refusal(region.rows(&Rows::new(1.0, flat()?, 1.0)?))?;
+    assert_eq!(name, "spacing");
+    assert!(message.contains("a region this large"), "{message}");
+    Ok(())
+}
+
+#[test]
 fn a_center_too_far_to_draw_round_is_refused_naming_the_center() -> Outcome {
     let region = Path::rect(0.0, 0.0, 100.0, 100.0, 0.0)?;
     for family in ["rings", "spiral", "rays"] {

@@ -133,14 +133,16 @@ impl Path {
         // rows and columns on the lattice through the origin, only those over the region counted
         let (first_row, rows) = lattice(top, bottom, spacing, 0.5);
         let (first_column, columns) = lattice(left, right, step, 0.0);
-        // the lattice of columns is made whatever the rows, so it is bounded on its own
-        if rows.max(1.0) * columns > MAX_SAMPLES {
+        // a row makes its two ends and a point at each column between them, so a region over no column still makes
+        // two points a row (and a region over no row still makes its columns); the points are counted before any row is built
+        let points = rows.max(1.0) * (columns + 2.0);
+        if points > MAX_SAMPLES {
             return Err(Error::parameter(
                 "spacing",
                 format!("is too small for a region this large: it would need over {MAX_SAMPLES} points"),
             ));
         }
-        tone.charge_reads("spacing", "rows", rows * columns * FOOTPRINT.len() as f64)?;
+        tone.charge_reads("spacing", "rows", points * FOOTPRINT.len() as f64)?;
         let mut visits = 0.0;
         let lattice: Vec<f64> = (0..columns as usize)
             .map(|i| (first_column + i as f64) * step)
