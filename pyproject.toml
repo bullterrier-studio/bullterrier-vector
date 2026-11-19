@@ -63,6 +63,7 @@ cache-keys = [
     { file = "crates/**/*.rs" },
     { file = "crates/**/Cargo.toml" },
     { file = "crates/core/presets/*.json" },
+    { file = "crates/core/src/**/*.json" },
     { file = "crates/core/fonts/**" },
 ]
 
