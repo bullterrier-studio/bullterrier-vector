@@ -53,8 +53,13 @@ fn eaten_letters() -> Result<Drawing, Error> {
         height: HEIGHT,
     };
     let levels = [Expr::from(-40.0), Expr::from(-18.0), -Expr::from(&core)];
-    let tidy = Trace::new().smooth(1.5).tolerance(0.4).min_area(20.0);
-    let traced = Drawing::trace_levels(&eaten.mul(&number(-1.0)?)?, levels, Some(frame), Some(2.0), &tidy);
+    let tidy = Trace::new()
+        .frame(frame)
+        .cell(2.0)
+        .smooth(1.5)
+        .tolerance(0.4)
+        .min_area(20.0);
+    let traced = Drawing::trace_levels(&eaten.mul(&number(-1.0)?)?, levels, &tidy);
     let mut items = vec![Path::rect(0.0, 0.0, WIDTH, HEIGHT, 0.0)?.fill(Color::hex(0xef_e8_d6))];
     for (index, color) in [(0_u32, 0xdc_d2_b6), (1, 0xc8_42_1e), (2, 0x16_21_1c)] {
         items.push(

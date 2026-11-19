@@ -226,28 +226,14 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "trace_levels",
-            sample: || {
-                Ok(Drawing::trace_levels(
-                    &ramp_map()?,
-                    [0.3, 0.6],
-                    None,
-                    None,
-                    &Trace::new(),
-                ))
-            },
+            sample: || Ok(Drawing::trace_levels(&ramp_map()?, [0.3, 0.6], &Trace::new())),
             with: Some(|argument, value| {
-                let map = ramp_map()?;
-                if argument == "cell" {
-                    let cell = literal(argument, &value)?;
-                    return Ok(Drawing::trace_levels(&map, [0.3, 0.6], None, Some(cell), &Trace::new()));
-                }
-                Ok(Drawing::trace_levels(
-                    &map,
-                    [0.3, 0.6],
-                    None,
-                    None,
-                    &traced_with(argument, value)?,
-                ))
+                let trace = if argument == "cell" {
+                    Trace::new().cell(literal(argument, &value)?)
+                } else {
+                    traced_with(argument, value)?
+                };
+                Ok(Drawing::trace_levels(&ramp_map()?, [0.3, 0.6], &trace))
             }),
             ranges: Box::leak(
                 [

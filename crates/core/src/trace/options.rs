@@ -1,9 +1,10 @@
 //! `Trace`: how the outlines of a traced layer are tidied.
 
-use crate::Expr;
+use crate::{Expr, Rect};
 
-/// How a traced layer is tidied, in design pixels. The default blurs nothing, opens and closes nothing, drops nothing and
-/// fits curves within half a pixel. Numbers are numbers or expressions of Params, read once.
+/// How a traced layer is read and tidied, in design pixels. The default reads a map over its own box and pixels, blurs
+/// nothing, opens and closes nothing, drops nothing and fits curves within half a pixel. The tidying numbers are numbers or
+/// expressions of Params, read once.
 #[derive(Debug, Clone)]
 pub struct Trace {
     pub(crate) smooth: Expr,
@@ -12,6 +13,8 @@ pub struct Trace {
     pub(crate) close: Expr,
     pub(crate) min_area: Expr,
     pub(crate) min_hole: Expr,
+    pub(crate) frame: Option<Rect>,
+    pub(crate) cell: Option<f64>,
 }
 
 impl Default for Trace {
@@ -23,6 +26,8 @@ impl Default for Trace {
             close: Expr::from(0.0),
             min_area: Expr::from(0.0),
             min_hole: Expr::from(0.0),
+            frame: None,
+            cell: None,
         }
     }
 }
@@ -70,6 +75,23 @@ impl Trace {
     #[must_use]
     pub fn min_area(mut self, area: impl Into<Expr>) -> Self {
         self.min_area = area.into();
+        self
+    }
+
+    /// Read the field over `frame` (design pixels) instead of a map's own box: needed for a field that is not a map.
+    /// [`Drawing::trace_levels`](crate::Drawing::trace_levels) only; `trace_labels` refuses it.
+    #[must_use]
+    pub fn frame(mut self, frame: Rect) -> Self {
+        self.frame = Some(frame);
+        self
+    }
+
+    /// Read the field at the centres of cells no wider than `cell` design pixels instead of a map's own pixels: needed
+    /// for a field that is not a map. [`Drawing::trace_levels`](crate::Drawing::trace_levels) only; `trace_labels`
+    /// refuses it.
+    #[must_use]
+    pub fn cell(mut self, cell: f64) -> Self {
+        self.cell = Some(cell);
         self
     }
 

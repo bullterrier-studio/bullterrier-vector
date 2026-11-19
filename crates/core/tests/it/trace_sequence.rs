@@ -37,7 +37,7 @@ fn same(got: &[u8], want: &[u8], what: &str) {
 }
 
 fn levels(map: &Field, at: &[f64], trace: &Trace) -> Result<Vec<Shape>, Error> {
-    Drawing::trace_levels(map, at.iter().copied(), None, None, trace).shapes(&Values::new())
+    Drawing::trace_levels(map, at.iter().copied(), trace).shapes(&Values::new())
 }
 
 #[test]

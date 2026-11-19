@@ -2065,6 +2065,7 @@ Why not an existing call:
   one map pixel and the map's bytes are traced as before (the SVG of every trace example, preset and differential row
   hashes the same); a field that is not a map has neither and refuses naming the one left out (no default for a field
   with no extent, as in `contours`). The field is read at cell centres (a map's pixel centres), the readings scaled to 0
-  to 1 by their range and the levels with them, so the map's padding and level clamp hold for any range. Rust takes them
-  as `Option`s before the `Trace` (the `Trace` is shared with `trace_labels`, which reads only maps). The step reads the
-  field with the values of the draw, as `hatch` reads its tone.
+  to 1 by their range and the levels with them, so the map's padding and level clamp hold for any range. Rust sets them
+  on the `Trace` (`.frame(rect)`, `.cell(c)`), the options value of the step, as `Envelope::frame` does; `trace_labels`,
+  which reads a map's own pixels, refuses a `Trace` with either. `cell` is in design pixels, as in `contours`, not the
+  map pixels of `trace_cells`. The step reads the field with the values of the draw, as `hatch` reads its tone.

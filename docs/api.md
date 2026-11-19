@@ -462,8 +462,8 @@ the shapes carry no paint (paint each with `only(level=..).fill(..)`, or `only(l
 A shape that meets the map's border goes on past it and closes outside the frame, so no edge lies along the border. The
 overhang is the larger of `open` and `close` plus `tolerance` (in map pixels, rounded up), plus two map pixels. For a plotter
 or a cutter crop it to the frame in one call, `drawing.intersect(btvec.Path.rect(0, 0, width, height))` (the labels still
-tile); a view crops it for the screen. The map's `box` places the map. Rust: `Drawing::trace_levels(&map, [0.3, 0.6], None, None, &Trace::new().smooth(1.5).open(2.0))`
-(`frame` and `cell` before the `Trace`: `Some(rect), Some(2.0)` for a field that is not a map)
+tile); a view crops it for the screen. The map's `box` places the map. Rust: `Drawing::trace_levels(&map, [0.3, 0.6], &Trace::new().smooth(1.5).open(2.0))`
+(a field that is not a map: `&Trace::new().frame(rect).cell(2.0)`; `trace_labels` refuses either)
 (`levels` is any list of numbers, Params or expressions), `Drawing::trace_labels(&map, 8, &Trace::new())`,
 `Drawing::trace_cells(&map, 2, 8)`; in a document
 `{"trace_levels": {"map": {"Field.map": {...}}, "levels": [0.3, 0.6], "open": 2}}`.

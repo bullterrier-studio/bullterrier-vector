@@ -534,13 +534,15 @@ impl PyDrawing {
         min_hole: Option<Num>,
     ) -> PyResult<Self> {
         let trace = trace_of(smooth, tolerance, open, close, min_area, min_hole);
-        checked(vector::Drawing::trace_levels(
-            &map.0,
-            levels.0,
-            r#box.map(|frame| frame.0),
-            cell,
-            &trace,
-        ))
+        let trace = match r#box {
+            Some(frame) => trace.frame(frame.0),
+            None => trace,
+        };
+        let trace = match cell {
+            Some(cell) => trace.cell(cell),
+            None => trace,
+        };
+        checked(vector::Drawing::trace_levels(&map.0, levels.0, &trace))
     }
 
     /// A map of colour labels traced as filled shapes, one for each byte it holds (attribute `label`; more than

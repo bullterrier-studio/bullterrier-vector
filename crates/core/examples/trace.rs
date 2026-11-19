@@ -54,7 +54,7 @@ fn trace() -> Result<Drawing, Error> {
     let mut items: Vec<Drawing> = [0.2, 0.45, 0.7]
         .iter()
         .zip(papers)
-        .map(|(level, paper)| Drawing::trace_levels(&relief, [*level], None, None, &tidy).fill(Color::hex(paper)))
+        .map(|(level, paper)| Drawing::trace_levels(&relief, [*level], &tidy).fill(Color::hex(paper)))
         .collect();
     let dither = Drawing::trace_cells(&strip, 2, 2);
     items.push(

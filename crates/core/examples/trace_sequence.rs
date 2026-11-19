@@ -29,8 +29,7 @@ fn frame_bytes(i: usize) -> Vec<u8> {
 
 fn trace(map: &Field) -> Drawing {
     let tidy = Trace::new().smooth(1.0).tolerance(0.4).close(1.0);
-    Drawing::new([Drawing::trace_levels(map, [0.5], None, None, &tidy).fill(Color::hex(0xf2_b632))])
-        .with_size(EXTENT, EXTENT)
+    Drawing::new([Drawing::trace_levels(map, [0.5], &tidy).fill(Color::hex(0xf2_b632))]).with_size(EXTENT, EXTENT)
 }
 
 fn outlines(drawing: &Drawing) -> Result<usize, Error> {
