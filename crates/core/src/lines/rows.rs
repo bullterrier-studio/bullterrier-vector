@@ -8,6 +8,7 @@
     reason = "the counts of rows and samples are checked against MAX_SAMPLES before they are used"
 )]
 
+use super::layout::lattice;
 use super::within::cut;
 use crate::field::{Field, Outline, once, read, segment_budget};
 use crate::geometry::{MAX_COORDINATE, Point};
@@ -36,7 +37,8 @@ pub struct Rows {
 }
 
 impl Rows {
-    /// Rows `spacing` design pixels apart, the first half a spacing below the top of the region. A row is lifted
+    /// Rows `spacing` design pixels apart at `(k + 1/2)` spacings below the origin of the design frame, whatever the
+    /// region's box, so shapes drawn apart or as one path share the rows. A row is lifted
     /// (towards the top of the picture) by `amplitude` times `tone` at the point of the row it lifts, read as it is: a
     /// map is 0 to 1, and a negative amplitude pushes a row down. Each row hides what lies behind it, below its curve
     /// and farther from the viewer, that is higher up the picture.
@@ -128,12 +130,9 @@ impl Path {
                 format!("is too small for coordinates near {reach}: a step of it would not move"),
             ));
         }
-        let rows = if bottom - top >= spacing / 2.0 {
-            ((bottom - top - spacing / 2.0) / spacing).floor() + 1.0
-        } else {
-            0.0
-        };
-        let columns = ((right - left) / step).ceil() + 1.0;
+        // rows and columns on the lattice through the origin, only those over the region counted
+        let (first_row, rows) = lattice(top, bottom, spacing, 0.5);
+        let (first_column, columns) = lattice(left, right, step, 0.0);
         // the lattice of columns is made whatever the rows, so it is bounded on its own
         if rows.max(1.0) * columns > MAX_SAMPLES {
             return Err(Error::parameter(
@@ -144,12 +143,12 @@ impl Path {
         tone.charge_reads("spacing", "rows", rows * columns * FOOTPRINT.len() as f64)?;
         let mut visits = 0.0;
         let lattice: Vec<f64> = (0..columns as usize)
-            .map(|i| (left + i as f64 * step).min(right))
+            .map(|i| (first_column + i as f64) * step)
             .collect();
         let mut horizon = vec![f64::INFINITY; lattice.len()];
         let mut drawn: Vec<Vec<Path>> = Vec::new();
         for k in (0..rows as usize).rev() {
-            let base = top + spacing / 2.0 + k as f64 * spacing;
+            let base = (first_row + k as f64 + 0.5) * spacing;
             let spans = region.spans_at(base, |edges| {
                 visits += edges as f64;
                 if visits > MAX_VISITS {

@@ -340,12 +340,14 @@ impl Run<'_> {
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<(), Error> {
         let mut queue: VecDeque<usize> = VecDeque::new();
-        // by index, so that a point never depends on the sum of the ones before; the count is the lattice's cells
-        let count = |extent: f64| (extent / lattice).ceil() as usize;
-        for row in 0..count(bottom - top) {
-            let y = top + lattice / 2.0 + row as f64 * lattice;
-            for column in 0..count(right - left) {
-                let start = Point::new(left + lattice / 2.0 + column as f64 * lattice, y);
+        // the starts lie on the lattice through the origin, at (k + 1/2) cells, whatever the region's box; by index, so
+        // that a point never depends on the sum of the ones before; at most the cells of the grid charged
+        let (first_row, rows) = crate::lines::lattice(top, bottom, lattice, 0.5);
+        let (first_column, columns) = crate::lines::lattice(left, right, lattice, 0.5);
+        for row in 0..rows as usize {
+            let y = (first_row + row as f64 + 0.5) * lattice;
+            for column in 0..columns as usize {
+                let start = Point::new((first_column + column as f64 + 0.5) * lattice, y);
                 if self.free(start, self.spacing(start))
                     && let Some(line) = self.trace(start, charge)?
                 {

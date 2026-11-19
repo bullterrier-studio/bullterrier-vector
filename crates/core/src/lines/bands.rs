@@ -8,7 +8,7 @@
     reason = "the counts of lines and samples are checked against MAX_SAMPLES before they are used"
 )]
 
-use super::layout::{Distances, Family, Layout, corners, middle, polar};
+use super::layout::{Distances, Family, Layout, corners, lattice, middle, polar};
 use crate::field::{Field, length, once, read};
 use crate::geometry::{MAX_COORDINATE, Point, coordinate_point};
 use crate::path::Path;
@@ -60,8 +60,9 @@ impl Bands {
         })
     }
 
-    /// Straight lines `spacing` design pixels apart, along the direction of [`Bands::angle`] (0: left to right), the
-    /// first half a spacing from the region's side. Each is as wide at a point as `width` says: `width.0` where
+    /// Straight lines `spacing` design pixels apart, along the direction of [`Bands::angle`] (0: left to right),  on
+    /// the lattice through the origin of the design frame: half a spacing from it, then every spacing, whatever the
+    /// region's box. Each is as wide at a point as `width` says: `width.0` where
     /// the `tone` is 0, `width.1` where it is 1, linear between and held beyond (a tone is read where the center of the
     /// line is). Every number is a number or an expression of Params, read once.
     ///
@@ -372,22 +373,28 @@ fn carrier(
     Ok(Path::joined(paths.iter()))
 }
 
-/// Lines or waves across the box with these `corners`.
+/// Lines or waves across the box with these `corners`: the rows of the lattice through the origin that reach it, a wave
+/// reaching a row its `amplitude` further, each sampled at the multiples of `step` along it that cover the box.
 fn straight(plan: &Plan, corners: &[Point; 4], step: f64) -> Result<Vec<Carried>, Error> {
     let layout = plan.layout();
     let (u_min, u_max) = range(corners.iter().map(|p| layout.frame(*p).0));
     let (n_min, n_max) = range(corners.iter().map(|p| layout.frame(*p).1));
-    let count = ((n_max - n_min - plan.spacing / 2.0) / plan.spacing).floor() + 1.0;
-    let samples = ((u_max - u_min) / step).ceil() + 1.0;
+    let swing = if plan.family == Family::Waves {
+        plan.amplitude.map_or(0.0, f64::abs)
+    } else {
+        0.0
+    };
+    let (first, count) = lattice(n_min - swing, n_max + swing, plan.spacing, 0.5);
+    let (start, samples) = lattice(u_min - step, u_max + step, step, 0.0);
     let points = count.max(1.0) * samples;
     if points.is_nan() || points > MAX_SAMPLES {
         return Err(too_many("spacing"));
     }
     let mut lines = Vec::new();
-    for k in 0..count.max(0.0) as usize {
-        let offset = n_min + plan.spacing / 2.0 + k as f64 * plan.spacing;
+    for k in 0..count as usize {
+        let offset = (first + k as f64 + 0.5) * plan.spacing;
         let points = (0..samples as usize)
-            .map(|j| layout.straight((u_min + j as f64 * step).min(u_max), offset))
+            .map(|j| layout.straight((start + j as f64) * step, offset))
             .collect();
         lines.push((points, false));
     }

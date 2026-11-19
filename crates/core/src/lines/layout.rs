@@ -99,6 +99,17 @@ pub(crate) struct Layout {
     pub(crate) wave: Option<(f64, f64)>,
 }
 
+/// The lines of a lattice through the origin of the design frame that fall in the span `low..=high`: the indices `k`,
+/// `count` of them from `first`, whose line lies at `(k + phase) * spacing`. Straight rows, the samples along them, the
+/// cells of a stipple and the starts of a hatch are all laid on such a lattice, so a shape's output does not depend on
+/// its bounding box: two shapes drawn apart or as one path get the same lines. Only the lines in the span are counted,
+/// so a shape far from the origin costs what it would near it. Both are whole numbers in floats, `count` at least 0:
+/// walk `first + i` for `i` below `count`, never add 1 to a float.
+pub(crate) fn lattice(low: f64, high: f64, spacing: f64, phase: f64) -> (f64, f64) {
+    let first = (low / spacing - phase).ceil();
+    (first, ((high / spacing - phase).floor() - first + 1.0).max(0.0))
+}
+
 /// The middle of `bounds`: where rings, a spiral and rays are about by default.
 pub(crate) fn middle(bounds: Rect) -> Point {
     Point::new(bounds.x + bounds.width / 2.0, bounds.y + bounds.height / 2.0)
