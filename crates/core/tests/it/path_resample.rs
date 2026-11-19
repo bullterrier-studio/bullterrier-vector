@@ -174,9 +174,10 @@ proptest! {
         for ring in corners(&sampled).map_err(fail)? {
             // a lone point is not on the measured walk, which has no edge there
             for corner in ring.iter().filter(|_| ring.len() > 1) {
-                // the nearest place on each separate part (a position on a boundary between sub-paths is the later one's)
+                // the nearest place on each sub-path alone: a position on the boundary between two sub-paths of one
+                // path belongs to the later one, so a corner that is exactly a sub-path's start cannot be found there
                 let mut nearest = f64::INFINITY;
-                for part in path.split() {
+                for part in path.subpaths() {
                     let at = part.locate((corner.0, corner.1), None).map_err(fail)?;
                     let found = part.point_at(at, None).map_err(fail)?;
                     nearest = nearest.min(distance(*corner, (found.x, found.y)));
