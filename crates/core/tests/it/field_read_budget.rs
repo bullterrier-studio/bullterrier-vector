@@ -129,7 +129,7 @@ fn hatch_charges_the_starts_of_its_lattice_before_it_draws_a_line() -> Outcome {
     Ok(())
 }
 
-/// `count` by `count` squares a fifth of `spacing` wide, one at the centre of each cell of the hatch's lattice (whose
+/// `count` by `count` squares a fifth of `spacing` wide, one at the center of each cell of the hatch's lattice (whose
 /// first cell starts at the corner of the region's box, here 0, 0, held by a speck), so every line starts in one and
 /// leaves it at its first step (a quarter of the spacing): lines of no steps at all.
 fn islands(count: u32, spacing: f64) -> Result<Path, Error> {

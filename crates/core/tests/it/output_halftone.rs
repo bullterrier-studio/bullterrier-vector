@@ -73,8 +73,8 @@ fn no_pixel_outside_the_shape_is_painted() -> Outcome {
         for y in 0..100 {
             for x in 0..100 {
                 #[expect(clippy::cast_precision_loss, reason = "pixel coordinates")]
-                let from_centre = libm::hypot(x as f64 + 0.5 - 50.0, y as f64 + 0.5 - 50.0);
-                if from_centre > 30.0 + 0.75 {
+                let from_center = libm::hypot(x as f64 + 0.5 - 50.0, y as f64 + 0.5 - 50.0);
+                if from_center > 30.0 + 0.75 {
                     assert_eq!(
                         image.alpha(x, y),
                         0,
@@ -110,7 +110,7 @@ fn a_tone_of_zero_is_the_solid_fill_and_a_tone_of_one_paints_nothing() -> Outcom
 #[test]
 fn a_translucent_colour_is_no_darker_where_two_dots_overlap() -> Outcome {
     // pitch 40 and tone 0.1: a dot has the radius 40 * sqrt(0.9 / pi) = 21.41 and the lens where two neighbours at 40
-    // and 80 overlap is 58.59 to 61.41 across, so the pixels 59 and 60 of the row of their centres are in both
+    // and 80 overlap is 58.59 to 61.41 across, so the pixels 59 and 60 of the row of their centers are in both
     let drawing = Drawing::from(rect(10.0, 10.0, 120.0, 120.0)?)
         .halftone(Halftone::new(color("#00000080")?, 0.1).pitch(40.0).angle(Deg(0.0)));
     let image = render(&drawing, 140, 140)?;

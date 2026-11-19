@@ -52,7 +52,7 @@ fn a_point_at_half_the_radius_goes_to_one_and_a_half_times_as_far_by_hand() -> O
 }
 
 #[test]
-fn a_negative_amount_pinches_towards_the_centre_by_hand() -> Outcome {
+fn a_negative_amount_pinches_towards_the_center_by_hand() -> Outcome {
     // amount -0.5 at s = 0.5: r' = r (1 - 0.25) = 37.5 for r = 50
     let bulged = Path::from_svg_path("M50 0")?.bulge(-0.5, Some(100.0), Some(Point::new(0.0, 0.0)))?;
     let (x, y) = lines(&bulged)?[0].0[0];
@@ -61,7 +61,7 @@ fn a_negative_amount_pinches_towards_the_centre_by_hand() -> Outcome {
 }
 
 #[test]
-fn points_at_or_beyond_the_radius_do_not_move_to_the_bit_and_the_centre_stays() -> Outcome {
+fn points_at_or_beyond_the_radius_do_not_move_to_the_bit_and_the_center_stays() -> Outcome {
     let path = Path::from_svg_path("M0 0 L100 0 L130.5 40.25")?;
     let bulged = lines(&path.bulge(1.2, Some(100.0), Some(Point::new(0.0, 0.0)))?)?;
     assert!(bulged[0].0.contains(&(0.0, 0.0)));

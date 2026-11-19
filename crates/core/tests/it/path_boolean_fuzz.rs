@@ -172,16 +172,16 @@ fn star() -> BoxedStrategy<Subs> {
 /// number 2, 3, ... which the nonzero rule fills).
 fn nested() -> BoxedStrategy<Subs> {
     (300.0..700.0_f64, 2..6_usize, 20.0..60.0_f64, any::<bool>())
-        .prop_map(|(centre, levels, step, alternate)| {
+        .prop_map(|(center, levels, step, alternate)| {
             (0..levels)
                 .map(|level| {
                     #[expect(clippy::cast_precision_loss, reason = "a few levels")]
                     let half = 300.0 - step * level as f64;
                     let mut corners = vec![
-                        (centre - half, centre - half),
-                        (centre + half, centre - half),
-                        (centre + half, centre + half),
-                        (centre - half, centre + half),
+                        (center - half, center - half),
+                        (center + half, center - half),
+                        (center + half, center + half),
+                        (center - half, center + half),
                     ];
                     if alternate && level % 2 == 1 {
                         corners.reverse();

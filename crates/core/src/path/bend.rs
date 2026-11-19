@@ -12,7 +12,7 @@ use crate::geometry::{Point, finite};
 const BEND_FLATNESS: f64 = 0.01;
 /// How often an edge is halved at most, so one edge gives at most 2^8 pieces.
 // constant: a cap so bending ends where the map folds or jumps (a tight corner of the guide, a point at the guide's
-// centre of curvature); 256 pieces per edge is far finer than the flatness needs on any guide a drawing has
+// center of curvature); 256 pieces per edge is far finer than the flatness needs on any guide a drawing has
 const MAX_BEND_DEPTH: u32 = 8;
 
 impl Path {

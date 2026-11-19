@@ -85,7 +85,7 @@ pub(crate) struct BandsStep;
 pub(crate) static BANDS: Verb = Verb {
     name: "bands",
     role: Role::Step,
-    summary: "lines whose width follows a tone: replaces every shape by closed outlines of lines laid over the region it fills and cut to it (as Path.bands), as wide at each point as the `tone` field says: `width` is a pair, the width where the tone is 0 and where it is 1; `family` is the carrier: `lines` `spacing` apart along `angle` degrees, `waves` (`wavelength` long and `amplitude` high, in rows: multiples of `spacing`), `rings` round `centre`, a `spiral` out of `centre` with arms `spacing` apart, or `rays` out of `centre` as many as are `spacing` apart at the farthest corner; `centre` defaults to the middle of the region's bounding box; the result is closed outlines, so set the fill after it",
+    summary: "lines whose width follows a tone: replaces every shape by closed outlines of lines laid over the region it fills and cut to it (as Path.bands), as wide at each point as the `tone` field says: `width` is a pair, the width where the tone is 0 and where it is 1; `family` is the carrier: `lines` `spacing` apart along `angle` degrees, `waves` (`wavelength` long and `amplitude` high, in rows: multiples of `spacing`), `rings` round `center`, a `spiral` out of `center` with arms `spacing` apart, or `rays` out of `center` as many as are `spacing` apart at the farthest corner; `center` defaults to the middle of the region's bounding box; the result is closed outlines, so set the fill after it",
     args: &[
         once("spacing", Domain::PositiveUpTo(MAX_COORDINATE)),
         required_field("tone"),
@@ -101,7 +101,7 @@ pub(crate) static BANDS: Verb = Verb {
         optional("wavelength", Domain::PositiveUpTo(MAX_COORDINATE)),
         optional("amplitude", Domain::Coordinate),
         Arg {
-            name: "centre",
+            name: "center",
             kind: Kind::Point,
             default: Some(Literal::Unset),
             reads: Reads::Once,
@@ -121,7 +121,7 @@ fn waves_need_their_size(args: &Args) -> Result<(), Error> {
             }
         }
     }
-    for name in ["angle", "wavelength", "amplitude", "centre"] {
+    for name in ["angle", "wavelength", "amplitude", "center"] {
         if args.given(name)? {
             Bands::refuse_unread(family, name)?;
         }
@@ -148,7 +148,7 @@ impl Node for BandsStep {
             angle: args.once_number_opt(cx, "angle").map_err(placed)?.unwrap_or(0.0),
             wavelength: args.once_number_opt(cx, "wavelength").map_err(placed)?,
             amplitude: args.once_number_opt(cx, "amplitude").map_err(placed)?,
-            centre: args.once_point(cx, "centre").map_err(placed)?.map(|p: Point| p),
+            center: args.once_point(cx, "center").map_err(placed)?.map(|p: Point| p),
         };
         let mut shapes = Shapes::taken(inputs.taken);
         let tone = args
@@ -171,7 +171,7 @@ pub(crate) struct StippleStep;
 pub(crate) static STIPPLE: Verb = Verb {
     name: "stipple",
     role: Role::Step,
-    summary: "replaces every shape by round dots inside the region it fills (as Path.stipple): a square lattice `spacing` apart with one dot at most in each cell, standing within 0.4 spacings of the cell's middle; `radius` is the dot's radius in design pixels, one number or a pair (the radius where the `tone` field is 0 and where it is 1, read at the dot's centre); `density` is a pair, the share of cells that get a dot where the `tone` field is 0 and where it is 1 (default [1, 0]: dark is dense), and the dots of a tone are spread evenly; `seed` moves them; the result is closed dots, so set the fill after it",
+    summary: "replaces every shape by round dots inside the region it fills (as Path.stipple): a square lattice `spacing` apart with one dot at most in each cell, standing within 0.4 spacings of the cell's middle; `radius` is the dot's radius in design pixels, one number or a pair (the radius where the `tone` field is 0 and where it is 1, read at the dot's center); `density` is a pair, the share of cells that get a dot where the `tone` field is 0 and where it is 1 (default [1, 0]: dark is dense), and the dots of a tone are spread evenly; `seed` moves them; the result is closed dots, so set the fill after it",
     args: &[
         once("spacing", Domain::PositiveUpTo(MAX_COORDINATE)),
         required_field("tone"),

@@ -222,7 +222,7 @@ fn the_registry_declares_the_arguments_with_their_defaults_and_ranges() -> Outco
                 "screen",
                 r#"Some(Text("grid")) Choice(["grid", "wave", "rings", "spiral", "rays"])"#.to_owned()
             ),
-            ("centre", "Some(Unset) Coordinate".to_owned()),
+            ("center", "Some(Unset) Coordinate".to_owned()),
             ("amplitude", "Some(Unset) Coordinate".to_owned()),
             ("wavelength", "Some(Unset) PositiveUpTo(1e100)".to_owned()),
         ]

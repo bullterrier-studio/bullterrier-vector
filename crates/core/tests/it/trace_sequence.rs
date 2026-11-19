@@ -106,11 +106,11 @@ fn a_noisy_sequence_flickers_less_when_steadied() -> Outcome {
         ((seed >> 33) % 240) as i32 - 120
     };
     let frame = |i: usize, noise: &mut dyn FnMut() -> i32| {
-        let centre = (20.0 + i as f64 * 0.5, 24.0);
+        let center = (20.0 + i as f64 * 0.5, 24.0);
         let bytes: Vec<u8> = (0..width * height)
             .map(|p| {
                 let (x, y) = ((p % width) as f64 + 0.5, (p / width) as f64 + 0.5);
-                let squared = (x - centre.0) * (x - centre.0) + (y - centre.1) * (y - centre.1);
+                let squared = (x - center.0) * (x - center.0) + (y - center.1) * (y - center.1);
                 let base = if squared < 196.0 { 190 } else { 40 };
                 (base + noise()).clamp(0, 255) as u8
             })

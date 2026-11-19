@@ -24,8 +24,8 @@ fn svg(drawing: &Drawing, side: f64) -> Result<String, Error> {
     drawing.to_svg(Size::px(side, side), &Values::new())
 }
 
-/// The centre of a regular polygon: the mean of its corners.
-fn centre(dot: &Ring) -> (f64, f64) {
+/// The center of a regular polygon: the mean of its corners.
+fn center(dot: &Ring) -> (f64, f64) {
     #[expect(clippy::cast_precision_loss, reason = "a few dozen corners")]
     let count = dot.len() as f64;
     (
@@ -51,8 +51,8 @@ fn from_rect(point: (f64, f64), (left, top, right, bottom): (f64, f64, f64, f64)
     libm::hypot(across, down)
 }
 
-/// The centres of the dots of radius `radius` that touch the rectangle: the lattice points within the radius of it.
-fn expected_centres(rect: (f64, f64, f64, f64), (pitch, degrees): (f64, f64), radius: f64) -> Vec<(f64, f64)> {
+/// The centers of the dots of radius `radius` that touch the rectangle: the lattice points within the radius of it.
+fn expected_centers(rect: (f64, f64, f64, f64), (pitch, degrees): (f64, f64), radius: f64) -> Vec<(f64, f64)> {
     let mut found = Vec::new();
     for i in -40..40 {
         for j in -40..40 {
@@ -132,8 +132,8 @@ fn the_dots_are_the_lattice_points_within_a_radius_of_the_shape_each_of_the_area
         let shape = rect(left, top, right - left, bottom - top)?;
         let drawing = Drawing::from(shape).halftone(Halftone::new(BLACK, tone).pitch(pitch).angle(Deg(angle)));
         let dots = dots_of(&svg(&drawing, 100.0)?)?;
-        let found = sorted(dots.iter().map(centre).collect());
-        let wanted = expected_centres(bounds, (pitch, angle), radius_of(pitch, tone));
+        let found = sorted(dots.iter().map(center).collect());
+        let wanted = expected_centers(bounds, (pitch, angle), radius_of(pitch, tone));
         let case = format!("pitch {pitch}, angle {angle}, tone {tone}");
         assert_eq!(found.len(), wanted.len(), "{case}: the number of dots");
         for (at, expected) in found.iter().zip(&wanted) {
@@ -165,7 +165,7 @@ fn a_dot_stays_on_the_lattice_when_the_shape_moves() -> Outcome {
     // with the same corners
     let mut shared = 0;
     for dot in &first {
-        let at = centre(dot);
+        let at = center(dot);
         if at.0 > 40.0 && at.0 < 75.0 && at.1 > 28.0 && at.1 < 55.0 {
             shared += 1;
             assert!(second.contains(dot), "a dot at {at:?} moved with the shape");
@@ -398,8 +398,8 @@ fn to_segment(at: (f64, f64), from: (f64, f64), to: (f64, f64)) -> f64 {
 fn a_frame_with_a_headline_cut_out_takes_the_screen_of_the_plain_frame() -> Outcome {
     // the frame minus a headline has the frame's box, so the frame's cells, and over 900 edges against its 4: a dot is
     // placed against the edges near it, so the cut-out frame takes the pitches the plain one takes. Oracle: a dot of the
-    // plain frame's screen is kept when its centre is in the region or an edge of the region (every one tried) comes
-    // nearer its centre than its corners; the headline itself is the other side of the same edges
+    // plain frame's screen is kept when its center is in the region or an edge of the region (every one tried) comes
+    // nearer its center than its corners; the headline itself is the other side of the same edges
     let font = fraunces()?;
     let frame = rect(0.0, 0.0, 1200.0, 600.0)?;
     let headline = text("STIPPLE", Text::new(&font).size(220.0)).translate(60.0, 380.0);
@@ -423,26 +423,26 @@ fn a_frame_with_a_headline_cut_out_takes_the_screen_of_the_plain_frame() -> Outc
             let found = dots_of(&screen(&drawing).to_svg(size, &Values::new())?)?;
             for ring in &plain {
                 let n = f64::from(u32::try_from(ring.len())?);
-                let centre = (
+                let center = (
                     ring.iter().map(|p| p.0).sum::<f64>() / n,
                     ring.iter().map(|p| p.1).sum::<f64>() / n,
                 );
                 let radius = ring
                     .iter()
-                    .map(|p| libm::hypot(p.0 - centre.0, p.1 - centre.1))
+                    .map(|p| libm::hypot(p.0 - center.0, p.1 - center.1))
                     .fold(0.0, f64::max);
                 let nearest = edges
                     .iter()
-                    .map(|(a, b)| to_segment(centre, *a, *b))
+                    .map(|(a, b)| to_segment(center, *a, *b))
                     .fold(f64::INFINITY, f64::min);
                 if (nearest - radius).abs() < 1e-6 {
                     continue;
                 }
-                let wanted = nearest < radius || region.contains(centre)?;
+                let wanted = nearest < radius || region.contains(center)?;
                 assert_eq!(
                     found.contains(ring),
                     wanted,
-                    "{what}, pitch {pitch}: the dot at {centre:?}"
+                    "{what}, pitch {pitch}: the dot at {center:?}"
                 );
             }
             assert!(

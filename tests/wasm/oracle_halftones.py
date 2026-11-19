@@ -50,7 +50,7 @@ def halftones() -> list[Entry]:
         "halftone_solid": framed(disc.halftone(RED, tone=0)),
         "halftone_bare": framed(disc.halftone(RED, tone=1).stroke(INK, width=2)),
         "halftone_ellipse_rings": framed(
-            disc.halftone(INK, tone=0.55, pitch=6, shape="ellipse", aspect=2, screen="rings", centre=(40, 45))
+            disc.halftone(INK, tone=0.55, pitch=6, shape="ellipse", aspect=2, screen="rings", center=(40, 45))
         ),
         "halftone_euclidean_spiral": framed(disc.halftone(RED, tone=0.4, pitch=7, shape="euclidean", screen="spiral")),
         "halftone_diamond_wave": framed(

@@ -162,7 +162,7 @@ def test_kinetic_type_sets_both_headlines_a_shape_a_letter_inside_the_frame_fill
             assert bounds.x + bounds.width <= 1080
             assert bounds.y >= 0
             assert bounds.y + bounds.height <= 1350
-        # each line is fitted to the 980 pixel measure by the width axis: its letters fill it, centred on the frame
+        # each line is fitted to the 980 pixel measure by the width axis: its letters fill it, centered on the frame
         for line in (0, 1):
             edges = [shape.path.bounds for shape in calm if shape.attributes["line"] == line]
             left, right = min(edge.x for edge in edges), max(edge.x + edge.width for edge in edges)
@@ -447,7 +447,7 @@ def test_cutout_cuts_the_letters_out_of_the_plate_and_keeps_the_lens_two_discs_s
     assert plate.path.contains((100, 100))
     assert not plate.path.contains((707, 300))  # the stem of the T is cut out
     assert plate.path.contains((500, 300))  # the counter of the U is not
-    # the discs have radius 110 and their centres are 2 * (120 - 40 * 0.6) = 192 apart: the lens is 2 * (110 - 96)
+    # the discs have radius 110 and their centers are 2 * (120 - 40 * 0.6) = 192 apart: the lens is 2 * (110 - 96)
     # wide and 2 * sqrt(110^2 - 96^2) high, about their middle
     box = lens.path.bounds
     assert (box.x, box.width) == pytest.approx((486, 28), abs=0.05)
@@ -487,7 +487,7 @@ def test_ring_is_a_band_round_the_circle_that_widens_with_the_half_width(run):
     live = found["drawing"]
     assert isinstance(ring, btvec.Path)
     assert isinstance(live, btvec.Drawing)
-    assert not ring.contains((200, 200))  # the centre is in the hole
+    assert not ring.contains((200, 200))  # the center is in the hole
     # the circle has radius 120 about (200, 200): the band reaches half_width either side of it
     for half_width in (4, 14, 40):
         (band,) = live.with_values(half_width=half_width).shapes()

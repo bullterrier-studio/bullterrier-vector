@@ -965,7 +965,7 @@ AGREED = [
                     "shape": "ellipse",
                     "aspect": 2,
                     "screen": "rings",
-                    "centre": [3, 4],
+                    "center": [3, 4],
                 }
             }
         ),

@@ -32,7 +32,7 @@ fn cdf(z: f64) -> f64 {
     f64::midpoint(1.0, libm::erf(z / std::f64::consts::SQRT_2))
 }
 
-/// The share of a Gaussian of deviation `sigma` centred at `x` that lies between `from` and `to`.
+/// The share of a Gaussian of deviation `sigma` centered at `x` that lies between `from` and `to`.
 fn between(x: f64, sigma: f64, from: f64, to: f64) -> f64 {
     cdf((to - x) / sigma) - cdf((from - x) / sigma)
 }
@@ -98,7 +98,7 @@ fn the_blur_of_a_rectangle_follows_the_gaussian_across_each_edge() -> Outcome {
         let image = render(&drawing, side, side)?;
         let (near, far) = (60.0 * scale, 140.0 * scale);
         let middle = side / 2;
-        // the shadow alone, at a pixel centre: the share of the Gaussian over the rectangle in each axis
+        // the shadow alone, at a pixel center: the share of the Gaussian over the rectangle in each axis
         let wanted = |x: usize, y: usize| {
             f64::from(strength) * between(px(x) + 0.5, sigma, near, far) * between(px(y) + 0.5, sigma, near, far)
         };

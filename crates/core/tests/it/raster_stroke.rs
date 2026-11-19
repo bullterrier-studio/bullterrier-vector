@@ -1,5 +1,5 @@
 //! What `Drawing::to_rgba` strokes: the width seen through the view, the corners and ends of an outline against the
-//! regions they must lie between (worked out with a brute-force distance to the centreline), and hand-worked corner,
+//! regions they must lie between (worked out with a brute-force distance to the centerline), and hand-worked corner,
 //! cap, closed-or-open and zero-length rows. The oracles are geometry written in the test, not the rasteriser.
 
 use crate::common::Outcome;
@@ -75,10 +75,10 @@ fn in_a_rectangle(corners: &[Point], width: f64, point: Point) -> bool {
     })
 }
 
-fn centre(column: usize, row: usize) -> Point {
+fn center(column: usize, row: usize) -> Point {
     #[expect(clippy::cast_precision_loss, reason = "small pixel indices")]
-    let centre = (column as f64 + 0.5, row as f64 + 0.5);
-    centre
+    let center = (column as f64 + 0.5, row as f64 + 0.5);
+    center
 }
 
 fn fail(error: impl std::fmt::Display) -> TestCaseError {
@@ -117,7 +117,7 @@ proptest! {
         let round_throughout = join == Join::Round && cap == Cap::Round;
         for row in 0..100 {
             for column in 0..100 {
-                let point = centre(column, row);
+                let point = center(column, row);
                 let alpha = image.alpha(column, row);
                 if in_a_rectangle(&corners, width, point) {
                     prop_assert_eq!(alpha, 255, "inside a rectangle at column {} row {}", column, row);
@@ -135,13 +135,13 @@ proptest! {
 }
 
 #[test]
-fn a_round_stroke_of_a_curve_is_the_ring_round_the_centreline() -> Outcome {
-    // radius 30 and width 10: the centreline is flattened to within a quarter of a pixel, so a pixel centre 4 or less
+fn a_round_stroke_of_a_curve_is_the_ring_round_the_centerline() -> Outcome {
+    // radius 30 and width 10: the centerline is flattened to within a quarter of a pixel, so a pixel center 4 or less
     // from the circle is inside the ring and 6 or more is outside
     let image = stroked(Path::circle((50.0, 50.0), 30.0)?, Stroke::new(black()).width(10.0), 100)?;
     for row in 0..100 {
         for column in 0..100 {
-            let (x, y) = centre(column, row);
+            let (x, y) = center(column, row);
             let off = fabs(hypot(x - 50.0, y - 50.0) - 30.0);
             if off <= 4.0 {
                 assert_eq!(image.alpha(column, row), 255, "column {column} row {row}");

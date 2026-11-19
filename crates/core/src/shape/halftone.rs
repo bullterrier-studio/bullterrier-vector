@@ -13,7 +13,7 @@ use std::sync::Arc;
 pub enum Tone {
     /// One number everywhere.
     Level(f64),
-    /// A field, read at the centre of each dot.
+    /// A field, read at the center of each dot.
     Field(Arc<Field>),
 }
 
@@ -138,11 +138,11 @@ pub enum Screen {
     Grid,
     /// The rows of a grid swung across by a sine: `amplitude` pitches high, one `wavelength` pitches long.
     Wave,
-    /// Rows round the centre: a cell is a wedge of one ring, about a pitch long and wide.
+    /// Rows round the center: a cell is a wedge of one ring, about a pitch long and wide.
     Rings,
-    /// One row, an Archimedean spiral out of the centre, a pitch more each turn.
+    /// One row, an Archimedean spiral out of the center, a pitch more each turn.
     Spiral,
-    /// Rows straight out of the centre, cells a pitch long, wider outward.
+    /// Rows straight out of the center, cells a pitch long, wider outward.
     Rays,
 }
 
@@ -183,7 +183,7 @@ impl Screen {
         }
     }
 
-    /// The refusal of the optional argument `argument` (`angle`, `centre`, `amplitude`, `wavelength`) if the screen's
+    /// The refusal of the optional argument `argument` (`angle`, `center`, `amplitude`, `wavelength`) if the screen's
     /// layout does not read it.
     ///
     /// # Errors
@@ -204,7 +204,7 @@ pub struct HalftoneStyle {
     pub(crate) mark: Mark,
     pub(crate) aspect: f64,
     pub(crate) screen: Screen,
-    pub(crate) centre: Option<Point>,
+    pub(crate) center: Option<Point>,
     pub(crate) amplitude: f64,
     pub(crate) wavelength: f64,
 }
@@ -217,7 +217,7 @@ impl HalftoneStyle {
     }
 
     /// The tone from 0 to 1: the share of each cell the dot leaves bare, so 0 is solid and 1 has no dots. A number, or
-    /// a field read at the centre of each dot (see [`Tone`]).
+    /// a field read at the center of each dot (see [`Tone`]).
     #[must_use]
     pub fn tone(&self) -> &Tone {
         &self.tone
@@ -253,10 +253,10 @@ impl HalftoneStyle {
         self.screen
     }
 
-    /// The centre of rings, a spiral and rays, `None` for the middle of the shape's bounding box.
+    /// The center of rings, a spiral and rays, `None` for the middle of the shape's bounding box.
     #[must_use]
-    pub fn centre(&self) -> Option<Point> {
-        self.centre
+    pub fn center(&self) -> Option<Point> {
+        self.center
     }
 
     /// How high a [`Screen::Wave`] swings the rows, in pitches.
@@ -305,10 +305,10 @@ impl Keyed for HalftoneStyle {
         }
         key.number(self.aspect);
         key.text(self.screen.name());
-        match self.centre {
-            Some(centre) => {
+        match self.center {
+            Some(center) => {
                 key.word(1);
-                key.of(&centre);
+                key.of(&center);
             }
             None => key.word(0),
         }

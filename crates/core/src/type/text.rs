@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 pub enum Align {
     /// The line starts at the anchor.
     Left,
-    /// The line is centred on the anchor.
+    /// The line is centered on the anchor.
     Center,
     /// The line ends at the anchor.
     Right,

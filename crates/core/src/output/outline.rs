@@ -26,7 +26,7 @@ pub(super) fn within_device(what: &str, value: f64) -> Result<(), Error> {
     }
 }
 
-/// The outline of the stroke `width` wide that `stroke` draws along `centre`, with the given `join` and `cap` (the
+/// The outline of the stroke `width` wide that `stroke` draws along `center`, with the given `join` and `cap` (the
 /// stroke's own, or others the caller completes), as straight lines to within `flatness` (the outline has arcs for the
 /// round joins and ends; the rasteriser and the tessellator are given lines only).
 ///
@@ -37,7 +37,7 @@ pub(super) fn within_device(what: &str, value: f64) -> Result<(), Error> {
 /// # Errors
 /// [`Error::Parameter`] naming `name` once the outline has more edges than `MAX_SEGMENTS`.
 pub(super) fn stroke_outline(
-    centre: &BezPath,
+    center: &BezPath,
     stroke: &StrokeStyle,
     (join, cap): (Join, Cap),
     width: f64,
@@ -49,7 +49,7 @@ pub(super) fn stroke_outline(
         .with_caps(kurbo_cap(cap))
         .with_miter_limit(stroke.miter_limit());
     let curved = kurbo::stroke(
-        centre.elements().iter().copied(),
+        center.elements().iter().copied(),
         &expanded,
         &StrokeOpts::default(),
         flatness,
@@ -73,7 +73,7 @@ pub(super) fn stroke_outline(
     }
 }
 
-/// The region a stroke with a profile paints along `centre` (in design pixels), as straight-edged closed outlines the
+/// The region a stroke with a profile paints along `center` (in design pixels), as straight-edged closed outlines the
 /// outputs fill with the stroke's paint; `None` for a stroke of one width, which the stroker draws. Every output makes it
 /// here, in design pixels and to one tolerance, so they draw the same polygon at any size; its edges are charged to
 /// `charge` as `Path::tapered_outline` charges them.
@@ -81,14 +81,14 @@ pub(super) fn stroke_outline(
 /// # Errors
 /// What [`Path::tapered_outline`] raises.
 pub(super) fn tapered_region(
-    centre: &Path,
+    center: &Path,
     stroke: &StrokeStyle,
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Option<Path>, Error> {
     let Some(profile) = stroke.profile() else {
         return Ok(None);
     };
-    centre
+    center
         .tapered_outline_charged(stroke.width(), profile, FLATNESS, charge)
         .map(Some)
 }

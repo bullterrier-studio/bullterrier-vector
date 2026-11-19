@@ -97,7 +97,7 @@ def test_a_python_program_is_drawn_by_its_drawing_variable(layout, look, decode_
     star = runpy.run_path(str(ROOT / "examples" / "star.py"))["drawing"]
     assert decode_png(png.read_bytes()) == (400, 400, star.to_rgba(400, 400))
     assert svg.read_text(encoding="utf-8") == star.to_svg(400, 400)
-    # and the picture is the star: its centre is the yellow fill, the corner of the frame is empty
+    # and the picture is the star: its center is the yellow fill, the corner of the frame is empty
     pixels = decode_png(png.read_bytes())[2]
     assert tuple(pixels[(200 * 400 + 200) * 4 :][:4]) == (0xFF, 0xCC, 0x33, 255)
     assert tuple(pixels[:4]) == (0, 0, 0, 0)

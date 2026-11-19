@@ -1098,7 +1098,7 @@ def line_families() -> list[Entry]:
         ),
         "bands_rings": framed(btvec.Drawing(box).bands(8, tone=photo, width=(0.6, 5), family="rings").fill(INK)),
         "bands_spiral": framed(
-            btvec.Drawing(box).bands(8, tone=ramp, width=(0.6, 5), family="spiral", centre=(30, 60)).fill(INK)
+            btvec.Drawing(box).bands(8, tone=ramp, width=(0.6, 5), family="spiral", center=(30, 60)).fill(INK)
         ),
         "bands_rays": framed(btvec.Drawing(box).bands(8, tone=ramp, width=(0.6, 5), family="rays", angle=10).fill(INK)),
         "stipple_map": framed(btvec.Drawing(box).stipple(4, tone=photo, radius=dot, seed=3).fill(INK)),

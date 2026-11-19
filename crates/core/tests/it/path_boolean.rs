@@ -282,7 +282,7 @@ fn circle_fault(ring: &Ring, radius: f64, tolerance: f64) -> Option<String> {
         let corner = libm::hypot(x, y);
         let middle = libm::hypot(f64::midpoint(x, next_x), f64::midpoint(y, next_y));
         if (corner - radius).abs() > bulge + 1e-9 * radius {
-            return Some(format!("corner {index} is {corner} from the centre"));
+            return Some(format!("corner {index} is {corner} from the center"));
         }
         if middle < radius - bulge - tolerance - 1e-9 * radius {
             return Some(format!(

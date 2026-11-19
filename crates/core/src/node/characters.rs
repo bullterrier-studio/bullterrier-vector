@@ -229,10 +229,10 @@ impl Node for CharactersNode {
         let mut made = Vec::with_capacity(shapes);
         for (row, line) in lines.iter().enumerate() {
             for (column, character) in line.iter().enumerate() {
-                let centre = Point::new(width * (column as f64 + 0.5), height * (row as f64 + 0.5));
+                let center = Point::new(width * (column as f64 + 0.5), height * (row as f64 + 0.5));
                 for shape in &glyphs.shapes[character] {
-                    let origin = shape.attributes().origin().unwrap_or(centre);
-                    let path = shape.path().translate(centre.x - origin.x, centre.y - origin.y)?;
+                    let origin = shape.attributes().origin().unwrap_or(center);
+                    let path = shape.path().translate(center.x - origin.x, center.y - origin.y)?;
                     let mut one = shape.with_path(path).at(made.len());
                     let attributes = one.attributes_mut();
                     attributes.glyph = None;
@@ -246,7 +246,7 @@ impl Node for CharactersNode {
                     } else {
                         made.len() as f64 / (shapes - 1) as f64
                     });
-                    attributes.origin = Some(centre);
+                    attributes.origin = Some(center);
                     if let Some(colors) = colors {
                         one.style_mut().set_fill(Paint::from(colors[row][column]));
                     }

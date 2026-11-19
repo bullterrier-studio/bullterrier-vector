@@ -40,7 +40,7 @@ def test_the_default_font_is_the_bundled_monospaced_one() -> None:
     assert [shape.path.to_svg_path() for shape in default] == [shape.path.to_svg_path() for shape in named]
 
 
-def test_a_capital_h_is_centred_in_its_cell_by_the_font_numbers() -> None:
+def test_a_capital_h_is_centered_in_its_cell_by_the_font_numbers() -> None:
     font = TTFont(FONT_FILE)
     pen = BoundsPen(font.getGlyphSet())
     font.getGlyphSet()["H"].draw(pen)

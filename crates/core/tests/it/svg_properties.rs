@@ -75,7 +75,7 @@ fn read(svg: &str) -> Result<Document, Failure> {
 }
 
 proptest! {
-    // The data of each element is the path of the shape, scaled by the fit of the frame in the output and centred, to
+    // The data of each element is the path of the shape, scaled by the fit of the frame in the output and centered, to
     // within rounding.
     #[test]
     fn each_element_reads_back_as_its_shape_moved_by_the_view(
@@ -101,7 +101,7 @@ proptest! {
                 .path()
                 .map_points(|point| Ok(bullterrier_vector::Point::new(point.x * scale + left, point.y * scale + top)))
                 .map_err(fail)?;
-            // the same commands and, number by number, the same values to 1e-9 of their size: the writer centres the
+            // the same commands and, number by number, the same values to 1e-9 of their size: the writer centers the
             // frame without the rounding residue this formula leaves on the axis that fits exactly
             let (written, expected) = (commands(data).map_err(fail)?, commands(&moved.to_svg_path()).map_err(fail)?);
             prop_assert_eq!(written.len(), expected.len());

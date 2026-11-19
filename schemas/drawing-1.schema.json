@@ -891,7 +891,7 @@
             },
             "aspect": { "anyOf": [{ "type": "number", "minimum": 1 }, { "$ref": "#/$defs/expression" }] },
             "screen": { "enum": ["grid", "wave", "rings", "spiral", "rays"] },
-            "centre": { "$ref": "#/$defs/coordinate_point" },
+            "center": { "$ref": "#/$defs/coordinate_point" },
             "amplitude": { "$ref": "#/$defs/number" },
             "wavelength": { "$ref": "#/$defs/positive" }
           },

@@ -1,4 +1,4 @@
-//! Elliptical arcs as cubic Beziers: SVG's endpoint form, converted to centre form (SVG 1.1, appendix F.6.5 and F.6.6),
+//! Elliptical arcs as cubic Beziers: SVG's endpoint form, converted to center form (SVG 1.1, appendix F.6.5 and F.6.6),
 //! then cut into pieces of at most a quarter turn.
 
 use super::Segment;
@@ -44,8 +44,8 @@ pub(super) fn arc_segments(
         rx *= growth;
         ry *= growth;
     }
-    // F.6.5 step 2: the centre in the ellipse's axes. Scaled-up radii reach the chord's ends with no room to spare,
-    // so the centre is the chord's middle; otherwise the radicand is not below 0 but rounding may leave it a hair under
+    // F.6.5 step 2: the center in the ellipse's axes. Scaled-up radii reach the chord's ends with no room to spare,
+    // so the center is the chord's middle; otherwise the radicand is not below 0 but rounding may leave it a hair under
     let side = if large == sweep { -1.0 } else { 1.0 };
     let coefficient = if scaled {
         0.0
@@ -54,15 +54,15 @@ pub(super) fn arc_segments(
             (rx * rx * ry * ry - rx * rx * y1 * y1 - ry * ry * x1 * x1) / (rx * rx * y1 * y1 + ry * ry * x1 * x1);
         side * radicand.max(0.0).sqrt()
     };
-    let (centre_x, centre_y) = (coefficient * rx * y1 / ry, -coefficient * ry * x1 / rx);
-    // step 3: the centre in the drawing's axes
-    let centre = Point::new(
-        cos_phi * centre_x - sin_phi * centre_y + f64::midpoint(from.x, to.x),
-        sin_phi * centre_x + cos_phi * centre_y + f64::midpoint(from.y, to.y),
+    let (center_x, center_y) = (coefficient * rx * y1 / ry, -coefficient * ry * x1 / rx);
+    // step 3: the center in the drawing's axes
+    let center = Point::new(
+        cos_phi * center_x - sin_phi * center_y + f64::midpoint(from.x, to.x),
+        sin_phi * center_x + cos_phi * center_y + f64::midpoint(from.y, to.y),
     );
     // step 4: the start angle, and the sweep, which the flag decides the sign of
-    let (ux, uy) = ((x1 - centre_x) / rx, (y1 - centre_y) / ry);
-    let (vx, vy) = ((-x1 - centre_x) / rx, (-y1 - centre_y) / ry);
+    let (ux, uy) = ((x1 - center_x) / rx, (y1 - center_y) / ry);
+    let (vx, vy) = ((-x1 - center_x) / rx, (-y1 - center_y) / ry);
     let start = atan2(uy, ux);
     let mut sweep_angle = atan2(ux * vy - uy * vx, ux * vx + uy * vy);
     if !sweep && sweep_angle > 0.0 {
@@ -70,14 +70,14 @@ pub(super) fn arc_segments(
     } else if sweep && sweep_angle < 0.0 {
         sweep_angle += TAU;
     }
-    ellipse_cubics(centre, (rx, ry), (sin_phi, cos_phi), (start, sweep_angle), to)
+    ellipse_cubics(center, (rx, ry), (sin_phi, cos_phi), (start, sweep_angle), to)
 }
 
-/// The cubics of the ellipse about `centre` with radii `rx` and `ry` turned by the angle whose sine and cosine are
+/// The cubics of the ellipse about `center` with radii `rx` and `ry` turned by the angle whose sine and cosine are
 /// `(sin_phi, cos_phi)`, from the angle `start` (radians, in the ellipse's own axes) through `sweep_angle` (radians, positive
 /// clockwise on the screen): one cubic per quarter turn at most, the last ending exactly on `to`.
 pub(super) fn ellipse_cubics(
-    centre: Point,
+    center: Point,
     (rx, ry): (f64, f64),
     (sin_phi, cos_phi): (f64, f64),
     (start, sweep_angle): (f64, f64),
@@ -93,8 +93,8 @@ pub(super) fn ellipse_cubics(
     let at = |angle: f64| {
         let (sin, cos) = sin_cos(angle);
         let point = Point::new(
-            centre.x + rx * cos * cos_phi - ry * sin * sin_phi,
-            centre.y + rx * cos * sin_phi + ry * sin * cos_phi,
+            center.x + rx * cos * cos_phi - ry * sin * sin_phi,
+            center.y + rx * cos * sin_phi + ry * sin * cos_phi,
         );
         let direction = Point::new(
             -rx * sin * cos_phi - ry * cos * sin_phi,

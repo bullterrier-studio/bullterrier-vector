@@ -36,7 +36,7 @@ fn region() -> Result<Path, bullterrier_vector::Error> {
 #[test]
 fn the_pixels_cover_the_tapered_region_and_a_zero_factor_tip_is_background() -> Outcome {
     let image = render(&brush()?, 100, 100)?;
-    // mid-stroke is painted; ten pixels above the centre is the edge of the widest place
+    // mid-stroke is painted; ten pixels above the center is the edge of the widest place
     assert_eq!(image.pixel(50, 50), [0, 0, 0, 255]);
     assert!(image.alpha(50, 41) > 200 && image.alpha(50, 38) == 0);
     // near the start the disc is a fraction of a pixel wide: a plain round stroke would cover (15, 45)

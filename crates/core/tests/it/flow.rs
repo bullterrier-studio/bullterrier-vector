@@ -1,6 +1,6 @@
 //! `Flow` through the public API: directions without sign, in degrees from 0 up to 180. Oracles: the angle given,
 //! the tangent of a circle, the doubled-angle mean computed here with plain `atan2`, the sum of two angles modulo 180
-//! and the radius of a circle (`atan2` of the point from the centre).
+//! and the radius of a circle (`atan2` of the point from the center).
 
 use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{Error, Flow, Param, Path, Point, by_index};
@@ -174,7 +174,7 @@ fn a_quarter_turn_of_a_circle_contour_runs_across_the_outline_along_the_radius()
         (61.0, 70.0),
         (120.0, 104.0),
     ] {
-        // the radius through the point, from the centre (100, 100)
+        // the radius through the point, from the center (100, 100)
         let radius = libm::atan2(y - 100.0, x - 100.0).to_degrees();
         assert!(
             apart(across.at((x, y)), radius) < 1.0,

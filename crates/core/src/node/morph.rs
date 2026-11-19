@@ -29,7 +29,7 @@ pub(crate) struct Morph;
 pub(crate) static MORPH: Verb = Verb {
     name: "morph",
     role: Role::Step,
-    summary: "morphs every shape `fraction` of the way to the shape at the same index of the drawing `target` (as Path.morph); `fraction` 0 is the shape, 1 the target's, any finite number goes on along the same line; a shape with no partner shrinks to its centre, a target shape with no partner grows from its centre with its own style",
+    summary: "morphs every shape `fraction` of the way to the shape at the same index of the drawing `target` (as Path.morph); `fraction` 0 is the shape, 1 the target's, any finite number goes on along the same line; a shape with no partner shrinks to its center, a target shape with no partner grows from its center with its own style",
     args: &[TARGET, FRACTION],
     check: None,
 };

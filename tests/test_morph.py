@@ -78,7 +78,7 @@ def test_a_hole_with_no_partner_shrinks_to_its_place_in_the_other_shape_and_neve
     assert ring.morph(solid, 1).contains((50, 50))
 
 
-def test_an_outer_with_no_partner_shrinks_to_its_own_centre_when_the_other_is_empty() -> None:
+def test_an_outer_with_no_partner_shrinks_to_its_own_center_when_the_other_is_empty() -> None:
     assert box(SQUARE.morph(btvec.Path(), 0.5)) == (2.5, 2.5, 5, 5)
     assert box(btvec.Path().morph(SQUARE, 0.5)) == (2.5, 2.5, 5, 5)
 
@@ -135,7 +135,7 @@ def test_the_target_may_be_a_path_or_a_shape() -> None:
     assert box(from_path) == box(from_shape) == (0, 0, 15, 15)
 
 
-def test_a_surplus_source_shape_shrinks_to_its_own_centre_and_keeps_its_style() -> None:
+def test_a_surplus_source_shape_shrinks_to_its_own_center_and_keeps_its_style() -> None:
     shapes = SOURCE.morph(TARGET.only(index=0), 0.5).shapes()
     assert len(shapes) == 2
     assert box(shapes[1].path) == (102.5, 2.5, 5, 5)
@@ -143,7 +143,7 @@ def test_a_surplus_source_shape_shrinks_to_its_own_centre_and_keeps_its_style() 
     assert box(SOURCE.morph(TARGET.only(index=0), 1).shapes()[1].path) == (105, 5, 0, 0)
 
 
-def test_a_surplus_target_shape_grows_from_its_own_centre_with_its_own_style() -> None:
+def test_a_surplus_target_shape_grows_from_its_own_center_with_its_own_style() -> None:
     shapes = SOURCE.only(index=0).morph(TARGET, 0.5).shapes()
     assert len(shapes) == 2
     assert box(shapes[1].path) == (107.5, 2.5, 15, 5)  # the target's (100, 0, 30, 10), half the size about (115, 5)

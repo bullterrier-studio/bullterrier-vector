@@ -12,13 +12,13 @@ const PINNED: [&str; 13] = [
     "waves: path 63586 2659d9c1fa8b053d, svg 63735 07041b4f3c7ec10d",
     "waves angle: path 47265 82548f250ced2a10, svg 47414 ba2a17b689f61a46",
     "rings: path 65080 3c819fabe9a7e036, svg 65229 2426f826acf88546",
-    "rings centre: path 44433 3042456a25303c1e, svg 44582 69b068e285b22cec",
+    "rings center: path 44433 3042456a25303c1e, svg 44582 69b068e285b22cec",
     "rings disc: path 115368 062acf11265ba25d, svg 115517 1f315828396f2d55",
     "spiral: path 63372 e85e258d584679b4, svg 63521 7fb8d33687e216e0",
     "spiral turned: path 58305 6513425b678e4a51, svg 58454 d30860295fdee5ef",
     "rays: path 169841 1202bc55e99195e9, svg 169990 49e2380520eed25f",
-    "rays centre: path 76012 e71630842a246268, svg 76161 cbc72441b4034828",
-    "rays far centre: path 38494 236f2aaad104a895, svg 38643 aab5d755caeb88b1",
+    "rays center: path 76012 e71630842a246268, svg 76161 cbc72441b4034828",
+    "rays far center: path 38494 236f2aaad104a895, svg 38643 aab5d755caeb88b1",
 ];
 
 fn fnv(text: &str) -> (usize, u64) {
@@ -32,7 +32,7 @@ fn tone() -> Result<Field, bullterrier_vector::Error> {
     Field::ramp((10.0, 10.0), (190.0, 120.0))
 }
 
-/// Every family, over a rectangle off the origin and over a disc, at several angles, centres and sizes.
+/// Every family, over a rectangle off the origin and over a disc, at several angles, centers and sizes.
 fn cases() -> Result<Vec<(&'static str, Path, Bands)>, bullterrier_vector::Error> {
     let rect = Path::rect(13.0, 21.0, 170.0, 97.0, 0.0)?;
     let disc = Path::circle((100.0, 70.0), 55.0)?;
@@ -61,9 +61,9 @@ fn cases() -> Result<Vec<(&'static str, Path, Bands)>, bullterrier_vector::Error
         ),
         ("rings", rect.clone(), Bands::rings(9.0, t()?, (0.5, 4.0))?),
         (
-            "rings centre",
+            "rings center",
             rect.clone(),
-            Bands::rings(11.0, t()?, (0.5, 4.0))?.centre((30.0, 20.0))?,
+            Bands::rings(11.0, t()?, (0.5, 4.0))?.center((30.0, 20.0))?,
         ),
         ("rings disc", disc.clone(), Bands::rings(5.0, t()?, (0.5, 2.0))?),
         ("spiral", rect.clone(), Bands::spiral(9.0, t()?, (0.5, 4.0))?),
@@ -72,18 +72,18 @@ fn cases() -> Result<Vec<(&'static str, Path, Bands)>, bullterrier_vector::Error
             disc.clone(),
             Bands::spiral(7.0, t()?, (0.5, 3.0))?
                 .angle(35.0)?
-                .centre((90.0, 60.0))?,
+                .center((90.0, 60.0))?,
         ),
         ("rays", rect.clone(), Bands::rays(9.0, t()?, (0.5, 4.0))?.angle(10.0)?),
         (
-            "rays centre",
+            "rays center",
             disc,
-            Bands::rays(12.0, t()?, (0.5, 4.0))?.centre((140.0, 40.0))?,
+            Bands::rays(12.0, t()?, (0.5, 4.0))?.center((140.0, 40.0))?,
         ),
         (
-            "rays far centre",
+            "rays far center",
             rect,
-            Bands::rays(15.0, t()?, (0.5, 4.0))?.centre((260.0, 150.0))?,
+            Bands::rays(15.0, t()?, (0.5, 4.0))?.center((260.0, 150.0))?,
         ),
     ])
 }

@@ -423,8 +423,8 @@ fn a_piece_of_a_curve_that_speeds_up_and_slows_down_has_its_share_of_the_length(
 
 #[test]
 fn a_piece_of_a_circle_is_arcs_that_end_on_the_circle() -> Outcome {
-    let (centre, radius) = ((20.0, -30.0), 75.0);
-    let circle = Path::circle(centre, radius)?;
+    let (center, radius) = ((20.0, -30.0), 75.0);
+    let circle = Path::circle(center, radius)?;
     let piece = circle.slice(0.1, 0.35, None)?;
     // from the first arc into the second
     let letters: String = commands(&piece.to_svg_path())?
@@ -436,8 +436,8 @@ fn a_piece_of_a_circle_is_arcs_that_end_on_the_circle() -> Outcome {
     for (end, angle) in [((start_x, start_y), 0.1), ((end_x, end_y), 0.35)] {
         let angle = 2.0 * std::f64::consts::PI * angle;
         let ideal = (
-            centre.0 + radius * libm::sin(angle),
-            centre.1 - radius * libm::cos(angle),
+            center.0 + radius * libm::sin(angle),
+            center.1 - radius * libm::cos(angle),
         );
         assert!(distance(end, ideal) <= 1e-3 * radius, "{end:?} against {ideal:?}");
     }

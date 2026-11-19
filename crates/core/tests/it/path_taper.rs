@@ -1,6 +1,6 @@
 //! `Path::tapered_outline` through the public API: the region a stroke whose width follows a profile along its length
 //! paints. The oracle is written here, independent of the library: a point is inside iff some point `c(s)` of a densely
-//! sampled centre line has `|p - c(s)| <= r(s)`, with `r(s)` the profile's factor at `s / length` times half the width.
+//! sampled center line has `|p - c(s)| <= r(s)`, with `r(s)` the profile's factor at `s / length` times half the width.
 //! Areas are computed by hand from the definition (a kite and a sector).
 
 use crate::common::{Outcome, net_area, parameter_refusal, rings};
@@ -33,7 +33,7 @@ fn gap(a: (f64, f64), b: (f64, f64)) -> f64 {
     ((a.0 - b.0) * (a.0 - b.0) + (a.1 - b.1) * (a.1 - b.1)).sqrt()
 }
 
-/// A centre line as a polyline of many points (a cubic is sampled by de Casteljau) with the radius at each point.
+/// A center line as a polyline of many points (a cubic is sampled by de Casteljau) with the radius at each point.
 struct Sweep {
     discs: Vec<(f64, f64, f64)>,
 }

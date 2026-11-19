@@ -167,7 +167,7 @@ impl Path {
     }
 
     /// An open circular arc about `center`, from the angle `start` to the angle `end`, both in degrees clockwise on the
-    /// screen from the +x axis (`y` down, as for [`Path::rotate`]): 0 is the right of the centre, 90 below it. `end`
+    /// screen from the +x axis (`y` down, as for [`Path::rotate`]): 0 is the right of the center, 90 below it. `end`
     /// may be below `start`, and then the arc runs counter-clockwise on the screen. Cubics, one per quarter turn at
     /// most; the path starts at the point of `start` and ends at that of `end`.
     ///

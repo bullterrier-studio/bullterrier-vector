@@ -62,7 +62,7 @@ fn the_level_of_a_ramp_is_the_region_past_a_straight_edge() -> Outcome {
 
 #[test]
 fn a_disc_cut_by_the_edge_has_no_edge_along_the_border() -> Outcome {
-    // a soft disc of radius 30 centred on the left border of a 100 by 100 map
+    // a soft disc of radius 30 centered on the left border of a 100 by 100 map
     let bytes = made(100, 100, |x, y| {
         let d = libm::hypot(x as f64 + 0.5, y as f64 + 0.5 - 50.0);
         (255.0 * (0.5 + (30.0 - d) / 4.0).clamp(0.0, 1.0)).round() as u8
@@ -341,10 +341,10 @@ fn untidied_labels_still_match_the_map_cell_by_cell() -> Outcome {
     let bytes = blobs(0);
     let shapes = labels(&field(64, 64, &bytes)?, &raw())?;
     for (index, &byte) in bytes.iter().enumerate() {
-        let centre = ((index % 64) as f64 + 0.5, (index / 64) as f64 + 0.5);
+        let center = ((index % 64) as f64 + 0.5, (index / 64) as f64 + 0.5);
         for shape in &shapes {
             let label = shape.attributes().label().ok_or("no label")?;
-            assert_eq!(shape.path().contains(centre)?, label == u32::from(byte), "cell {index}");
+            assert_eq!(shape.path().contains(center)?, label == u32::from(byte), "cell {index}");
         }
     }
     Ok(())

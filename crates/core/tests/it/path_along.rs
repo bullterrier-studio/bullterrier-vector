@@ -128,18 +128,18 @@ fn along_a_straight_guide_a_curve_is_moved_whole() -> Outcome {
 
 // A circle guide -----------------------------------------------------------------------------------------------------
 
-/// The point `distance` along the clockwise circle of `radius` round `centre`, walked from the angle `from` (0 at the top,
-/// growing clockwise on the screen), with `y` to the right of travel, towards the centre.
-fn on_circle(centre: (f64, f64), radius: f64, from: f64, distance: f64, y: f64) -> (f64, f64) {
+/// The point `distance` along the clockwise circle of `radius` round `center`, walked from the angle `from` (0 at the top,
+/// growing clockwise on the screen), with `y` to the right of travel, towards the center.
+fn on_circle(center: (f64, f64), radius: f64, from: f64, distance: f64, y: f64) -> (f64, f64) {
     let angle = from + distance / radius;
     let reach = radius - y;
-    (centre.0 + reach * libm::sin(angle), centre.1 - reach * libm::cos(angle))
+    (center.0 + reach * libm::sin(angle), center.1 - reach * libm::cos(angle))
 }
 
 #[test]
 fn along_a_circle_the_angle_is_the_distance_over_the_radius_and_y_moves_the_radius() -> Outcome {
-    let (centre, radius) = ((50.0, -20.0), 100.0);
-    let guide = Path::circle(centre, radius)?;
+    let (center, radius) = ((50.0, -20.0), 100.0);
+    let guide = Path::circle(center, radius)?;
     let around = 2.0 * PI * radius;
     // (start, y): the last start runs past the end of the circle, which wraps
     for (start, y) in [(0.0, 0.0), (0.25, 0.0), (0.8, 12.0), (0.8, -12.0), (-0.3, 0.0)] {
@@ -147,17 +147,17 @@ fn along_a_circle_the_angle_is_the_distance_over_the_radius_and_y_moves_the_radi
         let found = points(&bent)?;
         let reach = radius - y;
         for point in &found {
-            let from_centre = distance(*point, centre);
+            let from_center = distance(*point, center);
             assert!(
-                (from_centre - reach).abs() <= 0.06,
-                "start {start}, y {y}: {point:?} is {from_centre} from the centre, not {reach}"
+                (from_center - reach).abs() <= 0.06,
+                "start {start}, y {y}: {point:?} is {from_center} from the center, not {reach}"
             );
         }
         let at = start * around;
-        assert_near(found[0], on_circle(centre, radius, 0.0, at, y), 0.1, "first point");
+        assert_near(found[0], on_circle(center, radius, 0.0, at, y), 0.1, "first point");
         assert_near(
             found[found.len() - 1],
-            on_circle(centre, radius, 0.0, at + 300.0, y),
+            on_circle(center, radius, 0.0, at + 300.0, y),
             0.1,
             "last point",
         );
@@ -194,8 +194,8 @@ fn a_closed_guide_wraps_the_distance_round_its_length() -> Outcome {
 
 #[test]
 fn near_moves_the_start_of_a_closed_guide() -> Outcome {
-    let (centre, radius) = ((0.0, 0.0), 100.0);
-    let guide = Path::circle(centre, radius)?;
+    let (center, radius) = ((0.0, 0.0), 100.0);
+    let guide = Path::circle(center, radius)?;
     // (near, the angle the guide is walked from): the nearest point of the circle, which is then where x = 0 lies
     let rows = [
         (None, 0.0),
@@ -208,13 +208,13 @@ fn near_moves_the_start_of_a_closed_guide() -> Outcome {
         let found = points(&bent)?;
         assert_near(
             found[0],
-            on_circle(centre, radius, from, 0.0, 0.0),
+            on_circle(center, radius, from, 0.0, 0.0),
             0.06,
             &format!("{near:?} start"),
         );
         assert_near(
             found[found.len() - 1],
-            on_circle(centre, radius, from, 10.0, 0.0),
+            on_circle(center, radius, from, 10.0, 0.0),
             0.06,
             &format!("{near:?} end"),
         );
@@ -226,13 +226,13 @@ fn near_moves_the_start_of_a_closed_guide() -> Outcome {
 fn the_direction_is_the_guides_own_so_far_from_the_guide_a_point_still_lands_on_its_angle() -> Outcome {
     // on a small circle a point 20 from the guide would be moved sideways by 0.2 if the guide's straight edges gave
     // the direction instead of the curve
-    let (centre, radius) = ((5.0, 5.0), 30.0);
-    let guide = Path::circle(centre, radius)?;
+    let (center, radius) = ((5.0, 5.0), 30.0);
+    let guide = Path::circle(center, radius)?;
     for x in [0.0, 17.0, 40.0, 77.0, 120.0, 180.0] {
         for y in [-20.0, 15.0] {
             assert_near(
                 image(&guide, 0.0, None, x, y)?,
-                on_circle(centre, radius, 0.0, x, y),
+                on_circle(center, radius, 0.0, x, y),
                 0.05,
                 &format!("x {x}, y {y}"),
             );
@@ -489,8 +489,8 @@ proptest! {
         to in (0.0f64..400.0, -30.0f64..30.0),
     ) {
         let fail = |e: Error| TestCaseError::fail(e.to_string());
-        let centre = (10.0, -40.0);
-        let guide = Path::circle(centre, radius).map_err(fail)?;
+        let center = (10.0, -40.0);
+        let guide = Path::circle(center, radius).map_err(fail)?;
         let edge = Path::line(from, to).map_err(fail)?;
         let bent = edge.along(&guide, start, None).map_err(fail)?;
         let line = points(&bent).map_err(|e| TestCaseError::fail(e.to_string()))?;
@@ -501,7 +501,7 @@ proptest! {
         for step in 0..=100 {
             let share = f64::from(step) / 100.0;
             let (x, y) = (from.0 + share * (to.0 - from.0), from.1 + share * (to.1 - from.1));
-            let ideal = on_circle(centre, radius, 0.0, start * 2.0 * PI * radius + x, y);
+            let ideal = on_circle(center, radius, 0.0, start * 2.0 * PI * radius + x, y);
             let off = off_polyline(&line, ideal);
             prop_assert!(off <= tolerance, "{off} from the bend at {share} of the edge (tolerance {tolerance})");
         }

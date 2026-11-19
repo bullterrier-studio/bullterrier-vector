@@ -27,13 +27,13 @@ fn a_wide_thin_region_is_refused_before_its_lattice_is_made() -> Outcome {
 }
 
 #[test]
-fn a_centre_too_far_to_draw_round_is_refused_naming_the_centre() -> Outcome {
+fn a_center_too_far_to_draw_round_is_refused_naming_the_center() -> Outcome {
     let region = Path::rect(0.0, 0.0, 100.0, 100.0, 0.0)?;
     for family in ["rings", "spiral", "rays"] {
-        for centre in [(1e20, 1e20), (1e8, 0.0)] {
-            let bands = bands_of(family)?.centre(Point::new(centre.0, centre.1))?;
+        for center in [(1e20, 1e20), (1e8, 0.0)] {
+            let bands = bands_of(family)?.center(Point::new(center.0, center.1))?;
             let (name, _) = parameter_refusal(region.bands(&bands))?;
-            assert_eq!(name, "centre", "{family} {centre:?}");
+            assert_eq!(name, "center", "{family} {center:?}");
         }
     }
     Ok(())

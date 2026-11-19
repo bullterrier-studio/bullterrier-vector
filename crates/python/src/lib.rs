@@ -502,7 +502,7 @@ impl PyPath {
     }
 
     /// The path with every point turned about `about` (the middle of the bounds by default) by `angle` degrees clockwise
-    /// at the centre, less and less further out and not at all from `radius` on (the farthest corner of the bounds by
+    /// at the center, less and less further out and not at all from `radius` on (the farthest corner of the bounds by
     /// default): the turn at distance `r` is `angle * (1 - s^2 (3 - 2s))`, `s = r / radius`. Points keep their distance
     /// to `about`. Edges are cut into pieces so that the result stays within a hundredth of the radius of the true
     /// twist (and within 0.05 design pixels of it), every vertex kept, so the result is made of straight lines.
@@ -596,10 +596,10 @@ impl PyPath {
 
     /// Lines whose width follows a tone, laid over the region this path fills and outlined as wide at each point as `tone`
     /// asks: `width` is `(width where the tone is 0, where it is 1)`. `family` is `"lines"` (along `angle` degrees), `"waves"` (`wavelength`
-    /// long, `amplitude` high), `"rings"` or `"spiral"` round `centre` (default the middle of the bounds) or `"rays"` out of
+    /// long, `amplitude` high), `"rings"` or `"spiral"` round `center` (default the middle of the bounds) or `"rays"` out of
     /// it. The result is closed outlines, so fill it. A `Param` is read at its default here.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
-    #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=None, centre=None, wavelength=None, amplitude=None))]
+    #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=None, center=None, wavelength=None, amplitude=None))]
     fn bands(
         &self,
         py: Python<'_>,
@@ -608,16 +608,16 @@ impl PyPath {
         width: (Num, Num),
         family: &str,
         angle: Option<Num>,
-        centre: Option<Pt>,
+        center: Option<Pt>,
         wavelength: Option<Num>,
         amplitude: Option<Num>,
     ) -> PyResult<Self> {
-        let bands = bands_of(spacing, tone, width, family, angle, centre, wavelength, amplitude)?;
+        let bands = bands_of(spacing, tone, width, family, angle, center, wavelength, amplitude)?;
         Self::of(py.detach(|| self.0.bands(&bands)))
     }
 
     /// Round dots on a square lattice `spacing` apart inside the region this path fills, one at most per cell; `radius` is
-    /// pixels, one number or `(radius where the tone is 0, where it is 1)` read at each dot's centre; `density` is `(share of cells with a dot where the tone is 0, where it is 1)`, default `(1, 0)`: dark is
+    /// pixels, one number or `(radius where the tone is 0, where it is 1)` read at each dot's center; `density` is `(share of cells with a dot where the tone is 0, where it is 1)`, default `(1, 0)`: dark is
     /// dense. `seed` moves them. The result is closed dots, so fill it.
     #[pyo3(signature = (spacing, *, tone, radius, density=None, seed=None))]
     fn stipple(
@@ -799,7 +799,7 @@ impl PyPath {
 
     /// A drawing of this path filled with a screen of dots of `color`; see `Drawing.halftone`.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
-    #[pyo3(signature = (color, *, tone, pitch=None, angle=None, shape=None, aspect=None, screen=None, centre=None, amplitude=None, wavelength=None))]
+    #[pyo3(signature = (color, *, tone, pitch=None, angle=None, shape=None, aspect=None, screen=None, center=None, amplitude=None, wavelength=None))]
     fn halftone(
         &self,
         color: &str,
@@ -809,12 +809,12 @@ impl PyPath {
         shape: Option<ShapeArg>,
         aspect: Option<Num>,
         screen: Option<&str>,
-        centre: Option<Pt>,
+        center: Option<Pt>,
         amplitude: Option<Num>,
         wavelength: Option<Num>,
     ) -> PyResult<PyDrawing> {
         PyDrawing::of(self).halftone(
-            color, tone, pitch, angle, shape, aspect, screen, centre, amplitude, wavelength,
+            color, tone, pitch, angle, shape, aspect, screen, center, amplitude, wavelength,
         )
     }
 

@@ -183,7 +183,7 @@ class Path:
         width: tuple[_Num, _Num],
         family: str = "lines",
         angle: _Num | None = None,
-        centre: _PointLike | None = None,
+        center: _PointLike | None = None,
         wavelength: _Num | None = None,
         amplitude: _Num | None = None,
     ) -> Path: ...
@@ -248,7 +248,7 @@ class Path:
         shape: str | Path | None = None,
         aspect: _Num | None = None,
         screen: str | None = None,
-        centre: _PointLike | None = None,
+        center: _PointLike | None = None,
         amplitude: _Num | None = None,
         wavelength: _Num | None = None,
     ) -> Drawing: ...
@@ -350,7 +350,7 @@ class Halftone:
     @property
     def screen(self) -> str: ...
     @property
-    def centre(self) -> Point | None: ...
+    def center(self) -> Point | None: ...
     @property
     def amplitude(self) -> float: ...
     @property
@@ -494,7 +494,7 @@ class Drawing:
         width: tuple[_Num, _Num],
         family: str = "lines",
         angle: _Num | None = None,
-        centre: _PointLike | None = None,
+        center: _PointLike | None = None,
         wavelength: _Num | None = None,
         amplitude: _Num | None = None,
     ) -> Drawing: ...
@@ -569,7 +569,7 @@ class Drawing:
         shape: str | Path | None = None,
         aspect: _Num | None = None,
         screen: str | None = None,
-        centre: _PointLike | None = None,
+        center: _PointLike | None = None,
         amplitude: _Num | None = None,
         wavelength: _Num | None = None,
     ) -> Drawing: ...

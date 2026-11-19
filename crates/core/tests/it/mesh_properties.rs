@@ -63,10 +63,10 @@ fn is_double_of(double: &Mesh, single: &Mesh) -> bool {
 
 #[test]
 fn a_sized_drawing_at_twice_the_size_has_positions_exactly_twice_as_large() -> Outcome {
-    // 100 by 50 frames: at 200 by 100 they fill the output; at 200 by 200 they are centred down by 50
+    // 100 by 50 frames: at 200 by 100 they fill the output; at 200 by 200 they are centered down by 50
     for (case, (width, height)) in [
         ("filling", (200.0, 100.0)),
-        ("centred", (200.0, 200.0)),
+        ("centered", (200.0, 200.0)),
         ("smaller", (50.0, 25.0)),
     ] {
         let single = mesh_of(&scene()?, width, height)?;

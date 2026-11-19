@@ -38,10 +38,16 @@ fn offences(verbs: &[(&str, &[Arg])], banned: &[String], allowed: &[(&str, &str)
         let (first_verb, first) = uses[0];
         for (verb, arg) in &uses[1..] {
             if arg.kind != first.kind {
-                found.push(format!("{name}: {first_verb} is {:?}, {verb} is {:?}", first.kind, arg.kind));
+                found.push(format!(
+                    "{name}: {first_verb} is {:?}, {verb} is {:?}",
+                    first.kind, arg.kind
+                ));
             }
             if arg.reads != first.reads {
-                found.push(format!("{name}: {first_verb} reads {:?}, {verb} reads {:?}", first.reads, arg.reads));
+                found.push(format!(
+                    "{name}: {first_verb} reads {:?}, {verb} reads {:?}",
+                    first.reads, arg.reads
+                ));
             }
             if let (Domain::Choice(a), Domain::Choice(b)) = (first.domain, arg.domain)
                 && a != b
@@ -77,20 +83,30 @@ fn halftone_and_bands_take_their_layout_as_one_argument() {
             .map(|arg| arg.domain)
     };
     assert!(layout("bands").is_some(), "bands has no `family`");
-    assert_eq!(layout("halftone"), layout("bands"), "halftone's layout words are not bands'");
+    assert_eq!(
+        layout("halftone"),
+        layout("bands"),
+        "halftone's layout words are not bands'"
+    );
 }
 
 #[test]
 fn every_exception_names_a_heading_that_exists() {
     let headings = headings();
     for (name, heading) in ALLOWED {
-        assert!(headings.contains(heading), "{name}: no heading `{heading}` in design-decisions.md");
+        assert!(
+            headings.contains(heading),
+            "{name}: no heading `{heading}` in design-decisions.md"
+        );
     }
 }
 
 #[test]
 fn the_banned_names_are_the_ones_the_conventions_list() {
-    assert_eq!(banned_names(), ["strength", "intensity", "factor", "amount", "val", "k"]);
+    assert_eq!(
+        banned_names(),
+        ["strength", "intensity", "factor", "amount", "val", "k"]
+    );
 }
 
 mod the_rule_itself {
@@ -98,7 +114,13 @@ mod the_rule_itself {
     use bullterrier_vector::{Kind, Reads};
 
     const fn arg(name: &'static str, kind: Kind, reads: Reads, domain: Domain) -> Arg {
-        Arg { name, kind, default: None, reads, domain }
+        Arg {
+            name,
+            kind,
+            default: None,
+            reads,
+            domain,
+        }
     }
 
     const ANGLE: Arg = arg("angle", Kind::Number, Reads::PerItem, Domain::Finite);
@@ -107,7 +129,12 @@ mod the_rule_itself {
     const AMOUNT: Arg = arg("amount", Kind::Number, Reads::PerItem, Domain::Finite);
     const SPACING_PAIR: Arg = arg("spacing", Kind::Pair, Reads::Once, Domain::Positive);
     const SPACING_NUMBER: Arg = arg("spacing", Kind::Number, Reads::Once, Domain::Positive);
-    const FAMILY_A: Arg = arg("family", Kind::Text, Reads::Literal, Domain::Choice(&["lines", "waves"]));
+    const FAMILY_A: Arg = arg(
+        "family",
+        Kind::Text,
+        Reads::Literal,
+        Domain::Choice(&["lines", "waves"]),
+    );
     const FAMILY_B: Arg = arg("family", Kind::Text, Reads::Literal, Domain::Choice(&["grid", "wave"]));
 
     fn banned() -> Vec<String> {
@@ -135,7 +162,10 @@ mod the_rule_itself {
     #[test]
     fn one_name_with_two_read_rules_is_found() {
         let verbs: [(&str, &[Arg]); 2] = [("wobble", &[SEED_PER_ITEM]), ("stipple", &[SEED_ONCE])];
-        assert_eq!(offences(&verbs, &[], &[]), ["seed: wobble reads PerItem, stipple reads Once"]);
+        assert_eq!(
+            offences(&verbs, &[], &[]),
+            ["seed: wobble reads PerItem, stipple reads Once"]
+        );
     }
 
     #[test]

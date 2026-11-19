@@ -163,14 +163,14 @@ fn fit_subpath(mut points: Vec<Point>, closed: bool, tolerance: f64) -> Option<S
     for pair in breaks.windows(2) {
         let (lo, hi) = (pair[0], pair[1]);
         let run: Vec<Point> = (lo..=hi).map(at).collect();
-        let centre = unit(minus(at(1), at(count - 1)));
+        let center = unit(minus(at(1), at(count - 1)));
         let left = if lo == 0 && smooth_start {
-            centre
+            center
         } else {
             unit(minus(run[1], run[0]))
         };
         let right = if hi == count && smooth_start {
-            times(centre, -1.0)
+            times(center, -1.0)
         } else {
             unit(minus(run[run.len() - 2], run[run.len() - 1]))
         };
@@ -214,18 +214,18 @@ fn fit_run(run: &[Point], left: Point, right: Point, tolerance: f64, into: &mut 
         // inside the middle half, so a split never peels one point off a long run
         let margin = ((job.hi - job.lo) / 4).max(1);
         let split = split.clamp(job.lo + margin, job.hi - margin);
-        let centre = unit(minus(run[split - 1], run[split + 1]));
+        let center = unit(minus(run[split - 1], run[split + 1]));
         stack.push(Job {
             lo: split,
             hi: job.hi,
-            left: times(centre, -1.0),
+            left: times(center, -1.0),
             right: job.right,
         });
         stack.push(Job {
             lo: job.lo,
             hi: split,
             left: job.left,
-            right: centre,
+            right: center,
         });
     }
 }

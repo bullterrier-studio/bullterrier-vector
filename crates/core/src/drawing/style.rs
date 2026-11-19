@@ -135,13 +135,13 @@ pub struct Halftone {
     shape: Option<Mark>,
     aspect: Option<Expr>,
     screen: Option<Screen>,
-    centre: Option<Point>,
+    center: Option<Point>,
     amplitude: Option<Expr>,
     wavelength: Option<Expr>,
 }
 
 /// The tone of a [`Halftone`] as the caller gives it: a number, an expression of Params (which a per-item number may
-/// be), or a [`Field`] read at the centre of each dot (held to 0 to 1).
+/// be), or a [`Field`] read at the center of each dot (held to 0 to 1).
 #[derive(Debug, Clone)]
 pub struct ToneGiven(Given);
 
@@ -159,7 +159,7 @@ impl From<Field> for ToneGiven {
 
 impl Halftone {
     /// A screen of dots of `color`, `tone` from 0 (solid) to 1 (no dots): the share of each cell left bare. A number or
-    /// an expression, which a per-item number may be, or a [`Field`] read at the centre of each dot.
+    /// an expression, which a per-item number may be, or a [`Field`] read at the center of each dot.
     #[must_use]
     pub fn new(color: Color, tone: impl Into<ToneGiven>) -> Self {
         Self::of(color, tone.into())
@@ -174,7 +174,7 @@ impl Halftone {
             shape: None,
             aspect: None,
             screen: None,
-            centre: None,
+            center: None,
             amplitude: None,
             wavelength: None,
         }
@@ -188,7 +188,7 @@ impl Halftone {
     }
 
     /// This screen with its layout turned `angle` degrees clockwise on the screen about the origin of the design
-    /// frame (rings have no direction and ignore it; a spiral and rays turn about their centre).
+    /// frame (rings have no direction and ignore it; a spiral and rays turn about their center).
     #[must_use]
     pub fn angle<T: Into<Expr>>(mut self, angle: Deg<T>) -> Self {
         self.angle = Some(angle.0.into());
@@ -216,11 +216,11 @@ impl Halftone {
         self
     }
 
-    /// This screen about `centre`, for rings, a spiral and rays (default: the middle of the shape's bounding box); a
+    /// This screen about `center`, for rings, a spiral and rays (default: the middle of the shape's bounding box); a
     /// grid or a wave has none, and a drawing given one is refused.
     #[must_use]
-    pub fn centre(mut self, centre: impl Into<Point>) -> Self {
-        self.centre = Some(centre.into());
+    pub fn center(mut self, center: impl Into<Point>) -> Self {
+        self.center = Some(center.into());
         self
     }
 
@@ -254,7 +254,7 @@ impl From<&HalftoneStyle> for Halftone {
         halftone.screen = Some(screen);
         let reads = |argument| screen.refuse_unread(argument).is_ok();
         halftone.angle = reads("angle").then(|| Expr::from(style.angle()));
-        halftone.centre = style.centre().filter(|_| reads("centre"));
+        halftone.center = style.center().filter(|_| reads("center"));
         halftone.amplitude = reads("amplitude").then(|| Expr::from(style.amplitude()));
         halftone.wavelength = reads("wavelength").then(|| Expr::from(style.wavelength()));
         halftone.aspect = style
@@ -369,8 +369,8 @@ impl Drawing {
         if let Some(screen) = halftone.screen {
             given.push(("screen", Given::Text(screen.name().to_owned())));
         }
-        if let Some(centre) = halftone.centre {
-            given.push(("centre", Given::Pair(Expr::from(centre.x), Expr::from(centre.y))));
+        if let Some(center) = halftone.center {
+            given.push(("center", Given::Pair(Expr::from(center.x), Expr::from(center.y))));
         }
         self.then(&style::Halftone, given)
     }

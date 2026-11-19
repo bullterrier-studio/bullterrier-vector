@@ -36,7 +36,7 @@ def test_to_svg_returns_the_document_as_text():
     root = parse(svg)
     assert root.tag == f"{SVG}svg"
     assert (root.attrib["width"], root.attrib["height"], root.attrib["viewBox"]) == ("200", "200", "0 0 200 200")
-    # the frame of 100 by 50 is doubled and centred down by 50
+    # the frame of 100 by 50 is doubled and centered down by 50
     assert path_data(btvec.Drawing(LINE, size=(100, 50)), 200, 200) == ["M0 50 L20 90"]
 
 
@@ -128,7 +128,7 @@ def test_to_rgba_returns_bytes_of_four_per_pixel_transparent_where_nothing_is_dr
 
 
 def test_to_rgba_rows_run_from_the_top_and_the_frame_is_fitted_like_svg():
-    # a 100 by 50 frame in 200 by 200 is doubled and centred down by 50: its top left quarter (a 50 by 25 rectangle at
+    # a 100 by 50 frame in 200 by 200 is doubled and centered down by 50: its top left quarter (a 50 by 25 rectangle at
     # the origin) fills columns 0..100 and rows 50..100
     quarter = btvec.Drawing(btvec.Path.rect(0, 0, 50, 25).fill("#ff0000"), size=(100, 50))
     image = quarter.to_rgba(200, 200)

@@ -44,9 +44,9 @@ impl Drawing {
                 ("wavelength", number(bands.wavelength_of())),
                 ("amplitude", number(bands.amplitude_of())),
                 (
-                    "centre",
+                    "center",
                     bands
-                        .centre_of()
+                        .center_of()
                         .map_or(Given::Unset, |(x, y)| Given::Pair(x.clone(), y.clone())),
                 ),
             ],

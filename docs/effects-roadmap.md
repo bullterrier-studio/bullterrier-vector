@@ -15,7 +15,7 @@ with a gallery piece"). The primitive comes from its batch; the effect adds the 
 | Arch and envelope type | a line of text bent on an arch or fitted into an envelope shape (preset `bent_type`) | V5, V12 |
 | Glyph-to-shape morph | a letter turning into a shape and back | V5, V13 |
 | Halftone dots | a tone drawn as a dot screen: dot shapes and screen geometry ([dither-and-print.md](dither-and-print.md)) | V10, 4a |
-| Radial and linear repeaters | copies along a line or around a centre, each with its copy index (`repeat`); `examples/glyph_scatter.py` scatters by a seeded random | V2, V7 |
+| Radial and linear repeaters | copies along a line or around a center, each with its copy index (`repeat`); `examples/glyph_scatter.py` scatters by a seeded random | V2, V7 |
 | Tapered strokes | a stroke whose width varies along its length, thinning at free ends (preset `brush_taper`) | V11 |
 | Series input | bars and waveform paths from a list of numbers (`examples/series_bars.py`) | V2 |
 

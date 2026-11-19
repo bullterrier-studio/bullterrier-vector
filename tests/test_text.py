@@ -731,7 +731,7 @@ CAPITAL = 1400  # the cap height of fraunces-subset.ttf, a capital below the top
             "H",
             {"align": "center"},
             [(5500 - H / 2, CAPITAL)],
-            id="centre against the middle of the stretch",
+            id="center against the middle of the stretch",
         ),
         pytest.param(
             btvec.Path.rect(1000, 0, 9000, 9000),
@@ -810,8 +810,8 @@ def test_text_carried_along_a_circle_has_its_glyphs_at_the_distances_their_pens_
         angle = (start * 2 * math.pi * radius + x) / radius
         reach = radius - y
         middle = after.path.bounds
-        centre = (middle.x + middle.width / 2, middle.y + middle.height / 2)
-        assert centre == pytest.approx((reach * math.sin(angle), -reach * math.cos(angle)), abs=1.5)
+        center = (middle.x + middle.width / 2, middle.y + middle.height / 2)
+        assert center == pytest.approx((reach * math.sin(angle), -reach * math.cos(angle)), abs=1.5)
 
 
 # --- runs ----------------------------------------------------------------------------------------------------------

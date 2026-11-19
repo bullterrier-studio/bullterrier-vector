@@ -21,7 +21,7 @@ fn the_bounds_of_a_stack_are_the_union_of_its_shapes() -> Outcome {
 
 #[test]
 fn a_rotated_and_translated_shape_is_measured_where_it_lands() -> Outcome {
-    // a 10 by 4 rectangle turned 90 degrees about its centre (5, 2) is 4 wide and 10 high, then moved by (100, 0)
+    // a 10 by 4 rectangle turned 90 degrees about its center (5, 2) is 4 wide and 10 high, then moved by (100, 0)
     let drawing = Drawing::from(Path::rect(0.0, 0.0, 10.0, 4.0, 0.0)?)
         .rotate(Deg(90.0))
         .translate(100.0, 0.0);

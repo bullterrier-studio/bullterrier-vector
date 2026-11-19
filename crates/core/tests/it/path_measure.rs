@@ -114,7 +114,7 @@ proptest! {
         prop_assert!(close(path.length(), expected, 1e-10), "{} against {}", path.length(), expected);
     }
 
-    // The side of a star joins a tip at R and a notch at r, an angle pi / n apart at the centre: the law of cosines.
+    // The side of a star joins a tip at R and a notch at r, an angle pi / n apart at the center: the law of cosines.
     #[test]
     fn a_star_is_2n_sides_long(
         points in 2u32..=100,
@@ -130,8 +130,8 @@ proptest! {
     // The four cubic arcs of a circle stay within 1e-3 of 2 pi r once the circle is big enough for the arcs to be
     // flat to 0.01 px with few pieces.
     #[test]
-    fn a_circle_is_2_pi_r_long(radius in log_uniform(1.0, 6.0), centre in (-1000.0f64..1000.0, -1000.0f64..1000.0)) {
-        let path = Path::circle(centre, radius).map_err(|e| TestCaseError::fail(e.to_string()))?;
+    fn a_circle_is_2_pi_r_long(radius in log_uniform(1.0, 6.0), center in (-1000.0f64..1000.0, -1000.0f64..1000.0)) {
+        let path = Path::circle(center, radius).map_err(|e| TestCaseError::fail(e.to_string()))?;
         prop_assert!(close(path.length(), 2.0 * PI * radius, 1e-3), "{} against {}", path.length(), 2.0 * PI * radius);
     }
 }
@@ -195,13 +195,13 @@ fn a_rectangle_is_walked_from_the_left_of_its_top_edge_clockwise() -> Outcome {
 
 #[test]
 fn a_circle_is_walked_from_the_top_clockwise_and_stays_on_the_circle() -> Outcome {
-    let (centre, radius) = ((20.0, -30.0), 75.0);
-    let circle = Path::circle(centre, radius)?;
+    let (center, radius) = ((20.0, -30.0), 75.0);
+    let circle = Path::circle(center, radius)?;
     for at in [0.0, 0.07, 0.25, 0.4, 0.5, 0.61, 0.75, 0.93] {
         let angle = 2.0 * PI * at;
         let ideal = (
-            centre.0 + radius * libm::sin(angle),
-            centre.1 - radius * libm::cos(angle),
+            center.0 + radius * libm::sin(angle),
+            center.1 - radius * libm::cos(angle),
         );
         // the cubic strays 2.7e-4 r from the circle, and the walk puts the point a hair off its arc length
         assert_near(point_at(&circle, at)?, ideal, 1e-3 * radius, &format!("at {at}"));

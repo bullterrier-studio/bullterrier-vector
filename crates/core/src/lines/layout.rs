@@ -4,7 +4,7 @@
 //! same family agree by construction.
 //!
 //! The straight family sits in a frame turned by `angle`: `along` runs with the rows, `across` runs over them. The round
-//! ones sit about a centre, a row a ring or an arm or a ray. A turn is clockwise on the screen (`y` down).
+//! ones sit about a center, a row a ring or an arm or a ray. A turn is clockwise on the screen (`y` down).
 
 use crate::geometry::Point;
 use crate::math::{sin_cos, sin_cos_deg};
@@ -43,16 +43,16 @@ impl Family {
         Self::NAMES[self as usize]
     }
 
-    /// Whether the rows run about a centre.
+    /// Whether the rows run about a center.
     pub(crate) fn is_round(self) -> bool {
         matches!(self, Self::Rings | Self::Spiral | Self::Rays)
     }
 
-    /// Whether this family reads the optional argument `argument` (`angle`, `centre`, `wavelength`, `amplitude`).
+    /// Whether this family reads the optional argument `argument` (`angle`, `center`, `wavelength`, `amplitude`).
     pub(crate) fn reads(self, argument: &str) -> bool {
         match argument {
             "angle" => self != Self::Rings,
-            "centre" => matches!(self, Self::Rings | Self::Spiral | Self::Rays),
+            "center" => matches!(self, Self::Rings | Self::Spiral | Self::Rays),
             "wavelength" | "amplitude" => self == Self::Waves,
             _ => true,
         }
@@ -103,13 +103,13 @@ pub(crate) fn corners(bounds: Rect) -> [Point; 4] {
     ]
 }
 
-/// The point at `radius` and `angle` (radians, clockwise on the screen from the x axis) about `centre`.
-pub(crate) fn polar(centre: Point, radius: f64, angle: f64) -> Point {
+/// The point at `radius` and `angle` (radians, clockwise on the screen from the x axis) about `center`.
+pub(crate) fn polar(center: Point, radius: f64, angle: f64) -> Point {
     let (sin, cos) = sin_cos(angle);
-    Point::new(centre.x + radius * cos, centre.y + radius * sin)
+    Point::new(center.x + radius * cos, center.y + radius * sin)
 }
 
-/// How far a box lies from a centre: the nearest and the farthest point of it, in design pixels.
+/// How far a box lies from a center: the nearest and the farthest point of it, in design pixels.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Distances {
     pub(crate) near: f64,
@@ -117,17 +117,17 @@ pub(crate) struct Distances {
 }
 
 impl Distances {
-    /// The distances from `centre` to the box `bounds` with these `corners`.
-    pub(crate) fn of(centre: Point, bounds: Rect, corners: &[Point; 4]) -> Self {
+    /// The distances from `center` to the box `bounds` with these `corners`.
+    pub(crate) fn of(center: Point, bounds: Rect, corners: &[Point; 4]) -> Self {
         let near = Point::new(
-            centre.x.clamp(bounds.x, bounds.x + bounds.width),
-            centre.y.clamp(bounds.y, bounds.y + bounds.height),
+            center.x.clamp(bounds.x, bounds.x + bounds.width),
+            center.y.clamp(bounds.y, bounds.y + bounds.height),
         );
         Self {
-            near: length(near.x - centre.x, near.y - centre.y),
+            near: length(near.x - center.x, near.y - center.y),
             far: corners
                 .iter()
-                .map(|p| length(p.x - centre.x, p.y - centre.y))
+                .map(|p| length(p.x - center.x, p.y - center.y))
                 .fold(0.0, f64::max),
         }
     }
@@ -162,27 +162,27 @@ impl RoundRows {
 }
 
 impl Layout {
-    /// The rows of this round layout about `centre` that can reach the box `bounds` with something that reaches `reach`
+    /// The rows of this round layout about `center` that can reach the box `bounds` with something that reaches `reach`
     /// design pixels (0 for a line), and a bound of their work; `rays` is how many rays a layout of rays has at its
     /// widest (see [`Layout::ray_count`], [`ring_cells`]). `step` is the smallest distance a point of a row must
     /// move at the coordinates in play: where it would not, no row can be told from the next.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `centre` if it lies so far from the box that a step would not move there.
+    /// [`Error::Parameter`] naming `center` if it lies so far from the box that a step would not move there.
     pub(crate) fn round_rows(
         &self,
-        centre: Point,
+        center: Point,
         bounds: Rect,
         reach: f64,
         step: f64,
         rays: f64,
     ) -> Result<RoundRows, Error> {
         let box_corners = corners(bounds);
-        let distances = Distances::of(centre, bounds, &box_corners);
-        let furthest = centre.x.abs().max(centre.y.abs()) + distances.far;
+        let distances = Distances::of(center, bounds, &box_corners);
+        let furthest = center.x.abs().max(center.y.abs()) + distances.far;
         if furthest + step <= furthest {
             return Err(Error::parameter(
-                "centre",
+                "center",
                 format!("is too far from the region: a step of the spacing would not move at {furthest}"),
             ));
         }
@@ -236,23 +236,23 @@ impl Layout {
         Point::new(along * cos - n * sin, along * sin + n * cos)
     }
 
-    /// The radius of ring `k`, counting from 0 at the centre: the first is half a spacing out.
+    /// The radius of ring `k`, counting from 0 at the center: the first is half a spacing out.
     pub(crate) fn ring_radius(&self, k: f64) -> f64 {
         (k + 0.5) * self.spacing
     }
 
-    /// The rings `(first, last)` whose radius lies within `distances` of the centre; none if `last < first`.
+    /// The rings `(first, last)` whose radius lies within `distances` of the center; none if `last < first`.
     pub(crate) fn rings_within(&self, distances: Distances) -> (f64, f64) {
         let (low, high) = (distances.near / self.spacing, distances.far / self.spacing);
         ((low - 0.5).ceil().max(0.0), (high - 0.5).floor())
     }
 
-    /// The radius of the spiral at `theta` radians of turn from where it leaves the centre: a spacing more each turn.
+    /// The radius of the spiral at `theta` radians of turn from where it leaves the center: a spacing more each turn.
     pub(crate) fn spiral_radius(&self, theta: f64) -> f64 {
         self.spacing / TAU * theta
     }
 
-    /// How many rays are a spacing apart at `high` spacings from the centre, at least 1.
+    /// How many rays are a spacing apart at `high` spacings from the center, at least 1.
     pub(crate) fn ray_count(high: f64) -> f64 {
         (TAU * high).ceil().max(1.0)
     }

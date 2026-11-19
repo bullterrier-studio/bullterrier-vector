@@ -1,4 +1,4 @@
-//! `Drawing::morph` through the public API. The shapes pair by index, a shape without a partner shrinks to its centre
+//! `Drawing::morph` through the public API. The shapes pair by index, a shape without a partner shrinks to its center
 //! or grows from the target's, each shape reads its own `fraction`. Expected values are worked out by hand on squares
 //! (a unit square carried to a 2 x 2 one is 1.5 wide at 0.5); `Path::morph` is the oracle in one test only, which says so.
 
@@ -111,12 +111,12 @@ fn the_target_is_not_united_its_shapes_pair_one_by_one() -> Outcome {
 // A shape without a partner -------------------------------------------------------------------------------------------
 
 #[test]
-fn a_source_shape_with_no_partner_shrinks_to_its_centre_and_keeps_its_style() -> Outcome {
+fn a_source_shape_with_no_partner_shrinks_to_its_center_and_keeps_its_style() -> Outcome {
     let source = small(2)?;
     let (before, after) = (drawn(&source)?, drawn(&source.morph(big(1)?, 0.5))?);
     assert_eq!(after.len(), 2);
     assert_bounds(&after[0], (0.0, 0.0, 1.5, 1.5), "the paired shape")?;
-    // the unit square at x = 10 is 0.5 x 0.5 half way to its centre (10.5, 0.5), a quarter of its area
+    // the unit square at x = 10 is 0.5 x 0.5 half way to its center (10.5, 0.5), a quarter of its area
     assert_bounds(&after[1], (10.25, 0.25, 0.5, 0.5), "the lonely shape")?;
     assert_eq!(net_area(&rings(after[1].path())?), 0.25);
     assert_eq!(after[1].style(), before[1].style());
@@ -134,7 +134,7 @@ fn a_target_shape_with_no_partner_grows_in_place_with_the_targets_style() -> Out
     let after = drawn(&small(1)?.morph(&target, 0.5))?;
     assert_eq!(after.len(), 2);
     assert_bounds(&after[0], (0.0, 0.0, 1.5, 1.5), "the paired shape")?;
-    // the 2 x 2 square at x = 10 grows from its centre (11, 1): half way it is 1 x 1
+    // the 2 x 2 square at x = 10 grows from its center (11, 1): half way it is 1 x 1
     assert_bounds(&after[1], (10.5, 0.5, 1.0, 1.0), "the grown shape")?;
     let wanted = drawn(&target)?;
     assert_eq!(after[1].style(), wanted[1].style());

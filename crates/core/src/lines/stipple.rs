@@ -43,7 +43,7 @@ pub struct Stipple {
 impl Stipple {
     /// Round dots on a square lattice `spacing` apart, one at most in each cell: a dot's radius is `radius.0` design
     /// pixels where the `tone` is 0 and `radius.1` where it is 1, linear between and held beyond (read at the dot's
-    /// centre, as the density is; `(r, r)` for one size). By default the darkest tone (0) fills every cell and the
+    /// center, as the density is; `(r, r)` for one size). By default the darkest tone (0) fills every cell and the
     /// lightest (1) none, linear between: see [`Stipple::density`]. Numbers are numbers or expressions of Params, read
     /// once.
     ///
@@ -109,9 +109,9 @@ pub(crate) struct Plan {
 
 impl Path {
     /// Dots inside the region this path fills (nonzero rule): a lattice of cells `spacing` apart over the region's
-    /// bounding box, each cell with one dot at most, its centre inside the region and standing within 0.4 spacings of
+    /// bounding box, each cell with one dot at most, its center inside the region and standing within 0.4 spacings of
     /// its cell's middle. The dot is there when the cell's share of the lattice (a threshold from 0 to 1 spread evenly
-    /// over the lattice, moved by the seed) is below the density at the tone read at the dot's centre; its radius is the
+    /// over the lattice, moved by the seed) is below the density at the tone read at the dot's center; its radius is the
     /// radius at that tone. The result is round dots, closed, so set the fill after it. A Param is read at its default here; a `stipple` step reads it
     /// with the values it draws with. An empty path gives an empty path.
     ///

@@ -1,5 +1,5 @@
 //! A knockout in the mesh `Drawing::to_mesh` fills: the triangles below it are cut where it covers, as a boolean of the
-//! shapes' regions. The oracles are the region written in the tests (a rectangle, a distance from a centre), the
+//! shapes' regions. The oracles are the region written in the tests (a rectangle, a distance from a center), the
 //! `Path::subtract` of the same shapes built by hand, and the pixels, never the cutting itself.
 
 use crate::common::mesh::{area, check_layout, corners, covering, mesh_of, same_triangles, triangles};
@@ -291,8 +291,8 @@ fn the_mesh_covers_the_pixels_that_are_wholly_inside_a_picture_with_knockouts() 
             for x in 0..100 {
                 // a pixel with partial alpha is on an edge of the picture; one the mesh cannot place is on an edge of a triangle
                 let alpha = pixels.alpha(x, y);
-                let centre = (f64::from(u32::try_from(x)?) + 0.5, f64::from(u32::try_from(y)?) + 0.5);
-                let (true, Some(count)) = (alpha == 0 || alpha == 255, covering(&all, centre)) else {
+                let center = (f64::from(u32::try_from(x)?) + 0.5, f64::from(u32::try_from(y)?) + 0.5);
+                let (true, Some(count)) = (alpha == 0 || alpha == 255, covering(&all, center)) else {
                     continue;
                 };
                 compared += 1;

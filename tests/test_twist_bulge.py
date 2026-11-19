@@ -1,5 +1,5 @@
 """`twist` and `bulge` through the public package, on `Path` and as steps of a `Drawing`. Expected values are by hand: a
-point at distance `r` from the centre turns by `angle * f(r)` degrees (twist, clockwise on the screen as `rotate`) or
+point at distance `r` from the center turns by `angle * f(r)` degrees (twist, clockwise on the screen as `rotate`) or
 goes to `r * (1 + amount * f(r))` along its ray (bulge), `f = 1 - s^2 (3 - 2 s)`, `s = min(r / radius, 1)`."""
 
 import inspect
@@ -26,7 +26,7 @@ def test_a_point_at_half_the_radius_turns_by_half_the_angle_by_hand() -> None:
     assert (x, y) == pytest.approx((50 / math.sqrt(2),) * 2, abs=1e-9)
 
 
-def test_a_point_near_the_centre_turns_as_rotate_turns() -> None:
+def test_a_point_near_the_center_turns_as_rotate_turns() -> None:
     point = btvec.Path.from_svg_path("M1 0")
     twisted = vertices(point.twist(90, radius=1e6, about=ORIGIN))
     assert twisted[0] == pytest.approx(vertices(point.rotate(90, about=ORIGIN))[0], abs=1e-9)
@@ -41,7 +41,7 @@ def test_the_defaults_are_a_quarter_turn_and_a_half_bulge_about_the_middle_to_th
 
 
 def test_a_bulge_moves_a_point_along_its_ray_by_hand() -> None:
-    # (30, 40) is 50 from the centre, half of a radius of 100: falloff 0.5, so amount 1 goes to 1.5 times as far
+    # (30, 40) is 50 from the center, half of a radius of 100: falloff 0.5, so amount 1 goes to 1.5 times as far
     ((x, y),) = vertices(btvec.Path.from_svg_path("M30 40").bulge(1, radius=100, about=ORIGIN))
     assert (x, y) == pytest.approx((45, 60), abs=1e-9)
     ((x, y),) = vertices(btvec.Path.from_svg_path("M50 0").bulge(-0.5, radius=100, about=ORIGIN))

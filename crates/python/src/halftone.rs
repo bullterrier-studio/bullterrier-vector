@@ -62,7 +62,7 @@ pub(crate) fn halftone_of(
     shape: Option<ShapeArg>,
     aspect: Option<Num>,
     screen: Option<&str>,
-    centre: Option<Pt>,
+    center: Option<Pt>,
     amplitude: Option<Num>,
     wavelength: Option<Num>,
 ) -> PyResult<vector::Halftone> {
@@ -86,8 +86,8 @@ pub(crate) fn halftone_of(
     if let Some(screen) = screen {
         halftone = halftone.screen(raised(vector::Screen::parse(screen))?);
     }
-    if let Some(Pt(centre)) = centre {
-        halftone = halftone.centre(centre);
+    if let Some(Pt(center)) = center {
+        halftone = halftone.center(center);
     }
     if let Some(amplitude) = amplitude {
         halftone = halftone.amplitude(amplitude.0);
@@ -100,7 +100,7 @@ pub(crate) fn halftone_of(
 
 /// A halftone fill, as it is drawn: a screen of dots in a colour (`"#rrggbbaa"`) on the layout `screen`, the `tone` (0
 /// solid, 1 no dots; a number, or the `Field` it was given), the `pitch` in design pixels, the `angle` in degrees, the
-/// `shape` of a dot (a word, or the `Path` it was given), its `aspect`, the `centre` of rings, a spiral and rays (`None`:
+/// `shape` of a dot (a word, or the `Path` it was given), its `aspect`, the `center` of rings, a spiral and rays (`None`:
 /// the middle of the shape's bounds) and a wave's `amplitude` and `wavelength` in pitches.
 #[pyclass(name = "Halftone", module = "bullterrier_vector", frozen, eq)]
 #[derive(Clone, PartialEq)]
@@ -114,7 +114,7 @@ impl PyHalftone {
         self.0.color().to_string()
     }
 
-    /// The share of each cell the dot leaves bare, 0 (solid) to 1 (no dots): a number, or a `Field` read at the centre
+    /// The share of each cell the dot leaves bare, 0 (solid) to 1 (no dots): a number, or a `Field` read at the center
     /// of each dot.
     #[getter]
     fn tone(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
@@ -157,12 +157,12 @@ impl PyHalftone {
         self.0.screen().name()
     }
 
-    /// The centre of rings, a spiral and rays, or `None` for the middle of the shape's bounding box.
+    /// The center of rings, a spiral and rays, or `None` for the middle of the shape's bounding box.
     #[getter]
-    fn centre(&self) -> Option<PyPoint> {
-        self.0.centre().map(|centre| PyPoint {
-            x: centre.x,
-            y: centre.y,
+    fn center(&self) -> Option<PyPoint> {
+        self.0.center().map(|center| PyPoint {
+            x: center.x,
+            y: center.y,
         })
     }
 
@@ -192,7 +192,7 @@ impl PyHalftone {
             self.0.shape().name(),
             self.aspect(),
             self.screen(),
-            self.0.centre().map(|centre| (centre.x, centre.y)),
+            self.0.center().map(|center| (center.x, center.y)),
             self.amplitude(),
             self.wavelength(),
         )
@@ -213,12 +213,12 @@ impl PyHalftone {
             vector::Mark::Path(path) => format!("Path({:?})", path.to_svg_path()),
             other => format!("'{}'", other.name()),
         };
-        let centre = self.0.centre().map_or_else(
+        let center = self.0.center().map_or_else(
             || "None".to_owned(),
-            |centre| format!("({:?}, {:?})", centre.x, centre.y),
+            |center| format!("({:?}, {:?})", center.x, center.y),
         );
         format!(
-            "Halftone(color='{}', tone={tone}, pitch={:?}, angle={:?}, shape={shape}, aspect={:?}, screen='{}', centre={centre}, amplitude={:?}, wavelength={:?})",
+            "Halftone(color='{}', tone={tone}, pitch={:?}, angle={:?}, shape={shape}, aspect={:?}, screen='{}', center={center}, amplitude={:?}, wavelength={:?})",
             self.color(),
             self.pitch(),
             self.angle(),

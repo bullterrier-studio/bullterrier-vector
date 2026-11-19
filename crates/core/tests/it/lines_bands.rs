@@ -22,8 +22,8 @@ fn along_straight_lines_the_width_at_a_vertex_is_the_mapping_of_the_tone() -> Ou
     assert_eq!(found.len(), 3, "one closed outline for each of the three lines");
     for (index, (points, closed)) in found.iter().enumerate() {
         assert!(closed);
-        let centre = 5.0 + 10.0 * f64::from(u8::try_from(index)?);
-        // every x has two vertices, one on each side of the centre line, as far apart as the mapping says
+        let center = 5.0 + 10.0 * f64::from(u8::try_from(index)?);
+        // every x has two vertices, one on each side of the center line, as far apart as the mapping says
         let mut by_x: Vec<(f64, Vec<f64>)> = Vec::new();
         for p in points {
             match by_x.iter_mut().find(|(x, _)| (x - p.0).abs() < 1e-9) {
@@ -36,7 +36,7 @@ fn along_straight_lines_the_width_at_a_vertex_is_the_mapping_of_the_tone() -> Ou
             assert_eq!(ys.len(), 2, "x = {x}");
             let (low, high) = (ys[0].min(ys[1]), ys[0].max(ys[1]));
             near(high - low, 0.5 + 4.0 * x / 100.0, 1e-9, "width");
-            near(f64::midpoint(low, high), centre, 1e-9, "centre");
+            near(f64::midpoint(low, high), center, 1e-9, "center");
         }
     }
     Ok(())
@@ -56,7 +56,7 @@ fn rings_are_closed_outlines_with_the_hole_inside() -> Outcome {
             assert!(on(radius)?, "the ring at {radius} covers its own radius at {angle}");
             assert!(
                 on(radius + 0.9)? && on(radius - 0.9)?,
-                "and a pixel either side of the centre line, inside the width 2"
+                "and a pixel either side of the center line, inside the width 2"
             );
             assert!(
                 !on(radius + 1.3)? && !on(radius - 1.3)?,
@@ -72,8 +72,8 @@ fn the_spiral_arms_are_one_spacing_apart_along_a_ray() -> Outcome {
     let region = Path::circle((100.0, 100.0), 90.0)?;
     let bands = Bands::spiral(12.0, Field::constant(0.5)?, (2.0, 2.0))?;
     let drawn = region.bands(&bands)?;
-    // walk out along the +x ray: the centres of the runs inside the bands are 12 apart
-    let mut centres = Vec::new();
+    // walk out along the +x ray: the centers of the runs inside the bands are 12 apart
+    let mut centers = Vec::new();
     let mut start: Option<f64> = None;
     let mut r = 0.5;
     while r < 85.0 {
@@ -81,17 +81,17 @@ fn the_spiral_arms_are_one_spacing_apart_along_a_ray() -> Outcome {
         match (inside, start) {
             (true, None) => start = Some(r),
             (false, Some(from)) => {
-                centres.push(f64::midpoint(from, r));
+                centers.push(f64::midpoint(from, r));
                 start = None;
             }
             _ => {}
         }
         r += 0.02;
     }
-    // the first run holds the centre of the spiral, where the arm starts: it has no pair
-    centres.remove(0);
-    assert!(centres.len() >= 6, "{centres:?}");
-    for pair in centres.windows(2) {
+    // the first run holds the center of the spiral, where the arm starts: it has no pair
+    centers.remove(0);
+    assert!(centers.len() >= 6, "{centers:?}");
+    for pair in centers.windows(2) {
         near(pair[1] - pair[0], 12.0, 0.15, "arm spacing");
     }
     Ok(())
@@ -100,9 +100,9 @@ fn the_spiral_arms_are_one_spacing_apart_along_a_ray() -> Outcome {
 #[test]
 fn rays_are_as_many_as_fit_round_the_farthest_corner() -> Outcome {
     let region = Path::circle((50.0, 50.0), 40.0)?;
-    let bands = Bands::rays(10.0, Field::constant(0.5)?, (1.0, 1.0))?.centre((50.0, 50.0))?;
+    let bands = Bands::rays(10.0, Field::constant(0.5)?, (1.0, 1.0))?.center((50.0, 50.0))?;
     let drawn = region.bands(&bands)?;
-    // the bounding box corner is 40 sqrt 2 = 56.57 from the centre: 2 pi 56.57 / 10 = 35.5, so 36 rays
+    // the bounding box corner is 40 sqrt 2 = 56.57 from the center: 2 pi 56.57 / 10 = 35.5, so 36 rays
     let mut runs = 0;
     let mut before = false;
     for k in 0..7200 {
@@ -186,12 +186,12 @@ fn what_it_cannot_make_is_refused_naming_the_argument() -> Outcome {
     );
     assert_eq!(
         parameter_refusal(call(
-            Bands::rings(5.0, flat()?, (1.0, 1.0)).and_then(|b| b.centre(Point::new(f64::NAN, 0.0)))
+            Bands::rings(5.0, flat()?, (1.0, 1.0)).and_then(|b| b.center(Point::new(f64::NAN, 0.0)))
         ))?
         .0,
-        "centre"
+        "center"
     );
-    // too many: a tiny spacing over a big region, rays from a centre far away
+    // too many: a tiny spacing over a big region, rays from a center far away
     let big = rect(1e5, 1e5)?;
     assert_eq!(
         parameter_refusal(big.bands(&Bands::lines(0.01, flat()?, (0.0, 0.01))?))?.0,

@@ -3,12 +3,12 @@
 //! dots.
 //!
 //! A screen is a layout of cells (`lines/layout.rs` places them: the straight rows of a grid or a wave, the rings, the
-//! spiral or the rays `bands` draws lines along) and a dot in each. A cell has a centre, the direction of its row, and a
+//! spiral or the rays `bands` draws lines along) and a dot in each. A cell has a center, the direction of its row, and a
 //! length along the row and a width across it, whose product is the cell's area; a dot is the polygon of its mark
 //! (`shape/dot.rs`) of the area `(1 - tone)` of the unit cell, stretched to the cell, turned to the row and put on the
-//! cell's centre, so it covers `(1 - tone)` of the area of its own cell whatever the mark and the screen. The tone is
-//! read at the cell's centre. A grid and a wave are anchored to the origin of the design frame, not to the shape, so
-//! the dots stay put when the shape moves; the others are about their centre.
+//! cell's center, so it covers `(1 - tone)` of the area of its own cell whatever the mark and the screen. The tone is
+//! read at the cell's center. A grid and a wave are anchored to the origin of the design frame, not to the shape, so
+//! the dots stay put when the shape moves; the others are about their center.
 //!
 //! A round mark (dot, ellipse, a caller's outline) of a tone below `1 - pi / 4` (about 0.21) overlaps its neighbours,
 //! where the union covers less than `(1 - tone)` of the cell; the square, the diamond and the euclidean mark stay in
@@ -31,7 +31,7 @@ use crate::{Error, Rect};
 use std::f64::consts::{PI, TAU};
 
 /// The widest a cell may be, in pitches, that the reach of a dot and the corners of a curve are worked out for: a
-/// wedge of the rays near their centre, which are at most a pitch wide.
+/// wedge of the rays near their center, which are at most a pitch wide.
 // constant: the widest ray cell is a pitch (tests/it/halftone_screens.rs measures it), and 2 leaves room
 const WIDEST_CELL: f64 = 2.0;
 
@@ -128,7 +128,7 @@ type Made = (u64, u64, Vec<(f64, f64)>);
 
 /// One cell of a screen: where it is, which way its row runs, and its length along the row and its width across.
 struct Cell {
-    centre: Point,
+    center: Point,
     /// The sine and cosine of the direction of the row.
     turn: (f64, f64),
     along: f64,
@@ -141,10 +141,10 @@ struct Cells {
     outline: Outline,
     bounds: (f64, f64, f64, f64),
     layout: Layout,
-    centre: Point,
+    center: Point,
     rows: Rows,
     dot: Dot,
-    /// How far a dot reaches from its cell's centre, in cells of the size of the cell.
+    /// How far a dot reaches from its cell's center, in cells of the size of the cell.
     reach: f64,
 }
 
@@ -196,8 +196,8 @@ fn plan(
         width: bounds.2 - bounds.0,
         height: bounds.3 - bounds.1,
     };
-    let centre = halftone.centre().unwrap_or_else(|| middle(rect));
-    let (rows, cells) = rows(&layout, rect, centre, reach_px)?;
+    let center = halftone.center().unwrap_or_else(|| middle(rect));
+    let (rows, cells) = rows(&layout, rect, center, reach_px)?;
     // a cell is a lattice point or a wedge: the work here is its corners made, the edges near it are charged as weighed
     let work = if cells.is_finite() {
         (cells * corners_of_dot as f64) as usize
@@ -212,7 +212,7 @@ fn plan(
         outline: edges,
         bounds,
         layout,
-        centre,
+        center,
         rows,
         dot,
         reach,
@@ -223,8 +223,8 @@ fn plan(
 /// how many cells there are (not a number if the work is not).
 ///
 /// # Errors
-/// [`Error::Parameter`] naming `centre` if it is too far from the box for a pitch to move there.
-fn rows(layout: &Layout, rect: Rect, centre: Point, reach_px: f64) -> Result<(Rows, f64), Error> {
+/// [`Error::Parameter`] naming `center` if it is too far from the box for a pitch to move there.
+fn rows(layout: &Layout, rect: Rect, center: Point, reach_px: f64) -> Result<(Rows, f64), Error> {
     let pitch = layout.spacing;
     let box_corners = corners(rect);
     if !layout.family.is_round() {
@@ -268,7 +268,7 @@ fn rows(layout: &Layout, rect: Rect, centre: Point, reach_px: f64) -> Result<(Ro
     // a dot is no smaller than a pitch's step at the coordinates in play, or its cells cannot be told apart
     // rays as bullterrier-image has them: a ring's worth of cells half way to the nearest side of the shape
     let rays = ring_cells(rect.width.min(rect.height) / 2.0 / pitch);
-    let round = layout.round_rows(centre, rect, reach_px, pitch, rays)?;
+    let round = layout.round_rows(center, rect, reach_px, pitch, rays)?;
     Ok(match layout.family {
         Family::Rings => (Rows::Rings(round), round.work),
         Family::Spiral => (Rows::Spiral(round), round.work),
@@ -298,7 +298,7 @@ impl Cells {
                     for column in 0..across {
                         let (i, j) = ((first_i + column as f64) * pitch, (first_j + row as f64) * pitch);
                         each(Cell {
-                            centre: layout.straight(i, j),
+                            center: layout.straight(i, j),
                             turn: (sin, cos),
                             along: pitch,
                             across: pitch,
@@ -312,7 +312,7 @@ impl Cells {
                     for at in 0..count as usize {
                         let angle = TAU * (at as f64 + 0.5) / count;
                         each(Self::wedge(
-                            polar(self.centre, radius, angle),
+                            polar(self.center, radius, angle),
                             angle,
                             radius * TAU / count,
                             pitch,
@@ -329,7 +329,7 @@ impl Cells {
                         let radius = layout.spiral_radius(TAU * (k + 0.5 + turns));
                         let angle = TAU * turns + layout.turn();
                         each(Self::wedge(
-                            polar(self.centre, radius, angle),
+                            polar(self.center, radius, angle),
                             angle,
                             radius * TAU / count,
                             pitch,
@@ -347,7 +347,7 @@ impl Cells {
                         let (start, end) = (at as f64 / wedges, ((at + 1) as f64 / wedges).min(1.0));
                         let angle = layout.turn() + TAU * f64::midpoint(start, end);
                         each(Self::wedge(
-                            polar(self.centre, radius, angle),
+                            polar(self.center, radius, angle),
                             angle,
                             pitch,
                             radius * TAU * (end - start),
@@ -359,13 +359,13 @@ impl Cells {
         }
     }
 
-    /// The cell at `centre` of a round layout whose row runs round (`tangent`, a quarter turn from `angle`) or out along
+    /// The cell at `center` of a round layout whose row runs round (`tangent`, a quarter turn from `angle`) or out along
     /// `angle`, `along` long and `across` wide.
-    fn wedge(centre: Point, angle: f64, along: f64, across: f64, tangent: bool) -> Cell {
+    fn wedge(center: Point, angle: f64, along: f64, across: f64, tangent: bool) -> Cell {
         let heading = if tangent { angle + PI / 2.0 } else { angle };
         let (sin, cos) = crate::math::sin_cos(heading);
         Cell {
-            centre,
+            center,
             turn: (sin, cos),
             along,
             across,
@@ -396,7 +396,7 @@ impl Cells {
             }
             let size = cell.along.max(cell.across);
             let margin = self.reach * size + 1.0;
-            let at = cell.centre;
+            let at = cell.center;
             if at.x < left - margin || at.x > right + margin || at.y < top - margin || at.y > bottom + margin {
                 return;
             }
@@ -436,22 +436,22 @@ impl Cells {
         failed.map_or(Ok(dots), Err)
     }
 
-    /// Where a dot of this `radius` about `centre` lies against the shape: crossing if an edge comes nearer than the
-    /// radius, else inside or outside as the nonzero rule fills the centre.
+    /// Where a dot of this `radius` about `center` lies against the shape: crossing if an edge comes nearer than the
+    /// radius, else inside or outside as the nonzero rule fills the center.
     ///
     /// # Errors
     /// What `charge` returns.
     fn place(
         &self,
-        centre: Point,
+        center: Point,
         radius: f64,
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<Place, Error> {
-        if self.outline.reaches(centre, radius, charge)? {
+        if self.outline.reaches(center, radius, charge)? {
             return Ok(Place::Crossing);
         }
-        charge(self.outline.contains_cost(centre))?;
-        Ok(if self.outline.contains(centre) {
+        charge(self.outline.contains_cost(center))?;
+        Ok(if self.outline.contains(center) {
             Place::Inside
         } else {
             Place::Outside

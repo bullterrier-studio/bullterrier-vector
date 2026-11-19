@@ -31,7 +31,7 @@ pub(crate) const MAX_PIXEL_SIDE: u16 = 65_000;
 pub(crate) const MAX_PIXELS: u64 = 1 << 27;
 
 /// The size of an output in whole pixels: what [`Drawing::to_svg`] and [`Drawing::to_rgba`] draw into. The design frame
-/// of the drawing ([`Drawing::with_size`]) is scaled to fit it, centred; a drawing without a frame is drawn at one
+/// of the drawing ([`Drawing::with_size`]) is scaled to fit it, centered; a drawing without a frame is drawn at one
 /// output pixel to the design pixel from the top left.
 ///
 /// [`Drawing::to_svg`]: crate::Drawing::to_svg

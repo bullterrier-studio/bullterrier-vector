@@ -362,7 +362,7 @@ fn a_plot_in_millimetres_or_inches_says_its_physical_size_with_a_matching_view_b
             .map(|(_, value)| value.clone())
             .unwrap_or_default()
     };
-    // an A4 sheet: 210 by 297 mm, the 100 pixel frame scaled by 2.1 and centred on the long side
+    // an A4 sheet: 210 by 297 mm, the 100 pixel frame scaled by 2.1 and centered on the long side
     let mm = root(&draw(Size::px(210.0, 297.0), PlotUnit::Mm)?)?;
     assert_eq!(attribute(&mm, "width"), "210mm");
     assert_eq!(attribute(&mm, "height"), "297mm");

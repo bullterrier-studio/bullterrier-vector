@@ -1,5 +1,5 @@
 //! What a dot of a halftone is: the polygon of a [`Mark`] of a given area in a unit cell. The cell is the square from
-//! -0.5 to 0.5 about the dot's centre, `x` along the row, `y` across it and down; a polygon runs clockwise on the screen
+//! -0.5 to 0.5 about the dot's center, `x` along the row, `y` across it and down; a polygon runs clockwise on the screen
 //! (`y` down), and its own shoelace area is the area asked for, to the last bit of the arithmetic: the corners are
 //! solved for it, not left to the circle they stand for.
 
@@ -70,7 +70,7 @@ impl Dot {
         }
     }
 
-    /// How far from its centre a dot can reach, in cells: a little over the circumradius of the dot that covers the
+    /// How far from its center a dot can reach, in cells: a little over the circumradius of the dot that covers the
     /// whole cell. Worked out, never made, so that a mark that is absurdly long is refused by the work it would take.
     pub(crate) fn reach(&self) -> f64 {
         match &self.kind {
@@ -196,12 +196,12 @@ fn outline(path: &Path) -> Result<Vec<(f64, f64)>, Error> {
     if !(area.is_finite() && area.abs() > 1e-9 * span * span) {
         return Err(Error::parameter("shape", "must enclose an area"));
     }
-    let (centre_x, centre_y) = (x / (3.0 * area), y / (3.0 * area));
+    let (center_x, center_y) = (x / (3.0 * area), y / (3.0 * area));
     let scale = 1.0 / (area.abs() / 2.0).sqrt();
     let mut points: Vec<(f64, f64)> = only
         .points
         .iter()
-        .map(|p| ((p.x - origin.x - centre_x) * scale, (p.y - origin.y - centre_y) * scale))
+        .map(|p| ((p.x - origin.x - center_x) * scale, (p.y - origin.y - center_y) * scale))
         .collect();
     // the shoelace sum is positive when the outline runs clockwise on the screen (`y` down)
     if area < 0.0 {
@@ -210,13 +210,13 @@ fn outline(path: &Path) -> Result<Vec<(f64, f64)>, Error> {
     Ok(points)
 }
 
-/// The outlines of the euclidean dot at a ladder of covers, each as the distance from the centre at equally spaced
+/// The outlines of the euclidean dot at a ladder of covers, each as the distance from the center at equally spaced
 /// angles: the level sets of the cosine spot function `(cos 2 pi x + cos 2 pi y) / 2` inside the cell. The level 0 is the
 /// diamond; above it the sets are round, below it the cell less four round holes at its corners.
 struct Table {
     /// The area of each outline, rising.
     areas: Vec<f64>,
-    /// The distance of each outline's corners from the centre.
+    /// The distance of each outline's corners from the center.
     radii: Vec<Vec<f64>>,
     /// The sine and cosine of each corner's angle.
     angles: Vec<(f64, f64)>,
@@ -269,7 +269,7 @@ fn area_of(radii: &[f64], steps: usize) -> f64 {
     0.5 * sine * (0..steps).map(|at| radii[at] * radii[(at + 1) % steps]).sum::<f64>()
 }
 
-/// The distance from the centre, along the direction `(cos, sin)` in the first octant, at which the spot function falls
+/// The distance from the center, along the direction `(cos, sin)` in the first octant, at which the spot function falls
 /// to `level`, held to the cell: the cell's side is 0.5 / cos away.
 fn reach_of_level((sin, cos): (f64, f64), level: f64) -> f64 {
     let side = 0.5 / cos;

@@ -122,7 +122,7 @@ that answers it in brackets.
 4. A requirement: booleans that hold on overlapping, rotated glyphs, and ink layers built from them (V8; riso inks in
    the effects track). They caused no pain once glyph outlines had their overlaps removed.
 5. Shrink and grow per layer in output units; dropping small parts and filling small holes (V14).
-6. Per-item transforms about a typographic origin (cap-height centre, not the bounding box), seeded randomness and
+6. Per-item transforms about a typographic origin (cap-height center, not the bounding box), seeded randomness and
    stagger by index as one mechanism (V7).
 7. Curve fitting through dense polylines (V14).
 8. One picture to both pixels and SVG, every effect kept (V10).

@@ -163,20 +163,20 @@ proptest! {
         }
     }
 
-    // A circle contains the points nearer its centre than its radius.
+    // A circle contains the points nearer its center than its radius.
     #[test]
     fn a_circle_contains_what_is_nearer_than_its_radius(
         radius in log_uniform(0.0, 5.0),
-        centre in (-1000.0f64..1000.0, -1000.0f64..1000.0),
+        center in (-1000.0f64..1000.0, -1000.0f64..1000.0),
         away in (0.0f64..2.0, 0.0f64..360.0),
     ) {
         // the cubic strays 2.7e-4 of the radius and the flattening 0.01 px from the circle: stay clear of both
         prop_assume!((away.0 - 1.0).abs() * radius > 1e-3 * radius + 0.02);
         let angle = away.1.to_radians();
-        let point = (centre.0 + away.0 * radius * libm::cos(angle), centre.1 + away.0 * radius * libm::sin(angle));
-        let circle = Path::circle(centre, radius).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let point = (center.0 + away.0 * radius * libm::cos(angle), center.1 + away.0 * radius * libm::sin(angle));
+        let circle = Path::circle(center, radius).map_err(|e| TestCaseError::fail(e.to_string()))?;
         let found = circle.contains(point).map_err(|e| TestCaseError::fail(e.to_string()))?;
-        prop_assert_eq!(found, distance(point, centre) < radius);
+        prop_assert_eq!(found, distance(point, center) < radius);
     }
 }
 

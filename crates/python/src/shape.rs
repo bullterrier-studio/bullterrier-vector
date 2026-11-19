@@ -58,7 +58,7 @@ impl PyGradient {
         }
     }
 
-    /// The centre of a radial gradient, else `None`.
+    /// The center of a radial gradient, else `None`.
     #[getter]
     fn center(&self) -> Option<PyPoint> {
         match self.0.kind() {
@@ -112,7 +112,7 @@ pub(crate) fn linear_gradient(stops: Vec<(f64, String)>, start: Pt, end: Pt) -> 
     raised(vector::Gradient::linear(start.0, end.0, colored(&stops)?)).map(PyGradient)
 }
 
-/// A radial gradient around `center`: offset 0 at the centre, offset 1 at `radius`, then the end colour. `stops` as for
+/// A radial gradient around `center`: offset 0 at the center, offset 1 at `radius`, then the end colour. `stops` as for
 /// `linear_gradient`.
 #[pyfunction]
 #[pyo3(signature = (stops, *, center, radius))]

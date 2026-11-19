@@ -71,7 +71,7 @@ pub enum GradientKind {
         /// Where offset 1 lies.
         end: Point,
     },
-    /// Around `center`: offset 0 at the centre, offset 1 at `radius`.
+    /// Around `center`: offset 0 at the center, offset 1 at `radius`.
     Radial {
         /// Where offset 0 lies.
         center: Point,

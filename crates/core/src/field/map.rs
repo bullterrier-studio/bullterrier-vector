@@ -38,7 +38,7 @@ impl MapData {
         crate::key::hex(&self.sha256)
     }
 
-    /// The map's value, 0 to 1, at `point`: bilinear between pixel centres, the nearest edge value beyond the frame.
+    /// The map's value, 0 to 1, at `point`: bilinear between pixel centers, the nearest edge value beyond the frame.
     pub(crate) fn sample(&self, point: Point) -> f64 {
         let across = |p: f64, origin: f64, size: f64, count: usize| {
             let at = (p - origin) / size * count as f64 - 0.5;
@@ -101,7 +101,7 @@ fn size_of(width: usize, height: usize) -> Result<(), Error> {
 impl Field {
     /// An 8-bit grayscale map as a field: `data` holds `height` rows of `width` bytes, the top row first, 0 black and
     /// 255 white, so the field reads 0 to 1. The map lies over `frame` (default: one design pixel a map pixel, from
-    /// the origin); a pixel's value stands at its centre, the field is bilinear between centres and holds the
+    /// the origin); a pixel's value stands at its center, the field is bilinear between centers and holds the
     /// nearest edge value beyond the frame.
     ///
     /// # Errors
@@ -149,9 +149,9 @@ impl Field {
     }
 
     /// This field written out as an 8-bit grayscale map of `width` by `height` pixels over `frame` (default: one
-    /// design pixel a map pixel, from the origin), the top row first: each pixel is the field at its centre, with
+    /// design pixel a map pixel, from the origin), the top row first: each pixel is the field at its center, with
     /// `low` written as 0 and `high` as 255, linear between and held beyond, rounded to the nearest level. It is the
-    /// input form of [`Field::map`], so a map read back over the same frame gives the field at the pixel centres within
+    /// input form of [`Field::map`], so a map read back over the same frame gives the field at the pixel centers within
     /// half a level.
     ///
     /// # Errors
@@ -187,7 +187,7 @@ impl Field {
     }
 }
 
-/// A field read at the centres of a grid of equal cells over a frame, the readings scaled so that the lowest is 0 and the
+/// A field read at the centers of a grid of equal cells over a frame, the readings scaled so that the lowest is 0 and the
 /// highest 1 (a map read at its own pixels keeps its tones, 0 to 1, unscaled): what `trace_levels` traces.
 pub(crate) struct Raster {
     pub(crate) width: usize,
@@ -208,7 +208,7 @@ impl Raster {
 }
 
 impl Field {
-    /// This field read at the centres of the cells of `frame` cut into equal cells no wider than `cell` (design pixels).
+    /// This field read at the centers of the cells of `frame` cut into equal cells no wider than `cell` (design pixels).
     /// Left out, they are a map's own box and one map pixel, and the readings its bytes; a field that is not a map has
     /// neither and refuses them.
     ///

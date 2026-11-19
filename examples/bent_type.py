@@ -3,7 +3,7 @@
 `progress` (0 to 1) bends the line: it arches up, a sine runs along it, its middle turns and the outlines shake a
 little. `phase` (in cycles) moves the sine and the shaking, so a loop of `phase` 0 to 1 repeats exactly. Every
 deformer cuts the outlines into short straight pieces, so the bend is smooth at any size. Each is anchored in the
-design frame, so one wave runs across all the letters; the twist names its centre (`about`) to turn the whole line
+design frame, so one wave runs across all the letters; the twist names its center (`about`) to turn the whole line
 about its middle instead of each letter about itself. The font comes with the library (SIL OFL 1.1).
 Draw it with `uv run poe look examples/bent_type.py progress=1 phase=0.25` (PNG and SVG in `dist/look/`).
 The same program in Rust and JavaScript: `crates/core/examples/bent_type.rs`, `crates/wasm/examples/bent_type.mjs`.

@@ -90,21 +90,21 @@ def colour(rng: random.Random, *, translucent: bool) -> str:
 
 def outline(rng: random.Random, width: int, height: int) -> btvec.Path:
     """A random closed shape of one of five kinds, placed anywhere in the frame."""
-    centre = (rng.uniform(0, width), rng.uniform(0, height))
+    center = (rng.uniform(0, width), rng.uniform(0, height))
     radius = rng.uniform(*SIZE_RANGE)
     match rng.choice(("circle", "polygon", "star", "rounded", "curved")):
         case "circle":
-            return btvec.Path.circle(centre, radius)
+            return btvec.Path.circle(center, radius)
         case "polygon":
-            return btvec.Path.polygon(centre, radius, rng.randrange(3, 9))
+            return btvec.Path.polygon(center, radius, rng.randrange(3, 9))
         case "star":
-            return btvec.Path.star(centre, radius, radius * rng.uniform(0.3, 0.7), points=rng.randrange(4, 12))
+            return btvec.Path.star(center, radius, radius * rng.uniform(0.3, 0.7), points=rng.randrange(4, 12))
         case "rounded":
             return btvec.Path.rect(
-                centre[0] - radius, centre[1] - radius / 2, 2 * radius, radius, radius=rng.uniform(1, radius / 2)
+                center[0] - radius, center[1] - radius / 2, 2 * radius, radius, radius=rng.uniform(1, radius / 2)
             )
         case _:
-            x, y = centre
+            x, y = center
             return (
                 btvec.Path()
                 .move_to((x - radius, y))

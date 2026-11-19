@@ -214,8 +214,8 @@ fn the_anchor_is_where_the_first_baseline_meets_the_alignment() -> Outcome {
     let font = fraunces()?;
     let shapes = shapes_of("H", at_em(&font).anchor((100.0, 200.0)))?;
     assert_eq!(shapes[0].path(), &alone("H")?.translate(100.0, 200.0)?);
-    let centred = shapes_of("H", at_em(&font).anchor((100.0, 200.0)).align(Align::Center))?;
-    assert_eq!(centred[0].path(), &alone("H")?.translate(100.0 - 828.0, 200.0)?);
+    let centered = shapes_of("H", at_em(&font).anchor((100.0, 200.0)).align(Align::Center))?;
+    assert_eq!(centered[0].path(), &alone("H")?.translate(100.0 - 828.0, 200.0)?);
     Ok(())
 }
 

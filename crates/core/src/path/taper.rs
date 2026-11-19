@@ -1,6 +1,6 @@
 //! Tapered outlines: the region a stroke whose width follows a profile along its length paints.
 //!
-//! The centre line is the measured walk (`walk.rs`, so a position here is a position `dash` and `slice` measure), cut
+//! The center line is the measured walk (`walk.rs`, so a position here is a position `dash` and `slice` measure), cut
 //! further at the stops of the profile so that the radius changes linearly along every piece. The sweep of a disc
 //! whose radius changes linearly along a straight line is the convex hull of its two end discs; the outline is the
 //! union of these hulls, which `offset.rs` makes canonical. Joins and caps are therefore round.
@@ -250,8 +250,8 @@ fn hull(a: Point, r0: f64, b: Point, r1: f64, tolerance: f64, polygons: &mut Vec
     let step = arc_step(r0.max(r1), tolerance);
     let mut corners: Contour = Vec::new();
     if distance <= (r0 - r1).abs() || distance <= 0.0 {
-        let (centre, radius) = if r0 >= r1 { (a, r0) } else { (b, r1) };
-        arc(&mut corners, centre, radius, 0.0, 2.0 * PI, step);
+        let (center, radius) = if r0 >= r1 { (a, r0) } else { (b, r1) };
+        arc(&mut corners, center, radius, 0.0, 2.0 * PI, step);
         corners.pop();
     } else {
         let (direction, spread) = (math::atan2(dy, dx), math::acos((r0 - r1) / distance));
@@ -268,18 +268,18 @@ fn hull(a: Point, r0: f64, b: Point, r1: f64, tolerance: f64, polygons: &mut Vec
     polygons.push(corners);
 }
 
-/// The corners of the arc of the circle `(centre, radius)` from angle `from` to `to` (increasing), both ends included,
-/// no step wider than `step`; a circle of no radius is its centre.
-fn arc(corners: &mut Contour, centre: Point, radius: f64, from: f64, to: f64, step: f64) {
+/// The corners of the arc of the circle `(center, radius)` from angle `from` to `to` (increasing), both ends included,
+/// no step wider than `step`; a circle of no radius is its center.
+fn arc(corners: &mut Contour, center: Point, radius: f64, from: f64, to: f64, step: f64) {
     if radius <= 0.0 {
-        corners.push([centre.x, centre.y]);
+        corners.push([center.x, center.y]);
         return;
     }
     let count = ((to - from) / step).ceil().max(1.0);
     let mut index = 0.0;
     while index <= count {
         let (sin, cos) = math::sin_cos(from + (to - from) * index / count);
-        corners.push([centre.x + radius * cos, centre.y + radius * sin]);
+        corners.push([center.x + radius * cos, center.y + radius * sin]);
         index += 1.0;
     }
 }

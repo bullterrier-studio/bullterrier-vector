@@ -29,7 +29,7 @@ impl Path {
     /// Both paths are flattened as for drawing. A closed contour is an outer or a hole by the sign of its area (a
     /// contour with no area is an outer), after the whole path is reversed once if its largest contour runs the other
     /// way (never one contour alone, which would turn a hole into a fill). Closed contours pair with closed ones of the
-    /// same role, open with open, nearest first: by the distance between the contours' centres (the mean of their
+    /// same role, open with open, nearest first: by the distance between the contours' centers (the mean of their
     /// points), each taken in the box of its own path, scaled to 0 to 1; ties go to the lower indices, so morphing back
     /// from the other end pairs alike. A closed pair starts where its two outlines lie nearest (128 equal steps of
     /// length compared by summed squared distance; the first start wins a tie); an open pair is joined end to end or
@@ -38,8 +38,8 @@ impl Path {
     /// length is its point.
     ///
     /// A contour with no partner, because the other path has fewer of its kind, shrinks to (or grows from) one point:
-    /// the point in the other path's box that has the same place there as the contour's centre has in its own box (the
-    /// contour's own centre if the other path is empty). Past 1 (a growing one: before 0) it stays that point, never
+    /// the point in the other path's box that has the same place there as the contour's center has in its own box (the
+    /// contour's own center if the other path is empty). Past 1 (a growing one: before 0) it stays that point, never
     /// coming back through it, where a matched contour goes on along its line. A hole without a partner is wound the
     /// other way into the rest and the result cut to the rest, so it takes away what the nonzero rule says (an outer
     /// inside it stays) and never paints outside the moving body. When there is one, every closed contour of the result
@@ -180,7 +180,7 @@ impl Contour {
     }
 
     /// The mean of the points.
-    fn centre(&self) -> Point {
+    fn center(&self) -> Point {
         #[expect(clippy::cast_precision_loss, reason = "a count of at most 10 million is exact")]
         let count = self.points.len() as f64;
         let (x, y) = self.points.iter().fold((0.0, 0.0), |(x, y), p| (x + p.x, y + p.y));
@@ -336,21 +336,21 @@ impl Side {
         Ok(Self { contours, bounds })
     }
 
-    /// Where the centre of `contour` lies in this path's box, from 0 to 1 each way (a box with no width counts as 1).
+    /// Where the center of `contour` lies in this path's box, from 0 to 1 each way (a box with no width counts as 1).
     fn place(&self, contour: &Contour) -> (f64, f64) {
         let Some((low, high)) = self.bounds else {
             return (0.0, 0.0);
         };
         // constant: a box with no width or height counts as 1 across, so a line or a point is at 0 there, not a
         // division by zero
-        let (centre, span) = (contour.centre(), |size: f64| if size > 0.0 { size } else { 1.0 });
+        let (center, span) = (contour.center(), |size: f64| if size > 0.0 { size } else { 1.0 });
         (
-            (centre.x - low.x) / span(high.x - low.x),
-            (centre.y - low.y) / span(high.y - low.y),
+            (center.x - low.x) / span(high.x - low.x),
+            (center.y - low.y) / span(high.y - low.y),
         )
     }
 
-    /// The point at `place` of this path's box (the contour's own centre for a path with no points).
+    /// The point at `place` of this path's box (the contour's own center for a path with no points).
     fn at(&self, place: (f64, f64), own: Point) -> Point {
         self.bounds.map_or(own, |(low, high)| {
             Point::new(low.x + place.0 * (high.x - low.x), low.y + place.1 * (high.y - low.y))
@@ -467,12 +467,12 @@ fn plan<'a>(
         }
         for (i, &(contour, place)) in here.iter().enumerate() {
             if !used_from.contains(&i) {
-                plans.push(Plan::Leaving(contour, to.at(place, contour.centre())));
+                plans.push(Plan::Leaving(contour, to.at(place, contour.center())));
             }
         }
         for (j, &(contour, place)) in there.iter().enumerate() {
             if !used_to.contains(&j) {
-                plans.push(Plan::Arriving(contour, from.at(place, contour.centre())));
+                plans.push(Plan::Arriving(contour, from.at(place, contour.center())));
             }
         }
     }

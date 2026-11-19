@@ -13,12 +13,12 @@ const canvas = document.querySelector("canvas");
 const gl = canvas.getContext("webgl2", { premultipliedAlpha: true });
 
 const spin = new btvec.Param("spin", { default: 0, min: 0, max: 360, unit: "deg", meaning: "how far the stars have turned" });
-const centre = [540, 540];
-const star = btvec.Path.star(centre, 420, 160, { points: 12 });
+const center = [540, 540];
+const star = btvec.Path.star(center, 420, 160, { points: 12 });
 const drawing = new btvec.Drawing(
   [
-    star.fill("#ff4f9a").rotate(spin, { about: centre }),
-    star.fill("#2a5bff").blend("multiply").rotate(spin.neg(), { about: centre }),
+    star.fill("#ff4f9a").rotate(spin, { about: center }),
+    star.fill("#2a5bff").blend("multiply").rotate(spin.neg(), { about: center }),
   ],
   { size: [1080, 1080] },
 );

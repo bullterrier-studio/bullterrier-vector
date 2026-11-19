@@ -36,7 +36,7 @@ def test_dots_of_a_number_cover_one_minus_the_tone_of_their_cells():
     assert coverage(drawing) == pytest.approx(81 * 25, rel=0.002)
 
 
-def test_a_field_tone_is_read_at_the_centre_of_each_dot():
+def test_a_field_tone_is_read_at_the_center_of_each_dot():
     # the ramp is the tone x / 100: a dot at x = 10, 20 .. 90 covers 1 - x / 100 of its cell, nine dots to a column
     ramp = btvec.Field.ramp((0, 0), (100, 0))
     drawing = Drawing(INSET).halftone(INK, tone=ramp, pitch=10, angle=0, shape="square")
@@ -67,19 +67,19 @@ def test_a_drawn_shape_says_what_its_halftone_is():
     ramp = btvec.Field.ramp((0, 0), (0, 10))
     halftone = the_halftone(
         Drawing(btvec.Path.rect(0, 0, 10, 10)).halftone(
-            INK, tone=ramp, pitch=6, shape="ellipse", aspect=2, screen="rings", centre=(3, 4)
+            INK, tone=ramp, pitch=6, shape="ellipse", aspect=2, screen="rings", center=(3, 4)
         )
     )
     assert isinstance(halftone.tone, btvec.Field)
     assert halftone.tone == ramp
     assert (halftone.shape, halftone.aspect, halftone.screen) == ("ellipse", 2.0, "rings")
-    assert halftone.centre == btvec.Point(3, 4)
+    assert halftone.center == btvec.Point(3, 4)
     assert (halftone.amplitude, halftone.wavelength) == (1.0, 6.0)
     plain = the_halftone(Drawing(btvec.Path.rect(0, 0, 10, 10)).halftone(INK, tone=0.5))
-    assert (plain.tone, plain.shape, plain.screen, plain.centre, plain.aspect) == (0.5, "dot", "grid", None, 1.0)
+    assert (plain.tone, plain.shape, plain.screen, plain.center, plain.aspect) == (0.5, "dot", "grid", None, 1.0)
     assert repr(plain) == (
         "Halftone(color='#000000ff', tone=0.5, pitch=8.0, angle=45.0, shape='dot', aspect=1.0, screen='grid', "
-        "centre=None, amplitude=1.0, wavelength=6.0)"
+        "center=None, amplitude=1.0, wavelength=6.0)"
     )
 
 
@@ -112,7 +112,7 @@ def test_every_shape_on_every_screen_draws_in_svg_and_pixels(screen: str, shape:
 def test_a_document_saves_and_reads_back_every_argument():
     ramp = btvec.Field.ramp((0, 0), (0, 100))
     for drawing in (
-        Drawing(INSET).halftone(INK, tone=0.4, pitch=5, shape="ellipse", aspect=2, screen="rings", centre=(10, 20)),
+        Drawing(INSET).halftone(INK, tone=0.4, pitch=5, shape="ellipse", aspect=2, screen="rings", center=(10, 20)),
         Drawing(INSET).halftone(INK, tone=ramp, shape=TRIANGLE, screen="spiral"),
         Drawing(INSET).halftone(INK, tone=0.4, screen="wave", amplitude=2, wavelength=9),
     ):
@@ -132,7 +132,7 @@ def test_a_document_saves_and_reads_back_every_argument():
         pytest.param(
             lambda: Drawing(INSET).halftone(INK, tone=0.5, shape="ellipse", aspect=0.5), "aspect", id="aspect < 1"
         ),
-        pytest.param(lambda: Drawing(INSET).halftone(INK, tone=0.5, centre=(1, 1)), "centre", id="a centre on a grid"),
+        pytest.param(lambda: Drawing(INSET).halftone(INK, tone=0.5, center=(1, 1)), "center", id="a center on a grid"),
         pytest.param(
             lambda: Drawing(INSET).halftone(INK, tone=0.5, amplitude=3), "amplitude", id="an amplitude on a grid"
         ),

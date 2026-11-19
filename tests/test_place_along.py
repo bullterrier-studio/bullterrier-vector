@@ -54,9 +54,9 @@ def test_a_stamp_of_two_shapes_keeps_its_layout_and_each_shape_numbers_its_copy(
     arrow = btvec.Drawing(btvec.Path.rect(0, -1, 30, 2), btvec.Path.rect(30, -5, 10, 10))
     shapes = arrow.place_along(LINE, spacing=50).shapes()
     assert [shape.attributes["copy"] for shape in shapes] == [0, 0, 1, 1, 2, 2]
-    centres = middles(arrow.place_along(LINE, spacing=50))
+    centers = middles(arrow.place_along(LINE, spacing=50))
     # the arrow's middle (20, 0) goes to 0, 50 and 100: the shaft is 5 left of it, the head 15 right
-    assert centres == pytest.approx([-5, 0, 15, 0, 45, 0, 65, 0, 95, 0, 115, 0])
+    assert centers == pytest.approx([-5, 0, 15, 0, 45, 0, 65, 0, 95, 0, 115, 0])
 
 
 def test_a_lone_shape_gets_the_order_of_its_copy() -> None:

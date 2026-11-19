@@ -63,7 +63,7 @@ fn a_ligature_of_the_font_does_not_merge_cells() -> Outcome {
 }
 
 #[test]
-fn a_capital_is_centred_in_its_cell_and_a_full_stop_stands_on_its_baseline() -> Outcome {
+fn a_capital_is_centered_in_its_cell_and_a_full_stop_stands_on_its_baseline() -> Outcome {
     let size = 10.0;
     let font = mono()?;
     // two rows of two cells: H, . / ., H
@@ -78,7 +78,7 @@ fn a_capital_is_centred_in_its_cell_and_a_full_stop_stands_on_its_baseline() -> 
         );
         let (cx, cy) = (CELL.0 * (column + 0.5), CELL.1 * (row + 0.5));
         let bounds = shape.path().bounds()?;
-        // the advance box (600 units) is centred on the cell, the middle of a capital (365 units) is on its middle
+        // the advance box (600 units) is centered on the cell, the middle of a capital (365 units) is on its middle
         let baseline = cy + 365.0 * units;
         match attributes.char() {
             Some('H') => {

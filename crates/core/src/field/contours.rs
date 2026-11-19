@@ -125,8 +125,8 @@ impl Grid {
         // together, else (top, left) and (right, bottom)
         let mean = (self.value(i, j) + self.value(i + 1, j) + self.value(i, j + 1) + self.value(i + 1, j + 1)) / 4.0;
         let top_left_high = self.value(i, j) >= level;
-        let centre_high = mean >= level;
-        let pairs = if top_left_high == centre_high {
+        let center_high = mean >= level;
+        let pairs = if top_left_high == center_high {
             [(top, right), (bottom, left)]
         } else {
             [(top, left), (right, bottom)]
@@ -144,7 +144,7 @@ impl Grid {
 }
 
 /// The cells along one side: no wider than `cell`, equal. A quotient within rounding of a whole number is that number
-/// (`(W - p) / p` is 2.0000000000000004 for a box of three pixels), so a grid laid on pixel centres stays on them.
+/// (`(W - p) / p` is 2.0000000000000004 for a box of three pixels), so a grid laid on pixel centers stays on them.
 pub(super) fn cells_along(extent: f64, cell: f64) -> f64 {
     let n = extent / cell;
     let whole = n.round();
@@ -233,7 +233,7 @@ impl Field {
     /// A saddle cell joins its high corners when the mean of its four readings is high. A level the field never
     /// crosses gives nothing, and an empty path is the answer when no level crosses.
     ///
-    /// To trace a map along its pixels, give `frame` the box of the pixel centres (the map's box inset by half a
+    /// To trace a map along its pixels, give `frame` the box of the pixel centers (the map's box inset by half a
     /// pixel on each side) and a `cell` of one pixel.
     ///
     /// # Errors

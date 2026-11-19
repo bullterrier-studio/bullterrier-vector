@@ -38,7 +38,7 @@ pub struct Bands {
     angle: Option<Expr>,
     wavelength: Option<Expr>,
     amplitude: Option<Expr>,
-    centre: Option<(Expr, Expr)>,
+    center: Option<(Expr, Expr)>,
 }
 
 impl Bands {
@@ -56,12 +56,12 @@ impl Bands {
             angle: None,
             wavelength: None,
             amplitude: None,
-            centre: None,
+            center: None,
         })
     }
 
     /// Whether the carrier `family` (`"lines"`, `"waves"`, `"rings"`, `"spiral"` or `"rays"`) reads the optional
-    /// argument `argument` (`angle`, `centre`, `wavelength` or `amplitude`): the one place the rule lives, for the
+    /// argument `argument` (`angle`, `center`, `wavelength` or `amplitude`): the one place the rule lives, for the
     /// builder, a document and the bindings.
     ///
     /// # Errors
@@ -72,7 +72,7 @@ impl Bands {
 
     /// Straight lines `spacing` design pixels apart, along the direction of [`Bands::angle`] (0: left to right), the
     /// first half a spacing from the region's side. Each is as wide at a point as `width` says: `width.0` where
-    /// the `tone` is 0, `width.1` where it is 1, linear between and held beyond (a tone is read where the centre of the
+    /// the `tone` is 0, `width.1` where it is 1, linear between and held beyond (a tone is read where the center of the
     /// line is). Every number is a number or an expression of Params, read once.
     ///
     /// # Errors
@@ -103,7 +103,7 @@ impl Bands {
         Ok(bands)
     }
 
-    /// Rings round [`Bands::centre`] (the middle of the region's bounding box by default), `spacing` apart, the first
+    /// Rings round [`Bands::center`] (the middle of the region's bounding box by default), `spacing` apart, the first
     /// half a spacing out.
     ///
     /// # Errors
@@ -116,7 +116,7 @@ impl Bands {
         Self::made(Family::Rings, spacing, tone, width)
     }
 
-    /// An Archimedean spiral out of [`Bands::centre`], its arms `spacing` apart along any ray from the centre; the
+    /// An Archimedean spiral out of [`Bands::center`], its arms `spacing` apart along any ray from the center; the
     /// spiral is at radius 0 at angle [`Bands::angle`], and turns clockwise on the screen.
     ///
     /// # Errors
@@ -129,7 +129,7 @@ impl Bands {
         Self::made(Family::Spiral, spacing, tone, width)
     }
 
-    /// Straight rays out of [`Bands::centre`], as many as are `spacing` apart round the farthest corner of the
+    /// Straight rays out of [`Bands::center`], as many as are `spacing` apart round the farthest corner of the
     /// region's bounding box, the first at angle [`Bands::angle`].
     ///
     /// # Errors
@@ -153,14 +153,14 @@ impl Bands {
         Ok(self)
     }
 
-    /// The centre of rings, the spiral and rays (default: the middle of the region's bounding box).
+    /// The center of rings, the spiral and rays (default: the middle of the region's bounding box).
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `centre` for lines and waves, which have none.
-    pub fn centre(mut self, centre: impl Into<Point>) -> Result<Self, Error> {
-        Self::refuse_unread(self.family.name(), "centre")?;
-        let centre = centre.into();
-        self.centre = Some((Expr::from(centre.x), Expr::from(centre.y)));
+    /// [`Error::Parameter`] naming `center` for lines and waves, which have none.
+    pub fn center(mut self, center: impl Into<Point>) -> Result<Self, Error> {
+        Self::refuse_unread(self.family.name(), "center")?;
+        let center = center.into();
+        self.center = Some((Expr::from(center.x), Expr::from(center.y)));
         Ok(self)
     }
 
@@ -192,8 +192,8 @@ impl Bands {
         self.amplitude.as_ref()
     }
 
-    pub(crate) fn centre_of(&self) -> Option<&(Expr, Expr)> {
-        self.centre.as_ref()
+    pub(crate) fn center_of(&self) -> Option<&(Expr, Expr)> {
+        self.center.as_ref()
     }
 
     /// The numbers of these bands with the Params at `values`.
@@ -221,10 +221,10 @@ impl Bands {
                 .as_ref()
                 .map(|e| read("amplitude", e, values))
                 .transpose()?,
-            centre: self
-                .centre
+            center: self
+                .center
                 .as_ref()
-                .map(|(x, y)| Ok::<_, Error>(Point::new(read("centre", x, values)?, read("centre", y, values)?)))
+                .map(|(x, y)| Ok::<_, Error>(Point::new(read("center", x, values)?, read("center", y, values)?)))
                 .transpose()?,
         })
     }
@@ -239,7 +239,7 @@ pub(crate) struct Plan {
     pub(crate) angle: f64,
     pub(crate) wavelength: Option<f64>,
     pub(crate) amplitude: Option<f64>,
-    pub(crate) centre: Option<Point>,
+    pub(crate) center: Option<Point>,
 }
 
 impl Plan {
@@ -290,8 +290,8 @@ impl Plan {
                 format!("must be a number, got {amplitude}"),
             ));
         }
-        if let Some(centre) = self.centre {
-            coordinate_point("centre", centre)?;
+        if let Some(center) = self.center {
+            coordinate_point("center", center)?;
         }
         Ok(())
     }
@@ -299,7 +299,7 @@ impl Plan {
 
 impl Path {
     /// Lines whose width follows a tone, inside the region this path fills (nonzero rule): the carrier of `bands` laid over the region, cut to it
-    /// (a line is kept where its centre is inside), each piece outlined as wide at every point as the tone there asks (see
+    /// (a line is kept where its center is inside), each piece outlined as wide at every point as the tone there asks (see
     /// [`Bands::lines`]). A piece is one closed outline; a ring that lies whole inside the region is two loops, the inner
     /// one the other way, so that the nonzero rule leaves the hole open. A Param is read at its default here; a `bands`
     /// step reads it with the values it draws with. The result is for filling. An empty path gives an empty path.
@@ -307,7 +307,7 @@ impl Path {
     /// # Errors
     /// [`Error::Parameter`] naming `spacing` if it is not above 0 and a coordinate, if the carrier would need more than
     /// 2 million points, or if a step of it would not move at the region's coordinates; naming `width` unless both
-    /// widths are numbers from 0 to 1e100; `angle`, `wavelength` (above 0), `amplitude` or `centre` unless it is a
+    /// widths are numbers from 0 to 1e100; `angle`, `wavelength` (above 0), `amplitude` or `center` unless it is a
     /// number within ±1e100; naming `spacing` past `MAX_SEGMENTS` points.
     pub fn bands(&self, bands: &Bands) -> Result<Path, Error> {
         let plan = bands.plan(&Values::new())?;
@@ -404,15 +404,15 @@ fn straight(plan: &Plan, corners: &[Point; 4], step: f64) -> Result<Vec<Carried>
     Ok(lines)
 }
 
-/// Rings, a spiral or rays about the centre.
+/// Rings, a spiral or rays about the center.
 fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> Result<Vec<Carried>, Error> {
     let layout = plan.layout();
-    let centre = plan.centre.unwrap_or_else(|| middle(bounds));
-    let distances = Distances::of(centre, bounds, corners);
+    let center = plan.center.unwrap_or_else(|| middle(bounds));
+    let distances = Distances::of(center, bounds, corners);
     let (d_min, d_max) = (distances.near, distances.far);
     // the rows are k = first..=last at radius (k + 1/2) spacing, each of TAU radius / step points at least RING_POINTS;
     // counted in f64 and before any is made, with no difference of squares to cancel
-    let round = layout.round_rows(centre, bounds, 0.0, step, Layout::ray_count(d_max / plan.spacing))?;
+    let round = layout.round_rows(center, bounds, 0.0, step, Layout::ray_count(d_max / plan.spacing))?;
     let (first, rings) = (round.first, round.rows);
     let last = first + rings - 1.0;
     let (low, high) = (d_min / plan.spacing, d_max / plan.spacing);
@@ -422,15 +422,15 @@ fn round(plan: &Plan, bounds: crate::Rect, corners: &[Point; 4], step: f64) -> R
         _ => TAU * high.max(1.0) * ((d_max - d_min) / step + 1.0),
     };
     if samples.is_nan() || samples > MAX_SAMPLES {
-        // a centre away from the region is what stretches a ring or an arm out: name it, when the default would do
-        let name = if plan.centre.is_some() && d_min > 0.0 {
-            "centre"
+        // a center away from the region is what stretches a ring or an arm out: name it, when the default would do
+        let name = if plan.center.is_some() && d_min > 0.0 {
+            "center"
         } else {
             "spacing"
         };
         return Err(too_many(name));
     }
-    let at = |radius: f64, angle: f64| polar(centre, radius, angle);
+    let at = |radius: f64, angle: f64| polar(center, radius, angle);
     let turn = layout.turn();
     let mut lines = Vec::new();
     match plan.family {

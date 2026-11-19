@@ -1,5 +1,5 @@
 //! What `Drawing::to_mesh` makes of a stroke: the triangles cover the region the stroke paints, each point once even
-//! where the stroke overlaps itself. The oracles are a brute-force distance to the centreline and hand-worked corner,
+//! where the stroke overlaps itself. The oracles are a brute-force distance to the centerline and hand-worked corner,
 //! cap and zero-length rows, never the tessellator.
 
 use crate::common::mesh::{area, check_layout, covering, mesh_of, triangles};
@@ -27,7 +27,7 @@ fn segment_distance(point: Point, from: Point, to: Point) -> f64 {
 }
 
 /// The distance from `point` to the polyline through `corners`, `closed` or not.
-fn centreline_distance(corners: &[Point], closed: bool, point: Point) -> f64 {
+fn centerline_distance(corners: &[Point], closed: bool, point: Point) -> f64 {
     let count = if closed { corners.len() } else { corners.len() - 1 };
     (0..count)
         .map(|i| segment_distance(point, corners[i], corners[(i + 1) % corners.len()]))
@@ -67,7 +67,7 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(400))]
 
     #[test]
-    fn a_round_stroke_covers_each_point_within_half_its_width_of_the_centreline_once_and_no_other(
+    fn a_round_stroke_covers_each_point_within_half_its_width_of_the_centerline_once_and_no_other(
         (corners, closed) in (corners(), any::<bool>())
             // a stroke with two or more turns over 100 degrees is the documented limit (expected-failure tests below)
             .prop_filter("fewer than two sharp turns", |(corners, closed)| sharp_turns(corners, *closed) < 2),
@@ -81,7 +81,7 @@ proptest! {
         let triangles = triangles(&mesh);
         let mut decided = 0;
         for point in points {
-            let distance = centreline_distance(&corners, closed, point);
+            let distance = centerline_distance(&corners, closed, point);
             // the arcs are flattened to within 0.01 of the true ones
             if (distance - width / 2.0).abs() < 0.05 {
                 continue;
@@ -91,7 +91,7 @@ proptest! {
             prop_assert_eq!(
                 covered,
                 usize::from(distance < width / 2.0),
-                "point {:?} at {} from the centreline of {:?}, closed {}, width {}",
+                "point {:?} at {} from the centerline of {:?}, closed {}, width {}",
                 point, distance, corners, closed, width
             );
         }
@@ -182,7 +182,7 @@ fn round_strokes_that_double_back_at_sharp_turns_cover_each_point_once() -> Outc
 }
 
 /// Asserts that a round stroke of `width` along `corners` covers every point of a 0.7 pixel grid once inside half its
-/// width of the centreline and never outside.
+/// width of the centerline and never outside.
 fn covered_once_on_a_grid(case: &str, corners: &[Point], closed: bool, width: f64) -> Outcome {
     let stroke = Stroke::new(black()).width(width).join(Join::Round).cap(Cap::Round);
     let mesh = mesh_of(
@@ -197,7 +197,7 @@ fn covered_once_on_a_grid(case: &str, corners: &[Point], closed: bool, width: f6
         for y in 0..160 {
             // a grid that avoids whole numbers, where the corners lie
             let point = (f64::from(x) * 0.7 - 6.0 + 0.113, f64::from(y) * 0.7 - 6.0 + 0.071);
-            let distance = centreline_distance(corners, closed, point);
+            let distance = centerline_distance(corners, closed, point);
             if (distance - width / 2.0).abs() < 0.05 {
                 continue;
             }
@@ -285,7 +285,7 @@ fn repeated_and_collinear_corners_leave_round_strokes_whole() -> Outcome {
         for x in 0..120 {
             for y in 0..120 {
                 let point = (f64::from(x) * 0.8 + 0.113, f64::from(y) * 0.8 + 0.071);
-                let distance = centreline_distance(&run, closed, point);
+                let distance = centerline_distance(&run, closed, point);
                 if (distance - 6.0).abs() < 0.05 {
                     continue;
                 }
@@ -450,7 +450,7 @@ fn the_triangles_of_a_stroke_have_the_area_of_its_outline() -> Outcome {
 #[test]
 fn a_stroke_over_a_fill_is_a_layer_of_its_own() -> Outcome {
     // a circle filled and stroked: at its rim both paint, so the fill's triangles and the stroke's overlap there; at
-    // the centre only the fill does, and a point just outside the rim only the stroke
+    // the center only the fill does, and a point just outside the rim only the stroke
     let circle = Drawing::from(Path::circle((50.0, 50.0), 30.0)?)
         .fill(Color::hex(0x0000_ff00))
         .stroke(Stroke::new(black()).width(10.0));

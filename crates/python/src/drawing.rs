@@ -370,8 +370,8 @@ impl PyDrawing {
         )
     }
 
-    /// Every shape with its points turned about a centre, less the farther out they are (each argument a number, a Param
-    /// or an expression, read per shape); as `Path.twist`. The centre is `about`, else each shape's origin, else the middle
+    /// Every shape with its points turned about a center, less the farther out they are (each argument a number, a Param
+    /// or an expression, read per shape); as `Path.twist`. The center is `about`, else each shape's origin, else the middle
     /// of its bounds.
     #[pyo3(
         signature = (angle=None, *, radius=None, about=None),
@@ -390,8 +390,8 @@ impl PyDrawing {
         checked(self.0.twist(twist))
     }
 
-    /// Every shape with its points pushed out from, or in towards, a centre, less the farther out they are (each
-    /// argument a number, a Param or an expression, read per shape); as `Path.bulge`. The centre is `about`, else each
+    /// Every shape with its points pushed out from, or in towards, a center, less the farther out they are (each
+    /// argument a number, a Param or an expression, read per shape); as `Path.bulge`. The center is `about`, else each
     /// shape's origin, else the middle of its bounds.
     #[pyo3(
         signature = (amount=None, *, radius=None, about=None),
@@ -451,8 +451,8 @@ impl PyDrawing {
     /// Every shape morphed `fraction` (a number, a Param or an expression, read per shape) of the way to the shape at the
     /// same index of `target` (a Drawing, a Path or a Shape): 0 is the source, 1 the target, any other number the lerp
     /// (outside 0 to 1 it extrapolates); as `Path.morph` for each pair, so the result is made of straight lines. A pair
-    /// keeps the source's style and attributes; a surplus source shape shrinks to its own centre and a surplus target shape
-    /// grows from its own centre, each keeping its own style.
+    /// keeps the source's style and attributes; a surplus source shape shrinks to its own center and a surplus target shape
+    /// grows from its own center, each keeping its own style.
     fn morph(&self, target: Item, fraction: Num) -> PyResult<Self> {
         checked(self.0.morph(target.0, fraction.0))
     }
@@ -484,7 +484,7 @@ impl PyDrawing {
     /// Lines whose width follows `tone`: every shape replaced by their closed outlines, as `Path.bands` makes them for its
     /// path; fill them. A `Param` in a number is read with the values of the draw.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
-    #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=None, centre=None, wavelength=None, amplitude=None))]
+    #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=None, center=None, wavelength=None, amplitude=None))]
     fn bands(
         &self,
         spacing: Num,
@@ -492,12 +492,12 @@ impl PyDrawing {
         width: (Num, Num),
         family: &str,
         angle: Option<Num>,
-        centre: Option<crate::Pt>,
+        center: Option<crate::Pt>,
         wavelength: Option<Num>,
         amplitude: Option<Num>,
     ) -> PyResult<Self> {
         checked(self.0.bands(&bands_of(
-            spacing, tone, width, family, angle, centre, wavelength, amplitude,
+            spacing, tone, width, family, angle, center, wavelength, amplitude,
         )?))
     }
 
@@ -518,7 +518,7 @@ impl PyDrawing {
     /// A field (`map`: a `Field.map`, 0 black to 1 white, or any `Field`) traced at `levels` (numbers, Params or
     /// expressions, read once) as filled shapes: one for each level it reaches, in the order given, the region at or
     /// above the level, with the level as its `level` attribute and no fill (`.only(level=l).fill(...)`). The field is
-    /// read at the centres of `box` (`(x, y, width, height)`) cut into equal cells no wider than `cell` design pixels;
+    /// read at the centers of `box` (`(x, y, width, height)`) cut into equal cells no wider than `cell` design pixels;
     /// `None` is a map's own box and one map pixel, and any other field needs both. Shapes that
     /// meet the border go on past it by the larger of `open` and `close` plus `tolerance`, plus two cells: crop
     /// with `.intersect(Path.rect(...))` for a plotter. `smooth` is the blur's standard deviation in design pixels;
@@ -665,15 +665,15 @@ impl PyDrawing {
 
     /// Every shape filled with a screen of dots of `color` (replacing any fill, as `fill` replaces it). Each dot covers
     /// `1 - tone` of its own cell: `tone` from 0 (solid) to 1 (no dots) is a number (a `Param`, a number for each shape)
-    /// or a `Field` read at the centre of each dot. `pitch` (8) is the distance between rows and dots in design pixels
+    /// or a `Field` read at the center of each dot. `pitch` (8) is the distance between rows and dots in design pixels
     /// and `angle` (45) the turn of the layout in degrees about the origin of the design frame. `shape` is the dot:
     /// `"dot"`, `"square"`, `"ellipse"` (`aspect` times as long as wide, at least 1), `"diamond"`, `"euclidean"` (round,
     /// a diamond at tone 0.5, then a round hole) or a closed `Path` (its first sub-path, on its centroid, scaled to the
     /// area). `screen` is the layout: `"grid"`, `"wave"` (rows swung `amplitude` pitches (1) over `wavelength` pitches
-    /// (6)), `"rings"`, `"spiral"` or `"rays"` (about `centre`, default the middle of the shape's bounds). The grid and
+    /// (6)), `"rings"`, `"spiral"` or `"rays"` (about `center`, default the middle of the shape's bounds). The grid and
     /// the wave are anchored to the design frame.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
-    #[pyo3(signature = (color, *, tone, pitch=None, angle=None, shape=None, aspect=None, screen=None, centre=None, amplitude=None, wavelength=None))]
+    #[pyo3(signature = (color, *, tone, pitch=None, angle=None, shape=None, aspect=None, screen=None, center=None, amplitude=None, wavelength=None))]
     pub(crate) fn halftone(
         &self,
         color: &str,
@@ -683,12 +683,12 @@ impl PyDrawing {
         shape: Option<ShapeArg>,
         aspect: Option<Num>,
         screen: Option<&str>,
-        centre: Option<Pt>,
+        center: Option<Pt>,
         amplitude: Option<Num>,
         wavelength: Option<Num>,
     ) -> PyResult<Self> {
         checked(self.0.halftone(halftone_of(
-            color, tone, pitch, angle, shape, aspect, screen, centre, amplitude, wavelength,
+            color, tone, pitch, angle, shape, aspect, screen, center, amplitude, wavelength,
         )?))
     }
 

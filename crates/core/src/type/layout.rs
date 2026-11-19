@@ -370,7 +370,7 @@ struct Drawn {
     word: Option<u32>,
     line: u32,
     /// The point the glyph turns and scales about.
-    centre: Point,
+    center: Point,
     /// Pixels per font unit: the size of its run on its line over the font's units to the em.
     scale: f64,
     /// The run the glyph is in.
@@ -547,7 +547,7 @@ pub(crate) fn typeset(
                     character: one.character,
                     word,
                     line: number as u32,
-                    centre: Point::new(pen + advance / 2.0, baseline - em.cap_height / 2.0),
+                    center: Point::new(pen + advance / 2.0, baseline - em.cap_height / 2.0),
                     scale: em.scale,
                     run: locations.run_of[*location] as u32,
                 });
@@ -608,7 +608,7 @@ fn shapes(glyphs: &[Drawn]) -> Result<Vec<Shape>, Error> {
             } else {
                 f64::from(drawn.glyph) / last as f64
             });
-            attributes.origin = Some(drawn.centre);
+            attributes.origin = Some(drawn.center);
             Ok(shape)
         })
         .collect()

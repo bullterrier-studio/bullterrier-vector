@@ -480,7 +480,7 @@ coarsely.
 
 - Stagger: one value (say `progress`) becomes a per-item value spread by an attribute, for any modifier.
 - Text as one shape per glyph; `split` into parts, `merge(by=...)` into words or lines; per-item transforms (translate,
-  rotate, scale by index or by a seeded random) about a typographic origin (cap-height centre, not the bounding box).
+  rotate, scale by index or by a seeded random) about a typographic origin (cap-height center, not the bounding box).
 
 - Draw-on, from V11: `Drawing.slice(start, end)` read per shape, so `slice(0, stagger(progress))` draws a text on letter by
   letter.
@@ -547,7 +547,7 @@ Parts 1 (gradient fills and strokes), 2 (the separable blend set) and 3 (clip gr
 The same style model as V10, extended; the result is the same in SVG and in pixels, and the mesh raises as it does for a
 blurred shadow.
 
-- Linear and radial gradient fills, on fill and on stroke (stops with colour and position, a start and end or a centre
+- Linear and radial gradient fills, on fill and on stroke (stops with colour and position, a start and end or a center
   and radius in design pixels). The fill of a shape is a paint, not only a colour.
 - The separable blend modes of the W3C compositing specification beyond `normal` and `multiply` (built: all ten).
   Blending stays in sRGB values, with straight alpha out of `to_rgba`.
@@ -694,7 +694,7 @@ the rows, so a photo's fine detail no longer chops them.
 
 **4a, done 2026-11-18 (effects track).** `halftone` reads a `Field` tone (a number stays a number per shape), takes a dot
 `shape` (dot, square, ellipse with `aspect`, diamond, euclidean or a caller's `Path`) and a `screen` (grid, wave, rings,
-spiral, rays; `centre`, `amplitude`, `wavelength`), each dot covering `1 - tone` of its own cell on every screen; `bands` and
+spiral, rays; `center`, `amplitude`, `wavelength`), each dot covering `1 - tone` of its own cell on every screen; `bands` and
 the screens share one layout module; in Rust, Python and documents (so WebAssembly), `examples/halftone.py` in the three
 languages. Reasons and limits: `design-decisions.md`, "Halftone screens (4a)". Not built: image's `line` and `matrix` shapes
 (`bands` and a caller's `Path` do the same).

@@ -1,5 +1,5 @@
 //! `Field::map` and `Field::to_map` through the public API. Oracles: values worked out by hand from the bytes
-//! (bilinear between pixel centres), and the closed-form distance to a circle.
+//! (bilinear between pixel centers), and the closed-form distance to a circle.
 
 use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{Field, Path, Point, Rect};
@@ -16,7 +16,7 @@ fn near(got: f64, want: f64) {
 }
 
 #[test]
-fn a_pixel_centre_reads_its_byte() -> Outcome {
+fn a_pixel_center_reads_its_byte() -> Outcome {
     let field = grid()?;
     for (i, byte) in (0..6_u32).zip(BYTES) {
         let (x, y) = (f64::from(i % 3) + 0.5, f64::from(i / 3) + 0.5);
@@ -26,11 +26,11 @@ fn a_pixel_centre_reads_its_byte() -> Outcome {
 }
 
 #[test]
-fn between_centres_it_is_bilinear() -> Outcome {
+fn between_centers_it_is_bilinear() -> Outcome {
     let field = grid()?;
     // half way between 0 and 100 along row 0
     near(field.at(Point::new(1.0, 0.5)), 50.0 / 255.0);
-    // the middle of the four centres 0, 100, 255, 50
+    // the middle of the four centers 0, 100, 255, 50
     near(
         field.at(Point::new(1.0, 1.0)),
         (0.0 + 100.0 + 255.0 + 50.0) / 4.0 / 255.0,
@@ -61,7 +61,7 @@ fn a_box_places_the_map_in_design_units() -> Outcome {
         height: 20.0,
     };
     let field = Field::map(3, 2, &BYTES, Some(frame), None)?;
-    // centre of pixel (2, 1): x = 100 + 2.5 * 10, y = 50 + 1.5 * 10
+    // center of pixel (2, 1): x = 100 + 2.5 * 10, y = 50 + 1.5 * 10
     near(field.at(Point::new(125.0, 65.0)), 0.0);
     near(field.at(Point::new(105.0, 65.0)), 1.0);
     near(field.at(Point::new(115.0, 65.0)), 50.0 / 255.0);
@@ -152,7 +152,7 @@ fn a_distance_field_written_out_reads_back_within_half_a_level() -> Outcome {
 #[test]
 fn to_map_by_hand_on_a_ramp() -> Outcome {
     let ramp = Field::ramp((0.0, 0.0), (4.0, 0.0))?;
-    // 4 pixels over 0..4: centres read 0.125, 0.375, 0.625, 0.875; low 0.25 and high 0.75 stretch them to
+    // 4 pixels over 0..4: centers read 0.125, 0.375, 0.625, 0.875; low 0.25 and high 0.75 stretch them to
     // 0 (clamped), 0.25, 0.75 and 1 (clamped): 63.75 and 191.25 round to 64 and 191
     let bytes = ramp.to_map(4, 1, None, 0.25, 0.75)?;
     assert_eq!(bytes, [0_u8, 64, 191, 255]);

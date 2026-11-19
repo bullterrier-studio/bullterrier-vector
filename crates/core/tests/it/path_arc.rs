@@ -17,7 +17,7 @@ fn near(found: (f64, f64), expected: (f64, f64)) -> bool {
 }
 
 #[test]
-fn a_quarter_turn_runs_from_the_right_of_the_centre_to_below_it() -> Outcome {
+fn a_quarter_turn_runs_from_the_right_of_the_center_to_below_it() -> Outcome {
     // 0 degrees is +x, 90 is down the screen (y down)
     let arc = Path::arc((10.0, 20.0), 5.0, 0.0, 90.0)?;
     let (start, end) = ends(&arc)?;
@@ -43,7 +43,7 @@ fn a_negative_sweep_runs_counter_clockwise_on_the_screen() -> Outcome {
         (middle.x - (10.0 + half_diagonal)).abs() < 5e-3 && (middle.y - (20.0 - half_diagonal)).abs() < 5e-3,
         "{middle:?}"
     );
-    // a start that is not 0: 180 to 270 is from the left of the centre up to its top
+    // a start that is not 0: 180 to 270 is from the left of the center up to its top
     let (start, end) = ends(&Path::arc((0.0, 0.0), 2.0, 180.0, 270.0)?)?;
     assert!(near(start, (-2.0, 0.0)) && near(end, (0.0, -2.0)), "{start:?} {end:?}");
     Ok(())
@@ -125,7 +125,7 @@ fn a_full_turn_is_open_and_ends_where_it_starts() -> Outcome {
 }
 
 #[test]
-fn a_bad_radius_sweep_or_centre_is_refused_naming_it() -> Outcome {
+fn a_bad_radius_sweep_or_center_is_refused_naming_it() -> Outcome {
     let name = |outcome: Result<Path, bullterrier_vector::Error>| parameter_refusal(outcome).map(|found| found.0);
     for radius in [0.0, -1.0, f64::NAN, f64::INFINITY, 1.1e100] {
         assert_eq!(name(Path::arc((0.0, 0.0), radius, 0.0, 90.0))?, "radius");

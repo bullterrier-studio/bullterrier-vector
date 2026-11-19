@@ -799,7 +799,7 @@ impl Shadow {
     }
 }
 
-/// How far a stroke `width` wide with this join and end reaches from the centreline of the path: a miter to its limit
+/// How far a stroke `width` wide with this join and end reaches from the centerline of the path: a miter to its limit
 /// of half widths, a square end to the corner of its square.
 fn stroke_reach(stroke: &StrokeStyle, width: f64) -> f64 {
     if let Some(profile) = stroke.profile() {

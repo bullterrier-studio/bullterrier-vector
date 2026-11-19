@@ -57,8 +57,8 @@ fn a_bad_size_is_refused_before_the_drawing_is_evaluated() -> Outcome {
 }
 
 #[test]
-fn rows_run_from_the_top_and_the_design_frame_is_fitted_and_centred_as_in_svg() -> Outcome {
-    // a 100 by 50 frame in a 200 by 200 output is doubled and centred down: the frame fills rows 50..150 of 200. Its
+fn rows_run_from_the_top_and_the_design_frame_is_fitted_and_centered_as_in_svg() -> Outcome {
+    // a 100 by 50 frame in a 200 by 200 output is doubled and centered down: the frame fills rows 50..150 of 200. Its
     // red rectangle covers the frame's top left quarter: columns 0..100 and rows 50..100 (the SVG table in svg_view)
     let quarter = Drawing::from(Path::rect(0.0, 0.0, 50.0, 25.0, 0.0)?)
         .fill(Color::parse("#ff0000")?)

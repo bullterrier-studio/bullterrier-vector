@@ -209,7 +209,7 @@ fn align_places_each_line_against_its_stretch() -> Outcome {
     let rows: [(&str, &str, Align, Glyphs<'_>); 5] = [
         ("left: at the start", "H", Align::Left, &[('H', 0, 1000.0, 1400.0)]),
         (
-            "centre: half the width either side of the middle",
+            "center: half the width either side of the middle",
             "H",
             Align::Center,
             &[('H', 0, 4672.0, 1400.0)],
@@ -221,7 +221,7 @@ fn align_places_each_line_against_its_stretch() -> Outcome {
             &[('H', 0, 8344.0, 1400.0)],
         ),
         (
-            "centre, two words",
+            "center, two words",
             "H H",
             Align::Center,
             &[('H', 0, 3619.5, 1400.0), ('H', 0, 5724.5, 1400.0)],
@@ -246,11 +246,11 @@ fn align_places_each_line_against_its_stretch() -> Outcome {
 
 #[test]
 fn a_circle_narrows_the_lines_toward_the_top_and_the_capital_line_counts() -> Outcome {
-    // centre (5000, 5000), radius 5000. A line's chord is the narrower of the circle at its baseline and at the top of its
-    // capitals, 1400 above: the one further from the centre. Baselines are 1400, 3800, 6200, 8600, ....
-    let (centre, radius) = (5000.0_f64, 5000.0_f64);
+    // center (5000, 5000), radius 5000. A line's chord is the narrower of the circle at its baseline and at the top of its
+    // capitals, 1400 above: the one further from the center. Baselines are 1400, 3800, 6200, 8600, ....
+    let (center, radius) = (5000.0_f64, 5000.0_f64);
     let half = |away: f64| (radius * radius - away * away).sqrt();
-    // (baseline, how far from the centre the narrower of the two ends, words in the line). The top baseline touches the
+    // (baseline, how far from the center the narrower of the two ends, words in the line). The top baseline touches the
     // circle at its top and has no width, so it is skipped. At 2105 per word and 449 less: four words are 7971 wide, five
     // 10076, three 5866.
     let lines: [(f64, f64, u32); 3] = [(3800.0, 2600.0, 4), (6200.0, 1200.0, 4), (8600.0, 3600.0, 3)];
@@ -260,12 +260,12 @@ fn a_circle_narrows_the_lines_toward_the_top_and_the_capital_line_counts() -> Ou
             want.push((
                 'H',
                 u32::try_from(number)?,
-                centre - half(away) + 2105.0 * f64::from(word),
+                center - half(away) + 2105.0 * f64::from(word),
                 baseline,
             ));
         }
     }
-    let circle = Path::circle((centre, centre), radius)?;
+    let circle = Path::circle((center, center), radius)?;
     let drawing = text(["H"; 11].join(" "), at_em(&fraunces()?).inside(&circle));
     // the circle is four cubic arcs, which stray from a true circle by up to 2.7e-4 of the radius (1.4), and across a
     // slanted edge that is a little more sideways

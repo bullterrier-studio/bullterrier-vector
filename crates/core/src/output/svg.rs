@@ -48,7 +48,7 @@ impl Drawing {
     /// The drawing as an SVG document of `size`, with the Params at the `values` given and at their defaults where
     /// none is given.
     ///
-    /// The design frame is scaled to fit `size` and centred (a drawing without a frame is drawn at one pixel to the
+    /// The design frame is scaled to fit `size` and centered (a drawing without a frame is drawn at one pixel to the
     /// design pixel), and content outside the frame is not clipped. The coordinates and stroke widths are written in
     /// output pixels, not as a transform, so that a drawing at twice the size has numbers exactly twice as large; every
     /// number is the shortest text that reads back as the same value. A shape is one `<path>` whose `opacity` applies

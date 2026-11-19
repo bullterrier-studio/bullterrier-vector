@@ -434,14 +434,14 @@ impl Node for Wobble {
     }
 }
 
-/// Turns the points of every shape about a centre, less the farther out they are.
+/// Turns the points of every shape about a center, less the farther out they are.
 #[derive(Debug)]
 pub(crate) struct Twist;
 
 pub(crate) static TWIST: Verb = Verb {
     name: "twist",
     role: Role::Step,
-    summary: "turns the points of every shape about a point (default: its origin, else the middle of its bounds) by angle degrees clockwise on the screen at the centre, less and less further out, none at radius (default: the farthest corner of its bounds) and beyond: the turn at distance r is angle times 1 - s*s*(3 - 2*s), s = r / radius, so the distance to the centre is kept; the edges are cut so the result is smooth, corners kept",
+    summary: "turns the points of every shape about a point (default: its origin, else the middle of its bounds) by angle degrees clockwise on the screen at the center, less and less further out, none at radius (default: the farthest corner of its bounds) and beyond: the turn at distance r is angle times 1 - s*s*(3 - 2*s), s = r / radius, so the distance to the center is kept; the edges are cut so the result is smooth, corners kept",
     args: &[
         per_shape("angle", Kind::Number, Some(Literal::Number(90.0)), Domain::Finite),
         per_shape(
@@ -472,7 +472,7 @@ impl Node for Twist {
     }
 }
 
-/// Pushes the points of every shape out from, or in towards, a centre, less the farther out they are.
+/// Pushes the points of every shape out from, or in towards, a center, less the farther out they are.
 #[derive(Debug)]
 pub(crate) struct Bulge;
 

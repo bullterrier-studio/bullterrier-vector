@@ -97,7 +97,7 @@ def test_a_direction_and_its_opposite_mix_to_the_same_direction() -> None:
 
 
 def test_a_turned_flow_is_the_flow_plus_the_turn_clockwise() -> None:
-    # oracle: the sum of the angles modulo 180, and the radius of a circle (atan2 of the point from its centre)
+    # oracle: the sum of the angles modulo 180, and the radius of a circle (atan2 of the point from its center)
     assert apart(btvec.Flow.angle(30).rotate(100).at(0, 0), 130) < 1e-9
     assert apart(btvec.Flow.angle(30).rotate(angle=-45).at(0, 0), 165) < 1e-9
     across = btvec.Flow.contour(CIRCLE).rotate(90)

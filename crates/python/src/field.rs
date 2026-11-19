@@ -76,7 +76,7 @@ impl PyField {
     /// An 8-bit grayscale map as a field, 0 (black) to 1 (white): `data` holds `height` rows of `width` bytes, top row
     /// first (`bytes`, a `bytearray`, a `memoryview`, a `numpy` array of `uint8`, or a list of numbers). It lies over
     /// `box` (`(x, y, width, height)`, default one design pixel a map pixel from the origin); the field is bilinear
-    /// between pixel centres and holds the nearest edge value beyond the box. `name` is what a saved drawing calls it.
+    /// between pixel centers and holds the nearest edge value beyond the box. `name` is what a saved drawing calls it.
     #[staticmethod]
     #[pyo3(signature = (width, height, data, *, r#box=None, name=None))]
     fn map(
@@ -98,7 +98,7 @@ impl PyField {
     }
 
     /// This field written out as an 8-bit grayscale map of `width` by `height` pixels over `box` (default one design
-    /// pixel a map pixel from the origin), top row first, as `bytes`: each pixel is the field at its centre with `low`
+    /// pixel a map pixel from the origin), top row first, as `bytes`: each pixel is the field at its center with `low`
     /// written as 0 and `high` as 255 (linear between, held beyond), the input form of `Field.map` and of an image map.
     #[pyo3(signature = (width, height, *, r#box=None, low=0.0, high=1.0))]
     fn to_map<'py>(
@@ -394,13 +394,13 @@ pub(crate) fn bands_of(
     width: (Num, Num),
     family: &str,
     angle: Option<Num>,
-    centre: Option<Pt>,
+    center: Option<Pt>,
     wavelength: Option<Num>,
     amplitude: Option<Num>,
 ) -> PyResult<vector::Bands> {
     for (name, given) in [
         ("angle", angle.is_some()),
-        ("centre", centre.is_some()),
+        ("center", center.is_some()),
         ("wavelength", wavelength.is_some()),
         ("amplitude", amplitude.is_some()),
     ] {
@@ -436,8 +436,8 @@ pub(crate) fn bands_of(
         Some(angle) => raised(bands.angle(angle.0))?,
         None => bands,
     };
-    match centre {
-        Some(centre) => raised(bands.centre(centre.0)),
+    match center {
+        Some(center) => raised(bands.center(center.0)),
         None => Ok(bands),
     }
 }

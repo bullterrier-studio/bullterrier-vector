@@ -128,7 +128,7 @@ small canvases gain (about 15%), where the fixed cost of the context dominates. 
 `stroke_outline`, the drops of a `Body`), which a render state does not touch. Output bytes were identical in both orders.
 
 A second spike reused scratch within one call, with no state kept between calls: one `edges` Vec for all sub-paths of a
-flattening, `points` reserved to the curve count, and the shape's centre outline built once instead of twice. Interleaved
+flattening, `points` reserved to the curve count, and the shape's center outline built once instead of twice. Interleaved
 base, spike (three rounds, separate processes), 200 shapes, load average 10 to 13; minimum of 80 calls in milliseconds.
 
 | `to_rgba` | main | spike |

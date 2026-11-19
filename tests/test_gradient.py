@@ -23,7 +23,7 @@ def test_a_linear_gradient_reads_back_its_line_and_stops():
     assert repr(FADE) == "linear_gradient([(0.0, '#ff0000ff'), (1.0, '#0000ffff')], start=(0.0, 0.0), end=(100.0, 0.0))"
 
 
-def test_a_radial_gradient_reads_back_its_centre_and_radius():
+def test_a_radial_gradient_reads_back_its_center_and_radius():
     assert GLOW.kind == "radial"
     assert (GLOW.center, GLOW.radius) == (btvec.Point(50, 50), 40.0)
     assert (GLOW.start, GLOW.end) == (None, None)
@@ -71,7 +71,7 @@ def test_pixels_are_the_stops_at_the_projection_of_the_pixel_on_the_line():
         start = (y * 100 + x) * 4
         return tuple(image[start : start + 4])
 
-    # pixel centre x + 0.5 of 100 along the line: the mean of the stops weighted by that share
+    # pixel center x + 0.5 of 100 along the line: the mean of the stops weighted by that share
     for x in (10, 50, 90):
         share = (x + 0.5) / 100
         red, green, blue, alpha = at(x, 40)

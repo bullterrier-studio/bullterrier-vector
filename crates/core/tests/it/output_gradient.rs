@@ -69,7 +69,7 @@ fn near(image: &Image, (x, y): (usize, usize), expected: [f64; 4]) -> Outcome {
     }
 }
 
-fn centre(x: usize, y: usize) -> (f64, f64) {
+fn center(x: usize, y: usize) -> (f64, f64) {
     (x as f64 + 0.5, y as f64 + 0.5)
 }
 
@@ -109,18 +109,18 @@ fn a_linear_gradient_is_its_stops_at_the_projection_of_the_pixel_on_the_line() -
         let image = render(&Drawing::from(canvas()?).fill(gradient.clone()), 100, 100)?;
         let by_hand: Vec<_> = gradient.stops().to_vec();
         for (x, y) in SAMPLES {
-            near(&image, (x, y), ramp(&by_hand, linear_t(a, b, centre(x, y)))).map_err(|e| format!("{case}: {e}"))?;
+            near(&image, (x, y), ramp(&by_hand, linear_t(a, b, center(x, y)))).map_err(|e| format!("{case}: {e}"))?;
         }
     }
     Ok(())
 }
 
 #[test]
-fn a_radial_gradient_is_its_stops_at_the_distance_from_the_centre_over_the_radius() -> Outcome {
+fn a_radial_gradient_is_its_stops_at_the_distance_from_the_center_over_the_radius() -> Outcome {
     let rows: [(&str, Point, f64, Stops); 3] = [
-        ("centred", (50.0, 50.0), 40.0, vec![(0.0, WHITE), (1.0, BLACK)]),
+        ("centered", (50.0, 50.0), 40.0, vec![(0.0, WHITE), (1.0, BLACK)]),
         (
-            "off centre, three stops",
+            "off center, three stops",
             (20.0, 70.0),
             60.0,
             vec![(0.0, RED), (0.5, WHITE), (1.0, BLUE)],
@@ -136,7 +136,7 @@ fn a_radial_gradient_is_its_stops_at_the_distance_from_the_centre_over_the_radiu
         let gradient = Gradient::radial(c, r, stops)?;
         let image = render(&Drawing::from(canvas()?).fill(gradient.clone()), 100, 100)?;
         for (x, y) in SAMPLES {
-            near(&image, (x, y), ramp(gradient.stops(), radial_t(c, r, centre(x, y))))
+            near(&image, (x, y), ramp(gradient.stops(), radial_t(c, r, center(x, y))))
                 .map_err(|e| format!("{case}: {e}"))?;
         }
     }

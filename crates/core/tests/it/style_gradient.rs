@@ -46,7 +46,7 @@ fn a_linear_gradient_reads_back_its_line_and_stops() -> Outcome {
 }
 
 #[test]
-fn a_radial_gradient_reads_back_its_centre_and_radius() -> Outcome {
+fn a_radial_gradient_reads_back_its_center_and_radius() -> Outcome {
     let gradient = Gradient::radial((5.0, 6.0), 7.5, two_stops())?;
     assert_eq!(
         gradient.kind(),
@@ -151,7 +151,7 @@ fn what_a_gradient_cannot_paint_is_refused_naming_the_argument() -> Outcome {
             "NaN",
         ),
         (
-            "a centre beyond range",
+            "a center beyond range",
             Gradient::radial((0.0, -1e101), 1.0, two_stops()),
             "center",
             "±1e100",

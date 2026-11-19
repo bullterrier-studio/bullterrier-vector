@@ -47,7 +47,7 @@ fn edge_pixels_carry_the_area_the_shape_overlaps_them_by() -> Outcome {
             (2.0, 0.0, 0.0),
         ),
         (
-            "frame doubled and centred down by 5",
+            "frame doubled and centered down by 5",
             Some((10.0, 5.0)),
             (0.3, 0.2, 9.0, 4.1),
             (20, 20),
@@ -177,16 +177,16 @@ fn the_fill_rule_is_nonzero() -> Outcome {
 }
 
 /// Every pixel at least a pixel away from the outline of the closed polygon through `corners` is opaque when its
-/// centre is wound round and clear when it is not.
+/// center is wound round and clear when it is not.
 fn assert_polygon_pixels(image: &Image, corners: &[(f64, f64)]) {
     for row in 0..image.height {
         for column in 0..image.width {
             #[expect(clippy::cast_precision_loss, reason = "small pixel indices")]
-            let centre = (column as f64 + 0.5, row as f64 + 0.5);
-            if clearance(corners, centre) <= 1.0 {
+            let center = (column as f64 + 0.5, row as f64 + 0.5);
+            if clearance(corners, center) <= 1.0 {
                 continue;
             }
-            let expected = if winding(corners, centre) == 0 { 0 } else { 255 };
+            let expected = if winding(corners, center) == 0 { 0 } else { 255 };
             assert_eq!(image.alpha(column, row), expected, "column {column} row {row}");
         }
     }

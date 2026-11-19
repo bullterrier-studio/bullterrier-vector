@@ -284,7 +284,7 @@ pub(crate) fn worst_chord_error(
 }
 
 /// The edges a radial deformer is held to: straight lines of 2.4 radii through a disc of radius 100 about the origin, at
-/// several distances from its centre and in three directions, so that the chord error is at its worst somewhere on them.
+/// several distances from its center and in three directions, so that the chord error is at its worst somewhere on them.
 pub(crate) fn radial_probe_edges() -> Vec<((f64, f64), (f64, f64))> {
     let mut edges = Vec::new();
     for offset in [0.0, 0.05, 0.2, 0.4, 0.55, 0.7, 0.85, 0.95] {

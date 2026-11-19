@@ -1,4 +1,4 @@
-//! Radial deformers: [`Path::twist`] and [`Path::bulge`], maps of the plane about a centre. Each is a map and a step
+//! Radial deformers: [`Path::twist`] and [`Path::bulge`], maps of the plane about a center. Each is a map and a step
 //! length for the warp kernel ([`Path::warp`]); the step is a share of the radius, the length scale of the map.
 
 use super::Path;
@@ -42,7 +42,7 @@ pub(crate) const STRONGEST_BULGE: f64 = 16.0 / 11.0;
 // constant: the bound is written once, as a fraction and rounded, with the reason it is the bound
 pub(crate) const STRONGEST_BULGE_RULE: &str = "above -1 and below 16/11 (1.4545), so that the shape does not fold over";
 
-/// The weight of the effect at distance `r` from the centre: 1 at the centre, falling smoothly (slope 0 at both ends)
+/// The weight of the effect at distance `r` from the center: 1 at the center, falling smoothly (slope 0 at both ends)
 /// to 0 at `radius`. Called only for `r` under `radius`; a farther point is not moved.
 fn falloff(r: f64, radius: f64) -> f64 {
     let s = r / radius;
@@ -51,14 +51,14 @@ fn falloff(r: f64, radius: f64) -> f64 {
 
 impl Path {
     /// This path with every point turned about `about` by `angle * falloff(r)` degrees, `r` its distance from `about`
-    /// and `falloff(r) = 1 - s^2 (3 - 2s)`, `s = min(r / radius, 1)`: the centre turns by the whole `angle`, the turn
+    /// and `falloff(r) = 1 - s^2 (3 - 2s)`, `s = min(r / radius, 1)`: the center turns by the whole `angle`, the turn
     /// dies away smoothly, and a point at `radius` or beyond does not move. The turn is clockwise on the screen (`y`
-    /// down) as for [`Path::rotate`], so a point near the centre moves as `rotate(angle)` moves it. Points keep their
+    /// down) as for [`Path::rotate`], so a point near the center moves as `rotate(angle)` moves it. Points keep their
     /// distance to `about`.
     ///
     /// `about` defaults to the middle of the bounds; `radius` to the distance from `about` to the farthest corner of the
     /// bounds, so the whole shape twists and its far corner stays (a path with no extent from `about` has radius 1). An
-    /// angle of any size and sign is allowed and does not wrap: 360 turns the centre once round against the rim.
+    /// angle of any size and sign is allowed and does not wrap: 360 turns the center once round against the rim.
     ///
     /// The path is flattened and each edge cut into equal pieces of at most `radius / n`, `n` growing with the angle
     /// (`7.5 sqrt(a^2 + 14 a / 3)` for `a` radians), so that every point of the result is within a hundredth of the
@@ -114,7 +114,7 @@ impl Path {
     /// This path with every point moved along its ray from `about` to `r (1 + amount * falloff(r))`, `r` its distance
     /// from `about` and `falloff(r) = 1 - s^2 (3 - 2s)`, `s = min(r / radius, 1)`: a positive `amount` bulges the middle
     /// outward (a fish-eye), a negative one pinches it inward, 0 leaves it where it is, and a point at `radius` or
-    /// beyond does not move (to the bit). The centre stays; every other point keeps its direction from `about`.
+    /// beyond does not move (to the bit). The center stays; every other point keeps its direction from `about`.
     ///
     /// The map of `r` is strictly increasing, so no part of the shape folds over itself, exactly for
     /// `-1 < amount < 16/11`: its slope is `1 + amount (1 - 9 s^2 + 8 s^3)`, and `1 - 9 s^2 + 8 s^3` runs from 1 (at
@@ -171,7 +171,7 @@ impl Path {
         )
     }
 
-    /// The centre and the radius of a radial deformer: `about` (the middle of the bounds if not given) and `radius`
+    /// The center and the radius of a radial deformer: `about` (the middle of the bounds if not given) and `radius`
     /// (the distance from `about` to the farthest corner of the bounds if not given; 1 if that is 0); `None` for an
     /// empty path, which has neither.
     ///

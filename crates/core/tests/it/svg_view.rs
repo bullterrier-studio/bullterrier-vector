@@ -1,4 +1,4 @@
-//! Where `Drawing::to_svg` puts the design frame in the output: fit and centre, one decision for every output. The
+//! Where `Drawing::to_svg` puts the design frame in the output: fit and center, one decision for every output. The
 //! expected coordinates are worked by hand for each row.
 
 use crate::common::{Outcome, commands};
@@ -22,7 +22,7 @@ fn data(drawing: &Drawing, width: f64, height: f64) -> Result<String, Box<dyn st
 }
 
 #[test]
-fn the_design_frame_is_scaled_to_fit_the_output_and_centred() -> Outcome {
+fn the_design_frame_is_scaled_to_fit_the_output_and_centered() -> Outcome {
     // (rule, design frame, output, the path data: the points (0,0), (10,20) and (-10,-5) moved by hand)
     let rows = [
         (
@@ -32,25 +32,25 @@ fn the_design_frame_is_scaled_to_fit_the_output_and_centred() -> Outcome {
             "M0 0 L10 20 L-10 -5",
         ),
         (
-            "wider output: scale 1, centred across",
+            "wider output: scale 1, centered across",
             Some((400.0, 400.0)),
             (800.0, 400.0),
             "M200 0 L210 20 L190 -5",
         ),
         (
-            "taller output: scale 1, centred down",
+            "taller output: scale 1, centered down",
             Some((400.0, 400.0)),
             (400.0, 800.0),
             "M0 200 L10 220 L-10 195",
         ),
         (
-            "wide frame in a square: scale 2, centred down",
+            "wide frame in a square: scale 2, centered down",
             Some((100.0, 50.0)),
             (200.0, 200.0),
             "M0 50 L20 90 L-20 40",
         ),
         (
-            "tall frame in a square: scale 2, centred across",
+            "tall frame in a square: scale 2, centered across",
             Some((50.0, 100.0)),
             (200.0, 200.0),
             "M50 0 L70 40 L30 -10",
@@ -105,12 +105,12 @@ fn an_axis_that_fits_exactly_has_no_offset_whatever_the_rounding_of_the_scale() 
         written.starts_with("M0 0 L"),
         "the start was moved by rounding: {written}"
     );
-    // the other axis of a wider output is still centred: 11 wide in 200 x 100 leaves (200 - 100) / 2 on the left,
+    // the other axis of a wider output is still centered: 11 wide in 200 x 100 leaves (200 - 100) / 2 on the left,
     // to within rounding, and the fitting axis stays exactly 0
     let wider = data(&drawing, 200.0, 100.0)?;
     let parsed = commands(&wider)?;
     let start = &parsed.first().ok_or("no command")?.1;
-    assert!((start[0] - 50.0).abs() < 1e-9, "not centred across: {wider}");
+    assert!((start[0] - 50.0).abs() < 1e-9, "not centered across: {wider}");
     assert_eq!(start[1].to_bits(), 0.0f64.to_bits(), "the fitting axis moved: {wider}");
     Ok(())
 }

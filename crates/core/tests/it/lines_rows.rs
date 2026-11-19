@@ -1,7 +1,7 @@
 //! `Path::rows` through the public API. Oracles: rows of a flat tone are straight lines at heights worked out by hand;
 //! a ramp tone makes straight displaced rows, so the nearer rows' silhouettes are known exactly and every drawn point is
 //! checked against them (none behind a nearer row); every drawn point is checked to lie inside the
-//! region, a circle, by its distance from the centre.
+//! region, a circle, by its distance from the center.
 
 use crate::common::{Outcome, lines, parameter_refusal};
 use bullterrier_vector::{Field, Path, Rect, Rows};
@@ -39,7 +39,7 @@ fn a_tone_lifts_a_row_by_the_amplitude_times_the_tone() -> Outcome {
 /// A bumpy 8 by 4 map over the box 200 by 100, from a small generator: tone that rises and falls along every row.
 #[test]
 fn detail_finer_than_the_rows_is_averaged_away() -> Outcome {
-    // stripes of tone 0 and 1 half a spacing apart (a triangle wave between pixel centres, one spacing a period) vary
+    // stripes of tone 0 and 1 half a spacing apart (a triangle wave between pixel centers, one spacing a period) vary
     // faster than rows a spacing apart can draw: read over each point's share of the rows, they are a flat 1/2
     // wherever the stripes fall. Read at single points, the rows would jump by the whole amplitude.
     let (spacing, amplitude) = (10.0, 4.0);

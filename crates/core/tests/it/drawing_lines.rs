@@ -100,7 +100,7 @@ fn every_family() -> Result<Vec<Bands>, Error> {
     Ok(vec![
         Bands::lines(9.0, t()?, (0.5, 4.0))?.angle(20.0)?,
         Bands::waves(9.0, t()?, (0.5, 4.0), 30.0, 3.0)?,
-        Bands::rings(9.0, t()?, (0.5, 4.0))?.centre((30.0, 20.0))?,
+        Bands::rings(9.0, t()?, (0.5, 4.0))?.center((30.0, 20.0))?,
         Bands::spiral(9.0, t()?, (0.5, 4.0))?,
         Bands::rays(9.0, t()?, (0.5, 4.0))?.angle(10.0)?,
     ])
@@ -157,8 +157,8 @@ fn a_bad_bands_document_is_refused_with_a_pointer() -> Outcome {
         ),
         (r#"{"spacing":5,"tone":0.5,"width":[-1,2]}"#, "/root/1/bands/width/0"),
         (
-            r#"{"spacing":5,"tone":0.5,"width":[1,2],"centre":[1]}"#,
-            "/root/1/bands/centre",
+            r#"{"spacing":5,"tone":0.5,"width":[1,2],"center":[1]}"#,
+            "/root/1/bands/center",
         ),
         (
             r#"{"spacing":5,"tone":0.5,"width":[1,2],"wavelength":0,"family":"waves","amplitude":1}"#,
@@ -242,13 +242,13 @@ fn an_argument_the_family_does_not_read_is_refused_naming_it_and_the_family() ->
     for (what, bands, argument) in [
         (
             "lines",
-            Bands::lines(5.0, flat()?, (1.0, 2.0))?.centre((1.0, 1.0)),
-            "centre",
+            Bands::lines(5.0, flat()?, (1.0, 2.0))?.center((1.0, 1.0)),
+            "center",
         ),
         (
             "waves",
-            Bands::waves(5.0, flat()?, (1.0, 2.0), 10.0, 1.0)?.centre((1.0, 1.0)),
-            "centre",
+            Bands::waves(5.0, flat()?, (1.0, 2.0), 10.0, 1.0)?.center((1.0, 1.0)),
+            "center",
         ),
         ("rings", Bands::rings(5.0, flat()?, (1.0, 2.0))?.angle(10.0), "angle"),
     ] {
@@ -267,8 +267,8 @@ fn an_argument_the_family_does_not_read_is_refused_naming_it_and_the_family() ->
             "/root/1/bands/wavelength",
         ),
         (
-            r#"{"spacing":5,"tone":0.5,"width":[1,2],"centre":[1,1]}"#,
-            "/root/1/bands/centre",
+            r#"{"spacing":5,"tone":0.5,"width":[1,2],"center":[1,1]}"#,
+            "/root/1/bands/center",
         ),
         (
             r#"{"spacing":5,"tone":0.5,"width":[1,2],"family":"rings","angle":0}"#,

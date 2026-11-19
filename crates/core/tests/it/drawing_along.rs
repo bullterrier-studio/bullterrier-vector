@@ -16,8 +16,8 @@ fn type_at(content: &str) -> Result<Drawing, Box<dyn std::error::Error>> {
     Ok(text(content, Text::new(&fraunces()?).size(40.0)).fill(Color::hex(0x22_66_cc)))
 }
 
-/// The centre of the bounds of a path.
-fn centre(path: &Path) -> Result<(f64, f64), Box<dyn std::error::Error>> {
+/// The center of the bounds of a path.
+fn center(path: &Path) -> Result<(f64, f64), Box<dyn std::error::Error>> {
     let bounds = path.bounds()?;
     Ok((bounds.x + bounds.width / 2.0, bounds.y + bounds.height / 2.0))
 }
@@ -32,11 +32,11 @@ fn a_text_carried_along_a_circle_has_its_glyphs_at_the_distances_their_pens_stoo
     assert_eq!(bent.len(), flat.len());
     for (flat, bent) in flat.iter().zip(&bent) {
         // a glyph's middle at (x, y) goes to the angle (start * 2 pi r + x) / r, y towards the outside where it is up
-        let (x, y) = centre(flat.path())?;
+        let (x, y) = center(flat.path())?;
         let angle = (start * 2.0 * PI * radius + x) / radius;
         let reach = radius - y;
         let expected = (reach * libm::sin(angle), -reach * libm::cos(angle));
-        let found = centre(bent.path())?;
+        let found = center(bent.path())?;
         let off = distance(found, expected);
         // the bounds of a bent glyph are not the bend of the bounds of a flat one, by a share of its size (a glyph
         // that is not the same turned, such as an A, would be off by several pixels at 70 degrees)
@@ -92,7 +92,7 @@ fn near_is_read_for_each_shape_too() -> Outcome {
     let bent = dot
         .along(&guide()?, Along::new().near((0.0, 1000.0)))
         .shapes(&Values::new())?;
-    let (x, y) = centre(bent[0].path())?;
+    let (x, y) = center(bent[0].path())?;
     assert!(x.abs() <= 1.0 && (y - 300.0).abs() <= 0.1, "({x}, {y})");
     Ok(())
 }

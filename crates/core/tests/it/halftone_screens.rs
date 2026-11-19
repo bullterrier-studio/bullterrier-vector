@@ -34,7 +34,7 @@ fn mean(dot: &Ring) -> (f64, f64) {
     )
 }
 
-/// The centre of mass of the polygon (not the mean of its corners).
+/// The center of mass of the polygon (not the mean of its corners).
 fn centroid(dot: &Ring) -> (f64, f64) {
     let (mut area, mut x, mut y) = (0.0, 0.0, 0.0);
     for (at, &(x0, y0)) in dot.iter().enumerate() {
@@ -148,7 +148,7 @@ fn an_ellipse_lies_along_the_ring_and_the_spiral_and_out_along_a_ray() -> Outcom
                 .shape(Mark::Ellipse)
                 .aspect(3.0)
                 .screen(screen)
-                .centre((50.0, 50.0)),
+                .center((50.0, 50.0)),
         )?;
         let mut checked = 0;
         for dot in &found {
@@ -180,25 +180,25 @@ fn a_diamond_has_its_corners_on_the_axes_of_the_rows_and_stays_in_its_cell() -> 
     for angle in [0.0_f64, 30.0, 75.0] {
         let (sin, cos) = (libm::sin(angle.to_radians()), libm::cos(angle.to_radians()));
         // in the frame of the rows: along, across
-        let frame = |at: (f64, f64), centre: (f64, f64)| {
-            let (dx, dy) = (at.0 - centre.0, at.1 - centre.1);
+        let frame = |at: (f64, f64), center: (f64, f64)| {
+            let (dx, dy) = (at.0 - center.0, at.1 - center.1);
             (dx * cos + dy * sin, -dx * sin + dy * cos)
         };
         let found = dots(200.0, black(0.7).pitch(10.0).angle(Deg(angle)).shape(Mark::Diamond))?;
         let half = (0.3_f64 / 2.0).sqrt() * 10.0;
         for dot in &found {
-            let centre = mean(dot);
+            let center = mean(dot);
             for &corner in dot {
-                let (along, across) = frame(corner, centre);
+                let (along, across) = frame(corner, center);
                 near(along.abs().min(across.abs()), 0.0, 1e-9, "a corner is on an axis");
                 near(along.abs().max(across.abs()), half, 1e-9, "at half the diagonal");
             }
         }
         // past half the cover the corners reach the cell's sides and no further
         for dot in &dots(200.0, black(0.3).pitch(10.0).angle(Deg(angle)).shape(Mark::Diamond))? {
-            let centre = centroid(dot);
+            let center = centroid(dot);
             for &corner in dot {
-                let (along, across) = frame(corner, centre);
+                let (along, across) = frame(corner, center);
                 assert!(
                     along.abs() <= 5.0 + 1e-9 && across.abs() <= 5.0 + 1e-9,
                     "{along} {across}"
@@ -233,14 +233,14 @@ fn a_square_turns_with_the_rows_and_its_side_is_the_root_of_the_cover() -> Outco
 
 #[test]
 fn euclidean_is_round_at_low_cover_a_diamond_at_half_and_a_round_hole_at_high_cover() -> Outcome {
-    let radius = |dot: &Ring, centre: (f64, f64)| -> Vec<f64> {
+    let radius = |dot: &Ring, center: (f64, f64)| -> Vec<f64> {
         dot.iter()
-            .map(|p| libm::hypot(p.0 - centre.0, p.1 - centre.1))
+            .map(|p| libm::hypot(p.0 - center.0, p.1 - center.1))
             .collect()
     };
     for dot in &dots(200.0, black(0.9).pitch(10.0).angle(Deg(0.0)).shape(Mark::Euclidean))? {
-        let centre = centroid(dot);
-        let radii = radius(dot, centre);
+        let center = centroid(dot);
+        let radii = radius(dot, center);
         let (low, high) = (
             radii.iter().copied().fold(f64::MAX, f64::min),
             radii.iter().copied().fold(f64::MIN, f64::max),
@@ -254,10 +254,10 @@ fn euclidean_is_round_at_low_cover_a_diamond_at_half_and_a_round_hole_at_high_co
         );
     }
     for dot in &dots(200.0, black(0.5).pitch(10.0).angle(Deg(0.0)).shape(Mark::Euclidean))? {
-        let centre = centroid(dot);
+        let center = centroid(dot);
         for &(x, y) in dot {
             near(
-                (x - centre.0).abs() + (y - centre.1).abs(),
+                (x - center.0).abs() + (y - center.1).abs(),
                 5.0,
                 0.01,
                 "a corner of the diamond |x| + |y| = half a pitch",
@@ -270,11 +270,11 @@ fn euclidean_is_round_at_low_cover_a_diamond_at_half_and_a_round_hole_at_high_co
         .take(20)
     {
         let polygon = Path::polyline(dot.clone(), true)?;
-        let centre = centroid(dot);
-        assert!(polygon.contains((centre.0 + 4.99, centre.1))?);
-        assert!(polygon.contains((centre.0, centre.1 - 4.99))?);
-        assert!(!polygon.contains((centre.0 + 4.99, centre.1 + 4.99))?);
-        assert!(!polygon.contains((centre.0 - 4.99, centre.1 + 4.99))?);
+        let center = centroid(dot);
+        assert!(polygon.contains((center.0 + 4.99, center.1))?);
+        assert!(polygon.contains((center.0, center.1 - 4.99))?);
+        assert!(!polygon.contains((center.0 + 4.99, center.1 + 4.99))?);
+        assert!(!polygon.contains((center.0 - 4.99, center.1 + 4.99))?);
     }
     Ok(())
 }
@@ -295,10 +295,10 @@ fn every_corner_of_a_euclidean_dot_lies_on_one_level_of_the_spot_function_and_th
             .iter()
             .take(6)
         {
-            let centre = centroid(dot);
+            let center = centroid(dot);
             let cell: Vec<(f64, f64)> = dot
                 .iter()
-                .map(|p| ((p.0 - centre.0) / PITCH, (p.1 - centre.1) / PITCH))
+                .map(|p| ((p.0 - center.0) / PITCH, (p.1 - center.1) / PITCH))
                 .collect();
             let level = cell.iter().map(|p| spot(p.0, p.1)).fold(f64::MAX, f64::min);
             for &(x, y) in &cell {
@@ -332,7 +332,7 @@ fn every_corner_of_a_euclidean_dot_lies_on_one_level_of_the_spot_function_and_th
 }
 
 #[test]
-fn a_caller_outline_is_centred_on_its_centroid_scaled_to_the_area_and_turned_with_the_rows() -> Outcome {
+fn a_caller_outline_is_centered_on_its_centroid_scaled_to_the_area_and_turned_with_the_rows() -> Outcome {
     for clockwise in [true, false] {
         for angle in [0.0, 90.0] {
             let found = dots(
@@ -345,9 +345,9 @@ fn a_caller_outline_is_centred_on_its_centroid_scaled_to_the_area_and_turned_wit
             assert!(found.len() > 100);
             for dot in &found {
                 // the lattice point of this dot is the nearest one: its centroid sits on it
-                let centre = centroid(dot);
+                let center = centroid(dot);
                 let (sin, cos) = (libm::sin(angle.to_radians()), libm::cos(angle.to_radians()));
-                let (along, across) = (centre.0 * cos + centre.1 * sin, -centre.0 * sin + centre.1 * cos);
+                let (along, across) = (center.0 * cos + center.1 * sin, -center.0 * sin + center.1 * cos);
                 near(along / 10.0, (along / 10.0).round(), 1e-9, "on a column");
                 near(across / 10.0, (across / 10.0).round(), 1e-9, "on a row");
                 assert!(
@@ -375,7 +375,7 @@ fn a_caller_outline_is_centred_on_its_centroid_scaled_to_the_area_and_turned_wit
 // The tone ------------------------------------------------------------------------------------------------------------
 
 #[test]
-fn a_ramp_tone_gives_each_dot_the_tone_at_its_centre() -> Outcome {
+fn a_ramp_tone_gives_each_dot_the_tone_at_its_center() -> Outcome {
     let ramp = Field::ramp((0.0, 0.0), (300.0, 0.0))?;
     let found = dots(
         300.0,
@@ -398,7 +398,7 @@ fn a_ramp_tone_gives_each_dot_the_tone_at_its_centre() -> Outcome {
 }
 
 #[test]
-fn a_map_tone_is_read_at_the_centre_of_each_dot_on_every_screen() -> Outcome {
+fn a_map_tone_is_read_at_the_center_of_each_dot_on_every_screen() -> Outcome {
     let bytes: Vec<u8> = (0..16_u8)
         .flat_map(|row| (0..16_u8).map(move |column| 15 * column + row))
         .collect();
@@ -424,7 +424,7 @@ fn a_map_tone_is_read_at_the_centre_of_each_dot_on_every_screen() -> Outcome {
         )?;
         assert!(found.len() > 100, "{}: {} dots", screen.name(), found.len());
         // the dot is a square of the area (1 - tone) of its own cell; the cell is unknown here, so the dot is read
-        // against the field at its centre: a darker place never has the smaller dot, among dots of one pitch cell
+        // against the field at its center: a darker place never has the smaller dot, among dots of one pitch cell
         let mut pairs: Vec<(f64, f64)> = found
             .iter()
             .filter(|dot| {
@@ -472,14 +472,14 @@ fn a_constant_field_and_the_number_it_holds_draw_the_same_dots() -> Outcome {
 
 #[test]
 fn the_style_of_a_drawn_shape_says_what_the_tone_is() -> Outcome {
-    let by_number = Drawing::from(rect(50.0)?).halftone(black(0.3).screen(Screen::Rings).centre((10.0, 20.0)));
+    let by_number = Drawing::from(rect(50.0)?).halftone(black(0.3).screen(Screen::Rings).center((10.0, 20.0)));
     let shapes = by_number.shapes(&Values::new())?;
     let style = shapes[0].style().halftone().ok_or("no halftone")?;
     assert_eq!(style.tone().level(), Some(0.3));
     assert!(style.tone().field().is_none());
     assert_eq!(style.screen(), Screen::Rings);
     assert_eq!(style.shape(), &Mark::Dot);
-    assert_eq!(style.centre().map(|c| (c.x, c.y)), Some((10.0, 20.0)));
+    assert_eq!(style.center().map(|c| (c.x, c.y)), Some((10.0, 20.0)));
     assert_eq!((style.aspect(), style.amplitude(), style.wavelength()), (1.0, 1.0, 6.0));
     let ramp = Field::ramp((0.0, 0.0), (0.0, 50.0))?;
     let by_field = Drawing::from(rect(50.0)?).halftone(Halftone::new(BLACK, ramp));
@@ -494,20 +494,20 @@ fn the_style_of_a_drawn_shape_says_what_the_tone_is() -> Outcome {
 
 // The screens ---------------------------------------------------------------------------------------------------------
 
-/// How far a point is from `centre`, and its angle about it in turns (0 up to 1, clockwise on the screen).
-fn polar(at: (f64, f64), centre: (f64, f64)) -> (f64, f64) {
-    let (dx, dy) = (at.0 - centre.0, at.1 - centre.1);
+/// How far a point is from `center`, and its angle about it in turns (0 up to 1, clockwise on the screen).
+fn polar(at: (f64, f64), center: (f64, f64)) -> (f64, f64) {
+    let (dx, dy) = (at.0 - center.0, at.1 - center.1);
     (libm::hypot(dx, dy), libm::atan2(dy, dx).rem_euclid(TAU) / TAU)
 }
 
 #[test]
-fn rings_put_cells_at_half_pitch_radii_from_the_centre_and_a_dot_in_each() -> Outcome {
+fn rings_put_cells_at_half_pitch_radii_from_the_center_and_a_dot_in_each() -> Outcome {
     let found = dots(400.0, black(0.5).pitch(10.0).screen(Screen::Rings))?;
     let mut by_ring = std::collections::BTreeMap::<i64, Vec<&Ring>>::new();
     for dot in &found {
         let (radius, _) = polar(mean(dot), (200.0, 200.0));
         let ring = radius / 10.0 - 0.5;
-        near(ring, ring.round(), 1e-9, "a dot at (k + 1/2) pitches from the centre");
+        near(ring, ring.round(), 1e-9, "a dot at (k + 1/2) pitches from the center");
         #[expect(clippy::cast_possible_truncation, reason = "a small ring number")]
         by_ring.entry(ring.round() as i64).or_default().push(dot);
     }
@@ -533,10 +533,10 @@ fn rings_put_cells_at_half_pitch_radii_from_the_centre_and_a_dot_in_each() -> Ou
 }
 
 #[test]
-fn rings_are_about_the_centre_the_caller_gives() -> Outcome {
+fn rings_are_about_the_center_the_caller_gives() -> Outcome {
     for dot in &dots(
         300.0,
-        black(0.5).pitch(10.0).screen(Screen::Rings).centre((100.0, 150.0)),
+        black(0.5).pitch(10.0).screen(Screen::Rings).center((100.0, 150.0)),
     )? {
         let (radius, _) = polar(mean(dot), (100.0, 150.0));
         near(
@@ -550,7 +550,7 @@ fn rings_are_about_the_centre_the_caller_gives() -> Outcome {
 }
 
 #[test]
-fn rays_are_a_rings_worth_half_way_to_the_nearest_side_and_merge_towards_the_centre() -> Outcome {
+fn rays_are_a_rings_worth_half_way_to_the_nearest_side_and_merge_towards_the_center() -> Outcome {
     // a square of 100 and a pitch of 5: half way to the nearest side is 25 px, 10 cells, and a ring 10 cells out has
     // 2 * round(10 pi) = 62 cells, so there are 62 rays. A row m is (m + 1/2) cells out; its rays merge in pairs
     // (a power of two at a time) until none is narrower than half a cell at its middle: 2 pi (m + 1/2) step / 62 >= 1/2
@@ -561,7 +561,7 @@ fn rays_are_a_rings_worth_half_way_to_the_nearest_side_and_merge_towards_the_cen
     for dot in &found {
         let (radius, _) = polar(mean(dot), (50.0, 50.0));
         let row = radius / 5.0 - 0.5;
-        // a wedge's dot is not its centre's mean: the mean of its corners is within a hair of the cell's centre
+        // a wedge's dot is not its center's mean: the mean of its corners is within a hair of the cell's center
         near(
             row,
             row.round(),
@@ -671,11 +671,11 @@ fn what_the_screens_cannot_draw_is_refused_naming_the_argument() -> Outcome {
             black(0.5).shape(Mark::Ellipse).aspect(f64::NAN),
             "aspect",
         ),
-        ("a centre on a grid", black(0.5).centre((1.0, 1.0)), "centre"),
+        ("a center on a grid", black(0.5).center((1.0, 1.0)), "center"),
         (
-            "a centre on a wave",
-            black(0.5).screen(Screen::Wave).centre((1.0, 1.0)),
-            "centre",
+            "a center on a wave",
+            black(0.5).screen(Screen::Wave).center((1.0, 1.0)),
+            "center",
         ),
         (
             "a wavelength of 0",
@@ -688,9 +688,9 @@ fn what_the_screens_cannot_draw_is_refused_naming_the_argument() -> Outcome {
             "amplitude",
         ),
         (
-            "an infinite centre",
-            black(0.5).screen(Screen::Rings).centre((f64::INFINITY, 0.0)),
-            "centre",
+            "an infinite center",
+            black(0.5).screen(Screen::Rings).center((f64::INFINITY, 0.0)),
+            "center",
         ),
     ];
     for (case, halftone, argument) in cases {
@@ -729,7 +729,7 @@ fn a_caller_outline_that_cannot_be_a_dot_is_refused_naming_the_shape() -> Outcom
 fn with_argument(halftone: Halftone, argument: &str) -> Halftone {
     match argument {
         "angle" => halftone.angle(Deg(10.0)),
-        "centre" => halftone.centre((50.0, 50.0)),
+        "center" => halftone.center((50.0, 50.0)),
         "amplitude" => halftone.amplitude(2.0),
         "wavelength" => halftone.wavelength(8.0),
         _ => halftone.aspect(2.0),
@@ -747,7 +747,7 @@ fn an_argument_nothing_reads_is_refused_as_bands_refuses_it_by_one_table() -> Ou
         (Screen::Rays, "rays"),
     ];
     for (screen, family) in screens {
-        for argument in ["angle", "centre", "amplitude", "wavelength"] {
+        for argument in ["angle", "center", "amplitude", "wavelength"] {
             let drawing = base.halftone(with_argument(black(0.5).screen(screen), argument));
             let read = Bands::refuse_unread(family, argument).is_ok();
             assert_eq!(drawing.error().is_none(), read, "{screen:?} {argument}");
@@ -806,13 +806,13 @@ fn a_pitch_too_small_for_the_shape_is_refused_before_any_dot_is_made_on_every_sc
 }
 
 #[test]
-fn a_centre_too_far_from_the_shape_is_refused_on_every_round_screen_not_looped_on() -> Outcome {
+fn a_center_too_far_from_the_shape_is_refused_on_every_round_screen_not_looped_on() -> Outcome {
     // at 1e20 a step of a pitch does not move: the rows' bound cancelled and the rows never ended
     for screen in [Screen::Rings, Screen::Spiral, Screen::Rays] {
-        for centre in [(1e20, 0.0), (0.0, -1e20), (1e300, 1e300)] {
-            let drawing = Drawing::from(rect(100.0)?).halftone(black(0.5).screen(screen).centre(centre));
+        for center in [(1e20, 0.0), (0.0, -1e20), (1e300, 1e300)] {
+            let drawing = Drawing::from(rect(100.0)?).halftone(black(0.5).screen(screen).center(center));
             let (name, _) = parameter_refusal(drawing.to_svg(Size::px(100.0, 100.0), &Values::new()))?;
-            assert!(name.contains("centre"), "{screen:?} {centre:?}: {name}");
+            assert!(name.contains("center"), "{screen:?} {center:?}: {name}");
         }
     }
     Ok(())
@@ -837,7 +837,7 @@ fn a_document_with_every_argument_reads_back_and_writes_the_same_text() -> Outco
                 .shape(Mark::Ellipse)
                 .aspect(2.0)
                 .screen(Screen::Rings)
-                .centre((10.0, 20.0)),
+                .center((10.0, 20.0)),
         ),
         Drawing::from(rect(50.0)?).halftone(black(0.4).screen(Screen::Wave).amplitude(2.0).wavelength(9.0)),
         Drawing::from(rect(50.0)?)
@@ -920,7 +920,7 @@ fn the_svg_and_the_pixels_agree_on_every_shape_and_screen() -> Outcome {
     for (mark, screen) in rows {
         let name = format!("{} on {}", mark.name(), screen.name());
         let paper = Drawing::from(rect(120.0)?).fill(Color::hex(0xff_ff_ff));
-        // the round screens are about a point off the disc: the sub-pixel dots at a centre are where two renderers differ
+        // the round screens are about a point off the disc: the sub-pixel dots at a center are where two renderers differ
         let screened = black(0.7).pitch(7.0).shape(mark.clone()).screen(screen);
         let screened = if mark == Mark::Ellipse {
             screened.aspect(1.4)
@@ -930,7 +930,7 @@ fn the_svg_and_the_pixels_agree_on_every_shape_and_screen() -> Outcome {
         let screened = if matches!(screen, Screen::Grid | Screen::Wave) {
             screened
         } else {
-            screened.centre((10.0, 110.0))
+            screened.center((10.0, 110.0))
         };
         let dotted = Drawing::from(Path::circle((60.0, 60.0), 52.0)?).halftone(screened);
         let drawing = Drawing::new([paper, dotted]).with_size(120.0, 120.0);

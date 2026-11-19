@@ -43,7 +43,7 @@ fn assert_twisted_matches_the_closed_form(path: &Path, angle: f64, radius: f64, 
 // By hand --------------------------------------------------------------------------------------------------------------
 
 #[test]
-fn a_point_near_the_centre_turns_by_the_whole_angle_clockwise_on_the_screen() -> Outcome {
+fn a_point_near_the_center_turns_by_the_whole_angle_clockwise_on_the_screen() -> Outcome {
     // r = 1 of a radius of 1e6: falloff 1 - 3e-12, so (1, 0) goes to (0, 1) (down the screen) to 1e-11, as rotate(90)
     let point = Path::from_svg_path("M1 0")?;
     let twisted = point.twist(90.0, Some(1e6), Some(Point::new(0.0, 0.0)))?;
@@ -68,7 +68,7 @@ fn a_point_at_half_the_radius_turns_by_half_the_angle_by_hand() -> Outcome {
 }
 
 #[test]
-fn points_at_or_beyond_the_radius_do_not_move_and_the_centre_stays() -> Outcome {
+fn points_at_or_beyond_the_radius_do_not_move_and_the_center_stays() -> Outcome {
     let path = Path::from_svg_path("M0 0 L100 0 L130 40")?;
     let twisted = lines(&path.twist(170.0, Some(100.0), Some(Point::new(0.0, 0.0)))?)?;
     assert!(has_vertex(&twisted, (0.0, 0.0)));

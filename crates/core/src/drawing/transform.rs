@@ -116,7 +116,7 @@ impl<X: Into<Expr>, Y: Into<Expr>> From<(X, Y)> for ScaleBy {
     }
 }
 
-/// A twist: the angle at the centre, and optionally the radius it dies away over and the point to twist about.
+/// A twist: the angle at the center, and optionally the radius it dies away over and the point to twist about.
 /// `Deg(90.0)` alone converts into one.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Twist {
@@ -137,7 +137,7 @@ impl Twist {
         }
     }
 
-    /// This twist dying away to nothing at `radius` design pixels from the centre (a number, a `Param` or an
+    /// This twist dying away to nothing at `radius` design pixels from the center (a number, a `Param` or an
     /// expression, read for each shape), not at the farthest corner.
     #[must_use]
     pub fn radius(mut self, radius: impl Into<Expr>) -> Self {
@@ -180,7 +180,7 @@ impl Bulge {
         }
     }
 
-    /// This bulge dying away to nothing at `radius` design pixels from the centre, not at the farthest corner.
+    /// This bulge dying away to nothing at `radius` design pixels from the center, not at the farthest corner.
     #[must_use]
     pub fn radius(mut self, radius: impl Into<Expr>) -> Self {
         self.radius = Some(radius.into());
@@ -352,7 +352,7 @@ impl Drawing {
 
     /// This drawing with every shape carried along `guide` as [`Path::along`] does, text included: a text becomes
     /// text on a path, each glyph bent with the rest. The shapes keep their style and attributes (`origin` stays the
-    /// glyph's centre before the bend).
+    /// glyph's center before the bend).
     ///
     /// A `start` that is not a finite number leaves the drawing with an [`error`](Drawing::error), or, when it
     /// reads a Param, is refused when the drawing is drawn; so is a guide that is empty or has no length.
@@ -460,7 +460,7 @@ impl Drawing {
         )
     }
 
-    /// This drawing with the points of every shape turned about a centre, less the farther out they are, as
+    /// This drawing with the points of every shape turned about a center, less the farther out they are, as
     /// [`Path::twist`](crate::Path::twist) does: `Deg(90.0)` about each shape's `origin` attribute (the middle of its
     /// bounds if it has none), dying away to nothing at the farthest corner of its bounds, or a [`Twist`] with the
     /// `radius` and the point. Clockwise on the screen as for `rotate`; each argument is a number for each shape (a
@@ -483,7 +483,7 @@ impl Drawing {
         )
     }
 
-    /// This drawing with the points of every shape moved out from, or in towards, a centre, as
+    /// This drawing with the points of every shape moved out from, or in towards, a center, as
     /// [`Path::bulge`](crate::Path::bulge) does: a number alone bulges (positive) or pinches (negative) about each
     /// shape's `origin` attribute (the middle of its bounds if it has none), or a [`Bulge`] with the `radius` and the
     /// point. Each argument is a number for each shape. Each shape keeps its style and attributes, its `origin`

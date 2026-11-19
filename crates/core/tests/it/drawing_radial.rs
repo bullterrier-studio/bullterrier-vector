@@ -1,5 +1,5 @@
 //! `Drawing::twist` and `Drawing::bulge` through the public API. The maps are tested on `Path::twist` and
-//! `Path::bulge`; here the steps: the usage first (a letter twisted about its centre, a circle bulged and pinched, a
+//! `Path::bulge`; here the steps: the usage first (a letter twisted about its center, a circle bulged and pinched, a
 //! Param driving the angle), the pivot (the shape's `origin`, else the middle of its bounds, else `about`), the path's
 //! result per shape, numbers per item and from Params, style and attributes kept, saving and loading, and refusals that
 //! name the step.
@@ -168,7 +168,7 @@ fn a_bulged_and_a_pinched_circle_are_the_bulged_path_and_differ_the_way_round() 
     let drawing = Drawing::from(circle.clone());
     let out = drawn(&drawing.bulge(0.6), &Values::new())?;
     assert_eq!(out, vec![circle.bulge(0.6, None, None)?.to_svg_path()]);
-    // the middle of a circle's rim is at 40 from its centre, the radius reaches 70.7: bulging moves the rim out
+    // the middle of a circle's rim is at 40 from its center, the radius reaches 70.7: bulging moves the rim out
     let width = |amount: f64| -> Result<f64, Box<dyn std::error::Error>> {
         Ok(circle.bulge(amount, None, None)?.bounds()?.width)
     };

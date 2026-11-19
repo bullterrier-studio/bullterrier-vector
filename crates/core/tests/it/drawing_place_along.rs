@@ -16,13 +16,13 @@ fn bead() -> Result<Drawing, Box<dyn std::error::Error>> {
     Ok(Drawing::from(Path::rect(-1.0, -1.0, 2.0, 2.0, 0.0)?))
 }
 
-fn centre(path: &Path) -> Result<(f64, f64), Box<dyn std::error::Error>> {
+fn center(path: &Path) -> Result<(f64, f64), Box<dyn std::error::Error>> {
     let bounds = path.bounds()?;
     Ok((bounds.x + bounds.width / 2.0, bounds.y + bounds.height / 2.0))
 }
 
-fn centres(shapes: &[Shape]) -> Result<Vec<(f64, f64)>, Box<dyn std::error::Error>> {
-    shapes.iter().map(|shape| centre(shape.path())).collect()
+fn centers(shapes: &[Shape]) -> Result<Vec<(f64, f64)>, Box<dyn std::error::Error>> {
+    shapes.iter().map(|shape| center(shape.path())).collect()
 }
 
 fn placed(
@@ -48,13 +48,13 @@ fn near(found: &[(f64, f64)], expected: &[(f64, f64)], tolerance: f64) -> Outcom
 fn a_count_on_an_open_path_includes_both_ends() -> Outcome {
     let found = placed(&bead()?, &line(100.0)?, Spacing::Count(5), PlaceAlong::new())?;
     near(
-        &centres(&found)?,
+        &centers(&found)?,
         &[(0.0, 0.0), (25.0, 0.0), (50.0, 0.0), (75.0, 0.0), (100.0, 0.0)],
         1e-9,
     )?;
     // one copy sits at the start
     let one = placed(&bead()?, &line(100.0)?, Spacing::Count(1), PlaceAlong::new())?;
-    near(&centres(&one)?, &[(0.0, 0.0)], 1e-9)
+    near(&centers(&one)?, &[(0.0, 0.0)], 1e-9)
 }
 
 #[test]
@@ -62,15 +62,15 @@ fn a_spacing_on_an_open_path_places_at_0_s_2s_up_to_the_end() -> Outcome {
     let (guide, stamp) = (line(100.0)?, bead()?);
     let every = |px| placed(&stamp, &guide, Spacing::Every(px), PlaceAlong::new());
     near(
-        &centres(&every(30.0)?)?,
+        &centers(&every(30.0)?)?,
         &[(0.0, 0.0), (30.0, 0.0), (60.0, 0.0), (90.0, 0.0)],
         1e-9,
     )?;
     // the end is there only where it falls on a multiple
     assert_eq!(every(25.0)?.len(), 5);
-    near(&centres(&every(25.0)?)?[4..], &[(100.0, 0.0)], 1e-9)?;
+    near(&centers(&every(25.0)?)?[4..], &[(100.0, 0.0)], 1e-9)?;
     // a spacing past the whole path leaves the copy at the start
-    near(&centres(&every(500.0)?)?, &[(0.0, 0.0)], 1e-9)
+    near(&centers(&every(500.0)?)?, &[(0.0, 0.0)], 1e-9)
 }
 
 #[test]
@@ -79,20 +79,20 @@ fn a_closed_path_has_no_copy_at_its_end_and_wraps_with_start() -> Outcome {
     let quarter = [(0.0, -100.0), (100.0, 0.0), (0.0, 100.0), (-100.0, 0.0)];
     let found = placed(&bead()?, &ring, Spacing::Count(4), PlaceAlong::new())?;
     // by hand: the circle starts at its top and runs clockwise; the 0.01 flattening is within 0.05 of the circle
-    near(&centres(&found)?, &quarter, 0.05)?;
+    near(&centers(&found)?, &quarter, 0.05)?;
     // a spacing of a quarter of the circumference gives the same four (the circumference as the path measures it)
     let every = ring.length() / 4.0;
     let by_spacing = placed(&bead()?, &ring, Spacing::Every(every), PlaceAlong::new())?;
-    near(&centres(&by_spacing)?, &quarter, 0.05)?;
+    near(&centers(&by_spacing)?, &quarter, 0.05)?;
     // start moves them on, and a whole turn is where they began
     let turned = placed(&bead()?, &ring, Spacing::Count(4), PlaceAlong::new().start(0.25))?;
     near(
-        &centres(&turned)?,
+        &centers(&turned)?,
         &[(100.0, 0.0), (0.0, 100.0), (-100.0, 0.0), (0.0, -100.0)],
         0.05,
     )?;
     let again = placed(&bead()?, &ring, Spacing::Count(4), PlaceAlong::new().start(1.25))?;
-    near(&centres(&again)?, &centres(&turned)?, 1e-6)
+    near(&centers(&again)?, &centers(&turned)?, 1e-6)
 }
 
 #[test]
@@ -112,14 +112,14 @@ fn a_spacing_on_a_closed_path_makes_whole_gaps_no_closer_than_the_spacing() -> O
 #[test]
 fn start_past_the_ends_of_an_open_path_goes_on_straight() -> Outcome {
     let found = placed(&bead()?, &line(100.0)?, Spacing::Count(2), PlaceAlong::new().start(0.5))?;
-    near(&centres(&found)?, &[(50.0, 0.0), (150.0, 0.0)], 1e-9)?;
+    near(&centers(&found)?, &[(50.0, 0.0), (150.0, 0.0)], 1e-9)?;
     let before = placed(
         &bead()?,
         &line(100.0)?,
         Spacing::Count(2),
         PlaceAlong::new().start(-0.5),
     )?;
-    near(&centres(&before)?, &[(-50.0, 0.0), (50.0, 0.0)], 1e-9)
+    near(&centers(&before)?, &[(-50.0, 0.0), (50.0, 0.0)], 1e-9)
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn the_copies_sit_on_the_points_the_path_gives_for_those_positions() -> Outcome 
             Ok((point.x, point.y))
         })
         .collect::<Result<_, bullterrier_vector::Error>>()?;
-    near(&centres(&found)?, &expected, 1e-6)
+    near(&centers(&found)?, &expected, 1e-6)
 }
 
 // Direction ------------------------------------------------------------------------------------------------------
@@ -171,7 +171,7 @@ fn on_a_circle_every_copy_is_turned_to_the_tangent_there() -> Outcome {
         let tangent = ring.tangent_at(f64::from(index) / 12.0, None)?;
         // a bar along the tangent: the bounds' long diagonal is the bar's own; compare the points of the outline that
         // the turn sends furthest along the tangent
-        let (middle_x, middle_y) = centre(shape.path())?;
+        let (middle_x, middle_y) = center(shape.path())?;
         let data = crate::common::commands(&shape.path().to_svg_path())?;
         let end = bullterrier_vector::Point::new(data[0].1[0], data[0].1[1]); // first corner: (-10, -1) turned
         // (-10, -1) turned by the tangent (tx, ty): (-10 tx + ty, -10 ty - tx)
@@ -203,7 +203,7 @@ fn a_stamp_of_two_shapes_keeps_its_layout_and_sits_by_the_middle_of_its_bounds()
     let flat = placed(&arrow()?, &line(120.0)?, Spacing::Every(40.0), PlaceAlong::new())?;
     assert_eq!(flat.len(), 8, "four copies of two shapes");
     for (copy, pair) in flat.chunks(2).enumerate() {
-        let (shaft, head) = (centre(pair[0].path())?, centre(pair[1].path())?);
+        let (shaft, head) = (center(pair[0].path())?, center(pair[1].path())?);
         let at = 40.0 * f64::from(u32::try_from(copy)?);
         // the shaft's middle was at (15, 0), 5 left of the stamp's middle; the head's (35, 0), 15 right of it
         assert!(distance(shaft, (at - 5.0, 0.0)) < 1e-9, "copy {copy}: {shaft:?}");
@@ -213,7 +213,7 @@ fn a_stamp_of_two_shapes_keeps_its_layout_and_sits_by_the_middle_of_its_bounds()
     let down = Path::line((0.0, 0.0), (0.0, 80.0))?;
     let turned = placed(&arrow()?, &down, Spacing::Count(2), PlaceAlong::new())?;
     for (copy, pair) in turned.chunks(2).enumerate() {
-        let (shaft, head) = (centre(pair[0].path())?, centre(pair[1].path())?);
+        let (shaft, head) = (center(pair[0].path())?, center(pair[1].path())?);
         let at = 80.0 * f64::from(u32::try_from(copy)?);
         assert!(distance(shaft, (0.0, at - 5.0)) < 1e-9, "copy {copy}: {shaft:?}");
         assert!(distance(head, (0.0, at + 15.0)) < 1e-9, "copy {copy}: {head:?}");
@@ -252,7 +252,7 @@ fn the_origin_moves_with_the_copy_and_a_shared_origin_is_the_anchor() -> Outcome
     let glyph = text("H", Text::new(&fraunces()?).size(100.0)).slice(0.0, 0.3);
     let flat = glyph.shapes(&Values::new())?;
     let origin = flat[0].attributes().origin().ok_or("a glyph has an origin")?;
-    let middle = centre(flat[0].path())?;
+    let middle = center(flat[0].path())?;
     assert!(
         distance((origin.x, origin.y), middle) > 5.0,
         "the test needs an origin off the middle"
@@ -268,7 +268,7 @@ fn the_origin_moves_with_the_copy_and_a_shared_origin_is_the_anchor() -> Outcome
         // the origin is what is on the path point, and the glyph keeps where it was from its origin
         let moved = shape.attributes().origin().ok_or("the origin stays")?;
         assert!(distance((moved.x, moved.y), at) < 1e-9, "copy {copy}: {moved:?}");
-        let there = centre(shape.path())?;
+        let there = center(shape.path())?;
         let from = (middle.0 - origin.x, middle.1 - origin.y);
         assert!(
             distance((there.0 - moved.x, there.1 - moved.y), from) < 1e-9,
@@ -286,7 +286,7 @@ fn start_is_a_param_that_moves_every_copy_and_the_copies_stay_the_same_number() 
     let ring = Path::circle((0.0, 0.0), 100.0)?;
     let drawing = bead()?.place_along(&ring, Spacing::Count(4), PlaceAlong::new().start(&march));
     let at = |value: f64| -> Result<Vec<(f64, f64)>, Box<dyn std::error::Error>> {
-        centres(&drawing.shapes(&Values::new().set("march", value))?)
+        centers(&drawing.shapes(&Values::new().set("march", value))?)
     };
     near(
         &at(0.0)?,

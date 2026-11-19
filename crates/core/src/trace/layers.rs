@@ -1,5 +1,5 @@
 //! `trace_levels` and `trace_labels`: the closed outlines of the regions of a field where it is at or above a level, or
-//! of a map where it is one label, found by marching squares over the map's pixel centres (a field's cell centres,
+//! of a map where it is one label, found by marching squares over the map's pixel centers (a field's cell centers,
 //! `Field::raster`).
 //!
 //! The lattice of readings is the map's pixels padded with rings of the nearest edge value, and one outer ring of a

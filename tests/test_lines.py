@@ -48,7 +48,7 @@ def test_a_band_is_as_wide_as_the_tone_says() -> None:
     [
         {"family": "waves", "wavelength": 30, "amplitude": 3},
         {"family": "rings"},
-        {"family": "spiral", "centre": (50, 20)},
+        {"family": "spiral", "center": (50, 20)},
         {"family": "rays", "angle": 15},
     ],
     ids=["waves", "rings", "spiral", "rays"],
@@ -111,10 +111,10 @@ def test_contours_can_be_smoothed_and_short_lines_dropped() -> None:
             data[y * 60 + x] = 255
     data[50 * 60 + 50] = 255
     field = btvec.Field.map(60, 60, bytes(data))
-    centres = (0.5, 0.5, 59, 59)
-    assert len(lines(field.contours(0.5, box=centres, cell=1))) == 2
-    assert len(lines(field.contours(0.5, box=centres, cell=1, smooth=2))) == 1
-    assert len(lines(field.contours(0.5, box=centres, cell=1, min_length=30))) == 1
+    centers = (0.5, 0.5, 59, 59)
+    assert len(lines(field.contours(0.5, box=centers, cell=1))) == 2
+    assert len(lines(field.contours(0.5, box=centers, cell=1, smooth=2))) == 1
+    assert len(lines(field.contours(0.5, box=centers, cell=1, min_length=30))) == 1
 
 
 def test_a_plot_has_a_layer_per_pen_and_no_fill() -> None:
@@ -166,8 +166,8 @@ def test_a_width_of_nothing_is_the_same_in_a_path_a_step_and_a_document() -> Non
     [
         ({"family": "lines", "wavelength": 30}, "wavelength", "lines"),
         ({"family": "rays", "amplitude": 2}, "amplitude", "rays"),
-        ({"family": "lines", "centre": (5, 5)}, "centre", "lines"),
-        ({"family": "waves", "wavelength": 30, "amplitude": 3, "centre": (5, 5)}, "centre", "waves"),
+        ({"family": "lines", "center": (5, 5)}, "center", "lines"),
+        ({"family": "waves", "wavelength": 30, "amplitude": 3, "center": (5, 5)}, "center", "waves"),
         ({"family": "rings", "angle": 10}, "angle", "rings"),
     ],
 )

@@ -74,7 +74,7 @@ fn a_loop_that_meets_the_frame_is_open_there() -> Outcome {
 
 #[test]
 fn a_saddle_is_decided_by_the_mean_of_its_corners() -> Outcome {
-    // one cell whose corners read 1, 0 / 0, 1: a map of 2 by 2 pixels over the box of its centres
+    // one cell whose corners read 1, 0 / 0, 1: a map of 2 by 2 pixels over the box of its centers
     let checker = Field::map(2, 2, &[255, 0, 0, 255], Some(frame(-0.5, -0.5, 2.0, 2.0)), None)?;
     let cell = frame(0.0, 0.0, 1.0, 1.0);
     // mean 0.5 is above 0.4: the high corners are joined, so each low corner is cut off alone
@@ -269,10 +269,10 @@ fn smoothing_removes_a_speck_of_noise_and_keeps_a_wide_shape() -> Outcome {
     }
     bytes[50 * 60 + 50] = 255;
     let field = Field::map(60, 60, &bytes, None, None)?;
-    let centres = frame(0.5, 0.5, 59.0, 59.0);
-    let raw = lines(&field.contours(&[0.5], centres, 1.0)?);
+    let centers = frame(0.5, 0.5, 59.0, 59.0);
+    let raw = lines(&field.contours(&[0.5], centers, 1.0)?);
     assert_eq!(raw.len(), 2);
-    let smooth = lines(&field.contours_with(&[0.5], centres, 1.0, &Tidy::default().smooth(2.0))?);
+    let smooth = lines(&field.contours_with(&[0.5], centers, 1.0, &Tidy::default().smooth(2.0))?);
     assert_eq!(smooth.len(), 1, "a pixel blurred with sigma 2 never reaches half");
     assert!(smooth[0].0.iter().all(|p| p.0 < 45.0));
     Ok(())

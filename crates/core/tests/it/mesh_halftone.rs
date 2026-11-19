@@ -29,7 +29,7 @@ fn from_lattice((x, y): (f64, f64), pitch: f64, degrees: f64) -> f64 {
 }
 
 /// An error unless the mesh covers each point of a lattice of every third pixel of the 100 by 100 canvas (offset by a
-/// third of a pixel from the pixel centres) that `wanted` says (`Some(true)` once, `Some(false)` not at all) as it says,
+/// third of a pixel from the pixel centers) that `wanted` says (`Some(true)` once, `Some(false)` not at all) as it says,
 /// and no point more than once; points too near an edge to say, and those `wanted` leaves open (`None`), are not
 /// checked.
 fn covers_as(mesh: &Mesh, wanted: impl Fn((f64, f64)) -> Option<bool>) -> Outcome {
@@ -65,11 +65,11 @@ fn covers_as(mesh: &Mesh, wanted: impl Fn((f64, f64)) -> Option<bool>) -> Outcom
 /// not if clearly outside either.
 fn dots_in_disc(pitch: f64, degrees: f64, radius: f64) -> impl Fn((f64, f64)) -> Option<bool> {
     move |point| {
-        let from_centre = libm::hypot(point.0 - 50.0, point.1 - 50.0);
+        let from_center = libm::hypot(point.0 - 50.0, point.1 - 50.0);
         let near = from_lattice(point, pitch, degrees);
-        if from_centre > 40.0 + 0.05 || near > radius + 0.001 {
+        if from_center > 40.0 + 0.05 || near > radius + 0.001 {
             Some(false)
-        } else if from_centre < 40.0 - 0.05 && near < radius - 0.05 {
+        } else if from_center < 40.0 - 0.05 && near < radius - 0.05 {
             Some(true)
         } else {
             None

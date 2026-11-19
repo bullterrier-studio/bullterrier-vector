@@ -298,7 +298,7 @@ mod tests {
     fn a_circle_is_as_wide_as_its_chord() -> Outcome {
         let circle = Path::circle((10.0, 20.0), 50.0)?;
         let region = region(&circle)?;
-        // chord at distance d from the centre: 2 sqrt(r^2 - d^2); the flattening is within 0.01 of the curve
+        // chord at distance d from the center: 2 sqrt(r^2 - d^2); the flattening is within 0.01 of the curve
         for d in [0.0, 10.0, -30.0, 49.0] {
             let half = (50.0_f64 * 50.0 - d * d).sqrt();
             let got = region.spans_at(20.0 + d, |_| Ok(()))?;

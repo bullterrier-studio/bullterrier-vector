@@ -33,7 +33,7 @@ impl Drawing {
     /// A drawing of a field traced at `levels` (numbers, Params or expressions, read once; a map reads 0 black to 1
     /// white): one shape for each level the field reaches, in the order given, the region where the field is at or above
     /// it, with the level as its `level` attribute and no paint. Stacked in order from the lowest, each painted by its
-    /// level, the shapes are a posterized picture of filled cut-outs. The field is read at the centres of the trace's
+    /// level, the shapes are a posterized picture of filled cut-outs. The field is read at the centers of the trace's
     /// [`frame`](Trace::frame) cut into equal cells no wider than its [`cell`](Trace::cell) (design pixels); left out,
     /// they are a [`Field::map`]'s own box and one map pixel, which any other field refuses. `trace` also says how the
     /// outlines are tidied. A shape that meets the frame's border goes on

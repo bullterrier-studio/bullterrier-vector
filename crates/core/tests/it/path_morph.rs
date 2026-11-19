@@ -254,15 +254,15 @@ fn every_vertex_between_concentric_regular_polygons_is_at_the_lerped_radius() ->
     // the corners of a regular polygon are on its circle exactly, so the lerped radius holds to 1e-9; the second case
     // starts the target 8 corners of 64 on, which is 16 alignment steps of 128: a start that is not found leaves the
     // corners paired with ones a turn of 45 degrees off and the radius short by about 0.7%
-    let centre = (50.0, 60.0);
+    let center = (50.0, 60.0);
     for first in [0, 8] {
-        let (small, big) = (ngon(centre, 20.0, 64, 0)?, ngon(centre, 60.0, 64, first)?);
+        let (small, big) = (ngon(center, 20.0, 64, 0)?, ngon(center, 60.0, 64, first)?);
         for t in [0.0, 0.25, 1.0, 1.5, -0.5] {
             let radius = lerp(20.0, 60.0, t);
             let found = outline(&small.morph(&big, t)?)?;
             assert_eq!(found.len(), 1);
             for vertex in &found[0].0 {
-                let off = libm::hypot(vertex.0 - centre.0, vertex.1 - centre.1) - radius;
+                let off = libm::hypot(vertex.0 - center.0, vertex.1 - center.1) - radius;
                 assert!(off.abs() < 1e-9, "start {first}, fraction {t}: radius off by {off}");
             }
         }
@@ -273,8 +273,8 @@ fn every_vertex_between_concentric_regular_polygons_is_at_the_lerped_radius() ->
 #[test]
 fn between_concentric_circles_every_vertex_is_near_the_lerped_radius() -> Outcome {
     // a looser companion of the exact test above, on `Path::circle`, whose flattening is off its circle
-    let centre = (50.0, 60.0);
-    let (small, big) = (Path::circle(centre, 20.0)?, Path::circle(centre, 60.0)?);
+    let center = (50.0, 60.0);
+    let (small, big) = (Path::circle(center, 20.0)?, Path::circle(center, 60.0)?);
     for t in [0.0, 0.25, 1.0, 1.5, -0.5] {
         let radius = lerp(20.0, 60.0, t);
         let found = outline(&small.morph(&big, t)?)?;
@@ -284,7 +284,7 @@ fn between_concentric_circles_every_vertex_is_near_the_lerped_radius() -> Outcom
         // the lerped radius by at most |1 - t| and |t| times those
         let slack = ((1.0 - t).abs() + t.abs()) * (0.01 + 2.8e-4 * 60.0) + 1e-9;
         for vertex in &found[0].0 {
-            let off = libm::hypot(vertex.0 - centre.0, vertex.1 - centre.1) - radius;
+            let off = libm::hypot(vertex.0 - center.0, vertex.1 - center.1) - radius;
             assert!(off.abs() <= slack, "fraction {t}: radius off by {off}");
         }
     }
@@ -400,7 +400,7 @@ fn a_circle_drawn_the_other_way_round_morphs_to_a_ring_whose_hole_stays_a_hole()
 
 #[test]
 fn the_area_of_an_unmatched_hole_shrinks_as_the_square_of_what_is_left() -> Outcome {
-    // the same outer on both sides, a 20 x 20 hole on the one: it shrinks about its centre (50, 50) to nothing
+    // the same outer on both sides, a 20 x 20 hole on the one: it shrinks about its center (50, 50) to nothing
     let with_hole = svg(&format!(
         "{} {}",
         rect(0.0, 0.0, 100.0, 100.0),
@@ -410,15 +410,15 @@ fn the_area_of_an_unmatched_hole_shrinks_as_the_square_of_what_is_left() -> Outc
     for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
         let wanted = 10_000.0 - (1.0 - t) * (1.0 - t) * 400.0;
         let found = with_hole.morph(&plain, t)?;
-        // brute force: the cells of 0.5 whose centres are filled (every edge sits on a multiple of 0.5)
+        // brute force: the cells of 0.5 whose centers are filled (every edge sits on a multiple of 0.5)
         let mut cells = 0.0;
         for row in 0..200 {
             for column in 0..200 {
-                let centre = (
+                let center = (
                     f64::midpoint(f64::from(column), 0.5),
                     f64::midpoint(f64::from(row), 0.5),
                 );
-                if found.contains(centre)? {
+                if found.contains(center)? {
                     cells += 0.25;
                 }
             }
@@ -614,11 +614,11 @@ fn an_open_path_next_to_a_closed_one_stays_open_and_collapses_when_there_is_noth
 // Nothing, a point, no area --------------------------------------------------------------------------------------------------
 
 #[test]
-fn an_empty_path_on_either_side_is_a_shape_that_shrinks_or_grows_about_its_own_centre() -> Outcome {
+fn an_empty_path_on_either_side_is_a_shape_that_shrinks_or_grows_about_its_own_center() -> Outcome {
     assert_eq!(Path::new().morph(&Path::new(), 0.5)?, Path::new());
     let square = svg(&rect(10.0, 20.0, 40.0, 60.0))?;
     for (from, to, t, half) in [(&Path::new(), &square, 0.5, 0.5), (&square, &Path::new(), 0.25, 0.75)] {
-        // the centre of the four corners is (30, 50): the square is scaled about it to the share `half`
+        // the center of the four corners is (30, 50): the square is scaled about it to the share `half`
         let found = outline(&from.morph(to, t)?)?;
         assert_eq!(found.len(), 1);
         for corner in [(10.0, 20.0), (50.0, 20.0), (50.0, 80.0), (10.0, 80.0)] {

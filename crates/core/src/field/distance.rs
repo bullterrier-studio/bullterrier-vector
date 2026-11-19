@@ -485,10 +485,10 @@ fn inradius(region: &Outline, outer: &Outline) -> f64 {
     }
     let (mut sx, mut sy) = (step_x, step_y);
     for _ in 0..ROUNDS {
-        let centre = at;
+        let center = at;
         for dx in [-1.0, 0.0, 1.0] {
             for dy in [-1.0, 0.0, 1.0] {
-                let p = Point::new(centre.x + dx * sx, centre.y + dy * sy);
+                let p = Point::new(center.x + dx * sx, center.y + dy * sy);
                 let d = depth(p);
                 if d > best {
                     (best, at) = (d, p);

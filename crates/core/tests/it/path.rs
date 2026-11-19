@@ -336,8 +336,8 @@ fn a_rounded_rectangle_has_quarter_arcs_in_its_corners() -> Outcome {
             (left + r, top),
         ]
     );
-    // each corner arc is a quarter of the circle of radius r round the corner's inner centre
-    let centres = [
+    // each corner arc is a quarter of the circle of radius r round the corner's inner center
+    let centers = [
         (right - r, top + r),
         (right - r, bottom - r),
         (left + r, bottom - r),
@@ -345,9 +345,9 @@ fn a_rounded_rectangle_has_quarter_arcs_in_its_corners() -> Outcome {
     ];
     let arcs = cubics(&data)?;
     assert_eq!(arcs.len(), 4);
-    for (arc, centre) in arcs.iter().zip(centres) {
+    for (arc, center) in arcs.iter().zip(centers) {
         let middle = cubic_middle(arc[0], arc[1], arc[2], arc[3]);
-        let radial_error = distance(middle, centre) - r;
+        let radial_error = distance(middle, center) - r;
         assert!(
             radial_error.abs() <= 2.7e-4 * r,
             "{middle:?} is off the circle by {radial_error}"
@@ -385,7 +385,7 @@ fn a_rectangle_refuses_what_it_cannot_draw() -> Outcome {
 
 #[test]
 fn a_circle_starts_at_the_top_and_runs_clockwise_through_four_arcs() -> Outcome {
-    // centre (3, -4), radius 7: top, right, bottom, left
+    // center (3, -4), radius 7: top, right, bottom, left
     let circle = Path::circle((3.0, -4.0), 7.0)?;
     let data = circle.to_svg_path();
     let letters: String = commands(&data)?.iter().map(|(letter, _)| *letter).collect();
@@ -424,8 +424,8 @@ fn every_arc_of_a_circle_stays_within_the_known_error_of_the_circle() -> Outcome
 }
 
 #[test]
-fn a_circle_refuses_a_radius_that_is_not_above_zero_or_a_centre_that_is_not_finite() -> Outcome {
-    // (centre, radius, the argument it must name, the value text)
+fn a_circle_refuses_a_radius_that_is_not_above_zero_or_a_center_that_is_not_finite() -> Outcome {
+    // (center, radius, the argument it must name, the value text)
     let table = [
         ((0.0, 0.0), 0.0, "radius", "got 0"),
         ((0.0, 0.0), -2.5, "radius", "-2.5"),
@@ -436,9 +436,9 @@ fn a_circle_refuses_a_radius_that_is_not_above_zero_or_a_centre_that_is_not_fini
         // the arcs would reach beyond what a number holds
         ((9.0e99, 0.0), 9.0e99, "radius", "too large"),
     ];
-    for (centre, radius, argument, value) in table {
-        let (name, message) = parameter_refusal(Path::circle(centre, radius))?;
-        assert_eq!(name, argument, "{centre:?} {radius}");
+    for (center, radius, argument, value) in table {
+        let (name, message) = parameter_refusal(Path::circle(center, radius))?;
+        assert_eq!(name, argument, "{center:?} {radius}");
         assert!(message.contains(value), "{message:?} lacks {value:?}");
     }
     assert!(Path::circle((0.0, 0.0), 1e-9).is_ok());
@@ -501,22 +501,22 @@ fn a_polygon_refuses_the_wrong_number_of_sides_or_radius() -> Outcome {
 }
 
 proptest! {
-    // A regular polygon of n corners on a circle of radius r: every corner is r from the centre, every side is
+    // A regular polygon of n corners on a circle of radius r: every corner is r from the center, every side is
     // 2 r sin(pi / n) long, and the area is n r^2 sin(2 pi / n) / 2, positive because it runs clockwise.
     #[test]
     fn a_polygon_is_regular_on_its_circle_and_runs_clockwise(
         sides in 3u32..=1000,
         radius in log_uniform(-3.0, 6.0),
-        centre_in_radii in (-10.0f64..10.0, -10.0f64..10.0),
+        center_in_radii in (-10.0f64..10.0, -10.0f64..10.0),
     ) {
-        let centre = (centre_in_radii.0 * radius, centre_in_radii.1 * radius);
-        let data = Path::polygon(centre, radius, i64::from(sides)).map_err(|e| TestCaseError::fail(e.to_string()))?.to_svg_path();
+        let center = (center_in_radii.0 * radius, center_in_radii.1 * radius);
+        let data = Path::polygon(center, radius, i64::from(sides)).map_err(|e| TestCaseError::fail(e.to_string()))?.to_svg_path();
         let corners = end_points(&data).map_err(|e| TestCaseError::fail(e.to_string()))?;
         let n = f64::from(sides);
         prop_assert_eq!(u32::try_from(corners.len()), Ok(sides));
         let scale = radius * 11.0;
         for corner in &corners {
-            prop_assert!((distance(*corner, centre) - radius).abs() <= 1e-12 * scale);
+            prop_assert!((distance(*corner, center) - radius).abs() <= 1e-12 * scale);
         }
         let side = 2.0 * radius * libm::sin(std::f64::consts::PI / n);
         for (index, corner) in corners.iter().enumerate() {
@@ -524,9 +524,9 @@ proptest! {
             prop_assert!((distance(*corner, next) - side).abs() <= 1e-12 * scale);
         }
         let area = n * radius * radius * libm::sin(2.0 * std::f64::consts::PI / n) / 2.0;
-        // the shoelace sum cancels large terms, so measure the polygon about its centre
-        let about_centre: Vec<(f64, f64)> = corners.iter().map(|c| (c.0 - centre.0, c.1 - centre.1)).collect();
-        prop_assert!((shoelace_area(&about_centre) - area).abs() <= 1e-9 * area);
+        // the shoelace sum cancels large terms, so measure the polygon about its center
+        let about_center: Vec<(f64, f64)> = corners.iter().map(|c| (c.0 - center.0, c.1 - center.1)).collect();
+        prop_assert!((shoelace_area(&about_center) - area).abs() <= 1e-9 * area);
     }
 
     // No number the polygon writes is spelled with an exponent, "NaN", "inf" or a lone "-0".
@@ -584,7 +584,7 @@ fn a_star_refuses_what_it_cannot_draw() -> Outcome {
 
 proptest! {
     // 2p vertices alternate between the outer and the inner radius, p vertices each, 180 / p degrees apart. Two
-    // neighbours are sqrt(R^2 + r^2 - 2 R r cos(pi / p)) apart (law of cosines), and the 2p triangles from the centre
+    // neighbours are sqrt(R^2 + r^2 - 2 R r cos(pi / p)) apart (law of cosines), and the 2p triangles from the center
     // add up to an area of p R r sin(pi / p), positive because the star runs clockwise.
     #[test]
     fn a_star_alternates_its_radii_and_runs_clockwise(
@@ -1045,7 +1045,7 @@ fn radii_that_are_too_small_are_scaled_up_to_the_half_circle() -> Outcome {
 
 #[test]
 fn a_rotated_ellipse_arc_passes_where_the_ellipse_does() -> Outcome {
-    // radii 10 and 5 turned 90 degrees: 5 along x, 10 along y, centred on (0, 0); from its right end to its bottom
+    // radii 10 and 5 turned 90 degrees: 5 along x, 10 along y, centered on (0, 0); from its right end to its bottom
     let (arcs, end) = arc_of("M5 0 A10 5 90 0 1 0 10")?;
     assert_eq!(arcs.len(), 1);
     assert_eq!(end, (0.0, 10.0));
@@ -1223,9 +1223,9 @@ proptest! {
 }
 
 /// What an arc between `from` and `to` of circle radius `radius` must be, by the geometry of circles alone: the two
-/// circles of that radius through both points have their centres on the chord's perpendicular bisector, `h` from its
+/// circles of that radius through both points have their centers on the chord's perpendicular bisector, `h` from its
 /// middle, where `h^2 = radius^2 - (chord / 2)^2`.
-fn circle_centres(from: (f64, f64), to: (f64, f64), radius: f64) -> [(f64, f64); 2] {
+fn circle_centers(from: (f64, f64), to: (f64, f64), radius: f64) -> [(f64, f64); 2] {
     let middle = (f64::midpoint(from.0, to.0), f64::midpoint(from.1, to.1));
     let chord = distance(from, to);
     let height = (radius * radius - chord * chord / 4.0).max(0.0).sqrt();
@@ -1236,18 +1236,18 @@ fn circle_centres(from: (f64, f64), to: (f64, f64), radius: f64) -> [(f64, f64);
     ]
 }
 
-/// The turn, in radians, from `a` to `b` as seen from `centre`: positive towards +y (clockwise on screen).
-fn turn(centre: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
-    let (ax, ay, bx, by) = (a.0 - centre.0, a.1 - centre.1, b.0 - centre.0, b.1 - centre.1);
+/// The turn, in radians, from `a` to `b` as seen from `center`: positive towards +y (clockwise on screen).
+fn turn(center: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
+    let (ax, ay, bx, by) = (a.0 - center.0, a.1 - center.1, b.0 - center.0, b.1 - center.1);
     libm::atan2(ax * by - ay * bx, ax * bx + ay * by)
 }
 
 #[test]
 fn the_circle_oracle_tells_the_right_arc_from_the_wrong_one() {
-    // the quarter circle from (5, 0) to (0, 5) round (0, 0): the centres are (0, 0) and (5, 5)
-    let [first, second] = circle_centres((5.0, 0.0), (0.0, 5.0), 5.0);
-    assert_close(first, (0.0, 0.0), 1e-12, "first centre");
-    assert_close(second, (5.0, 5.0), 1e-12, "second centre");
+    // the quarter circle from (5, 0) to (0, 5) round (0, 0): the centers are (0, 0) and (5, 5)
+    let [first, second] = circle_centers((5.0, 0.0), (0.0, 5.0), 5.0);
+    assert_close(first, (0.0, 0.0), 1e-12, "first center");
+    assert_close(second, (5.0, 5.0), 1e-12, "second center");
     // clockwise on screen is positive; a quarter turn from (5, 0) to (0, 5) round (0, 0)
     assert!((turn((0.0, 0.0), (5.0, 0.0), (0.0, 5.0)) - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
     assert!((turn((0.0, 0.0), (0.0, 5.0), (5.0, 0.0)) + std::f64::consts::FRAC_PI_2).abs() < 1e-12);
@@ -1276,7 +1276,7 @@ fn half_circle_on_the_chord(
     );
     let (arcs, end) = arc_of(&data).map_err(|e| TestCaseError::fail(e.to_string()))?;
     prop_assert_eq!(end, to);
-    // rx = ry here, so the half circle's centre is the middle of the chord
+    // rx = ry here, so the half circle's center is the middle of the chord
     let middle = (f64::midpoint(from.0, to.0), f64::midpoint(from.1, to.1));
     prop_assert_eq!(arcs.len(), 2, "{}", data);
     for arc in &arcs {
@@ -1288,8 +1288,8 @@ fn half_circle_on_the_chord(
 }
 
 #[test]
-fn a_half_circle_stays_two_pieces_where_rounding_once_left_its_centre_off_the_chord() -> Result<(), TestCaseError> {
-    // found by the property below: a radius scaled up leaves the centre's offset at rounding noise, which split the
+fn a_half_circle_stays_two_pieces_where_rounding_once_left_its_center_off_the_chord() -> Result<(), TestCaseError> {
+    // found by the property below: a radius scaled up leaves the center's offset at rounding noise, which split the
     // half circle into three pieces; (from, chord, direction, fraction, flags)
     half_circle_on_the_chord(
         (0.0, -83.242_126_876_245_45),
@@ -1325,17 +1325,17 @@ proptest! {
         prop_assert_eq!(end, to);
         let mut junctions = vec![arcs[0][0]];
         junctions.extend(arcs.iter().map(|arc| arc[3]));
-        let [centre_a, centre_b] = circle_centres(from, to, radius);
-        let spread = |centre: (f64, f64)| junctions.iter().map(|j| (distance(*j, centre) - radius).abs()).fold(0.0, f64::max);
+        let [center_a, center_b] = circle_centers(from, to, radius);
+        let spread = |center: (f64, f64)| junctions.iter().map(|j| (distance(*j, center) - radius).abs()).fold(0.0, f64::max);
         // of the two circles through both ends, the one the arc's pieces follow
-        let stray = |centre: (f64, f64)| {
+        let stray = |center: (f64, f64)| {
             arcs.iter()
-                .map(|arc| (distance(cubic_middle(arc[0], arc[1], arc[2], arc[3]), centre) - radius).abs())
+                .map(|arc| (distance(cubic_middle(arc[0], arc[1], arc[2], arc[3]), center) - radius).abs())
                 .fold(0.0, f64::max)
         };
-        let centre = if stray(centre_a) <= stray(centre_b) { centre_a } else { centre_b };
-        prop_assert!(spread(centre) <= 1e-9 * (radius + 100.0), "spread {}", spread(centre));
-        let turns: Vec<f64> = junctions.windows(2).map(|pair| turn(centre, pair[0], pair[1])).collect();
+        let center = if stray(center_a) <= stray(center_b) { center_a } else { center_b };
+        prop_assert!(spread(center) <= 1e-9 * (radius + 100.0), "spread {}", spread(center));
+        let turns: Vec<f64> = junctions.windows(2).map(|pair| turn(center, pair[0], pair[1])).collect();
         let total: f64 = turns.iter().sum();
         prop_assert_eq!(total > 0.0, sweep, "total {}", total);
         prop_assert_eq!(total.abs() > std::f64::consts::PI, large, "total {}", total);
@@ -1350,7 +1350,7 @@ proptest! {
         // each piece follows the circle, within a kappa arc's 2.7e-4 of the radius
         for arc in &arcs {
             let middle = cubic_middle(arc[0], arc[1], arc[2], arc[3]);
-            let strays = (distance(middle, centre) - radius).abs();
+            let strays = (distance(middle, center) - radius).abs();
             prop_assert!(strays <= 2.7e-4 * radius + 1e-9 * (radius + 100.0), "strays {}", strays);
         }
     }
@@ -1359,14 +1359,14 @@ proptest! {
     // sweep: arcs between points that are computed on a circle, a quarter turn apart.
     #[test]
     fn whole_quarter_turns_take_one_cubic_each(
-        centre in (-100.0f64..100.0, -100.0f64..100.0),
+        center in (-100.0f64..100.0, -100.0f64..100.0),
         radius in log_uniform(-1.0, 3.0),
         begin in 0.0f64..360.0,
         quarters in 1u32..=3,
     ) {
         let on_circle = |degrees: f64| {
             let radians = degrees.to_radians();
-            (centre.0 + radius * libm::cos(radians), centre.1 + radius * libm::sin(radians))
+            (center.0 + radius * libm::cos(radians), center.1 + radius * libm::sin(radians))
         };
         let (from, to) = (on_circle(begin), on_circle(begin + 90.0 * f64::from(quarters)));
         // three quarters is a large arc; one is small; two is a half circle, which either flag draws

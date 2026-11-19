@@ -11,8 +11,8 @@ impl Drawing {
     /// taken as they are, one for one, never united as the `other` of a boolean is. A paired shape keeps its own style,
     /// attributes and `origin`.
     ///
-    /// A shape with no partner, because `target` has fewer shapes, shrinks to its own centre and keeps its style; a
-    /// shape of `target` with no partner grows from its centre in place, with the target shape's style and attributes.
+    /// A shape with no partner, because `target` has fewer shapes, shrinks to its own center and keeps its style; a
+    /// shape of `target` with no partner grows from its center in place, with the target shape's style and attributes.
     /// The result has as many shapes as the longer of the two drawings. `fraction` is a number for each shape (a
     /// number, a `Param`, an expression, or a list such as `by_index` or `stagger`), read with the shape's index among
     /// the shapes of the result and its own `order` attribute (the source shape's for a pair, the target shape's for

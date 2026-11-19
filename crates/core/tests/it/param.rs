@@ -229,7 +229,7 @@ fn a_cyclic_param_wraps_a_value_into_one_turn_from_its_minimum() -> Outcome {
     let deg = Param::new("angle", 0.0, 0.0, 360.0)?.unit(Unit::Deg)?;
     let signed = Param::new("lean", 0.0, -180.0, 180.0)?.unit(Unit::Deg)?;
     let cycle = Param::new("phase", 0.0, 0.0, 1.0)?.unit(Unit::Cycle)?;
-    let centred = Param::new("swing", 0.0, -0.5, 0.5)?.unit(Unit::Cycle)?;
+    let centered = Param::new("swing", 0.0, -0.5, 0.5)?.unit(Unit::Cycle)?;
     // (param, value, wrapped)
     let rows = [
         (&deg, 370.0, 10.0),
@@ -249,9 +249,9 @@ fn a_cyclic_param_wraps_a_value_into_one_turn_from_its_minimum() -> Outcome {
         (&cycle, -0.25, 0.75),
         (&cycle, 1.0, 0.0),
         (&cycle, 3.0, 0.0),
-        (&centred, 0.75, -0.25),
-        (&centred, 0.5, -0.5),
-        (&centred, -0.5, -0.5),
+        (&centered, 0.75, -0.25),
+        (&centered, 0.5, -0.5),
+        (&centered, -0.5, -0.5),
     ];
     for (param, value, wrapped) in rows {
         assert_eq!(param.accept(value)?, wrapped, "{} given {value}", param.name());

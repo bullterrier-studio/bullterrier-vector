@@ -249,14 +249,14 @@ def test_near_moves_the_start_of_a_closed_outline_to_its_point_nearest_the_given
 # --- hit-testing and parts -----------------------------------------------------------------------------------------
 
 
-def test_contains_agrees_with_the_distance_to_the_centre_of_a_circle():
-    centre, radius = (3.0, -2.0), 10.0
-    circle = Path.circle(centre, radius)
+def test_contains_agrees_with_the_distance_to_the_center_of_a_circle():
+    center, radius = (3.0, -2.0), 10.0
+    circle = Path.circle(center, radius)
     checked = 0
     for i in range(-14, 15):
         for j in range(-14, 15):
-            point = (centre[0] + i * 0.97, centre[1] + j * 0.91)
-            distance = math.hypot(point[0] - centre[0], point[1] - centre[1])
+            point = (center[0] + i * 0.97, center[1] + j * 0.91)
+            distance = math.hypot(point[0] - center[0], point[1] - center[1])
             if abs(distance - radius) > 0.1:
                 assert circle.contains(point) == (distance < radius), point
                 checked += 1
@@ -401,7 +401,7 @@ def test_along_carries_x_along_the_guide_and_y_to_its_right(guide, start, shape,
 
 def test_along_a_circle_puts_a_point_at_the_angle_the_distance_makes_and_y_moves_the_radius():
     # a clockwise circle of 100 from the top: 157.08 along is a quarter turn, at (100, 0); a y of 10 is 10 nearer
-    # the centre
+    # the center
     bent = Path.line((0, 10), (100, 10)).along(RING, start=0.25)
     for at, angle in [(0, math.pi / 2), (1, math.pi / 2 + 1.0)]:
         point = bent.point_at(at)

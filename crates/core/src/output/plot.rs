@@ -116,7 +116,7 @@ impl Drawing {
     /// the pens being the colours of the strokes and fills in the order they first appear, with the pen's colour and
     /// `plot`'s width on the group.
     ///
-    /// Every shape's outline is drawn along its centre, the shape's own stroke width ignored (the pen draws its own);
+    /// Every shape's outline is drawn along its center, the shape's own stroke width ignored (the pen draws its own);
     /// every fill is drawn by pen-width hatching at 45 degrees inside its outline (its outline when it is too small
     /// for a line); a translucent colour is drawn as its opaque one, but a shape with opacity 0 or a fully transparent fill or
     /// stroke is not drawn at all (a plot draws what the picture shows). A shape drawn later does not

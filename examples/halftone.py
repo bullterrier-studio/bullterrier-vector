@@ -2,7 +2,7 @@
 
 The dots sit on a layout anchored to the origin of the design frame (a grid, turned 45 degrees by default), so they keep
 their place when a shape moves. `tone` runs from 0 (solid) to 1 (no dots): a number, which may differ per shape (the
-row of discs), or a `Field` read at the centre of each dot (the panels, whose tone is a ramp). Each panel is a dot shape
+row of discs), or a `Field` read at the center of each dot (the panels, whose tone is a ramp). Each panel is a dot shape
 on a screen: ellipses on a grid, euclidean dots on rings, diamonds on a wave, a triangle of the caller's on rays. Every
 dot covers `1 - tone` of its own cell, so a ramp from solid to bare fades evenly on every screen.
 Run it with `uv run poe look examples/halftone.py`.

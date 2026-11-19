@@ -177,9 +177,9 @@ fn fit_on_an_axis_sets_the_runs_whose_font_has_it_and_leaves_the_others_as_they_
         Text::default().size(EM).width(3680.0).fit("wght"),
     )?;
     assert_eq!(drawn.len(), 2);
-    let centre = |at: usize| drawn[at].attributes().origin().map(|origin| origin.x);
-    assert!((centre(0).ok_or("no origin")? - 840.0).abs() <= 1.0);
-    assert!((centre(1).ok_or("no origin")? - (1680.0 + 1000.0)).abs() <= 1.0);
+    let center = |at: usize| drawn[at].attributes().origin().map(|origin| origin.x);
+    assert!((center(0).ok_or("no origin")? - 840.0).abs() <= 1.0);
+    assert!((center(1).ok_or("no origin")? - (1680.0 + 1000.0)).abs() <= 1.0);
     assert_eq!(
         drawn[1].path().bounds()?.width,
         glyph("A", &narrow, 2000.0, 0.0)?.bounds()?.width
@@ -271,8 +271,8 @@ fn an_axis_list_belongs_to_its_run_and_counts_that_runs_characters() -> Outcome 
     // two characters in the first run: a list of two is right, a list of three names the run
     let ok = drawing.shapes(&Values::new().set("weight", vec![300.0, 700.0]))?;
     assert_eq!(ok.len(), 3);
-    let centre = |at: usize| ok[at].attributes().origin().map(|origin| origin.x);
-    assert!((centre(0).ok_or("no origin")? - 804.0).abs() <= 1.0); // H at 300: 1608 wide
+    let center = |at: usize| ok[at].attributes().origin().map(|origin| origin.x);
+    assert!((center(0).ok_or("no origin")? - 804.0).abs() <= 1.0); // H at 300: 1608 wide
     let (parameter, message) =
         parameter_refusal(drawing.shapes(&Values::new().set("weight", vec![300.0, 700.0, 400.0])))?;
     assert!(
@@ -347,12 +347,12 @@ fn a_number_of_a_run_the_domain_refuses_names_the_run_not_the_text() -> Outcome 
 #[test]
 fn inside_and_alignment_work_on_the_whole_text_of_runs() -> Outcome {
     let (serif, narrow) = (fraunces()?, narrowing()?);
-    let centred = shapes(
+    let centered = shapes(
         [Run::new("H", &serif), Run::new("A", &narrow).size(EM)],
         Text::default().size(EM).align(bullterrier_vector::Align::Center),
     )?;
-    // 1656 + 2000 = 3656 wide, centred on x = 0: the first glyph's pen is at -1828
-    let first = centred[0].attributes().origin().ok_or("no origin")?.x;
+    // 1656 + 2000 = 3656 wide, centered on x = 0: the first glyph's pen is at -1828
+    let first = centered[0].attributes().origin().ok_or("no origin")?.x;
     assert!((first - (-1828.0 + 828.0)).abs() <= 1e-9);
     let region = Path::rect(0.0, 0.0, 6000.0, 6000.0, 0.0)?;
     let inside = shapes(

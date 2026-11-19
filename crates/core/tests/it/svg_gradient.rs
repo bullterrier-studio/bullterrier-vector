@@ -125,7 +125,7 @@ fn a_fill_and_a_stroke_each_have_a_gradient_of_their_own() -> Outcome {
 
 #[test]
 fn the_geometry_moves_and_grows_with_the_frame_as_a_path_does() -> Outcome {
-    // a frame of 100 in an output of 250 and 200: scale 2, centred across by 25
+    // a frame of 100 in an output of 250 and 200: scale 2, centered across by 25
     let drawing = Drawing::from(rect(10.0, 10.0, 80.0, 80.0)?)
         .fill(Gradient::radial((10.0, 20.0), 30.0, [(0.0, RED), (1.0, BLUE)])?)
         .with_size(100.0, 100.0);

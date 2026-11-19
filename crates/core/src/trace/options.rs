@@ -86,7 +86,7 @@ impl Trace {
         self
     }
 
-    /// Read the field at the centres of cells no wider than `cell` design pixels instead of a map's own pixels: needed
+    /// Read the field at the centers of cells no wider than `cell` design pixels instead of a map's own pixels: needed
     /// for a field that is not a map. [`Drawing::trace_levels`](crate::Drawing::trace_levels) only; `trace_labels`
     /// refuses it.
     #[must_use]

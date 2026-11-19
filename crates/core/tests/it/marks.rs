@@ -60,7 +60,7 @@ fn a_point_has_a_crosshair_reaching_the_cross_either_way() -> Outcome {
 }
 
 #[test]
-fn a_label_stands_at_the_end_of_a_leader_with_a_capital_centred_on_its_height() -> Outcome {
+fn a_label_stands_at_the_end_of_a_leader_with_a_capital_centered_on_its_height() -> Outcome {
     let shapes = drawn(
         Marks::new()
             .points([PointMark::new(200.0, 90.0).text("H")])
@@ -75,7 +75,7 @@ fn a_label_stands_at_the_end_of_a_leader_with_a_capital_centred_on_its_height() 
     let near = |left: f64, right: f64| (left - right).abs() < 1e-6;
     assert!(near(bounds.x, 225.0 + 0.093 * 12.0), "{bounds:?}");
     assert!(near(bounds.x + bounds.width, 225.0 + 0.507 * 12.0), "{bounds:?}");
-    // 730 units of 12 high, centred on y = 68
+    // 730 units of 12 high, centered on y = 68
     assert!(near(bounds.y + bounds.height / 2.0, 68.0), "{bounds:?}");
     assert!(near(bounds.height, 0.730 * 12.0), "{bounds:?}");
     assert_eq!(label.attributes().char(), Some('H'));

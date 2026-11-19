@@ -9,8 +9,8 @@ fn rect(width: f64, height: f64) -> Result<Path, bullterrier_vector::Error> {
     Path::rect(0.0, 0.0, width, height, 0.0)
 }
 
-/// The centres of the dots: a dot is a circle that starts at its top, so its start is `(x, y - radius)`.
-fn centres(path: &Path, radius: f64) -> Vec<(f64, f64)> {
+/// The centers of the dots: a dot is a circle that starts at its top, so its start is `(x, y - radius)`.
+fn centers(path: &Path, radius: f64) -> Vec<(f64, f64)> {
     path.to_svg_path()
         .split('M')
         .skip(1)
@@ -41,7 +41,7 @@ fn the_density_follows_the_tone() -> Outcome {
     // a ramp from 0 at x = 0 to 1 at x = 400; density 1 at tone 0, 0 at tone 1 (the default): dark is dense
     let tone = Field::ramp((0.0, 0.0), (400.0, 0.0))?;
     let drawn = rect(400.0, 100.0)?.stipple(&Stipple::new(4.0, tone, (0.8, 0.8))?)?;
-    let dots = centres(&drawn, 0.8);
+    let dots = centers(&drawn, 0.8);
     for (slab, mid) in [(0.0, 0.125), (100.0, 0.375), (200.0, 0.625), (300.0, 0.875)] {
         let count = dots.iter().filter(|d| d.0 >= slab && d.0 < slab + 100.0).count();
         let want = 625.0 * (1.0 - mid);
@@ -57,7 +57,7 @@ fn the_density_follows_the_tone() -> Outcome {
 fn a_density_pair_maps_tone_0_and_tone_1() -> Outcome {
     let tone = Field::ramp((0.0, 0.0), (400.0, 0.0))?;
     let stipple = Stipple::new(4.0, tone, (0.8, 0.8))?.density(0.2, 0.8);
-    let dots = centres(&rect(400.0, 100.0)?.stipple(&stipple)?, 0.8);
+    let dots = centers(&rect(400.0, 100.0)?.stipple(&stipple)?, 0.8);
     let first = f64::from(u32::try_from(dots.iter().filter(|d| d.0 < 100.0).count())?);
     let last = f64::from(u32::try_from(dots.iter().filter(|d| d.0 >= 300.0).count())?);
     // density 0.2 + 0.6 * 0.125 = 0.275 and 0.2 + 0.6 * 0.875 = 0.725 of 625 cells
@@ -70,7 +70,7 @@ fn a_density_pair_maps_tone_0_and_tone_1() -> Outcome {
 fn dots_stay_inside_the_region_and_a_seed_moves_them() -> Outcome {
     let region = Path::circle((100.0, 100.0), 60.0)?;
     let drawn = region.stipple(&Stipple::new(5.0, Field::constant(0.0)?, (1.0, 1.0))?)?;
-    let dots = centres(&drawn, 1.0);
+    let dots = centers(&drawn, 1.0);
     assert!(dots.len() > 300);
     for d in &dots {
         assert!(region.contains((d.0, d.1))?, "{d:?}");
@@ -129,7 +129,7 @@ fn what_it_cannot_make_is_refused_naming_the_argument() -> Outcome {
     Ok(())
 }
 
-/// Each dot's centre and radius from its own bounds: a dot is a circle, so its box is its diameter about its centre.
+/// Each dot's center and radius from its own bounds: a dot is a circle, so its box is its diameter about its center.
 fn dots(path: &Path) -> Result<Vec<(f64, f64, f64)>, bullterrier_vector::Error> {
     path.subpaths()
         .iter()
@@ -141,7 +141,7 @@ fn dots(path: &Path) -> Result<Vec<(f64, f64, f64)>, bullterrier_vector::Error> 
 }
 
 #[test]
-fn a_radius_pair_follows_the_tone_read_at_each_dots_centre() -> Outcome {
+fn a_radius_pair_follows_the_tone_read_at_each_dots_center() -> Outcome {
     // a steep ramp, 0 at x = 0 to 1 at x = 40, held beyond: a dot stands up to 1.6 px from its cell's middle, which is
     // up to 0.04 of tone and 0.06 px of radius away, far past the tolerance
     let tone = Field::ramp((0.0, 0.0), (40.0, 0.0))?;

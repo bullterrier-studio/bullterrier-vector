@@ -3,7 +3,7 @@
 use crate::geometry::{Point, coordinate};
 use crate::{Error, Path};
 
-/// The design frame fitted into an output: scaled by the largest factor that keeps all of it inside, and centred. A
+/// The design frame fitted into an output: scaled by the largest factor that keeps all of it inside, and centered. A
 /// drawing without a frame is at scale 1 from the top left. Content outside the frame is not clipped; it lands where
 /// the same scale and offset put it.
 #[derive(Debug, Clone, Copy, PartialEq)]

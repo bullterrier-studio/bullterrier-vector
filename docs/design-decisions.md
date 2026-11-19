@@ -212,7 +212,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   doubling a power-of-two scale changes no rounding, so 2x is exactly twice. *Consequence:* a document is longer than
   one rounded to 3 decimals; the plotter output (V15) may round, as a pen has a resolution.
 - **One view for every output** (2026-10-31). The design frame is scaled by `min(width / frame width, height / frame
-  height)` and centred; a drawing with no frame is at scale 1 from the top left; content outside the frame is not
+  height)` and centered; a drawing with no frame is at scale 1 from the top left; content outside the frame is not
   clipped. *Reason:* SVG, pixels and the mesh must place a drawing the same way, so the rule lives in one module and
   none of them decides it. A viewer's `preserveAspectRatio` does the same for an SVG with a viewBox, and an
   unclipped frame is what an SVG viewport does.
@@ -277,7 +277,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   20,000 random strokes is covered twice or missed, with real corners, whole-number corners or miter and bevel joins; with
   corners on a coarse grid, where edges coincide, 1 of 20,000 (56 before), also seen with plain bevel and miter joins. Strokes with several sharp turns (two or more over about 100 degrees) are still covered twice by a small area in
   about 1 of 2,000 random round strokes (5 to 13 of 20,000, seed 2026-11-07), never missed: the rings are correct (their
-  summed winding matches the distance to the centreline on a 0.1 pixel grid), and lyon emits two triangles on one base
+  summed winding matches the distance to the centerline on a 0.1 pixel grid), and lyon emits two triangles on one base
   where the long offset edges of neighbouring segments run nearly alongside each other. No ring construction fixed it: a
   horizontal sweep only moves the failures, and one convex piece per segment and corner cut them 3 to 4 times at 7%
   more triangles and a triangle at every smooth corner. Resolving the rings with `Path::resolve` before the fill covers
@@ -337,7 +337,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   for bit-identical bytes. The surface needed is small (flattening, arc length, nearest point, nonzero winding).
   *Consequence:* the same maths in every language; booleans took a crate nonetheless ("Booleans (V8)"), offsets (V9)
   face the same question.
-- **Arcs are cubics, one per quarter turn at most** (2026-10-31). An SVG arc is converted from endpoint to centre form
+- **Arcs are cubics, one per quarter turn at most** (2026-10-31). An SVG arc is converted from endpoint to center form
   (SVG 1.1, F.6.5), then cut into `ceil(sweep / 90°)` equal pieces, each a cubic with handles `4/3 tan(piece / 4)`.
   A circle is four cubics (kappa `0.5522847498307936`), straying from the circle by at most 2.7e-4 of the radius.
   *Reason:* one rule, so reading path data and `Path.circle` agree, and a path holds exact coordinates.
@@ -689,8 +689,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **A no-break space is part of a word; a transform moves `origin`, and `about` defaults to it** (2026-11-07, from the V6
   carry-over). U+00A0, U+2007 and U+202F are part of a word for the wrap and for the `word` attribute alike, decided by one
   predicate. `translate` adds to `origin`, `rotate` and `scale` transform it, and their default `about` is `origin`, else the
-  centre of the bounds. `along` leaves it. *Reason:* `merge(by=word)` must group what a wrap keeps together; and per-item
-  transforms of glyphs (V7) pivot on the typographic centre, not on a bounding box that moves with each letterform.
+  center of the bounds. `along` leaves it. *Reason:* `merge(by=word)` must group what a wrap keeps together; and per-item
+  transforms of glyphs (V7) pivot on the typographic center, not on a bounding box that moves with each letterform.
 
 ## Per-item variation (V7)
 
@@ -717,7 +717,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   list order, with the first's attributes and style, at the first's place. *Reason:* a word as a unit to move or slice
   needs no region algebra, and the boolean batch is the riskiest (roadmap, V8). *Consequence:* overlapping contours stay
   overlapping; `union` or `resolve` (V8) unites them.
-- **`split` gives a part the centre of its own bounds as `origin`** (2026-11-07). The origin of the letter is replaced.
+- **`split` gives a part the center of its own bounds as `origin`** (2026-11-07). The origin of the letter is replaced.
   *Reason:* a part that turns about its letter's origin (the dot of an `i`) would swing round it; each part scatters as a
   piece.
 - **Draw-on is `Drawing.slice`, built in V7** (2026-11-07). The roadmap listed it under V11. `slice` wraps `Path::slice`
@@ -1199,13 +1199,13 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   *Ruling: a sub-path never gets more segments than it had, it is kept as it was when the fit would have more (four
   cubics of a circle stay four) — "simplify" that adds segments would surprise; cost: a fitted sub-path is compared
   with the stored segment count, so a curve already within tolerance is never re-fitted smoother.*
-  *Ruling: a closed sub-path with no corner is fitted as one loop from its written start with a centred tangent there,
+  *Ruling: a closed sub-path with no corner is fitted as one loop from its written start with a centered tangent there,
   and a corner-ful one splits at its written start too (smooth unless the start is itself a corner), so `start`
   survives — a rotated start would change what `slice` and `dash` measure from.* The flattened edges are charged to
   `MAX_SEGMENTS` as `along` charges them, and the output never has more segments than that.
 
 - **Tapered outline (2026-11-16).** `Path::tapered_outline(width, &profile, tolerance)` in `path/taper.rs`, the kernel
-  `stroke(profile=)` calls; `outline(profile=)` is its Path and Drawing form. Built from the centre line the measured
+  `stroke(profile=)` calls; `outline(profile=)` is its Path and Drawing form. Built from the center line the measured
   walk gives, cut at the profile's stops so the radius is linear on each straight piece, and the union (one `i_overlay`
   run, via `offset.rs`) of the convex hulls of consecutive end discs, whose corners are on the circles: exactly the sweep
   of a disc of linearly changing radius, so the oracle is a brute-force distance to sampled discs.
@@ -1223,7 +1223,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   naming the argument (the verb check, the core's `require_round_stroke` for Python), and `miter_limit` is unused — the
   width changes the sweep of a disc; a mitre or square end of a changing width has no single definition; cost if wrong:
   a mitred taper needs a different kernel.*
-  *Ruling: the centre line is the walk of `length` (0.01 flattening), `tolerance` bounds the discs' polygons — one
+  *Ruling: the center line is the walk of `length` (0.01 flattening), `tolerance` bounds the discs' polygons — one
   arc-length system, so a position agrees with `dash` and `slice`; cost: a `tolerance` below 0.01 does not refine the
   curve itself.*
   *Ruling: a sub-path of no length (a lone move, a line to its own start) paints nothing, as plain `outline` does —
@@ -1236,11 +1236,11 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   tolerance)) are charged to `MAX_SEGMENTS` before any is built, so a huge `width` at a fine `tolerance` is a
   `ParameterError` naming `width`.
 
-- **Tapered stroke (2026-11-16).** `stroke(..., profile=)` stores the stops on the `Stroke` style; the path stays the centre
+- **Tapered stroke (2026-11-16).** `stroke(..., profile=)` stores the stops on the `Stroke` style; the path stays the center
   line. Rulings:
   *Ruling: the outline is made at draw time from the shape's current path, once per shape and output, in one function
   (`tapered_region` in `output/outline.rs`) that SVG, pixels and mesh all call, to a fixed 0.01 design pixels — not at the
-  step (selection, bounds, `slice` and `dash` after the stroke keep seeing the centre line, and `slice(0, progress)` thins
+  step (selection, bounds, `slice` and `dash` after the stroke keep seeing the center line, and `slice(0, progress)` thins
   the tip where the path now ends) and not scaled by the output (the SVG at twice the size has numbers exactly twice as
   large, and the three outputs draw one polygon); cost if wrong: a very large output shows the facets of 0.01 design pixel
   discs, and an outline is rebuilt on every draw (a cache of it needs the key of path and profile).*
@@ -1306,11 +1306,11 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   about=None)`: the one thing a person gives is the strength; the radius and the pivot have a reasonable default (the shape
   itself) and are named when wanted. `about` and the default pivot are those of `rotate` and `scale` (the shape's `origin`,
   else the middle of its bounds), unlike `wave` and `wobble`, whose field is anchored in the design frame: a twist is a
-  property of one shape's own centre.
+  property of one shape's own center.
   *Ruling: `twist` turns a point at distance `r` from `about` by `angle * falloff(r)` degrees with `falloff(r) = 1 - s^2 (3
   - 2s)`, `s = min(r / radius, 1)`, clockwise on the screen like `rotate` (the same rotation matrix, `y` down); a point at
-  or beyond `radius` is returned as it was, to the bit. The smoothstep is 1 at the centre, 0 at `radius` and has slope 0 at
-  both, so the twist has no kink at the centre or at the rim; a linear falloff would show a crease at `radius`. The turn
+  or beyond `radius` is returned as it was, to the bit. The smoothstep is 1 at the center, 0 at `radius` and has slope 0 at
+  both, so the twist has no kink at the center or at the rim; a linear falloff would show a crease at `radius`. The turn
   of a point depends on its distance only, so a twist keeps every distance to `about` (tested on rays from the pivot, to
   1e-9 relative). Cost if wrong: a saved drawing's twist is another shape (the falloff is part of the file's meaning).*
   *Ruling: `bulge` moves a point to `r * (1 + amount * falloff(r))` along its ray, the same falloff. The slope of `r -> r'` is
@@ -1451,7 +1451,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   (the script and its images are not kept). Compared: *pooling* a word's contours into one shape and pairing contours by
   position, against *pairing shapes by index* (glyph `i` to glyph `i`): pooling smears letters (`cat` to `horse`, `NO` to
   `YES`), per-glyph pairing reads letter by letter. A contour with no partner: an outer shrinking to a point is fine; for a
-  hole, four designs: collapse to its own centre, collapse to the mapped point of the other shape's box, *wound* (lerped like
+  hole, four designs: collapse to its own center, collapse to the mapped point of the other shape's box, *wound* (lerped like
   a matched contour) and *subtracted* (lerped, then cut from the rest). Start alignment of a closed pair with and without a
   search over the reversed contour. What the PNGs showed: a wound unmatched hole is a proven defect, its reversed winding
   paints black where it leaves the moving body (`O` to `L` at 0.9 and 0.95, `B` to `L`, `O` to `C`: dark specks outside the
@@ -1464,9 +1464,9 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   boolean per frame whenever a hole has no partner (the result is then canonical, the ends keep the fill but not the vertex
   list).*
 - *Ruling: shapes pair by index and contours inside a shape by role (the sign of the area, after one reversal of the whole
-  path if its largest contour runs the other way) and then by nearest centre in each shape's own box scaled to 0..1, ties to
+  path if its largest contour runs the other way) and then by nearest center in each shape's own box scaled to 0..1, ties to
   the lower indices (so `morph(a, b, t)` fills what `morph(b, a, 1 - t)` fills); cost if wrong: a word of another length pops
-  letters in and out at their own place (a spare glyph grows from its own centre), and position-aware word pairing is a later
+  letters in and out at their own place (a spare glyph grows from its own center), and position-aware word pairing is a later
   item.*
 - *Ruling: unresolved input stays unresolved, no hidden boolean; cost if wrong: overlapping contours of one glyph (an `E`
   made of four bars) morph as separate outers, so `resolve` the text first (`examples/glyph_morph.py` does).*
@@ -1542,7 +1542,7 @@ holds.
 - **Normalised distance has two definitions.** A part with holes: `d / (d + h)`, exactly 0 on the outer edge and 1 on a hole's
   edge. A part with none: `d` over its largest inscribed radius (probes on a 48 by 48 grid and three rounds of refinement,
   about 1 percent), so a stroke's middle line is 1 only if the stroke is as thick as the letter's thickest part. The drafted
-  "centre line" would need a medial axis. *Cost:* the thin stem of a letter with a fat bowl peaks below 1.
+  "center line" would need a medial axis. *Cost:* the thin stem of a letter with a fat bowl peaks below 1.
 - **Streamlines.** Jobard and Lefer: lines stop at half the spacing from another line's samples (the floor; a line is never
   promised a full spacing from its neighbour), seeds stand one spacing from a sample, and a lattice of the narrowest spacing
   finds a start for every part of the region. Steps are a quarter of the local spacing, midpoint rule. Under a tone, a seed is
@@ -1571,10 +1571,10 @@ holds.
   ids of the calls that take them. *Reason:* a drawing's own key holds the keys of the drawings its steps take, once for
   each way to reach them; nested through two fields a level, 15 levels needed gigabytes (the stack test did).
   `==` on a field or flow is the key plus `Drawing::is_same_as`: the same object, or each a lone path of equal data.
-- **`Field.map` is bytes, an input, and sampled at pixel centres.** 8-bit, because that is what a photo is and what a
-  document can name by `sha256`; vector links no raster library. Value `b/255` at the centre of its pixel over the box,
-  bilinear between centres, clamped beyond (the nearest edge value: a photo has no edge to fall off). `to_map` samples the
-  same centres, so `Field.map(w, h, f.to_map(w, h, box=b), box=b)` is `f` at the centres within half a level. A raw
+- **`Field.map` is bytes, an input, and sampled at pixel centers.** 8-bit, because that is what a photo is and what a
+  document can name by `sha256`; vector links no raster library. Value `b/255` at the center of its pixel over the box,
+  bilinear between centers, clamped beyond (the nearest edge value: a photo has no edge to fall off). `to_map` samples the
+  same centers, so `Field.map(w, h, f.to_map(w, h, box=b), box=b)` is `f` at the centers within half a level. A raw
   distance clamps almost everywhere to 0 or 1, so `to_map` takes the range to write (`low`, `high`) instead of choosing
   one. A map is capped at 2^24 pixels (16 MiB, 4096 by 4096); a larger photo is scaled down by the caller.
 - **Contour lines are a value, not a step.** `Field.contours(levels, box, cell)` returns a `Path` (like `Path.arc`), by marching
@@ -1605,7 +1605,7 @@ holds.
   edges (448), so 1 million reads of that took 26 s and 4 million nodes 100 s; the limit is some ten to twenty seconds.
   `Field.contours` has no default `box`: only a map has an extent, and a field made by a distance or ramp reads everywhere.
   A grid's cell count is `extent / cell` rounded to the nearest whole number when within 1e-9 of it, so the documented recipe
-  for a map's pixel centres stays on them.
+  for a map's pixel centers stays on them.
 - **A stack test for the new nesting.** Drawings nested 15 levels through the field and the flow of a hatch step are
   drawn, saved, loaded and dropped on the 256 KB stack (passes at 112 KB).
 - **Limit: halftone's tone was still a number.** Lifted by 4a (below): `halftone(tone=)` takes a field.
@@ -1614,9 +1614,9 @@ holds.
 
 - **Three verbs, not one `lines` with a family.** `rows` (displaced rows), `bands` (width carries tone) and `stipple` (dots)
   have different outputs (open lines, closed outlines, closed dots) and different arguments; one verb would have been a
-  union of unrelated options. The carriers of `bands` are one verb because they differ only in where the centre lines run.
+  union of unrelated options. The carriers of `bands` are one verb because they differ only in where the center lines run.
   *Rejected:* a `family` for rows and dots, and a rotation for rows (turn the region instead).
-- **A tone is read where the centre line is; a width is `(at tone 0, at tone 1)`.** As `hatch`'s spacing pair, so the call
+- **A tone is read where the center line is; a width is `(at tone 0, at tone 1)`.** As `hatch`'s spacing pair, so the call
   reads the same in every family; the width is the documented mapping and the oracle reads it off the polygon's vertices.
 - **Hidden lines by a horizon, conservative between points.** Rows are made from the nearest (lowest) up; a horizon holds the
   lowest height seen at each point of one shared lattice, and a point is seen when it is above it. Between lattice points the
@@ -1646,9 +1646,9 @@ holds.
   Gaussian in design pixels (refused past 2 billion steps), `min_length` drops short lines. The weights per level, the levels
   and the palette are the poster's, not the library's.
 - **Every allocation is bounded by its own count, before it is made.** A wide thin region made `rows` build its lattice of
-  columns with no row to put on it (4.6 GB at 1e9 wide), and a far `centre` made `bands` take a difference of squares
+  columns with no row to put on it (4.6 GB at 1e9 wide), and a far `center` made `bands` take a difference of squares
   that cancelled and a ring count that saturated (`capacity overflow`). Each count is now worked out in f64 per kind of
-  line (rings by their radii, an arm by its arc length) and refused first, naming `centre` when a centre away from the
+  line (rings by their radii, an arm by its arc length) and refused first, naming `center` when a center away from the
   region is what stretches the carrier. *Reason:* a refusal that depends on a sum made after the allocation is no bound.
 - **A region that fills nothing gives an empty path in every verb** (a point, a lone straight line: `Path::may_fill`).
   `rows` had returned a sliver for a line, `stipple` an error for a point and `spiral` and `rays` the error of a
@@ -1659,7 +1659,7 @@ holds.
   question against half a billion edge visits (measured 1.4e8 a second: a 100,000-edge comb under a line of 100,000 points
   took 73 s, now under a second) and refused naming `region`, or `spacing` inside `bands`. A region that cannot be
   flattened inside the segment budget is refused, never taken for an empty one.
-- **A family refuses what it does not read.** `bands` is one verb over five carriers, so a `centre` on lines or an `angle`
+- **A family refuses what it does not read.** `bands` is one verb over five carriers, so a `center` on lines or an `angle`
   on rings would otherwise be accepted and ignored, which hides a misspelt family. `Bands::refuse_unread` is the one place
   the rule lives (the builder, the document and the bindings call it); `angle` is therefore unset, not 0, by default.
   *Rejected:* a verb per family (the summary says what they share); `width` stays one pair from 0 (a line may fade to
@@ -1705,7 +1705,7 @@ the traced paths.
   attribute `label` (a byte is an index, not a tone: one name for both would read as a tone). No palette argument: the shapes
   come unpainted and `only(label=..).fill(..)` paints them, because a list of colours would be a new argument kind in the
   reader, writer and schema for what a loop already says. *Cost:* a palette is a few lines in the caller.
-- **One lattice, one tracer.** Levels and labels run the contour tracer of `Field::contours` over the map's pixel centres
+- **One lattice, one tracer.** Levels and labels run the contour tracer of `Field::contours` over the map's pixel centers
   (a label is the indicator of its byte at 0.5), so saddles, orientation and the edge walk are written once.
 - **Edge padding.** The lattice gets rings of the edge value and an outermost ring far below every level, so a shape that
   meets the border goes on past it and closes outside the frame. No edge lies along the border, which a stroke would draw
@@ -1807,7 +1807,7 @@ eyes' catchlights are placed by hand (a hint of where the eyes are), the glue be
 - **Presets come from programs.** `examples/presets/<name>.py` leaves a `drawing`; `tools/write_presets.py` writes the JSON;
   a test compares each file with its program's `to_json()` (the Python builder, an independent route to the same text).
   `ring` is one file, preset and example both (`examples/presets/ring.py` also teaches the eager `Path` against the
-  `Drawing` steps). `gradient_type` and `bent_type` are tuned variants of their examples (other centring and defaults,
+  `Drawing` steps). `gradient_type` and `bent_type` are tuned variants of their examples (other centering and defaults,
   for a headline that stands alone): the preset is the shipped look, the example in `examples/` the documented teaching
   program, and docs and tests refer to the example by name.
 
@@ -1924,15 +1924,15 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   same family draws its lines along, by construction, not by a test that compares two copies of the formulas.
   *Alternative:* copy the five formulas into the screen; refused, because the two would drift.
 - **Rows are walked by index, and their work is bounded without subtraction.** A screen first subtracted two squares to bound
-  the cells of its rings; for a centre 1e20 away the squares cancelled, the bound passed the work charge, and the loop
+  the cells of its rings; for a center 1e20 away the squares cancelled, the bound passed the work charge, and the loop
   `k += 1.0` never advanced. `Layout::round_rows` is now the one function that says which rows reach a box: it refuses a
-  centre so far that a step would not move there (as `bands` always did), bounds the work as rows times the cells of the
+  center so far that a step would not move there (as `bands` always did), bounds the work as rows times the cells of the
   outermost row (a product of non-negative numbers, no difference), and hands back the row indices, which are walked as
   integers. A bound that cannot cancel and a loop that cannot stall leave no input that hangs, so no timeout or clamp.
 - **A cell has an area, and a dot covers `1 - tone` of it.** The invariant in the brief is stated per cell, so the engine is
-  built from it: a screen yields cells (centre, direction of the row, length along it, width across), the mark gives the
+  built from it: a screen yields cells (center, direction of the row, length along it, width across), the mark gives the
   polygon of area `1 - tone` of a unit cell, and the dot is that polygon stretched by the cell's two sides, turned to the
-  row and put on the centre. An affine map multiplies every area by the cell's, so the invariant holds for every mark and
+  row and put on the center. An affine map multiplies every area by the cell's, so the invariant holds for every mark and
   every screen with no per-case code. The cell's area is exact: a wedge of a ring is the mean radius times its angle times
   the pitch (an annular sector), the cell of a wave is the grid's cell moved, so the maths of the areas is two lines each.
 - **Exact area by solving the corners, not by the circle.** A round dot used to be the polygon inscribed in the circle of the
@@ -1946,12 +1946,12 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   cell), so they tile; the dot, the ellipse and a caller's path are not (they overlap at low tone, as the round dot always
   did, documented). *Alternative:* clip the round ones to the cell too; refused, because the overlap is what the earlier
   halftone did and changing it would change every existing picture.
-- **A caller's outline is one closed sub-path, centred on its centroid.** The centre of its bounds would put a heart or a
+- **A caller's outline is one closed sub-path, centered on its centroid.** The center of its bounds would put a heart or a
   triangle's mass off the lattice point; the centroid keeps the mass on it. Several sub-paths would need a hole's winding to
   survive the nonzero fill of separate dots, and the mesh draws each dot as a polygon of its own, so one outline is the rule
   and a second is refused naming `shape`. Its winding is made clockwise whichever way it was drawn.
 - **`tone` is a number or a field, as one argument.** A number stays a number per shape (a Param, `by_index`): `Tone::Level`;
-  a field is read at each dot's centre and held to 0 to 1 (`Tone::Field`). In a document the argument is the `Field`
+  a field is read at each dot's center and held to 0 to 1 (`Tone::Field`). In a document the argument is the `Field`
   kind that reads one number per shape: a number or an expression is the per-shape number, an object is a field. The style
   keeps what it was given, so `Style.halftone.tone` is a float or a `Field`; Rust's `Halftone::new` takes either, as Python's
   `tone=` does. Two fields compare by their keys; a distance field's key holds the digest of the outline it was bound to,
@@ -1961,7 +1961,7 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   the word goes, a document writes `"shape": "ellipse"` or `"shape": {"path": "M0 0 ..."}` (a word or an object, told apart
   by JSON type, so the schema is an `anyOf`). An earlier document had `"shape": "path"` plus `"mark"`, an argument Python does
   not have, and its errors named `mark`; they name `shape` now.
-- **One table of what a layout reads.** `Family::reads` (in `lines/layout.rs`) says which of `angle`, `centre`, `wavelength`
+- **One table of what a layout reads.** `Family::reads` (in `lines/layout.rs`) says which of `angle`, `center`, `wavelength`
   and `amplitude` a layout reads; `bands` asks it by family, a halftone by `Screen::family`, and both refuse an argument given
   and unread through `Family::refuse_unread`. A mark's one rule, that only an ellipse reads `aspect` (a caller's path does not:
   it has its own shape), is `Mark::refuse_unread`. Left out, an argument takes its default and is not refused, so the optional
@@ -1982,7 +1982,7 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   `Path` is the matrix. Image has both because it has no path.
 - **Work.** The cells near the shape are counted before any is made: an upper bound per layout (a rectangle of the lattice,
   the rows times the cells of the outermost, `Layout::round_rows`), each times a dot's corners (the outline's edges were in
-  it too until "A halftone over a cut-out"), charged to `MAX_SEGMENTS`, so a tiny pitch, a far centre or an `aspect` of 1e100 is refused naming `pitch` before an allocation. A
+  it too until "A halftone over a cut-out"), charged to `MAX_SEGMENTS`, so a tiny pitch, a far center or an `aspect` of 1e100 is refused naming `pitch` before an allocation. A
   dot's reach is worked out from the mark, never from a polygon made for the purpose: the first version made one to measure,
   and a huge `aspect` allocated 4 GB before the charge ran (found by the adversarial test, which now stays).
 - **Plotter output.** `to_plot_svg` draws a halftone as its dots, hatched at the pen width like any solid: the region is the
@@ -2005,10 +2005,10 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   `!=`, and a grid of ASCII art is full of them): a test sets `->==!=<=` and counts eight cells. A character the font
   lacks is its notdef glyph, as in `text`; a space makes no shape (no outline). A control character is refused naming its
   row and column (a tab has no width in a grid).
-- **Advance and capital, not ink, are centred** (deviation from "bounds centred in the cell"). Centring each glyph's ink
-  would put a full stop, a hyphen and an underscore in the middle of their cell and read as a different picture; centring
+- **Advance and capital, not ink, are centered** (deviation from "bounds centered in the cell"). Centring each glyph's ink
+  would put a full stop, a hyphen and an underscore in the middle of their cell and read as a different picture; centering
   the pen box keeps the row's baseline, which is what a grid of characters is. Symmetric capitals (`H`, `O`, `#`) are
-  centred by ink as well, which the tests check against the font's own numbers.
+  centered by ink as well, which the tests check against the font's own numbers.
 - **The default size fits the line box.** The largest size at which the widest advance of the grid is within the cell across
   and the font's line box (the `hhea` ascender above the baseline and descender below it, about the middle of a capital) is
   within the cell down: descenders never reach the next row. For JetBrains Mono (advance 0.6 em, line box 1.32 em) a cell of 6
@@ -2124,7 +2124,7 @@ Why not an existing call:
   `trace_levels` of a field is the filled form of `contours` of it, so no new call. Left out, they are a map's own box and
   one map pixel and the map's bytes are traced as before (the SVG of every trace example, preset and differential row
   hashes the same); a field that is not a map has neither and refuses naming the one left out (no default for a field
-  with no extent, as in `contours`). The field is read at cell centres (a map's pixel centres), the readings scaled to 0
+  with no extent, as in `contours`). The field is read at cell centers (a map's pixel centers), the readings scaled to 0
   to 1 by their range and the levels with them, so the map's padding and level clamp hold for any range. Rust sets them
   on the `Trace` (`.frame(rect)`, `.cell(c)`), the options value of the step, as `Envelope::frame` does; `trace_labels`,
   which reads a map's own pixels, refuses a `Trace` with either. `cell` is in design pixels, as in `contours`, not the
@@ -2132,7 +2132,7 @@ Why not an existing call:
 
 ## A stipple radius read from the tone
 
-`stipple`'s `radius` is one number or a pair `(at tone 0, at tone 1)`, read at each dot's centre as `density` is: graded
+`stipple`'s `radius` is one number or a pair `(at tone 0, at tone 1)`, read at each dot's center as `density` is: graded
 dots were one stipple pass per band of tone (three passes, 5.9 s, against 0.65 s for one), and equal dots read as a
 lattice. Why not an existing call: one `stipple` per band of tone, each over the region of its band, is the workaround,
 slower and stepped; `halftone` sizes a dot by its tone but on a regular screen, not a scattered one;
@@ -2161,7 +2161,7 @@ times (the outline's edges + a dot's corners), because each dot was placed by wa
 library already owns a grid of a path's edges (`field/outline.rs`, which `stipple` and the fields read), and the screen
 kept a second, linear copy of the same question (inside by the nonzero rule, an edge within a radius).
 
-- **Fixed at the one owner.** `output/screen.rs` places a dot with `Outline`: an edge nearer the centre than the dot's
+- **Fixed at the one owner.** `output/screen.rs` places a dot with `Outline`: an edge nearer the center than the dot's
   reach (the cells within that reach only, `Outline::reaches`) makes it crossing, else `contains` says inside or outside.
   The charge before any dot is the cells times a dot's corners; each placement charges the cells and edges it weighs
   (and `contains_cost`) before it weighs them, so a comb of edges is still bounded. The same squared distance and nonzero

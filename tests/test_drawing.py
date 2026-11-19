@@ -360,7 +360,7 @@ def test_a_halftone_leaves_out_what_it_takes_by_default_and_is_the_fill():
     assert style.fill is None
     assert repr(style.halftone) == (
         "Halftone(color='#336699ff', tone=0.25, pitch=8.0, angle=45.0, shape='dot', aspect=1.0, screen='grid', "
-        "centre=None, amplitude=1.0, wavelength=6.0)"
+        "center=None, amplitude=1.0, wavelength=6.0)"
     )
 
 

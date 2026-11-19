@@ -2,7 +2,7 @@
 
 `progress` (0 to 1) is the only input. The letter R is carried to a circle, its counter closing as it goes. Beside it,
 CAT turns into HORSE letter by letter: each glyph is paired with the glyph at the same place in the other word, a
-spare glyph of the longer word grows from its own centre, and `stagger(progress)` lets the letters start one after
+spare glyph of the longer word grows from its own center, and `stagger(progress)` lets the letters start one after
 the other, so at 0.5 the word is half way, each letter at its own point of the way. Every frame is the straight blend
 of the two outlines, and 1 to 0 is the way back: the library has no time, so whoever animates sets `progress` and draws
 again. The font comes with the library (SIL OFL 1.1).

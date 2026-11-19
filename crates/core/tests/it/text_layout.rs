@@ -315,7 +315,7 @@ fn each_wrapped_line_is_aligned_by_its_own_width() -> Outcome {
             ],
         ),
         (
-            "centre",
+            "center",
             "Hi To",
             Align::Center,
             &[('H', 0, -1128.5), ('i', 0, 527.5), ('T', 1, -1207.5), ('o', 1, 41.5)],
@@ -615,7 +615,7 @@ fn a_line_with_no_width_cannot_be_fitted() -> Outcome {
 // fit = an axis -------------------------------------------------------------------------------------------------------
 
 /// The x of the middle of the advance of each glyph of the first line: an advance is the step from one to the next.
-fn centres(shapes: &[Shape]) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+fn centers(shapes: &[Shape]) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
     shapes
         .iter()
         .map(|shape| Ok(shape.attributes().origin().ok_or("no origin")?.x))
@@ -624,8 +624,8 @@ fn centres(shapes: &[Shape]) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
 
 /// The advance of the first glyph of `HHH`-like text drawn as `shapes`.
 fn step(shapes: &[Shape]) -> Result<f64, Box<dyn std::error::Error>> {
-    let centres = centres(shapes)?;
-    Ok(centres[1] - centres[0])
+    let centers = centers(shapes)?;
+    Ok(centers[1] - centers[0])
 }
 
 /// A row of the axis table: its rule, font, axis, the font's units to the em, text, width and the advance expected.
@@ -833,8 +833,8 @@ proptest! {
         let font = fraunces()?;
         let total = |width: f64| -> Result<f64, TestCaseError> {
             let shapes = shapes_of("Hi", at_em(&font).width(width).fit("wght"))?;
-            let centres = centres(&shapes).map_err(|error| TestCaseError::fail(error.to_string()))?;
-            Ok(2.0 * (centres[1] - centres[0]))
+            let centers = centers(&shapes).map_err(|error| TestCaseError::fail(error.to_string()))?;
+            Ok(2.0 * (centers[1] - centers[0]))
         };
         let (narrow, wide) = (a.min(b), a.max(b));
         let (at_narrow, at_wide) = (total(narrow)?, total(wide)?);
