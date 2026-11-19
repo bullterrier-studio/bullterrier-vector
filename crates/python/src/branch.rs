@@ -9,7 +9,7 @@ pub(crate) fn branch_of(
     spacing: f64,
     length: f64,
     fork_spacing: Option<f64>,
-    forks: Option<i64>,
+    forks: Option<usize>,
     spread: Option<Num>,
     angle: Option<Num>,
     wander: Option<Num>,
@@ -21,11 +21,6 @@ pub(crate) fn branch_of(
         branch = branch.fork_spacing(fork_spacing);
     }
     if let Some(forks) = forks {
-        #[expect(
-            clippy::cast_precision_loss,
-            reason = "a count past 2^53 is refused by the work bound"
-        )]
-        let forks = forks as f64;
         branch = branch.forks(forks);
     }
     if let Some(Num(spread)) = spread {

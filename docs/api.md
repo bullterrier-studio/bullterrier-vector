@@ -334,7 +334,7 @@ ink = btvec.Drawing(
 poster = btvec.Drawing(btvec.Path.rect(0, 0, 800, 800).fill("#f2c230"), ink, size=(800, 800))
 ```
 
-Rust: `letter.branch(&Branch::new(70.0, 220.0).fork_spacing(60.0).forks(2.0).spread(0.5).angle(Deg(40.0)).wander(Deg(35.0)).seed(7.0))`
+Rust: `letter.branch(&Branch::new(70.0, 220.0).fork_spacing(60.0).forks(2).spread(0.5).angle(Deg(40.0)).wander(Deg(35.0)).seed(7.0))`
 ([examples/threads.py](../examples/threads.py), [Rust](../crates/core/examples/threads.rs),
 [JavaScript](../crates/wasm/examples/threads.mjs)).
 

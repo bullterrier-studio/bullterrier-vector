@@ -1095,11 +1095,17 @@ pub(super) fn rows() -> Vec<Row> {
             sample: || Ok(square()?.branch(&Branch::new(10.0, 6.0).fork_spacing(2.0).spread(0.4).seed(3.0))),
             with: Some(|argument, value| {
                 let branch = Branch::new(10.0, 6.0).fork_spacing(2.0);
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "a row's whole number"
+                )]
+                let count = |name: &str| literal(name, &value).map(|forks| forks as usize);
                 Ok(square()?.branch(&match argument {
                     "spacing" => Branch::new(literal(argument, &value)?, 6.0),
                     "length" => Branch::new(10.0, literal(argument, &value)?),
                     "fork_spacing" => branch.fork_spacing(literal(argument, &value)?),
-                    "forks" => branch.forks(literal(argument, &value)?),
+                    "forks" => branch.forks(count(argument)?),
                     "spread" => branch.spread(value),
                     "angle" => branch.angle(Deg(value)),
                     "wander" => branch.wander(Deg(value)),
@@ -1118,8 +1124,8 @@ pub(super) fn rows() -> Vec<Row> {
                 ("fork_spacing", 0.0, false),
                 ("forks", 0.0, true),
                 ("forks", 3.0, true),
-                ("forks", 0.5, false),
-                ("forks", -1.0, false),
+                // past the whole numbers a double holds exactly (a fraction or a negative count is a document's)
+                ("forks", 1e16, false),
                 ("spread", 0.0, true),
                 ("spread", 1.0, true),
                 ("spread", 1.000_001, false),

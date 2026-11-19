@@ -28,7 +28,7 @@ fn threads() -> Result<Drawing, Error> {
     let threads = letter.branch(
         &Branch::new(70.0, 220.0)
             .fork_spacing(60.0)
-            .forks(2.0)
+            .forks(2)
             .spread(0.5)
             .angle(Deg(40.0))
             .wander(Deg(35.0))

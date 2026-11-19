@@ -410,11 +410,11 @@ fn a_branch_with_the_most_forks_its_bound_allows_is_grown_written_and_read_on_th
             let square = Path::rect(0.0, 0.0, 10.0, 10.0, 0.0)?;
             parameter_refusal(
                 Drawing::from(square.clone())
-                    .branch(&Branch::new(1000.0, 40.0).fork_spacing(1.0).forks(40.0).wavelength(48.0))
+                    .branch(&Branch::new(1000.0, 40.0).fork_spacing(1.0).forks(40).wavelength(48.0))
                     .shapes(&Values::new()),
             )?;
             let drawing =
-                Drawing::from(square).branch(&Branch::new(1000.0, 12.0).fork_spacing(1.0).forks(12.0).wavelength(48.0));
+                Drawing::from(square).branch(&Branch::new(1000.0, 12.0).fork_spacing(1.0).forks(12).wavelength(48.0));
             let document = drawing.to_json()?;
             let back = Drawing::from_json(&document, &Inputs::new())?;
             assert_eq!(back.to_json()?, document);

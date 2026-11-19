@@ -34,7 +34,12 @@ impl Branch {
 
     /// The most forks one path takes, a whole number from 0 (default 2; 0 grows no forks).
     #[must_use]
-    pub fn forks(self, forks: f64) -> Self {
+    pub fn forks(self, forks: usize) -> Self {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a count past 2^53 is refused by the work bound"
+        )]
+        let forks = forks as f64;
         self.with("forks", Expr::from(forks))
     }
 

@@ -161,6 +161,16 @@ impl PyDrawing {
         wavelength: Option<Num>,
         seed: Option<Num>,
     ) -> PyResult<Self> {
+        let forks = forks
+            .map(|forks| {
+                usize::try_from(forks).map_err(|_| {
+                    exception(&vector::Error::Parameter {
+                        parameter: String::from("forks"),
+                        message: format!("must be a whole number from 0, got {forks}"),
+                    })
+                })
+            })
+            .transpose()?;
         checked(self.0.branch(&branch_of(
             spacing,
             length,

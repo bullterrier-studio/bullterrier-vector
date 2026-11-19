@@ -43,7 +43,7 @@ fn binomial(n: u64, k: u64) -> u64 {
 #[test]
 fn every_root_grows_one_path_per_set_of_forks_it_takes() -> Outcome {
     // 1600 of outline every 400: 4 roots; 200 long, a fork every 50: 4 stretches; at most 2 forks a path
-    let branch = Branch::new(400.0, 200.0).fork_spacing(50.0).forks(2.0);
+    let branch = Branch::new(400.0, 200.0).fork_spacing(50.0).forks(2);
     let shapes = drawn(&Drawing::from(square()?).branch(&branch))?;
     let per_root: u64 = (0..=2).map(|k| binomial(4, k)).sum();
     assert_eq!(per_root, 11);
@@ -63,7 +63,7 @@ fn every_root_grows_one_path_per_set_of_forks_it_takes() -> Outcome {
 fn every_path_starts_on_the_outline_and_leaves_it_outward_along_the_normal() -> Outcome {
     // no wander and no forks: each path is straight along the outward normal of its edge
     let ring = Path::from_svg_path("M100 100 L500 100 L500 500 L100 500 Z M200 200 L200 400 L400 400 L400 200 Z")?;
-    let branch = Branch::new(150.0, 60.0).forks(0.0).wander(Deg(0.0));
+    let branch = Branch::new(150.0, 60.0).forks(0).wander(Deg(0.0));
     let shapes = drawn(&Drawing::from(ring.clone()).branch(&branch))?;
     assert!(shapes.len() > 8);
     for shape in &shapes {
@@ -92,7 +92,7 @@ fn every_path_of_a_root_is_as_long_as_its_length_and_the_spread_varies_roots_onl
     for spread in [0.0, 0.6] {
         let branch = Branch::new(200.0, 150.0)
             .fork_spacing(60.0)
-            .forks(2.0)
+            .forks(2)
             .spread(spread)
             .seed(3.0);
         let shapes = drawn(&Drawing::from(square()?).branch(&branch))?;
@@ -126,7 +126,7 @@ fn every_path_of_a_root_is_as_long_as_its_length_and_the_spread_varies_roots_onl
 fn a_fork_starts_on_its_parent_and_leaves_it_at_the_angle() -> Outcome {
     let branch = Branch::new(400.0, 240.0)
         .fork_spacing(60.0)
-        .forks(1.0)
+        .forks(1)
         .angle(Deg(35.0))
         .wander(Deg(25.0))
         .seed(11.0);
@@ -158,7 +158,7 @@ fn a_fork_starts_on_its_parent_and_leaves_it_at_the_angle() -> Outcome {
 #[test]
 fn the_heading_drifts_at_most_twice_the_wander_from_the_normal() -> Outcome {
     let branch = Branch::new(100.0, 400.0)
-        .forks(0.0)
+        .forks(0)
         .wander(Deg(20.0))
         .wavelength(60.0)
         .seed(5.0);
@@ -206,7 +206,7 @@ fn a_request_past_the_limits_is_refused_naming_the_argument_before_any_thread_is
     let square = Drawing::from(square()?);
     let named = |branch: Branch| parameter_refusal(drawn(&square.branch(&branch))).map(|(name, _)| name);
     assert!(named(Branch::new(1e-6, 100.0))?.ends_with("spacing"));
-    assert!(named(Branch::new(400.0, 1e6).fork_spacing(1.0).forks(1e6))?.ends_with("fork_spacing"));
+    assert!(named(Branch::new(400.0, 1e6).fork_spacing(1.0).forks(1_000_000))?.ends_with("fork_spacing"));
     assert!(named(Branch::new(400.0, 1e9).wavelength(1e-3))?.ends_with("wavelength"));
     for (branch, argument) in [
         (Branch::new(0.0, 100.0), "spacing"),
@@ -264,7 +264,10 @@ fn assert_charged(shape: &Shape, length: f64, wavelength: f64) -> Outcome {
     for step in &steps {
         assert!((step - each).abs() <= 1e-9 * each.max(1.0), "step {step}, not {each}");
     }
-    assert!((shape.path().length() - length).abs() <= 1e-9 * length, "ends short of its length");
+    assert!(
+        (shape.path().length() - length).abs() <= 1e-9 * length,
+        "ends short of its length"
+    );
     Ok(())
 }
 
@@ -272,7 +275,10 @@ fn assert_charged(shape: &Shape, length: f64, wavelength: f64) -> Outcome {
 fn a_path_has_exactly_the_points_it_is_charged_when_its_length_is_a_whole_number_of_steps() -> Outcome {
     // 30 long at a step of 80 / 24 is 9 steps, so 10 points: the growth must not add a tail step of a rounding error
     for (length, wavelength) in [(30.0, 80.0), (100.0, 2.4)] {
-        let branch = Branch::new(1600.0, length).forks(0.0).wander(Deg(0.0)).wavelength(wavelength);
+        let branch = Branch::new(1600.0, length)
+            .forks(0)
+            .wander(Deg(0.0))
+            .wavelength(wavelength);
         let shapes = drawn(&Drawing::from(square()?).branch(&branch))?;
         assert_eq!(shapes.len(), 1);
         assert_charged(&shapes[0], length, wavelength)?;
@@ -286,12 +292,12 @@ proptest! {
     fn every_path_has_the_points_it_was_charged_and_equal_steps(
         length in 1.0_f64..400.0,
         wavelength in 2.0_f64..120.0,
-        forks in 0_u32..3,
+        forks in 0_usize..3,
         shorter in prop_oneof![Just(0.0), 0.0_f64..1.0],
     ) {
         let branch = Branch::new(800.0, length)
             .fork_spacing(length / 3.0)
-            .forks(f64::from(forks))
+            .forks(forks)
             .spread(shorter)
             .wavelength(wavelength);
         let shapes = drawn(&Drawing::from(square().map_err(|e| TestCaseError::fail(e.to_string()))?).branch(&branch))
@@ -317,9 +323,35 @@ proptest! {
 #[test]
 fn a_path_of_one_point_past_the_limit_is_refused_by_the_bound_not_grown() -> Outcome {
     // a step of 1 (wavelength 24) over 10,000,000: 10,000,000 steps and so 10,000,001 points, one past MAX_SEGMENTS
-    let branch = Branch::new(1600.0, 10_000_000.0).forks(0.0).wavelength(24.0);
+    let branch = Branch::new(1600.0, 10_000_000.0).forks(0).wavelength(24.0);
     let (name, message) = parameter_refusal(drawn(&Drawing::from(square()?).branch(&branch)))?;
     assert!(name.ends_with("wavelength"), "{name}");
     assert!(message.contains("10000001 points"), "{message}");
+    Ok(())
+}
+
+#[test]
+fn a_document_with_forks_that_are_not_a_whole_number_from_0_is_refused_naming_forks() -> Outcome {
+    // `forks` is a `usize` in Rust, so only a document can say a fraction or a negative number
+    let written = Drawing::from(square()?)
+        .branch(&Branch::new(300.0, 100.0).forks(7))
+        .to_json()?;
+    assert!(written.contains(r#""forks":7"#), "{written}");
+    let document = |forks: &str| written.replace(r#""forks":7"#, &format!(r#""forks":{forks}"#));
+    for forks in ["0.5", "-1"] {
+        let refusal = Drawing::from_json(&document(forks), &Inputs::new())
+            .err()
+            .ok_or("read")?
+            .to_string();
+        assert!(
+            refusal.contains("/branch/forks: must be a whole number from 0"),
+            "forks {forks}: {refusal}"
+        );
+    }
+    assert!(
+        Drawing::from_json(&document("2"), &Inputs::new())
+            .and_then(|d| drawn(&d))
+            .is_ok()
+    );
     Ok(())
 }
