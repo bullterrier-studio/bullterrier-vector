@@ -439,7 +439,31 @@ GENERATED = json.loads(drawing_schema())
 # The documents that the draft and the generated schema must give one verdict on, beyond GOOD, BAD and the examples:
 # each states a rule the registered calls declare and the draft was loosened or tightened to match.
 NOISE = {"Field.noise": {"wavelength": 40, "seed": 3, "octaves": 3}}
+TURNED = {"Flow.rotate": {"flow": {"Flow.contour": {"drawing": [{"path": "M0 0 L9 0 L9 9 Z"}]}}, "angle": 90}}
 AGREED = [
+    pytest.param(square_with({"hatch": {"spacing": 5, "flow": TURNED}}), True, id="a turned flow"),
+    pytest.param(
+        square_with({"hatch": {"spacing": 5, "flow": {"Flow.rotate": {"flow": TURNED["Flow.rotate"]["flow"]}}}}),
+        False,
+        id="a turn with no angle",
+    ),
+    pytest.param(
+        square_with(
+            {
+                "hatch": {
+                    "spacing": 5,
+                    "flow": {
+                        "Flow.rotate": {
+                            "flow": {"Flow.angle": {"angle": 0}},
+                            "angle": {"by_index": {"first": 0, "last": 90}},
+                        }
+                    },
+                }
+            }
+        ),
+        False,
+        id="a turn by a per-item number",
+    ),
     pytest.param(
         square_with(
             {"hatch": {"spacing": [3, 9], "tone": {"Field.abs": {"Field.add": [2, {"Field.mul": [14, NOISE]}]}}}}
@@ -1078,6 +1102,7 @@ REGISTERED = {
     "Flow.noise",
     "Flow.contour",
     "Flow.mix",
+    "Flow.rotate",
     "simplify",
     "reverse",
     "dash",

@@ -294,6 +294,12 @@ impl PyFlow {
         raised(self.0.mix(&other.0, fraction.0)).map(Self)
     }
 
+    /// This flow turned `angle` degrees clockwise on screen (a number, a `Param` or an expression, read with the values
+    /// of the step that reads the flow): `Flow.contour(d).rotate(90)` runs across the outlines of `d`.
+    fn rotate(&self, angle: Num) -> PyResult<Self> {
+        raised(self.0.rotate(angle.0)).map(Self)
+    }
+
     /// The direction at `(x, y)` in degrees from 0 up to 180, clockwise from the right on screen.
     fn at(&self, x: f64, y: f64) -> f64 {
         self.0.at(vector::Point::new(x, y))

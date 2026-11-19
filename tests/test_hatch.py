@@ -96,8 +96,34 @@ def test_a_direction_and_its_opposite_mix_to_the_same_direction() -> None:
         btvec.Flow.noise(wavelength=0)
 
 
+def test_a_turned_flow_is_the_flow_plus_the_turn_clockwise() -> None:
+    # oracle: the sum of the angles modulo 180, and the radius of a circle (atan2 of the point from its centre)
+    assert apart(btvec.Flow.angle(30).rotate(100).at(0, 0), 130) < 1e-9
+    assert apart(btvec.Flow.angle(30).rotate(angle=-45).at(0, 0), 165) < 1e-9
+    across = btvec.Flow.contour(CIRCLE).rotate(90)
+    for x, y in [(150, 100), (135.4, 64.6), (61, 70)]:
+        assert apart(across.at(x, y), math.degrees(math.atan2(y - 100, x - 100))) < 1
+    turn = btvec.Param("turn", default=90, min=0, max=180)
+    assert apart(btvec.Flow.angle(0).rotate(turn).at(0, 0), 90) < 1e-9
+    assert repr(btvec.Flow.angle(30).rotate(90)) == "Flow.angle(30).rotate(90)"
+
+
+def test_a_turn_refuses_what_it_cannot_read_once_and_nests_16_deep() -> None:
+    with pytest.raises(btvec.ParameterError, match="angle"):
+        btvec.Flow.angle(0).rotate(math.nan)
+    with pytest.raises(btvec.ParameterError, match="angle"):
+        btvec.Flow.angle(0).rotate(btvec.by_index(0, 90))
+    flow = btvec.Flow.angle(0)
+    for _ in range(16):
+        flow = flow.rotate(5)
+    with pytest.raises(btvec.ParameterError, match="flow"):
+        flow.rotate(5)
+    with pytest.raises(TypeError):
+        btvec.Flow.angle(0).rotate("90")  # type: ignore[arg-type]  # a text is not an angle
+
+
 def test_a_hatched_drawing_saves_to_json_and_loads_back_to_the_same_lines() -> None:
-    flow = btvec.Flow.contour(CIRCLE).mix(btvec.Flow.noise(wavelength=90, seed=4), 0.4)
+    flow = btvec.Flow.contour(CIRCLE).mix(btvec.Flow.noise(wavelength=90, seed=4), 0.4).rotate(30)
     drawing = btvec.Drawing(BOX).hatch((6, 12), tone=btvec.Field.distance(CIRCLE, normalized=True), flow=flow)
     text = drawing.to_json()
     again = btvec.Drawing.from_json(text)

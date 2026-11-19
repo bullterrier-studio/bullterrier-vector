@@ -196,7 +196,7 @@
           "additionalProperties": false,
           "properties": {
             "flow": { "$ref": "#/$defs/flow" },
-            "angle": { "$ref": "#/$defs/number" }
+            "angle": { "$ref": "#/$defs/once" }
           },
           "required": ["flow", "angle"]
         }
