@@ -10,7 +10,7 @@ use crate::{Cap, Expr, Join};
 pub struct Outline {
     join: Option<Join>,
     cap: Option<Cap>,
-    miter_limit: Option<f64>,
+    miter_limit: Option<Expr>,
     tolerance: Option<f64>,
     profile: Option<Vec<(Expr, Expr)>>,
 }
@@ -36,10 +36,11 @@ impl Outline {
         self
     }
 
-    /// This outline with a mitre sharper than `miter_limit` (SVG's ratio, at least 1) cut flat.
+    /// This outline with a mitre sharper than `miter_limit` (SVG's ratio, at least 1) cut flat: a number, a `Param`
+    /// or an expression read for each shape, as [`Stroke::miter_limit`](crate::Stroke::miter_limit).
     #[must_use]
-    pub fn miter_limit(mut self, miter_limit: f64) -> Self {
-        self.miter_limit = Some(miter_limit);
+    pub fn miter_limit(mut self, miter_limit: impl Into<Expr>) -> Self {
+        self.miter_limit = Some(miter_limit.into());
         self
     }
 
@@ -75,20 +76,21 @@ impl Drawing {
     /// attributes; a shape that shrinks past nothing keeps an empty path.
     ///
     /// `join` shapes the corners that stick out; a mitre sharper than `miter_limit` (SVG's ratio, at least 1) is cut
-    /// flat. Curves become straight edges that stray from them by at most `tolerance` design pixels (0.01 is a
-    /// hundredth of one). `join`, `miter_limit` and `tolerance` are fixed when the step is written.
+    /// flat: a number for each shape, as `distance`. Curves become straight edges that stray from them by at most
+    /// `tolerance` design pixels (0.01 is a hundredth of one). `join` and `tolerance` are fixed when the step is
+    /// written.
     ///
     /// A `miter_limit` below 1 or a `tolerance` that is not above 0 and within ±1e100 leaves the drawing with an
-    /// [`error`](Drawing::error) naming the step (`step 2 (offset).tolerance`); a `distance` the library refuses is
-    /// refused when the drawing is drawn. A draw is refused past `MAX_SEGMENTS`.
+    /// [`error`](Drawing::error) naming the step (`step 2 (offset).tolerance`); a `distance` or a `miter_limit` the
+    /// library refuses that reads a Param is refused when the drawing is drawn. A draw is refused past `MAX_SEGMENTS`.
     #[must_use]
-    pub fn offset(&self, distance: impl Into<Expr>, join: Join, miter_limit: f64, tolerance: f64) -> Self {
+    pub fn offset(&self, distance: impl Into<Expr>, join: Join, miter_limit: impl Into<Expr>, tolerance: f64) -> Self {
         self.then(
             &offset::Offset,
             vec![
                 ("distance", Given::Number(distance.into())),
                 ("join", Given::Text(join.name().to_owned())),
-                ("miter_limit", Given::Number(Expr::from(miter_limit))),
+                ("miter_limit", Given::Number(miter_limit.into())),
                 ("tolerance", Given::Number(Expr::from(tolerance))),
             ],
         )
@@ -116,7 +118,7 @@ impl Drawing {
             given.push(("cap", Given::Text(cap.name().to_owned())));
         }
         if let Some(miter_limit) = miter_limit {
-            given.push(("miter_limit", Given::Number(Expr::from(miter_limit))));
+            given.push(("miter_limit", Given::Number(miter_limit)));
         }
         if let Some(tolerance) = tolerance {
             given.push(("tolerance", Given::Number(Expr::from(tolerance))));

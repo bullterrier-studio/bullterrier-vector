@@ -282,6 +282,29 @@ fn a_number_the_library_refuses_leaves_the_step_with_an_error_naming_it() -> Out
 }
 
 #[test]
+fn a_miter_limit_is_read_for_each_shape_from_a_param_or_a_list() -> Outcome {
+    // a 30 degree point: its mitre is 1 / sin(15 degrees) = 3.86 half-widths long, so a limit of 2 cuts it, 10 keeps it
+    let thin = Path::from_svg_path("M0 0 L20 0 L0 5.36 Z")?;
+    let by_path = |limit: f64| thin.offset(1.0, Join::Miter, limit, TOLERANCE);
+    let limit = Param::new("limit", 2.0, 0.5, 10.0)?;
+    let drawing = Drawing::from(thin.clone()).offset(1.0, Join::Miter, &limit, TOLERANCE);
+    assert_eq!(drawn(&drawing)?[0].path(), &by_path(2.0)?);
+    assert_eq!(
+        drawing.shapes(&Values::new().set("limit", 10.0))?[0].path(),
+        &by_path(10.0)?
+    );
+    let (place, _) = parameter_refusal(drawing.shapes(&Values::new().set("limit", 0.5)))?;
+    assert_eq!(place, "step 1 (offset).miter_limit");
+    let each = Drawing::new([thin.clone(), thin.clone()]).offset(1.0, Join::Miter, by_index(2.0, 10.0), TOLERANCE);
+    let paths: Vec<Path> = drawn(&each)?.iter().map(|shape| shape.path().clone()).collect();
+    assert_eq!(paths, vec![by_path(2.0)?, by_path(10.0)?]);
+    let outlined = Drawing::from(thin.clone()).outline(1.0, Outline::new().join(Join::Miter).miter_limit(&limit));
+    let outline_of = |limit: f64| thin.outline(1.0, Join::Miter, Cap::Round, limit, TOLERANCE, None);
+    assert_eq!(drawn(&outlined)?[0].path(), &outline_of(2.0)?);
+    Ok(())
+}
+
+#[test]
 fn a_width_read_from_a_param_is_refused_when_drawn_naming_the_step_and_the_shape() -> Outcome {
     let width = Param::new("width", 2.0, -5.0, 5.0)?;
     let drawing = Drawing::new([square(0.0, 10.0)?, square(30.0, 10.0)?])
@@ -400,13 +423,6 @@ fn a_document_that_gives_a_step_a_wrong_argument_is_refused_at_the_value() -> Ou
             r#"{"distance":1,"miter_limit":0.5}"#,
             "/root/1/offset/miter_limit",
             "at least",
-        ),
-        (
-            "miter_limit a Param",
-            "offset",
-            r#"{"distance":1,"miter_limit":{"param":"m"}}"#,
-            "/root/1/offset/miter_limit",
-            "number",
         ),
         (
             "tolerance zero",

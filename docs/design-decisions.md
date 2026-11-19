@@ -2271,3 +2271,6 @@ Why not an existing call:
 - **Why waves left unsized are 48 by 8 px in `bands` too, and not an error.** `halftone` defaulted its waves while
   `bands(family="waves")` refused to draw without both numbers: one family, two rules. One pair of constants
   (`DEFAULT_WAVELENGTH`, `DEFAULT_AMPLITUDE` in `lines/layout.rs`, beside `Family`) is now the default of both verbs.
+- **Why `offset` and `outline` read `miter_limit` per shape, and not once.** An argument is read per shape unless a
+  written reason says otherwise, and `stroke` already read its `miter_limit` per shape; `offset` and `outline` cut the
+  same mitre with the same ratio and had no reason to differ. A `Path` verb keeps a plain number, as for every argument.

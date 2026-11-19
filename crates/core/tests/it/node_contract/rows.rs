@@ -1284,7 +1284,7 @@ pub(super) fn rows() -> Vec<Row> {
             sample: || Ok(square()?.offset(2.0, Join::Miter, 4.0, 0.01)),
             with: Some(|argument, value| match argument {
                 "distance" => Ok(square()?.offset(value, Join::Round, 4.0, 0.01)),
-                "miter_limit" => Ok(square()?.offset(1.0, Join::Miter, literal(argument, &value)?, 0.01)),
+                "miter_limit" => Ok(square()?.offset(1.0, Join::Miter, value, 0.01)),
                 "tolerance" => Ok(square()?.offset(1.0, Join::Round, 4.0, literal(argument, &value)?)),
                 _ => Err(unknown("offset", argument)),
             }),
@@ -1378,13 +1378,9 @@ pub(super) fn rows() -> Vec<Row> {
             sample: || Ok(square()?.outline(2.0, Outline::new().join(Join::Miter).cap(Cap::Butt))),
             with: Some(|argument, value| match argument {
                 "width" => Ok(square()?.outline(value, Outline::new())),
-                "miter_limit" => Ok(square()?.outline(
-                    1.0,
-                    Outline::new()
-                        .join(Join::Miter)
-                        .cap(Cap::Butt)
-                        .miter_limit(literal(argument, &value)?),
-                )),
+                "miter_limit" => {
+                    Ok(square()?.outline(1.0, Outline::new().join(Join::Miter).cap(Cap::Butt).miter_limit(value)))
+                }
                 "tolerance" => Ok(square()?.outline(1.0, Outline::new().tolerance(literal(argument, &value)?))),
                 _ => Err(unknown("outline", argument)),
             }),

@@ -252,21 +252,22 @@ impl PyDrawing {
     }
 
     /// The edge of the region every shape fills moved outward by `distance` (a number, a Param or an expression, for
-    /// each shape), inward when negative; as `Path.offset`. `join`, `miter_limit` and `tolerance` are plain values.
+    /// each shape), inward when negative; as `Path.offset`. `miter_limit` is read for each shape too; `join` and
+    /// `tolerance` are plain values.
     #[pyo3(
-        signature = (distance, *, join="round", miter_limit=DEFAULT_MITER_LIMIT, tolerance=DEFAULT_TOLERANCE),
+        signature = (distance, *, join="round", miter_limit=Num(DEFAULT_MITER_LIMIT.into()), tolerance=DEFAULT_TOLERANCE),
         text_signature = "($self, distance, *, join='round', miter_limit=4, tolerance=0.01)"
     )]
-    fn offset(&self, distance: Num, join: &str, miter_limit: f64, tolerance: f64) -> PyResult<Self> {
+    fn offset(&self, distance: Num, join: &str, miter_limit: Num, tolerance: f64) -> PyResult<Self> {
         let join = raised(vector::Join::parse(join))?;
-        checked(self.0.offset(distance.0, join, miter_limit, tolerance))
+        checked(self.0.offset(distance.0, join, miter_limit.0, tolerance))
     }
 
     /// Every shape turned into the region a stroke of `width` (a number, a Param or an expression, for each shape)
     /// along it paints; as `Path.outline`. `profile` is a list of `(position, factor)` pairs (numbers, Params or
     /// expressions) that varies the width along each sub-path: a taper is `[(0, 0), (0.15, 1), (0.85, 1), (1, 0)]`.
     #[pyo3(
-        signature = (width, *, profile=None, join="round", cap="round", miter_limit=DEFAULT_MITER_LIMIT, tolerance=DEFAULT_TOLERANCE),
+        signature = (width, *, profile=None, join="round", cap="round", miter_limit=Num(DEFAULT_MITER_LIMIT.into()), tolerance=DEFAULT_TOLERANCE),
         text_signature = "($self, width, *, profile=None, join='round', cap='round', miter_limit=4, tolerance=0.01)"
     )]
     fn outline(
@@ -275,13 +276,13 @@ impl PyDrawing {
         profile: Option<Vec<Pair>>,
         join: &str,
         cap: &str,
-        miter_limit: f64,
+        miter_limit: Num,
         tolerance: f64,
     ) -> PyResult<Self> {
         let mut options = vector::Outline::new()
             .join(raised(vector::Join::parse(join))?)
             .cap(raised(vector::Cap::parse(cap))?)
-            .miter_limit(miter_limit)
+            .miter_limit(miter_limit.0)
             .tolerance(tolerance);
         if let Some(profile) = profile {
             options = options.profile(profile.into_iter().map(|Pair(at, factor)| (at, factor)));

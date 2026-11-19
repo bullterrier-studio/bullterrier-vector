@@ -258,8 +258,9 @@ Known limits:
 `offset` and `outline` give the region a path fills moved, and the region a stroke paints, as closed straight-edged
 polygons in the canonical form of "Path" (rows above; a `miter` clipped flat, not bevelled). On a `Drawing` they are
 steps: each shape keeps its style and attributes and gets the `Path` result; a shape that shrinks past nothing keeps an
-empty path. `distance` and `width` are numbers for each shape (a number, a `Param`, `by_index`, `Random`...), so a list
-of shapes grows by different amounts; `join`, `cap`, `miter_limit` and `tolerance` are plain values, not Params.
+empty path. `distance`, `width` and `miter_limit` are numbers for each shape (a number, a `Param`, `by_index`,
+`Random`...), as `stroke`'s, so a list of shapes grows by different amounts; `join`, `cap` and `tolerance` are plain
+values, not Params. On a `Path` every argument is a plain number.
 Rust: `path.offset(2.0, Join::Round, 4.0, 0.01)?`, `drawing.offset(2.0, Join::Round, 4.0, 0.01)`,
 `drawing.outline(2.0, Join::Round, Cap::Round, 4.0, 0.01)`, `path.sweep(dx, dy, 0.01)?`, `drawing.sweep(dx, dy, 0.01)`
 (the flat-nib look: `text(...).sweep(28, -16)` in one call, where a union of shifted copies combs at the ends).

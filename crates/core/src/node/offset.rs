@@ -11,14 +11,9 @@ use crate::path::require_round_stroke;
 use crate::shape::{Cap, DEFAULT_MITER_LIMIT, Join};
 use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
 
-/// Where a mitred corner is cut flat, SVG's ratio of the length of the point to the half-width.
-const MITER_LIMIT: Arg = Arg {
-    name: "miter_limit",
-    kind: Kind::Number,
-    default: Some(Literal::Number(DEFAULT_MITER_LIMIT)),
-    reads: Reads::Literal,
-    domain: Domain::AtLeast(1.0),
-};
+/// Where a mitred corner is cut flat, SVG's ratio of the length of the point to the half-width, read for each shape as
+/// `stroke` reads it.
+const MITER_LIMIT: Arg = number("miter_limit", Some(DEFAULT_MITER_LIMIT), Domain::AtLeast(1.0));
 
 /// Every shape grown or shrunk.
 #[derive(Debug)]
@@ -105,10 +100,10 @@ impl Node for Offset {
         let place = cx.place.to_string();
         let mut charge = |count| cx.work.made_segments(count, &place);
         let join = choice(args, "join", Join::named)?;
-        let miter_limit = args.once_number(cx, "miter_limit")?;
         let tolerance = args.once_number(cx, "tolerance")?;
         each_shape(inputs.previous, cx, |shape, item| {
             let distance = args.number(cx, "distance", item)?;
+            let miter_limit = args.number(cx, "miter_limit", item)?;
             let path = shape
                 .path()
                 .offset_charged(distance, join, miter_limit, tolerance, &mut charge)?;
@@ -127,10 +122,10 @@ impl Node for Outline {
         let mut charge = |count| cx.work.made_segments(count, &place);
         let join = choice(args, "join", Join::named)?;
         let cap = choice(args, "cap", Cap::named)?;
-        let miter_limit = args.once_number(cx, "miter_limit")?;
         let tolerance = args.once_number(cx, "tolerance")?;
         each_shape(inputs.previous, cx, |shape, item| {
             let width = args.number(cx, "width", item)?;
+            let miter_limit = args.number(cx, "miter_limit", item)?;
             let path = match args.pairs(cx, "profile", item)? {
                 Some(profile) => shape
                     .path()

@@ -451,7 +451,7 @@ class Drawing:
     def intersect(self, other: Path | Shape | Drawing, *, tolerance: float = 0.01) -> Drawing: ...
     def exclude(self, other: Path | Shape | Drawing, *, tolerance: float = 0.01) -> Drawing: ...
     def offset(
-        self, distance: _Num, *, join: str = "round", miter_limit: float = 4, tolerance: float = 0.01
+        self, distance: _Num, *, join: str = "round", miter_limit: _Num = 4, tolerance: float = 0.01
     ) -> Drawing: ...
     def outline(
         self,
@@ -460,7 +460,7 @@ class Drawing:
         profile: Sequence[_NumPair] | None = None,
         join: str = "round",
         cap: str = "round",
-        miter_limit: float = 4,
+        miter_limit: _Num = 4,
         tolerance: float = 0.01,
     ) -> Drawing: ...
     def sweep(self, dx: _Num, dy: _Num, *, tolerance: float = 0.01) -> Drawing: ...

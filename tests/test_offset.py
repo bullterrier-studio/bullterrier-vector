@@ -152,6 +152,26 @@ def test_a_param_distance_follows_the_value_and_is_described_by_the_drawing():
         approx_edges(shape.path, wanted)
 
 
+THIN = btvec.Path.from_svg_path("M0 0 L20 0 L0 5.36 Z")  # a 30 degree point, its mitre 3.86 times the half-width
+
+
+@pytest.mark.parametrize("step", ["offset", "outline"])
+def test_a_miter_limit_is_read_for_each_shape_from_a_param_or_a_list(step):
+    def by_path(limit: float) -> btvec.Path:
+        return getattr(THIN, step)(1, join="miter", miter_limit=limit)
+
+    limit = btvec.Param("limit", default=2, min=0.5, max=10)
+    drawing = getattr(Drawing(THIN), step)(1, join="miter", miter_limit=limit)
+    assert [p.name for p in drawing.parameters()] == ["limit"]
+    assert drawing.shapes()[0].path == by_path(2)
+    assert drawing.shapes(limit=10)[0].path == by_path(10)
+    with pytest.raises(ParameterError, match=rf"\({step}\)\.miter_limit"):
+        drawing.shapes(limit=0.5)
+    each = getattr(Drawing(THIN, THIN), step)(1, join="miter", miter_limit=btvec.by_index(2, 10))
+    assert [shape.path for shape in each.shapes()] == [by_path(2), by_path(10)]
+    assert Drawing.from_json(each.to_json()).to_json() == each.to_json()
+
+
 def test_a_shape_shrunk_past_nothing_stays_in_the_list_with_an_empty_path():
     shapes = Drawing(SQUARE, btvec.Path.rect(30, 0, 4, 4)).offset(-3).shapes()
     assert [shape.path.to_svg_path() == "" for shape in shapes] == [False, True]
@@ -190,10 +210,6 @@ def test_a_width_read_from_a_param_is_refused_when_drawn():
     [
         pytest.param(lambda: LOOSE_DRAWING.offset(1, "miter"), id="a positional join"),
         pytest.param(lambda: LOOSE_DRAWING.offset("2"), id="a distance that is text"),
-        pytest.param(
-            lambda: LOOSE_DRAWING.offset(1, miter_limit=btvec.Param("m", default=2, min=1, max=9)),
-            id="a Param miter_limit",
-        ),
         pytest.param(lambda: LOOSE_DRAWING.outline(), id="outline without a width"),
         pytest.param(lambda: LOOSE_DRAWING.outline(1, tolerance="fine"), id="a tolerance that is text"),
     ],
