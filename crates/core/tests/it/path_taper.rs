@@ -155,17 +155,22 @@ fn example_two_each_dash_of_a_dashed_line_tapers_at_its_own_ends() -> Outcome {
 }
 
 #[test]
-fn example_three_a_closed_ring_tapers_from_its_written_start_round_to_the_start_again() -> Outcome {
-    // a 40 square written from its top left corner; the profile peaks half way round, at the opposite corner
-    let square = [(0.0, 0.0), (40.0, 0.0), (40.0, 40.0), (0.0, 40.0)];
+fn example_three_a_closed_ring_tapers_from_its_top_round_to_the_top_again() -> Outcome {
+    // a 3-4-5 triangle written from its bottom left corner (0, 100); its topmost point is (60, 20), where `slice` and
+    // `dash` start it. From there it runs 80 down, 60 left and 100 back up: 240 round, so the profile peaks 120 along,
+    // at (20, 100)
+    let triangle = Path::polyline([(0.0, 100.0), (60.0, 20.0), (60.0, 100.0)], true)?;
+    let start = triangle.point_at(0.0, None)?;
+    assert_eq!((start.x, start.y), (60.0, 20.0));
     let profile = [(0.0, 0.0), (0.5, 1.0), (1.0, 0.0)];
-    let ring = Path::polyline(square, true)?.tapered_outline(6.0, &profile, TOLERANCE)?;
-    // the seam: both ends of the profile meet at the written start, where the ring pinches to a point; opposite it, it
-    // is full width, and the whole ring agrees with the oracle
-    assert!(!ring.contains((-0.7, -0.7))?);
-    assert!(ring.contains((40.0 + 2.0, 40.0 + 2.0))?);
-    let sweep = Sweep::along(&square, true, 6.0, &profile);
-    assert!(sweep.agrees(&ring, (-6.0, 46.0), (-6.0, 46.0), 0.5)? > 5000);
+    let ring = triangle.tapered_outline(6.0, &profile, TOLERANCE)?;
+    // the seam: both ends of the profile meet at the top, where the ring pinches to a point; at the written start,
+    // 140 along, the factor is 5/6 (radius 2.5); half way round it is full width
+    assert!(!ring.contains((61.0, 19.0))?);
+    assert!(ring.contains((-1.0, 101.0))?);
+    assert!(ring.contains((20.0, 102.5))?);
+    let sweep = Sweep::along(&[(60.0, 20.0), (60.0, 100.0), (0.0, 100.0)], true, 6.0, &profile);
+    assert!(sweep.agrees(&ring, (-6.0, 66.0), (14.0, 106.0), 0.5)? > 5000);
     Ok(())
 }
 

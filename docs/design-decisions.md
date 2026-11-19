@@ -1215,9 +1215,10 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   letters and the two contours of an "O" each taper on their own, a global position would taper only the first and last
   contour — a position along the whole path (draw the profile once over a many-piece path) is not possible; join the
   pieces first, then outline.*
-  *Ruling: a closed sub-path is walked from its written start (as `resample`), and the profile runs once round it; where
-  the end meets the start the width steps from the last factor to the first (both discs are in the union, so the larger
-  shows) — a taper to 0 on a ring pinches it at its start (a brush stroke closing on itself), equal end factors give a
+  *Ruling: a closed sub-path is walked from its topmost point (as `slice`, `dash` and `resample`; it once walked from
+  the written start, so a hand-drawn ring or a glyph pinched where `slice` did not cut), and the profile runs once
+  round it; where the end meets the start the width steps from the last factor to the first (both discs are in the
+  union, so the larger shows) — a taper to 0 on a ring pinches it at its top (a brush stroke closing on itself), equal end factors give a
   seamless ring; cost if wrong: a ring that should have no seam shows a step unless the profile's ends are equal.*
   *Ruling: joins and caps are round, so `join` and `cap` other than `"round"` with a profile are a `ParameterError`
   naming the argument (the verb check, the core's `require_round_stroke` for Python), and `miter_limit` is unused — the
@@ -2204,3 +2205,9 @@ Why not an existing call:
   nothing about what it is). `envelope`'s value is exactly "this fraction of the way to the curve", the library's word
   for that, as in `morph`. `bulge`'s is a signed, unbounded push (`r' = r * (1 + stretch * falloff(r))`), so not
   `fraction` (it is no blend), not `strength` (banned) and not `scale` (a verb).
+- **Why one start for every position along a closed outline, and why `resample` takes no `near`.** `resample` and the
+  taper of `outline(profile=)` walked a closed sub-path from its written start while `slice`, `dash` and `point_at`
+  walked it from its top: one name, position 0, meant two places. All now use the walk's one rule (the top, the
+  leftmost of a tie). `slice`, `dash` and `point_at` cut at positions, so they take `near` to move the start where the
+  top jumps; `resample`'s corners are evenly spaced whatever the start, and nothing needs a nonstandard start of its
+  samples, so it takes none.

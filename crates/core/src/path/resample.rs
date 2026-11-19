@@ -8,7 +8,8 @@ use crate::limits::MAX_SEGMENTS;
 
 impl Path {
     /// The path as straight segments with corners `spacing` design pixels apart along it. Each sub-path is measured
-    /// as [`Path::length`] measures it, from its own start (a closed one from its written start), with corners at 0,
+    /// as [`Path::length`] measures it, from its own start (a closed one from its topmost point, as
+    /// [`Path::point_at`] measures it), with corners at 0,
     /// `spacing`, 2 `spacing`, ... along it, every one on the path. An open sub-path keeps its end, so its last gap
     /// is at most `spacing`; a closed one stays closed and its last gap wraps to the start, so a `spacing` past its
     /// perimeter leaves its start alone. A sub-path with no length stays a lone point; an empty path stays empty.
@@ -46,8 +47,7 @@ impl Path {
         let runs: Vec<Run<'_>> = self
             .subpaths
             .iter()
-            // a closed sub-path is walked from its written start, so that resampling keeps it
-            .map(|subpath| Run::new(subpath, 0.0, Some(subpath.start)))
+            .map(|subpath| Run::new(subpath, 0.0, None))
             .collect();
         // the most corners of each run: those at 0, s, 2s, ... below its length, and the end
         let wanted: f64 = runs.iter().map(|run| (run.length / spacing).ceil() + 1.0).sum();

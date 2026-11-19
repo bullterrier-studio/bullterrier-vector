@@ -42,13 +42,33 @@ fn the_distance_runs_round_a_corner_so_a_gap_is_measured_along_the_path() -> Out
 }
 
 #[test]
-fn a_closed_path_stays_closed_from_its_written_start_and_its_last_gap_wraps() -> Outcome {
+fn a_closed_path_stays_closed_from_its_top_and_its_last_gap_wraps() -> Outcome {
     let square = Path::from_svg_path("M0 0 L10 0 L10 10 L0 10 Z")?;
     assert_eq!(square.resample(10.0)?.to_svg_path(), "M0 0 L10 0 L10 10 L0 10 Z");
     // the perimeter is 40: corners at 0, 15 and 30 along it, and the 10 left wrap to the start
     assert_eq!(square.resample(15.0)?.to_svg_path(), "M0 0 L10 5 L0 10 Z");
     // a spacing past the perimeter leaves the start alone
     assert_eq!(square.resample(100.0)?.to_svg_path(), "M0 0 Z");
+    Ok(())
+}
+
+#[test]
+fn a_closed_path_written_from_elsewhere_is_resampled_from_its_top_as_point_at_measures_it() -> Outcome {
+    // a 3-4-5 triangle written from (0, 100): from its top (60, 20) it runs 80 down, 60 left and 100 back up the
+    // hypotenuse, whose direction is (-0.6, -0.8) reversed: 160 along is 20 up it from (0, 100), at (12, 84); 200 along
+    // is 60 up it, at (36, 52)
+    let triangle = Path::from_svg_path("M0 100 L60 20 L60 100 Z")?;
+    let resampled = triangle.resample(40.0)?;
+    let wanted = [(60.0, 20.0), (60.0, 60.0), (60.0, 100.0), (20.0, 100.0), (12.0, 84.0), (36.0, 52.0)];
+    let found = corners(&resampled)?;
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].len(), wanted.len(), "{found:?}");
+    for (corner, want) in found[0].iter().zip(wanted) {
+        assert!(distance(*corner, want) < 1e-9, "{corner:?} against {want:?}");
+    }
+    assert!(resampled.to_svg_path().ends_with('Z'));
+    let (first, top) = (resampled.point_at(0.0, None)?, triangle.point_at(0.0, None)?);
+    assert_eq!((first.x, first.y), (top.x, top.y));
     Ok(())
 }
 

@@ -23,8 +23,8 @@ const MAX_FACTOR: f64 = 1e100;
 impl Path {
     /// The region a stroke along this path paints when its width is `width` times the factor of `profile` at each place,
     /// as closed outlines. `profile` is a list of `(position, factor)`: the position runs from 0 at the start of each
-    /// sub-path to 1 at its end, measured by arc length along that sub-path on its own (a closed one from its written
-    /// start, as [`Path::resample`] walks it), so every open sub-path tapers at its own ends, each piece of a dashed
+    /// sub-path to 1 at its end, measured by arc length along that sub-path on its own (a closed one from its topmost
+    /// point, as [`Path::slice`] and [`Path::dash`] walk it), so every open sub-path tapers at its own ends, each piece of a dashed
     /// line included. Factors are linear between stops and hold the first and last value outside them. Two stops at
     /// one position make a step. A closed sub-path has no free ends: the profile runs once round it, and where the
     /// end meets the start the width steps from the last factor to the first.
@@ -72,7 +72,7 @@ impl Path {
         let runs: Vec<Run<'_>> = self
             .subpaths
             .iter()
-            .map(|subpath| Run::new(subpath, 0.0, Some(subpath.start)))
+            .map(|subpath| Run::new(subpath, 0.0, None))
             // a lone move, and a line to its own start, paint nothing, as in `outline`
             .filter(|run| run.length > 0.0)
             .collect();
