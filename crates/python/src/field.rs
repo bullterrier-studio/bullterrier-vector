@@ -147,6 +147,69 @@ impl PyField {
         raised(py.detach(|| self.0.contours_with(&levels, r#box.0, cell, &tidy))).map(PyPath)
     }
 
+    /// Smooth seeded noise from -1 to 1, one lattice cell `wavelength` design pixels wide; `phase` in cycles moves it (one
+    /// cycle on is the same field), each of `octaves` (1 to 8) adds the noise at half the wavelength and half the
+    /// amplitude. `wavelength` and `phase` may be `Param`s.
+    #[staticmethod]
+    #[pyo3(
+        signature = (wavelength, *, phase=None, seed=0.0, octaves=1),
+        text_signature = "(wavelength, *, phase=0, seed=0, octaves=1)"
+    )]
+    fn noise(wavelength: Num, phase: Option<Num>, seed: f64, octaves: usize) -> PyResult<Self> {
+        let phase = phase.map_or_else(|| vector::Expr::from(0.0), |number| number.0);
+        raised(vector::Field::noise(wavelength.0, phase, seed, octaves)).map(Self)
+    }
+
+    /// The smaller of this field and `other` (a `Field` or a number) at each point.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "pyo3 extracts the operand as an owned value"
+    )]
+    fn min(&self, other: Tone) -> PyResult<Self> {
+        raised(self.0.min(&other.0)).map(Self)
+    }
+
+    /// The larger of this field and `other` (a `Field` or a number) at each point.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "pyo3 extracts the operand as an owned value"
+    )]
+    fn max(&self, other: Tone) -> PyResult<Self> {
+        raised(self.0.max(&other.0)).map(Self)
+    }
+
+    fn __add__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        combined(py, other, |other| self.0.add(&other))
+    }
+
+    fn __radd__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        combined(py, other, |other| other.add(&self.0))
+    }
+
+    fn __sub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        combined(py, other, |other| self.0.add(&negated(&other)?))
+    }
+
+    fn __rsub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        combined(py, other, |other| other.add(&negated(&self.0)?))
+    }
+
+    fn __mul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        combined(py, other, |other| self.0.mul(&other))
+    }
+
+    fn __rmul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        combined(py, other, |other| other.mul(&self.0))
+    }
+
+    fn __neg__(&self) -> PyResult<Self> {
+        raised(negated(&self.0)).map(Self)
+    }
+
+    fn __abs__(&self) -> PyResult<Self> {
+        raised(self.0.abs()).map(Self)
+    }
+
     /// The field's number at `(x, y)`.
     fn at(&self, x: f64, y: f64) -> f64 {
         self.0.at(vector::Point::new(x, y))
@@ -155,6 +218,31 @@ impl PyField {
     fn __repr__(&self) -> String {
         self.0.to_string()
     }
+}
+
+/// `field` times -1: the one spelling of a negation and of the right side of a subtraction.
+fn negated(field: &vector::Field) -> Result<vector::Field, vector::Error> {
+    field.mul(&vector::Field::constant(-1.0)?)
+}
+
+/// `operation` on `other` as a field (a number is a constant field), or `NotImplemented` when `other` is neither, so that
+/// Python tries the other operand's method and then raises `TypeError`.
+fn combined(
+    py: Python<'_>,
+    other: &Bound<'_, PyAny>,
+    operation: impl FnOnce(vector::Field) -> Result<vector::Field, vector::Error>,
+) -> PyResult<Py<PyAny>> {
+    let field = if let Ok(field) = other.cast::<PyField>() {
+        field.get().0.clone()
+    } else if let Ok(number) = other.extract::<Num>() {
+        raised(vector::Field::constant(number.0))?
+    } else {
+        return Ok(py.NotImplemented());
+    };
+    Ok(PyField(raised(operation(field))?)
+        .into_pyobject(py)?
+        .into_any()
+        .unbind())
 }
 
 /// A direction without sign at every point: a line through the point, not an arrow. `hatch` draws along one.
