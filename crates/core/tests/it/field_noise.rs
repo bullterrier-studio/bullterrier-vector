@@ -185,6 +185,28 @@ fn a_whole_cycle_of_any_phase_is_the_same_field_up_to_the_rounding_of_the_sum() 
 }
 
 #[test]
+fn two_noise_tones_that_differ_only_by_octaves_are_two_steps_to_the_cache() -> Outcome {
+    let square = Drawing::from(Path::rect(0.0, 0.0, 120.0, 80.0, 0.0)?);
+    let hatched = |octaves| -> Result<Drawing, Error> {
+        Ok(square.hatch(&Hatch::between(3.0, 9.0, noise(30.0, 0.0, 4.0, octaves)?), None))
+    };
+    // a stack shares a result between items whose steps are equal: the second hatch must be drawn, not found
+    let stacked = Drawing::new([hatched(1)?, hatched(4)?]);
+    let both: Vec<String> = stacked
+        .shapes(&Values::new())?
+        .iter()
+        .map(|s| s.path().to_svg_path())
+        .collect();
+    let alone: Vec<String> = [hatched(1)?, hatched(4)?]
+        .iter()
+        .map(|drawing| Ok(drawing.shapes(&Values::new())?[0].path().to_svg_path()))
+        .collect::<Result<_, Error>>()?;
+    assert_ne!(alone[0], alone[1], "the octaves change the lines");
+    assert_eq!(both, alone);
+    Ok(())
+}
+
+#[test]
 fn noise_refuses_a_bad_wavelength_octaves_seed_or_per_item_number() -> Outcome {
     for wavelength in [0.0, -3.0, f64::NAN, f64::INFINITY] {
         assert_eq!(parameter_refusal(noise(wavelength, 0.0, 0.0, 1))?.0, "wavelength");
