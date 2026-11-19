@@ -154,7 +154,7 @@ impl PyDrawing {
         spacing: f64,
         length: f64,
         fork_spacing: Option<f64>,
-        forks: Option<f64>,
+        forks: Option<i64>,
         spread: Option<Num>,
         angle: Option<Num>,
         wander: Option<Num>,

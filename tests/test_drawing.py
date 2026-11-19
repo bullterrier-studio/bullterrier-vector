@@ -1310,7 +1310,7 @@ def test_branch_grows_one_open_path_per_root_and_fork_from_the_outline() -> None
     ("options", "argument"),
     [
         pytest.param({"spread": 1.5}, "spread", id="a spread past 1"),
-        pytest.param({"forks": 0.5}, "forks", id="forks that are not whole"),
+        pytest.param({"forks": -1}, "forks", id="forks below 0"),
         pytest.param({"seed": 0.5}, "seed", id="a seed that is not whole"),
         pytest.param({"fork_spacing": 0}, "fork_spacing", id="no fork spacing"),
     ],
@@ -1318,3 +1318,8 @@ def test_branch_grows_one_open_path_per_root_and_fork_from_the_outline() -> None
 def test_branch_refuses_what_it_cannot_grow_naming_the_argument(options: dict[str, Any], argument: str) -> None:
     with pytest.raises(btvec.ParameterError, match=argument):
         Drawing(btvec.Path.rect(0, 0, 100, 100)).branch(50, length=40, **options).shapes()
+
+
+def test_branch_takes_a_whole_number_of_forks() -> None:
+    with pytest.raises(TypeError):
+        Drawing(btvec.Path.rect(0, 0, 100, 100)).branch(50, length=40, forks=0.5)  # type: ignore[arg-type]  # a count is whole
