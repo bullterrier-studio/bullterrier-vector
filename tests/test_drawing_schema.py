@@ -86,8 +86,8 @@ def test_the_schema_is_a_valid_draft_2020_12_schema() -> None:
     Draft202012Validator.check_schema(SCHEMA)
 
 
-def test_there_is_an_example_for_each_piece_and_five_small_drawings() -> None:
-    assert len(EXAMPLES) >= 8
+def test_the_example_documents_are_found() -> None:
+    assert EXAMPLES, "no example document under docs/examples/json"
 
 
 @pytest.mark.parametrize("path", EXAMPLES, ids=lambda path: path.name)

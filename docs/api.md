@@ -24,7 +24,6 @@ import bullterrier_vector as btvec
 | Program | Shows |
 |---|---|
 | [kinetic_type.py](../examples/kinetic_type.py), [.rs](../crates/core/examples/kinetic_type.rs), [.mjs](../crates/wasm/examples/kinetic_type.mjs) | reference piece 1 (M3), the same piece in all three: variable-font axes, a kick running through the letters, riso inks with a plane that knocks the letters out, a bend and a morph, a clip |
-| [cut_paper.py](examples/cut_paper.py) | reference piece 2: a traced mask, offset layers, shadows, a draw-on outline, a sequence of maps |
 | [hatched_poster.py](examples/hatched_poster.py) | reference piece 3: flow-field hatching by tone, rings of a distance field, a plotter file |
 | [star.py](../examples/star.py) | building and measuring a `Path` |
 | [ring.py](../examples/presets/ring.py) | offsets and a boolean, eager on a `Path` and as steps on a `Drawing` |
@@ -43,11 +42,9 @@ import bullterrier_vector as btvec
 | [line_families.py](../examples/line_families.py), [.rs](../crates/core/examples/line_families.rs), [.mjs](../crates/wasm/examples/line_families.mjs) | three hills drawn only from lines that follow a tone (ridgelines, rings, dots), and the plotter SVG of them, in all three languages |
 | [glyph_morph.py](../examples/glyph_morph.py), [.rs](../crates/core/examples/glyph_morph.rs), [.mjs](../crates/wasm/examples/glyph_morph.mjs) | a letter that turns into a circle and CAT into HORSE on one `progress`, in all three languages |
 | [glyph_scatter.py](../examples/glyph_scatter.py) | letters split into parts, scattered by seeded random numbers |
-| [radial_repeat.py](examples/radial_repeat.py) | a radial repeater; a number per copy |
 | [halftone.py](../examples/halftone.py), [.rs](../crates/core/examples/halftone.rs), [.mjs](../crates/wasm/examples/halftone.mjs) | discs with a tone each, and four panels that are each a dot shape on a screen with a ramp `Field` for the tone, over paper, in all three languages |
 | [cut_type.py](../examples/cut_type.py) | a headline faded by one mask, over stripes clipped to a circular window |
 | [gradient_type.py](../examples/gradient_type.py) | a headline filled with one gradient across the frame, a glow and a ring with radial ones; the preset `gradient_type` (and `bent_type`, above) is a tuned variant of its example, which is the documented teaching program |
-| [duotone.py](examples/duotone.py) | a gradient map and posterize on colours |
 | [series_bars.py](../examples/series_bars.py) | a series of numbers as bars, with plain code |
 | [frame_export.py](examples/frame_export.py) | a transparent PNG sequence and a clip from a function of time; a knockout |
 | [mesh_upload.js](examples/mesh_upload.js) | a mesh in WebAssembly memory uploaded to WebGL, the pointer pattern |
@@ -179,8 +176,6 @@ set; to scale one with the shape, give it the same Param (`stroke(color, width=2
 | `offset` | `offset(distance, *, join="round", miter_limit=4, tolerance=0.01)` | the region it fills moved outward by `distance` (inward when negative; past nothing, an empty path); joins `round`, `miter`, `bevel`; a `miter` sharper than `miter_limit` (SVG's ratio) is clipped flat at that length (SVG's `miter-clip`), not bevelled: the engine cannot bevel | `ParameterError`: `distance` not a number within ±1e100, `miter_limit` below 1, `tolerance` (as `union`), a result beyond ±1e100 |
 | `outline` | `outline(width, *, profile=None, join="round", cap="round", miter_limit=4, tolerance=0.01)` | the region a stroke of `width` paints, as a closed outline; caps `butt`, `round`, `square`. With a `profile` the width varies along the stroke ("Tapered strokes" below); `join` and `cap` must then be `"round"` and `miter_limit` is unused | `ParameterError`: `width` not above 0 and within ±1e100, `miter_limit` below 1, `tolerance` and the result as `offset`; with a `profile`: it empty, over `MAX_PROFILE_STOPS` stops, a position outside 0..1 or going back, a factor not from 0 to 1e100, `join` or `cap` not `"round"`, or the discs' corners over `MAX_SEGMENTS` (a huge `width` at a fine `tolerance`; refused before any is made) |
 | `sweep` | `sweep(dx, dy, *, tolerance=0.01)` | the region it fills (nonzero rule) covers as it moves `dx` to the right and `dy` down in a straight line (the Minkowski sum with the segment): the region, its moved copy and the parallelogram every edge passes over, united; a hole it crosses far enough fills in; `(0, 0)` gives the region it fills, as `offset(0)`. On a `Drawing` `dx` and `dy` are numbers for each shape, as `translate`'s; the `origin` is not moved | `ParameterError`: `dx` or `dy` not within ±1e100 or moving a point past it, `tolerance` (as `union`), past `MAX_SEGMENTS` (the parallelograms, five points an edge, charged before any is made, then the pairs of edges that may cross, as the booleans: a long diagonal sweep of a shape of many edges is refused, naming `dx` on a `Path`, the step on a `Drawing`); a shape far below the vector (1e90 against 10) is lost to the engine's rounding, as for the booleans |
-| `drop_parts` | `drop_parts(*, smaller_than)` | without the parts whose area is below `smaller_than` square pixels | `smaller_than` below 0 |
-| `fill_holes` | `fill_holes(*, smaller_than)` | with the holes whose area is below `smaller_than` filled | `smaller_than` below 0 |
 | `slice` | `slice(start, end, *, near=None)` | the piece between two positions along it (draw-on: `slice(0, progress)`); on a `Drawing` each number is read per shape, so `text("WRITE").slice(0, stagger(progress, spread=0.6))` draws the letters on one after another (Rust: `drawing.slice(start, end)`, `drawing.slice_near(start, end, near)`); with `near`, a closed sub-path is measured from its point nearest `near`, as for every verb that takes it | a position outside 0..1; `start` above `end`; on a `Path`, `GeometryError`: an empty path (on a `Drawing` a shape with nothing in it stays) |
 | `reverse` | `reverse()` | the same outline travelled the other way. On a `Drawing` a step with no arguments: every shape is reversed, style, attributes and `origin` are kept, so `text(...).reverse().slice(0, progress)` draws on from the other end | |
 | `dash` | `dash(pattern, *, phase=0, near=None)` | the pieces a dash pattern (`[on, off, ...]` in pixels) leaves. An odd-length pattern repeats itself to make an even one, as SVG's `stroke-dasharray` does (`[a]` is `[a, a]`, `[a, b, c]` is `[a, b, c, a, b, c]`). Each sub-path starts the pattern at its own start (a closed one at its top, or the point nearest `near`, as `slice`). `phase` is in cycles of the whole even pattern and wraps; it moves the dashes forward along the path (marching ants are `phase` a Param going 0 to 1; `phase` 1 is `phase` 0, negative phases run back). The pieces are open, curves stay curves cut where the pattern falls; a closed sub-path wholly inside one dash stays closed; a sub-path with no length stays a lone point, a path every dash misses is empty, an empty path stays empty. Shortcut: a closed sub-path's last dash, when it runs to the end, and its first, when it starts at the start, are two pieces, not one. On a `Drawing`, every number of `pattern` and `phase` is a per-item number (a Param allowed), style and attributes are kept | `ParameterError`: an empty pattern, more than `MAX_DASH_PATTERN` lengths, a length not a number above 0 and within 1e100, `phase` NaN or infinite, a bound on the pieces (cycles crossed + 1, times dashes per cycle) above `MAX_SEGMENTS`, charged before any is made |
@@ -631,11 +626,9 @@ Past `MAX_SVG_ELEMENTS` (20,000 elements, the root included), `MAX_SVG_DEPTH` (1
 | `merge` | `merge(*, by=None)` | shapes with an equal attribute `by` (all shapes, if `None`) joined into one: their sub-paths in list order, not united (overlaps stay; `union` or `resolve` unites them), with the first's attributes and style, at the first's place; groups in the order their first members appear; shapes that lack `by` are a group | `by` that is no attribute name; `by` that no shape of the list carries (when drawn) |
 | `only` | `only(**attributes)` | the shapes whose attributes equal these (a list means any of; `class` goes in a dict, `only(**{"class": "c"})`) | an attribute no shape carries |
 | `without` | `without(**attributes)` | the other shapes | as `only` |
-| `repeat` | `repeat(count, *, translate=(0, 0), rotate=0, scale=1, about=None)` | `count` copies, copy `i` transformed `i` times; writes `copy`, and `order` where a shape has none | `count` below 1 |
 
 `index` is every shape's place in the current list. Generators write the rest: `text` writes `glyph`, `char`, `word`,
-`line`, `order` and a typographic `origin`; `repeat` writes `copy` and, on shapes that carry none, `order` (0..1 over
-the copies); `trace` writes `level`; `Drawing.from_svg` writes the text `id`, `class` and `group` ("SVG import"); `Drawing(...)` writes `order` on the shapes that carry none.
+`line`, `order` and a typographic `origin`; `trace` writes `level`; `Drawing.from_svg` writes the text `id`, `class` and `group` ("SVG import"); `Drawing(...)` writes `order` on the shapes that carry none.
 `order` runs 0..1 over the shapes the step that writes it writes it on, in list order (a single shape has 0; a stack
 spreads it over its shapes that carry none, so a text keeps its per-letter order beside a rectangle) and survives
 `split` and `only`; `index`
@@ -658,8 +651,6 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | `knockout` | `knockout()` | each shape removes what is below it in its drawing, instead of painting: the area its fill and stroke cover is cut out of the shapes before it, shadows included | `to_svg`: more than 128 knockout layers nested (below) |
 | `clip` | `clip(region)` | cuts each shape, and its shadow, to the region the drawing `region` (a `Drawing`, `Path` or `Shape`) fills: all its shapes united once, whichever way round their outlines run; each shape is cut on its own, as `opacity` applies to it, not as a group of the drawing; a region that fills nothing leaves nothing drawn; a second clip cuts to both; a knockout is not cut | a `region` that holds an error; the work of uniting it past `MAX_SEGMENTS`; a mesh |
 | `mask` | `mask(source)` | fades each shape, and its shadow, by the luminance of `source` as painted (gradients, blends and opacity included; 0.2126 R + 0.7152 G + 0.0722 B of the sRGB values, times the alpha): white keeps, black and what `source` leaves bare hide; each shape on its own; a knockout is not masked | a shape that is masked already, or a `source` whose shapes are masked (naming `source`); the canvas pixels of the masks of a draw past `MAX_FILTER_PIXELS`; a mesh |
-| `gradient_map` | `gradient_map(colors)` | every fill and stroke colour replaced by its lightness read along `colors`, dark to light (two colours: a duotone) | fewer than 2 colours |
-| `posterize` | `posterize(levels)` | every fill and stroke colour reduced to `levels` levels a channel | `levels` below 2 |
 
 Colours are `"#rgb"`, `"#rrggbb"` or `"#rrggbbaa"`. A gradient is a value (Rust `Gradient::linear(start, end, stops)?` and
 `Gradient::radial(center, radius, stops)?`, stops `(f64, Color)`; Python `Gradient`, `Style.fill` and `Style.stroke`
@@ -1016,7 +1007,7 @@ Arithmetic (`+`, `-`, `*`, `/`, unary `-`) on Params and numbers builds an `Expr
 `Param` is an `Expr`, and so is every per-item number below, so they combine (`btvec.random(-10, 10, seed=7) * burst`).
 Every number a step takes may be an `Expr`:
 
-- a whole-number argument (`repeat`'s `count`, a `seed`, `posterize`'s `levels`) too, if its value is a whole number
+- a whole-number argument (a `seed`) too, if its value is a whole number
   within ±(2⁵³ − 1) when drawn; any other value raises `ParameterError`, never rounded;
 - a number inside a pair or a list (`translate=(dx, dy)`, `about`, `anchor`, `spacing=(a, b)`, a dash pattern, trace
   `levels`), component by component.
@@ -1276,8 +1267,7 @@ macOS). In Python and JavaScript the error points at the call that caused it; in
 
 - **Names in the field's own terms.** `amplitude`, `wavelength`, `pitch`, `spacing`, `tracking`, `leading`, `phase`,
   `seed`, `tolerance`; never `strength`, `intensity`, `factor`, `amount`, `val` or `k`. One name per concept: a
-  position along a path is `at` (or `start`, `end`), a pivot is `about`, an angle is `angle` (`repeat`'s keywords
-  mirror the verbs: `rotate=`), "this fraction of the way to the other" is `fraction`, a colour argument is `color`.
+  position along a path is `at` (or `start`, `end`), a pivot is `about`, an angle is `angle`, "this fraction of the way to the other" is `fraction`, a colour argument is `color`.
 - **Units.** Design pixels for lengths, scaled with the output, so no caller ever scales. Degrees, clockwise, for
   angles, wrapping. Cycles for phases, wrapping. Fractions 0..1 for positions along a path and for progress. Thousandths
   of an em for tracking; font axes in the font's own units; areas in square pixels; millimetres only in the plotter
@@ -1287,13 +1277,13 @@ macOS). In Python and JavaScript the error points at the call that caused it; in
   named constant, never the output size; a map is sampled at its own pixels. A drawing has the same geometry at any
   output size: only rasterising depends on it.
 - **Arguments.** What a call cannot do without is positional (`offset(8)`, `rotate(30)`), unless its keyword makes
-  the call read as a sentence (`drop_parts(smaller_than=1500)`, `text("NO", font=font)`, `halftone(INK, tone=photo)`);
+  the call read as a sentence (`text("NO", font=font)`, `halftone(INK, tone=photo)`);
   every option is keyword-only (`wobble(amplitude=3)`).
 - **Defaults look good** with no tuning: a default comes from a gallery piece, not from a round number. The defaults
   written here (leading 1.2 × size, pitch 8, shadow 8 and 16, wavelengths 80, 120 and 400...) are placeholders until the
   batch that builds the step tunes them with its gallery piece.
-- **Reading as a sentence.** `plane.subtract(letters)`, `figure.drop_parts(smaller_than=1500)`,
-  `letters.only(char="O")`, `petal.repeat(12, rotate=30)`. Related verbs sit together in the tables above.
+- **Reading as a sentence.** `plane.subtract(letters)`, `figure.offset(8)`,
+  `letters.only(char="O")`, `petal.rotate(30)`. Related verbs sit together in the tables above.
 - **How a method is documented.** One line that states the promise in the field's terms; each argument with its unit,
   range and default; each error it raises and when. Never how it works.
 
@@ -1330,24 +1320,25 @@ Results go to stdout, errors to stderr. The same in Python: `bullterrier_vector.
 ## Languages
 
 The same names in every language, in each language's case: `snake_case` in Python and Rust, `camelCase` in JavaScript
-(`toPng`, `byIndex`, `outCubic`).
+(`toPng`, `presetNames`). Python and Rust build drawings; JavaScript (the package built from `crates/wasm`) loads a
+document and draws it, so the table has no JavaScript column and the paragraph below it says what JavaScript has.
 
-| | Python | Rust | JavaScript |
-|---|---|---|---|
-| Constructors | `btvec.Drawing(a, b, size=(w, h))`, `btvec.Font(data)`, `btvec.Param("rise", default=0, min=0, max=1)` | `Drawing::new([a, b]).with_size(w, h)`, `Drawing::from(path)`, `Font::new(data)?`, `Param::new("rise", 0.0, 0.0, 1.0)?.unit(Unit::Fraction)?` | `new btvec.Drawing([a, b], { size: [w, h] })`, `new btvec.Font(data)`, `new btvec.Param("rise", { default: 0, min: 0, max: 1 })` |
-| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7.0)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7.0) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`) | an options object last (`{ width: 1.5 }`) |
-| Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` | methods (`add`, `sub`, `mul`, `div`, `neg`), read in source order: `pulse.mul(0.08).add(1)`; a number that comes first is lifted once with `btvec.expr(n)`: `btvec.expr(1).sub(rise).mul(HEIGHT)` |
-| Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` | an object: `toPng(1080, 1350, { weight: 820 })` |
-| Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plot_svg(w, h, pen_width=0.5, tolerance=None, unit="mm", **values)` (so no Param may take `into`, `pen_width`, `tolerance`, `unit` or `window`) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plot_svg(Size::px(300.0, 375.0), &values, &Plot::new(0.5)?.unit(PlotUnit::Mm))` | an options object after the values: `toPlotSvg(w, h, values, { penWidth: 0.5, unit: "mm" })`; a `Mesh` is lent as its own argument: `toMeshInto(mesh, w, h, values)` |
-| Units as types | | `Deg(..)` for every angle of a `Drawing` step (`rotate`, `repeat`'s `rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`, `branch`'s `angle` and `wander`); a `Path` method takes plain degrees (`rotate(30.0, None)?`); `Size::px(w, h)` (whole output pixels, else an error at the draw; for a plot in `PlotUnit::Mm` or `In` the sides of the same `Size` are in that unit and need not be whole) | |
-| Colours | `"#ff4f9a"` | `Color::hex(0xff4f9a)`, `Color::NONE` | `"#ff4f9a"` |
-| Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`reverse`, `split`, `length`); a verb that takes a plain number returns a `Result`, as a NaN or an infinity is a `ParameterError` (`path.translate(1.0, 2.0)?`); a path is built from `Path::start(point)`, so no segment comes before a start. `Error` is `#[non_exhaustive]`: `Error::Parameter { parameter, message }` and `Error::Geometry { verb, message }`, owned strings so a drawing can prefix the step. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step | thrown `Error` objects whose `name` is `"ParameterError"`, `"GeometryError"` or `"FormatError"` and whose message is the core's (the same text as Python's). No classes to `instanceof`: wasm-bindgen cannot define subclasses; the `name` is the contract. A value of a type a call cannot read is a plain `TypeError` |
-| Optional `Path` arguments | keywords: `point_at(0.5, near=p)`, `rotate(30, about=p)`, `Path.rect(0, 0, w, h, radius=8)`, `scale((2, 3))` | plain arguments, `None` for the default: `point_at(0.5, Some(p))?`, `rotate(30.0, None)?`, `Path::rect(0.0, 0.0, w, h, 8.0)?`; `scale` takes a number or a pair through `Scale`: `scale(2.0, None)?`, `scale((2.0, 3.0), None)?`; `Path::polyline(points, closed)` and `Path::star(center, outer, inner, points)` take their options in place; `map_points` takes `FnMut(Point) -> Result<Point, Error>` | an options object last: `pointAt(0.5, { near: p })`, `scale([2, 3])` |
-| Bytes in | `bytes` | `Vec<u8>` | `Uint8Array` |
-| Frame export | `btvec.frames` | the caller's loop over `to_png` | the caller's loop over `toRgba` or `toMesh` |
+|  | Python | Rust |
+|---|---|---|
+| Constructors | `btvec.Drawing(a, b, size=(w, h))`, `btvec.Font(data)`, `btvec.Param("rise", default=0, min=0, max=1)` | `Drawing::new([a, b]).with_size(w, h)`, `Drawing::from(path)`, `Font::new(data)?`, `Param::new("rise", 0.0, 0.0, 1.0)?.unit(Unit::Fraction)?` |
+| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7.0)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7.0) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`) |
+| Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` |
+| Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` |
+| Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plot_svg(w, h, pen_width=0.5, tolerance=None, unit="mm", **values)` (so no Param may take `into`, `pen_width`, `tolerance`, `unit` or `window`) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plot_svg(Size::px(300.0, 375.0), &values, &Plot::new(0.5)?.unit(PlotUnit::Mm))` |
+| Units as types | | `Deg(..)` for every angle of a `Drawing` step (`rotate`, `Flow::angle`, `halftone`'s and `wave`'s `angle`, `branch`'s `angle` and `wander`); a `Path` method takes plain degrees (`rotate(30.0, None)?`); `Size::px(w, h)` (whole output pixels, else an error at the draw; for a plot in `PlotUnit::Mm` or `In` the sides of the same `Size` are in that unit and need not be whole) |
+| Colours | `"#ff4f9a"` | `Color::hex(0xff4f9a)`, `Color::NONE` |
+| Errors | exceptions | `Result<_, btvec::Error>`. On a `Path`, a constructor or verb that can fail returns a `Result` (`Path::rect(..)?`, `path.offset(8.0)?`) and one that cannot returns the value (`reverse`, `split`, `length`); a verb that takes a plain number returns a `Result`, as a NaN or an infinity is a `ParameterError` (`path.translate(1.0, 2.0)?`); a path is built from `Path::start(point)`, so no segment comes before a start. `Error` is `#[non_exhaustive]`: `Error::Parameter { parameter, message }` and `Error::Geometry { verb, message }`, owned strings so a drawing can prefix the step. A `Drawing` chain keeps its first error and returns it from the first draw, `to_json` or `parameters()`, naming the step by its place in the chain and its verb (`step 3 (rotate): ...`); `parameters()` is the early check, so no `?` per step |
+| Optional `Path` arguments | keywords: `point_at(0.5, near=p)`, `rotate(30, about=p)`, `Path.rect(0, 0, w, h, radius=8)`, `scale((2, 3))` | plain arguments, `None` for the default: `point_at(0.5, Some(p))?`, `rotate(30.0, None)?`, `Path::rect(0.0, 0.0, w, h, 8.0)?`; `scale` takes a number or a pair through `Scale`: `scale(2.0, None)?`, `scale((2.0, 3.0), None)?`; `Path::polyline(points, closed)` and `Path::star(center, outer, inner, points)` take their options in place; `map_points` takes `FnMut(Point) -> Result<Point, Error>` |
+| Bytes in | `bytes` | `Vec<u8>` |
+| Frame export | `btvec.frames` | the caller's loop over `to_png` |
 
-The kinetic type piece, an excerpt of the part that builds the drawing, in all three (whole programs, with the bend and the morph:
-[Python](../examples/kinetic_type.py), [Rust](../crates/core/examples/kinetic_type.rs), [JavaScript](../crates/wasm/examples/kinetic_type.mjs), which loads the document of the Python drawing):
+The kinetic type piece, an excerpt of the part that builds the drawing, in Python and Rust (whole programs, with the bend and the morph:
+[Python](../examples/kinetic_type.py), [Rust](../crates/core/examples/kinetic_type.rs); [the JavaScript program](../crates/wasm/examples/kinetic_type.mjs) loads the document of the Python drawing):
 
 ```python
 letters = (
@@ -1402,22 +1393,16 @@ let values = Values::new().set("rise", 1.0).set("ink", 1.0).set("weight", 620.0)
 let png = piece.to_png(Size::px(WIDTH, HEIGHT), &values)?;
 ```
 
-```js
-const letters = btvec
-  .text("NO\nSLEEP", { font, size: 560, axes: { wght: weight.add(pulse.mul(120)) }, leading: 520,
-                       anchor: [WIDTH / 2, 600], align: "center", width: 980, fit: "wdth" })
-  .rotate(btvec.random(-10, 10, { seed: 7 }).mul(burst))
-  .translate(btvec.random(-30, 30, { seed: 8 }).mul(burst), btvec.random(-50, 50, { seed: 9 }).mul(burst));
-const frame = btvec.Path.rect(0, 0, WIDTH, HEIGHT);
-const misregistration = burst.mul(14).add(3);
-const blue = new btvec.Drawing([frame]).translate(0, btvec.expr(1).sub(rise).mul(HEIGHT))
-  .subtract(letters.translate(misregistration, misregistration.mul(0.6))).fill(BLUE).blend("multiply");
-const pink = letters.fill(PINK).blend("multiply").opacity(ink);
-const hairlines = letters.stroke(INK, { width: 1.5 }).opacity(btvec.expr(1).sub(ink));
-const piece = new btvec.Drawing([frame.fill(PAPER), blue, pink, hairlines], { size: [WIDTH, HEIGHT] });
-const values = { rise: 1, ink: 1, weight: 620, burst: 0.4, pulse: [0.9, 0.6, 0.3, 0.1, 0, 0, 0, 0] };
-const rgba = piece.toRgba(1080, 1350, values);
-```
+**JavaScript** has no builders: it loads a document (`Drawing.fromJson(text, inputs?)`, `Drawing.preset(name)`,
+`Drawing.presetNames()`, `Drawing.presetDescription(name)`), writes it back (`toJson`), describes it (`parameters`, `size`)
+and draws it (`toSvg`, `toRgba`, `toPng`, `toMesh`, `toMeshInto`, `toPlotSvg`), with `Mesh` and `wasmMemory()`. Draw-time
+values are an object (`toPng(1080, 1350, { weight: 820 })`), output options an object after the values (`toPlotSvg(w, h,
+values, { penWidth: 0.5, unit: "mm" })`; a `Mesh` is lent as its own argument: `toMeshInto(mesh, w, h, values)`), bytes in
+are `Uint8Array`s and colours `"#ff4f9a"` strings. Errors are thrown `Error` objects whose `name` is `"ParameterError"`,
+`"GeometryError"` or `"FormatError"` and whose message is the core's (the same text as Python's); there are no classes to
+`instanceof` (wasm-bindgen cannot define subclasses), so the `name` is the contract. Frame export is the caller's loop over
+`toRgba` or `toMesh`.
+
 
 ## Coverage of the prototypes' needs
 
@@ -1429,7 +1414,7 @@ Every ranked need in [prototype-findings.md](prototype-findings.md), "What the l
 | 2 | Evenly spaced streamlines with spacing from a tone, region masks, obstacles, closed loops; line fields and distance fields | `hatch(spacing=(a, b), tone=, flow=, avoid=)` inside each shape; `Flow.noise`, `Flow.contour`, `flow.mix`; `Field.distance` ([flow_hatch.py](../examples/flow_hatch.py)) |
 | 3 | Steady tracing over a sequence of maps: smoothing in time | `Field.smooth_maps(maps, sigma=)`, then `trace_levels` / `trace_labels` |
 | 4 | Booleans that hold on overlapping, rotated glyphs; ink layers from them | `union`, `subtract`, `intersect`, `exclude`; glyph overlaps removed by `resolve`; inks as drawings with `blend("multiply")` ([kinetic_type.py](../examples/kinetic_type.py)) |
-| 5 | Shrink and grow per layer; dropping small parts and filling small holes | `offset(r).offset(-r)`, `offset(-r).offset(r)`; `drop_parts`, `fill_holes` |
+| 5 | Shrink and grow per layer; dropping small parts and filling small holes | `offset(r).offset(-r)`, `offset(-r).offset(r)`; `trace_levels(min_area=, min_hole=)` for traced shapes |
 | 6 | Per-item transforms about a typographic origin; seeded randomness and stagger by index as one mechanism | `translate`, `rotate`, `scale` about each shape's origin; `by_index`, `by_order`, `random`, `stagger`; lists at draw time |
 | 7 | Curve fitting through dense polylines | `simplify`; `trace_levels(tolerance=)` |
 | 8 | One picture to both pixels and SVG, every effect kept | `to_svg`, `to_png`, `to_rgba` |
@@ -1463,12 +1448,11 @@ path).
 - **The reference pose** is every Param at its default, whatever `with_values` fixed.
 - **The mesh** carries multiply as draw ranges and knockouts as booleans; a blurred shadow, a gradient, a blend beyond multiply, a clip and a mask raise.
 - **Whole-number arguments** take expressions whose value is whole when drawn.
-- **JavaScript expressions** lift a leading number with `btvec.expr(n)`.
 - **Frame export may rebuild the drawing per frame**; such a clip is many drawings, not one JSON.
 - **Positions along a path are fractions 0..1**, closed outlines measured from their topmost point, every outline the
   library makes in one canonical orientation; `near=` moves the start where the top jumps ("Path").
 - **A negative `scale` mirrors; zero raises.**
-- **A stack and `repeat` write `order` only on shapes that carry none**; `Drawing(x)` of one item and no size saves as `x`.
+- **A stack writes `order` only on shapes that carry none**; `Drawing(x)` of one item and no size saves as `x`.
 - **`Style` holds the paint as drawn**: `None` is not painted, `fill("none")` counts as set, and `shapes()` resolves the
   default paint.
 - **A per-item number where an argument is read once is an error**, when loaded and when drawn.

@@ -58,11 +58,7 @@ fn an_along_step_writes_the_arguments_that_are_not_defaults_and_reads_back_to_th
 }
 
 /// Every example of docs/examples/json.
-const EXAMPLES: [(&str, &str); 9] = [
-    (
-        "cut_paper_one_frame",
-        include_str!("../../../../docs/examples/json/cut_paper_one_frame.json"),
-    ),
+const EXAMPLES: [(&str, &str); 7] = [
     (
         "glyph_scatter",
         include_str!("../../../../docs/examples/json/glyph_scatter.json"),
@@ -75,10 +71,6 @@ const EXAMPLES: [(&str, &str); 9] = [
     (
         "kinetic_type",
         include_str!("../../../../docs/examples/json/kinetic_type.json"),
-    ),
-    (
-        "radial_repeat",
-        include_str!("../../../../docs/examples/json/radial_repeat.json"),
     ),
     ("ring", include_str!("../../../../docs/examples/json/ring.json")),
     ("series_bars", SERIES_BARS),

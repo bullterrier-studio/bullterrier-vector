@@ -1003,7 +1003,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   none, 1 level), the rasteriser's own 8-bit rounding. Neither is worked around (CLAUDE.md, rule 2).
 - **The mesh refuses a clip and a mask** like a gradient: `ParameterError` naming `clip` or `mask` and the shape, which
   uses the same wording, "use to_rgba or to_svg".
-- **`gradient_map` and `posterize` stay unregistered** (docs only): they recolour fills and strokes, and there is nothing
+- **`gradient_map` and `posterize` stay unregistered**: they recolour fills and strokes, and there is nothing
   to recolour yet. When they are added they must map the stops of a gradient, not skip it.
 
 ## Render a window (V10e)

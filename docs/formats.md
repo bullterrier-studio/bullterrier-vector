@@ -74,7 +74,7 @@ Arguments that take a drawing (`other`, `items`, `avoid`, `target`, `Field.dista
 Where the code gives a `Path` in place of a drawing, the array is the path alone: `[{"path": "..."}]`; `Drawing(x)` of
 one item and no size saves as `x` itself, whether a path, a shape or a drawing (api.md, "Drawing").
 
-Names are the Python and Rust spelling (`gradient_map`, `drop_parts`, `smaller_than`); arguments have api.md's names,
+Names are the Python and Rust spelling (`resolve`, `trace_levels`, `min_area`); arguments have api.md's names,
 defaults and units. The types below:
 
 | Type | In JSON |
@@ -142,7 +142,6 @@ default paint, and draws as it did.
 | `offset` | `distance` (per-item number within ±1e100), `join` (`"round"`, `"miter"`, `"bevel"`; default `"round"`), `miter_limit` (literal, from 1; default 4), `tolerance` (as the booleans) |
 | `sweep` | `dx`, `dy` (per-item numbers within ±1e100, required, as `translate`'s), `tolerance` (as the booleans): `{"sweep": {"dx": 28, "dy": -16}}` |
 | `outline` | `width` (per-item number above 0, at most 1e100), `join`, `cap` (`"butt"`, `"round"`, `"square"`; default `"round"`), `miter_limit`, `tolerance`, `profile` (an array of 1 to `MAX_PROFILE_STOPS` pairs `[position, factor]`, each a per-item number; positions 0..1 not going back, factors 0..1e100; `join` and `cap` must be `"round"`) |
-| `drop_parts`, `fill_holes` | `smaller_than` |
 | `slice` | `start`, `end` (fractions 0..1, per-item numbers allowed), `near` (point; each coordinate within ±1e100) |
 | `reverse`, `split`, `knockout` | none: `{"reverse": {}}` |
 | `dash` | `pattern` (an array of 1 to `MAX_DASH_PATTERN` per-item numbers, each above 0 and at most 1e100), `phase` (per-item number, any finite value), `near` (point; each coordinate within ±1e100) |
@@ -164,7 +163,6 @@ default paint, and draws as it did.
 | `stipple` | `spacing` (number above 0, read once), `tone` (number or field, required), `radius` (a number above 0, or a pair `[at tone 0, at tone 1]` of them, read once; written as one number when the two are equal), `density` (pair from 0 to 1, default `[1, 0]`), `seed` (number, a whole number when drawn, default 0) |
 | `merge` | `by` (an attribute name) |
 | `only`, `without` | attribute names to a value or a list of values: `{"only": {"char": "O"}}` |
-| `repeat` | `count` (whole number), `translate` (point), `rotate`, `scale` (pair), `about` (point) |
 | `fill` | `color` (colour, `"none"` or gradient) |
 | `stroke` | `color` (colour or gradient), `width`, `join`, `cap`, `miter_limit`, `profile` (as `outline`'s: pairs `[position, factor]`, each a per-item number; `join` and `cap` must be `"round"`) |
 | `halftone` | `color` (colour), `tone` (a per-item number or a field), `pitch` (per-item number, default 8), `shape` (a word, `"dot"` (default), `"square"`, `"ellipse"`, `"diamond"` or `"euclidean"`, or `{"path": "<path data>"}`: the closed outline of the caller's dot), `screen` (`"grid"` (default), `"wave"`, `"rings"`, `"spiral"`, `"rays"`) and the arguments the layout and the dot read, each left out for its default and refused when given and not read: `angle` (per-item number, default 45; not for `"rings"`), `aspect` (per-item number, at least 1, default 1: an ellipse's length to width; for `"ellipse"` only), `centre` (point, per item: for `"rings"`, `"spiral"` and `"rays"` only; default the middle of the shape's bounds), `amplitude` (per-item number, default 1) and `wavelength` (per-item number above 0, default 6): a wave's, in pitches, for `"wave"` only. A tone that is a number or an expression is that number for each shape; a field object (`{"Field.ramp": ..}`) is read at each dot's centre |
@@ -173,8 +171,6 @@ default paint, and draws as it did.
 | `mask` | `source` (drawing; its shapes are written as painted and hold no mask) |
 | `blend` | `mode` (a CSS blend: `"normal"`, `"multiply"`, `"screen"`, `"overlay"`, `"darken"`, `"lighten"`, `"color-dodge"`, `"color-burn"`, `"hard-light"`, `"soft-light"`, `"difference"`, `"exclusion"`) |
 | `shadow` | `dx`, `dy`, `blur`, `color` (colour) |
-| `gradient_map` | `colors` (colours, at least 2) |
-| `posterize` | `levels` (whole number) |
 | `with_values` | Param names to a value: a JSON number, or an array of numbers, one per shape |
 
 A boolean's `other` is a drawing, and a `tolerance` equal to the default 0.01 is left out. The square with a diamond cut
@@ -301,8 +297,6 @@ piece = btvec.Drawing(a.fill("#e2412e"), b.fill("#2a5bff"), b.stroke("#15161a"))
 ```
 
 Written here with whitespace and in reading order, `sha256` left out.
-
-A `repeat` is a step (`{"repeat": {"count": 12, "rotate": 30}}`), not a copy: its copies exist only when drawn.
 
 ## Numbers and expressions
 
@@ -509,9 +503,9 @@ Counting depth through references bounds the evaluator's recursion as well as th
 chain's steps in a loop, so a long chain costs no depth. A document past a limit is refused before anything is
 evaluated.
 
-A small document can still ask for much work (a `repeat` of a `repeat`, a stack of a shared drawing twice, nested 60
+A small document can still ask for much work (a stack of a shared drawing twice, nested 60
 times). The schema bounds the literal values that set work directly: a `stack`'s `size` at most 100,000 design pixels
-a side, `posterize`'s `levels` at most 256, at most 256 `trace_levels` levels. Everything else is bounded while drawing, by
+a side, at most 256 `trace_levels` levels. Everything else is bounded while drawing, by
 counters checked as the work is done, never estimated beforehand; passing one raises `ParameterError` naming the
 counter, its limit and the step:
 
@@ -521,7 +515,6 @@ counter, its limit and the step:
 | `MAX_SEGMENTS` | 10,000,000 | path segments made (by `resample`, `dash`, `hatch`, `trace`, the flattening for pixels; one shape's stroke outline, too, may not make more than this many; by the booleans, `offset` and `outline`, the flattened edges, the pairs of edges whose boxes overlap and the vertices of the result) |
 | `MAX_TESSELLATION_WORK` | 250,000,000 | for the mesh, each vertex the tessellator makes counting the most edges of its layer a sweep line crosses at once (about a second of work; a circle, a glyph or a stroke around one costs under a tenth of it for a million vertices) |
 | `MAX_FIELD_SAMPLES` | 16,777,216 | samples of a field or flow (tracing an analytic field, a distance field, hatching) |
-| `MAX_COPIES` | 1,000,000 | copies made by `repeat` |
 | `MAX_GLYPHS` | 100,000 | glyphs shaped by `text` |
 | `MAX_SETTINGS` | 64 | axes, and features, one `text` call, or one run of one, gives |
 | `MAX_RUNS` | 1,000 | runs one `text` call is made of |
@@ -532,8 +525,8 @@ counter, its limit and the step:
 | `MAX_SVG_NODES` | 80,000 | nodes (elements, and the text and comments between them) the XML parser builds for `Drawing.from_svg`, four for each element allowed; a document past it is refused before its tree is allocated |
 | `MAX_SVG_DEPTH` | 128 | levels of elements `Drawing.from_svg` reads, the root being 1 |
 
-The values are placeholders that V2 sets from the reference pieces. A value given as an expression (a `posterize`
-`levels` from a Param) meets the same bound when drawn.
+The values are placeholders that V2 sets from the reference pieces. A value given as an expression (a `Param`)
+meets the same bound when drawn.
 
 ## Checked by the loader, not the schema
 
@@ -604,11 +597,9 @@ readable names (an input's as `name=` would give it), and keys are in reading or
 | File | Shows |
 |---|---|
 | [kinetic_type.json](examples/json/kinetic_type.json) | reference piece 1, built once: expressions, per-item numbers, a font input, two shared drawings |
-| [cut_paper_one_frame.json](examples/json/cut_paper_one_frame.json) | reference piece 2, the drawing of one frame (4 s in, mask 100, traced with two masks on each side): map inputs, `with_values` |
 | [hatched_poster.json](examples/json/hatched_poster.json) | reference piece 3: fields and flows, a stack inside a stack |
 | [ring.json](examples/json/ring.json) | an expression (`neg`), a shared stack |
 | [glyph_scatter.json](examples/json/glyph_scatter.json) | per-item numbers: seeded `random` times a Param |
-| [radial_repeat.json](examples/json/radial_repeat.json) | `repeat`, `by_index`, a cyclic Param |
 | [series_bars.json](examples/json/series_bars.json) | a stack with a copy: one drawing used twice |
 | [halftone.json](examples/json/halftone.json) | a map input read by a field |
 | [wobble_outline.json](examples/json/wobble_outline.json) | text with a font axis as a Param |
@@ -622,7 +613,7 @@ The owner's answers (2026-10-29), written into the sections above:
 - **Inputs:** `Font` and `Field.map` take an optional `name`; `Drawing.from_json(text, *, inputs={})` takes the bytes
   by name; an input is its bytes ("Inputs").
 - **Shared drawings** have no name in the code API; `to_json` writes `d1`, `d2` and so on.
-- **`Drawing(x)` of one item and no size saves as `x`**, and a stack and `repeat` write `order` only on shapes that carry none (api.md).
+- **`Drawing(x)` of one item and no size saves as `x`**, and a stack writes `order` only on shapes that carry none (api.md).
 - **Defaults are part of the format:** saved documents leave them out, so after the first release a default changes
   only with a new version.
 - **Bytes are supplied when loading**, not when drawing: a loaded drawing is complete, like one built in code.
