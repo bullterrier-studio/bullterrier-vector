@@ -218,6 +218,7 @@ project-triggers = [
     "examples/bent_type.py",
     "examples/glyph_morph.py",
     "examples/flow_hatch.py",
+    "examples/eaten_letters.py",
     "examples/line_families.py",
     "examples/halftone.py",
     "examples/trace.py",

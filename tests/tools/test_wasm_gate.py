@@ -62,6 +62,7 @@ def workspace(tmp_path_factory, copy_tree) -> Path:
         "bent_type.py",
         "glyph_morph.py",
         "flow_hatch.py",
+        "eaten_letters.py",
         "line_families.py",
         "halftone.py",
         "trace.py",

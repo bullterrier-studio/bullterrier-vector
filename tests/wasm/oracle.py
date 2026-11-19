@@ -1414,6 +1414,7 @@ def main(output: Path) -> None:
         "bent_type": example_everywhere("bent_type"),
         "glyph_morph": example_everywhere("glyph_morph"),
         "flow_hatch": example_everywhere("flow_hatch"),
+        "eaten_letters": example_everywhere("eaten_letters"),
         "line_families": example_everywhere("line_families"),
         "halftone": example_everywhere("halftone"),
         "trace": example_everywhere("trace"),

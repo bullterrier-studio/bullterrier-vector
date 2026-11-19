@@ -2,6 +2,7 @@
 `runpy` in an empty folder, which it must leave empty: the picture stays in a variable. Expected values are worked out
 by hand: the star's from the geometry of a five-pointed star, the bars' from the series printed in the program."""
 
+import re
 import runpy
 import xml.etree.ElementTree as ET
 from functools import reduce
@@ -789,6 +790,45 @@ def test_trace_stacks_three_papers_and_traces_the_dither_exactly(run):
 def test_the_node_example_of_trace_carries_the_document_of_the_python_drawing(run):
     drawing = run("trace")["drawing"]
     document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "trace.json"
+    assert document.read_text(encoding="utf-8") == drawing.to_json()
+
+
+def test_eaten_letters_stacks_two_halos_round_the_letters_within_the_reach_of_the_noise(run):
+    found = run("eaten_letters")
+    paper, pale, rust, ink = found["drawing"].shapes()
+    assert [shape.style.fill for shape in (paper, pale, rust, ink)] == [
+        "#efe8d6ff",
+        "#dcd2b6ff",
+        "#c8421eff",
+        "#16211cff",
+    ]
+    assert [shape.attributes["level"] for shape in (pale, rust, ink)] == [-40, -18, 0]
+    letters = reduce(lambda whole, part: whole.union(part), (shape.path for shape in found["word"].shapes()))
+    # the noise moves the distance by at most two thirds of it (40 pixels at 60 away): where the distance is d, the
+    # eaten one is at least d / 3, so a halo of 40 pixels reaches at most 120 from the letters, and the ink, at 0, none
+    # (3 pixels of slack for the smoothing, the curve fit and the cells of 2)
+    for shape, reach in ((pale, 123), (rust, 57), (ink, 3)):
+        assert inside(shape.path, letters.offset(reach)), reach
+    # the frame "fine" eats the core 6 pixels in: its ink stays inside the letters and leaves their rim bare
+    fine = found["drawing"].shapes(wavelength=30, core=-6)[3].path
+    assert inside(fine, letters.offset(3))
+    assert not any(fine.contains(point) for point in samples(letters.offset(-2)))
+
+
+def samples(path: btvec.Path) -> list[tuple[float, float]]:
+    """Points along `path`, 4 pixels apart."""
+    numbers = re.findall(r"-?\d+(?:\.\d+)?(?:e-?\d+)?", path.resample(4).to_svg_path())
+    return list(zip(map(float, numbers[::2]), map(float, numbers[1::2]), strict=True))
+
+
+def inside(path: btvec.Path, region: btvec.Path) -> bool:
+    """Whether every point of `path`, read every 4 pixels along it, lies in `region`."""
+    return all(region.contains(point) for point in samples(path))
+
+
+def test_the_node_example_of_eaten_letters_carries_the_document_of_the_python_drawing(run):
+    drawing = run("eaten_letters")["drawing"]
+    document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "eaten_letters.json"
     assert document.read_text(encoding="utf-8") == drawing.to_json()
 
 
