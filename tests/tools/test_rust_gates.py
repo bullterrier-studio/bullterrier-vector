@@ -42,6 +42,10 @@ def workspace(tmp_path_factory, copy_tree) -> Path:
     copy_tree(ROOT / "tools", root / "tools", ignore=shutil.ignore_patterns("__pycache__"))
     # the JSON tests of the core read the example documents of the format
     copy_tree(ROOT / "docs" / "examples" / "json", root / "docs" / "examples" / "json")
+    # the registry test of the core reads the conventions and the decisions that explain its exceptions
+    (root / "docs").mkdir(exist_ok=True)
+    for name in ("api.md", "design-decisions.md"):
+        shutil.copy(ROOT / "docs" / name, root / "docs")
     # the kinetic type example of the core includes its font
     (root / "examples" / "fonts").mkdir(parents=True)
     shutil.copy(ROOT / "examples" / "fonts" / "anybody-subset.ttf", root / "examples" / "fonts")
