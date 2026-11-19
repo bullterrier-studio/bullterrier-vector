@@ -63,7 +63,7 @@ impl Octaves {
 
 impl Field {
     /// Smooth seeded noise from -1 to 1: the value noise `wobble` displaces by, one lattice cell `wavelength` design
-    /// pixels wide, moved by `phase` (cycles; one cycle on is the same field to the bit). With `octaves` from 1 to 8,
+    /// pixels wide, moved by `phase` (cycles; one cycle on is the same field, up to the rounding of the caller's sum: to the bit for 0.25). With `octaves` from 1 to 8,
     /// each octave adds the noise at half the wavelength and half the amplitude of the one before, and the sum is
     /// divided by the sum of the amplitudes, so it stays within -1 and 1; one octave is the plain noise. Equal seeds
     /// make equal fields. `wavelength` and `phase` may be expressions of Params, read once with the values of the draw.

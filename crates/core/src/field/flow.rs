@@ -143,7 +143,7 @@ impl Flow {
     }
 
     /// Smooth seeded noise: the direction turns through half a turn each way over a few `wavelength`s (pixels) and
-    /// the pattern moves with `phase` (cycles; one cycle on is the same flow). Equal seeds make equal flows.
+    /// the pattern moves with `phase` (cycles; one cycle on is the same flow, up to the rounding of the sum). Equal seeds make equal flows.
     /// `wavelength` and `phase` may be expressions of Params, read once with the values of the draw.
     ///
     /// # Errors

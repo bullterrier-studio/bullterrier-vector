@@ -267,7 +267,7 @@ impl PyFlow {
         raised(vector::Flow::angle(angle.0)).map(Self)
     }
 
-    /// Smooth seeded noise; `phase` in cycles moves it, one cycle on is the same flow. `wavelength` and `phase` may be
+    /// Smooth seeded noise; `phase` in cycles moves it, one cycle on is the same flow up to the rounding of the sum. `wavelength` and `phase` may be
     /// `Param`s.
     #[staticmethod]
     #[pyo3(

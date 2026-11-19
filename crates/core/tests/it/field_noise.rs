@@ -166,6 +166,25 @@ fn a_whole_cycle_of_phase_is_the_same_field_to_the_bit() -> Outcome {
 }
 
 #[test]
+fn a_whole_cycle_of_any_phase_is_the_same_field_up_to_the_rounding_of_the_sum() -> Outcome {
+    // 0.1 + 1 is not 1.1 exactly: the phases the two fields read differ by the rounding of the caller's sum, and the
+    // field by at most the documented 15 per cycle of phase times that
+    for phase in [0.1, 0.3, 0.7, -2.9, 1e6 + 0.1] {
+        let shift = ((phase + 1.0_f64).rem_euclid(1.0) - phase.rem_euclid(1.0)).abs();
+        let (base, on) = (noise(17.0, phase, 2.0, 4)?, noise(17.0, phase + 1.0, 2.0, 4)?);
+        for i in 0..100 {
+            let p = (f64::from(i) * 5.5, f64::from(i) * 9.1);
+            let apart = (on.at(p) - base.at(p)).abs();
+            assert!(
+                apart <= 15.0 * shift + 1e-15,
+                "phase {phase} at {p:?}: {apart} for a shift of {shift}"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn noise_refuses_a_bad_wavelength_octaves_seed_or_per_item_number() -> Outcome {
     for wavelength in [0.0, -3.0, f64::NAN, f64::INFINITY] {
         assert_eq!(parameter_refusal(noise(wavelength, 0.0, 0.0, 1))?.0, "wavelength");

@@ -4,8 +4,9 @@
 //! on every target, no state.
 //!
 //! The lattice has three axes: `x` and `y`, one cell a wavelength wide (the caller divides by the wavelength), and the
-//! phase, four cells round one whole cycle. The cell of the phase wraps, so a phase one cycle on is the same field to
-//! the bit, and it moves the field smoothly, across the end of the cycle too.
+//! phase, four cells round one whole cycle. The cell of the phase wraps, so a phase one cycle on is the same field (to
+//! the bit when `phase + 1` loses no bit of `phase`, as for 0.25; else up to that rounding of the caller's sum), and it
+//! moves the field smoothly, across the end of the cycle too.
 
 use crate::Error;
 use crate::expr::{splitmix, whole_seed};

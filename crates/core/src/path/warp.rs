@@ -115,8 +115,8 @@ impl Path {
     /// This path with its points displaced by smooth seeded noise: a point `(x, y)` moves by `(dx, dy)`, two independent
     /// fields (streams 0 and 1 of `seed`) of value noise whose lattice is `wavelength` wide, each scaled so that
     /// `|dx|` and `|dy|` are at most `amplitude`. The field is smooth: it changes by at most `3.75` amplitudes per
-    /// wavelength along either axis. `phase` is in cycles, reduced to 0 up to 1 first (`phase + 1` is `phase`, to the
-    /// bit), and moves the noise smoothly, four lattice cells to the cycle. `amplitude` may be 0 or negative; `seed`
+    /// wavelength along either axis. `phase` is in cycles, reduced to 0 up to 1 first (`phase + 1` is `phase`, up
+    /// to the rounding of that sum: to the bit for a phase such as 0.25), and moves the noise smoothly, four lattice cells to the cycle. `amplitude` may be 0 or negative; `seed`
     /// is a whole number within ±(2^53 - 1) as for `random`.
     ///
     /// The field is anchored in the design frame, the point's own coordinates (as for [`Path::wave`]): the letters of
