@@ -266,7 +266,7 @@
             "width": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
             "height": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
             "data": { "$ref": "#/$defs/name" },
-            "box": {
+            "frame": {
               "type": "array",
               "prefixItems": [
                 { "$ref": "#/$defs/once" },

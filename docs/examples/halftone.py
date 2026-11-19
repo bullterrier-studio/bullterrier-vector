@@ -7,7 +7,7 @@ from pathlib import Path
 
 import bullterrier_vector as btvec
 
-photo = btvec.Field.map(540, 675, Path("portrait.gray").read_bytes(), box=(0, 0, 1080, 1350))
+photo = btvec.Field.map(540, 675, Path("portrait.gray").read_bytes(), frame=(0, 0, 1080, 1350))
 disc = btvec.Path.circle((540, 675), 480)
 
 drawing = btvec.Drawing(

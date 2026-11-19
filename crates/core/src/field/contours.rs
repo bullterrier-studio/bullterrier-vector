@@ -237,7 +237,7 @@ impl Field {
     /// pixel on each side) and a `cell` of one pixel.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `levels` if there are more than 256 or one is not finite; naming `box` unless it is
+    /// [`Error::Parameter`] naming `levels` if there are more than 256 or one is not finite; naming `frame` unless it is
     /// finite, within ±1e100 and has a width and a height above 0; naming `cell` unless it is above 0 and finite, if
     /// the grid would need more than 4 million nodes or if reading the field at them would be too much work (see
     /// [`Field::to_map`]); naming `levels` past `MAX_SEGMENTS` points.

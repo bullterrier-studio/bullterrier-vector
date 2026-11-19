@@ -120,9 +120,9 @@ def test_contours_can_be_smoothed_and_short_lines_dropped() -> None:
     data[50 * 60 + 50] = 255
     field = btvec.Field.map(60, 60, bytes(data))
     centers = (0.5, 0.5, 59, 59)
-    assert len(lines(field.contours(0.5, box=centers, cell=1))) == 2
-    assert len(lines(field.contours(0.5, box=centers, cell=1, smooth=2))) == 1
-    assert len(lines(field.contours(0.5, box=centers, cell=1, min_length=30))) == 1
+    assert len(lines(field.contours(0.5, frame=centers, cell=1))) == 2
+    assert len(lines(field.contours(0.5, frame=centers, cell=1, smooth=2))) == 1
+    assert len(lines(field.contours(0.5, frame=centers, cell=1, min_length=30))) == 1
 
 
 def test_a_plot_has_a_layer_per_pen_and_no_fill() -> None:

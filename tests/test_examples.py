@@ -815,7 +815,7 @@ def test_eaten_letters_bites_the_letters_and_stacks_two_halos_within_the_reach_o
         btvec.Drawing.trace_levels(
             -btvec.Field.distance(found["word"]),
             [0],
-            box=(0, 0, 1200, 600),
+            frame=(0, 0, 1200, 600),
             cell=2,
             smooth=1.5,
             tolerance=0.4,

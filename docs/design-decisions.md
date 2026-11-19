@@ -2286,3 +2286,8 @@ Why not an existing call:
   by the registry, the document reader and the Python bindings, whose arguments are `None` for the default: no
   binding, `text_signature` or stub writes the number. *Not* one shared wavelength: one of the two would look wrong
   untuned.
+- **Why `frame`, and not `box`, for the rectangle of `trace_levels`, `Field.map`, `to_map` and `contours`.** Each is
+  the region of the design frame a grid of samples covers, the same idea as `envelope`'s and `arch`'s `frame`
+  (`Kind::Rect`) and as the Rust parameters and `Trace::frame`, which already said `frame`; Python and documents said
+  `box` (Python spelt it `r#box` in Rust source). One idea, one name: `frame` in every language and in documents. *Not*
+  `marks`' `boxes`: those are the rectangles a bracket is drawn round, a different thing.

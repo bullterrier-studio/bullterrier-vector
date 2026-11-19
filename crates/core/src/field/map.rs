@@ -65,12 +65,12 @@ pub(crate) fn frame_of(frame: Option<Rect>, width: usize, height: usize) -> Resu
         height: height as f64,
     });
     for (name, value) in [("x", frame.x), ("y", frame.y)] {
-        coordinate(&format!("box.{name}"), finite("box", value)?)?;
+        coordinate(&format!("frame.{name}"), finite("frame", value)?)?;
     }
     for (name, value) in [("width", frame.width), ("height", frame.height)] {
         if !(value.is_finite() && value > 0.0 && value <= crate::geometry::MAX_COORDINATE) {
             return Err(Error::parameter(
-                "box",
+                "frame",
                 format!(
                     "{name} must be above 0 and at most {:e}, got {value:e}",
                     crate::geometry::MAX_COORDINATE
@@ -106,7 +106,7 @@ impl Field {
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `width` unless both sizes are from 1 with at most 2^24 pixels; naming `data` unless
-    /// it holds `width * height` bytes; naming `box` unless it is finite, within ±1e100 and has a width and a height
+    /// it holds `width * height` bytes; naming `frame` unless it is finite, within ±1e100 and has a width and a height
     /// above 0; naming `name` unless it is letters, digits and `_` starting with a letter.
     ///
     /// `name` is what a saved document calls the map; whoever loads the document supplies the bytes under that name.
@@ -155,7 +155,7 @@ impl Field {
     /// half a level.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `width` unless both sizes are from 1 with at most 2^24 pixels; naming `box` as for
+    /// [`Error::Parameter`] naming `width` unless both sizes are from 1 with at most 2^24 pixels; naming `frame` as for
     /// [`Field::map`]; naming `high` unless `low` and `high` are finite and `high` is above `low`.
     pub fn to_map(
         &self,
@@ -209,11 +209,11 @@ impl Raster {
 
 impl Field {
     /// This field read at the centers of the cells of `frame` cut into equal cells no wider than `cell` (design pixels).
-    /// Left out, they are a map's own box and one map pixel, and the readings its bytes; a field that is not a map has
+    /// Left out, they are a map's own frame and one map pixel, and the readings its bytes; a field that is not a map has
     /// neither and refuses them.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `box` or `cell` when left out for a field that is not a map, `box` as for
+    /// [`Error::Parameter`] naming `frame` or `cell` when left out for a field that is not a map, `frame` as for
     /// [`Field::map`], `cell` if the grid would pass `MAX_MAP_PIXELS` cells or the reads `MAX_READ_WORK`.
     pub(crate) fn raster(&self, frame: Option<Rect>, cell: Option<f64>, verb: &str) -> Result<Raster, Error> {
         let map = self.map_data();
@@ -221,12 +221,12 @@ impl Field {
             Error::parameter(
                 name,
                 format!(
-                    "is needed: {verb} reads a field that is not a Field.map, which has no box or pixels of its own"
+                    "is needed: {verb} reads a field that is not a Field.map, which has no frame or pixels of its own"
                 ),
             )
         };
         let frame = frame_of(
-            Some(frame.or(map.map(|map| map.frame)).ok_or_else(|| own("box"))?),
+            Some(frame.or(map.map(|map| map.frame)).ok_or_else(|| own("frame"))?),
             1,
             1,
         )?;

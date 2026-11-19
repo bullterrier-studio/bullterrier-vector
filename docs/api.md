@@ -394,7 +394,7 @@ points encloses nothing, so it gives no lines; a shape with no outline gives no 
 tone, the more passes reach it); no second routine:
 
 ```python
-photo = btvec.Field.map(w, h, grey_bytes, box=(0, 0, 1080, 1350))  # tone of a photo, 0 black
+photo = btvec.Field.map(w, h, grey_bytes, frame=(0, 0, 1080, 1350))  # tone of a photo, 0 black
 region = btvec.Path.rect(0, 0, 1080, 1350)
 passes = [(0.85, 45), (0.6, 135), (0.4, 0), (0.2, 90)]  # (level, angle)
 crosshatch = btvec.Drawing(
@@ -437,7 +437,7 @@ And as a document (two passes; the `photo` input is supplied by whoever loads it
             {
               "hatch": {
                 "spacing": 7,
-                "tone": { "Field.map": { "width": 540, "height": 675, "data": "photo", "box": [0, 0, 1080, 1350] } },
+                "tone": { "Field.map": { "width": 540, "height": 675, "data": "photo", "frame": [0, 0, 1080, 1350] } },
                 "flow": { "Flow.angle": { "angle": 45 } },
                 "below": 0.85
               }
@@ -449,7 +449,7 @@ And as a document (two passes; the `photo` input is supplied by whoever loads it
             {
               "hatch": {
                 "spacing": 7,
-                "tone": { "Field.map": { "width": 540, "height": 675, "data": "photo", "box": [0, 0, 1080, 1350] } },
+                "tone": { "Field.map": { "width": 540, "height": 675, "data": "photo", "frame": [0, 0, 1080, 1350] } },
                 "flow": { "Flow.angle": { "angle": 135 } },
                 "below": 0.6
               }
@@ -484,8 +484,8 @@ one path get the same lines, and only the lattice lines over a shape are made. R
 | `Path.within(region)` | open lines | the parts of a path's lines inside the region `region` fills, cut exactly where they cross its outline; a closed loop wholly inside stays closed. A method of a `Path` only, with no document step yet: a drawing author calls it on the `Path` before the drawing is built (`Drawing(lines.within(region))`). |
 
 ```python
-photo = btvec.Field.map(w, h, grey_bytes, box=(0, 0, 1080, 1440))
-dog = matte_field.contours(0.5, box=centers, cell=2, smooth=3, min_length=200)  # the dog's outline, from image's matte
+photo = btvec.Field.map(w, h, grey_bytes, frame=(0, 0, 1080, 1440))
+dog = matte_field.contours(0.5, frame=centers, cell=2, smooth=3, min_length=200)  # the dog's outline, from image's matte
 engraving = dog.bands(6, tone=photo, width=(5, 0.4), family="rings", center=nose)
 btvec.Drawing(engraving).fill("#15161a")
 ```
@@ -508,21 +508,21 @@ the shapes carry no paint (paint each with `only(level=..).fill(..)`, or `only(l
 
 | Call | Result | Arguments |
 |---|---|---|
-| `Drawing.trace_levels(map, levels, *, box=None, cell=None, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)` | one shape for each of `levels` (a number or a list; a map's are 0 black to 1 white) the field reaches, in the order given: the region where it is at or above it. `map` is any `Field`, read at the centers of `box` `(x, y, width, height)` cut into equal cells no wider than `cell` pixels; `None` is a `Field.map`'s own box and one map pixel (its bytes, traced as they are), and any other field needs both. A field reads its Params and drawings with the values of the draw | `smooth` is the standard deviation, in design pixels, of a Gaussian that blurs the map first; `close`, then `open` (design pixels) fill and remove what is narrower than twice the radius; `min_hole` and `min_area` (square pixels) fill small holes and drop small parts; `tolerance` fits curves within that many design pixels of the traced polyline (0 keeps it). `levels` and each number is a number, a `Param` or an expression, read once |
+| `Drawing.trace_levels(map, levels, *, frame=None, cell=None, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)` | one shape for each of `levels` (a number or a list; a map's are 0 black to 1 white) the field reaches, in the order given: the region where it is at or above it. `map` is any `Field`, read at the centers of `frame` `(x, y, width, height)` cut into equal cells no wider than `cell` pixels; `None` is a `Field.map`'s own box and one map pixel (its bytes, traced as they are), and any other field needs both. A field reads its Params and drawings with the values of the draw | `smooth` is the standard deviation, in design pixels, of a Gaussian that blurs the map first; `close`, then `open` (design pixels) fill and remove what is narrower than twice the radius; `min_hole` and `min_area` (square pixels) fill small holes and drop small parts; `tolerance` fits curves within that many design pixels of the traced polyline (0 keeps it). `levels` and each number is a number, a `Param` or an expression, read once |
 | `Drawing.trace_labels(map, *, max_colors=32, ...)` | one shape for each byte the map holds, attribute `label` the byte; the shapes tile the frame and its padding: no overlap, no gap, whatever the tidying | the tidying of `trace_levels`. The commonest label (the lowest byte of a tie) comes first and is whatever the others leave; the others follow in order of the byte, each cut by the labels after it, so a tidied shape is a polyline within 0.01 pixels of its curve. Cutting too many outlines apart is refused naming `max_colors` |
 | `Drawing.trace_cells(map, cell, *, max_colors=32)` | one shape (one outline with all its regions) for each colour, in order of the byte, attribute `label`, exactly | the map is cells of `cell` map pixels, each one byte (a dithered picture scaled by `cell`); cells of one colour that touch are merged, edges lie on cell sides, no fitting; areas are the cells' and the shapes tile the map |
 
 A shape that meets the map's border goes on past it and closes outside the frame, so no edge lies along the border. The
 overhang is the larger of `open` and `close` plus `tolerance` (in map pixels, rounded up), plus two map pixels. For a plotter
 or a cutter crop it to the frame in one call, `drawing.intersect(btvec.Path.rect(0, 0, width, height))` (the labels still
-tile); a view crops it for the screen. The map's `box` places the map. Rust: `Drawing::trace_levels(&map, [0.3, 0.6], &Trace::new().smooth(1.5).open(2.0))`
+tile); a view crops it for the screen. The map's `frame` places the map. Rust: `Drawing::trace_levels(&map, [0.3, 0.6], &Trace::new().smooth(1.5).open(2.0))`
 (a field that is not a map: `&Trace::new().frame(rect).cell(2.0)`; `trace_labels` refuses either)
 (`levels` is any list of numbers, Params or expressions), `Drawing::trace_labels(&map, 8, &Trace::new())`,
 `Drawing::trace_cells(&map, 2, 8)`; in a document
 `{"trace_levels": {"map": {"Field.map": {...}}, "levels": [0.3, 0.6], "open": 2}}`.
 
 ```python
-photo = btvec.Field.map(w, h, grey_bytes, box=(0, 0, 1080, 1440))
+photo = btvec.Field.map(w, h, grey_bytes, frame=(0, 0, 1080, 1440))
 layers = [
     btvec.Drawing.trace_levels(photo, l, smooth=4, close=6, min_area=300).fill(c)
     for l, c in zip([0.2, 0.45, 0.7], ["#e9dcc3", "#c9a678", "#8a5a3b"])
@@ -537,7 +537,7 @@ map holds hundreds of pixels of padding), `smooth` also when the blur passes 2e9
 1 to 256, fewer than the map's colours, or labels whose outlines are too many to cut apart within the draw's segment
 budget), `cell` (`trace_cells`: not a whole number from 1, not dividing the map, or a cell of more than one byte;
 `trace_levels`: not above 0, left out for a field that is not a map, a grid of over 2^24 cells or reads past the work
-limit), `box` (left out for a field that is not a map, or as for `Field.map`) and `map` (`trace_labels`, `trace_cells`: not a
+limit), `frame` (left out for a field that is not a map, or as for `Field.map`) and `map` (`trace_labels`, `trace_cells`: not a
 `Field.map`). From Python a count that is not whole (2.5) or below 0 raises `ParameterError` naming it.
 [trace.py](../examples/trace.py) traces a relief and a dithered strip; [eaten_letters.py](../examples/eaten_letters.py) a
 word eaten at the rim by a noisy distance field (noise of 14 pixels on the edge bites the letters):
@@ -545,12 +545,12 @@ word eaten at the rim by a noisy distance field (noise of 14 pixels on the edge 
 ```python
 edge = btvec.Field.distance(word)  # negative inside
 eaten = edge + btvec.Field.noise(wavelength=45, seed=3, octaves=3) * 40 * (abs(edge).min(60) * (1 / 60)).max(0.35)
-btvec.Drawing.trace_levels(-eaten, [-40, -18, 0], box=(0, 0, 1200, 600), cell=2, smooth=1.5)
+btvec.Drawing.trace_levels(-eaten, [-40, -18, 0], frame=(0, 0, 1200, 600), cell=2, smooth=1.5)
 ```
 
 ### A sequence of maps (V14b)
 
-The library keeps no sequence: the caller holds a list of `Field.map`s (frames of a video, one size and box) and makes it
+The library keeps no sequence: the caller holds a list of `Field.map`s (frames of a video, one size and frame) and makes it
 steady before tracing each. `Field.smooth_maps` takes the whole list and gives a list of unnamed `Field.map`s, so every verb above
 reads the result, and a document names it as a map input like any other (there is no document verb and no JavaScript
 call: the browser package loads documents, it does not build fields).
@@ -560,7 +560,7 @@ call: the browser package loads documents, it does not build fields).
 | `Field.smooth_maps(maps, *, sigma)` (Rust: `Field::smooth_maps(&maps, sigma)?`) | each map becomes the Gaussian weighted mean of itself and its neighbours, `sigma` in maps: frame `j` weighs `exp(-(i-j)^2 / 2 sigma^2)` for `|i-j|` up to `ceil(3 sigma)`; the weights of the frames that exist add to 1 (the ends are not padded); bytes rounded; `sigma` 0, a `sigma` too small for any neighbour to weigh above 0, and a static sequence give the maps back | `maps` (not all `Field.map`s of one size and box, or over 2^28 pixels together); `sigma` (below 0, not finite, or the work for one output frame, the maps it reaches times pixels, over 2e8: a clip costs its frame count times that, so 30 frames of 1920 by 1080 at `sigma` 1.5 run in one call) |
 
 ```python
-maps = [btvec.Field.map(w, h, frame, box=(0, 0, 1080, 1440)) for frame in frames]
+maps = [btvec.Field.map(w, h, frame, frame=(0, 0, 1080, 1440)) for frame in frames]
 steady = btvec.Field.smooth_maps(maps, sigma=1.5)
 shapes = [btvec.Drawing.trace_levels(m, [0.3, 0.6], smooth=4, close=6) for m in steady]
 ```
@@ -969,9 +969,9 @@ To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Fie
 | `Font.bundled_names` | `Font.bundled_names()` (Rust: `Font::bundled_names()`) | the names `Font.bundled` takes, in order | |
 | `font.axes` | property | its variable axes by tag, each a `Param` named by the tag, with the font's range, default and name, in the font's order (Python: a new dict each time; Rust: `Font::axes()`, a list). Only an axis that can vary and is named by a `Param` name is listed: one pinned (minimum equal to maximum), with a tag that is not a name or a repeat of an earlier tag is left out, and is still set by its tag, and a refusal names it | |
 | `font.features` | property | the OpenType feature tags its `GSUB` and `GPOS` tables list, sorted (Rust: `Font::features()`) | |
-| `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white): `data` is `height` rows of `width` bytes, top row first (Python: `bytes`, a `bytearray`, a `memoryview`, a `numpy` array of `uint8` or any contiguous 8-bit buffer, or a list of whole numbers from 0 to 255; Rust: `Field::map(w, h, &bytes, Some(rect), Some("name"))`). It lies over `box` `(x, y, width, height)` in design units (default: one pixel a map pixel, from the origin); a pixel's value stands at its center, the field is bilinear between centers and holds the nearest edge value beyond the box. A saved drawing names it (an input of kind `map`, with its SHA-256) and the loader supplies the bytes. At most 2^24 pixels | `len(data)` not `width × height`; a size of 0 or past 2^24 pixels; a `box` not finite, past ±1e100 or with no width or height; a `name` that is not letters, digits and `_` |
-| `field.to_map` | `to_map(width, height, *, box=None, low=0, high=1)` (Rust: `to_map(w, h, Some(rect), low, high)`) | the field written out as an 8-bit grayscale map, as `bytes` (Rust: `Vec<u8>`), `height` rows of `width` bytes, top row first: each pixel is the field at its center over `box` (default as for `Field.map`), `low` written as 0 and `high` as 255, linear between, held beyond, rounded to the nearest level. It is the input form of `Field.map` and of image's `relight` (`Field.distance(word, normalized=True).to_map(w, h, box=frame)` is a bevel: 0 on the edge, rising inwards); a raw distance in pixels needs a `low` and `high` (`-bevel` to `0`) to keep its range | `width` or `height` of 0 or past 2^24 pixels in all, or a field too costly to read that many times (a distance field of a very detailed drawing; the message says so, before any pixel is made); `box` as for `Field.map`; `high` not above `low` or either not finite |
-| `field.contours` | `contours(levels, *, box, cell, smooth=0, min_length=0)` (Rust: `contours(&[levels], rect, cell)`, and `contours_with(.., &Tidy::default().smooth(s).min_length(l))`) | the lines where the field equals each of `levels` (a number or a list), as one `Path`: marching squares over `box` cut into equal cells no wider than `cell`, the field read at their corners and a line crossing a cell edge at the linear interpolation of the two readings (a reading equal to the level counts as above it; a saddle joins its high corners when the mean of its four is high). A line that reaches the box ends there, open; any other is closed. Every line runs with the high side (a reading at or above the level) on its left as drawn (y down), so the loops of a map that is high inside a region wind one way and its holes the other: `contours(0.5, ..)` of a matte is that region's outline, ready to fill, to hatch inside or to give `rows`. `smooth` blurs the readings with a Gaussian of that many pixels before tracing (grass and grain make hundreds of tiny loops and a jagged line; a few pixels removes them; the blur is refused past 2 billion steps), `min_length` drops every line shorter than that many pixels. Levels are made in the order given. To follow a map's pixels, give `box` the box of the pixel centers (the map's box inset half a pixel) and a `cell` of one pixel. Like `Path.arc` it is a value, not a step: a saved drawing holds its path data | `levels` more than 256 or not finite; `cell` not above 0, a grid of over 4 million nodes, or a field too costly to read at that many nodes (a distance field of a very detailed drawing; the message says so); `box` as for `Field.map` (it has no default: a field, unlike a map, has no extent of its own); more than 10 million points |
+| `Field.map` | `Field.map(width, height, data, *, frame=None, name=None)` | an 8-bit grayscale map, values 0 (black) to 1 (white): `data` is `height` rows of `width` bytes, top row first (Python: `bytes`, a `bytearray`, a `memoryview`, a `numpy` array of `uint8` or any contiguous 8-bit buffer, or a list of whole numbers from 0 to 255; Rust: `Field::map(w, h, &bytes, Some(rect), Some("name"))`). It lies over `frame` `(x, y, width, height)` in design units (default: one pixel a map pixel, from the origin); a pixel's value stands at its center, the field is bilinear between centers and holds the nearest edge value beyond the box. A saved drawing names it (an input of kind `map`, with its SHA-256) and the loader supplies the bytes. At most 2^24 pixels | `len(data)` not `width × height`; a size of 0 or past 2^24 pixels; a `frame` not finite, past ±1e100 or with no width or height; a `name` that is not letters, digits and `_` |
+| `field.to_map` | `to_map(width, height, *, frame=None, low=0, high=1)` (Rust: `to_map(w, h, Some(rect), low, high)`) | the field written out as an 8-bit grayscale map, as `bytes` (Rust: `Vec<u8>`), `height` rows of `width` bytes, top row first: each pixel is the field at its center over `frame` (default as for `Field.map`), `low` written as 0 and `high` as 255, linear between, held beyond, rounded to the nearest level. It is the input form of `Field.map` and of image's `relight` (`Field.distance(word, normalized=True).to_map(w, h, frame=frame)` is a bevel: 0 on the edge, rising inwards); a raw distance in pixels needs a `low` and `high` (`-bevel` to `0`) to keep its range | `width` or `height` of 0 or past 2^24 pixels in all, or a field too costly to read that many times (a distance field of a very detailed drawing; the message says so, before any pixel is made); `frame` as for `Field.map`; `high` not above `low` or either not finite |
+| `field.contours` | `contours(levels, *, frame, cell, smooth=0, min_length=0)` (Rust: `contours(&[levels], rect, cell)`, and `contours_with(.., &Tidy::default().smooth(s).min_length(l))`) | the lines where the field equals each of `levels` (a number or a list), as one `Path`: marching squares over `frame` cut into equal cells no wider than `cell`, the field read at their corners and a line crossing a cell edge at the linear interpolation of the two readings (a reading equal to the level counts as above it; a saddle joins its high corners when the mean of its four is high). A line that reaches the box ends there, open; any other is closed. Every line runs with the high side (a reading at or above the level) on its left as drawn (y down), so the loops of a map that is high inside a region wind one way and its holes the other: `contours(0.5, ..)` of a matte is that region's outline, ready to fill, to hatch inside or to give `rows`. `smooth` blurs the readings with a Gaussian of that many pixels before tracing (grass and grain make hundreds of tiny loops and a jagged line; a few pixels removes them; the blur is refused past 2 billion steps), `min_length` drops every line shorter than that many pixels. Levels are made in the order given. To follow a map's pixels, give `frame` the box of the pixel centers (the map's box inset half a pixel) and a `cell` of one pixel. Like `Path.arc` it is a value, not a step: a saved drawing holds its path data | `levels` more than 256 or not finite; `cell` not above 0, a grid of over 4 million nodes, or a field too costly to read at that many nodes (a distance field of a very detailed drawing; the message says so); `frame` as for `Field.map` (it has no default: a field, unlike a map, has no extent of its own); more than 10 million points |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
 | `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Path`, a `Shape` or a `Drawing` (all its shapes together; a `hatch` step reads the drawing again with the values it draws with, so a headline whose weight is a `Param` is hatched along its outline at that weight): signed distance to the nearest outline in pixels, negative inside (nonzero rule); normalised: inside each part (an outline with its holes) 0 on its outer edge rising to 1 on its holes' edges (`d / (d + distance to the holes)`), or, for a part with no hole, to 1 at its deepest point (`d` over its largest inscribed radius, estimated to about a percent), 0 outside and inside a hole. Where parts overlap the distance is to the nearest edge of any: `resolve` first | `GeometryError`: the drawing has no edge; the drawing's own error |
 | `Field.noise` | `Field.noise(*, wavelength=400, phase=0, seed=0, octaves=1)` (Rust: `Field::noise(wavelength, phase, seed, octaves)?`) | smooth seeded value noise from -1 to 1, the kernel `wobble` displaces by, one lattice cell `wavelength` pixels wide; `phase` in cycles moves it, one cycle on is the same field up to the rounding of the sum (to the bit for a phase such as 0.25); each of `octaves` (1 to 8) adds the noise at half the wavelength and half the amplitude of the one before, the sum divided by the sum of the amplitudes; equal seeds make equal fields; `wavelength` and `phase` may be `Param`s | `wavelength` not from 1e-200 to 1e100; `seed` not a whole number within ±(2^53 - 1); `octaves` not from 1 to 8; a per-item number |

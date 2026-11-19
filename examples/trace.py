@@ -23,7 +23,7 @@ relief_bytes = bytes(
     for y in range(SIDE)
     for x in range(SIDE)
 )
-relief = btvec.Field.map(SIDE, SIDE, relief_bytes, box=(0, 0, 960, 960), name="relief")
+relief = btvec.Field.map(SIDE, SIDE, relief_bytes, frame=(0, 0, 960, 960), name="relief")
 
 # the strip: 80 by 12 cells of 2 pixels, an ordered dither (a 4 by 4 threshold) of a ramp across, as a 160 by 24 map
 COLUMNS, ROWS = 80, 12
@@ -33,7 +33,7 @@ dither_bytes = bytes(
     for y in range(ROWS * 2)
     for x in range(COLUMNS * 2)
 )
-strip = btvec.Field.map(COLUMNS * 2, ROWS * 2, dither_bytes, box=(60, 1000, 840, 126), name="dither")
+strip = btvec.Field.map(COLUMNS * 2, ROWS * 2, dither_bytes, frame=(60, 1000, 840, 126), name="dither")
 
 layers = [
     btvec.Drawing.trace_levels(relief, level, smooth=12, tolerance=3, close=8, min_area=600).fill(paper)

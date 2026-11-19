@@ -293,7 +293,7 @@ class Field:
         height: int,
         data: bytes | bytearray | memoryview | Buffer | Sequence[int],
         *,
-        box: _FrameLike | None = None,
+        frame: _FrameLike | None = None,
         name: str | None = None,
     ) -> Field: ...
     @staticmethod
@@ -316,7 +316,7 @@ class Field:
     def __abs__(self) -> Field: ...
     def at(self, x: float, y: float) -> float: ...
     def to_map(
-        self, width: int, height: int, *, box: _FrameLike | None = None, low: float = 0.0, high: float = 1.0
+        self, width: int, height: int, *, frame: _FrameLike | None = None, low: float = 0.0, high: float = 1.0
     ) -> bytes: ...
     @staticmethod
     def smooth_maps(maps: Sequence[Field], *, sigma: float) -> list[Field]: ...
@@ -324,7 +324,7 @@ class Field:
         self,
         levels: float | Sequence[float],
         *,
-        box: _FrameLike,
+        frame: _FrameLike,
         cell: float,
         smooth: float = 0.0,
         min_length: float = 0.0,
@@ -530,7 +530,7 @@ class Drawing:
         map: Field,  # noqa: A002  api.md names the arguments `map` and `open`
         levels: _Num | Sequence[_Num],
         *,
-        box: _FrameLike | None = None,
+        frame: _FrameLike | None = None,
         cell: float | None = None,
         smooth: _Num = 0,
         tolerance: _Num = 0.5,

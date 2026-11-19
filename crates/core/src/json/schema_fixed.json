@@ -105,7 +105,7 @@
             "width": { "type": "integer", "minimum": 1 },
             "height": { "type": "integer", "minimum": 1 },
             "data": { "$ref": "#/$defs/name" },
-            "box": {
+            "frame": {
               "type": "array",
               "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }, { "type": "number" }],
               "minItems": 4,

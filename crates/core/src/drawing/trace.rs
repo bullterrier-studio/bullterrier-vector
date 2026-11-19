@@ -35,7 +35,7 @@ impl Drawing {
     /// it, with the level as its `level` attribute and no paint. Stacked in order from the lowest, each painted by its
     /// level, the shapes are a posterized picture of filled cut-outs. The field is read at the centers of the trace's
     /// [`frame`](Trace::frame) cut into equal cells no wider than its [`cell`](Trace::cell) (design pixels); left out,
-    /// they are a [`Field::map`]'s own box and one map pixel, which any other field refuses. `trace` also says how the
+    /// they are a [`Field::map`]'s own frame and one map pixel, which any other field refuses. `trace` also says how the
     /// outlines are tidied. A shape that meets the frame's border goes on
     /// past it and closes outside, so no edge lies along the border. A field that reads Params or drawings reads them
     /// with the values of the draw.
@@ -50,7 +50,7 @@ impl Drawing {
             ("map", Given::Field(map.clone())),
             ("levels", Given::Numbers(levels.into_iter().map(Into::into).collect())),
             (
-                "box",
+                "frame",
                 trace.frame.map_or(Given::Unset, |f| {
                     Given::Numbers([f.x, f.y, f.width, f.height].into_iter().map(Expr::from).collect())
                 }),
@@ -80,7 +80,7 @@ impl Drawing {
     #[must_use]
     pub fn trace_labels(map: &Field, max_colors: usize, trace: &Trace) -> Self {
         let unread = [
-            ("box", "Trace::frame", trace.frame.is_some()),
+            ("frame", "Trace::frame", trace.frame.is_some()),
             ("cell", "Trace::cell", trace.cell.is_some()),
         ];
         if let Some((name, setter, _)) = unread.into_iter().find(|(.., set)| *set) {

@@ -1,6 +1,6 @@
 //! A `Field` and a `Flow` in a document, written as the calls of formats.md: a field is a number or expression (the
 //! same everywhere) or `{"Field.ramp": {"start", "end"}}`, `{"Field.distance": {"drawing", "normalized"}}` or
-//! `{"Field.map": {"width", "height", "data", "box"}}`; a flow is `{"Flow.angle": {"angle"}}`,
+//! `{"Field.map": {"width", "height", "data", "frame"}}`; a flow is `{"Flow.angle": {"angle"}}`,
 //! `{"Flow.noise": {"wavelength", "phase", "seed"}}`, `{"Flow.contour": {"drawing"}}` or
 //! `{"Flow.mix": {"flow", "other", "fraction"}}` or `{"Flow.rotate": {"flow", "angle"}}`. A `drawing` is a drawing like any other, drawn with the values of
 //! the step that reads the field; a number may be an expression of Params (not a per-item number). What a call makes
@@ -162,7 +162,7 @@ impl Reader {
             "Field.noise" => self.noise(&here, args)?,
             // the arithmetic words were read above
             _ => {
-                only(&here, args, &["width", "height", "data", "box"])?;
+                only(&here, args, &["width", "height", "data", "frame"])?;
                 let size = |name: &str| -> Result<usize, Error> {
                     let value = literal(&here, args, name, None)?;
                     // a whole number from 1 that fits the limit of a map, which Field::map checks in full
@@ -190,11 +190,11 @@ impl Reader {
                     }
                     None => return Err(refuse(&here, "is missing `data`")),
                 };
-                let frame = match args.get("box") {
+                let frame = match args.get("frame") {
                     None => None,
                     Some(Json::Array(items)) if items.len() == 4 => {
-                        let at_box = at(&here, "box");
-                        let number = |index: usize| number_at(&at(&at_box, &index.to_string()), &items[index]);
+                        let at_frame = at(&here, "frame");
+                        let number = |index: usize| number_at(&at(&at_frame, &index.to_string()), &items[index]);
                         Some(Rect {
                             x: number(0)?,
                             y: number(1)?,
@@ -202,7 +202,12 @@ impl Reader {
                             height: number(3)?,
                         })
                     }
-                    Some(_) => return Err(refuse(&at(&here, "box"), "must be four numbers [x, y, width, height]")),
+                    Some(_) => {
+                        return Err(refuse(
+                            &at(&here, "frame"),
+                            "must be four numbers [x, y, width, height]",
+                        ));
+                    }
                 };
                 FieldWhat::Map {
                     name: data.0,
@@ -386,7 +391,7 @@ impl Writer<'_> {
                 if map.frame != default {
                     let f = map.frame;
                     args.push((
-                        "box",
+                        "frame",
                         Json::Array(vec![
                             Json::Number(f.x),
                             Json::Number(f.y),

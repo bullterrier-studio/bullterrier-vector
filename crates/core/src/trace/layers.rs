@@ -181,7 +181,7 @@ fn layer(
 }
 
 /// One outline for each of `levels` that `field` reaches: the region where it is at or above the level, read at the cells
-/// of `frame` cut into cells no wider than `cell` (left out: a map's own box and pixels).
+/// of `frame` cut into cells no wider than `cell` (left out: a map's own frame and pixels).
 pub(crate) fn levels(
     field: &Field,
     (frame, cell): (Option<Rect>, Option<f64>),

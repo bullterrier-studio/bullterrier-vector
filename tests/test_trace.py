@@ -143,7 +143,7 @@ def test_levels_may_be_params() -> None:
 
 def test_any_field_is_traced_over_its_box_and_a_disc_comes_out_at_its_radius() -> None:
     inside = -btvec.Field.distance(btvec.Path.circle((100, 100), 60))  # at least 15 inside the circle of radius 45
-    drawing = btvec.Drawing.trace_levels(inside, 15, box=(0, 0, 200, 200), cell=2, tolerance=0)
+    drawing = btvec.Drawing.trace_levels(inside, 15, frame=(0, 0, 200, 200), cell=2, tolerance=0)
     (shape,) = drawing.shapes()
     assert shape.attributes["level"] == 15
     assert area(shape.path) == pytest.approx(3.14159265 * 45**2, rel=0.01)
@@ -154,8 +154,8 @@ def test_any_field_is_traced_over_its_box_and_a_disc_comes_out_at_its_radius() -
 @pytest.mark.parametrize(
     ("given", "name"),
     [
-        pytest.param({"cell": 2}, "box", id="no box"),
-        pytest.param({"box": (0, 0, 200, 200)}, "cell", id="no cell"),
+        pytest.param({"cell": 2}, "frame", id="no frame"),
+        pytest.param({"frame": (0, 0, 200, 200)}, "cell", id="no cell"),
     ],
 )
 def test_a_field_that_is_not_a_map_needs_a_box_and_a_cell(given: dict[str, object], name: str) -> None:

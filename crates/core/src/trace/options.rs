@@ -2,7 +2,7 @@
 
 use crate::{Expr, Rect};
 
-/// How a traced layer is read and tidied, in design pixels. The default reads a map over its own box and pixels, blurs
+/// How a traced layer is read and tidied, in design pixels. The default reads a map over its own frame and pixels, blurs
 /// nothing, opens and closes nothing, drops nothing and fits curves within half a pixel. The tidying numbers are numbers or
 /// expressions of Params, read once.
 #[derive(Debug, Clone)]
@@ -78,7 +78,7 @@ impl Trace {
         self
     }
 
-    /// Read the field over `frame` (design pixels) instead of a map's own box: needed for a field that is not a map.
+    /// Read the field over `frame` (design pixels) instead of a map's own frame: needed for a field that is not a map.
     /// [`Drawing::trace_levels`](crate::Drawing::trace_levels) only; `trace_labels` refuses it.
     #[must_use]
     pub fn frame(mut self, frame: Rect) -> Self {

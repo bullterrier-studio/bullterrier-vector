@@ -1001,7 +1001,7 @@ def hatches() -> list[Entry]:
     )
     ramp = btvec.Field.ramp((0, 0), (100, 0))
     noise = btvec.Flow.noise(wavelength=80, seed=3)
-    photo = btvec.Field.map(16, 16, FONTS["tone_map"], box=(0, 0, 100, 100), name="tone_map")
+    photo = btvec.Field.map(16, 16, FONTS["tone_map"], frame=(0, 0, 100, 100), name="tone_map")
     phase = btvec.Param("phase", default=0, min=0, max=4)
     level = btvec.Param("level", default=0.4, min=0, max=1)
     weight = btvec.Param("weight", default=800, min=200, max=800)
@@ -1086,7 +1086,7 @@ def hatches() -> list[Entry]:
 def line_families() -> list[Entry]:
     """V15c: ridgelines, bands of each carrier and stippled dots, over a map tone and a ramp, with Params."""
     box = btvec.Path.rect(0, 0, 100, 100)
-    photo = btvec.Field.map(16, 16, FONTS["tone_map"], box=(0, 0, 100, 100), name="tone_map")
+    photo = btvec.Field.map(16, 16, FONTS["tone_map"], frame=(0, 0, 100, 100), name="tone_map")
     ramp = btvec.Field.ramp((0, 0), (100, 0))
     lift = btvec.Param("lift", default=10, min=0, max=40)
     dot = btvec.Param("dot", default=1, min=0.5, max=2)
@@ -1116,7 +1116,7 @@ def line_families() -> list[Entry]:
 
 def traces() -> list[Entry]:
     """V14a: a map traced at levels (stacked, painted by level), as labels and, exactly, as cells, with a Param."""
-    photo = btvec.Field.map(16, 16, FONTS["tone_map"], box=(0, 0, 100, 100), name="tone_map")
+    photo = btvec.Field.map(16, 16, FONTS["tone_map"], frame=(0, 0, 100, 100), name="tone_map")
     open_by = btvec.Param("open_by", default=1, min=0, max=4)
     grey = ["#dddddd", "#999999", "#444444"]
     levels = [0.25, 0.5, 0.75]
@@ -1136,7 +1136,7 @@ def traces() -> list[Entry]:
             btvec.Drawing.trace_levels(
                 -btvec.Field.distance(btvec.Path.circle((50, 50), 35)) + btvec.Field.noise(wavelength=20, seed=2) * 6,
                 [-10, 5],
-                box=(0, 0, 100, 100),
+                frame=(0, 0, 100, 100),
                 cell=2,
                 smooth=1,
             ).fill("#336699")

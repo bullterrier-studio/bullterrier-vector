@@ -151,9 +151,9 @@ fn what_it_cannot_trace_is_refused_naming_the_argument() -> Outcome {
         (ramp.contours(&[0.5], ok, 0.0), "cell"),
         (ramp.contours(&[0.5], ok, f64::NAN), "cell"),
         (ramp.contours(&[0.5], ok, 1e-9), "cell"),
-        (ramp.contours(&[0.5], frame(0.0, 0.0, 0.0, 10.0), 1.0), "box"),
-        (ramp.contours(&[0.5], frame(f64::NAN, 0.0, 10.0, 10.0), 1.0), "box"),
-        (ramp.contours(&[0.5], frame(0.0, 0.0, 1e200, 10.0), 1.0), "box"),
+        (ramp.contours(&[0.5], frame(0.0, 0.0, 0.0, 10.0), 1.0), "frame"),
+        (ramp.contours(&[0.5], frame(f64::NAN, 0.0, 10.0, 10.0), 1.0), "frame"),
+        (ramp.contours(&[0.5], frame(0.0, 0.0, 1e200, 10.0), 1.0), "frame"),
     ];
     for (outcome, parameter) in results {
         assert_eq!(parameter_refusal(outcome)?.0, parameter);

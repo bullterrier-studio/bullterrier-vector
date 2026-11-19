@@ -435,7 +435,7 @@ fn too_many_labels_and_hostile_numbers_are_refused_naming_the_argument() -> Outc
     assert!(named(levels(&tone, &[], &Trace::new()))?.contains("levels"));
     assert!(named(levels(&tone, &vec![0.5; 257], &Trace::new()))?.contains("levels"));
     // a field that is not a map has no box of its own to be read over
-    assert!(named(levels(&Field::constant(0.5)?, &[0.5], &Trace::new()))?.contains("box"));
+    assert!(named(levels(&Field::constant(0.5)?, &[0.5], &Trace::new()))?.contains("frame"));
     assert!(named(Field::map(0, 5, &[], None, None).map(|_| Vec::new()))?.contains("width"));
     Ok(())
 }
@@ -550,7 +550,7 @@ fn a_field_that_is_no_map_needs_a_box_and_a_cell() -> Outcome {
     let named = |trace: &Trace| -> Result<String, Box<dyn std::error::Error>> {
         Ok(parameter_refusal(Drawing::trace_levels(&ramp, [0.5], trace).shapes(&Values::new()))?.0)
     };
-    assert!(named(&raw().cell(2.0))?.ends_with("box"));
+    assert!(named(&raw().cell(2.0))?.ends_with("frame"));
     assert!(named(&raw().frame(BOX))?.ends_with("cell"));
     assert!(
         named(&raw().frame(BOX).cell(0.01))?.ends_with("cell"),
@@ -558,14 +558,14 @@ fn a_field_that_is_no_map_needs_a_box_and_a_cell() -> Outcome {
     );
     // labels are read at a map's own pixels: a frame or a cell is refused where the call is made
     let map = field(2, 2, &[0, 1, 1, 0])?;
-    for (trace, name) in [(raw().frame(BOX), "box"), (raw().cell(2.0), "cell")] {
+    for (trace, name) in [(raw().frame(BOX), "frame"), (raw().cell(2.0), "cell")] {
         let drawing = Drawing::trace_labels(&map, 8, &trace);
         let message = drawing.error().map(ToString::to_string).unwrap_or_default();
         // the verb that refuses it, the argument, and the Trace setter it came from
         for part in [
             "trace_labels",
             name,
-            if name == "box" { "Trace::frame" } else { "Trace::cell" },
+            if name == "frame" { "Trace::frame" } else { "Trace::cell" },
         ] {
             assert!(message.contains(part), "{part} in {message}");
         }

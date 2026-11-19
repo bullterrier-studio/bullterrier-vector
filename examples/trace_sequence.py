@@ -24,7 +24,7 @@ def frame_bytes(i: int) -> bytes:
 
 
 box = (0, 0, 640, 640)
-maps = [btvec.Field.map(SIDE, SIDE, frame_bytes(i), box=box, name="frame") for i in range(FRAMES)]
+maps = [btvec.Field.map(SIDE, SIDE, frame_bytes(i), frame=box, name="frame") for i in range(FRAMES)]
 steady = btvec.Field.smooth_maps(maps, sigma=1.5)
 
 

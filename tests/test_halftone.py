@@ -46,7 +46,7 @@ def test_a_field_tone_is_read_at_the_center_of_each_dot():
 def test_a_map_is_a_tone_too():
     # a map white on the left half and black on the right: bare cells on the left, solid ones on the right
     grey = bytes([255] * 8 + [0] * 8) * 16
-    photo = btvec.Field.map(16, 16, grey, box=(0, 0, 100, 100))
+    photo = btvec.Field.map(16, 16, grey, frame=(0, 0, 100, 100))
     drawing = Drawing(INSET).halftone(INK, tone=photo, spacing=10, angle=0, shape="square")
     # x = 10 .. 40 are bare, 60 .. 90 are tone 0 (full cells of 100), x = 50 is the edge of the map's halves
     full = 9 * 100 * 4

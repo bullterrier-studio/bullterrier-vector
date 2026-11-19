@@ -174,7 +174,7 @@ pub(crate) struct TraceLevels;
 pub(crate) static TRACE_LEVELS: Verb = Verb {
     name: "trace_levels",
     role: Role::Source,
-    summary: "traces a field at chosen levels: the `map` (a Field.map, 0 black to 1 white, or any field) gives one filled shape for each of `levels` that it reaches, in the order given, the region where the map is at or above the level, with the level as its `level` attribute; the shapes are for stacking, one over the other, each painted by its level; a shape that meets the map's border goes on past it and closes outside, so no edge lies along the border; `smooth` blurs the map first with a Gaussian of that standard deviation in design pixels, `close` then `open` (design pixels) fill and remove what is narrower than twice the radius, `min_hole` and `min_area` (square pixels) fill small holes and drop small parts, `tolerance` fits curves within that many design pixels (0 keeps the polyline); `levels` are numbers, Params or expressions, read once; the field is read at the centers of `box` (`[x, y, width, height]`) cut into equal cells no wider than `cell` design pixels, by default a Field.map's own box and pixels (any other field needs both); shapes reach past the frame by the padding (the larger of `open` and `close` plus `tolerance`, plus two cells), so crop them to the frame for plotting or cutting",
+    summary: "traces a field at chosen levels: the `map` (a Field.map, 0 black to 1 white, or any field) gives one filled shape for each of `levels` that it reaches, in the order given, the region where the map is at or above the level, with the level as its `level` attribute; the shapes are for stacking, one over the other, each painted by its level; a shape that meets the map's border goes on past it and closes outside, so no edge lies along the border; `smooth` blurs the map first with a Gaussian of that standard deviation in design pixels, `close` then `open` (design pixels) fill and remove what is narrower than twice the radius, `min_hole` and `min_area` (square pixels) fill small holes and drop small parts, `tolerance` fits curves within that many design pixels (0 keeps the polyline); `levels` are numbers, Params or expressions, read once; the field is read at the centers of `frame` (`[x, y, width, height]`) cut into equal cells no wider than `cell` design pixels, by default a Field.map's own frame and pixels (any other field needs both); shapes reach past the frame by the padding (the larger of `open` and `close` plus `tolerance`, plus two cells), so crop them to the frame for plotting or cutting",
     args: &[
         MAP,
         Arg {
@@ -185,7 +185,7 @@ pub(crate) static TRACE_LEVELS: Verb = Verb {
             domain: Domain::Finite,
         },
         Arg {
-            name: "box",
+            name: "frame",
             kind: Kind::Rect,
             default: Some(Literal::Unset),
             reads: Reads::Literal,
@@ -208,12 +208,15 @@ pub(crate) static TRACE_LEVELS: Verb = Verb {
     check: Some(has_levels),
 };
 
-/// From 1 to `MAX_LEVELS` levels, and a `box` of four numbers if one is given.
+/// From 1 to `MAX_LEVELS` levels, and a `frame` of four numbers if one is given.
 fn has_levels(args: &Args) -> Result<(), Error> {
-    if args.given("box")? && args.count("box")? != 4 {
+    if args.given("frame")? && args.count("frame")? != 4 {
         return Err(Error::parameter(
-            "box",
-            format!("must be four numbers (x, y, width, height), got {}", args.count("box")?),
+            "frame",
+            format!(
+                "must be four numbers (x, y, width, height), got {}",
+                args.count("frame")?
+            ),
         ));
     }
     let count = args.count("levels")?;
@@ -246,10 +249,10 @@ impl Node for TraceLevels {
                 .field("map")?
                 .ok_or_else(|| Error::parameter("map", "is missing"))?
                 .bind(cx.env, &mut Shapes::taken(inputs.taken))?;
-            let frame = if args.given("box")? {
-                match args.numbers(cx, "box", item)?[..] {
+            let frame = if args.given("frame")? {
+                match args.numbers(cx, "frame", item)?[..] {
                     [x, y, width, height] => Some(Rect { x, y, width, height }),
-                    _ => return Err(Error::parameter("box", "must be four numbers (x, y, width, height)")),
+                    _ => return Err(Error::parameter("frame", "must be four numbers (x, y, width, height)")),
                 }
             } else {
                 None

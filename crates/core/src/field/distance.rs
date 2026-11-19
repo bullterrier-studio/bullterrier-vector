@@ -550,7 +550,7 @@ impl fmt::Display for Field {
                 let Rect { x, y, width, height } = map.frame;
                 write!(
                     f,
-                    "Field.map({}, {}, <{} bytes>, box=({x}, {y}, {width}, {height}))",
+                    "Field.map({}, {}, <{} bytes>, frame=({x}, {y}, {width}, {height}))",
                     map.width,
                     map.height,
                     map.bytes.len()

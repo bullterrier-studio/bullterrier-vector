@@ -13,7 +13,7 @@
             {
               "halftone": {
                 "color": "#15161a",
-                "tone": { "Field.map": { "width": 540, "height": 675, "data": "portrait", "box": [0, 0, 1080, 1350] } },
+                "tone": { "Field.map": { "width": 540, "height": 675, "data": "portrait", "frame": [0, 0, 1080, 1350] } },
                 "spacing": 16
               }
             }

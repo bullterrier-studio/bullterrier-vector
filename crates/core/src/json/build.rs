@@ -85,7 +85,7 @@ fn located(call: &str, error: &Error, renamed: &[(&str, &str)]) -> Error {
         "width",
         "height",
         "data",
-        "box",
+        "frame",
         "drawing",
         "start",
         "end",

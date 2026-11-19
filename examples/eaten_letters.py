@@ -31,7 +31,7 @@ eaten = edge + bite * 40 * grow
 # trace_levels keeps where a field is at or above a level, so the letters are where minus the eaten distance is; the
 # three levels are read in one pass, and each shape, the region of one level in order, is painted by its index
 traced = btvec.Drawing.trace_levels(
-    -eaten, [-40, -18, -core], box=(0, 0, WIDTH, HEIGHT), cell=2, smooth=1.5, tolerance=0.4, min_area=20
+    -eaten, [-40, -18, -core], frame=(0, 0, WIDTH, HEIGHT), cell=2, smooth=1.5, tolerance=0.4, min_area=20
 )
 layers = [traced.only(index=index).fill(color) for index, color in enumerate((PALE, RUST, INK))]
 drawing = btvec.Drawing(btvec.Path.rect(0, 0, WIDTH, HEIGHT).fill(PAPER), *layers, size=(WIDTH, HEIGHT))

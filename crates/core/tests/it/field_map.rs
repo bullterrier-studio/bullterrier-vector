@@ -109,9 +109,9 @@ fn a_map_the_library_cannot_read_is_refused_naming_the_argument() -> Outcome {
         (Field::map(0, 2, &[], None, None), "width"),
         (Field::map(2, 0, &[], None, None), "width"),
         (Field::map(1 << 20, 1 << 20, &[], None, None), "width"),
-        (Field::map(3, 2, &BYTES, Some(nan), None), "box"),
-        (Field::map(3, 2, &BYTES, Some(flat), None), "box"),
-        (Field::map(3, 2, &BYTES, Some(far), None), "box.x"),
+        (Field::map(3, 2, &BYTES, Some(nan), None), "frame"),
+        (Field::map(3, 2, &BYTES, Some(flat), None), "frame"),
+        (Field::map(3, 2, &BYTES, Some(far), None), "frame.x"),
     ] {
         assert_eq!(parameter_refusal(outcome)?.0, parameter);
     }
@@ -241,7 +241,7 @@ fn a_map_is_an_input_of_the_document_and_the_caller_supplies_its_bytes() -> Outc
     };
     let text = hatched(Field::map(3, 2, &BYTES, Some(framed), None)?)?.to_json()?;
     assert!(
-        text.contains("\"map1\":{\"kind\":\"map\"") && text.contains("\"box\":[0,0,6,4]"),
+        text.contains("\"map1\":{\"kind\":\"map\"") && text.contains("\"frame\":[0,0,6,4]"),
         "{text}"
     );
     Ok(())

@@ -76,15 +76,15 @@ impl PyField {
 
     /// An 8-bit grayscale map as a field, 0 (black) to 1 (white): `data` holds `height` rows of `width` bytes, top row
     /// first (`bytes`, a `bytearray`, a `memoryview`, a `numpy` array of `uint8`, or a list of numbers). It lies over
-    /// `box` (`(x, y, width, height)`, default one design pixel a map pixel from the origin); the field is bilinear
-    /// between pixel centers and holds the nearest edge value beyond the box. `name` is what a saved drawing calls it.
+    /// `frame` (`(x, y, width, height)`, default one design pixel a map pixel from the origin); the field is bilinear
+    /// between pixel centers and holds the nearest edge value beyond the frame. `name` is what a saved drawing calls it.
     #[staticmethod]
-    #[pyo3(signature = (width, height, data, *, r#box=None, name=None))]
+    #[pyo3(signature = (width, height, data, *, frame=None, name=None))]
     fn map(
         width: usize,
         height: usize,
         data: &Bound<'_, PyAny>,
-        r#box: Option<Frame>,
+        frame: Option<Frame>,
         name: Option<&str>,
     ) -> PyResult<Self> {
         let bytes = map_bytes(data)?;
@@ -92,30 +92,30 @@ impl PyField {
             width,
             height,
             &bytes,
-            r#box.map(|frame| frame.0),
+            frame.map(|frame| frame.0),
             name,
         ))
         .map(Self)
     }
 
-    /// This field written out as an 8-bit grayscale map of `width` by `height` pixels over `box` (default one design
+    /// This field written out as an 8-bit grayscale map of `width` by `height` pixels over `frame` (default one design
     /// pixel a map pixel from the origin), top row first, as `bytes`: each pixel is the field at its center with `low`
     /// written as 0 and `high` as 255 (linear between, held beyond), the input form of `Field.map` and of an image map.
-    #[pyo3(signature = (width, height, *, r#box=None, low=0.0, high=1.0))]
+    #[pyo3(signature = (width, height, *, frame=None, low=0.0, high=1.0))]
     fn to_map<'py>(
         &self,
         py: Python<'py>,
         width: usize,
         height: usize,
-        r#box: Option<Frame>,
+        frame: Option<Frame>,
         low: f64,
         high: f64,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        let bytes = raised(py.detach(|| self.0.to_map(width, height, r#box.map(|frame| frame.0), low, high)))?;
+        let bytes = raised(py.detach(|| self.0.to_map(width, height, frame.map(|frame| frame.0), low, high)))?;
         Ok(PyBytes::new(py, &bytes))
     }
 
-    /// Each map of `maps` (the frames of a sequence: `Field.map`s of one size and box) as the Gaussian weighted mean of
+    /// Each map of `maps` (the frames of a sequence: `Field.map`s of one size and frame) as the Gaussian weighted mean of
     /// itself and its neighbours, `sigma` in maps (frames up to `ceil(3 * sigma)` away; the ends are not padded), as a list
     /// of unnamed maps. A static sequence is unchanged, `sigma` 0 gives the maps back.
     #[staticmethod]
@@ -127,26 +127,26 @@ impl PyField {
         Ok(smooth.into_iter().map(Self).collect())
     }
 
-    /// The lines where the field equals each of `levels` (a number or a list), as one `Path`: over `box` cut into cells no
+    /// The lines where the field equals each of `levels` (a number or a list), as one `Path`: over `frame` cut into cells no
     /// wider than `cell` pixels, a line crossing a cell edge at the linear interpolation of the readings at its corners.
-    /// A line that reaches the box is open there, any other is closed.
+    /// A line that reaches the frame's edge is open there, any other is closed.
     ///
     /// `smooth` blurs the readings with a Gaussian of that many pixels before tracing, which removes the tiny loops and the jag
     /// of a photograph's tone; `min_length` drops every line shorter than that many pixels. Every line runs with the high side
     /// (a reading at or above the level) on its left as drawn, so the loops of a map that is high inside a region fill as it.
-    #[pyo3(signature = (levels, *, r#box, cell, smooth=0.0, min_length=0.0))]
+    #[pyo3(signature = (levels, *, frame, cell, smooth=0.0, min_length=0.0))]
     fn contours(
         &self,
         py: Python<'_>,
         levels: Levels,
-        r#box: Frame,
+        frame: Frame,
         cell: f64,
         smooth: f64,
         min_length: f64,
     ) -> PyResult<PyPath> {
         let Levels(levels) = levels;
         let tidy = vector::Tidy::default().smooth(smooth).min_length(min_length);
-        raised(py.detach(|| self.0.contours_with(&levels, r#box.0, cell, &tidy))).map(PyPath)
+        raised(py.detach(|| self.0.contours_with(&levels, frame.0, cell, &tidy))).map(PyPath)
     }
 
     /// Smooth seeded noise from -1 to 1, one lattice cell `wavelength` design pixels wide (400 when `None`); `phase` in
