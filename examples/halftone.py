@@ -28,7 +28,7 @@ TRIANGLE = btvec.Path.from_svg_path("M0 -1 L1 1 L-1 1 Z")
 PANELS: list[tuple[str | btvec.Path, dict[str, Any], tuple[tuple[int, int], tuple[int, int]]]] = [
     ("ellipse", {"aspect": 2, "angle": 20, "spacing": 7}, ((0, 0), (1, 0))),
     ("euclidean", {"family": "rings", "spacing": 6}, ((0, 0), (0, 1))),
-    ("diamond", {"family": "waves", "amplitude": 1, "wavelength": 6, "angle": 0, "spacing": 7}, ((0, 0), (1, 1))),
+    ("diamond", {"family": "waves", "amplitude": 7, "wavelength": 42, "angle": 0, "spacing": 7}, ((0, 0), (1, 1))),
     (TRIANGLE, {"family": "rays", "spacing": 8}, ((0, 1), (1, 0))),
 ]
 panels = []

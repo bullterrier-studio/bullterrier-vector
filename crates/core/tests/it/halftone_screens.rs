@@ -487,7 +487,10 @@ fn the_style_of_a_drawn_shape_says_what_the_tone_is() -> Outcome {
     assert_eq!(style.family(), Family::Rings);
     assert_eq!(style.shape(), &Mark::Dot);
     assert_eq!(style.center().map(|c| (c.x, c.y)), Some((10.0, 20.0)));
-    assert_eq!((style.aspect(), style.amplitude(), style.wavelength()), (1.0, 1.0, 6.0));
+    assert_eq!(
+        (style.aspect(), style.amplitude(), style.wavelength()),
+        (1.0, 8.0, 48.0)
+    );
     let ramp = Field::ramp((0.0, 0.0), (0.0, 50.0))?;
     let by_field = Drawing::from(rect(50.0)?).halftone(Halftone::new(BLACK, ramp));
     let shapes = by_field.shapes(&Values::new())?;
@@ -620,7 +623,7 @@ fn a_spiral_is_one_row_a_pitch_further_out_each_turn() -> Outcome {
 }
 
 #[test]
-fn a_wave_swings_the_rows_by_amplitude_pitches_over_a_wavelength_of_pitches() -> Outcome {
+fn a_turned_wave_swings_the_rows_by_amplitude_over_a_wavelength_in_design_pixels() -> Outcome {
     let (angle, spacing) = (20.0_f64, 10.0);
     let (sin, cos) = (libm::sin(angle.to_radians()), libm::cos(angle.to_radians()));
     let found = dots(
@@ -629,8 +632,8 @@ fn a_wave_swings_the_rows_by_amplitude_pitches_over_a_wavelength_of_pitches() ->
             .spacing(spacing)
             .angle(Deg(angle))
             .family(Family::Waves)
-            .amplitude(1.5)
-            .wavelength(8.0),
+            .amplitude(15.0)
+            .wavelength(80.0),
     )?;
     assert!(found.len() > 500);
     for dot in &found {
@@ -642,7 +645,7 @@ fn a_wave_swings_the_rows_by_amplitude_pitches_over_a_wavelength_of_pitches() ->
             1e-9,
             "a dot every spacing along the row",
         );
-        let row = (across - 1.5 * spacing * libm::sin(TAU * along / (8.0 * spacing))) / spacing;
+        let row = (across - 15.0 * libm::sin(TAU * along / 80.0)) / spacing;
         near(row, row.round(), 1e-9, "on a row displaced by the sine");
         near(
             shoelace_area(dot),
@@ -1022,8 +1025,11 @@ fn the_svg_and_the_pixels_agree_on_every_shape_and_screen() -> Outcome {
         } else {
             screened
         };
-        let screened = if matches!(screen, Family::Lines | Family::Waves) {
+        let screened = if screen == Family::Lines {
             screened
+        } else if screen == Family::Waves {
+            // a spacing high and six long, the measured agreement's geometry
+            screened.amplitude(7.0).wavelength(42.0)
         } else {
             screened.center((10.0, 110.0))
         };

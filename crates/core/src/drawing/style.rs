@@ -224,14 +224,14 @@ impl Halftone {
         self
     }
 
-    /// This screen's wave swinging its rows `amplitude` spacings (default 1); read by [`Family::Waves`] only.
+    /// This screen's wave swinging its rows `amplitude` design pixels (default 8); read by [`Family::Waves`] only.
     #[must_use]
     pub fn amplitude(mut self, amplitude: impl Into<Expr>) -> Self {
         self.amplitude = Some(amplitude.into());
         self
     }
 
-    /// This screen's wave `wavelength` spacings long (default 6), above 0; read by [`Family::Waves`] only.
+    /// This screen's wave `wavelength` design pixels long (default 48), above 0; read by [`Family::Waves`] only.
     #[must_use]
     pub fn wavelength(mut self, wavelength: impl Into<Expr>) -> Self {
         self.wavelength = Some(wavelength.into());

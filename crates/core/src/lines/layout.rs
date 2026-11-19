@@ -87,7 +87,7 @@ impl Family {
     }
 }
 
-/// A family with its turn and, for waves, their size in rows: multiples of the spacing, as the cells of a screen are.
+/// A family with its turn and, for waves, their size in design pixels.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Layout {
     pub(crate) family: Family,
@@ -95,7 +95,7 @@ pub(crate) struct Layout {
     pub(crate) spacing: f64,
     /// The turn in degrees.
     pub(crate) angle: f64,
-    /// The `(wavelength, amplitude)` of waves, in rows.
+    /// The `(wavelength, amplitude)` of waves, in design pixels.
     pub(crate) wave: Option<(f64, f64)>,
 }
 
@@ -238,9 +238,7 @@ impl Layout {
     pub(crate) fn straight(&self, along: f64, across: f64) -> Point {
         let (sin, cos) = sin_cos_deg(self.angle);
         let lift = match self.wave {
-            Some((length, height)) if self.family == Family::Waves => {
-                height * self.spacing * sin_cos(TAU * along / (length * self.spacing)).0
-            }
+            Some((length, height)) if self.family == Family::Waves => height * sin_cos(TAU * along / length).0,
             _ => 0.0,
         };
         let n = across + lift;

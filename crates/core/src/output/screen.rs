@@ -231,7 +231,7 @@ fn rows(layout: &Layout, rect: Rect, center: Point, reach_px: f64) -> Result<(Ro
         let swing = layout
             .wave
             .filter(|_| layout.family == Family::Waves)
-            .map_or(0.0, |(_, height)| height.abs() * spacing);
+            .map_or(0.0, |(_, height)| height.abs());
         let span = |select: fn(&(f64, f64)) -> f64, reach: f64| {
             let least = found.iter().map(select).fold(f64::INFINITY, f64::min);
             let most = found.iter().map(select).fold(f64::NEG_INFINITY, f64::max);

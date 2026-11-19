@@ -47,8 +47,8 @@ fn halftone() -> Result<Drawing, Error> {
             dots(tone)
                 .shape(Mark::Diamond)
                 .family(Family::Waves)
-                .amplitude(1.0)
-                .wavelength(6.0)
+                .amplitude(7.0)
+                .wavelength(42.0)
                 .angle(Deg(0.0))
                 .spacing(7.0)
         })?,

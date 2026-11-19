@@ -291,13 +291,13 @@ const DEFAULT_HALFTONE_SPACING: f64 = 8.0;
 // constant: api.md "Style" (`halftone(color, *, tone, spacing=8, angle=45, ...)`), the classic screen angle
 const DEFAULT_HALFTONE_ANGLE: f64 = 45.0;
 
-/// How high a wave screen swings its rows when none is given, in pitches.
-// constant: api.md "Style" (`amplitude=1`): a row moves a cell up and down, so the waves are plain at a glance
-const DEFAULT_HALFTONE_AMPLITUDE: f64 = 1.0;
+/// How high a wave screen swings its rows when none is given, in design pixels.
+// constant: api.md "Style" (`amplitude=8`): a row moves a default cell up and down, so the waves are plain at a glance
+const DEFAULT_HALFTONE_AMPLITUDE: f64 = DEFAULT_HALFTONE_SPACING;
 
-/// How long a wave screen is when none is given, in pitches.
-// constant: api.md "Style" (`wavelength=6`): six cells to a wave, enough to read as a wave and not as a zigzag
-const DEFAULT_HALFTONE_WAVELENGTH: f64 = 6.0;
+/// How long a wave screen is when none is given, in design pixels.
+// constant: api.md "Style" (`wavelength=48`): six default cells to a wave, enough to read as a wave and not as a zigzag
+const DEFAULT_HALFTONE_WAVELENGTH: f64 = 6.0 * DEFAULT_HALFTONE_SPACING;
 
 /// Fills every shape with a screen of dots.
 #[derive(Debug)]
@@ -307,7 +307,7 @@ pub(crate) static HALFTONE: Verb = Verb {
     name: "halftone",
     role: Role::Step,
     summary: "fills every shape with a screen of dots of a colour, on rows `spacing` design pixels apart turned angle \
-              degrees: `family` lines, waves (rows swung by `amplitude` spacings over `wavelength` spacings), rings, spiral or \
+              degrees: `family` lines, waves (rows swung `amplitude` design pixels over a `wavelength` of design pixels), rings, spiral or \
               rays (about `center`, default the middle of the shape's bounds); each dot covers (1 - tone) of its own \
               cell, tone from 0 (solid) to 1 (no dot), a number or a field read at the dot's center; `shape` is the dot: \
               dot, square, ellipse (`aspect` times as long as wide), diamond, euclidean (round, diamond at 0.5, round hole) or \

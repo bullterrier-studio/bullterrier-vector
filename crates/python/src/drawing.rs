@@ -671,8 +671,8 @@ impl PyDrawing {
     /// and `angle` (45) the turn of the layout in degrees about the origin of the design frame. `shape` is the dot:
     /// `"dot"`, `"square"`, `"ellipse"` (`aspect` times as long as wide, at least 1), `"diamond"`, `"euclidean"` (round,
     /// a diamond at tone 0.5, then a round hole) or a closed `Path` (its first sub-path, on its centroid, scaled to the
-    /// area). `family` is the layout, as for `bands`: `"lines"`, `"waves"` (rows swung `amplitude` spacings (1) over
-    /// `wavelength` spacings (6)), `"rings"`, `"spiral"` or `"rays"` (about `center`, default the middle of the shape's
+    /// area). `family` is the layout, as for `bands`: `"lines"`, `"waves"` (rows swung `amplitude` design pixels (8)
+    /// over a `wavelength` of design pixels (48)), `"rings"`, `"spiral"` or `"rays"` (about `center`, default the middle of the shape's
     /// bounds). Lines and waves are anchored to the design frame.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
     #[pyo3(signature = (color, *, tone, spacing=None, angle=None, shape=None, aspect=None, family=None, center=None, amplitude=None, wavelength=None))]

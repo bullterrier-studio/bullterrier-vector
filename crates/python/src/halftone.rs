@@ -101,7 +101,7 @@ pub(crate) fn halftone_of(
 /// A halftone fill, as it is drawn: a screen of dots in a colour (`"#rrggbbaa"`) on the layout `family`, the `tone` (0
 /// solid, 1 no dots; a number, or the `Field` it was given), the `spacing` in design pixels, the `angle` in degrees, the
 /// `shape` of a dot (a word, or the `Path` it was given), its `aspect`, the `center` of rings, a spiral and rays (`None`:
-/// the middle of the shape's bounds) and a wave's `amplitude` and `wavelength` in spacings.
+/// the middle of the shape's bounds) and a wave's `amplitude` and `wavelength` in design pixels.
 #[pyclass(name = "Halftone", module = "bullterrier_vector", frozen, eq)]
 #[derive(Clone, PartialEq)]
 pub(crate) struct PyHalftone(pub(crate) vector::HalftoneStyle);
@@ -166,13 +166,13 @@ impl PyHalftone {
         })
     }
 
-    /// How high a wave swings its rows, in spacings.
+    /// How high a wave swings its rows, in design pixels.
     #[getter]
     fn amplitude(&self) -> f64 {
         self.0.amplitude()
     }
 
-    /// How long a wave is, in spacings.
+    /// How long a wave is, in design pixels.
     #[getter]
     fn wavelength(&self) -> f64 {
         self.0.wavelength()

@@ -75,8 +75,8 @@ impl Bands {
         Self::made(Family::Lines, spacing, tone, width)
     }
 
-    /// As [`Bands::lines`], each line a sine across the lines: `amplitude` rows high, one `wavelength` rows
-    /// long (a row is one `spacing`, as a halftone's is), in phase at the origin of the lines' direction.
+    /// As [`Bands::lines`], each line a sine across the lines: `amplitude` design pixels high, one `wavelength`
+    /// design pixels long, in phase at the origin of the lines' direction.
     ///
     /// # Errors
     /// As [`Bands::lines`], and naming `wavelength` or `amplitude` if it is a per-item number.

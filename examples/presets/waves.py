@@ -18,6 +18,8 @@ tone = btvec.Field.distance(word, normalized=True)
 
 drawing = btvec.Drawing(
     btvec.Path.rect(0, 0, WIDTH, HEIGHT).fill(PAPER),
-    word.bands(spacing, tone=tone, width=(7, 0.8), family="waves", angle=0, wavelength=4, amplitude=0.4).fill(INK),
+    word.bands(
+        spacing, tone=tone, width=(7, 0.8), family="waves", angle=0, wavelength=4 * spacing, amplitude=0.4 * spacing
+    ).fill(INK),
     size=(WIDTH, HEIGHT),
 )

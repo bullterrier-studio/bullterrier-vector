@@ -57,7 +57,7 @@ def halftones() -> list[Entry]:
         ),
         "halftone_diamond_wave": framed(
             ring.halftone(
-                BLUE, tone=0.6, spacing=7, angle=15, shape="diamond", family="waves", amplitude=1.5, wavelength=7
+                BLUE, tone=0.6, spacing=7, angle=15, shape="diamond", family="waves", amplitude=10.5, wavelength=49
             )
         ),
         "halftone_square_rays": framed(

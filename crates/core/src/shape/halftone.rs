@@ -197,13 +197,13 @@ impl HalftoneStyle {
         self.center
     }
 
-    /// How high a [`Family::Waves`] layout swings the rows, in spacings.
+    /// How high a [`Family::Waves`] layout swings the rows, in design pixels.
     #[must_use]
     pub fn amplitude(&self) -> f64 {
         self.amplitude
     }
 
-    /// How long a wave of a [`Family::Waves`] layout is, in spacings.
+    /// How long a wave of a [`Family::Waves`] layout is, in design pixels.
     #[must_use]
     pub fn wavelength(&self) -> f64 {
         self.wavelength
