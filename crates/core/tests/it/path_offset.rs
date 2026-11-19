@@ -994,3 +994,132 @@ fn thin_offsets_and_outlines_of_random_scribbles_are_canonical() -> Outcome {
     }
     Ok(())
 }
+
+/// Every sampled point of the boundary of `result` (the vertices and 7 points along each edge) is `|distance|` from the
+/// polygon `source` within `tolerance`: the round-joined offset of a region lies between its exact offsets by
+/// `|distance|` less and more `tolerance` (1e-6 more for the engine's grid). The distance is brute force, edge by edge.
+fn assert_in_the_band(source: &Corners, result: &Path, distance: f64, tolerance: f64, what: &str) -> Outcome {
+    let found = rings(result)?;
+    assert!(!found.is_empty(), "{what}: nothing came back");
+    for ring in &found {
+        for (index, &from) in ring.iter().enumerate() {
+            let to = ring[(index + 1) % ring.len()];
+            for step in 0..8 {
+                let share = f64::from(step) / 8.0;
+                let at = (from.0 + share * (to.0 - from.0), from.1 + share * (to.1 - from.1));
+                let away = nearest_edge(std::slice::from_ref(source), at);
+                assert!(
+                    (away - distance.abs()).abs() <= tolerance + 1e-6,
+                    "{what}: the boundary at {at:?} is {away} from the input, not {} within {tolerance}",
+                    distance.abs()
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+/// `source` offset both ways by `distance` with round joins stays within the band (`assert_in_the_band`).
+fn assert_both_ways_in_the_band(source: &Corners, distance: f64, tolerance: f64, what: &str) -> Outcome {
+    let path = polygons_path(std::slice::from_ref(source))?;
+    for signed in [distance, -distance] {
+        let result = path.offset(signed, Join::Round, LIMIT, tolerance)?;
+        assert_in_the_band(source, &result, signed, tolerance, &format!("{what} by {signed}"))?;
+    }
+    Ok(())
+}
+
+// Corners are dropped one after another, and the error must not add up: a slab under an arc of radius 1000 with its
+// corners 0.01 apart (a chord of 6 hides its sagitta of 0.005, no more) offsets within the tolerance of the exact offset.
+#[test]
+fn a_gentle_arc_of_many_corners_offsets_within_the_tolerance() -> Outcome {
+    let mut slab: Corners = (0..=2000)
+        .map(|k| {
+            let angle = f64::from(k) * 0.01 / 1000.0;
+            (1000.0 * libm::sin(angle), 1000.0 * (1.0 - libm::cos(angle)))
+        })
+        .collect();
+    let end = slab[2000];
+    slab.extend([(end.0, 30.0), (0.0, 30.0)]);
+    assert_both_ways_in_the_band(&slab, 2.0, TOLERANCE, "gentle arc")
+}
+
+// A slow staircase: 400 steps 0.1 wide and 0.0045 high (each under half of the tolerance) climb 1.8 in all.
+#[test]
+fn a_slow_staircase_of_tiny_steps_offsets_within_the_tolerance() -> Outcome {
+    let mut slab: Corners = (0..400)
+        .flat_map(|k| {
+            let (x, y) = (f64::from(k) * 0.1, f64::from(k) * 0.0045);
+            [(x, y), (x + 0.1, y)]
+        })
+        .collect();
+    slab.extend([(40.0, 30.0), (0.0, 30.0)]);
+    assert_both_ways_in_the_band(&slab, 2.0, TOLERANCE, "staircase")
+}
+
+// A spike of base 2 and height 30 at a tolerance of 5 and a distance of 10: nothing about it is hidden.
+#[test]
+fn a_spike_far_above_the_tolerance_offsets_within_it() -> Outcome {
+    let slab: Corners = vec![
+        (0.0, 0.0),
+        (19.0, 0.0),
+        (20.0, -30.0),
+        (21.0, 0.0),
+        (40.0, 0.0),
+        (40.0, 40.0),
+        (0.0, 40.0),
+    ];
+    assert_both_ways_in_the_band(&slab, 10.0, 5.0, "spike")
+}
+
+// A zig-zag of 4 teeth along the top of a bar of 8: teeth a little under half of the tolerance high are one edge
+// again, so the bar grows by `distance` and no more; a little over half of it, they keep their corners, and the grown
+// top rises that much higher (the known-bad row: dropping what the tolerance does not hide).
+#[test]
+fn a_zig_zag_under_half_the_tolerance_is_dropped_and_over_it_is_kept() -> Outcome {
+    let top = |height: f64| -> Result<f64, Error> {
+        let mut bar: Corners = (0..=8).map(|k| (f64::from(k), if k % 2 == 1 { -height } else { 0.0 })).collect();
+        bar.extend([(8.0, 5.0), (0.0, 5.0)]);
+        Ok(extent(&polygons_path(&[bar])?.offset(1.0, Join::Miter, LIMIT, TOLERANCE)?)?.1)
+    };
+    assert_near(top(0.0049)?, -1.0, 1e-3, "under half of the tolerance");
+    assert_near(top(0.0051)?, -1.0051, 1e-3, "over half of the tolerance");
+    Ok(())
+}
+
+// A square of 10 with one spike on its top edge whose apex is just inside the miter cut-off (its corner angle a little
+// over `2 asin(1 / limit)`). Grown by `distance`, a miter at the apex would reach `distance / sin(half angle)` past it,
+// up to `limit` times `distance`. A spike the tolerance hides (under half of it high) throws no miter, so the square
+// grows as if it had none; one just over half of it keeps its miter. Pinned so that neither can change unseen.
+#[test]
+fn a_hidden_spike_throws_no_miter_and_a_visible_one_does() -> Outcome {
+    // (limit, distance)
+    for (limit, distance) in [(4.0, 10.0), (23.0, 10.0), (10.0, 4.0)] {
+        let sine = 1.0 / (0.98 * limit); // the sine of the half angle: a ratio of 0.98 of the limit
+        let half_angle = libm::asin(sine);
+        let lowest = |height: f64| -> Result<f64, Error> {
+            let reach = height * libm::tan(half_angle);
+            let spike = vec![
+                (0.0, 0.0),
+                (5.0 - reach, 0.0),
+                (5.0, -height),
+                (5.0 + reach, 0.0),
+                (10.0, 0.0),
+                (10.0, 10.0),
+                (0.0, 10.0),
+            ];
+            let grown = polygons_path(&[spike])?.offset(distance, Join::Miter, limit, TOLERANCE)?;
+            Ok(extent(&grown)?.1)
+        };
+        // hidden: the plain square's top, `distance` above it
+        assert_near(lowest(0.0049)?, -distance, 1e-3, &format!("hidden, limit {limit}, distance {distance}"));
+        // visible: the apex's miter, `distance / sin(half angle)` above the apex
+        assert_near(
+            lowest(0.0051)?,
+            -(0.0051 + distance / sine),
+            0.05,
+            &format!("visible, limit {limit}, distance {distance}"),
+        );
+    }
+    Ok(())
+}
