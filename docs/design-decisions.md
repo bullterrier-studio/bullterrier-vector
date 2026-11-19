@@ -2048,9 +2048,11 @@ Why not an existing call:
 - **Why `abs` and `min` are nodes although derivable.** `abs(f)` is `f.max(-f)` and `a.min(b)` is `-((-a).max(-b))`, so
   by the rule above they would go. They stay because the derived spelling reads its operand twice: measured, 28.4
   microseconds a read of `f.max(-f)` against 14.4 for `abs(f)` on a headline's distance. Nested, the reads double at
-  every level (`abs(abs(abs(f)))` derived reads `f` 8 times), so a tree within the depth and node limits would cost up to
-  2^16 reads of a leaf, which defeats the read charge (`charge_reads` counts each operand where it is read) and the point
-  of the limits. `sub`, `neg` and `clamp` read each operand once when derived, so they have no node.
+  every level (`abs(abs(abs(f)))` derived reads `f` 8 times): the node limit and the read charge count a shared operand
+  each time it is read, so the derived spelling is charged honestly, but it spends them exponentially (12 nested `abs`
+  written out are 16,381 nodes, past the 10,000), and each is two levels deep, so 9 pass the depth of 16 that 16 `abs`
+  nodes reach. `sub`, `neg` and `clamp` read each operand
+  once when derived, so they have no node.
 - **Spelling as `Expr`'s.** Python: `+`, `-`, `*` with a field or a number on either side, unary `-`, `abs()`; `Expr` has no
   minimum or maximum, so `min` and `max` are methods, as `Flow.mix` combines two flows (`a.min(b)`). Rust: the methods `add`,
   `mul`, `min`, `max`, `abs`, each returning a `Result` (the depth is checked where the tree is built, as `Flow::mix` does; an
