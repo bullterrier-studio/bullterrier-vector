@@ -485,7 +485,7 @@ one path get the same lines, and only the lattice lines over a shape are made. R
 
 ```python
 photo = btvec.Field.map(w, h, grey_bytes, frame=(0, 0, 1080, 1440))
-dog = matte_field.contours(0.5, frame=centers, cell=2, smooth=3, min_length=200)  # the dog's outline, from image's matte
+dog = matte_field.contours(0.5, frame=centers, cell=2, smooth=3, min_length=200)  # the dog's outline, from a matte
 engraving = dog.bands(6, tone=photo, width=(5, 0.4), family="rings", center=nose)
 btvec.Drawing(engraving).fill("#15161a")
 ```
