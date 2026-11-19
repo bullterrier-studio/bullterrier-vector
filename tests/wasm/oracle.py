@@ -1018,6 +1018,11 @@ def hatches() -> list[Entry]:
             .hatch(6, flow=btvec.Flow.angle(10), avoid=btvec.Path.circle((50, 50), 25))
             .stroke(INK, width=1)
         ),
+        "hatch_field_arithmetic": framed(
+            btvec.Drawing(box)
+            .hatch((3, 9), tone=abs(btvec.Field.noise(30, phase=phase, seed=4, octaves=3) * 2 - ramp).min(1))
+            .stroke(INK, width=1)
+        ),
     }
     draws: list[Draw] = [(100, 100, {}), (50, 50, {})]
     # V15b: values a step reads again with the values of the draw, a map as the tone, a level of tone
@@ -1111,6 +1116,15 @@ def traces() -> list[Entry]:
             btvec.Drawing.trace_labels(photo, max_colors=256, smooth=0.4, min_hole=3).fill("#336699").opacity(0.5)
         ),
         "trace_cells": framed(btvec.Drawing.trace_cells(photo, 1, max_colors=256).fill("#cc2200")),
+        "trace_levels_of_a_field": framed(
+            btvec.Drawing.trace_levels(
+                -btvec.Field.distance(btvec.Path.circle((50, 50), 35)) + btvec.Field.noise(20, seed=2) * 6,
+                [-10, 5],
+                box=(0, 0, 100, 100),
+                cell=2,
+                smooth=1,
+            ).fill("#336699")
+        ),
     }
     draws: dict[str, list[Draw]] = {"trace_levels": [(100, 100, {}), (100, 100, {"open_by": 3})]}
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
