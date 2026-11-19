@@ -2297,7 +2297,7 @@ Why not an existing call:
   them per shape.
 - **Why `spacing` is read in five ways.** `resample` spaces each shape's corners, per shape; `rows`, `bands` and
   `stipple` read it once with their lattice; `place_along` and `branch` take a plain number that sets how many copies or
-  forks one call makes; `hatch` takes a plain number or a pair `(at tone 0, at tone 1)` (`Kind::Factor`), checked
+  threads one call makes; `hatch` takes a plain number or a pair `(at tone 0, at tone 1)` (`Kind::Factor`), checked
   against its `tone` when the step is written.
 - **Why `near` and `start` are per shape for `along` and once for `place_along`.** `along` bends each shape along the
   guide on its own; `place_along` lays every copy along one walk of the guide, one value for the call.
@@ -2306,7 +2306,8 @@ Why not an existing call:
   Params, for `trace_levels`, a source that has no shapes yet.
 - **Why `frame` is a literal for `trace_levels` and per shape for `envelope` and `arch`.** `trace_levels` is a source:
   it makes the shapes, so there is none to read per, and its `frame` with `cell` sizes the grid it samples, a literal as
-  `cell` is; `envelope` and `arch` map each shape's own frame.
+  `cell` is; `envelope` and `arch` are steps and read `frame` for each shape as any deformer number (the default, the
+  bounds of all the shapes, is shared, so a line of text bends as one).
 - **Why `tone` is a literal for `hatch` and per shape for `halftone`.** `hatch` binds its field (or number) once per
   call and reads it along every line; a halftone's tone is a number for each shape or a field.
 - **Why `color` is a `Paint` for `fill` and `stroke` and a `Color` elsewhere.** A fill or a stroke can be a gradient;
