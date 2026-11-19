@@ -9,8 +9,8 @@
 mod common;
 
 use bullterrier_vector::{
-    Color, Drawing, Error, Expr, Field, Flow, Hatch, Inputs, Mesh, Param, Path, Random, Size, Stagger, Text, Values,
-    by_index, by_order, text,
+    Branch, Color, Drawing, Error, Expr, Field, Flow, Hatch, Inputs, Mesh, Param, Path, Random, Size, Stagger, Text,
+    Values, by_index, by_order, text,
 };
 use common::fonts::synthetic;
 use common::{Outcome, parameter_refusal};
@@ -393,6 +393,32 @@ fn a_flow_mixed_and_turned_to_the_deepest_nesting_is_read_written_and_hatched_on
             assert!(lines.iter().any(|shape| shape.path().to_svg_path().len() > 1));
             assert!(flow.at((10.0, 10.0)) < 180.0);
             drop(flow);
+            Ok(())
+        };
+        run().map_err(|error| error.to_string())
+    })?;
+    handle.join().map_err(|_| "the thread panicked")??;
+    Ok(())
+}
+
+#[test]
+fn a_branch_with_the_most_forks_its_bound_allows_is_grown_written_and_read_on_the_smallest_stack() -> Outcome {
+    let handle = std::thread::Builder::new().stack_size(SMALLEST_STACK).spawn(|| {
+        let run = || -> Outcome {
+            // one root, a fork in each of 40 stretches: 2^40 tips is refused by the bound before anything grows; 12 forks
+            // in 12 stretches grow 2^12 tips, each a chain of 12 forks walked back to its root without recursion
+            let square = Path::rect(0.0, 0.0, 10.0, 10.0, 0.0)?;
+            parameter_refusal(
+                Drawing::from(square.clone())
+                    .branch(&Branch::new(1000.0, 40.0).fork_spacing(1.0).forks(40.0).wavelength(48.0))
+                    .shapes(&Values::new()),
+            )?;
+            let drawing =
+                Drawing::from(square).branch(&Branch::new(1000.0, 12.0).fork_spacing(1.0).forks(12.0).wavelength(48.0));
+            let document = drawing.to_json()?;
+            let back = Drawing::from_json(&document, &Inputs::new())?;
+            assert_eq!(back.to_json()?, document);
+            assert_eq!(back.shapes(&Values::new())?.len(), 1 << 12);
             Ok(())
         };
         run().map_err(|error| error.to_string())
