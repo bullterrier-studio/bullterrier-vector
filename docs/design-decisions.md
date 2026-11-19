@@ -2291,3 +2291,31 @@ Why not an existing call:
   (`Kind::Rect`) and as the Rust parameters and `Trace::frame`, which already said `frame`; Python and documents said
   `box` (Python spelt it `r#box` in Rust source). One idea, one name: `frame` in every language and in documents. *Not*
   `marks`' `boxes`: those are the rectangles a bracket is drawn round, a different thing.
+- **Why `amplitude`, `angle`, `center`, `seed` and `wavelength` are read once by `rows`, `bands` and `stipple` and per
+  shape elsewhere.** A line family lays one lattice over the region once per call, so its numbers are read once (a
+  per-item number there is an error); a step that works on each shape (`wave`, `wobble`, `rotate`, `halftone`) reads
+  them per shape.
+- **Why `spacing` is read in five ways.** `resample` spaces each shape's corners, per shape; `rows`, `bands` and
+  `stipple` read it once with their lattice; `place_along` and `branch` take a plain number that sets how many copies or
+  forks one call makes; `hatch` takes a plain number or a pair `(at tone 0, at tone 1)` (`Kind::Factor`), checked
+  against its `tone` when the step is written.
+- **Why `near` and `start` are per shape for `along` and once for `place_along`.** `along` bends each shape along the
+  guide on its own; `place_along` lays every copy along one walk of the guide, one value for the call.
+- **Why `tolerance` is read three ways.** It is the most a result may stray: a plain number for the booleans, the
+  offsets and `sweep`, set when the step is written; per shape for `simplify`, which fits each shape apart; once, with
+  Params, for `trace_levels`, a source that has no shapes yet.
+- **Why `frame` is a literal for `trace_levels` and per shape for `envelope` and `arch`.** `trace_levels` is a source:
+  it makes the shapes, so there is none to read per, and its `frame` with `cell` sizes the grid it samples, a literal as
+  `cell` is; `envelope` and `arch` map each shape's own frame.
+- **Why `tone` is a literal for `hatch` and per shape for `halftone`.** `hatch` binds its field (or number) once per
+  call and reads it along every line; a halftone's tone is a number for each shape or a field.
+- **Why `color` is a `Paint` for `fill` and `stroke` and a `Color` elsewhere.** A fill or a stroke can be a gradient;
+  a shadow, a halftone's dots and the rest are one flat colour.
+- **Why `radius` is a number per shape for `twist` and `bulge` and a pair read once for `stipple`.** The falloff circle
+  of a deformer is per shape; a stipple dot's radius is `(at tone 0, at tone 1)`, read with the lattice once.
+- **Known gap: `size`, `width`, `by`, `shape` and `cell` each carry two meanings.** `size` is a stack's `(w, h)` and the
+  font size of `text` and `characters`; `width` is a text's measure, a band's width pair and a stroke's width; `by` is
+  `scale`'s factor pair and `merge`'s attribute; `shape` is the source verb's `Shape` and a halftone's dot `Mark`;
+  `cell` is the characters' `(w, h)` in design pixels, `trace_levels`' sampling step in design pixels and `trace_cells`'
+  dither cell in map pixels. Allowed so the rule holds for the rest; each needs a rename the interface audit did not
+  scope.

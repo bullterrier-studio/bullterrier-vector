@@ -9,7 +9,29 @@ const API: &str = include_str!("../../../../docs/api.md");
 const DECISIONS: &str = include_str!("../../../../docs/design-decisions.md");
 
 /// Argument names that may differ in kind, read rule or words between verbs, each with the heading that says why.
-const ALLOWED: &[(&str, &str)] = &[];
+const ALLOWED: &[(&str, &str)] = &[
+    ("amplitude", RULE),
+    ("angle", RULE),
+    ("by", RULE),
+    ("cell", RULE),
+    ("center", RULE),
+    ("color", RULE),
+    ("frame", RULE),
+    ("near", RULE),
+    ("radius", RULE),
+    ("seed", RULE),
+    ("shape", RULE),
+    ("size", RULE),
+    ("spacing", RULE),
+    ("start", RULE),
+    ("tolerance", RULE),
+    ("tone", RULE),
+    ("wavelength", RULE),
+    ("width", RULE),
+];
+
+/// The heading of docs/design-decisions.md whose bullets give the reason for each name of [`ALLOWED`].
+const RULE: &str = "One name, one kind: the registry rule";
 
 /// The names the conventions ban, read from the sentence in api.md that bans them ("never `strength`, ... or `k`").
 fn banned_names() -> Vec<String> {
