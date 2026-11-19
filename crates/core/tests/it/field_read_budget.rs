@@ -129,6 +129,41 @@ fn hatch_charges_the_starts_of_its_lattice_before_it_draws_a_line() -> Outcome {
     Ok(())
 }
 
+/// `count` by `count` squares a fifth of `spacing` wide, one at the centre of each cell of the hatch's lattice (whose
+/// first cell starts at the corner of the region's box, here 0, 0, held by a speck), so every line starts in one and
+/// leaves it at its first step (a quarter of the spacing): lines of no steps at all.
+fn islands(count: u32, spacing: f64) -> Result<Path, Error> {
+    let side = spacing / 5.0;
+    let mut data = vec![String::from("M0 0 h0.01 v0.01 h-0.01 Z")];
+    for i in 0..count {
+        for j in 0..count {
+            let (x, y) = ((f64::from(i) + 0.5) * spacing, (f64::from(j) + 0.5) * spacing);
+            data.push(format!(
+                "M{} {} h{side} v{side} h-{side} Z",
+                x - side / 2.0,
+                y - side / 2.0
+            ));
+        }
+    }
+    Path::from_svg_path(&data.join(" "))
+}
+
+#[test]
+fn hatch_charges_the_reads_of_a_line_that_makes_no_step() -> Outcome {
+    // 120 by 120 starts over a sum of 4096 ramps (8191 units a read): the lattice is charged one read a start, 118
+    // million units, inside the budget; each start reads the tone twice more (the step of each of its two walks, which
+    // leaves the island and is not made), 354 million units in all, which only the charge of a line's start counts
+    let region = islands(120, 4.0)?;
+    let deep = balanced(&Field::ramp((0.0, 0.0), (480.0, 480.0))?, 4096)?;
+    let (named, message) = parameter_refusal(region.hatch(&Hatch::between(4.0, 4.0, deep), None))?;
+    assert_eq!(named, "spacing");
+    assert!(message.contains("units of work"), "{message}");
+    // the control: a cheap tone over the same starts draws (nothing: no line is long enough to keep)
+    let ramp = Field::ramp((0.0, 0.0), (480.0, 480.0))?;
+    assert_eq!(region.hatch(&Hatch::between(4.0, 4.0, ramp), None)?.to_svg_path(), "");
+    Ok(())
+}
+
 #[test]
 fn a_normal_hatch_over_a_noise_tone_draws() -> Outcome {
     let tone = Field::noise(60.0, 0.0, 2.0, 3)?
