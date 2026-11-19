@@ -5,6 +5,7 @@
 
 use crate::common::{Line, Outcome, lines, parameter_refusal};
 use bullterrier_vector::{Branch, Deg, Drawing, Error, Inputs, Path, Select, Shape, Values};
+use proptest::prelude::*;
 
 /// A 400 by 400 square: 1600 pixels of outline, every edge's outward normal known by hand.
 fn square() -> Result<Path, Error> {
@@ -239,5 +240,86 @@ fn a_document_reads_back_to_the_same_threads_and_selects_the_trunks() -> Outcome
         .count();
     assert_eq!(trunks.len(), roots);
     assert_eq!(roots, 1600 / 300);
+    Ok(())
+}
+
+/// The points every path of a request is charged: a point per step from the root to the tip, and the root. The step is a
+/// 24th of the wavelength (api.md, `branch`).
+fn charged_points(length: f64, wavelength: f64) -> usize {
+    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a small count")]
+    let steps = (length / (wavelength / 24.0)).ceil() as usize;
+    steps + 1
+}
+
+/// A path has the points it was charged, in steps of one size that end exactly at its length.
+fn assert_charged(shape: &Shape, length: f64, wavelength: f64) -> Outcome {
+    let points = points(shape)?;
+    let charged = charged_points(length, wavelength);
+    assert_eq!(points.len(), charged, "length {length}, wavelength {wavelength}");
+    let steps: Vec<f64> = points
+        .windows(2)
+        .map(|pair| crate::common::distance(pair[0], pair[1]))
+        .collect();
+    let each = length / (charged - 1) as f64;
+    for step in &steps {
+        assert!((step - each).abs() <= 1e-9 * each.max(1.0), "step {step}, not {each}");
+    }
+    assert!((shape.path().length() - length).abs() <= 1e-9 * length, "ends short of its length");
+    Ok(())
+}
+
+#[test]
+fn a_path_has_exactly_the_points_it_is_charged_when_its_length_is_a_whole_number_of_steps() -> Outcome {
+    // 30 long at a step of 80 / 24 is 9 steps, so 10 points: the growth must not add a tail step of a rounding error
+    for (length, wavelength) in [(30.0, 80.0), (100.0, 2.4)] {
+        let branch = Branch::new(1600.0, length).forks(0.0).wander(Deg(0.0)).wavelength(wavelength);
+        let shapes = drawn(&Drawing::from(square()?).branch(&branch))?;
+        assert_eq!(shapes.len(), 1);
+        assert_charged(&shapes[0], length, wavelength)?;
+    }
+    Ok(())
+}
+
+proptest! {
+    /// Every path of every tree, forks included, has the points its length was charged, whatever the length and step.
+    #[test]
+    fn every_path_has_the_points_it_was_charged_and_equal_steps(
+        length in 1.0_f64..400.0,
+        wavelength in 2.0_f64..120.0,
+        forks in 0_u32..3,
+        shorter in prop_oneof![Just(0.0), 0.0_f64..1.0],
+    ) {
+        let branch = Branch::new(800.0, length)
+            .fork_spacing(length / 3.0)
+            .forks(f64::from(forks))
+            .spread(shorter)
+            .wavelength(wavelength);
+        let shapes = drawn(&Drawing::from(square().map_err(|e| TestCaseError::fail(e.to_string()))?).branch(&branch))
+            .map_err(|e| TestCaseError::fail(e.to_string()))?;
+        for shape in &shapes {
+            let points = points(shape).map_err(|e| TestCaseError::fail(e.to_string()))?;
+            // a root's paths share their steps; the tree is as long as its charged bound or shorter
+            prop_assert!(points.len() <= charged_points(length, wavelength));
+            let steps: Vec<f64> = points.windows(2).map(|p| crate::common::distance(p[0], p[1])).collect();
+            let first = steps[0];
+            for step in &steps {
+                prop_assert!((step - first).abs() <= 1e-9 * first.max(1.0), "steps {} and {}", first, step);
+            }
+            prop_assert!(first <= wavelength / 24.0 * (1.0 + 1e-12), "a step of {} past the 24th", first);
+            if shorter == 0.0 {
+                prop_assert_eq!(points.len(), charged_points(length, wavelength));
+                prop_assert!((shape.path().length() - length).abs() <= 1e-9 * length);
+            }
+        }
+    }
+}
+
+#[test]
+fn a_path_of_one_point_past_the_limit_is_refused_by_the_bound_not_grown() -> Outcome {
+    // a step of 1 (wavelength 24) over 10,000,000: 10,000,000 steps and so 10,000,001 points, one past MAX_SEGMENTS
+    let branch = Branch::new(1600.0, 10_000_000.0).forks(0.0).wavelength(24.0);
+    let (name, message) = parameter_refusal(drawn(&Drawing::from(square()?).branch(&branch)))?;
+    assert!(name.ends_with("wavelength"), "{name}");
+    assert!(message.contains("10000001 points"), "{message}");
     Ok(())
 }

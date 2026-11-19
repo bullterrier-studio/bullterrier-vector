@@ -48,8 +48,8 @@ struct Pending {
     /// The thread it forks from and the index of the parent's point it starts at; `None` for a trunk.
     parent: Option<(usize, usize)>,
     start: Point,
-    /// Distance from the root at the start.
-    from: f64,
+    /// Steps from the root at the start.
+    at: usize,
     heading: f64,
     /// The first stretch it may fork in.
     stretch: u64,
@@ -148,8 +148,9 @@ impl Path {
             .collect();
         let step = wavelength / WAVE_PIECES;
         let stretches = (plan.length / plan.fork_spacing).floor();
-        // the bound, before anything is grown: every path has a point per step from its root to its tip
-        let per_path = (plan.length / step).ceil() + 1.0;
+        // the bound, before anything is grown: every path has a point per step from its root to its tip, and a tree of
+        // a shorter root has no more steps than this one (`steps` never falls as the length grows)
+        let per_path = as_f64(steps(plan.length, step)) + 1.0;
         let (limit_points, limit_shapes) = (as_f64(MAX_SEGMENTS), as_f64(MAX_SHAPES));
         if per_path > limit_points {
             return Err(too_many("wavelength", "a path would have", per_path));
@@ -194,12 +195,14 @@ impl Path {
                 let along = (as_f64_u64(j) + uniform(seed, key, 0)) * stretch;
                 let (start, heading) = on_outline(polygon, along);
                 let factor = 1.0 - plan.spread * uniform(seed, key, 1);
+                let length = plan.length * factor;
+                let count = steps(length, step);
                 let tree = Tree {
                     plan,
                     noise: &noise,
                     seed,
-                    step,
-                    length: plan.length * factor,
+                    steps: count,
+                    step: length / as_f64(count),
                     fork_spacing: plan.fork_spacing * factor,
                     stretches,
                 };
@@ -216,14 +219,21 @@ struct Tree<'a> {
     plan: &'a BranchPlan,
     noise: &'a Noise,
     seed: i64,
+    /// The steps from the root to a tip: the same for every path of the tree, as the bound counts them.
+    steps: usize,
+    /// The distance of one step: this root's length (`length` times its spread factor) over `steps`, so a path ends
+    /// exactly at its length.
     step: f64,
-    /// This root's length: `length` times its spread factor.
-    length: f64,
     fork_spacing: f64,
     stretches: f64,
 }
 
 impl Tree<'_> {
+    /// The distance from the root of the point `index` steps along.
+    fn distance(&self, index: usize) -> f64 {
+        as_f64_usize(index) * self.step
+    }
+
     /// Grows the tree of the root at `start`, heading `heading`, adding one thread per tip to `into`.
     fn grow(&self, start: Point, heading: f64, root: u32, into: &mut Vec<Thread>) {
         let first_id = into.len();
@@ -231,7 +241,7 @@ impl Tree<'_> {
         let mut pending = vec![Pending {
             parent: None,
             start,
-            from: 0.0,
+            at: 0,
             heading,
             stretch: 0,
             forks: 0,
@@ -239,19 +249,17 @@ impl Tree<'_> {
         // a work list, not recursion: each thread grows its points, then queues a fork in each stretch it may fork in
         while let Some(thread) = pending.pop() {
             let id = as_u64(first_id + grown.len());
-            let at = |s: f64| self.noise.value(s / self.plan.wavelength, as_f64_u64(id), 0.0);
-            let (mut point, mut from) = (thread.start, thread.from);
-            let (base, start_noise) = (thread.heading, at(thread.from));
+            let drift = |s: f64| self.noise.value(s / self.plan.wavelength, as_f64_u64(id), 0.0);
+            let mut point = thread.start;
+            let (base, start_noise) = (thread.heading, drift(self.distance(thread.at)));
             let mut points = vec![point];
             let mut headings = Vec::new();
-            while from < self.length {
-                let heading = base + self.plan.wander * (at(from) - start_noise);
-                let run = self.step.min(self.length - from);
+            for index in thread.at + 1..=self.steps {
+                let heading = base + self.plan.wander * (drift(self.distance(index - 1)) - start_noise);
                 let (sin, cos) = sin_cos_deg(heading);
-                point = Point::new(point.x + run * cos, point.y + run * sin);
+                point = Point::new(point.x + self.step * cos, point.y + self.step * sin);
                 points.push(point);
                 headings.push(heading);
-                from += run;
             }
             let index = grown.len();
             if thread.forks < self.plan.forks {
@@ -261,10 +269,11 @@ impl Tree<'_> {
                     #[expect(
                         clippy::cast_possible_truncation,
                         clippy::cast_sign_loss,
-                        reason = "a point of this thread, from 0"
+                        reason = "a step of this thread, from 0"
                     )]
-                    let vertex = (((place - thread.from) / self.step).floor().max(0.0) as usize)
-                        .min(headings.len().saturating_sub(1));
+                    let vertex = ((place / self.step).floor() as usize)
+                        .saturating_sub(thread.at)
+                        .min(headings.len() - 1);
                     let side = if uniform(self.seed, 2 * id, 2 * stretch + 1) < 0.5 {
                         -1.0
                     } else {
@@ -273,8 +282,8 @@ impl Tree<'_> {
                     pending.push(Pending {
                         parent: Some((index, vertex)),
                         start: points[vertex],
-                        from: thread.from + as_f64_usize(vertex) * self.step,
-                        heading: headings.get(vertex).copied().unwrap_or(base) + side * self.plan.angle,
+                        at: thread.at + vertex,
+                        heading: headings[vertex] + side * self.plan.angle,
                         stretch: stretch + 1,
                         forks: thread.forks + 1,
                     });
@@ -306,6 +315,18 @@ impl Tree<'_> {
             });
         }
     }
+}
+
+/// The steps a path of `length` takes at `step` apart: the number the bound counts and the growth takes, one source for
+/// both. Never below one, and never falling as `length` grows.
+fn steps(length: f64, step: f64) -> usize {
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a count the bound refuses past MAX_SEGMENTS before anything is grown"
+    )]
+    let count = (length / step).ceil().max(1.0) as usize;
+    count
 }
 
 fn too_many(parameter: &str, what: &str, points: f64) -> Error {

@@ -344,7 +344,8 @@ Rust: `letter.branch(&Branch::new(70.0, 220.0).fork_spacing(60.0).forks(2.0).spr
   threads too).
 - **Drift.** A thread's heading is its start heading plus `wander` times the change of the one value noise (`wobble`'s)
   read along the thread every `wavelength` pixels, so it drifts smoothly and at most `2 × wander` from where it set out.
-  Points are a 24th of `wavelength` apart.
+  A path takes `ceil(L / (wavelength / 24))` equal steps, `L` its length (`max(1, ...)`), so it ends exactly at `L`, a step is at
+  most a 24th of `wavelength`, and a path has one point more than it has steps.
 - **Forks.** The distance from the root is cut into stretches of `fork_spacing`; a thread that crosses a whole stretch,
   on a path of fewer than `forks` forks, forks once in it, at a seeded place (on its nearest point before it), turning
   `angle` degrees to a seeded side. A root has `sum C(m, k)` paths for `k` from 0 to `forks`, `m = floor(length /
