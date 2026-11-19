@@ -1,18 +1,20 @@
 //! `Drawing`: a tree of steps that draws shapes.
 
+use crate::branch::branch_of;
 use crate::expr::{Num, PyExpr, PyParam};
 use crate::field::{PyField, PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
 use crate::halftone::{ShapeArg, ToneArg, halftone_of};
 use crate::inputs::{By, Item, Pair};
 use crate::mesh::PyMesh;
+use crate::select::selection;
 use crate::shape::{PaintArg, PyShape};
 use crate::text::{bytes_of, entries};
 use crate::trace::{Levels, colors, trace_of, whole};
-use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, Frame, Pt, PyPath, PyPoint, PyRect, exception, raised};
+use crate::{DEFAULT_MITER_LIMIT, DEFAULT_TOLERANCE, Frame, Pt, PyPath, PyRect, exception, raised};
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList, PyMapping, PyString, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyMapping, PyString, PyTuple};
 
 /// An immutable tree of steps that draws shapes. Every step returns a new drawing and leaves this one alone; a drawing
 /// holds no callbacks, so it draws again with new values.
@@ -54,48 +56,6 @@ fn stroke_of(
         stroke = stroke.profile(profile.into_iter().map(|Pair(at, factor)| (at, factor)));
     }
     Ok(stroke)
-}
-
-/// What a selection asks of one attribute: a number, a character, text, a `Point`, or a list of them for any of.
-fn wanted(name: &str, value: &Bound<'_, PyAny>) -> PyResult<vector::Wanted> {
-    if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
-        let listed = value
-            .try_iter()?
-            .map(|one| wanted(name, &one?))
-            .collect::<PyResult<Vec<_>>>()?;
-        return Ok(listed.into());
-    }
-    if let Ok(text) = value.cast::<PyString>() {
-        let text = text.to_str()?;
-        let mut characters = text.chars();
-        return Ok(match (characters.next(), characters.next()) {
-            (Some(character), None) => character.into(),
-            _ => text.into(),
-        });
-    }
-    if let Ok(point) = value.cast::<PyPoint>() {
-        let PyPoint { x, y } = *point.get();
-        return Ok(vector::Point::new(x, y).into());
-    }
-    match value.extract::<f64>() {
-        Ok(number) => Ok(number.into()),
-        Err(_) => Err(PyTypeError::new_err(format!(
-            "{name}: expected a number, text, a Point or a list of them, got {}",
-            value.repr()?
-        ))),
-    }
-}
-
-/// The selection the keyword arguments of `only` and `without` describe.
-fn selection(attributes: Option<&Bound<'_, PyDict>>) -> PyResult<vector::Select> {
-    let mut select = vector::Select::new();
-    if let Some(attributes) = attributes {
-        for (name, value) in attributes {
-            let name = name.extract::<String>()?;
-            select = select.attribute(&name, wanted(&name, &value)?);
-        }
-    }
-    Ok(select)
 }
 
 /// The values the keyword arguments of `shapes` and `with_values` give: a number, or a list with a number per shape.
@@ -201,29 +161,17 @@ impl PyDrawing {
         wavelength: Option<Num>,
         seed: Option<Num>,
     ) -> PyResult<Self> {
-        let mut branch = vector::Branch::new(spacing, length);
-        if let Some(fork_spacing) = fork_spacing {
-            branch = branch.fork_spacing(fork_spacing);
-        }
-        if let Some(forks) = forks {
-            branch = branch.forks(forks);
-        }
-        if let Some(Num(spread)) = spread {
-            branch = branch.spread(spread);
-        }
-        if let Some(Num(angle)) = angle {
-            branch = branch.angle(vector::Deg(angle));
-        }
-        if let Some(Num(wander)) = wander {
-            branch = branch.wander(vector::Deg(wander));
-        }
-        if let Some(Num(wavelength)) = wavelength {
-            branch = branch.wavelength(wavelength);
-        }
-        if let Some(Num(seed)) = seed {
-            branch = branch.seed(seed);
-        }
-        checked(self.0.branch(&branch))
+        checked(self.0.branch(&branch_of(
+            spacing,
+            length,
+            fork_spacing,
+            forks,
+            spread,
+            angle,
+            wander,
+            wavelength,
+            seed,
+        )))
     }
 
     /// A copy of all the shapes at each stop along `path`: `count` stops (both ends of an open path) or one every

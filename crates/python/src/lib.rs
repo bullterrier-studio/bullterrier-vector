@@ -2,6 +2,7 @@
 //! unchanged, so the core's range checks are the only ones and every language gets the same errors; this file only
 //! converts between Python's values and the core's, and maps each core error to its exception.
 
+mod branch;
 mod drawing;
 mod expr;
 mod field;
@@ -9,6 +10,7 @@ mod halftone;
 mod inputs;
 mod mesh;
 mod overlay;
+mod select;
 mod shape;
 mod text;
 mod trace;

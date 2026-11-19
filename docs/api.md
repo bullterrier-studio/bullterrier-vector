@@ -328,8 +328,8 @@ threads = letter.branch(70, length=220, fork_spacing=60, forks=2, spread=0.5, an
 taper = [(0, 1), (1, 0.15)]
 ink = btvec.Drawing(
     letter,
-    threads.without(forks=0).slice(0, growth).outline(3, profile=taper),   # the forked paths, thin
-    threads.only(forks=0).slice(0, growth).outline(6, profile=taper),      # the trunks, heavier
+    threads.without(forks=0).slice(0, growth).outline(3, profile=taper),  # the forked paths, thin
+    threads.only(forks=0).slice(0, growth).outline(6, profile=taper),  # the trunks, heavier
 ).fill("#141414")
 poster = btvec.Drawing(btvec.Path.rect(0, 0, 800, 800).fill("#f2c230"), ink, size=(800, 800))
 ```
