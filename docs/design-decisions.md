@@ -2250,7 +2250,8 @@ Why not an existing call:
   two draw apart for `bands` lines and waves, `rows` (where no row of one hides one of the other) and `stipple`
   (tested). *Not* rings, a spiral or rays: their default `center` is a point of each shape (the middle of its box), not
   an anchor. *Not* `hatch` as a whole: only its first seeds are on the lattice, the rest grow from the lines before
-  them.
+  them. Its seeds are tried at `(k + 1/2)` spacings and then at `k`: with the first lattice alone a bar 7 px tall at
+  spacing 10 held no seed, where its own box had given it one; the second pass costs a charged read a start.
 - **Why the lines sit at `(k + 1/2)` spacings and a halftone's dots at `k`.** A line on `k * spacing` lies along the
   edge of every shape whose side is a multiple of the spacing (a rectangle at the origin), where `within` keeps or drops
   it by rounding; at `k + 1/2` such a shape draws as it always did, half a spacing in. A dot on the edge is cut in half,

@@ -269,3 +269,15 @@ fn parallel_lines_start_from_a_lattice_through_the_origin() -> Outcome {
     }
     Ok(())
 }
+
+#[test]
+fn a_bar_thinner_than_the_spacing_still_gets_a_line_wherever_it_lies() -> Outcome {
+    // a bar 7 px tall at a spacing of 10, lines along it: no row of a lattice 10 apart need fall inside, but one of a
+    // lattice half a spacing apart does
+    for (x, y) in [(6.0, 6.0), (0.0, 0.0), (13.0, 21.0), (-8.0, 102.0)] {
+        let region = Path::rect(x, y, 30.0, 7.0, 0.0)?;
+        let found = made(&region, &Hatch::new(10.0).flow(Flow::angle(0.0)?), None)?;
+        assert_eq!(found.len(), 1, "a square at ({x}, {y})");
+    }
+    Ok(())
+}

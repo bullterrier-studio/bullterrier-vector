@@ -366,8 +366,9 @@ Rust: `letter.branch(&Branch::new(70.0, 220.0).fork_spacing(60.0).forks(2).short
 Evenly spaced streamlines (Jobard and Lefer) of `flow` inside the region each shape fills (nonzero rule). A line
 is traced both ways from a seed and stops where it leaves the region, enters `avoid`, or comes within half a spacing of a
 point of another line; the next seeds stand one spacing to either side of a line, so lines settle one spacing apart where the
-flow is straight and split or end where it spreads or gathers. The first seeds are tried on a lattice of the narrowest
-spacing through the origin of the design frame, at `(k + 1/2)` cells, not on the shape's box. A line that comes round to its own start is closed. The
+flow is straight and split or end where it spreads or gathers. The first seeds are tried on lattices of the narrowest
+spacing through the origin of the design frame, not on the shape's box: at `(k + 1/2)` spacings, then at `k` spacings, so a
+bar at least half a spacing across gets a seed wherever it lies. A line that comes round to its own start is closed. The
 floor is half the spacing between any two lines, never the spacing itself. A line that ends against another line and is shorter
 than three spacings (at its start) is dropped: the ticks left where the lines of two edges meet; a closed line, and a chord that
 leaves the region at both ends (one longer than a spacing), stay.
