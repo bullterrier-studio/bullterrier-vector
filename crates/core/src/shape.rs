@@ -11,7 +11,7 @@ pub use attributes::Attributes;
 pub(crate) use attributes::{Holds, SELECTABLE, Single, holds};
 pub use color::Color;
 pub(crate) use dot::Dot;
-pub use halftone::{HalftoneStyle, Mark, Screen, Tone};
+pub use halftone::{HalftoneStyle, Mark, Tone};
 pub use paint::{Gradient, GradientKind, Paint};
 pub use style::{Blend, Cap, Join, ShadowStyle, StrokeStyle, Style};
 pub(crate) use style::{DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, refused, same_cut};

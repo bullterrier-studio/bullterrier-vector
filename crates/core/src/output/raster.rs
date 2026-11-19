@@ -483,10 +483,10 @@ fn paint(
         cuts.clip(style, view, work, &name)?
     };
     let Some(bounds) = visible(&device, reach + shadow_reach, canvas) else {
-        // a shape off the canvas is drawn by the other outputs, so a pitch they refuse is refused here too
+        // a shape off the canvas is drawn by the other outputs, so a spacing they refuse is refused here too
         if let Some(halftone) = style.halftone() {
             charged(halftone, &polylines, &mut |count| {
-                work.made_segments(count, &format!("shape {} pitch", shape.index()))
+                work.made_segments(count, &format!("shape {} spacing", shape.index()))
             })?;
         }
         return Ok(());
@@ -621,7 +621,7 @@ fn fill_body(
         });
     };
     let screened = screen(halftone, polylines, &mut |count| {
-        work.made_segments(count, &format!("shape {} pitch", shape.index()))
+        work.made_segments(count, &format!("shape {} spacing", shape.index()))
     })?;
     let Some(rgba) = halftone.color().rgba().map(|rgba| covering(knockout, rgba)) else {
         return Ok(None);

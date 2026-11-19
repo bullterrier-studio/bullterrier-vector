@@ -17,13 +17,18 @@ use std::f64::consts::{PI, TAU};
 // blob; bullterrier-image keeps the same bound (`NARROWEST_RAY`)
 const NARROWEST_RAY: f64 = 0.5;
 
-/// What carries the tone.
+/// Where the rows of `bands` and the cells of a `halftone` lie: the one word list both take as `family`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Family {
+pub enum Family {
+    /// Straight rows along the angle, `spacing` apart.
     Lines,
+    /// Straight rows swung across by a sine, `amplitude` design pixels high, one `wavelength` design pixels long.
     Waves,
+    /// Rings round the center, `spacing` apart, the first half a spacing out.
     Rings,
+    /// One Archimedean spiral out of the center, a `spacing` further out each turn.
     Spiral,
+    /// Rays straight out of the center.
     Rays,
 }
 
@@ -31,15 +36,22 @@ impl Family {
     /// The words a document uses, in the order of the variants.
     pub(crate) const NAMES: &'static [&'static str] = &["lines", "waves", "rings", "spiral", "rays"];
 
-    pub(crate) fn from_name(name: &str) -> Option<Self> {
+    /// The family a word names: `"lines"`, `"waves"`, `"rings"`, `"spiral"` or `"rays"`.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `family` and listing the words.
+    pub fn parse(name: &str) -> Result<Self, Error> {
         [Self::Lines, Self::Waves, Self::Rings, Self::Spiral, Self::Rays]
             .into_iter()
             .zip(Self::NAMES)
             .find(|(_, word)| **word == name)
             .map(|(family, _)| family)
+            .ok_or_else(|| crate::shape::refused("family", Self::NAMES, name))
     }
 
-    pub(crate) fn name(self) -> &'static str {
+    /// The word a document uses.
+    #[must_use]
+    pub fn name(self) -> &'static str {
         Self::NAMES[self as usize]
     }
 
@@ -52,25 +64,24 @@ impl Family {
     pub(crate) fn reads(self, argument: &str) -> bool {
         match argument {
             "angle" => self != Self::Rings,
-            "center" => matches!(self, Self::Rings | Self::Spiral | Self::Rays),
+            "center" => self.is_round(),
             "wavelength" | "amplitude" => self == Self::Waves,
             _ => true,
         }
     }
 
-    /// The refusal of `argument` if this family does not read it, worded for what the caller calls it: `kind` (a
-    /// family, a screen) and its `word`. The one place a layout's unread arguments are refused, for `bands` and the
-    /// screens of `halftone` alike.
+    /// The refusal of the optional argument `argument` (`angle`, `center`, `wavelength`, `amplitude`) if this family
+    /// does not read it: the one place a layout's unread arguments are refused, for `bands` and `halftone` alike.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `argument` if the family does not read it.
-    pub(crate) fn refuse_unread(self, argument: &str, kind: &str, word: &str) -> Result<(), Error> {
+    pub fn refuse_unread(self, argument: &str) -> Result<(), Error> {
         if self.reads(argument) {
             Ok(())
         } else {
             Err(Error::parameter(
                 argument,
-                format!("is not read by the {kind} \"{word}\""),
+                format!("is not read by the family \"{}\"", self.name()),
             ))
         }
     }

@@ -32,14 +32,14 @@ def the_halftone(drawing: btvec.Drawing, **values: Any) -> btvec.Halftone:
 
 def test_dots_of_a_number_cover_one_minus_the_tone_of_their_cells():
     # 81 squares of 5 by 5 at tone 0.75, on a lattice turned by 0: 25 of each cell's 100 pixels
-    drawing = Drawing(INSET).halftone(INK, tone=0.75, pitch=10, angle=0, shape="square")
+    drawing = Drawing(INSET).halftone(INK, tone=0.75, spacing=10, angle=0, shape="square")
     assert coverage(drawing) == pytest.approx(81 * 25, rel=0.002)
 
 
 def test_a_field_tone_is_read_at_the_center_of_each_dot():
     # the ramp is the tone x / 100: a dot at x = 10, 20 .. 90 covers 1 - x / 100 of its cell, nine dots to a column
     ramp = btvec.Field.ramp((0, 0), (100, 0))
-    drawing = Drawing(INSET).halftone(INK, tone=ramp, pitch=10, angle=0, shape="square")
+    drawing = Drawing(INSET).halftone(INK, tone=ramp, spacing=10, angle=0, shape="square")
     assert coverage(drawing) == pytest.approx(9 * sum((1 - x / 100) * 100 for x in range(10, 100, 10)), rel=0.002)
 
 
@@ -47,7 +47,7 @@ def test_a_map_is_a_tone_too():
     # a map white on the left half and black on the right: bare cells on the left, solid ones on the right
     grey = bytes([255] * 8 + [0] * 8) * 16
     photo = btvec.Field.map(16, 16, grey, box=(0, 0, 100, 100))
-    drawing = Drawing(INSET).halftone(INK, tone=photo, pitch=10, angle=0, shape="square")
+    drawing = Drawing(INSET).halftone(INK, tone=photo, spacing=10, angle=0, shape="square")
     # x = 10 .. 40 are bare, 60 .. 90 are tone 0 (full cells of 100), x = 50 is the edge of the map's halves
     full = 9 * 100 * 4
     assert full <= coverage(drawing) <= full + 9 * 100 * 1
@@ -55,7 +55,7 @@ def test_a_map_is_a_tone_too():
 
 def test_a_number_per_shape_still_reads_the_shape_it_is_for():
     drawing = Drawing(btvec.Path.rect(0, 0, 40, 40), btvec.Path.rect(50, 0, 40, 40)).halftone(
-        INK, tone=btvec.by_index(0.2, 0.8), pitch=10, angle=0, shape="square"
+        INK, tone=btvec.by_index(0.2, 0.8), spacing=10, angle=0, shape="square"
     )
     first, second = (shape.style.halftone for shape in drawing.shapes())
     assert first is not None
@@ -90,22 +90,22 @@ def test_a_caller_outline_is_the_shape_and_comes_back_as_a_path():
 
 
 def test_equal_screens_are_equal_and_hash_alike():
-    first = the_halftone(Drawing(INSET).halftone(INK, tone=0.3, screen="wave", amplitude=2))
-    second = the_halftone(Drawing(INSET).halftone(INK, tone=0.3, screen="wave", amplitude=2))
+    first = the_halftone(Drawing(INSET).halftone(INK, tone=0.3, family="waves", amplitude=2))
+    second = the_halftone(Drawing(INSET).halftone(INK, tone=0.3, family="waves", amplitude=2))
     assert first == second
     assert hash(first) == hash(second)
-    assert first != the_halftone(Drawing(INSET).halftone(INK, tone=0.3, screen="wave", amplitude=3))
+    assert first != the_halftone(Drawing(INSET).halftone(INK, tone=0.3, family="waves", amplitude=3))
     # a shape put back into a drawing is the same shape, a field tone and a caller's outline included
     ramp = btvec.Field.ramp((0, 0), (0, 10))
     shapes = Drawing(INSET).halftone(INK, tone=ramp, shape=TRIANGLE).shapes()
     assert Drawing(*shapes).shapes() == shapes
 
 
-@pytest.mark.parametrize("screen", ["grid", "wave", "rings", "spiral", "rays"])
+@pytest.mark.parametrize("family", ["lines", "waves", "rings", "spiral", "rays"])
 @pytest.mark.parametrize("shape", ["dot", "square", "ellipse", "diamond", "euclidean", TRIANGLE])
-def test_every_shape_on_every_screen_draws_in_svg_and_pixels(screen: str, shape: Any):
+def test_every_shape_on_every_family_draws_in_svg_and_pixels(family: str, shape: Any):
     options: dict[str, Any] = {"aspect": 1.5} if shape == "ellipse" else {}
-    drawing = Drawing(INSET).halftone(INK, tone=0.6, pitch=9, shape=shape, screen=screen, **options)
+    drawing = Drawing(INSET).halftone(INK, tone=0.6, spacing=9, shape=shape, family=family, **options)
     assert "<path" in drawing.to_svg(100, 100)
     assert coverage(drawing) > 100
 
@@ -113,9 +113,9 @@ def test_every_shape_on_every_screen_draws_in_svg_and_pixels(screen: str, shape:
 def test_a_document_saves_and_reads_back_every_argument():
     ramp = btvec.Field.ramp((0, 0), (0, 100))
     for drawing in (
-        Drawing(INSET).halftone(INK, tone=0.4, pitch=5, shape="ellipse", aspect=2, screen="rings", center=(10, 20)),
-        Drawing(INSET).halftone(INK, tone=ramp, shape=TRIANGLE, screen="spiral"),
-        Drawing(INSET).halftone(INK, tone=0.4, screen="wave", amplitude=2, wavelength=9),
+        Drawing(INSET).halftone(INK, tone=0.4, spacing=5, shape="ellipse", aspect=2, family="rings", center=(10, 20)),
+        Drawing(INSET).halftone(INK, tone=ramp, shape=TRIANGLE, family="spiral"),
+        Drawing(INSET).halftone(INK, tone=0.4, family="waves", amplitude=2, wavelength=9),
     ):
         text = drawing.to_json()
         again = Drawing.from_json(text)
@@ -129,7 +129,7 @@ def test_a_document_saves_and_reads_back_every_argument():
     ("make", "argument"),
     [
         pytest.param(lambda: Drawing(INSET).halftone(INK, tone=0.5, shape="star"), "shape", id="an unknown shape"),
-        pytest.param(lambda: Drawing(INSET).halftone(INK, tone=0.5, screen="zigzag"), "screen", id="an unknown screen"),
+        pytest.param(lambda: Drawing(INSET).halftone(INK, tone=0.5, family="zigzag"), "family", id="an unknown family"),
         pytest.param(
             lambda: Drawing(INSET).halftone(INK, tone=0.5, shape="ellipse", aspect=0.5), "aspect", id="aspect < 1"
         ),
@@ -139,10 +139,10 @@ def test_a_document_saves_and_reads_back_every_argument():
         ),
         pytest.param(lambda: Drawing(INSET).halftone(INK, tone=0.5, aspect=3), "aspect", id="an aspect of a dot"),
         pytest.param(
-            lambda: Drawing(INSET).halftone(INK, tone=0.5, screen="rings", angle=10), "angle", id="an angle on rings"
+            lambda: Drawing(INSET).halftone(INK, tone=0.5, family="rings", angle=10), "angle", id="an angle on rings"
         ),
         pytest.param(
-            lambda: Drawing(INSET).halftone(INK, tone=0.5, screen="wave", wavelength=0),
+            lambda: Drawing(INSET).halftone(INK, tone=0.5, family="waves", wavelength=0),
             "wavelength",
             id="a wavelength of 0",
         ),
@@ -176,7 +176,7 @@ def test_a_tone_of_the_wrong_type_is_a_type_error():
         loose(INK, tone=0.5, shape=3)
 
 
-def test_a_pitch_too_small_for_the_shape_is_refused_when_drawn():
-    drawing = Drawing(btvec.Path.rect(0, 0, 1000, 1000)).halftone(INK, tone=0.5, pitch=0.001, screen="rings")
-    with pytest.raises(ParameterError, match="pitch"):
+def test_a_spacing_too_small_for_the_shape_is_refused_when_drawn():
+    drawing = Drawing(btvec.Path.rect(0, 0, 1000, 1000)).halftone(INK, tone=0.5, spacing=0.001, family="rings")
+    with pytest.raises(ParameterError, match="spacing"):
         drawing.to_svg(100, 100)

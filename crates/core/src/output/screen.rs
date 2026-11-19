@@ -26,13 +26,13 @@ use crate::geometry::Point;
 use crate::lines::{Family, Layout, RoundRows, corners, middle, polar, ray_wedges, ring_cells};
 use crate::math::sin_cos_deg;
 use crate::path::Polyline;
-use crate::shape::{Dot, HalftoneStyle, Screen as Arrangement};
+use crate::shape::{Dot, HalftoneStyle};
 use crate::{Error, Rect};
 use std::f64::consts::{PI, TAU};
 
-/// The widest a cell may be, in pitches, that the reach of a dot and the corners of a curve are worked out for: a
-/// wedge of the rays near their center, which are at most a pitch wide.
-// constant: the widest ray cell is a pitch (tests/it/halftone_screens.rs measures it), and 2 leaves room
+/// The widest a cell may be, in spacings, that the reach of a dot and the corners of a curve are worked out for: a
+/// wedge of the rays near their center, which are at most a spacing wide.
+// constant: the widest ray cell is a spacing (tests/it/halftone_screens.rs measures it), and 2 leaves room
 const WIDEST_CELL: f64 = 2.0;
 
 /// What a halftone paints over a shape.
@@ -169,23 +169,17 @@ fn plan(
     let (Some(bounds), Ok(edges)) = (bounds(outline), Outline::from_polylines(outline, "halftone")) else {
         return Ok(Plan::Bare);
     };
-    let pitch = halftone.pitch();
+    let spacing = halftone.spacing();
+    let family = halftone.family();
     let dot = Dot::new(halftone.shape(), halftone.aspect())?;
-    // a cell of a grid or a wave is a pitch across; a wedge of the others may be wider
-    let size = pitch
-        * if matches!(halftone.screen(), Arrangement::Grid | Arrangement::Wave) {
-            1.0
-        } else {
-            WIDEST_CELL
-        };
+    // a cell of straight rows is a spacing across; a wedge of the round ones may be wider
+    let size = spacing * if family.is_round() { WIDEST_CELL } else { 1.0 };
     let corners_of_dot = dot.corners(size);
     let reach = dot.reach();
     let reach_px = reach * size;
-    let screen = halftone.screen();
-    let family = screen.family();
     let layout = Layout {
         family,
-        spacing: pitch,
+        spacing,
         // a layout that has no direction is laid at 0
         angle: if family.reads("angle") { halftone.angle() } else { 0.0 },
         wave: Some((halftone.wavelength(), halftone.amplitude())),
@@ -206,7 +200,7 @@ fn plan(
     };
     charge(work)?;
     if let Some(field) = halftone.tone().field() {
-        field.charge_reads("pitch", "halftone", cells)?;
+        field.charge_reads("spacing", "halftone", cells)?;
     }
     Ok(Plan::Cells(Box::new(Cells {
         outline: edges,
@@ -223,31 +217,31 @@ fn plan(
 /// how many cells there are (not a number if the work is not).
 ///
 /// # Errors
-/// [`Error::Parameter`] naming `center` if it is too far from the box for a pitch to move there.
+/// [`Error::Parameter`] naming `center` if it is too far from the box for a spacing to move there.
 fn rows(layout: &Layout, rect: Rect, center: Point, reach_px: f64) -> Result<(Rows, f64), Error> {
-    let pitch = layout.spacing;
+    let spacing = layout.spacing;
     let box_corners = corners(rect);
     if !layout.family.is_round() {
         // the lattice points whose dots can reach the box: its corners in lattice units, a reach more on every side (and a
         // wave's amplitude more across, where its rows swing)
         let found = box_corners.map(|corner| {
             let (along, across) = layout.frame(corner);
-            (along / pitch, across / pitch)
+            (along / spacing, across / spacing)
         });
         let swing = layout
             .wave
             .filter(|_| layout.family == Family::Waves)
-            .map_or(0.0, |(_, height)| height.abs() * pitch);
+            .map_or(0.0, |(_, height)| height.abs() * spacing);
         let span = |select: fn(&(f64, f64)) -> f64, reach: f64| {
             let least = found.iter().map(select).fold(f64::INFINITY, f64::min);
             let most = found.iter().map(select).fold(f64::NEG_INFINITY, f64::max);
             let first = (least - reach).floor();
             (first, (most + reach).ceil() - first + 1.0)
         };
-        let reach = reach_px / pitch;
+        let reach = reach_px / spacing;
         let ((first_i, across), (first_j, down)) = (
             span(|corner| corner.0, reach),
-            span(|corner| corner.1, reach + swing / pitch),
+            span(|corner| corner.1, reach + swing / spacing),
         );
         // a lattice coordinate beyond a float has no span to count: infinitely many cells
         let cells =
@@ -265,10 +259,10 @@ fn rows(layout: &Layout, rect: Rect, center: Point, reach_px: f64) -> Result<(Ro
             cells,
         ));
     }
-    // a dot is no smaller than a pitch's step at the coordinates in play, or its cells cannot be told apart
+    // a dot is no smaller than a spacing's step at the coordinates in play, or its cells cannot be told apart
     // rays as bullterrier-image has them: a ring's worth of cells half way to the nearest side of the shape
-    let rays = ring_cells(rect.width.min(rect.height) / 2.0 / pitch);
-    let round = layout.round_rows(center, rect, reach_px, pitch, rays)?;
+    let rays = ring_cells(rect.width.min(rect.height) / 2.0 / spacing);
+    let round = layout.round_rows(center, rect, reach_px, spacing, rays)?;
     Ok(match layout.family {
         Family::Rings => (Rows::Rings(round), round.work),
         Family::Spiral => (Rows::Spiral(round), round.work),
@@ -286,7 +280,7 @@ impl Cells {
     /// Calls `each` with every cell of the rows.
     fn each_cell(&self, mut each: impl FnMut(Cell)) {
         let layout = &self.layout;
-        let pitch = layout.spacing;
+        let spacing = layout.spacing;
         match self.rows {
             Rows::Straight {
                 first: (first_i, first_j),
@@ -296,12 +290,12 @@ impl Cells {
                 let (sin, cos) = sin_cos_deg(layout.angle);
                 for row in 0..down {
                     for column in 0..across {
-                        let (i, j) = ((first_i + column as f64) * pitch, (first_j + row as f64) * pitch);
+                        let (i, j) = ((first_i + column as f64) * spacing, (first_j + row as f64) * spacing);
                         each(Cell {
                             center: layout.straight(i, j),
                             turn: (sin, cos),
-                            along: pitch,
-                            across: pitch,
+                            along: spacing,
+                            across: spacing,
                         });
                     }
                 }
@@ -315,7 +309,7 @@ impl Cells {
                             polar(self.center, radius, angle),
                             angle,
                             radius * TAU / count,
-                            pitch,
+                            spacing,
                             true,
                         ));
                     }
@@ -332,7 +326,7 @@ impl Cells {
                             polar(self.center, radius, angle),
                             angle,
                             radius * TAU / count,
-                            pitch,
+                            spacing,
                             true,
                         ));
                     }
@@ -349,7 +343,7 @@ impl Cells {
                         each(Self::wedge(
                             polar(self.center, radius, angle),
                             angle,
-                            pitch,
+                            spacing,
                             radius * TAU * (end - start),
                             false,
                         ));

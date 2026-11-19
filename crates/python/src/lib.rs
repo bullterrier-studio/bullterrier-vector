@@ -818,22 +818,22 @@ impl PyPath {
 
     /// A drawing of this path filled with a screen of dots of `color`; see `Drawing.halftone`.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
-    #[pyo3(signature = (color, *, tone, pitch=None, angle=None, shape=None, aspect=None, screen=None, center=None, amplitude=None, wavelength=None))]
+    #[pyo3(signature = (color, *, tone, spacing=None, angle=None, shape=None, aspect=None, family=None, center=None, amplitude=None, wavelength=None))]
     fn halftone(
         &self,
         color: &str,
         tone: ToneArg,
-        pitch: Option<Num>,
+        spacing: Option<Num>,
         angle: Option<Num>,
         shape: Option<ShapeArg>,
         aspect: Option<Num>,
-        screen: Option<&str>,
+        family: Option<&str>,
         center: Option<Pt>,
         amplitude: Option<Num>,
         wavelength: Option<Num>,
     ) -> PyResult<PyDrawing> {
         PyDrawing::of(self).halftone(
-            color, tone, pitch, angle, shape, aspect, screen, center, amplitude, wavelength,
+            color, tone, spacing, angle, shape, aspect, family, center, amplitude, wavelength,
         )
     }
 

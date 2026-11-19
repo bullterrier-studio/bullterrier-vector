@@ -241,14 +241,14 @@ impl Drawing {
 
 /// The region a halftone covers, for the pen to hatch: the whole shape for a solid one, else its dots, those wholly inside as
 /// they are and those that cross the outline cut to it by one boolean; `None` if no dot touches the shape. The work is
-/// charged to `MAX_SEGMENTS` as the mesh charges it, naming the shape's `pitch`.
+/// charged to `MAX_SEGMENTS` as the mesh charges it, naming the shape's `spacing`.
 fn halftone_region(shape: &Shape, place: &str, work: &Work) -> Result<Option<Path>, Error> {
     let Some(halftone) = shape.style().halftone() else {
         return Ok(None);
     };
     let outline = shape.path().flattened(&mut |count| work.made_segments(count, place))?;
     let found = match screen(halftone, &outline, &mut |count| {
-        work.made_segments(count, &format!("{place} pitch"))
+        work.made_segments(count, &format!("{place} spacing"))
     })? {
         Screen::Solid => return Ok(Some(shape.path().clone())),
         Screen::Dots(found) if found.is_empty() => return Ok(None),

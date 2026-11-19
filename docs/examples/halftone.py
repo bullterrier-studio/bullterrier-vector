@@ -12,6 +12,6 @@ disc = btvec.Path.circle((540, 675), 480)
 
 drawing = btvec.Drawing(
     btvec.Path.rect(0, 0, 1080, 1350).fill("#f3eee4"),
-    disc.halftone("#15161a", tone=photo, pitch=12, angle=45),
+    disc.halftone("#15161a", tone=photo, spacing=12, angle=45),
 )
 Path("halftone.svg").write_text(drawing.to_svg(1080, 1350), encoding="utf-8")

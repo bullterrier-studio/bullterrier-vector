@@ -459,11 +459,11 @@ fn strokes_crowded_into_a_corner_are_all_plotted_in_time_and_each_once() -> Outc
 
 #[test]
 fn a_halftone_is_its_dots_hatched_at_the_pen_width() -> Outcome {
-    // 81 squares of 5 by 5 (tone 0.75, pitch 10, no turn) inside the rectangle: 2025 square pixels of ink
+    // 81 squares of 5 by 5 (tone 0.75, spacing 10, no turn) inside the rectangle: 2025 square pixels of ink
     let region = Path::rect(5.0, 5.0, 90.0, 90.0, 0.0)?;
     let drawing = Drawing::from(region).halftone(
         Halftone::new(red()?, 0.75)
-            .pitch(10.0)
+            .spacing(10.0)
             .angle(Deg(0.0))
             .shape(Mark::Square),
     );
@@ -483,13 +483,13 @@ fn a_halftone_is_its_dots_hatched_at_the_pen_width() -> Outcome {
             }
         }
     }
-    // a pitch too small for the shape is refused naming it, as in the other outputs
+    // a spacing too small for the shape is refused naming it, as in the other outputs
     let crowded =
-        Drawing::from(Path::rect(0.0, 0.0, 1000.0, 1000.0, 0.0)?).halftone(Halftone::new(red()?, 0.5).pitch(0.001));
+        Drawing::from(Path::rect(0.0, 0.0, 1000.0, 1000.0, 0.0)?).halftone(Halftone::new(red()?, 0.5).spacing(0.001));
     assert!(
         parameter_refusal(plot(&crowded, 100.0, &Plot::new(1.0)?))?
             .0
-            .contains("pitch")
+            .contains("spacing")
     );
     Ok(())
 }

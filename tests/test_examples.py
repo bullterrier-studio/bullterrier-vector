@@ -521,11 +521,11 @@ def test_halftone_draws_a_row_of_discs_four_panels_and_a_big_disc_with_its_strok
         halftone = shape.style.halftone
         assert halftone is not None
         assert isinstance(halftone.tone, btvec.Field)
-        seen.append((halftone.shape if isinstance(halftone.shape, str) else "path", halftone.screen))
+        seen.append((halftone.shape if isinstance(halftone.shape, str) else "path", halftone.family))
         box = shape.path.bounds
         tones = [halftone.tone.at(x, y) for x in (box.x, box.x + box.width) for y in (box.y, box.y + box.height)]
         assert (min(tones), max(tones)) == (0.0, 1.0)
-    assert seen == [("ellipse", "grid"), ("euclidean", "rings"), ("diamond", "wave"), ("path", "rays")]
+    assert seen == [("ellipse", "lines"), ("euclidean", "rings"), ("diamond", "waves"), ("path", "rays")]
     assert found["frames"]["still"] == found["svg"]
 
 

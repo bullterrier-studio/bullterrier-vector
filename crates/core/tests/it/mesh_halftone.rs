@@ -1,6 +1,6 @@
 //! A halftone in the mesh `Drawing::to_mesh` fills: the dots as triangles that cover each point of them once, none
 //! outside the shape, the dots that cross the outline cut to it. The oracles are the lattice worked out here from the
-//! pitch and the angle, the shape's own geometry, the pixels, and `Path::contains`, never the screen's own classification.
+//! spacing and the angle, the shape's own geometry, the pixels, and `Path::contains`, never the screen's own classification.
 
 use crate::common::mesh::{area, check_layout, corners, covering, mesh_of, same_triangles, triangles};
 use crate::common::pixels::render;
@@ -20,12 +20,12 @@ fn disc() -> Result<Path, Error> {
     Path::circle((50.0, 50.0), 40.0)
 }
 
-/// How far `point` is from the nearest point of the lattice `pitch` apart turned `degrees` about the origin.
-fn from_lattice((x, y): (f64, f64), pitch: f64, degrees: f64) -> f64 {
+/// How far `point` is from the nearest point of the lattice `spacing` apart turned `degrees` about the origin.
+fn from_lattice((x, y): (f64, f64), spacing: f64, degrees: f64) -> f64 {
     let (sin, cos) = (libm::sin(degrees.to_radians()), libm::cos(degrees.to_radians()));
     // the point in lattice units: turned back
-    let (u, v) = ((x * cos + y * sin) / pitch, (y * cos - x * sin) / pitch);
-    pitch * libm::hypot(u - libm::round(u), v - libm::round(v))
+    let (u, v) = ((x * cos + y * sin) / spacing, (y * cos - x * sin) / spacing);
+    spacing * libm::hypot(u - libm::round(u), v - libm::round(v))
 }
 
 /// An error unless the mesh covers each point of a lattice of every third pixel of the 100 by 100 canvas (offset by a
@@ -63,10 +63,10 @@ fn covers_as(mesh: &Mesh, wanted: impl Fn((f64, f64)) -> Option<bool>) -> Outcom
 
 /// The mesh covers a point if it is clearly inside the shape (by `margin`) and clearly inside a dot of radius `radius`,
 /// not if clearly outside either.
-fn dots_in_disc(pitch: f64, degrees: f64, radius: f64) -> impl Fn((f64, f64)) -> Option<bool> {
+fn dots_in_disc(spacing: f64, degrees: f64, radius: f64) -> impl Fn((f64, f64)) -> Option<bool> {
     move |point| {
         let from_center = libm::hypot(point.0 - 50.0, point.1 - 50.0);
-        let near = from_lattice(point, pitch, degrees);
+        let near = from_lattice(point, spacing, degrees);
         if from_center > 40.0 + 0.05 || near > radius + 0.001 {
             Some(false)
         } else if from_center < 40.0 - 0.05 && near < radius - 0.05 {
@@ -79,15 +79,15 @@ fn dots_in_disc(pitch: f64, degrees: f64, radius: f64) -> impl Fn((f64, f64)) ->
 
 #[test]
 fn the_triangles_cover_the_dots_in_the_shape_once_and_nothing_else() -> Outcome {
-    // (pitch, angle, tone): dots wholly inside, dots cut by the circle, and dots that overlap (the tone below a fifth)
+    // (spacing, angle, tone): dots wholly inside, dots cut by the circle, and dots that overlap (the tone below a fifth)
     let rows = [(8.0, 30.0, 0.5), (6.0, 0.0, 0.7), (10.0, 45.0, 0.1), (12.0, -17.0, 0.9)];
-    for (pitch, angle, tone) in rows {
-        let drawing = Drawing::from(disc()?).halftone(Halftone::new(BLACK, tone).pitch(pitch).angle(Deg(angle)));
+    for (spacing, angle, tone) in rows {
+        let drawing = Drawing::from(disc()?).halftone(Halftone::new(BLACK, tone).spacing(spacing).angle(Deg(angle)));
         let mesh = mesh_of(&drawing, SIDE, SIDE)?;
         check_layout(&mesh)?;
-        let radius = pitch * libm::sqrt((1.0 - tone) / PI);
-        covers_as(&mesh, dots_in_disc(pitch, angle, radius))
-            .map_err(|e| format!("pitch {pitch}, angle {angle}, tone {tone}: {e}"))?;
+        let radius = spacing * libm::sqrt((1.0 - tone) / PI);
+        covers_as(&mesh, dots_in_disc(spacing, angle, radius))
+            .map_err(|e| format!("spacing {spacing}, angle {angle}, tone {tone}: {e}"))?;
     }
     Ok(())
 }
@@ -101,7 +101,7 @@ fn the_dots_that_cross_the_outline_never_leave_the_shape() -> Outcome {
         disc()?,
     ];
     for shape in shapes {
-        let drawing = Drawing::from(shape.clone()).halftone(Halftone::new(BLACK, 0.4).pitch(9.0).angle(Deg(15.0)));
+        let drawing = Drawing::from(shape.clone()).halftone(Halftone::new(BLACK, 0.4).spacing(9.0).angle(Deg(15.0)));
         let mesh = mesh_of(&drawing, SIDE, SIDE)?;
         let mut checked = 0;
         for triangle in triangles(&mesh) {
@@ -122,13 +122,13 @@ fn the_dots_that_cross_the_outline_never_leave_the_shape() -> Outcome {
 
 #[test]
 fn the_area_of_the_triangles_is_the_area_the_pixels_cover() -> Outcome {
-    for (pitch, angle, tone) in [(8.0, 30.0, 0.5), (5.0, 45.0, 0.8)] {
-        let drawing = Drawing::from(disc()?).halftone(Halftone::new(BLACK, tone).pitch(pitch).angle(Deg(angle)));
+    for (spacing, angle, tone) in [(8.0, 30.0, 0.5), (5.0, 45.0, 0.8)] {
+        let drawing = Drawing::from(disc()?).halftone(Halftone::new(BLACK, tone).spacing(spacing).angle(Deg(angle)));
         let from_triangles: f64 = triangles(&mesh_of(&drawing, SIDE, SIDE)?).iter().map(area).sum();
         let from_pixels = render(&drawing, 100, 100)?.covered_area();
         assert!(
             (from_triangles - from_pixels).abs() < 0.015 * from_pixels,
-            "pitch {pitch}: {from_triangles} against {from_pixels}"
+            "spacing {spacing}: {from_triangles} against {from_pixels}"
         );
     }
     Ok(())
@@ -147,7 +147,7 @@ fn a_tone_of_zero_is_the_solid_fill_and_a_tone_of_one_has_no_triangles() -> Outc
 #[test]
 fn a_stroke_is_a_layer_over_the_dots_and_the_colour_and_opacity_are_the_vertices() -> Outcome {
     let drawing = Drawing::from(rect(10.0, 10.0, 80.0, 80.0)?)
-        .halftone(Halftone::new(color("#ff0000ff")?, 0.5).pitch(20.0).angle(Deg(0.0)))
+        .halftone(Halftone::new(color("#ff0000ff")?, 0.5).spacing(20.0).angle(Deg(0.0)))
         .stroke(Stroke::new(BLACK).width(4.0))
         .opacity(0.5);
     let mesh = mesh_of(&drawing, SIDE, SIDE)?;
@@ -173,7 +173,7 @@ fn color(text: &str) -> Result<Color, Error> {
 fn a_hard_shadow_is_a_copy_of_the_dots_moved() -> Outcome {
     // dots of radius 15.96 at 40 and 80 (and 0, cut); the copy moved 20 right and down has its dots at 60 and 100
     let drawing = Drawing::from(rect(5.0, 5.0, 90.0, 90.0)?)
-        .halftone(Halftone::new(RED, 0.5).pitch(40.0).angle(Deg(0.0)))
+        .halftone(Halftone::new(RED, 0.5).spacing(40.0).angle(Deg(0.0)))
         .shadow(Shadow::new().dx(20.0).dy(20.0).blur(0.0).color(color("#0000ffff")?));
     let mesh = mesh_of(&drawing, SIDE, SIDE)?;
     let all = triangles(&mesh);
@@ -187,7 +187,7 @@ fn a_hard_shadow_is_a_copy_of_the_dots_moved() -> Outcome {
     }
     // the blur has no triangles
     let blurred = Drawing::from(rect(5.0, 5.0, 90.0, 90.0)?)
-        .halftone(Halftone::new(RED, 0.5).pitch(40.0))
+        .halftone(Halftone::new(RED, 0.5).spacing(40.0))
         .shadow(Shadow::new().blur(8.0));
     let (name, message) = parameter_refusal(mesh_of(&blurred, SIDE, SIDE))?;
     assert_eq!(name, "shadow", "{message}");
@@ -199,7 +199,7 @@ fn a_knockout_of_dots_takes_the_dots_out_of_what_is_below() -> Outcome {
     let drawing = Drawing::new([
         Drawing::from(rect(0.0, 0.0, 100.0, 100.0)?).fill(RED),
         Drawing::from(rect(0.0, 0.0, 100.0, 100.0)?)
-            .halftone(Halftone::new(BLACK, 0.5).pitch(20.0).angle(Deg(0.0)))
+            .halftone(Halftone::new(BLACK, 0.5).spacing(20.0).angle(Deg(0.0)))
             .knockout(),
     ]);
     let mesh = mesh_of(&drawing, SIDE, SIDE)?;
@@ -218,10 +218,10 @@ fn a_knockout_of_dots_takes_the_dots_out_of_what_is_below() -> Outcome {
 
 #[test]
 fn a_pitch_that_asks_for_millions_of_dots_is_refused_naming_the_pitch() -> Outcome {
-    let drawing = Drawing::from(Path::circle((500.0, 500.0), 500.0)?).halftone(Halftone::new(BLACK, 0.5).pitch(0.01));
+    let drawing = Drawing::from(Path::circle((500.0, 500.0), 500.0)?).halftone(Halftone::new(BLACK, 0.5).spacing(0.01));
     let (name, message) = parameter_refusal(drawing.to_mesh(Size::px(100.0, 100.0), &Values::new(), &mut Mesh::new()))?;
     assert!(
-        name.contains("pitch") && message.contains("MAX_SEGMENTS"),
+        name.contains("spacing") && message.contains("MAX_SEGMENTS"),
         "{name}: {message}"
     );
     Ok(())
@@ -229,16 +229,16 @@ fn a_pitch_that_asks_for_millions_of_dots_is_refused_naming_the_pitch() -> Outco
 
 #[test]
 fn a_pitch_too_small_for_the_numbers_of_its_lattice_is_refused_naming_the_pitch() -> Outcome {
-    // (pitch, where the shape is): the lattice coordinates, the position over the pitch, are 10^301 in the first row,
+    // (spacing, where the shape is): the lattice coordinates, the position over the spacing, are 10^301 in the first row,
     // and beyond what a float holds in the others, which leaves no count of dots to charge
-    for (pitch, at) in [(1e-300, 10.0), (1e-320, 10.0), (1e-310, 50.0)] {
-        let drawing =
-            Drawing::from(rect(at, at, 10.0, 10.0)?).halftone(Halftone::new(BLACK, 0.5).pitch(pitch).angle(Deg(0.0)));
+    for (spacing, at) in [(1e-300, 10.0), (1e-320, 10.0), (1e-310, 50.0)] {
+        let drawing = Drawing::from(rect(at, at, 10.0, 10.0)?)
+            .halftone(Halftone::new(BLACK, 0.5).spacing(spacing).angle(Deg(0.0)));
         let (name, message) =
             parameter_refusal(drawing.to_mesh(Size::px(100.0, 100.0), &Values::new(), &mut Mesh::new()))?;
         assert!(
-            name.contains("pitch") && message.contains("MAX_SEGMENTS"),
-            "pitch {pitch}: {name}: {message}"
+            name.contains("spacing") && message.contains("MAX_SEGMENTS"),
+            "spacing {spacing}: {name}: {message}"
         );
     }
     Ok(())

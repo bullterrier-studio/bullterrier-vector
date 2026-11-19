@@ -351,7 +351,7 @@ def test_a_shape_has_no_halftone_until_the_step_gives_it_one():
 def test_a_halftone_leaves_out_what_it_takes_by_default_and_is_the_fill():
     style = only_shape(SQUARE.halftone("#336699", tone=0.25)).style
     assert style.halftone is not None
-    assert (style.halftone.color, style.halftone.tone, style.halftone.pitch, style.halftone.angle) == (
+    assert (style.halftone.color, style.halftone.tone, style.halftone.spacing, style.halftone.angle) == (
         "#336699ff",
         0.25,
         8.0,
@@ -359,31 +359,31 @@ def test_a_halftone_leaves_out_what_it_takes_by_default_and_is_the_fill():
     )
     assert style.fill is None
     assert repr(style.halftone) == (
-        "Halftone(color='#336699ff', tone=0.25, pitch=8.0, angle=45.0, shape='dot', aspect=1.0, screen='grid', "
-        "center=None, amplitude=1.0, wavelength=6.0)"
+        "Halftone(color='#336699ff', tone=0.25, spacing=8.0, angle=45.0, shape='dot', aspect=1.0, family='lines', "
+        "center=None, amplitude=8.0, wavelength=48.0)"
     )
 
 
 def test_a_halftone_and_a_fill_replace_one_another_and_a_stroke_goes_with_it():
-    screened = Drawing(SQUARE).halftone("#000000", tone=0.5, pitch=6, angle=15)
+    screened = Drawing(SQUARE).halftone("#000000", tone=0.5, spacing=6, angle=15)
     assert only_shape(screened.fill("#ff0000")).style.halftone is None
     assert only_shape(screened.fill("#ff0000")).style.fill == "#ff0000ff"
     again = only_shape(screened.fill("#ff0000").halftone("#00ff00", tone=0.75)).style
     assert again.fill is None
     assert again.halftone is not None
-    assert (again.halftone.color, again.halftone.tone, again.halftone.pitch) == ("#00ff00ff", 0.75, 8.0)
+    assert (again.halftone.color, again.halftone.tone, again.halftone.spacing) == ("#00ff00ff", 0.75, 8.0)
     both = only_shape(screened.stroke("#0000ff")).style
     assert both.halftone is not None
     assert both.stroke == "#0000ffff"
 
 
 def test_a_halftone_number_is_read_per_shape():
-    drawing = Drawing(*squares(3)).halftone("#000000", tone=param("tone", 0.5, 0, 1), pitch=btvec.by_index(4, 8))
+    drawing = Drawing(*squares(3)).halftone("#000000", tone=param("tone", 0.5, 0, 1), spacing=btvec.by_index(4, 8))
 
     def halftones(**values: Any) -> list[btvec.Halftone]:
         return [h for shape in drawing.shapes(**values) if (h := shape.style.halftone) is not None]
 
-    assert [(h.tone, h.pitch) for h in halftones()] == [(0.5, 4.0), (0.5, 6.0), (0.5, 8.0)]
+    assert [(h.tone, h.spacing) for h in halftones()] == [(0.5, 4.0), (0.5, 6.0), (0.5, 8.0)]
     assert [h.tone for h in halftones(tone=0.9)] == [0.9] * 3
 
 
@@ -392,8 +392,8 @@ def test_a_halftone_number_is_read_per_shape():
     [
         pytest.param(lambda: SQUARE.halftone("#000000", tone=-0.1), "tone", id="a tone below 0"),
         pytest.param(lambda: SQUARE.halftone("#000000", tone=1.1), "tone", id="a tone above 1"),
-        pytest.param(lambda: SQUARE.halftone("#000000", tone=0.5, pitch=0), "pitch", id="a pitch of 0"),
-        pytest.param(lambda: SQUARE.halftone("#000000", tone=0.5, pitch=-3), "pitch", id="a negative pitch"),
+        pytest.param(lambda: SQUARE.halftone("#000000", tone=0.5, spacing=0), "spacing", id="a spacing of 0"),
+        pytest.param(lambda: SQUARE.halftone("#000000", tone=0.5, spacing=-3), "spacing", id="a negative spacing"),
         pytest.param(lambda: SQUARE.halftone("none", tone=0.5), "color", id="a colour of none"),
         pytest.param(lambda: SQUARE.halftone("#000000", tone=0.5, angle=math.nan), "angle", id="an angle of NaN"),
     ],
@@ -404,15 +404,15 @@ def test_a_halftone_refuses_what_it_cannot_draw_naming_the_argument(make: Callab
 
 
 def test_a_halftone_survives_equality_hashing_and_a_trip_through_a_drawing_and_json():
-    shapes = Drawing(SQUARE).halftone("#ff0000", tone=0.3, pitch=3, angle=10).stroke("#0000ff").shapes()
+    shapes = Drawing(SQUARE).halftone("#ff0000", tone=0.3, spacing=3, angle=10).stroke("#0000ff").shapes()
     first, second = shapes[0].style, Drawing(*shapes).shapes()[0].style
     assert first == second
     assert hash(first) == hash(second)
     assert first.halftone == second.halftone
     assert hash(first.halftone) == hash(second.halftone)
     assert Drawing.from_json(Drawing(*shapes).to_json()).shapes() == shapes
-    assert first != only_shape(SQUARE.halftone("#ff0000", tone=0.4, pitch=3, angle=10).stroke("#0000ff")).style
-    assert '"halftone":{"angle":10,"color":"#ff0000","pitch":3,"tone":0.3}' in Drawing(*shapes).to_json()
+    assert first != only_shape(SQUARE.halftone("#ff0000", tone=0.4, spacing=3, angle=10).stroke("#0000ff")).style
+    assert '"halftone":{"angle":10,"color":"#ff0000","spacing":3,"tone":0.3}' in Drawing(*shapes).to_json()
 
 
 # --- Params and expressions, read when the drawing is drawn ---------------------------------------------------------

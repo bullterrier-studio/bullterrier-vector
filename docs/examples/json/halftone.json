@@ -14,7 +14,7 @@
               "halftone": {
                 "color": "#15161a",
                 "tone": { "Field.map": { "width": 540, "height": 675, "data": "portrait", "box": [0, 0, 1080, 1350] } },
-                "pitch": 16
+                "spacing": 16
               }
             }
           ]

@@ -343,11 +343,11 @@ fn halftone_pairs() -> Vec<(&'static str, Make)> {
         ("the tone of a halftone", |base| {
             halftone_pair(base, Halftone::new(BLACK, 0.25), Halftone::new(BLACK, 0.5))
         }),
-        ("the pitch of a halftone", |base| {
+        ("the spacing of a halftone", |base| {
             halftone_pair(
                 base,
-                Halftone::new(BLACK, 0.5).pitch(4.0),
-                Halftone::new(BLACK, 0.5).pitch(5.0),
+                Halftone::new(BLACK, 0.5).spacing(4.0),
+                Halftone::new(BLACK, 0.5).spacing(5.0),
             )
         }),
         ("the angle of a halftone", |base| {

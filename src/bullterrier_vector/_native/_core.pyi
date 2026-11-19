@@ -243,11 +243,11 @@ class Path:
         color: str,
         *,
         tone: Field | _Num,
-        pitch: _Num | None = None,
+        spacing: _Num | None = None,
         angle: _Num | None = None,
         shape: str | Path | None = None,
         aspect: _Num | None = None,
-        screen: str | None = None,
+        family: str | None = None,
         center: _PointLike | None = None,
         amplitude: _Num | None = None,
         wavelength: _Num | None = None,
@@ -340,7 +340,7 @@ class Halftone:
     @property
     def tone(self) -> float | Field: ...
     @property
-    def pitch(self) -> float: ...
+    def spacing(self) -> float: ...
     @property
     def angle(self) -> float: ...
     @property
@@ -348,7 +348,7 @@ class Halftone:
     @property
     def aspect(self) -> float: ...
     @property
-    def screen(self) -> str: ...
+    def family(self) -> str: ...
     @property
     def center(self) -> Point | None: ...
     @property
@@ -564,11 +564,11 @@ class Drawing:
         color: str,
         *,
         tone: Field | _Num,
-        pitch: _Num | None = None,
+        spacing: _Num | None = None,
         angle: _Num | None = None,
         shape: str | Path | None = None,
         aspect: _Num | None = None,
-        screen: str | None = None,
+        family: str | None = None,
         center: _PointLike | None = None,
         amplitude: _Num | None = None,
         wavelength: _Num | None = None,

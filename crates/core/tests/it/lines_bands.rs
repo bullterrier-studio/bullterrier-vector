@@ -150,11 +150,14 @@ fn straight_lines_lie_on_a_lattice_through_the_origin_not_on_the_shapes_box() ->
     Ok(())
 }
 
+/// A line's points rounded to a millionth of a pixel.
+type Rounded = Vec<(i64, i64)>;
+
 /// The lines of `path`, each with its points rounded to a millionth, sorted: two drawings of the same lines compare equal.
-fn sorted(path: &Path) -> Result<Vec<Vec<(i64, i64)>>, Box<dyn std::error::Error>> {
+fn sorted(path: &Path) -> Result<Vec<Rounded>, Box<dyn std::error::Error>> {
     #[expect(clippy::cast_possible_truncation, reason = "coordinates of a few hundred pixels")]
     let round = |value: f64| (value * 1e6).round() as i64;
-    let mut found: Vec<Vec<(i64, i64)>> = lines(path)?
+    let mut found: Vec<Rounded> = lines(path)?
         .iter()
         .map(|(points, _)| points.iter().map(|p| (round(p.0), round(p.1))).collect())
         .collect();

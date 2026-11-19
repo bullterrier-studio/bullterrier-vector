@@ -6,7 +6,7 @@
 //! `... --example halftone -- still` writes it to standard output.
 
 use bullterrier_vector::{
-    Color, Deg, Drawing, Error, Field, Halftone, Mark, Path, Screen, Size, Stroke, Values, by_index,
+    Color, Deg, Drawing, Error, Family, Field, Halftone, Mark, Path, Size, Stroke, Values, by_index,
 };
 use std::io::Write;
 
@@ -21,7 +21,7 @@ fn halftone() -> Result<Drawing, Error> {
     let discs = (0..7)
         .map(|i| Path::circle((60.0 + 90.0 * f64::from(i), 60.0), 38.0))
         .collect::<Result<Vec<_>, _>>()?;
-    let ramp = Drawing::new(discs).halftone(Halftone::new(ink, by_index(0.1, 0.9)).pitch(6.0));
+    let ramp = Drawing::new(discs).halftone(Halftone::new(ink, by_index(0.1, 0.9)).spacing(6.0));
 
     // four panels, each a shape of dot on a screen, the tone a ramp from solid to bare
     let triangle = Path::from_svg_path("M0 -1 L1 1 L-1 1 Z")?;
@@ -34,25 +34,29 @@ fn halftone() -> Result<Drawing, Error> {
     let dots = |tone: Field| Halftone::new(ink, tone);
     let panels = [
         panel(0, ((0.0, 0.0), (1.0, 0.0)), &|tone| {
-            dots(tone).shape(Mark::Ellipse).aspect(2.0).angle(Deg(20.0)).pitch(7.0)
+            dots(tone)
+                .shape(Mark::Ellipse)
+                .aspect(2.0)
+                .angle(Deg(20.0))
+                .spacing(7.0)
         })?,
         panel(1, ((0.0, 0.0), (0.0, 1.0)), &|tone| {
-            dots(tone).shape(Mark::Euclidean).screen(Screen::Rings).pitch(6.0)
+            dots(tone).shape(Mark::Euclidean).family(Family::Rings).spacing(6.0)
         })?,
         panel(2, ((0.0, 0.0), (1.0, 1.0)), &|tone| {
             dots(tone)
                 .shape(Mark::Diamond)
-                .screen(Screen::Wave)
+                .family(Family::Waves)
                 .amplitude(1.0)
                 .wavelength(6.0)
                 .angle(Deg(0.0))
-                .pitch(7.0)
+                .spacing(7.0)
         })?,
         panel(3, ((0.0, 1.0), (1.0, 0.0)), &|tone| {
             dots(tone)
                 .shape(Mark::path(triangle.clone()))
-                .screen(Screen::Rays)
-                .pitch(8.0)
+                .family(Family::Rays)
+                .spacing(8.0)
         })?,
     ];
     let mut drawings = vec![paper, ramp];
@@ -61,7 +65,7 @@ fn halftone() -> Result<Drawing, Error> {
     let red = Color::hex(0xc4_37_2b);
     drawings.push(
         Drawing::from(Path::circle((320.0, 390.0), 100.0)?)
-            .halftone(Halftone::new(red, 0.45).pitch(9.0).angle(Deg(15.0)))
+            .halftone(Halftone::new(red, 0.45).spacing(9.0).angle(Deg(15.0)))
             .stroke(Stroke::new(red).width(3.0)),
     );
     Ok(Drawing::new(drawings).with_size(WIDTH, HEIGHT))

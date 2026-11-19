@@ -57,11 +57,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for ShapeArg {
 pub(crate) fn halftone_of(
     color: &str,
     tone: ToneArg,
-    pitch: Option<Num>,
+    spacing: Option<Num>,
     angle: Option<Num>,
     shape: Option<ShapeArg>,
     aspect: Option<Num>,
-    screen: Option<&str>,
+    family: Option<&str>,
     center: Option<Pt>,
     amplitude: Option<Num>,
     wavelength: Option<Num>,
@@ -71,8 +71,8 @@ pub(crate) fn halftone_of(
         ToneArg::Number(number) => vector::Halftone::new(color, number.0),
         ToneArg::Field(field) => vector::Halftone::new(color, field),
     };
-    if let Some(pitch) = pitch {
-        halftone = halftone.pitch(pitch.0);
+    if let Some(spacing) = spacing {
+        halftone = halftone.spacing(spacing.0);
     }
     if let Some(angle) = angle {
         halftone = halftone.angle(vector::Deg(angle.0));
@@ -83,8 +83,8 @@ pub(crate) fn halftone_of(
     if let Some(aspect) = aspect {
         halftone = halftone.aspect(aspect.0);
     }
-    if let Some(screen) = screen {
-        halftone = halftone.screen(raised(vector::Screen::parse(screen))?);
+    if let Some(family) = family {
+        halftone = halftone.family(raised(vector::Family::parse(family))?);
     }
     if let Some(Pt(center)) = center {
         halftone = halftone.center(center);
@@ -98,10 +98,10 @@ pub(crate) fn halftone_of(
     Ok(halftone)
 }
 
-/// A halftone fill, as it is drawn: a screen of dots in a colour (`"#rrggbbaa"`) on the layout `screen`, the `tone` (0
-/// solid, 1 no dots; a number, or the `Field` it was given), the `pitch` in design pixels, the `angle` in degrees, the
+/// A halftone fill, as it is drawn: a screen of dots in a colour (`"#rrggbbaa"`) on the layout `family`, the `tone` (0
+/// solid, 1 no dots; a number, or the `Field` it was given), the `spacing` in design pixels, the `angle` in degrees, the
 /// `shape` of a dot (a word, or the `Path` it was given), its `aspect`, the `center` of rings, a spiral and rays (`None`:
-/// the middle of the shape's bounds) and a wave's `amplitude` and `wavelength` in pitches.
+/// the middle of the shape's bounds) and a wave's `amplitude` and `wavelength` in spacings.
 #[pyclass(name = "Halftone", module = "bullterrier_vector", frozen, eq)]
 #[derive(Clone, PartialEq)]
 pub(crate) struct PyHalftone(pub(crate) vector::HalftoneStyle);
@@ -126,8 +126,8 @@ impl PyHalftone {
 
     /// The distance between neighbouring rows and dots in design pixels.
     #[getter]
-    fn pitch(&self) -> f64 {
-        self.0.pitch()
+    fn spacing(&self) -> f64 {
+        self.0.spacing()
     }
 
     /// The turn of the layout in degrees, clockwise on the screen about the origin of the design frame.
@@ -151,10 +151,10 @@ impl PyHalftone {
         self.0.aspect()
     }
 
-    /// Where the dots lie: `"grid"`, `"wave"`, `"rings"`, `"spiral"` or `"rays"`.
+    /// The layout the dots lie on: `"lines"`, `"waves"`, `"rings"`, `"spiral"` or `"rays"`.
     #[getter]
-    fn screen(&self) -> &'static str {
-        self.0.screen().name()
+    fn family(&self) -> &'static str {
+        self.0.family().name()
     }
 
     /// The center of rings, a spiral and rays, or `None` for the middle of the shape's bounding box.
@@ -166,13 +166,13 @@ impl PyHalftone {
         })
     }
 
-    /// How high a wave swings its rows, in pitches.
+    /// How high a wave swings its rows, in spacings.
     #[getter]
     fn amplitude(&self) -> f64 {
         self.0.amplitude()
     }
 
-    /// How long a wave is, in pitches.
+    /// How long a wave is, in spacings.
     #[getter]
     fn wavelength(&self) -> f64 {
         self.0.wavelength()
@@ -187,11 +187,11 @@ impl PyHalftone {
         (
             self.color(),
             self.0.tone().level(),
-            self.pitch(),
+            self.spacing(),
             self.angle(),
             self.0.shape().name(),
             self.aspect(),
-            self.screen(),
+            self.family(),
             self.0.center().map(|center| (center.x, center.y)),
             self.amplitude(),
             self.wavelength(),
@@ -218,12 +218,12 @@ impl PyHalftone {
             |center| format!("({:?}, {:?})", center.x, center.y),
         );
         format!(
-            "Halftone(color='{}', tone={tone}, pitch={:?}, angle={:?}, shape={shape}, aspect={:?}, screen='{}', center={center}, amplitude={:?}, wavelength={:?})",
+            "Halftone(color='{}', tone={tone}, spacing={:?}, angle={:?}, shape={shape}, aspect={:?}, family='{}', center={center}, amplitude={:?}, wavelength={:?})",
             self.color(),
-            self.pitch(),
+            self.spacing(),
             self.angle(),
             self.aspect(),
-            self.screen(),
+            self.family(),
             self.amplitude(),
             self.wavelength()
         )

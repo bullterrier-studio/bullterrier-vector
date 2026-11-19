@@ -1,7 +1,7 @@
 //! The rows of the style verbs: paint, stroke, opacity, blend, shadow, halftone, knockout, clip and mask.
 
 use super::rows::{Row, fade, offset_square, square, unknown};
-use bullterrier_vector::{Blend, Color, Deg, Drawing, Halftone, Mark, Screen, Shadow, Stroke};
+use bullterrier_vector::{Blend, Color, Deg, Drawing, Family, Halftone, Mark, Shadow, Stroke};
 
 #[expect(clippy::too_many_lines, reason = "a table: one row per verb")]
 pub(super) fn rows() -> Vec<Row> {
@@ -85,16 +85,16 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "halftone",
-            sample: || Ok(square()?.halftone(Halftone::new(Color::hex(0), 0.5).pitch(6.0))),
+            sample: || Ok(square()?.halftone(Halftone::new(Color::hex(0), 0.5).spacing(6.0))),
             with: Some(|argument, value| {
                 let dots = Halftone::new(Color::hex(0), 0.5);
                 match argument {
                     "tone" => Ok(square()?.halftone(Halftone::new(Color::hex(0), value))),
-                    "pitch" => Ok(square()?.halftone(dots.pitch(value))),
+                    "spacing" => Ok(square()?.halftone(dots.spacing(value))),
                     "angle" => Ok(square()?.halftone(dots.angle(Deg(value)))),
                     "aspect" => Ok(square()?.halftone(dots.shape(Mark::Ellipse).aspect(value))),
-                    "amplitude" => Ok(square()?.halftone(dots.screen(Screen::Wave).amplitude(value))),
-                    "wavelength" => Ok(square()?.halftone(dots.screen(Screen::Wave).wavelength(value))),
+                    "amplitude" => Ok(square()?.halftone(dots.family(Family::Waves).amplitude(value))),
+                    "wavelength" => Ok(square()?.halftone(dots.family(Family::Waves).wavelength(value))),
                     _ => Err(unknown("halftone", argument)),
                 }
             }),
@@ -104,11 +104,11 @@ pub(super) fn rows() -> Vec<Row> {
                 ("tone", -1e-9, false),
                 ("tone", 1.000_000_001, false),
                 ("tone", f64::NAN, false),
-                ("pitch", 1e300, true),
-                ("pitch", 0.0, false),
-                ("pitch", -1.0, false),
-                ("pitch", f64::INFINITY, false),
-                ("pitch", f64::NAN, false),
+                ("spacing", 1e300, true),
+                ("spacing", 0.0, false),
+                ("spacing", -1.0, false),
+                ("spacing", f64::INFINITY, false),
+                ("spacing", f64::NAN, false),
                 ("angle", -1e300, true),
                 ("angle", f64::NAN, false),
                 ("angle", f64::INFINITY, false),

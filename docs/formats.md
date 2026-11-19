@@ -90,7 +90,7 @@ defaults and units. The types below:
 | input | the name of an entry of `inputs` |
 
 Every argument not marked otherwise is a number. A literal value outside the range api.md states for it (an `alpha`
-above 1, a `pitch` of 0, a coordinate beyond 1e100) fails the schema; an expression's value is checked when drawn. Literal only, never an
+above 1, a `spacing` of 0, a coordinate beyond 1e100) fails the schema; an expression's value is checked when drawn. Literal only, never an
 expression: the `tolerance` of the booleans, `stack`'s `size`, `Field.map`'s `width` and `height`, `text`'s `features` (whole numbers from 0 to 4294967295), a shape's `attributes` and the
 values of `only`, `without` and `with_values`.
 
@@ -165,7 +165,7 @@ default paint, and draws as it did.
 | `only`, `without` | attribute names to a value or a list of values: `{"only": {"char": "O"}}` |
 | `fill` | `color` (colour, `"none"` or gradient) |
 | `stroke` | `color` (colour or gradient), `width`, `join`, `cap`, `miter_limit`, `profile` (as `outline`'s: pairs `[position, factor]`, each a per-item number; `join` and `cap` must be `"round"`) |
-| `halftone` | `color` (colour), `tone` (a per-item number or a field), `pitch` (per-item number, default 8), `shape` (a word, `"dot"` (default), `"square"`, `"ellipse"`, `"diamond"` or `"euclidean"`, or `{"path": "<path data>"}`: the closed outline of the caller's dot), `screen` (`"grid"` (default), `"wave"`, `"rings"`, `"spiral"`, `"rays"`) and the arguments the layout and the dot read, each left out for its default and refused when given and not read: `angle` (per-item number, default 45; not for `"rings"`), `aspect` (per-item number, at least 1, default 1: an ellipse's length to width; for `"ellipse"` only), `center` (point, per item: for `"rings"`, `"spiral"` and `"rays"` only; default the middle of the shape's bounds), `amplitude` (per-item number, default 1) and `wavelength` (per-item number above 0, default 6): a wave's, in pitches, for `"wave"` only. A tone that is a number or an expression is that number for each shape; a field object (`{"Field.ramp": ..}`) is read at each dot's center |
+| `halftone` | `color` (colour), `tone` (a per-item number or a field), `spacing` (per-item number, default 8), `shape` (a word, `"dot"` (default), `"square"`, `"ellipse"`, `"diamond"` or `"euclidean"`, or `{"path": "<path data>"}`: the closed outline of the caller's dot), `family` (`"lines"` (default), `"waves"`, `"rings"`, `"spiral"`, `"rays"`, the words of `bands`) and the arguments the layout and the dot read, each left out for its default and refused when given and not read: `angle` (per-item number, default 45; not for `"rings"`), `aspect` (per-item number, at least 1, default 1: an ellipse's length to width; for `"ellipse"` only), `center` (point, per item: for `"rings"`, `"spiral"` and `"rays"` only; default the middle of the shape's bounds), `amplitude` (per-item number, default 1) and `wavelength` (per-item number above 0, default 6): a wave's, in spacings, for `"waves"` only. A tone that is a number or an expression is that number for each shape; a field object (`{"Field.ramp": ..}`) is read at each dot's center |
 | `opacity` | `alpha` |
 | `clip` | `region` (drawing: an array of calls, as the `other` of a boolean; all its shapes united once) |
 | `mask` | `source` (drawing; its shapes are written as painted and hold no mask) |
@@ -436,7 +436,7 @@ in the library (`Drawing.preset_description`).
 can address a cache. Two documents are the same drawing when their canonical forms are equal. A reader accepts any
 spelling the schema allows; canonical form is what the library writes:
 
-1. **Defaults.** An argument equal to its default is left out (`"pitch": 8` on `halftone`, `"tolerance": 0.5` on
+1. **Defaults.** An argument equal to its default is left out (`"spacing": 8` on `halftone`, `"tolerance": 0.5` on
    `trace_levels`); so are empty `params`, `inputs` and `drawings`.
 2. **Paths** in the form under "Values"; a `Path` where a drawing is expected as `[{"path": "..."}]`; `Drawing(x)` of
    one item and no size as `x`.

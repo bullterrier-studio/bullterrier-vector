@@ -876,7 +876,7 @@
           "properties": {
             "color": { "$ref": "#/$defs/color" },
             "tone": { "$ref": "#/$defs/tone" },
-            "pitch": { "$ref": "#/$defs/positive" },
+            "spacing": { "$ref": "#/$defs/positive" },
             "angle": { "$ref": "#/$defs/number" },
             "shape": {
               "anyOf": [
@@ -890,7 +890,7 @@
               ]
             },
             "aspect": { "anyOf": [{ "type": "number", "minimum": 1 }, { "$ref": "#/$defs/expression" }] },
-            "screen": { "enum": ["grid", "wave", "rings", "spiral", "rays"] },
+            "family": { "enum": ["lines", "waves", "rings", "spiral", "rays"] },
             "center": { "$ref": "#/$defs/coordinate_point" },
             "amplitude": { "$ref": "#/$defs/number" },
             "wavelength": { "$ref": "#/$defs/positive" }

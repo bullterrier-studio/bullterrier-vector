@@ -5,7 +5,7 @@ use super::{Args, Context, Inputs, Node, each_shape};
 use crate::field::Shapes;
 use crate::geometry::MAX_COORDINATE;
 use crate::lines::{Family, Plan, StipplePlan};
-use crate::{Arg, Bands, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
+use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
 
 /// A number read once for the whole call, within `domain`.
 const fn once(name: &'static str, domain: Domain) -> Arg {
@@ -113,8 +113,8 @@ pub(crate) static BANDS: Verb = Verb {
 
 /// `waves` need a `wavelength` and an `amplitude`, and no family is given what it does not read.
 fn waves_need_their_size(args: &Args) -> Result<(), Error> {
-    let family = args.text("family")?;
-    if family == "waves" {
+    let family = Family::parse(args.text("family")?)?;
+    if family == Family::Waves {
         for name in ["wavelength", "amplitude"] {
             if !args.given(name)? {
                 return Err(Error::parameter(name, "is needed when `family` is \"waves\""));
@@ -123,7 +123,7 @@ fn waves_need_their_size(args: &Args) -> Result<(), Error> {
     }
     for name in ["angle", "wavelength", "amplitude", "center"] {
         if args.given(name)? {
-            Bands::refuse_unread(family, name)?;
+            family.refuse_unread(name)?;
         }
     }
     Ok(())
@@ -136,8 +136,7 @@ impl Node for BandsStep {
 
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         let placed = |error: Error| error.at_argument(&cx.place, None);
-        let family = Family::from_name(args.text("family")?)
-            .ok_or_else(|| Error::parameter("family", "is not one of the carriers"))?;
+        let family = Family::parse(args.text("family")?)?;
         let plan = Plan {
             family,
             spacing: args.once_number(cx, "spacing").map_err(placed)?,

@@ -667,30 +667,30 @@ impl PyDrawing {
 
     /// Every shape filled with a screen of dots of `color` (replacing any fill, as `fill` replaces it). Each dot covers
     /// `1 - tone` of its own cell: `tone` from 0 (solid) to 1 (no dots) is a number (a `Param`, a number for each shape)
-    /// or a `Field` read at the center of each dot. `pitch` (8) is the distance between rows and dots in design pixels
+    /// or a `Field` read at the center of each dot. `spacing` (8) is the distance between rows and dots in design pixels
     /// and `angle` (45) the turn of the layout in degrees about the origin of the design frame. `shape` is the dot:
     /// `"dot"`, `"square"`, `"ellipse"` (`aspect` times as long as wide, at least 1), `"diamond"`, `"euclidean"` (round,
     /// a diamond at tone 0.5, then a round hole) or a closed `Path` (its first sub-path, on its centroid, scaled to the
-    /// area). `screen` is the layout: `"grid"`, `"wave"` (rows swung `amplitude` pitches (1) over `wavelength` pitches
-    /// (6)), `"rings"`, `"spiral"` or `"rays"` (about `center`, default the middle of the shape's bounds). The grid and
-    /// the wave are anchored to the design frame.
+    /// area). `family` is the layout, as for `bands`: `"lines"`, `"waves"` (rows swung `amplitude` spacings (1) over
+    /// `wavelength` spacings (6)), `"rings"`, `"spiral"` or `"rays"` (about `center`, default the middle of the shape's
+    /// bounds). Lines and waves are anchored to the design frame.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
-    #[pyo3(signature = (color, *, tone, pitch=None, angle=None, shape=None, aspect=None, screen=None, center=None, amplitude=None, wavelength=None))]
+    #[pyo3(signature = (color, *, tone, spacing=None, angle=None, shape=None, aspect=None, family=None, center=None, amplitude=None, wavelength=None))]
     pub(crate) fn halftone(
         &self,
         color: &str,
         tone: ToneArg,
-        pitch: Option<Num>,
+        spacing: Option<Num>,
         angle: Option<Num>,
         shape: Option<ShapeArg>,
         aspect: Option<Num>,
-        screen: Option<&str>,
+        family: Option<&str>,
         center: Option<Pt>,
         amplitude: Option<Num>,
         wavelength: Option<Num>,
     ) -> PyResult<Self> {
         checked(self.0.halftone(halftone_of(
-            color, tone, pitch, angle, shape, aspect, screen, center, amplitude, wavelength,
+            color, tone, spacing, angle, shape, aspect, family, center, amplitude, wavelength,
         )?))
     }
 

@@ -947,7 +947,7 @@ AGREED = [
     pytest.param(square_with({"shadow": {"radius": 3}}), False, id="a shadow argument that is not one"),
     pytest.param(square_with({"halftone": {"color": "#000000", "tone": 0.5}}), True, id="a halftone of the defaults"),
     pytest.param(
-        square_with({"halftone": {"color": "#000000ff", "tone": 0.2, "pitch": 4, "angle": -30}}),
+        square_with({"halftone": {"color": "#000000ff", "tone": 0.2, "spacing": 4, "angle": -30}}),
         True,
         id="a halftone of every argument",
     ),
@@ -964,7 +964,7 @@ AGREED = [
                     "tone": {"Field.ramp": {"start": [0, 0], "end": [0, 10]}},
                     "shape": "ellipse",
                     "aspect": 2,
-                    "screen": "rings",
+                    "family": "rings",
                     "center": [3, 4],
                 }
             }
@@ -978,7 +978,9 @@ AGREED = [
         id="a halftone of a caller's outline",
     ),
     pytest.param(
-        square_with({"halftone": {"color": "#000000", "tone": 0.5, "screen": "wave", "amplitude": 2, "wavelength": 9}}),
+        square_with(
+            {"halftone": {"color": "#000000", "tone": 0.5, "family": "waves", "amplitude": 2, "wavelength": 9}}
+        ),
         True,
         id="a halftone on a wave",
     ),
@@ -988,9 +990,9 @@ AGREED = [
         id="a halftone shape of no name",
     ),
     pytest.param(
-        square_with({"halftone": {"color": "#000000", "tone": 0.5, "screen": "line"}}),
+        square_with({"halftone": {"color": "#000000", "tone": 0.5, "family": "line"}}),
         False,
-        id="a halftone screen of no name",
+        id="a halftone family of no name",
     ),
     pytest.param(
         square_with({"halftone": {"color": "#000000", "tone": 0.5, "aspect": 0.5}}),
@@ -1002,7 +1004,7 @@ AGREED = [
     pytest.param(square_with({"halftone": {"color": "none", "tone": 0.5}}), False, id="a halftone of no colour"),
     pytest.param(square_with({"halftone": {"color": "#000000", "tone": 1.5}}), False, id="a halftone tone past 1"),
     pytest.param(
-        square_with({"halftone": {"color": "#000000", "tone": 0.5, "pitch": 0}}), False, id="a halftone of no pitch"
+        square_with({"halftone": {"color": "#000000", "tone": 0.5, "spacing": 0}}), False, id="a halftone of no spacing"
     ),
     pytest.param(square_with({"knockout": {}}), True, id="a knockout"),
     pytest.param(square_with({"knockout": {"alpha": 1}}), False, id="a knockout with an argument"),

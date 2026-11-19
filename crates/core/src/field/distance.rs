@@ -24,7 +24,7 @@ pub(super) fn charge_work(parameter: &'static str, work: f64, what: impl FnOnce(
         return Err(Error::parameter(
             parameter,
             format!(
-                "{}, past {MAX_READ_WORK} units of work: use fewer samples (a wider spacing, pitch or cell, a smaller shape or box) or a field that is cheaper to read (fewer octaves, operands or edges)",
+                "{}, past {MAX_READ_WORK} units of work: use fewer samples (a wider spacing or cell, a smaller shape or box) or a field that is cheaper to read (fewer octaves, operands or edges)",
                 what()
             ),
         ));

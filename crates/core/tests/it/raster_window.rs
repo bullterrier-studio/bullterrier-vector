@@ -332,7 +332,7 @@ fn paints() -> Result<Vec<Row>, Error> {
             Drawing::new([
                 paper()?,
                 Drawing::from(Path::circle((100.0, 75.0), 60.0)?)
-                    .halftone(Halftone::new(color("#102040")?, 0.4).pitch(7.0).angle(Deg(30.0)))
+                    .halftone(Halftone::new(color("#102040")?, 0.4).spacing(7.0).angle(Deg(30.0)))
                     .stroke(Stroke::new(color("#102040")?).width(3.0)),
             ]),
         ),

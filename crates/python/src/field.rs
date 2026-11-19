@@ -412,6 +412,7 @@ pub(crate) fn bands_of(
     wavelength: Option<Num>,
     amplitude: Option<Num>,
 ) -> PyResult<vector::Bands> {
+    let family = raised(vector::Family::parse(family))?;
     for (name, given) in [
         ("angle", angle.is_some()),
         ("center", center.is_some()),
@@ -419,7 +420,7 @@ pub(crate) fn bands_of(
         ("amplitude", amplitude.is_some()),
     ] {
         if given {
-            raised(vector::Bands::refuse_unread(family, name))?;
+            raised(family.refuse_unread(name))?;
         }
     }
     let (spacing, tone, width) = (spacing.0, tone.0, (width.0.0, width.1.0));
@@ -429,22 +430,17 @@ pub(crate) fn bands_of(
             .ok_or_else(|| crate::ParameterError::new_err(format!("{name}: is needed when `family` is \"waves\"")))
     };
     let bands = match family {
-        "lines" => raised(vector::Bands::lines(spacing, tone, width))?,
-        "waves" => raised(vector::Bands::waves(
+        vector::Family::Lines => raised(vector::Bands::lines(spacing, tone, width))?,
+        vector::Family::Waves => raised(vector::Bands::waves(
             spacing,
             tone,
             width,
             needed(wavelength, "wavelength")?,
             needed(amplitude, "amplitude")?,
         ))?,
-        "rings" => raised(vector::Bands::rings(spacing, tone, width))?,
-        "spiral" => raised(vector::Bands::spiral(spacing, tone, width))?,
-        "rays" => raised(vector::Bands::rays(spacing, tone, width))?,
-        other => {
-            return Err(crate::ParameterError::new_err(format!(
-                "family: must be one of lines, waves, rings, spiral, rays, got {other:?}"
-            )));
-        }
+        vector::Family::Rings => raised(vector::Bands::rings(spacing, tone, width))?,
+        vector::Family::Spiral => raised(vector::Bands::spiral(spacing, tone, width))?,
+        vector::Family::Rays => raised(vector::Bands::rays(spacing, tone, width))?,
     };
     let bands = match angle {
         Some(angle) => raised(bands.angle(angle.0))?,

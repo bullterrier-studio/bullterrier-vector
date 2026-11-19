@@ -55,9 +55,9 @@ fn verbs() -> Vec<Verb> {
             rect(400.0, 400.0)?.stipple(&Stipple::new(2.0, tone.clone(), (0.5, 0.5))?)?;
             Ok(())
         }),
-        ("halftone", "pitch", |tone| {
+        ("halftone", "spacing", |tone| {
             let drawing =
-                Drawing::from(rect(400.0, 400.0)?).halftone(Halftone::new(Color::hex(0), tone.clone()).pitch(2.0));
+                Drawing::from(rect(400.0, 400.0)?).halftone(Halftone::new(Color::hex(0), tone.clone()).spacing(2.0));
             drawing.to_svg(Size::px(400.0, 400.0), &Values::new())?;
             Ok(())
         }),

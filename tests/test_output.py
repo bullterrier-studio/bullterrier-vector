@@ -386,7 +386,7 @@ def test_a_blur_past_a_thousand_output_pixels_of_deviation_raises_naming_the_blu
 
 # --- halftones --------------------------------------------------------------------------------------------------------
 
-DOTS = btvec.Path.rect(5, 5, 90, 90).halftone("#000000", tone=0.5, pitch=10, angle=0)
+DOTS = btvec.Path.rect(5, 5, 90, 90).halftone("#000000", tone=0.5, spacing=10, angle=0)
 
 
 def test_a_halftone_covers_the_share_of_its_shape_the_tone_leaves_over():
@@ -416,10 +416,10 @@ def test_a_mesh_has_the_triangles_of_the_dots():
     assert all(mesh.vertices[at + 5] == 1.0 for at in range(0, len(mesh.vertices), 8))
 
 
-def test_a_pitch_that_asks_for_millions_of_dots_is_refused_naming_the_pitch():
-    big = btvec.Path.circle((500, 500), 500).halftone("#000000", tone=0.5, pitch=0.01)
+def test_a_spacing_that_asks_for_millions_of_dots_is_refused_naming_the_spacing():
+    big = btvec.Path.circle((500, 500), 500).halftone("#000000", tone=0.5, spacing=0.01)
     for draw in (big.to_rgba, big.to_svg, big.to_mesh):
-        with pytest.raises(btvec.ParameterError, match="pitch"):
+        with pytest.raises(btvec.ParameterError, match="spacing"):
             draw(100, 100)
 
 

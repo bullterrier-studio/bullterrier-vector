@@ -1,5 +1,5 @@
 //! The SVG `Drawing::to_svg` writes for a halftone: the clip path and the one path of dots, read back with an XML parser
-//! against the lattice worked out here from the pitch and the angle, and the picture it makes against the pixels,
+//! against the lattice worked out here from the spacing and the angle, and the picture it makes against the pixels,
 //! drawn by a second renderer (`resvg`).
 
 use crate::common::fonts::fraunces;
@@ -34,11 +34,11 @@ fn center(dot: &Ring) -> (f64, f64) {
     )
 }
 
-/// The lattice point `(i, j)` of a lattice `pitch` apart turned `degrees` clockwise on the screen (`y` down) about the
-/// origin: the point `(i * pitch, j * pitch)` turned.
-fn lattice(pitch: f64, degrees: f64, (i, j): (i32, i32)) -> (f64, f64) {
+/// The lattice point `(i, j)` of a lattice `spacing` apart turned `degrees` clockwise on the screen (`y` down) about the
+/// origin: the point `(i * spacing, j * spacing)` turned.
+fn lattice(spacing: f64, degrees: f64, (i, j): (i32, i32)) -> (f64, f64) {
     let (sin, cos) = (libm::sin(degrees.to_radians()), libm::cos(degrees.to_radians()));
-    let (x, y) = (f64::from(i) * pitch, f64::from(j) * pitch);
+    let (x, y) = (f64::from(i) * spacing, f64::from(j) * spacing);
     (x * cos - y * sin, x * sin + y * cos)
 }
 
@@ -52,11 +52,11 @@ fn from_rect(point: (f64, f64), (left, top, right, bottom): (f64, f64, f64, f64)
 }
 
 /// The centers of the dots of radius `radius` that touch the rectangle: the lattice points within the radius of it.
-fn expected_centers(rect: (f64, f64, f64, f64), (pitch, degrees): (f64, f64), radius: f64) -> Vec<(f64, f64)> {
+fn expected_centers(rect: (f64, f64, f64, f64), (spacing, degrees): (f64, f64), radius: f64) -> Vec<(f64, f64)> {
     let mut found = Vec::new();
     for i in -40..40 {
         for j in -40..40 {
-            let at = lattice(pitch, degrees, (i, j));
+            let at = lattice(spacing, degrees, (i, j));
             if from_rect(at, rect) < radius {
                 found.push(at);
             }
@@ -70,9 +70,9 @@ fn sorted(mut points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
     points
 }
 
-/// The radius of a dot of area `(1 - tone)` of a cell of `pitch`.
-fn radius_of(pitch: f64, tone: f64) -> f64 {
-    pitch * ((1.0 - tone) / PI).sqrt()
+/// The radius of a dot of area `(1 - tone)` of a cell of `spacing`.
+fn radius_of(spacing: f64, tone: f64) -> f64 {
+    spacing * ((1.0 - tone) / PI).sqrt()
 }
 
 // The markup --------------------------------------------------------------------------------------------------------
@@ -80,7 +80,7 @@ fn radius_of(pitch: f64, tone: f64) -> f64 {
 #[test]
 fn a_halftone_is_a_clip_path_of_the_shape_and_one_path_of_dots_in_the_clipped_group() -> Outcome {
     let drawing = Drawing::from(rect(0.0, 0.0, 20.0, 20.0)?)
-        .halftone(Halftone::new(color("#336699")?, 0.5).pitch(10.0).angle(Deg(0.0)));
+        .halftone(Halftone::new(color("#336699")?, 0.5).spacing(10.0).angle(Deg(0.0)));
     let found = body(&drawing, 20.0)?;
     let names: Vec<&str> = found.iter().map(|element| element.name.as_str()).collect();
     assert_eq!(names, ["clipPath", "g"]);
@@ -117,7 +117,7 @@ fn a_translucent_colour_is_one_fill_opacity_on_the_path_of_dots() -> Outcome {
 
 #[test]
 fn the_dots_are_the_lattice_points_within_a_radius_of_the_shape_each_of_the_area_of_the_tone() -> Outcome {
-    // (pitch, angle, tone, the rectangle): angles that are and are not quarter turns, pitches that do and do not divide
+    // (spacing, angle, tone, the rectangle): angles that are and are not quarter turns, spacings that do and do not divide
     // the rectangle, a dot at every tone from heavy to light
     let rows = [
         (10.0, 0.0, 0.5, (3.0, 5.0, 57.0, 41.0)),
@@ -127,14 +127,14 @@ fn the_dots_are_the_lattice_points_within_a_radius_of_the_shape_each_of_the_area
         (9.0, 90.0, 0.6, (0.5, 0.5, 60.5, 20.5)),
         (15.0, 405.0, 0.9, (1.0, 1.0, 59.0, 59.0)),
     ];
-    for (pitch, angle, tone, bounds) in rows {
+    for (spacing, angle, tone, bounds) in rows {
         let (left, top, right, bottom) = bounds;
         let shape = rect(left, top, right - left, bottom - top)?;
-        let drawing = Drawing::from(shape).halftone(Halftone::new(BLACK, tone).pitch(pitch).angle(Deg(angle)));
+        let drawing = Drawing::from(shape).halftone(Halftone::new(BLACK, tone).spacing(spacing).angle(Deg(angle)));
         let dots = dots_of(&svg(&drawing, 100.0)?)?;
         let found = sorted(dots.iter().map(center).collect());
-        let wanted = expected_centers(bounds, (pitch, angle), radius_of(pitch, tone));
-        let case = format!("pitch {pitch}, angle {angle}, tone {tone}");
+        let wanted = expected_centers(bounds, (spacing, angle), radius_of(spacing, tone));
+        let case = format!("spacing {spacing}, angle {angle}, tone {tone}");
         assert_eq!(found.len(), wanted.len(), "{case}: the number of dots");
         for (at, expected) in found.iter().zip(&wanted) {
             assert!(
@@ -143,7 +143,7 @@ fn the_dots_are_the_lattice_points_within_a_radius_of_the_shape_each_of_the_area
             );
         }
         // each dot has the area of the tone, to the polygon's 1% under the circle
-        let area = (1.0 - tone) * pitch * pitch;
+        let area = (1.0 - tone) * spacing * spacing;
         for dot in &dots {
             let drawn = net_area(std::slice::from_ref(dot));
             assert!(
@@ -157,7 +157,7 @@ fn the_dots_are_the_lattice_points_within_a_radius_of_the_shape_each_of_the_area
 
 #[test]
 fn a_dot_stays_on_the_lattice_when_the_shape_moves() -> Outcome {
-    let dots = Halftone::new(BLACK, 0.5).pitch(8.0).angle(Deg(25.0));
+    let dots = Halftone::new(BLACK, 0.5).spacing(8.0).angle(Deg(25.0));
     let here = Drawing::from(rect(10.0, 10.0, 70.0, 50.0)?).halftone(dots.clone());
     let there = Drawing::from(rect(35.0, 23.0, 70.0, 50.0)?).halftone(dots);
     let (first, second) = (dots_of(&svg(&here, 120.0)?)?, dots_of(&svg(&there, 120.0)?)?);
@@ -178,7 +178,7 @@ fn a_dot_stays_on_the_lattice_when_the_shape_moves() -> Outcome {
 #[test]
 fn a_drawing_at_twice_the_size_has_numbers_twice_as_large() -> Outcome {
     let drawing = Drawing::from(Path::circle((50.0, 50.0), 40.0)?)
-        .halftone(Halftone::new(RED, 0.4).pitch(9.0).angle(Deg(33.0)))
+        .halftone(Halftone::new(RED, 0.4).spacing(9.0).angle(Deg(33.0)))
         .stroke(Stroke::new(BLACK).width(3.0))
         .with_size(100.0, 100.0);
     let (small, large) = (svg(&drawing, 100.0)?, svg(&drawing, 200.0)?);
@@ -197,7 +197,7 @@ fn a_drawing_at_twice_the_size_has_numbers_twice_as_large() -> Outcome {
 
 #[test]
 fn opacity_and_blend_are_on_a_group_of_the_dots_and_the_stroke_over_them() -> Outcome {
-    let dots = Halftone::new(RED, 0.5).pitch(10.0);
+    let dots = Halftone::new(RED, 0.5).spacing(10.0);
     let stroke = Stroke::new(BLACK).width(2.0);
     let rows = [
         (
@@ -236,7 +236,7 @@ fn opacity_and_blend_are_on_a_group_of_the_dots_and_the_stroke_over_them() -> Ou
     // the stroke is the last thing drawn, over the dots, and has no fill
     let found = body(
         &Drawing::from(rect(0.0, 0.0, 30.0, 30.0)?)
-            .halftone(Halftone::new(RED, 0.5).pitch(10.0))
+            .halftone(Halftone::new(RED, 0.5).spacing(10.0))
             .stroke(Stroke::new(BLACK).width(2.0))
             .opacity(0.5),
         40.0,
@@ -250,7 +250,7 @@ fn opacity_and_blend_are_on_a_group_of_the_dots_and_the_stroke_over_them() -> Ou
 #[test]
 fn a_hard_shadow_is_a_tinted_copy_of_the_dots_moved_under_the_screen() -> Outcome {
     let drawing = Drawing::from(rect(0.0, 0.0, 30.0, 30.0)?)
-        .halftone(Halftone::new(RED, 0.5).pitch(10.0))
+        .halftone(Halftone::new(RED, 0.5).spacing(10.0))
         .shadow(Shadow::new().dx(4.0).dy(6.0).blur(0.0).color(color("#0000ff80")?));
     let found = body(&drawing, 40.0)?;
     let names: Vec<&str> = found.iter().map(|element| element.name.as_str()).collect();
@@ -298,40 +298,40 @@ fn the_svg_shows_what_the_pixels_show() -> Outcome {
     let rows = [
         (
             "a disc",
-            Drawing::from(Path::circle((60.0, 60.0), 50.0)?).halftone(Halftone::new(RED, 0.5).pitch(6.0)),
+            Drawing::from(Path::circle((60.0, 60.0), 50.0)?).halftone(Halftone::new(RED, 0.5).spacing(6.0)),
         ),
         (
             "a letter with a hole",
-            letter.halftone(Halftone::new(BLACK, 0.4).pitch(5.0).angle(Deg(15.0))),
+            letter.halftone(Halftone::new(BLACK, 0.4).spacing(5.0).angle(Deg(15.0))),
         ),
         (
             "a translucent colour that overlaps itself",
             Drawing::from(Path::circle((60.0, 60.0), 50.0)?)
-                .halftone(Halftone::new(color("#00008080")?, 0.05).pitch(12.0)),
+                .halftone(Halftone::new(color("#00008080")?, 0.05).spacing(12.0)),
         ),
         (
             "dots with a stroke, at half opacity",
             Drawing::from(Path::circle((60.0, 60.0), 40.0)?)
-                .halftone(Halftone::new(RED, 0.5).pitch(7.0))
+                .halftone(Halftone::new(RED, 0.5).spacing(7.0))
                 .stroke(Stroke::new(BLACK).width(4.0))
                 .opacity(0.5),
         ),
         (
             "dots multiplied over paper",
             Drawing::from(Path::circle((60.0, 60.0), 40.0)?)
-                .halftone(Halftone::new(color("#ff8800")?, 0.3).pitch(8.0))
+                .halftone(Halftone::new(color("#ff8800")?, 0.3).spacing(8.0))
                 .blend(bullterrier_vector::Blend::Multiply),
         ),
         (
             "dots with a hard shadow",
             Drawing::from(Path::circle((50.0, 50.0), 35.0)?)
-                .halftone(Halftone::new(RED, 0.5).pitch(6.0))
+                .halftone(Halftone::new(RED, 0.5).spacing(6.0))
                 .shadow(Shadow::new().dx(8.0).dy(10.0).blur(0.0).color(color("#0000ff99")?)),
         ),
         (
             "dots with a blurred shadow",
             Drawing::from(Path::circle((50.0, 50.0), 35.0)?)
-                .halftone(Halftone::new(RED, 0.5).pitch(6.0))
+                .halftone(Halftone::new(RED, 0.5).spacing(6.0))
                 .shadow(Shadow::new().dx(4.0).dy(6.0).blur(10.0)),
         ),
         (
@@ -339,7 +339,7 @@ fn the_svg_shows_what_the_pixels_show() -> Outcome {
             Drawing::from(rect(0.0, 0.0, 120.0, 120.0)?)
                 .fill(RED)
                 .knockout()
-                .halftone(Halftone::new(BLACK, 0.5).pitch(10.0)),
+                .halftone(Halftone::new(BLACK, 0.5).spacing(10.0)),
         ),
     ];
     for (case, drawing) in rows {
@@ -357,10 +357,10 @@ fn the_svg_shows_what_the_pixels_show() -> Outcome {
 
 #[test]
 fn a_pitch_that_asks_for_millions_of_dots_is_refused_naming_the_pitch() -> Outcome {
-    let drawing = Drawing::from(Path::circle((500.0, 500.0), 500.0)?).halftone(Halftone::new(BLACK, 0.5).pitch(0.01));
+    let drawing = Drawing::from(Path::circle((500.0, 500.0), 500.0)?).halftone(Halftone::new(BLACK, 0.5).spacing(0.01));
     let (name, message) = parameter_refusal(svg(&drawing, 100.0))?;
     assert!(
-        name.contains("pitch") && message.contains("MAX_SEGMENTS"),
+        name.contains("spacing") && message.contains("MAX_SEGMENTS"),
         "{name}: {message}"
     );
     Ok(())
@@ -368,15 +368,15 @@ fn a_pitch_that_asks_for_millions_of_dots_is_refused_naming_the_pitch() -> Outco
 
 #[test]
 fn a_pitch_too_small_for_the_numbers_of_its_lattice_is_refused_naming_the_pitch() -> Outcome {
-    // (pitch, where the shape is): the lattice coordinates, the position over the pitch, are 10^301 in the first row,
+    // (spacing, where the shape is): the lattice coordinates, the position over the spacing, are 10^301 in the first row,
     // and beyond what a float holds in the others, which leaves no count of dots to charge
-    for (pitch, at) in [(1e-300, 10.0), (1e-320, 10.0), (1e-310, 50.0)] {
-        let drawing =
-            Drawing::from(rect(at, at, 10.0, 10.0)?).halftone(Halftone::new(BLACK, 0.5).pitch(pitch).angle(Deg(0.0)));
+    for (spacing, at) in [(1e-300, 10.0), (1e-320, 10.0), (1e-310, 50.0)] {
+        let drawing = Drawing::from(rect(at, at, 10.0, 10.0)?)
+            .halftone(Halftone::new(BLACK, 0.5).spacing(spacing).angle(Deg(0.0)));
         let (name, message) = parameter_refusal(svg(&drawing, 100.0))?;
         assert!(
-            name.contains("pitch") && message.contains("MAX_SEGMENTS"),
-            "pitch {pitch}: {name}: {message}"
+            name.contains("spacing") && message.contains("MAX_SEGMENTS"),
+            "spacing {spacing}: {name}: {message}"
         );
     }
     Ok(())
@@ -397,7 +397,7 @@ fn to_segment(at: (f64, f64), from: (f64, f64), to: (f64, f64)) -> f64 {
 #[test]
 fn a_frame_with_a_headline_cut_out_takes_the_screen_of_the_plain_frame() -> Outcome {
     // the frame minus a headline has the frame's box, so the frame's cells, and over 900 edges against its 4: a dot is
-    // placed against the edges near it, so the cut-out frame takes the pitches the plain one takes. Oracle: a dot of the
+    // placed against the edges near it, so the cut-out frame takes the spacings the plain one takes. Oracle: a dot of the
     // plain frame's screen is kept when its center is in the region or an edge of the region (every one tried) comes
     // nearer its center than its corners; the headline itself is the other side of the same edges
     let font = fraunces()?;
@@ -417,8 +417,8 @@ fn a_frame_with_a_headline_cut_out_takes_the_screen_of_the_plain_frame() -> Outc
             .flat_map(|ring| (0..ring.len()).map(|at| (ring[at], ring[(at + 1) % ring.len()])))
             .collect();
         assert!(edges.len() > 900, "{what}: {} edges", edges.len());
-        for pitch in [9.0, 14.0, 20.0, 30.0] {
-            let screen = |drawing: &Drawing| drawing.halftone(Halftone::new(BLACK, 0.5).pitch(pitch));
+        for spacing in [9.0, 14.0, 20.0, 30.0] {
+            let screen = |drawing: &Drawing| drawing.halftone(Halftone::new(BLACK, 0.5).spacing(spacing));
             let plain = dots_of(&screen(&Drawing::from(frame.clone())).to_svg(size, &Values::new())?)?;
             let found = dots_of(&screen(&drawing).to_svg(size, &Values::new())?)?;
             for ring in &plain {
@@ -442,12 +442,12 @@ fn a_frame_with_a_headline_cut_out_takes_the_screen_of_the_plain_frame() -> Outc
                 assert_eq!(
                     found.contains(ring),
                     wanted,
-                    "{what}, pitch {pitch}: the dot at {center:?}"
+                    "{what}, spacing {spacing}: the dot at {center:?}"
                 );
             }
             assert!(
                 found.iter().all(|ring| plain.contains(ring)),
-                "{what}, pitch {pitch}: a dot off the screen"
+                "{what}, spacing {spacing}: a dot off the screen"
             );
         }
     }

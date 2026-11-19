@@ -60,16 +60,6 @@ impl Bands {
         })
     }
 
-    /// Whether the carrier `family` (`"lines"`, `"waves"`, `"rings"`, `"spiral"` or `"rays"`) reads the optional
-    /// argument `argument` (`angle`, `center`, `wavelength` or `amplitude`): the one place the rule lives, for the
-    /// builder, a document and the bindings.
-    ///
-    /// # Errors
-    /// [`Error::Parameter`] naming `argument` if the family does not read it.
-    pub fn refuse_unread(family: &str, argument: &str) -> Result<(), Error> {
-        Family::from_name(family).map_or(Ok(()), |known| known.refuse_unread(argument, "family", family))
-    }
-
     /// Straight lines `spacing` design pixels apart, along the direction of [`Bands::angle`] (0: left to right), the
     /// first half a spacing from the region's side. Each is as wide at a point as `width` says: `width.0` where
     /// the `tone` is 0, `width.1` where it is 1, linear between and held beyond (a tone is read where the center of the
@@ -86,7 +76,7 @@ impl Bands {
     }
 
     /// As [`Bands::lines`], each line a sine across the lines: `amplitude` rows high, one `wavelength` rows
-    /// long (a row is one `spacing`, as a halftone's `pitch` is), in phase at the origin of the lines' direction.
+    /// long (a row is one `spacing`, as a halftone's is), in phase at the origin of the lines' direction.
     ///
     /// # Errors
     /// As [`Bands::lines`], and naming `wavelength` or `amplitude` if it is a per-item number.
@@ -148,7 +138,7 @@ impl Bands {
     /// # Errors
     /// [`Error::Parameter`] naming `angle` for rings, which have no direction; or if it is a per-item number.
     pub fn angle(mut self, degrees: impl Into<Expr>) -> Result<Self, Error> {
-        Self::refuse_unread(self.family.name(), "angle")?;
+        self.family.refuse_unread("angle")?;
         self.angle = Some(once("angle", &degrees.into())?);
         Ok(self)
     }
@@ -158,7 +148,7 @@ impl Bands {
     /// # Errors
     /// [`Error::Parameter`] naming `center` for lines and waves, which have none.
     pub fn center(mut self, center: impl Into<Point>) -> Result<Self, Error> {
-        Self::refuse_unread(self.family.name(), "center")?;
+        self.family.refuse_unread("center")?;
         let center = center.into();
         self.center = Some((Expr::from(center.x), Expr::from(center.y)));
         Ok(self)

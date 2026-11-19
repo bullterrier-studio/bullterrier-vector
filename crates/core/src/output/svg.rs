@@ -73,7 +73,7 @@ impl Drawing {
     /// # Errors
     /// [`Error::Parameter`] naming `width` or `height` if a side of `size` is not a whole number from 1 to 100,000;
     /// naming the shape if its coordinates or stroke width would be beyond ±1e100 at this size, or if a knockout would
-    /// nest the document more than 128 groups deep, or `pitch` (a halftone's) if its dots would pass `MAX_SEGMENTS`; otherwise what [`Drawing::shapes`] raises.
+    /// nest the document more than 128 groups deep, or `spacing` (a halftone's) if its dots would pass `MAX_SEGMENTS`; otherwise what [`Drawing::shapes`] raises.
     pub fn to_svg(&self, size: Size, values: &Values) -> Result<String, Error> {
         let canvas = size.checked()?;
         let (width, height) = canvas;
@@ -457,7 +457,7 @@ impl Fill {
         let name = format!("shape {}", shape.index());
         let outline = shape.path().flattened(&mut |count| work.made_segments(count, &name))?;
         let dots = match screen(halftone, &outline, &mut |count| {
-            work.made_segments(count, &format!("{name} pitch"))
+            work.made_segments(count, &format!("{name} spacing"))
         })? {
             Screen::Solid => return Ok(Self::Plain(Paint::Color(halftone.color()))),
             Screen::Dots(dots) if dots.is_empty() => return Ok(Self::Plain(Paint::NONE)),

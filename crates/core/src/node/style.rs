@@ -6,10 +6,10 @@ use crate::field::Shapes;
 use crate::geometry::MAX_COORDINATE;
 use crate::path::check_profile;
 use crate::shape::{
-    Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, Dot, HalftoneStyle, Join, Mark, Screen,
+    Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, Dot, HalftoneStyle, Join, Mark,
     ShadowStyle, StrokeStyle, Tone,
 };
-use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
+use crate::{Arg, Domain, Error, Family, Kind, Literal, Reads, Role, Shape, Verb};
 use std::sync::Arc;
 
 /// A colour given when the call is made.
@@ -283,12 +283,12 @@ impl Node for Knockout {
     }
 }
 
-/// The pitch of a halftone when none is given, in design pixels.
-// constant: api.md "Style" (`halftone(color, *, tone, pitch=8, angle=45, ...)`)
-const DEFAULT_HALFTONE_PITCH: f64 = 8.0;
+/// The row distance of a halftone when none is given, in design pixels.
+// constant: api.md "Style" (`halftone(color, *, tone, spacing=8, angle=45, ...)`)
+const DEFAULT_HALFTONE_SPACING: f64 = 8.0;
 
 /// The turn of a halftone's lattice when none is given, in degrees.
-// constant: api.md "Style" (`halftone(color, *, tone, pitch=8, angle=45, ...)`), the classic screen angle
+// constant: api.md "Style" (`halftone(color, *, tone, spacing=8, angle=45, ...)`), the classic screen angle
 const DEFAULT_HALFTONE_ANGLE: f64 = 45.0;
 
 /// How high a wave screen swings its rows when none is given, in pitches.
@@ -306,8 +306,8 @@ pub(crate) struct Halftone;
 pub(crate) static HALFTONE: Verb = Verb {
     name: "halftone",
     role: Role::Step,
-    summary: "fills every shape with a screen of dots of a colour, pitch design pixels apart on a layout turned angle \
-              degrees: `screen` grid, wave (rows swung by `amplitude` pitches over `wavelength` pitches), rings, spiral or \
+    summary: "fills every shape with a screen of dots of a colour, on rows `spacing` design pixels apart turned angle \
+              degrees: `family` lines, waves (rows swung by `amplitude` spacings over `wavelength` spacings), rings, spiral or \
               rays (about `center`, default the middle of the shape's bounds); each dot covers (1 - tone) of its own \
               cell, tone from 0 (solid) to 1 (no dot), a number or a field read at the dot's center; `shape` is the dot: \
               dot, square, ellipse (`aspect` times as long as wide), diamond, euclidean (round, diamond at 0.5, round hole) or \
@@ -321,7 +321,7 @@ pub(crate) static HALFTONE: Verb = Verb {
             reads: Reads::PerItem,
             domain: Domain::Fraction,
         },
-        number("pitch", Some(DEFAULT_HALFTONE_PITCH), Domain::Positive),
+        number("spacing", Some(DEFAULT_HALFTONE_SPACING), Domain::Positive),
         optional_number("angle", Domain::Finite),
         Arg {
             name: "shape",
@@ -331,7 +331,7 @@ pub(crate) static HALFTONE: Verb = Verb {
             domain: Domain::Choice(Mark::NAMES),
         },
         optional_number("aspect", Domain::AtLeast(1.0)),
-        word("screen", Some("grid"), Screen::NAMES),
+        word("family", Some("lines"), Family::NAMES),
         Arg {
             name: "center",
             kind: Kind::Point,
@@ -345,16 +345,16 @@ pub(crate) static HALFTONE: Verb = Verb {
     check: Some(halftone_reads_what_it_is_given),
 };
 
-/// An argument goes with what reads it: the layout of the screen reads `angle`, `center`, `amplitude` and `wavelength` as
+/// An argument goes with what reads it: the layout family reads `angle`, `center`, `amplitude` and `wavelength` as
 /// `bands` does, and only an ellipse reads `aspect`; one left out takes its default, one given and unread is refused.
 fn halftone_reads_what_it_is_given(args: &Args) -> Result<(), Error> {
     let mark = args.mark("shape")?;
     // the outline is checked where it is given, not where the first output draws it
     Dot::new(&mark, 1.0)?;
-    let screen = Screen::parse(args.text("screen")?)?;
+    let family = Family::parse(args.text("family")?)?;
     for name in ["angle", "center", "amplitude", "wavelength"] {
         if args.given(name)? {
-            screen.refuse_unread(name)?;
+            family.refuse_unread(name)?;
         }
     }
     if args.given("aspect")? {
@@ -372,7 +372,7 @@ impl Node for Halftone {
         let placed = |error: Error| error.at_argument(&cx.place, None);
         let color = args.color("color")?;
         let mark = args.mark("shape")?;
-        let screen = Screen::parse(args.text("screen")?)?;
+        let family = Family::parse(args.text("family")?)?;
         // a field is bound once, with the values and the drawings of this draw, and shared by every shape
         let field = args
             .field_if_given("tone")?
@@ -387,11 +387,11 @@ impl Node for Halftone {
             let halftone = HalftoneStyle {
                 color,
                 tone,
-                pitch: args.number(cx, "pitch", item)?,
+                spacing: args.number(cx, "spacing", item)?,
                 angle: args.number_opt(cx, "angle", item)?.unwrap_or(DEFAULT_HALFTONE_ANGLE),
                 mark: mark.clone(),
                 aspect: args.number_opt(cx, "aspect", item)?.unwrap_or(1.0),
-                screen,
+                family,
                 center: args.point(cx, "center", item)?,
                 amplitude: args
                     .number_opt(cx, "amplitude", item)?

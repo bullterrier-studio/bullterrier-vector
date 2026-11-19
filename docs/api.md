@@ -160,7 +160,7 @@ numbers may be Params or per-item numbers and it applies to every shape. A `Path
 glyph's cap-height center), else the center of its bounds: on a stack of shapes, each turns or scales about its own
 origin. To turn the whole stack as one, give `about=` a point, such as the frame's center. `translate`, `rotate` and
 `scale` change geometry and `origin` only (`translate` adds to it, `rotate` and `scale` turn and scale it with the shape,
-so it stays put under the default `about`): stroke `width`, `shadow` and `halftone` `pitch` are design pixels and stay as
+so it stays put under the default `about`): stroke `width`, `shadow` and `halftone` `spacing` are design pixels and stay as
 set; to scale one with the shape, give it the same Param (`stroke(color, width=24 * pop)`).
 
 | Verb | Signature | Promise | Errors |
@@ -473,7 +473,7 @@ starts: a spacing too small for the region is a `ParameterError` naming `spacing
 | Call | Result | Arguments |
 |---|---|---|
 | `rows(spacing, *, tone, amplitude)` | open lines: ridgelines | rows `spacing` apart, the first half a spacing below the region's top, each lifted towards the top by `amplitude` times the tone at the point of the row (a negative amplitude pushes down). The tone is read over the point's share of the rows (half a step along and half a spacing across, weighing 1, 2, 1 each way), so detail finer than the rows can draw (fur, grass) averages out instead of chopping the rows; a slope reads as it is. A row hides what lies behind it (higher up the picture, below its curve): it is cut where a nearer row passes over it. A row starts where its base is inside the region and is drawn only where it is still inside once lifted; a part lifted out is cut away and hides nothing. Points are half a spacing apart. |
-| `bands(spacing, *, tone, width, family="lines", angle=None, center=None, wavelength=None, amplitude=None)` | closed outlines, for filling | lines whose width follows a tone: a carrier laid over the region and cut to it, each line as wide at a point as `width = (at tone 0, at tone 1)` says (each from 0, so a line can fade to nothing; linear, held beyond; the tone is read on the center line; 0 is dark, so `(thick, thin)` draws dark thick). `family`: `"lines"` along `angle` degrees (0 when left out), `"waves"` (needs `wavelength` and `amplitude`, both in rows, that is in multiples of `spacing`, as a halftone's are in pitches; a sine in phase at the origin), `"rings"` round `center` (default the middle of the region's box), `"spiral"` (arms `spacing` apart along any ray from the center, turned by `angle`) and `"rays"` (as many as are `spacing` apart at the box's farthest corner, so they crowd near the center: use a narrow width). A ring wholly inside is two loops, the inner the other way. An argument the family does not read (`wavelength` or `amplitude` but for waves, `center` for lines and waves, `angle` for rings) is a `ParameterError` naming it and the family, in a call, in Rust and in a document. |
+| `bands(spacing, *, tone, width, family="lines", angle=None, center=None, wavelength=None, amplitude=None)` | closed outlines, for filling | lines whose width follows a tone: a carrier laid over the region and cut to it, each line as wide at a point as `width = (at tone 0, at tone 1)` says (each from 0, so a line can fade to nothing; linear, held beyond; the tone is read on the center line; 0 is dark, so `(thick, thin)` draws dark thick). `family`: `"lines"` along `angle` degrees (0 when left out), `"waves"` (needs `wavelength` and `amplitude`, both in rows, that is in multiples of `spacing`, as a halftone's are; a sine in phase at the origin), `"rings"` round `center` (default the middle of the region's box), `"spiral"` (arms `spacing` apart along any ray from the center, turned by `angle`) and `"rays"` (as many as are `spacing` apart at the box's farthest corner, so they crowd near the center: use a narrow width). A ring wholly inside is two loops, the inner the other way. An argument the family does not read (`wavelength` or `amplitude` but for waves, `center` for lines and waves, `angle` for rings) is a `ParameterError` naming it and the family, in a call, in Rust and in a document. |
 | `stipple(spacing, *, tone, radius, density=None, seed=None)` | closed round dots, for filling | one dot at most in each cell of a square lattice `spacing` apart; `radius` is one number, or `(at tone 0, at tone 1)` as `density` is (linear, held beyond, read at the dot's center: `(2, 0.5)` grows the dark dots); `density` (default `(1, 0)`) is the share of cells that get a dot where the tone is 0 and where it is 1. Which cells is a low-discrepancy threshold (R2) moved by `seed` (default 0), so the dots of a tone are evenly spread and their count follows the tone to within a cell or two. |
 | `Path.within(region)` | open lines | the parts of a path's lines inside the region `region` fills, cut exactly where they cross its outline; a closed loop wholly inside stays closed. A method of a `Path` only, with no document step yet: a drawing author calls it on the `Path` before the drawing is built (`Drawing(lines.within(region))`). |
 
@@ -644,7 +644,7 @@ per-item lists keep their meaning; only `only`, `without` and `merge` remove sha
 | `stroke` | `stroke(color, *, width=2, join="round", cap="round", miter_limit=4, profile=None)` | strokes each outline with a colour or a gradient; with a `profile` (a list of `[position, factor]` pairs as `outline` takes, "Tapered strokes" above) the width follows it along each sub-path and the stroke is drawn as a filled region by SVG, pixels and mesh, `width` and each number of the profile per-item numbers (Rust: `Stroke::new(c).width(24).profile([(0, 0), (0.15, 1), (0.85, 1), (1, 0)])`; `Style.profile` gives it back) | as `fill`; a paint of `"none"`; `width` not above 0; `miter_limit` below 1; with a `profile`: as `outline`'s (at the step: `join` or `cap` not `"round"`, no stops or over `MAX_PROFILE_STOPS`, a position outside 0..1 or going back, a factor outside 0..1e100), and when drawn a region over `MAX_SEGMENTS` |
 | `linear_gradient` | `linear_gradient(stops, *, start, end)` | a paint for `fill` and `stroke`: `stops` are `(offset, color)`, the colour along the line from `start` to `end`, held at the end colours beyond it | fewer than 2 stops; an offset outside 0..1 or below the one before; a stop colour of `"none"`; `start` equal to `end`; a coordinate beyond ±1e100 |
 | `radial_gradient` | `radial_gradient(stops, *, center, radius)` | a paint: offset 0 at `center`, offset 1 at `radius`, held beyond | as `linear_gradient`; `radius` not above 0 |
-| `halftone` | `halftone(color, *, tone, pitch=8, angle=None, shape="dot", aspect=None, screen="grid", center=None, amplitude=None, wavelength=None)` | fills each shape with a screen of dots, one in each cell of a layout `pitch` pixels apart; a dot covers `1 - tone` of its own cell (0 solid, 1 none): `tone` is a number (a Param, a number for each shape) or a `Field`, read at the dot's center; `shape` is `"dot"`, `"square"`, `"ellipse"` (`aspect` times as long as wide), `"diamond"`, `"euclidean"` or a `Path`; `screen` is `"grid"` (turned by `angle`), `"wave"` (rows swung `amplitude` pitches over `wavelength` pitches), `"rings"`, `"spiral"` or `"rays"` (about `center`); an argument left out takes its default (`angle` 45, `aspect` 1, `amplitude` 1, `wavelength` 6, `center` the middle of the shape's box), and one given that nothing reads is refused as `bands` refuses it: `aspect` for any shape but an ellipse, `angle` for rings, `center` for a grid or a wave, `amplitude` and `wavelength` for any screen but a wave | `color` of `"none"`; `tone` outside 0..1; `pitch` not above 0; `angle` not finite; an unknown `shape` or `screen` (the valid ones are listed); `aspect` below 1; an argument nothing reads (above); a `wavelength` not above 0; a `center` too far from the shape for a pitch to move there; a `Path` that is not one closed outline with an area (`shape`); the limit below |
+| `halftone` | `halftone(color, *, tone, spacing=8, angle=None, shape="dot", aspect=None, family="lines", center=None, amplitude=None, wavelength=None)` | fills each shape with a screen of dots, one in each cell of a layout of rows `spacing` pixels apart; a dot covers `1 - tone` of its own cell (0 solid, 1 none): `tone` is a number (a Param, a number for each shape) or a `Field`, read at the dot's center; `shape` is `"dot"`, `"square"`, `"ellipse"` (`aspect` times as long as wide), `"diamond"`, `"euclidean"` or a `Path`; `family` is the layout, the words `bands` takes: `"lines"` (turned by `angle`), `"waves"` (rows swung `amplitude` spacings over `wavelength` spacings), `"rings"`, `"spiral"` or `"rays"` (about `center`); an argument left out takes its default (`angle` 45, `aspect` 1, `amplitude` 1, `wavelength` 6, `center` the middle of the shape's box), and one given that nothing reads is refused as `bands` refuses it: `aspect` for any shape but an ellipse, `angle` for rings, `center` for lines or waves, `amplitude` and `wavelength` for any family but waves | `color` of `"none"`; `tone` outside 0..1; `spacing` not above 0; `angle` not finite; an unknown `shape` or `family` (the valid ones are listed); `aspect` below 1; an argument nothing reads (above); a `wavelength` not above 0; a `center` too far from the shape for a spacing to move there; a `Path` that is not one closed outline with an area (`shape`); the limit below |
 | `opacity` | `opacity(alpha)` | multiplies opacity by `alpha` 0..1 | `alpha` outside 0..1 |
 | `blend` | `blend(mode)` | paints over what is below with a CSS blend `mode`: `"normal"`, `"multiply"`, `"screen"`, `"overlay"`, `"darken"`, `"lighten"`, `"color-dodge"`, `"color-burn"`, `"hard-light"`, `"soft-light"`, `"difference"` or `"exclusion"`; it applies to a shape with its shadow once | another word, the non-separable `"hue"`, `"saturation"`, `"color"` and `"luminosity"` included; a mesh: any mode but normal and multiply |
 | `shadow` | `shadow(*, dx=0, dy=8, blur=16, color="#00000059")` | a drop shadow under each shape: the silhouette of its fill and stroke, moved by `dx` and `dy`, blurred and tinted `color`; the last call wins | `blur` below 0; `dx`, `dy` or `blur` not finite; `color` of `"none"`; pixel outputs: a blur past the limits below |
@@ -680,25 +680,25 @@ the canvas, grown by the reach) total at most 2^27 pixels in a draw, else `Param
 `MAX_FILTER_PIXELS`. The pixels' blur is an 8-bit filter: within 2 to 4 levels of the Gaussian from a deviation of 1
 output pixel up, and not a Gaussian below it (up to 22 levels off at 0.3 pixel); that is not worked around.
 `halftone` is a fill of its own: it replaces a `fill`, and a `fill` after it replaces the screen (a shape has one fill, and
-`Style.fill` is `None` while it is a screen, `Style.halftone` has everything the step was given: `color`, `tone`, `pitch`,
-`angle`, `shape`, `aspect`, `screen`, `center`, `amplitude`, `wavelength`; in Rust `HalftoneStyle`, whose `tone()` is a
+`Style.fill` is `None` while it is a screen, `Style.halftone` has everything the step was given: `color`, `tone`, `spacing`,
+`angle`, `shape`, `aspect`, `family`, `center`, `amplitude`, `wavelength`; in Rust `HalftoneStyle`, whose `tone()` is a
 `Tone`, `Level(f64)` or `Field`). `Style.halftone.tone` is the number, or the `Field` the step was given (the same field
 everywhere, as drawn: a Param in it is already read); `shape` is the word, or the `Path` the caller gave.
 A screen is a layout of cells with a dot in each, and a dot covers `1 - tone` of the area of *its own cell*, for every shape
-and every screen. The cells are the rows `bands` lays lines along (one layout module serves both):
-- `"grid"`: rows `pitch` apart, a cell a square of the pitch, turned `angle` degrees clockwise on the screen about the origin
+and every family. The cells are the rows `bands` lays lines along (one layout module serves both):
+- `"lines"`: rows `spacing` apart, a cell a square of the spacing, turned `angle` degrees clockwise on the screen about the origin
   of the design frame, a dot on each lattice point: anchored to the frame and not to the shape, so the dots stay put when a
-  shape moves and neighbouring shapes share one screen. `pitch` is in design pixels and is not scaled by `scale` (like a
+  shape moves and neighbouring shapes share one screen. `spacing` is in design pixels and is not scaled by `scale` (like a
   stroke width).
-- `"wave"`: the grid, each row swung across by `amplitude` pitches as a sine of `wavelength` pitches along it (in phase at
-  the origin); the cell is the grid's cell moved with its row, so its area is the pitch squared and the dot is not tilted.
-- `"rings"`: rings about `center` (default the middle of the shape's bounding box), ring `k` at radius `(k + 1/2)` pitches,
+- `"waves"`: the lines, each row swung across by `amplitude` spacings as a sine of `wavelength` spacings along it (in phase at
+  the origin); the cell is the lines' cell moved with its row, so its area is the spacing squared and the dot is not tilted.
+- `"rings"`: rings about `center` (default the middle of the shape's bounding box), ring `k` at radius `(k + 1/2)` spacings,
   a cell the wedge of a ring, `2 round(pi (k + 1/2))` to the ring; `angle` does nothing.
-- `"spiral"`: one row, an Archimedean spiral out of `center` a pitch further out each turn, the first arm at `angle`; the
+- `"spiral"`: one row, an Archimedean spiral out of `center` a spacing further out each turn, the first arm at `angle`; the
   cell is a wedge of an arm, `2 round(pi (k + 1))` to the turn of arm `k`.
-- `"rays"`: rows straight out of `center` starting at `angle`, a cell a pitch long: as many rays as a ring half way to the
-  nearest side of the shape's box has cells (`2 round(pi r)` for `r` pitches, as bullterrier-image counts them), merged in pairs
-  (a power of two at a time) towards the center so that no cell is narrower than half a pitch at its middle, the last of a
+- `"rays"`: rows straight out of `center` starting at `angle`, a cell a spacing long: as many rays as a ring half way to the
+  nearest side of the shape's box has cells (`2 round(pi r)` for `r` spacings, as bullterrier-image counts them), merged in pairs
+  (a power of two at a time) towards the center so that no cell is narrower than half a spacing at its middle, the last of a
   row narrower when the rays do not divide evenly; a cell is a wedge, wider outward.
 `shape` is the dot: `"dot"` (a regular polygon of as many corners as keep it within 0.01 design pixels of the circle),
 `"square"` (its sides along the rows), `"ellipse"` (its long axis along the rows, `aspect` times its short one, `aspect` at
@@ -724,12 +724,12 @@ shape plain polygons, leaves out those wholly outside and cuts only the dots tha
 boolean. Limit: before any dot is made, the cells near the shape (an upper bound worked out from the layout: for rings,
 a spiral and rays, the annulus the shape's box and the farthest dot reach), each times the corners of a dot, are charged to
 `MAX_SEGMENTS`, and each dot is placed against the edges of the outline near it (a grid of them), charged as they are
-weighed, so a shape of many edges (a frame with a headline cut out) takes the pitches its plain box takes; a pitch too small for its shape (about 50,000 dots for a disc) or an
-`aspect` that would make a dot a thousand pitches long is refused with `ParameterError` naming the shape and its `pitch`, on
-every screen and in every output; a field tone is also charged to the field's read limit. A center far from the shape
-stretches its rings and rays out: it costs cells like a small pitch does.
+weighed, so a shape of many edges (a frame with a headline cut out) takes the work its plain box takes; a spacing too small for its shape (about 50,000 dots for a disc) or an
+`aspect` that would make a dot a thousand spacings long is refused with `ParameterError` naming the shape and its `spacing`, on
+every family and in every output; a field tone is also charged to the field's read limit. A center far from the shape
+stretches its rings and rays out: it costs cells like a small spacing does.
 The layout is laid over the whole shape, not the part on the canvas: a shape far larger than the canvas (a 20,000 by
-20,000 square at pitch 8) is refused though few of its dots would show; use a larger pitch or a smaller shape.
+20,000 square at spacing 8) is refused though few of its dots would show; use a larger spacing or a smaller shape.
 `knockout` is the style form of a cut: it keeps both shapes and cuts through everything below, shadows included;
 `subtract` makes new geometry (for a plotter, or for further verbs). Every style reaches SVG and pixels alike. Called on
 a `Path`, a style step returns a `Drawing` of that path.
@@ -780,7 +780,7 @@ drawing with their style and attributes.
 | Member | Type | Promise |
 |---|---|---|
 | `shape.path` | `Path` | its outline |
-| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, a `Gradient`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, pitch, angle, shape, aspect, screen, center, amplitude and wavelength, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`), `clip` (a `Path` or `None`) and `mask` (the mask's shapes, a list of `Shape`, or `None`) |
+| `shape.style` | `Style` | the style as drawn: `fill` and `stroke` (`"#rrggbbaa"`, a `Gradient`, or `None` where nothing is painted; the default paint is resolved, so an unstyled closed outline has a black `fill`), `stroke_width`, `join`, `cap`, `miter_limit`, `halftone` (its colour, tone, spacing, angle, shape, aspect, family, center, amplitude and wavelength, or `None`), `opacity`, `blend`, `shadow` (its `dx`, `dy`, `blur` and colour, or `None`), `knockout` (`bool`), `clip` (a `Path` or `None`) and `mask` (the mask's shapes, a list of `Shape`, or `None`) |
 | `shape.attributes` | `Mapping[str, int \| float \| str \| Point]` | `index` (`int`) always; then what generators wrote: `glyph` (`int`), `char` (`str`), `word` (`int`), `line` (`int`), `run` (`int`), `part` (`int`), `copy` (`int`), `root` and `forks` (`int`, of `branch` threads), `label` (`int`), `row` and `column` (`int`, of a character grid), `mark` (`int`) and `role` (`str`) of overlay marks, `level` (`float`), `order` (`float`), `origin` (`Point`); from `Drawing.from_svg`: `id`, `class`, `group` (`str`) |
 
 ## Generators
@@ -1265,7 +1265,7 @@ macOS). In Python and JavaScript the error points at the call that caused it; in
 
 ## Conventions
 
-- **Names in the field's own terms.** `amplitude`, `wavelength`, `pitch`, `spacing`, `tracking`, `leading`, `phase`,
+- **Names in the field's own terms.** `amplitude`, `wavelength`, `spacing`, `tracking`, `leading`, `phase`,
   `seed`, `tolerance`; never `strength`, `intensity`, `factor`, `amount`, `val` or `k`. One name per concept: a
   position along a path is `at` (or `start`, `end`), a pivot is `about`, an angle is `angle`, "this fraction of the way to the other" is `fraction`, a colour argument is `color`.
 - **Units.** Design pixels for lengths, scaled with the output, so no caller ever scales. Degrees, clockwise, for
@@ -1285,7 +1285,7 @@ macOS). In Python and JavaScript the error points at the call that caused it; in
   are read at their defaults, as `field.at` reads them). Wrap the path in `btvec.Drawing(path)` to vary it. In Rust
   the `Rows`, `Bands`, `Stipple` and `Hatch` a `Path` verb takes can hold a Param, read at its default.
 - **Defaults look good** with no tuning: a default comes from a gallery piece, not from a round number. The defaults
-  written here (leading 1.2 × size, pitch 8, shadow 8 and 16, wavelengths 80, 120 and 400...) are placeholders until the
+  written here (leading 1.2 × size, spacing 8, shadow 8 and 16, wavelengths 80, 120 and 400...) are placeholders until the
   batch that builds the step tunes them with its gallery piece.
 - **Reading as a sentence.** `plane.subtract(letters)`, `figure.offset(8)`,
   `letters.only(char="O")`, `petal.rotate(30)`. Related verbs sit together in the tables above.

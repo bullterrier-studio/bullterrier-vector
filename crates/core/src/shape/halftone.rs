@@ -131,79 +131,17 @@ impl Mark {
     }
 }
 
-/// Where the dots of a halftone lie: the layouts `bands` draws lines along.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Screen {
-    /// Rows straight along `angle`, `pitch` apart, a dot every `pitch` along them.
-    Grid,
-    /// The rows of a grid swung across by a sine: `amplitude` pitches high, one `wavelength` pitches long.
-    Wave,
-    /// Rows round the center: a cell is a wedge of one ring, about a pitch long and wide.
-    Rings,
-    /// One row, an Archimedean spiral out of the center, a pitch more each turn.
-    Spiral,
-    /// Rows straight out of the center, cells a pitch long, wider outward.
-    Rays,
-}
-
-impl Screen {
-    /// The words a document uses, in the order of the variants.
-    pub(crate) const NAMES: &'static [&'static str] = &["grid", "wave", "rings", "spiral", "rays"];
-
-    pub(crate) fn from_name(name: &str) -> Option<Self> {
-        [Self::Grid, Self::Wave, Self::Rings, Self::Spiral, Self::Rays]
-            .into_iter()
-            .zip(Self::NAMES)
-            .find(|(_, word)| **word == name)
-            .map(|(screen, _)| screen)
-    }
-
-    /// The screen a word names.
-    ///
-    /// # Errors
-    /// [`Error::Parameter`] naming `screen` and listing the words.
-    pub fn parse(name: &str) -> Result<Self, Error> {
-        Self::from_name(name).ok_or_else(|| refused("screen", Self::NAMES, name))
-    }
-
-    /// The word a document uses.
-    #[must_use]
-    pub fn name(self) -> &'static str {
-        Self::NAMES[self as usize]
-    }
-
-    /// The layout the screen lays its cells in: what `bands` calls a family, and the one table of what a layout reads.
-    pub(crate) fn family(self) -> Family {
-        match self {
-            Self::Grid => Family::Lines,
-            Self::Wave => Family::Waves,
-            Self::Rings => Family::Rings,
-            Self::Spiral => Family::Spiral,
-            Self::Rays => Family::Rays,
-        }
-    }
-
-    /// The refusal of the optional argument `argument` (`angle`, `center`, `amplitude`, `wavelength`) if the screen's
-    /// layout does not read it.
-    ///
-    /// # Errors
-    /// [`Error::Parameter`] naming `argument`.
-    pub(crate) fn refuse_unread(self, argument: &str) -> Result<(), Error> {
-        self.family().refuse_unread(argument, "screen", self.name())
-    }
-}
-
 /// A halftone fill: a screen of dots in `color` over the shape, each as big as its `tone` says (0 solid, 1 none), on
-/// a layout `pitch` apart that `angle` turns.
+/// a layout of rows `spacing` apart that `angle` turns.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HalftoneStyle {
     pub(crate) color: Color,
     pub(crate) tone: Tone,
-    pub(crate) pitch: f64,
+    pub(crate) spacing: f64,
     pub(crate) angle: f64,
     pub(crate) mark: Mark,
     pub(crate) aspect: f64,
-    pub(crate) screen: Screen,
+    pub(crate) family: Family,
     pub(crate) center: Option<Point>,
     pub(crate) amplitude: f64,
     pub(crate) wavelength: f64,
@@ -225,8 +163,8 @@ impl HalftoneStyle {
 
     /// The distance between neighbouring rows and dots in design pixels, above 0.
     #[must_use]
-    pub fn pitch(&self) -> f64 {
-        self.pitch
+    pub fn spacing(&self) -> f64 {
+        self.spacing
     }
 
     /// The turn of the layout in degrees, clockwise on the screen about the origin of the design frame. Rings have none.
@@ -247,10 +185,10 @@ impl HalftoneStyle {
         self.aspect
     }
 
-    /// Where the dots lie.
+    /// The layout the dots lie on.
     #[must_use]
-    pub fn screen(&self) -> Screen {
-        self.screen
+    pub fn family(&self) -> Family {
+        self.family
     }
 
     /// The center of rings, a spiral and rays, `None` for the middle of the shape's bounding box.
@@ -259,13 +197,13 @@ impl HalftoneStyle {
         self.center
     }
 
-    /// How high a [`Screen::Wave`] swings the rows, in pitches.
+    /// How high a [`Family::Waves`] layout swings the rows, in spacings.
     #[must_use]
     pub fn amplitude(&self) -> f64 {
         self.amplitude
     }
 
-    /// How long a [`Screen::Wave`] is, in pitches.
+    /// How long a wave of a [`Family::Waves`] layout is, in spacings.
     #[must_use]
     pub fn wavelength(&self) -> f64 {
         self.wavelength
@@ -291,7 +229,7 @@ impl Keyed for HalftoneStyle {
     fn write_key(&self, key: &mut Key) {
         key.of(&self.color);
         key.of(&self.tone);
-        key.number(self.pitch);
+        key.number(self.spacing);
         key.number(self.angle);
         match &self.mark {
             Mark::Path(path) => {
@@ -304,7 +242,7 @@ impl Keyed for HalftoneStyle {
             }
         }
         key.number(self.aspect);
-        key.text(self.screen.name());
+        key.text(self.family.name());
         match self.center {
             Some(center) => {
                 key.word(1);

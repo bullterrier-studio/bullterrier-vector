@@ -3,7 +3,9 @@
 //! to a drawing that draws the same lines.
 
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Bands, Drawing, Error, Field, Inputs, Param, Path, Rows, Stipple, Values, drawing_schema};
+use bullterrier_vector::{
+    Bands, Drawing, Error, Family, Field, Inputs, Param, Path, Rows, Stipple, Values, drawing_schema,
+};
 
 fn rect() -> Result<Path, Error> {
     Path::rect(0.0, 0.0, 120.0, 90.0, 0.0)
@@ -256,9 +258,12 @@ fn an_argument_the_family_does_not_read_is_refused_naming_it_and_the_family() ->
         assert_eq!(name, argument);
         assert!(message.contains(what), "{message}");
     }
-    assert!(Bands::refuse_unread("lines", "wavelength").is_err());
-    assert!(Bands::refuse_unread("rays", "amplitude").is_err());
-    assert!(Bands::refuse_unread("waves", "wavelength").is_ok() && Bands::refuse_unread("spiral", "angle").is_ok());
+    assert!(Family::parse("lines")?.refuse_unread("wavelength").is_err());
+    assert!(Family::parse("rays")?.refuse_unread("amplitude").is_err());
+    assert!(
+        Family::parse("waves")?.refuse_unread("wavelength").is_ok()
+            && Family::parse("spiral")?.refuse_unread("angle").is_ok()
+    );
     let call =
         |args: &str| format!(r#"{{"version":1,"root":[{{"path":"M0 0 L50 0 L50 50 L0 50 Z"}},{{"bands":{args}}}]}}"#);
     for (args, pointer) in [

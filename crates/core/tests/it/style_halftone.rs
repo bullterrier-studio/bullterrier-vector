@@ -36,12 +36,12 @@ fn level(halftone: &HalftoneStyle) -> f64 {
     halftone.tone().level().unwrap_or(f64::NAN)
 }
 
-/// The colour, tone, pitch and angle of a halftone.
+/// The colour, tone, spacing and angle of a halftone.
 fn parts(halftone: &HalftoneStyle) -> (String, f64, f64, f64) {
     (
         halftone.color().to_string(),
         level(halftone),
-        halftone.pitch(),
+        halftone.spacing(),
         halftone.angle(),
     )
 }
@@ -65,7 +65,7 @@ fn what_a_halftone_leaves_out_is_the_default_of_api_md() -> Outcome {
 #[test]
 fn every_argument_is_read_back() -> Outcome {
     let drawing =
-        Drawing::from(square()?).halftone(Halftone::new(color("#ff000080")?, 0.5).pitch(6.0).angle(Deg(15.0)));
+        Drawing::from(square()?).halftone(Halftone::new(color("#ff000080")?, 0.5).spacing(6.0).angle(Deg(15.0)));
     assert_eq!(
         parts(&only_halftone(&drawing)?),
         ("#ff000080".to_owned(), 0.5, 6.0, 15.0)
@@ -109,10 +109,10 @@ fn the_step_is_the_same_on_a_path_and_a_stroke_goes_with_it() -> Outcome {
 fn a_number_follows_a_param_or_the_shape_it_is_for() -> Outcome {
     let tone = Param::new("tone", 0.5, 0.0, 1.0)?;
     let drawing = Drawing::new([square()?, square()?, square()?])
-        .halftone(Halftone::new(color("#000000")?, &tone).pitch(by_index(4.0, 8.0)));
+        .halftone(Halftone::new(color("#000000")?, &tone).spacing(by_index(4.0, 8.0)));
     let seen: Vec<(f64, f64)> = halftones(&drawing, &Values::new())?
         .iter()
-        .map(|halftone| halftone.as_ref().map(|h| (level(h), h.pitch())).ok_or("no halftone"))
+        .map(|halftone| halftone.as_ref().map(|h| (level(h), h.spacing())).ok_or("no halftone"))
         .collect::<Result<_, _>>()?;
     assert_eq!(seen, vec![(0.5, 4.0), (0.5, 6.0), (0.5, 8.0)]);
     let lighter = halftones(&drawing, &Values::new().set("tone", 0.9))?;
@@ -142,19 +142,19 @@ fn what_the_step_refuses_is_refused_at_the_call_naming_the_argument() -> Outcome
             "step 1 (halftone).tone",
         ),
         (
-            "a pitch of 0",
-            base.halftone(Halftone::new(black, 0.5).pitch(0.0)),
-            "step 1 (halftone).pitch",
+            "a spacing of 0",
+            base.halftone(Halftone::new(black, 0.5).spacing(0.0)),
+            "step 1 (halftone).spacing",
         ),
         (
-            "a negative pitch",
-            base.halftone(Halftone::new(black, 0.5).pitch(-2.0)),
-            "step 1 (halftone).pitch",
+            "a negative spacing",
+            base.halftone(Halftone::new(black, 0.5).spacing(-2.0)),
+            "step 1 (halftone).spacing",
         ),
         (
-            "an infinite pitch",
-            base.halftone(Halftone::new(black, 0.5).pitch(f64::INFINITY)),
-            "step 1 (halftone).pitch",
+            "an infinite spacing",
+            base.halftone(Halftone::new(black, 0.5).spacing(f64::INFINITY)),
+            "step 1 (halftone).spacing",
         ),
         (
             "an angle of NaN",
@@ -176,7 +176,7 @@ fn what_the_step_refuses_is_refused_at_the_call_naming_the_argument() -> Outcome
     for accepted in [
         Halftone::new(black, 0.0),
         Halftone::new(black, 1.0),
-        Halftone::new(black, 0.5).pitch(1e-9),
+        Halftone::new(black, 0.5).spacing(1e-9),
         Halftone::new(black, 0.5).angle(Deg(-720.0)),
         Halftone::new(color("#00000000")?, 0.5),
     ] {
@@ -211,7 +211,7 @@ fn the_registry_declares_the_arguments_with_their_defaults_and_ranges() -> Outco
         vec![
             ("color", "None Painting".to_owned()),
             ("tone", "None Fraction".to_owned()),
-            ("pitch", "Some(Number(8.0)) Positive".to_owned()),
+            ("spacing", "Some(Number(8.0)) Positive".to_owned()),
             ("angle", "Some(Unset) Finite".to_owned()),
             (
                 "shape",
@@ -219,8 +219,8 @@ fn the_registry_declares_the_arguments_with_their_defaults_and_ranges() -> Outco
             ),
             ("aspect", "Some(Unset) AtLeast(1.0)".to_owned()),
             (
-                "screen",
-                r#"Some(Text("grid")) Choice(["grid", "wave", "rings", "spiral", "rays"])"#.to_owned()
+                "family",
+                r#"Some(Text("lines")) Choice(["lines", "waves", "rings", "spiral", "rays"])"#.to_owned()
             ),
             ("center", "Some(Unset) Coordinate".to_owned()),
             ("amplitude", "Some(Unset) Coordinate".to_owned()),
@@ -234,10 +234,10 @@ fn the_registry_declares_the_arguments_with_their_defaults_and_ranges() -> Outco
 
 #[test]
 fn a_halftone_is_written_with_what_differs_from_the_defaults_and_read_back() -> Outcome {
-    let drawing = Drawing::from(square()?).halftone(Halftone::new(color("#336699")?, 0.4).pitch(5.0));
+    let drawing = Drawing::from(square()?).halftone(Halftone::new(color("#336699")?, 0.4).spacing(5.0));
     let text = drawing.to_json()?;
     assert!(
-        text.contains(r##"{"halftone":{"color":"#336699","pitch":5,"tone":0.4}}"##),
+        text.contains(r##"{"halftone":{"color":"#336699","spacing":5,"tone":0.4}}"##),
         "{text}"
     );
     let back = Drawing::from_json(&text, &Inputs::new())?;
@@ -248,7 +248,7 @@ fn a_halftone_is_written_with_what_differs_from_the_defaults_and_read_back() -> 
 #[test]
 fn a_shape_with_a_halftone_goes_back_into_a_drawing_with_it() -> Outcome {
     let drawing = Drawing::from(square()?)
-        .halftone(Halftone::new(color("#ff0000")?, 0.3).pitch(3.0).angle(Deg(10.0)))
+        .halftone(Halftone::new(color("#ff0000")?, 0.3).spacing(3.0).angle(Deg(10.0)))
         .stroke(color("#0000ff")?);
     let shapes = drawing.shapes(&Values::new())?;
     let again = Drawing::new(shapes.clone()).shapes(&Values::new())?;

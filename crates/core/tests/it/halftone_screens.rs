@@ -1,14 +1,12 @@
 //! The dot shapes and the screens of `halftone` through the public API, read back from the SVG it writes. The oracles
 //! are worked out here, not read from the library: a dot's area by the shoelace formula against `(1 - tone)` of the
-//! area its cell has by hand (a square of the pitch; a wedge of a ring is the mean radius times the angle times the
-//! pitch), the corners of a diamond on the axes of the rows, the radii of the rings, the angles of the rays.
+//! area its cell has by hand (a square of the spacing; a wedge of a ring is the mean radius times the angle times the
+//! spacing), the corners of a diamond on the axes of the rows, the radii of the rings, the angles of the rays.
 
 use crate::common::shoelace_area;
 use crate::common::svg_oracle::{dots_of, svg_agrees};
 use crate::common::{Outcome, Ring, parameter_refusal};
-use bullterrier_vector::{
-    Bands, Color, Deg, Drawing, Error, Field, Halftone, Inputs, Mark, Path, Rect, Screen, Size, Values,
-};
+use bullterrier_vector::{Color, Deg, Drawing, Error, Family, Field, Halftone, Inputs, Mark, Path, Rect, Size, Values};
 use std::f64::consts::{PI, TAU};
 
 const BLACK: Color = Color::hex(0x00_00_00);
@@ -80,7 +78,7 @@ fn every_shape_covers_one_minus_tone_of_its_own_cell_on_a_grid() -> Outcome {
     for mark in marks {
         for tone in [0.9, 0.7, 0.5, 0.3, 0.1] {
             for angle in [0.0, 30.0] {
-                let screened = black(tone).pitch(10.0).angle(Deg(angle)).shape(mark.clone());
+                let screened = black(tone).spacing(10.0).angle(Deg(angle)).shape(mark.clone());
                 let found = dots(
                     200.0,
                     if mark == Mark::Ellipse {
@@ -110,7 +108,7 @@ fn an_ellipse_is_aspect_times_as_long_as_wide_along_the_rows() -> Outcome {
         let found = dots(
             200.0,
             black(0.6)
-                .pitch(10.0)
+                .spacing(10.0)
                 .angle(Deg(angle))
                 .shape(Mark::Ellipse)
                 .aspect(3.0),
@@ -136,18 +134,18 @@ fn an_ellipse_is_aspect_times_as_long_as_wide_along_the_rows() -> Outcome {
 fn an_ellipse_lies_along_the_ring_and_the_spiral_and_out_along_a_ray() -> Outcome {
     // (screen, the least and the most the long axis may lean along the radius, as a cosine)
     let cases = [
-        (Screen::Rings, 0.0, 0.05),
-        (Screen::Spiral, 0.0, 0.15),
-        (Screen::Rays, 0.95, 1.0 + 1e-9),
+        (Family::Rings, 0.0, 0.05),
+        (Family::Spiral, 0.0, 0.15),
+        (Family::Rays, 0.95, 1.0 + 1e-9),
     ];
     for (screen, least, most) in cases {
         let found = dots(
             100.0,
             black(0.5)
-                .pitch(5.0)
+                .spacing(5.0)
                 .shape(Mark::Ellipse)
                 .aspect(3.0)
-                .screen(screen)
+                .family(screen)
                 .center((50.0, 50.0)),
         )?;
         let mut checked = 0;
@@ -184,7 +182,7 @@ fn a_diamond_has_its_corners_on_the_axes_of_the_rows_and_stays_in_its_cell() -> 
             let (dx, dy) = (at.0 - center.0, at.1 - center.1);
             (dx * cos + dy * sin, -dx * sin + dy * cos)
         };
-        let found = dots(200.0, black(0.7).pitch(10.0).angle(Deg(angle)).shape(Mark::Diamond))?;
+        let found = dots(200.0, black(0.7).spacing(10.0).angle(Deg(angle)).shape(Mark::Diamond))?;
         let half = (0.3_f64 / 2.0).sqrt() * 10.0;
         for dot in &found {
             let center = mean(dot);
@@ -195,7 +193,7 @@ fn a_diamond_has_its_corners_on_the_axes_of_the_rows_and_stays_in_its_cell() -> 
             }
         }
         // past half the cover the corners reach the cell's sides and no further
-        for dot in &dots(200.0, black(0.3).pitch(10.0).angle(Deg(angle)).shape(Mark::Diamond))? {
+        for dot in &dots(200.0, black(0.3).spacing(10.0).angle(Deg(angle)).shape(Mark::Diamond))? {
             let center = centroid(dot);
             for &corner in dot {
                 let (along, across) = frame(corner, center);
@@ -211,7 +209,7 @@ fn a_diamond_has_its_corners_on_the_axes_of_the_rows_and_stays_in_its_cell() -> 
 
 #[test]
 fn a_square_turns_with_the_rows_and_its_side_is_the_root_of_the_cover() -> Outcome {
-    let found = dots(200.0, black(0.75).pitch(10.0).angle(Deg(30.0)).shape(Mark::Square))?;
+    let found = dots(200.0, black(0.75).spacing(10.0).angle(Deg(30.0)).shape(Mark::Square))?;
     assert!(found.len() > 100);
     for dot in &found {
         assert_eq!(dot.len(), 4);
@@ -221,7 +219,7 @@ fn a_square_turns_with_the_rows_and_its_side_is_the_root_of_the_cover() -> Outco
                 libm::hypot(b.0 - a.0, b.1 - a.1),
                 5.0,
                 1e-9,
-                "a side of sqrt(0.25) pitches",
+                "a side of sqrt(0.25) spacings",
             );
             // a side runs along 30 degrees, 120, 210 or 300
             let heading = libm::atan2(b.1 - a.1, b.0 - a.0).to_degrees().rem_euclid(90.0);
@@ -238,7 +236,7 @@ fn euclidean_is_round_at_low_cover_a_diamond_at_half_and_a_round_hole_at_high_co
             .map(|p| libm::hypot(p.0 - center.0, p.1 - center.1))
             .collect()
     };
-    for dot in &dots(200.0, black(0.9).pitch(10.0).angle(Deg(0.0)).shape(Mark::Euclidean))? {
+    for dot in &dots(200.0, black(0.9).spacing(10.0).angle(Deg(0.0)).shape(Mark::Euclidean))? {
         let center = centroid(dot);
         let radii = radius(dot, center);
         let (low, high) = (
@@ -253,19 +251,19 @@ fn euclidean_is_round_at_low_cover_a_diamond_at_half_and_a_round_hole_at_high_co
             "the radius of a round dot of that cover",
         );
     }
-    for dot in &dots(200.0, black(0.5).pitch(10.0).angle(Deg(0.0)).shape(Mark::Euclidean))? {
+    for dot in &dots(200.0, black(0.5).spacing(10.0).angle(Deg(0.0)).shape(Mark::Euclidean))? {
         let center = centroid(dot);
         for &(x, y) in dot {
             near(
                 (x - center.0).abs() + (y - center.1).abs(),
                 5.0,
                 0.01,
-                "a corner of the diamond |x| + |y| = half a pitch",
+                "a corner of the diamond |x| + |y| = half a spacing",
             );
         }
     }
     // 90 % cover: the dot fills the middle of every side of its cell and leaves the cell's corners bare, round
-    for dot in dots(200.0, black(0.1).pitch(10.0).angle(Deg(0.0)).shape(Mark::Euclidean))?
+    for dot in dots(200.0, black(0.1).spacing(10.0).angle(Deg(0.0)).shape(Mark::Euclidean))?
         .iter()
         .take(20)
     {
@@ -291,7 +289,7 @@ fn every_corner_of_a_euclidean_dot_lies_on_one_level_of_the_spot_function_and_th
     const PITCH: f64 = 10.0;
     const STEPS: u32 = 400;
     for tone in [0.9, 0.7, 0.55, 0.45, 0.3, 0.1] {
-        for dot in dots(60.0, black(tone).pitch(PITCH).angle(Deg(0.0)).shape(Mark::Euclidean))?
+        for dot in dots(60.0, black(tone).spacing(PITCH).angle(Deg(0.0)).shape(Mark::Euclidean))?
             .iter()
             .take(6)
         {
@@ -338,7 +336,7 @@ fn a_caller_outline_is_centered_on_its_centroid_scaled_to_the_area_and_turned_wi
             let found = dots(
                 200.0,
                 black(0.8)
-                    .pitch(10.0)
+                    .spacing(10.0)
                     .angle(Deg(angle))
                     .shape(Mark::path(triangle(clockwise)?)),
             )?;
@@ -380,7 +378,7 @@ fn a_ramp_tone_gives_each_dot_the_tone_at_its_center() -> Outcome {
     let found = dots(
         300.0,
         Halftone::new(BLACK, ramp)
-            .pitch(10.0)
+            .spacing(10.0)
             .angle(Deg(0.0))
             .shape(Mark::Square),
     )?;
@@ -414,17 +412,23 @@ fn a_map_tone_is_read_at_the_center_of_each_dot_on_every_screen() -> Outcome {
         }),
         Some("photo"),
     )?;
-    for screen in [Screen::Grid, Screen::Wave, Screen::Rings, Screen::Spiral, Screen::Rays] {
+    for screen in [
+        Family::Lines,
+        Family::Waves,
+        Family::Rings,
+        Family::Spiral,
+        Family::Rays,
+    ] {
         let found = dots(
             200.0,
             Halftone::new(BLACK, map.clone())
-                .pitch(8.0)
+                .spacing(8.0)
                 .shape(Mark::Square)
-                .screen(screen),
+                .family(screen),
         )?;
         assert!(found.len() > 100, "{}: {} dots", screen.name(), found.len());
         // the dot is a square of the area (1 - tone) of its own cell; the cell is unknown here, so the dot is read
-        // against the field at its center: a darker place never has the smaller dot, among dots of one pitch cell
+        // against the field at its center: a darker place never has the smaller dot, among dots of one spacing cell
         let mut pairs: Vec<(f64, f64)> = found
             .iter()
             .filter(|dot| {
@@ -443,7 +447,10 @@ fn a_map_tone_is_read_at_the_center_of_each_dot_on_every_screen() -> Outcome {
         assert!(mean_of(&dark) > 1.5 * mean_of(&light), "{}", screen.name());
     }
     // on a grid the invariant is exact
-    for dot in &dots(200.0, Halftone::new(BLACK, map.clone()).pitch(8.0).shape(Mark::Square))? {
+    for dot in &dots(
+        200.0,
+        Halftone::new(BLACK, map.clone()).spacing(8.0).shape(Mark::Square),
+    )? {
         let (x, y) = mean(dot);
         near(
             shoelace_area(dot),
@@ -457,13 +464,13 @@ fn a_map_tone_is_read_at_the_center_of_each_dot_on_every_screen() -> Outcome {
 
 #[test]
 fn a_constant_field_and_the_number_it_holds_draw_the_same_dots() -> Outcome {
-    for screen in [Screen::Grid, Screen::Rings, Screen::Rays] {
-        let number = dots(120.0, black(0.4).shape(Mark::Euclidean).screen(screen))?;
+    for screen in [Family::Lines, Family::Rings, Family::Rays] {
+        let number = dots(120.0, black(0.4).shape(Mark::Euclidean).family(screen))?;
         let field = dots(
             120.0,
             Halftone::new(BLACK, Field::constant(0.4)?)
                 .shape(Mark::Euclidean)
-                .screen(screen),
+                .family(screen),
         )?;
         assert_eq!(number, field, "{}", screen.name());
     }
@@ -472,12 +479,12 @@ fn a_constant_field_and_the_number_it_holds_draw_the_same_dots() -> Outcome {
 
 #[test]
 fn the_style_of_a_drawn_shape_says_what_the_tone_is() -> Outcome {
-    let by_number = Drawing::from(rect(50.0)?).halftone(black(0.3).screen(Screen::Rings).center((10.0, 20.0)));
+    let by_number = Drawing::from(rect(50.0)?).halftone(black(0.3).family(Family::Rings).center((10.0, 20.0)));
     let shapes = by_number.shapes(&Values::new())?;
     let style = shapes[0].style().halftone().ok_or("no halftone")?;
     assert_eq!(style.tone().level(), Some(0.3));
     assert!(style.tone().field().is_none());
-    assert_eq!(style.screen(), Screen::Rings);
+    assert_eq!(style.family(), Family::Rings);
     assert_eq!(style.shape(), &Mark::Dot);
     assert_eq!(style.center().map(|c| (c.x, c.y)), Some((10.0, 20.0)));
     assert_eq!((style.aspect(), style.amplitude(), style.wavelength()), (1.0, 1.0, 6.0));
@@ -502,12 +509,12 @@ fn polar(at: (f64, f64), center: (f64, f64)) -> (f64, f64) {
 
 #[test]
 fn rings_put_cells_at_half_pitch_radii_from_the_center_and_a_dot_in_each() -> Outcome {
-    let found = dots(400.0, black(0.5).pitch(10.0).screen(Screen::Rings))?;
+    let found = dots(400.0, black(0.5).spacing(10.0).family(Family::Rings))?;
     let mut by_ring = std::collections::BTreeMap::<i64, Vec<&Ring>>::new();
     for dot in &found {
         let (radius, _) = polar(mean(dot), (200.0, 200.0));
         let ring = radius / 10.0 - 0.5;
-        near(ring, ring.round(), 1e-9, "a dot at (k + 1/2) pitches from the center");
+        near(ring, ring.round(), 1e-9, "a dot at (k + 1/2) spacings from the center");
         #[expect(clippy::cast_possible_truncation, reason = "a small ring number")]
         by_ring.entry(ring.round() as i64).or_default().push(dot);
     }
@@ -519,7 +526,7 @@ fn rings_put_cells_at_half_pitch_radii_from_the_center_and_a_dot_in_each() -> Ou
         #[expect(clippy::cast_precision_loss, reason = "a few hundred dots")]
         let count = ring.len() as f64;
         near(count, cells, 0.0, &format!("the cells of ring {k}"));
-        // the cell is the wedge of the ring: the mean radius times the angle times the pitch
+        // the cell is the wedge of the ring: the mean radius times the angle times the spacing
         for dot in ring {
             near(
                 shoelace_area(dot),
@@ -536,7 +543,7 @@ fn rings_put_cells_at_half_pitch_radii_from_the_center_and_a_dot_in_each() -> Ou
 fn rings_are_about_the_center_the_caller_gives() -> Outcome {
     for dot in &dots(
         300.0,
-        black(0.5).pitch(10.0).screen(Screen::Rings).center((100.0, 150.0)),
+        black(0.5).spacing(10.0).family(Family::Rings).center((100.0, 150.0)),
     )? {
         let (radius, _) = polar(mean(dot), (100.0, 150.0));
         near(
@@ -551,12 +558,12 @@ fn rings_are_about_the_center_the_caller_gives() -> Outcome {
 
 #[test]
 fn rays_are_a_rings_worth_half_way_to_the_nearest_side_and_merge_towards_the_center() -> Outcome {
-    // a square of 100 and a pitch of 5: half way to the nearest side is 25 px, 10 cells, and a ring 10 cells out has
+    // a square of 100 and a spacing of 5: half way to the nearest side is 25 px, 10 cells, and a ring 10 cells out has
     // 2 * round(10 pi) = 62 cells, so there are 62 rays. A row m is (m + 1/2) cells out; its rays merge in pairs
     // (a power of two at a time) until none is narrower than half a cell at its middle: 2 pi (m + 1/2) step / 62 >= 1/2
     // gives step 16 for m = 0 (62 / 16 = 3.875 wedges, so 4, the last narrower), 4 for m = 1 (15.5, so 16), 2 for m = 2
     // to 4 (31), and 1 from m = 5 on (62)
-    let found = dots(100.0, black(0.5).pitch(5.0).screen(Screen::Rays))?;
+    let found = dots(100.0, black(0.5).spacing(5.0).family(Family::Rays))?;
     let mut by_row = std::collections::BTreeMap::<i64, Vec<f64>>::new();
     for dot in &found {
         let (radius, _) = polar(mean(dot), (50.0, 50.0));
@@ -566,7 +573,7 @@ fn rays_are_a_rings_worth_half_way_to_the_nearest_side_and_merge_towards_the_cen
             row,
             row.round(),
             0.02,
-            "a cell a pitch long about (m + 1/2) pitches out",
+            "a cell a spacing long about (m + 1/2) spacings out",
         );
         #[expect(clippy::cast_possible_truncation, reason = "a small row number")]
         by_row.entry(row.round() as i64).or_default().push(shoelace_area(dot));
@@ -592,13 +599,13 @@ fn rays_are_a_rings_worth_half_way_to_the_nearest_side_and_merge_towards_the_cen
 #[test]
 fn a_spiral_is_one_row_a_pitch_further_out_each_turn() -> Outcome {
     for angle in [0.0, 40.0] {
-        let found = dots(400.0, black(0.5).pitch(10.0).angle(Deg(angle)).screen(Screen::Spiral))?;
+        let found = dots(400.0, black(0.5).spacing(10.0).angle(Deg(angle)).family(Family::Spiral))?;
         assert!(found.len() > 500);
         for dot in &found {
             let (radius, turns) = polar(mean(dot), (200.0, 200.0));
             let turned = (turns - angle / 360.0).rem_euclid(1.0);
             let arm = radius / 10.0 - turned - 0.5;
-            near(arm, arm.round(), 1e-9, "radius = (arm + 1/2 + turns) pitches");
+            near(arm, arm.round(), 1e-9, "radius = (arm + 1/2 + turns) spacings");
             // the arm of k + 1 cells to the turn of 2 round(pi (k + 1)): the wedge, half of it
             let cells = 2.0 * (PI * (arm.round() + 1.0)).round();
             near(
@@ -614,14 +621,14 @@ fn a_spiral_is_one_row_a_pitch_further_out_each_turn() -> Outcome {
 
 #[test]
 fn a_wave_swings_the_rows_by_amplitude_pitches_over_a_wavelength_of_pitches() -> Outcome {
-    let (angle, pitch) = (20.0_f64, 10.0);
+    let (angle, spacing) = (20.0_f64, 10.0);
     let (sin, cos) = (libm::sin(angle.to_radians()), libm::cos(angle.to_radians()));
     let found = dots(
         300.0,
         black(0.5)
-            .pitch(pitch)
+            .spacing(spacing)
             .angle(Deg(angle))
-            .screen(Screen::Wave)
+            .family(Family::Waves)
             .amplitude(1.5)
             .wavelength(8.0),
     )?;
@@ -630,12 +637,12 @@ fn a_wave_swings_the_rows_by_amplitude_pitches_over_a_wavelength_of_pitches() ->
         let (x, y) = mean(dot);
         let (along, across) = (x * cos + y * sin, -x * sin + y * cos);
         near(
-            along / pitch,
-            (along / pitch).round(),
+            along / spacing,
+            (along / spacing).round(),
             1e-9,
-            "a dot every pitch along the row",
+            "a dot every spacing along the row",
         );
-        let row = (across - 1.5 * pitch * libm::sin(TAU * along / (8.0 * pitch))) / pitch;
+        let row = (across - 1.5 * spacing * libm::sin(TAU * along / (8.0 * spacing))) / spacing;
         near(row, row.round(), 1e-9, "on a row displaced by the sine");
         near(
             shoelace_area(dot),
@@ -649,7 +656,7 @@ fn a_wave_swings_the_rows_by_amplitude_pitches_over_a_wavelength_of_pitches() ->
 
 #[test]
 fn the_default_screen_is_the_lattice_it_always_was() -> Outcome {
-    let found = dots(100.0, black(0.5).pitch(10.0).angle(Deg(0.0)))?;
+    let found = dots(100.0, black(0.5).spacing(10.0).angle(Deg(0.0)))?;
     for dot in &found {
         let (x, y) = mean(dot);
         near(x / 10.0, (x / 10.0).round(), 1e-9, "on a column");
@@ -674,22 +681,22 @@ fn what_the_screens_cannot_draw_is_refused_naming_the_argument() -> Outcome {
         ("a center on a grid", black(0.5).center((1.0, 1.0)), "center"),
         (
             "a center on a wave",
-            black(0.5).screen(Screen::Wave).center((1.0, 1.0)),
+            black(0.5).family(Family::Waves).center((1.0, 1.0)),
             "center",
         ),
         (
             "a wavelength of 0",
-            black(0.5).screen(Screen::Wave).wavelength(0.0),
+            black(0.5).family(Family::Waves).wavelength(0.0),
             "wavelength",
         ),
         (
             "an infinite amplitude",
-            black(0.5).screen(Screen::Wave).amplitude(f64::INFINITY),
+            black(0.5).family(Family::Waves).amplitude(f64::INFINITY),
             "amplitude",
         ),
         (
             "an infinite center",
-            black(0.5).screen(Screen::Rings).center((f64::INFINITY, 0.0)),
+            black(0.5).family(Family::Rings).center((f64::INFINITY, 0.0)),
             "center",
         ),
     ];
@@ -737,19 +744,19 @@ fn with_argument(halftone: Halftone, argument: &str) -> Halftone {
 }
 
 #[test]
-fn an_argument_nothing_reads_is_refused_as_bands_refuses_it_by_one_table() -> Outcome {
+fn an_argument_nothing_reads_is_refused() -> Outcome {
     let base = Drawing::from(rect(100.0)?);
+    // which of angle, center, amplitude and wavelength each family reads
     let screens = [
-        (Screen::Grid, "lines"),
-        (Screen::Wave, "waves"),
-        (Screen::Rings, "rings"),
-        (Screen::Spiral, "spiral"),
-        (Screen::Rays, "rays"),
+        (Family::Lines, [true, false, false, false]),
+        (Family::Waves, [true, false, true, true]),
+        (Family::Rings, [false, true, false, false]),
+        (Family::Spiral, [true, true, false, false]),
+        (Family::Rays, [true, true, false, false]),
     ];
-    for (screen, family) in screens {
-        for argument in ["angle", "center", "amplitude", "wavelength"] {
-            let drawing = base.halftone(with_argument(black(0.5).screen(screen), argument));
-            let read = Bands::refuse_unread(family, argument).is_ok();
+    for (screen, reads) in screens {
+        for (argument, read) in ["angle", "center", "amplitude", "wavelength"].into_iter().zip(reads) {
+            let drawing = base.halftone(with_argument(black(0.5).family(screen), argument));
             assert_eq!(drawing.error().is_none(), read, "{screen:?} {argument}");
             if let Some(error) = drawing.error() {
                 let (name, _) = parameter_refusal(Err::<(), _>(error.clone()))?;
@@ -774,9 +781,15 @@ fn an_argument_nothing_reads_is_refused_as_bands_refuses_it_by_one_table() -> Ou
 #[test]
 fn a_drawn_screen_put_back_into_a_drawing_draws_the_same_dots_on_every_screen_and_shape() -> Outcome {
     let size = Size::px(100.0, 100.0);
-    for screen in [Screen::Grid, Screen::Wave, Screen::Rings, Screen::Spiral, Screen::Rays] {
+    for screen in [
+        Family::Lines,
+        Family::Waves,
+        Family::Rings,
+        Family::Spiral,
+        Family::Rays,
+    ] {
         for mark in [Mark::Dot, Mark::Ellipse, Mark::path(triangle(true)?)] {
-            let first = Drawing::from(rect(100.0)?).halftone(black(0.5).pitch(9.0).shape(mark).screen(screen));
+            let first = Drawing::from(rect(100.0)?).halftone(black(0.5).spacing(9.0).shape(mark).family(screen));
             let shapes = first.shapes(&Values::new())?;
             let style = shapes[0].style().halftone().ok_or("no halftone")?;
             let again = Drawing::from(rect(100.0)?).halftone(Halftone::from(style));
@@ -792,12 +805,18 @@ fn a_drawn_screen_put_back_into_a_drawing_draws_the_same_dots_on_every_screen_an
 
 #[test]
 fn a_pitch_too_small_for_the_shape_is_refused_before_any_dot_is_made_on_every_screen() -> Outcome {
-    for screen in [Screen::Grid, Screen::Wave, Screen::Rings, Screen::Spiral, Screen::Rays] {
+    for screen in [
+        Family::Lines,
+        Family::Waves,
+        Family::Rings,
+        Family::Spiral,
+        Family::Rays,
+    ] {
         for mark in [Mark::Dot, Mark::Euclidean] {
-            let drawing = Drawing::from(rect(1000.0)?).halftone(black(0.5).pitch(0.001).shape(mark).screen(screen));
+            let drawing = Drawing::from(rect(1000.0)?).halftone(black(0.5).spacing(0.001).shape(mark).family(screen));
             let (name, message) = parameter_refusal(drawing.to_svg(Size::px(100.0, 100.0), &Values::new()))?;
             assert!(
-                name.contains("pitch") && message.contains("MAX_SEGMENTS"),
+                name.contains("spacing") && message.contains("MAX_SEGMENTS"),
                 "{name}: {message}"
             );
         }
@@ -807,10 +826,10 @@ fn a_pitch_too_small_for_the_shape_is_refused_before_any_dot_is_made_on_every_sc
 
 #[test]
 fn a_center_too_far_from_the_shape_is_refused_on_every_round_screen_not_looped_on() -> Outcome {
-    // at 1e20 a step of a pitch does not move: the rows' bound cancelled and the rows never ended
-    for screen in [Screen::Rings, Screen::Spiral, Screen::Rays] {
+    // at 1e20 a step of a spacing does not move: the rows' bound cancelled and the rows never ended
+    for screen in [Family::Rings, Family::Spiral, Family::Rays] {
         for center in [(1e20, 0.0), (0.0, -1e20), (1e300, 1e300)] {
-            let drawing = Drawing::from(rect(100.0)?).halftone(black(0.5).screen(screen).center(center));
+            let drawing = Drawing::from(rect(100.0)?).halftone(black(0.5).family(screen).center(center));
             let (name, _) = parameter_refusal(drawing.to_svg(Size::px(100.0, 100.0), &Values::new()))?;
             assert!(name.contains("center"), "{screen:?} {center:?}: {name}");
         }
@@ -822,16 +841,16 @@ fn a_center_too_far_from_the_shape_is_refused_on_every_round_screen_not_looped_o
 fn a_huge_aspect_is_refused_by_the_work_it_would_take() -> Outcome {
     let drawing = Drawing::from(rect(100.0)?).halftone(black(0.5).shape(Mark::Ellipse).aspect(1e100));
     let (name, _) = parameter_refusal(drawing.to_svg(Size::px(100.0, 100.0), &Values::new()))?;
-    assert!(name.contains("pitch"), "{name}");
+    assert!(name.contains("spacing"), "{name}");
     Ok(())
 }
 
 #[test]
 fn a_straight_screen_lies_on_a_lattice_through_the_design_origin_wherever_the_shape_is() -> Outcome {
-    // a square at (3, 7), drawn into outputs of two sizes: the dots stay on multiples of the pitch in design pixels
+    // a square at (3, 7), drawn into outputs of two sizes: the dots stay on multiples of the spacing in design pixels
     for side in [61.0, 97.0] {
         let svg = Drawing::from(Path::rect(3.0, 7.0, 50.0, 50.0, 0.0)?)
-            .halftone(black(0.5).pitch(10.0).angle(Deg(0.0)))
+            .halftone(black(0.5).spacing(10.0).angle(Deg(0.0)))
             .to_svg(Size::px(side, side), &Values::new())?;
         let found = dots_of(&svg)?;
         assert!(found.len() >= 25, "{} dots", found.len());
@@ -909,16 +928,16 @@ fn a_document_with_every_argument_reads_back_and_writes_the_same_text() -> Outco
     let drawings = [
         Drawing::from(rect(50.0)?).halftone(
             black(0.4)
-                .pitch(5.0)
+                .spacing(5.0)
                 .shape(Mark::Ellipse)
                 .aspect(2.0)
-                .screen(Screen::Rings)
+                .family(Family::Rings)
                 .center((10.0, 20.0)),
         ),
-        Drawing::from(rect(50.0)?).halftone(black(0.4).screen(Screen::Wave).amplitude(2.0).wavelength(9.0)),
+        Drawing::from(rect(50.0)?).halftone(black(0.4).family(Family::Waves).amplitude(2.0).wavelength(9.0)),
         Drawing::from(rect(50.0)?)
             .halftone(Halftone::new(BLACK, Field::ramp((0.0, 0.0), (0.0, 50.0))?).shape(Mark::Euclidean)),
-        Drawing::from(rect(50.0)?).halftone(black(0.4).shape(Mark::path(triangle(true)?)).screen(Screen::Spiral)),
+        Drawing::from(rect(50.0)?).halftone(black(0.4).shape(Mark::path(triangle(true)?)).family(Family::Spiral)),
     ];
     for drawing in drawings {
         let text = drawing.to_json()?;
@@ -969,9 +988,9 @@ fn a_document_naming_an_unknown_shape_or_screen_lists_the_valid_ones() -> Outcom
             r#""dot", "square""#,
         ),
         (
-            "screen",
-            r##"{"halftone":{"color":"#000000","tone":0.5,"screen":"zigzag"}}"##,
-            r#""grid", "wave""#,
+            "family",
+            r##"{"halftone":{"color":"#000000","tone":0.5,"family":"zigzag"}}"##,
+            r#""lines", "waves""#,
         ),
     ] {
         let document = format!(r#"{{"version":1,"root":[{{"path":"M0 0 L9 0 L9 9 L0 9 Z"}},{text}]}}"#);
@@ -987,23 +1006,23 @@ fn a_document_naming_an_unknown_shape_or_screen_lists_the_valid_ones() -> Outcom
 #[test]
 fn the_svg_and_the_pixels_agree_on_every_shape_and_screen() -> Outcome {
     let rows = [
-        (Mark::Euclidean, Screen::Rings),
-        (Mark::Ellipse, Screen::Wave),
-        (Mark::Diamond, Screen::Spiral),
-        (Mark::Square, Screen::Rays),
-        (Mark::path(triangle(true)?), Screen::Grid),
+        (Mark::Euclidean, Family::Rings),
+        (Mark::Ellipse, Family::Waves),
+        (Mark::Diamond, Family::Spiral),
+        (Mark::Square, Family::Rays),
+        (Mark::path(triangle(true)?), Family::Lines),
     ];
     for (mark, screen) in rows {
         let name = format!("{} on {}", mark.name(), screen.name());
         let paper = Drawing::from(rect(120.0)?).fill(Color::hex(0xff_ff_ff));
         // the round screens are about a point off the disc: the sub-pixel dots at a center are where two renderers differ
-        let screened = black(0.7).pitch(7.0).shape(mark.clone()).screen(screen);
+        let screened = black(0.7).spacing(7.0).shape(mark.clone()).family(screen);
         let screened = if mark == Mark::Ellipse {
             screened.aspect(1.4)
         } else {
             screened
         };
-        let screened = if matches!(screen, Screen::Grid | Screen::Wave) {
+        let screened = if matches!(screen, Family::Lines | Family::Waves) {
             screened
         } else {
             screened.center((10.0, 110.0))
@@ -1052,13 +1071,13 @@ fn the_reference_document_reads_its_tone_from_a_map_and_draws_dots_that_follow_i
 fn a_distance_field_tone_survives_being_put_back_into_a_drawing() -> Outcome {
     let tone = Field::distance(Drawing::from(Path::circle((25.0, 25.0), 20.0)?), true)?;
     let shapes = Drawing::from(rect(50.0)?)
-        .halftone(Halftone::new(BLACK, tone).pitch(5.0))
+        .halftone(Halftone::new(BLACK, tone).spacing(5.0))
         .shapes(&Values::new())?;
     assert_eq!(Drawing::new(shapes.clone()).shapes(&Values::new())?, shapes);
     // and two different distance fields are two different tones
     let other = Field::distance(Drawing::from(Path::circle((10.0, 10.0), 5.0)?), true)?;
     let others = Drawing::from(rect(50.0)?)
-        .halftone(Halftone::new(BLACK, other).pitch(5.0))
+        .halftone(Halftone::new(BLACK, other).spacing(5.0))
         .shapes(&Values::new())?;
     assert_ne!(others, shapes);
     Ok(())

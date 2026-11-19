@@ -122,7 +122,7 @@ impl Drawing {
     /// at this size, or if the edges flattened for it, the edges of its stroke's outline or the vertices made for the
     /// draw pass 10 million, or if the tessellation of the draw would take more than about a second (the vertices it
     /// makes times the edges alive at a sweep line pass 250 million: an outline that crosses itself thousands of times,
-    /// or has thousands of edges side by side), or `pitch` (a halftone's) if its dots pass 10 million; otherwise as [`Drawing::to_svg`]. [`Error::Geometry`] if the tessellator fails, which a
+    /// or has thousands of edges side by side), or `spacing` (a halftone's) if its dots pass 10 million; otherwise as [`Drawing::to_svg`]. [`Error::Geometry`] if the tessellator fails, which a
     /// finite drawing within these limits does not make it do.
     pub fn to_mesh(&self, size: Size, values: &Values, into: &mut Mesh) -> Result<(), Error> {
         let (width, height) = size.checked()?;
@@ -303,7 +303,7 @@ impl Maker<'_> {
     /// drawing is). `None` if the fill paints nothing or `visible` says its colour does not.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming the shape's `pitch` if its dots pass `MAX_SEGMENTS`, or if a dot lies beyond the
+    /// [`Error::Parameter`] naming the shape's `spacing` if its dots pass `MAX_SEGMENTS`, or if a dot lies beyond the
     /// tessellator's range.
     fn fill_layer(
         &self,
@@ -325,7 +325,7 @@ impl Maker<'_> {
             return Ok(None);
         };
         let found = match screen(halftone, polylines, &mut |count| {
-            self.work.made_segments(count, &format!("{name} pitch"))
+            self.work.made_segments(count, &format!("{name} spacing"))
         })? {
             Screen::Solid => return Ok(Some((whole(), rgba))),
             Screen::Dots(found) if found.is_empty() => return Ok(None),

@@ -51,7 +51,7 @@ NODE_SCRIPT = Path(__file__).resolve().with_name("bench.mjs")
 OUTPUTS = ("to_rgba", "to_mesh")
 HALFTONE_OUTPUTS = ("to_svg", *OUTPUTS)
 HALFTONE_DISC = 310  # the radius of the disc of the halftone, in design pixels
-HALFTONE_PITCH = 10  # the distance between its dots: pi * 310^2 / 10^2 is about 3,000 dots
+HALFTONE_SPACING = 10  # the distance between its dots: pi * 310^2 / 10^2 is about 3,000 dots
 HALFTONE_SIDE = 800  # the side of its design frame and of its output
 FONT = ROOT / "examples" / "fonts" / "anybody-subset.ttf"
 HEADLINE = "NO\nSLEEP"
@@ -170,7 +170,9 @@ def halftone_drawing() -> btvec.Drawing:
     """A disc of about 3,000 dots on a design frame of `HALFTONE_SIDE` square."""
     middle = HALFTONE_SIDE / 2
     disc = btvec.Path.circle((middle, middle), HALFTONE_DISC)
-    return btvec.Drawing(disc.halftone("#1a1a1a", tone=0.5, pitch=HALFTONE_PITCH, angle=45), size=(HALFTONE_SIDE,) * 2)
+    return btvec.Drawing(
+        disc.halftone("#1a1a1a", tone=0.5, spacing=HALFTONE_SPACING, angle=45), size=(HALFTONE_SIDE,) * 2
+    )
 
 
 def node_times(

@@ -3,7 +3,7 @@
 use super::Drawing;
 use super::transform::Deg;
 use crate::node::{Given, style};
-use crate::{Blend, Cap, Color, Expr, Field, HalftoneStyle, Join, Mark, Paint, Path, Point, Screen, Tone};
+use crate::{Blend, Cap, Color, Expr, Family, Field, HalftoneStyle, Join, Mark, Paint, Path, Point, Tone};
 
 /// A stroke: its paint, and the width, joins, caps and miter limit if not the defaults (2 pixels, round, round, 4). A
 /// [`Color`] or a [`Gradient`](crate::Gradient) alone converts into one.
@@ -124,17 +124,17 @@ impl Shadow {
     }
 }
 
-/// A halftone fill: the dots' colour and tone, and what is left out takes the defaults: a `pitch` of 8 design pixels, an
-/// `angle` of 45 degrees, round dots on a grid.
+/// A halftone fill: the dots' colour and tone, and what is left out takes the defaults: a `spacing` of 8 design pixels,
+/// an `angle` of 45 degrees, round dots on straight lines.
 #[derive(Debug, Clone)]
 pub struct Halftone {
     color: Color,
     tone: ToneGiven,
-    pitch: Option<Expr>,
+    spacing: Option<Expr>,
     angle: Option<Expr>,
     shape: Option<Mark>,
     aspect: Option<Expr>,
-    screen: Option<Screen>,
+    family: Option<Family>,
     center: Option<Point>,
     amplitude: Option<Expr>,
     wavelength: Option<Expr>,
@@ -169,21 +169,21 @@ impl Halftone {
         Self {
             color,
             tone,
-            pitch: None,
+            spacing: None,
             angle: None,
             shape: None,
             aspect: None,
-            screen: None,
+            family: None,
             center: None,
             amplitude: None,
             wavelength: None,
         }
     }
 
-    /// This screen with its dots `pitch` design pixels apart, above 0.
+    /// This screen with its rows and dots `spacing` design pixels apart, above 0.
     #[must_use]
-    pub fn pitch(mut self, pitch: impl Into<Expr>) -> Self {
-        self.pitch = Some(pitch.into());
+    pub fn spacing(mut self, spacing: impl Into<Expr>) -> Self {
+        self.spacing = Some(spacing.into());
         self
     }
 
@@ -209,10 +209,10 @@ impl Halftone {
         self
     }
 
-    /// This screen laid out as `screen` (default [`Screen::Grid`]).
+    /// This screen laid out as `family` (default [`Family::Lines`]), the layouts `bands` draws lines along.
     #[must_use]
-    pub fn screen(mut self, screen: Screen) -> Self {
-        self.screen = Some(screen);
+    pub fn family(mut self, family: Family) -> Self {
+        self.family = Some(family);
         self
     }
 
@@ -224,14 +224,14 @@ impl Halftone {
         self
     }
 
-    /// This screen's wave swinging its rows `amplitude` pitches (default 1); read by [`Screen::Wave`] only.
+    /// This screen's wave swinging its rows `amplitude` spacings (default 1); read by [`Family::Waves`] only.
     #[must_use]
     pub fn amplitude(mut self, amplitude: impl Into<Expr>) -> Self {
         self.amplitude = Some(amplitude.into());
         self
     }
 
-    /// This screen's wave `wavelength` pitches long (default 6), above 0; read by [`Screen::Wave`] only.
+    /// This screen's wave `wavelength` spacings long (default 6), above 0; read by [`Family::Waves`] only.
     #[must_use]
     pub fn wavelength(mut self, wavelength: impl Into<Expr>) -> Self {
         self.wavelength = Some(wavelength.into());
@@ -248,11 +248,11 @@ impl From<&HalftoneStyle> for Halftone {
             Tone::Field(field) => ToneGiven::from((**field).clone()),
         };
         let mut halftone = Self::of(style.color(), tone);
-        let screen = style.screen();
-        halftone.pitch = Some(Expr::from(style.pitch()));
+        let family = style.family();
+        halftone.spacing = Some(Expr::from(style.spacing()));
         halftone.shape = Some(style.shape().clone());
-        halftone.screen = Some(screen);
-        let reads = |argument| screen.refuse_unread(argument).is_ok();
+        halftone.family = Some(family);
+        let reads = |argument| family.refuse_unread(argument).is_ok();
         halftone.angle = reads("angle").then(|| Expr::from(style.angle()));
         halftone.center = style.center().filter(|_| reads("center"));
         halftone.amplitude = reads("amplitude").then(|| Expr::from(style.amplitude()));
@@ -345,13 +345,13 @@ impl Drawing {
     /// they stay put when the shape moves; a shape's stroke is drawn over them. A tone of 0 fills the shape solid and a
     /// tone of 1 draws nothing.
     ///
-    /// A colour of none, a tone outside 0 to 1 and a pitch not above 0 leave the drawing with an
+    /// A colour of none, a tone outside 0 to 1 and a spacing not above 0 leave the drawing with an
     /// [`error`](Drawing::error), or, when they read a Param, are refused when the drawing is drawn.
     #[must_use]
     pub fn halftone(&self, halftone: Halftone) -> Self {
         let mut given = vec![("color", Given::Color(halftone.color)), ("tone", halftone.tone.0)];
         for (name, number) in [
-            ("pitch", halftone.pitch),
+            ("spacing", halftone.spacing),
             ("angle", halftone.angle),
             ("aspect", halftone.aspect),
             ("amplitude", halftone.amplitude),
@@ -366,8 +366,8 @@ impl Drawing {
             Some(other) => given.push(("shape", Given::Text(other.name().to_owned()))),
             None => {}
         }
-        if let Some(screen) = halftone.screen {
-            given.push(("screen", Given::Text(screen.name().to_owned())));
+        if let Some(family) = halftone.family {
+            given.push(("family", Given::Text(family.name().to_owned())));
         }
         if let Some(center) = halftone.center {
             given.push(("center", Given::Pair(Expr::from(center.x), Expr::from(center.y))));

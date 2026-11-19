@@ -318,7 +318,7 @@ fn the_svg_and_the_pixels_show_the_same_shadows_and_layers_of_gradients() -> Out
         (
             "a halftone with a gradient stroke",
             Drawing::from(rect(20.0, 20.0, 80.0, 80.0)?)
-                .halftone(Halftone::new(RED, 0.5).pitch(10.0))
+                .halftone(Halftone::new(RED, 0.5).spacing(10.0))
                 .stroke(Stroke::new(fade.clone()).width(8.0)),
         ),
     ];
