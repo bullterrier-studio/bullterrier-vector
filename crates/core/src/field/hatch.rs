@@ -3,8 +3,7 @@
 //! A line is traced from a seed in both directions, stepping along the flow, and stops where it leaves the region,
 //! enters what is avoided, or comes closer than half the spacing to a sample of another line. The next seeds stand one
 //! spacing to either side of every sample, so lines settle one spacing apart where the flow is straight and split
-//! or end where it spreads or gathers. The first starts lie on lattices through the origin: at `(k + 1/2)` narrowest
-//! spacings, then at `k` spacings, so a bar at least half a spacing across has one, wherever the shape is.
+//! or end where it spreads or gathers. A lattice of one narrowest spacing finds a start for every part the region has.
 
 #![expect(
     clippy::cast_possible_truncation,
@@ -18,7 +17,6 @@ use super::outline::Outline;
 use super::seeds::{Sample, Samples};
 use super::{Field, Flow, length, segment_budget};
 use crate::geometry::Point;
-use crate::lines::lattice;
 use crate::path::Path;
 use crate::{Error, Expr, Values};
 use std::collections::VecDeque;
@@ -244,18 +242,7 @@ impl Path {
             ));
         }
         let widest = near.max(far);
-        // the starts, on lattices through the origin: first at (k + 1/2) narrowest spacings, where lines then settle as
-        // a shape's own box would put them, then at k spacings, so that a bar at least half a spacing across holds one
-        // wherever it is
-        let passes = [(narrowest, 0.5), (narrowest, 0.0)].map(|(gap, phase)| {
-            (
-                lattice(top, bottom, gap, phase),
-                lattice(left, right, gap, phase),
-                gap,
-                phase,
-            )
-        });
-        let cells: f64 = passes.iter().map(|(rows, columns, ..)| rows.1 * columns.1).sum();
+        let cells = Samples::cells(right - left, bottom - top, narrowest);
         if cells * cells.min((widest / narrowest) * (widest / narrowest)) > MAX_VISITS {
             return Err(Error::parameter(
                 "spacing",
@@ -273,14 +260,12 @@ impl Path {
             below,
             samples: Samples::new(left, top, right - left, bottom - top, narrowest),
             lines: Vec::new(),
-            // every start reads the spacing, and `below` when there is one
+            // every start of the lattice reads the spacing, and `below` when there is one
             spent: cells * work((if below.is_some() { 2.0 } else { 1.0 }, 0.0)),
             costs: (work(START_READS), work(STEP_READS)),
         };
         run.spend(0.0)?;
-        for pass in passes {
-            run.fill(pass, charge)?;
-        }
+        run.fill((left, top, right, bottom), narrowest, charge)?;
         let paths = run
             .lines
             .iter()
@@ -290,9 +275,6 @@ impl Path {
         Ok(Path::joined(paths.iter()))
     }
 }
-
-/// The starts of one pass: the `(first, count)` of the rows and the columns of a lattice, its gap and its phase.
-type Pass = ((f64, f64), (f64, f64), f64, f64);
 
 /// One line.
 struct Traced {
@@ -351,19 +333,19 @@ impl Run<'_> {
                 .any_within(at, CLEAR * gap, |sample| self.lines[sample.line as usize].kept)
     }
 
-    /// Starts a line at each free point `((first + i + phase) * gap)` of a lattice, `(first, count)` of its rows and its
-    /// columns (see [`lattice`]), and seeds from each line before the next start; by index, so that a point never
-    /// depends on the sum of the ones before.
     fn fill(
         &mut self,
-        ((first_row, rows), (first_column, columns), gap, phase): Pass,
+        (left, top, right, bottom): (f64, f64, f64, f64),
+        lattice: f64,
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<(), Error> {
         let mut queue: VecDeque<usize> = VecDeque::new();
-        for row in 0..rows as usize {
-            let y = (first_row + row as f64 + phase) * gap;
-            for column in 0..columns as usize {
-                let start = Point::new((first_column + column as f64 + phase) * gap, y);
+        // by index, so that a point never depends on the sum of the ones before; the count is the lattice's cells
+        let count = |extent: f64| (extent / lattice).ceil() as usize;
+        for row in 0..count(bottom - top) {
+            let y = top + lattice / 2.0 + row as f64 * lattice;
+            for column in 0..count(right - left) {
+                let start = Point::new(left + lattice / 2.0 + column as f64 * lattice, y);
                 if self.free(start, self.spacing(start))
                     && let Some(line) = self.trace(start, charge)?
                 {

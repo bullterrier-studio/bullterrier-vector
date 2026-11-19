@@ -150,11 +150,10 @@ fn islands(count: u32, spacing: f64) -> Result<Path, Error> {
 
 #[test]
 fn hatch_charges_the_reads_of_a_line_that_makes_no_step() -> Outcome {
-    // 100 by 100 islands over a sum of 4096 ramps (8191 units a read): the two lattices of starts (100 by 100 at
-    // (k + 1/2) spacings, 101 by 101 at k) are charged one read a start, 165 million units, inside the budget; each start
-    // on an island reads the tone twice more (the step of each of its two walks, which leaves the island and is not
-    // made), 329 million units in all, which only the charge of a line's start counts
-    let region = islands(100, 4.0)?;
+    // 120 by 120 starts over a sum of 4096 ramps (8191 units a read): the lattice is charged one read a start, 118
+    // million units, inside the budget; each start reads the tone twice more (the step of each of its two walks, which
+    // leaves the island and is not made), 354 million units in all, which only the charge of a line's start counts
+    let region = islands(120, 4.0)?;
     let deep = balanced(&Field::ramp((0.0, 0.0), (480.0, 480.0))?, 4096)?;
     let (named, message) = parameter_refusal(region.hatch(&Hatch::between(4.0, 4.0, deep), None))?;
     assert_eq!(named, "spacing");

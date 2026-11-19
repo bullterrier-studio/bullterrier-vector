@@ -140,59 +140,16 @@ fn waves_follow_a_sine_across_the_lines() -> Outcome {
 }
 
 #[test]
-fn straight_lines_lie_on_a_lattice_through_the_origin_not_on_the_shapes_box() -> Outcome {
-    // a box from y = 3 to 33: the lines are at (k + 1/2) spacings from y = 0, so 5, 15 and 25, not 8, 18 and 28
+fn straight_lines_start_half_a_spacing_inside_the_shapes_own_box() -> Outcome {
+    // a box from y = 3 to 33: the first line is half a spacing below its top, so 8, 18 and 28, not 5, 15 and 25
     let drawn = Path::rect(0.0, 3.0, 100.0, 30.0, 0.0)?.bands(&Bands::new(10.0, Field::constant(0.5)?, (2.0, 2.0))?)?;
     for x in [10.0, 50.0, 90.0] {
-        for y in [5.0, 15.0, 25.0] {
+        for y in [8.0, 18.0, 28.0] {
             assert!(drawn.contains((x, y))?, "a line at {y}");
         }
-        for y in [8.0, 18.0, 28.0] {
+        for y in [5.0, 15.0, 25.0] {
             assert!(!drawn.contains((x, y))?, "no line at {y}");
         }
-    }
-    Ok(())
-}
-
-/// A line's points rounded to a millionth of a pixel.
-type Rounded = Vec<(i64, i64)>;
-
-/// The lines of `path`, each with its points rounded to a millionth, sorted: two drawings of the same lines compare equal.
-fn sorted(path: &Path) -> Result<Vec<Rounded>, Box<dyn std::error::Error>> {
-    #[expect(clippy::cast_possible_truncation, reason = "coordinates of a few hundred pixels")]
-    let round = |value: f64| (value * 1e6).round() as i64;
-    let mut found: Vec<Rounded> = lines(path)?
-        .iter()
-        .map(|(points, _)| points.iter().map(|p| (round(p.0), round(p.1))).collect())
-        .collect();
-    found.sort();
-    Ok(found)
-}
-
-#[test]
-fn the_bands_of_two_shapes_together_are_the_bands_of_each() -> Outcome {
-    // two squares 3 px apart, the second 3 px lower: one path of both draws what the two draw apart
-    let (first, second) = (
-        Path::rect(0.0, 0.0, 40.0, 40.0, 0.0)?,
-        Path::rect(43.0, 3.0, 40.0, 40.0, 0.0)?,
-    );
-    let both = Path::from_svg_path(&format!("{} {}", first.to_svg_path(), second.to_svg_path()))?;
-    let tone = Field::ramp((0.0, 0.0), (90.0, 40.0))?;
-    for bands in [
-        Bands::new(7.0, tone.clone(), (0.5, 3.0))?,
-        Bands::new(7.0, tone.clone(), (0.5, 3.0))?.angle(30.0),
-        Bands::new(7.0, tone.clone(), (0.5, 3.0))?
-            .family(Family::Waves)
-            .wavelength(25.0)
-            .amplitude(4.0)
-            .angle(-20.0),
-    ] {
-        let apart = Path::from_svg_path(&format!(
-            "{} {}",
-            first.bands(&bands)?.to_svg_path(),
-            second.bands(&bands)?.to_svg_path()
-        ))?;
-        assert_eq!(sorted(&both.bands(&bands)?)?, sorted(&apart)?);
     }
     Ok(())
 }

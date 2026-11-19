@@ -23,7 +23,7 @@
 
 use crate::field::Outline;
 use crate::geometry::Point;
-use crate::lines::{Family, Layout, RoundRows, corners, lattice, middle, polar, ray_wedges, ring_cells};
+use crate::lines::{Family, Layout, RoundRows, corners, middle, polar, ray_wedges, ring_cells};
 use crate::math::sin_cos_deg;
 use crate::path::Polyline;
 use crate::shape::{Dot, HalftoneStyle};
@@ -236,7 +236,8 @@ fn rows(layout: &Layout, rect: Rect, center: Point, reach_px: f64) -> Result<(Ro
         let span = |select: fn(&(f64, f64)) -> f64, reach: f64| {
             let least = found.iter().map(select).fold(f64::INFINITY, f64::min);
             let most = found.iter().map(select).fold(f64::NEG_INFINITY, f64::max);
-            lattice(least - reach, most + reach, 1.0, 0.0)
+            let first = (least - reach).floor();
+            (first, (most + reach).ceil() - first + 1.0)
         };
         let reach = reach_px / spacing;
         let ((first_i, across), (first_j, down)) = (

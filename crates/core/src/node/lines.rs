@@ -35,7 +35,7 @@ pub(crate) struct RowsStep;
 pub(crate) static ROWS: Verb = Verb {
     name: "rows",
     role: Role::Step,
-    summary: "replaces every shape by horizontal rows `spacing` design pixels apart inside the region it fills (at (k + 1/2) spacings from the origin of the design frame, whatever the region), each lifted towards the top by `amplitude` times the `tone` field at the point of the row it lifts (as Path.rows: a negative amplitude pushes down), and cut where a row in front (lower in the picture) passes over it, so a map of tone reads as a landscape of lines; the result is open lines, so set the stroke after it",
+    summary: "replaces every shape by horizontal rows `spacing` design pixels apart inside the region it fills (the first half a spacing below its top), each lifted towards the top by `amplitude` times the `tone` field at the point of the row it lifts (as Path.rows: a negative amplitude pushes down), and cut where a row in front (lower in the picture) passes over it, so a map of tone reads as a landscape of lines; the result is open lines, so set the stroke after it",
     args: &[
         once("spacing", Domain::PositiveUpTo(MAX_COORDINATE)),
         required_field("tone"),

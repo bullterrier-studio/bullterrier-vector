@@ -284,35 +284,10 @@ fn the_same_call_gives_the_same_rows() -> Outcome {
 }
 
 #[test]
-fn rows_lie_on_a_lattice_through_the_origin_not_on_the_shapes_top() -> Outcome {
-    // a box from y = 3 to 53: rows at (k + 1/2) spacings from y = 0, so 5 to 45, not 8 to 48
+fn rows_start_half_a_spacing_below_the_shapes_own_top() -> Outcome {
+    // a box from y = 3 to 53: the first row half a spacing below its top, then every spacing, so 8 to 48, not 5 to 45
     let found = lines(&Path::rect(0.0, 3.0, 100.0, 50.0, 0.0)?.rows(&Rows::new(10.0, Field::constant(0.0)?, 8.0)?)?)?;
     let heights: Vec<f64> = found.iter().map(|(points, _)| points[0].1).collect();
-    assert_eq!(heights, vec![5.0, 15.0, 25.0, 35.0, 45.0]);
-    Ok(())
-}
-
-#[test]
-fn the_rows_of_two_shapes_side_by_side_are_the_rows_of_each() -> Outcome {
-    // the second square 3 px lower and over a step to the right, so no row of one hides one of the other
-    let (first, second) = (rect(40.0, 40.0)?, Path::rect(53.0, 3.0, 40.0, 40.0, 0.0)?);
-    let both = Path::from_svg_path(&format!("{} {}", first.to_svg_path(), second.to_svg_path()))?;
-    let rows = Rows::new(7.0, Field::ramp((0.0, 0.0), (90.0, 40.0))?, 5.0)?;
-    let mut apart = lines(&first.rows(&rows)?)?;
-    apart.extend(lines(&second.rows(&rows)?)?);
-    let mut together = lines(&both.rows(&rows)?)?;
-    for found in [&mut apart, &mut together] {
-        found.sort_by(|a, b| a.0[0].0.total_cmp(&b.0[0].0).then(a.0[0].1.total_cmp(&b.0[0].1)));
-    }
-    assert_eq!(together.len(), apart.len());
-    for ((a, _), (b, _)) in together.iter().zip(&apart) {
-        assert_eq!(a.len(), b.len());
-        for (p, q) in a.iter().zip(b) {
-            assert!(
-                (p.0 - q.0).abs() < 1e-9 && (p.1 - q.1).abs() < 1e-9,
-                "{p:?} against {q:?}"
-            );
-        }
-    }
+    assert_eq!(heights, vec![8.0, 18.0, 28.0, 38.0, 48.0]);
     Ok(())
 }

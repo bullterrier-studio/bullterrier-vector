@@ -27,9 +27,9 @@ fn a_wide_thin_region_is_refused_before_its_lattice_is_made() -> Outcome {
 }
 
 #[test]
-fn a_tall_thin_region_between_two_lattice_columns_is_refused_by_its_row_count_first() -> Outcome {
-    // 0.3 wide at x 0.1 holds no column at spacing 1, but 2e7 tall holds 2e7 rows of two points each: refused by the
-    // count of points the rows would make, before any row is built
+fn a_tall_thin_region_is_refused_by_its_row_count_before_any_row_is_built() -> Outcome {
+    // 0.3 wide holds two columns at spacing 1 (its two sides), but 2e7 tall holds 2e7 rows of two points each: refused
+    // by the count of points the rows would make, before any row is built
     let region = Path::rect(0.1, 0.0, 0.3, 2e7, 0.0)?;
     let (name, message) = parameter_refusal(region.rows(&Rows::new(1.0, flat()?, 1.0)?))?;
     assert_eq!(name, "spacing");
@@ -67,33 +67,5 @@ fn a_region_that_fills_nothing_gives_an_empty_path_in_every_verb() -> Outcome {
             assert_eq!(drawn.to_svg_path(), "", "{family} of {what}");
         }
     }
-    Ok(())
-}
-
-#[test]
-fn a_small_shape_far_from_the_origin_lays_only_the_rows_near_it() -> Outcome {
-    // the lattice runs through the origin, but only its rows inside the box are made: 10 at spacing 1, not a million
-    let far = Path::rect(1e6, 1e6, 10.0, 10.0, 0.0)?;
-    assert_eq!(
-        far.bands(&Bands::new(1.0, flat()?, (0.2, 0.2))?)?
-            .to_svg_path()
-            .matches('M')
-            .count(),
-        10
-    );
-    assert_eq!(
-        far.rows(&Rows::new(1.0, flat()?, 0.0)?)?
-            .to_svg_path()
-            .matches('M')
-            .count(),
-        10
-    );
-    assert_eq!(
-        far.stipple(&Stipple::new(1.0, Field::constant(0.0)?, (0.1, 0.1))?)?
-            .to_svg_path()
-            .matches('M')
-            .count(),
-        100
-    );
     Ok(())
 }

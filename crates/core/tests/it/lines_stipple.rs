@@ -184,21 +184,3 @@ fn either_radius_out_of_range_is_refused_naming_radius() -> Outcome {
     }
     Ok(())
 }
-
-#[test]
-fn the_dots_of_two_shapes_together_are_the_dots_of_each() -> Outcome {
-    // two squares 3 px apart, the second 3 px lower: the cells lie on one lattice through the origin, so one path of
-    // both gets the dots the two get apart
-    let (first, second) = (rect(40.0, 40.0)?, Path::rect(43.0, 3.0, 40.0, 40.0, 0.0)?);
-    let both = Path::from_svg_path(&format!("{} {}", first.to_svg_path(), second.to_svg_path()))?;
-    let stipple = Stipple::new(5.0, Field::constant(0.5)?, (1.0, 1.0))?.seed(3.0);
-    let mut apart = centers(&first.stipple(&stipple)?, 1.0);
-    apart.extend(centers(&second.stipple(&stipple)?, 1.0));
-    let mut together = centers(&both.stipple(&stipple)?, 1.0);
-    for found in [&mut apart, &mut together] {
-        found.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)));
-    }
-    assert!(apart.len() > 50, "{} dots", apart.len());
-    assert_eq!(together, apart);
-    Ok(())
-}

@@ -255,29 +255,17 @@ fn a_line_across_a_small_shape_is_kept_where_a_stub_against_other_lines_is_not()
 }
 
 #[test]
-fn parallel_lines_start_from_a_lattice_through_the_origin() -> Outcome {
-    // a box from y = 3: the first line starts at (k + 1/2) spacings from y = 0, so the lines are at 5, 15, .. not 8, 18
+fn parallel_lines_start_half_a_spacing_below_the_shapes_own_top() -> Outcome {
+    // a box from y = 3: the first line starts half a spacing below its top, so the lines are at 8, 18, .. not 5, 15
     let region = Path::rect(0.0, 3.0, 400.0, 300.0, 0.0)?;
     let result = made(&region, &Hatch::new(10.0).flow(Flow::angle(0.0)?), None)?;
     assert!(result.len() >= 29, "{} lines", result.len());
     for (points, _) in &result {
         let height = points[0].1;
         assert!(
-            ((height - 5.0) / 10.0 - ((height - 5.0) / 10.0).round()).abs() < 1e-6,
+            ((height - 8.0) / 10.0 - ((height - 8.0) / 10.0).round()).abs() < 1e-6,
             "a line at {height}"
         );
-    }
-    Ok(())
-}
-
-#[test]
-fn a_bar_thinner_than_the_spacing_still_gets_a_line_wherever_it_lies() -> Outcome {
-    // a bar 7 px tall at a spacing of 10, lines along it: no row of a lattice 10 apart need fall inside, but one of a
-    // lattice half a spacing apart does
-    for (x, y) in [(6.0, 6.0), (0.0, 0.0), (13.0, 21.0), (-8.0, 102.0)] {
-        let region = Path::rect(x, y, 30.0, 7.0, 0.0)?;
-        let found = made(&region, &Hatch::new(10.0).flow(Flow::angle(0.0)?), None)?;
-        assert_eq!(found.len(), 1, "a square at ({x}, {y})");
     }
     Ok(())
 }

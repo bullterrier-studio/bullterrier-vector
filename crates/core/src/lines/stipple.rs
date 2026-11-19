@@ -9,7 +9,6 @@
     reason = "the cell counts are checked against MAX_CELLS before they are used"
 )]
 
-use super::layout::lattice;
 use crate::expr::{splitmix, whole_seed};
 use crate::field::{Field, once, read, segment_budget};
 use crate::geometry::{MAX_COORDINATE, Point};
@@ -109,10 +108,9 @@ pub(crate) struct Plan {
 }
 
 impl Path {
-    /// Dots inside the region this path fills (nonzero rule): the cells of a lattice `spacing` apart through the origin
-    /// of the design frame that touch the region's bounding box, each with one dot at most, its center inside the
-    /// region and standing within 0.4 spacings of its cell's middle; a cell's jitter and threshold are its own, so two
-    /// shapes drawn apart or as one path get the same dots. The dot is there when the cell's share of the lattice (a threshold from 0 to 1 spread evenly
+    /// Dots inside the region this path fills (nonzero rule): a lattice of cells `spacing` apart over the region's
+    /// bounding box, each cell with one dot at most, its center inside the region and standing within 0.4 spacings of
+    /// its cell's middle. The dot is there when the cell's share of the lattice (a threshold from 0 to 1 spread evenly
     /// over the lattice, moved by the seed) is below the density at the tone read at the dot's center; its radius is the
     /// radius at that tone. The result is round dots, closed, so set the fill after it. A Param is read at its default here; a `stipple` step reads it
     /// with the values it draws with. An empty path gives an empty path.
@@ -184,10 +182,10 @@ impl Path {
                 format!("is too small for coordinates near {reach}: a step of it would not move"),
             ));
         }
-        // the cells of the lattice through the origin that touch the box: their middles at (k + 1/2) spacings
-        let half = plan.spacing / 2.0;
-        let (first_column, columns) = lattice(bounds.x - half, bounds.x + bounds.width + half, plan.spacing, 0.5);
-        let (first_row, rows) = lattice(bounds.y - half, bounds.y + bounds.height + half, plan.spacing, 0.5);
+        let (columns, rows) = (
+            (bounds.width / plan.spacing).ceil().max(1.0),
+            (bounds.height / plan.spacing).ceil().max(1.0),
+        );
         if columns * rows > MAX_CELLS {
             return Err(Error::parameter(
                 "spacing",
@@ -201,18 +199,15 @@ impl Path {
         let mut dots = Vec::new();
         for j in 0..rows as usize {
             for i in 0..columns as usize {
-                // the cell's own place in the lattice, not its place in the box, picks its jitter and threshold
-                let (column, row) = (first_column + i as f64, first_row + j as f64);
-                let cell = splitmix(row as i64, (column as i64).cast_unsigned());
                 let (jx, jy) = (
-                    unit(splitmix(seed, cell.wrapping_mul(2))) - 0.5,
-                    unit(splitmix(seed, cell.wrapping_mul(2).wrapping_add(1))) - 0.5,
+                    unit(splitmix(seed, 2 * (j as u64 * columns as u64 + i as u64))) - 0.5,
+                    unit(splitmix(seed, 2 * (j as u64 * columns as u64 + i as u64) + 1)) - 0.5,
                 );
                 let at = Point::new(
-                    (column + 0.5 + JITTER * jx) * plan.spacing,
-                    (row + 0.5 + JITTER * jy) * plan.spacing,
+                    bounds.x + (i as f64 + 0.5 + JITTER * jx) * plan.spacing,
+                    bounds.y + (j as f64 + 0.5 + JITTER * jy) * plan.spacing,
                 );
-                let threshold = (shift + R2.0 * column + R2.1 * row).rem_euclid(1.0);
+                let threshold = (shift + R2.0 * i as f64 + R2.1 * j as f64).fract();
                 let share = tone.at(at).clamp(0.0, 1.0);
                 let wanted = plan.density.0 + (plan.density.1 - plan.density.0) * share;
                 if threshold < wanted && outline.contains(at) {
