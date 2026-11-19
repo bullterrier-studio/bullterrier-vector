@@ -2,10 +2,12 @@
 public package. Expected values are worked out by hand (heights of rows, the width of a band at a tone) or measured on
 the output."""
 
+import json
 import math
 import re
 
 import pytest
+from jsonschema import Draft202012Validator
 
 import bullterrier_vector as btvec
 
@@ -190,3 +192,21 @@ def test_a_plot_in_millimetres_or_inches_says_its_physical_size() -> None:
     ):
         with pytest.raises(btvec.ParameterError):
             call()
+
+
+@pytest.mark.parametrize(
+    ("radius", "valid"),
+    [
+        pytest.param(1.5, True, id="one number"),
+        pytest.param([0.6, 2], True, id="a pair"),
+        pytest.param([0.6, {"param": "size"}], True, id="a pair with a Param"),
+        pytest.param([1, 0], False, id="a radius of 0 in the pair"),
+        pytest.param([1, 2, 3], False, id="three numbers"),
+        pytest.param(0, False, id="a radius of 0"),
+    ],
+)
+def test_the_generated_schema_takes_a_stipple_radius_as_one_number_or_a_pair(radius: object, valid: bool) -> None:
+    size = {"name": "size", "default": 1, "min": 0.5, "max": 3, "unit": "", "meaning": ""}
+    step = {"stipple": {"spacing": 5, "tone": 0.5, "radius": radius}}
+    document = {"version": 1, "params": [size], "root": [{"path": "M0 0 L10 0 L10 10 Z"}, step]}
+    assert Draft202012Validator(json.loads(btvec.drawing_schema())).is_valid(document) is valid

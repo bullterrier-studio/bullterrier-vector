@@ -632,7 +632,7 @@
           "properties": {
             "dx": { "$ref": "#/$defs/coordinate" },
             "dy": { "$ref": "#/$defs/coordinate" },
-            "tolerance": { "$ref": "#/$defs/positive" }
+            "tolerance": { "type": "number", "exclusiveMinimum": 0, "maximum": 1e100 }
           },
           "required": ["dx", "dy"]
         },

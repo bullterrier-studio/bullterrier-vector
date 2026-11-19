@@ -833,6 +833,9 @@ AGREED = [
     ),
     pytest.param(square_with({"sweep": {"dx": 40}}), False, id="a sweep without dy"),
     pytest.param(square_with({"sweep": {"dx": 1, "dy": 0, "tolerance": 0}}), False, id="a sweep tolerance of 0"),
+    pytest.param(
+        square_with({"sweep": {"dx": 1, "dy": 0, "tolerance": 1.1e100}}), False, id="a sweep tolerance past 1e100"
+    ),
     pytest.param(square_with({"sweep": {"dx": 2e100, "dy": 0}}), False, id="a sweep past a coordinate"),
     pytest.param(
         square_with({"outline": {"width": 4, "tolerance": 1.1e100}}), False, id="an outline tolerance past 1e100"
