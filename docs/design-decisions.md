@@ -2042,6 +2042,12 @@ Why not an existing call:
   combinations. **`Field.map`, `to_map`** carry a field through 8-bit bytes: the route that quantised the look and needs
   numpy. **`hatch(tone=)`, `trace_levels`, `Field.contours`** read a field; they cannot make a new one. No existing verb
   combines two fields, so arithmetic is new.
+- **`Flow.rotate`** is the one way to turn a flow: a flow has no sign, so "away from an edge" is no flow, but across an
+  edge is `Flow.contour(d).rotate(90)`. Why not `Flow.angle` (a constant, cannot turn a contour or noise), `mix` (blends
+  towards another flow, never turns one; mixing with `Flow.angle` does not add an angle) or an `angle` argument on
+  `contour` (one leaf only, a second spelling of a turn of the others). A node multiplying the doubled-angle vector, nested
+  under `MAX_MIX_DEPTH` with the mixes and charged a unit a read as a mix is; nothing folds, as a mix of two angles does
+  not.
 - **Five operations, no more.** `add`, `mul`, `min`, `max`, `abs`; subtraction is `add` and `mul` by -1, negation `mul` by
   -1, clamping `min` and `max`, so none is a node (a node derivable from the others would be a second spelling in documents).
   No division: `x / n` and `x * (1 / n)` differ in the last bit, and a field crossing 0 would need a refusal at every point.

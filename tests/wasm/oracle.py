@@ -1008,6 +1008,9 @@ def hatches() -> list[Entry]:
             btvec.Drawing(ring_path).hatch(5, flow=btvec.Flow.contour(ring_path)).stroke(INK, width=1)
         ),
         "hatch_mix": framed(btvec.Drawing(box).hatch(6, flow=btvec.Flow.angle(0).mix(noise, 0.5)).stroke(INK, width=1)),
+        "hatch_rotate_across": framed(
+            btvec.Drawing(ring_path).hatch(5, flow=btvec.Flow.contour(ring_path).rotate(90)).stroke(INK, width=1)
+        ),
         "hatch_distance_tone": framed(
             btvec.Drawing(ring_path)
             .hatch((3, 8), tone=btvec.Field.distance(ring_path, normalized=True), flow=btvec.Flow.angle(60))
