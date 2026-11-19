@@ -40,8 +40,12 @@ fn eaten_letters() -> Result<Drawing, Error> {
 
     let edge = Field::distance(&word, false)?;
     let bite = Field::noise(&wavelength, 0.0, 3.0, 3)?;
-    // the noise grows from nothing on the edge to its full 40 pixels at 60 pixels from it
-    let grow = edge.abs()?.min(&number(60.0)?)?.mul(&number(1.0 / 60.0)?)?;
+    // the noise is 0.35 of its full 40 pixels on the edge (it bites the letters), growing to all of it at 60 pixels away
+    let grow = edge
+        .abs()?
+        .min(&number(60.0)?)?
+        .mul(&number(1.0 / 60.0)?)?
+        .max(&number(0.35)?)?;
     let eaten = edge.add(&bite.mul(&number(40.0)?)?.mul(&grow)?)?;
 
     // trace_levels keeps where a field is at or above a level, so the letters are where minus the eaten distance is; the

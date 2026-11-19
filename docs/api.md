@@ -487,11 +487,11 @@ budget), `cell` (`trace_cells`: not a whole number from 1, not dividing the map,
 limit), `box` (left out for a field that is not a map, or as for `Field.map`) and `map` (`trace_labels`, `trace_cells`: not a
 `Field.map`). From Python a count that is not whole (2.5) or below 0 raises `ParameterError` naming it.
 [trace.py](../examples/trace.py) traces a relief and a dithered strip; [eaten_letters.py](../examples/eaten_letters.py) a
-word eaten at the rim by a noisy distance field:
+word eaten at the rim by a noisy distance field (noise of 14 pixels on the edge bites the letters):
 
 ```python
 edge = btvec.Field.distance(word)  # negative inside
-eaten = edge + btvec.Field.noise(wavelength=45, seed=3, octaves=3) * 40 * (abs(edge).min(60) * (1 / 60))
+eaten = edge + btvec.Field.noise(wavelength=45, seed=3, octaves=3) * 40 * (abs(edge).min(60) * (1 / 60)).max(0.35)
 btvec.Drawing.trace_levels(-eaten, [-40, -18, 0], box=(0, 0, 1200, 600), cell=2, smooth=1.5)
 ```
 

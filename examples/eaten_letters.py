@@ -1,10 +1,10 @@
 """Eaten letters: a word eaten at the rim and grown over by two halos, rust and pale, like mould on a wet page.
 
-The signed distance to the letters (negative inside) is bent by seeded noise that grows with the distance from the
-edge, up to 40 pixels at 60 pixels away; `trace_levels` cuts the result at three distances into stacked fills: the pale
-halo out to 40 pixels, the rust one to 18, and the letter itself at 0. The noise's `wavelength` and the `core` level
-are Params: the frame "fine" draws a finer noise with the core eaten 6 pixels in. Only the library: no pixels are
-read back and no map is written.
+The signed distance to the letters (negative inside) is bent by seeded noise: 14 pixels on the edge, so the letters'
+outline is bitten, growing with the distance from it to 40 pixels at 60 pixels away; `trace_levels` cuts the result at
+three distances into stacked fills: the pale halo out to 40 pixels, the rust one to 18, and the letter itself at 0.
+The noise's `wavelength` and the `core` level are Params: the frame "fine" draws a finer noise with the core eaten 6
+pixels in. Only the library: no pixels are read back and no map is written.
 Draw it with `uv run poe look examples/eaten_letters.py` (PNG and SVG in `dist/look/`).
 The same program in Rust and JavaScript: `crates/core/examples/eaten_letters.rs`,
 `crates/wasm/examples/eaten_letters.mjs`.
@@ -24,8 +24,8 @@ core = btvec.Param("core", default=0, min=-20, max=20, unit="px", meaning="how f
 
 edge = btvec.Field.distance(word)
 bite = btvec.Field.noise(wavelength=wavelength, seed=3, octaves=3)
-# the noise grows from nothing on the edge to its full 40 pixels at 60 pixels from it
-grow = abs(edge).min(60) * (1 / 60)
+# the noise is 0.35 of its full 40 pixels on the edge (it bites the letters), growing to all of it at 60 pixels away
+grow = (abs(edge).min(60) * (1 / 60)).max(0.35)
 eaten = edge + bite * 40 * grow
 
 # trace_levels keeps where a field is at or above a level, so the letters are where minus the eaten distance is; the

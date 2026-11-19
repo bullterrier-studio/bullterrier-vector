@@ -793,7 +793,7 @@ def test_the_node_example_of_trace_carries_the_document_of_the_python_drawing(ru
     assert document.read_text(encoding="utf-8") == drawing.to_json()
 
 
-def test_eaten_letters_stacks_two_halos_round_the_letters_within_the_reach_of_the_noise(run):
+def test_eaten_letters_bites_the_letters_and_stacks_two_halos_within_the_reach_of_the_noise(run):
     found = run("eaten_letters")
     paper, pale, rust, ink = found["drawing"].shapes()
     assert [shape.style.fill for shape in (paper, pale, rust, ink)] == [
@@ -804,15 +804,54 @@ def test_eaten_letters_stacks_two_halos_round_the_letters_within_the_reach_of_th
     ]
     assert [shape.attributes["level"] for shape in (pale, rust, ink)] == [-40, -18, 0]
     letters = reduce(lambda whole, part: whole.union(part), (shape.path for shape in found["word"].shapes()))
-    # the noise moves the distance by at most two thirds of it (40 pixels at 60 away): where the distance is d, the
-    # eaten one is at least d / 3, so a halo of 40 pixels reaches at most 120 from the letters, and the ink, at 0, none
-    # (3 pixels of slack for the smoothing, the curve fit and the cells of 2)
-    for shape, reach in ((pale, 123), (rust, 57), (ink, 3)):
+    # the noise moves the distance d by at most 40 times the larger of d / 60 (up to 1) and 0.35: the eaten distance is
+    # at least d - 40 past 60 pixels, d / 3 from 21 to 60 and d - 14 nearer, so a halo of 40 pixels reaches at most 80
+    # from the letters, one of 18 at most 54, and the ink at most 14 (3 pixels of slack for the smoothing, the curve fit
+    # and the cells of 2)
+    for shape, reach in ((pale, 83), (rust, 57), (ink, 17)):
         assert inside(shape.path, letters.offset(reach)), reach
-    # the frame "fine" eats the core 6 pixels in: its ink stays inside the letters and leaves their rim bare
-    fine = found["drawing"].shapes(wavelength=30, core=-6)[3].path
-    assert inside(fine, letters.offset(3))
-    assert not any(fine.contains(point) for point in samples(letters.offset(-2)))
+    # eaten: the ink loses some of each letter and grows past it, far more than tracing the plain distance does
+    plain = (
+        btvec.Drawing.trace_levels(
+            -btvec.Field.distance(found["word"]),
+            [0],
+            box=(0, 0, 1200, 600),
+            cell=2,
+            smooth=1.5,
+            tolerance=0.4,
+            min_area=20,
+        )
+        .shapes()[0]
+        .path
+    )
+    inked, traced = changed(letters, ink.path), changed(letters, plain)
+    area = sum(map(letters.contains, grid(letters)))
+    for kind in ("lost", "gained"):
+        assert inked[kind] > 5 * traced[kind], kind
+        assert inked[kind] > area / 20, kind
+    # the frame "fine" eats the core 6 pixels in: it loses more of the letters and gains less past them
+    fine = changed(letters, found["drawing"].shapes(wavelength=30, core=-6)[3].path)
+    assert fine["lost"] > inked["lost"]
+    assert fine["gained"] < inked["gained"]
+
+
+def grid(letters: btvec.Path) -> list[tuple[float, float]]:
+    """The points of an 8-pixel grid over the letters' box and 20 pixels round it, where the ink can be."""
+    box = letters.bounds
+    return [
+        (box.x - 20 + 8 * i, box.y - 20 + 8 * j)
+        for i in range(int((box.width + 40) / 8) + 1)
+        for j in range(int((box.height + 40) / 8) + 1)
+    ]
+
+
+def changed(letters: btvec.Path, ink: btvec.Path) -> dict[str, int]:
+    """The grid points in the letters and not in `ink` (lost), and in `ink` and not in the letters (gained)."""
+    inside_both = [(letters.contains(point), ink.contains(point)) for point in grid(letters)]
+    return {
+        "lost": sum(letter and not inked for letter, inked in inside_both),
+        "gained": sum(inked and not letter for letter, inked in inside_both),
+    }
 
 
 def samples(path: btvec.Path) -> list[tuple[float, float]]:
