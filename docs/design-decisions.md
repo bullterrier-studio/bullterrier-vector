@@ -2149,7 +2149,7 @@ now takes the convention the line families already have.
   pair" is `Kind::Factor` (`hatch`'s `spacing`, `scale`'s `by`, `characters`'s `cell`): read like a number or `[a, b]`,
   written back as one number when the two are equal, so the JSON and the SVG of every existing stipple (the preset, the
   example, the differential rows) are byte for byte what they were. In Python it is `scale`'s `by` extractor (a number,
-  a Param or an expression, or a pair of them); in Rust the constructor takes the pair as `Bands::lines` takes its `width`,
+  a Param or an expression, or a pair of them); in Rust the constructor takes the pair as `Bands::new` takes its `width`,
   `(r0, r1)`, `(r, r)` for one size: a generic "number or pair" type would be a second Rust spelling of the same pair.
 - **Read once.** A per-item number is refused in either, as for every number of the line families.
 

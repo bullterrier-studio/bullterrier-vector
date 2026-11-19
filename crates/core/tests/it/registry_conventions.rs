@@ -83,9 +83,20 @@ fn offences(verbs: &[(&str, &[Arg])], banned: &[String], allowed: &[(&str, &str)
     found
 }
 
-/// The headings of design-decisions.md (`## ...`).
-fn headings() -> Vec<&'static str> {
-    DECISIONS.lines().filter_map(|line| line.strip_prefix("## ")).collect()
+/// The exceptions whose heading is missing from `decisions` or whose section never names the argument in backticks.
+fn unexplained(allowed: &[(&str, &str)], decisions: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    for (name, heading) in allowed {
+        let Some((_, rest)) = decisions.split_once(&format!("\n## {heading}\n")) else {
+            found.push(format!("{name}: no heading `{heading}`"));
+            continue;
+        };
+        let section = rest.split_once("\n## ").map_or(rest, |(section, _)| section);
+        if !section.contains(&format!("`{name}`")) {
+            found.push(format!("{name}: `{heading}` never names it"));
+        }
+    }
+    found
 }
 
 fn registered() -> Vec<(&'static str, &'static [Arg])> {
@@ -115,14 +126,9 @@ fn halftone_and_bands_take_their_layout_as_one_argument() {
 }
 
 #[test]
-fn every_exception_names_a_heading_that_exists() {
-    let headings = headings();
-    for (name, heading) in ALLOWED {
-        assert!(
-            headings.contains(heading),
-            "{name}: no heading `{heading}` in design-decisions.md"
-        );
-    }
+fn every_exception_is_explained_under_its_heading() {
+    let found = unexplained(ALLOWED, DECISIONS);
+    assert!(found.is_empty(), "{}", found.join("\n"));
 }
 
 #[test]
@@ -196,6 +202,23 @@ mod the_rule_itself {
     fn one_name_with_two_word_lists_is_found() {
         let verbs: [(&str, &[Arg]); 2] = [("bands", &[FAMILY_A]), ("halftone", &[FAMILY_B])];
         assert_eq!(offences(&verbs, &[], &[]).len(), 1);
+    }
+
+    const DECISIONS: &str = "## Other\n\nx\n\n## Why\n\n- `seed` is read once.\n\n## After\n\n- `phase`.\n";
+
+    #[test]
+    fn an_exception_named_under_its_heading_is_explained() {
+        assert_eq!(unexplained(&[("seed", "Why")], DECISIONS), Vec::<String>::new());
+    }
+
+    #[test]
+    fn an_exception_missing_from_its_section_or_its_heading_is_found() {
+        // `phase` is named, but under another heading
+        assert_eq!(
+            unexplained(&[("phase", "Why")], DECISIONS),
+            ["phase: `Why` never names it"]
+        );
+        assert_eq!(unexplained(&[("seed", "Gone")], DECISIONS), ["seed: no heading `Gone`"]);
     }
 
     #[test]
