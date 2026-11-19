@@ -565,3 +565,21 @@ fn a_field_that_is_no_map_needs_a_box_and_a_cell() -> Outcome {
     assert_eq!(framed(&ramp, &[0.5], BOX, 2.0)?.len(), 1);
     Ok(())
 }
+
+#[test]
+fn a_param_of_the_field_is_read_with_the_values_of_the_draw() -> Outcome {
+    let wavelength = bullterrier_vector::Param::new("wavelength", 40.0, 10.0, 80.0)?;
+    let svg = |field: &Field, values: &Values| -> Result<String, Error> {
+        let drawing = Drawing::trace_levels(field, [0.0], Some(BOX), Some(4.0), &raw());
+        Ok(drawing.shapes(values)?.iter().map(|s| s.path().to_svg_path()).collect())
+    };
+    let read = Field::noise(&wavelength, 0.0, 5.0, 2)?;
+    for value in [40.0, 25.0] {
+        let given = Field::noise(value, 0.0, 5.0, 2)?;
+        assert_eq!(
+            svg(&read, &Values::new().set("wavelength", value))?,
+            svg(&given, &Values::new())?
+        );
+    }
+    Ok(())
+}
