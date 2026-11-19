@@ -112,6 +112,7 @@ mod raster_fill;
 mod raster_stroke;
 mod raster_window;
 mod registry;
+mod registry_conventions;
 mod shape;
 mod style_gradient;
 mod style_halftone;
