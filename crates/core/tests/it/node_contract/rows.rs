@@ -1337,6 +1337,40 @@ pub(super) fn rows() -> Vec<Row> {
             }),
         },
         Row {
+            verb: "sweep",
+            sample: || Ok(square()?.sweep(3.0, 4.0, 0.01)),
+            with: Some(|argument, value| match argument {
+                "dx" => Ok(square()?.sweep(value, 0.0, 0.01)),
+                "dy" => Ok(square()?.sweep(0.0, value, 0.01)),
+                "tolerance" => Ok(square()?.sweep(1.0, 1.0, literal(argument, &value)?)),
+                _ => Err(unknown("sweep", argument)),
+            }),
+            ranges: &[
+                ("dx", 0.0, true),
+                ("dx", -1e6, true),
+                ("dx", 2e100, false),
+                ("dx", f64::NAN, false),
+                ("dy", 0.0, true),
+                ("dy", -1e6, true),
+                ("dy", -2e100, false),
+                ("dy", f64::INFINITY, false),
+                ("tolerance", 0.01, true),
+                ("tolerance", 0.0, false),
+                ("tolerance", f64::NAN, false),
+            ],
+            geometry: Some(Geometry {
+                cases: |path, a, b| {
+                    let (dx, dy) = (a % 300.0, b % 300.0);
+                    Ok(vec![(
+                        "sweep",
+                        Drawing::from(path.clone()).sweep(dx, dy, 0.01),
+                        path.sweep(dx, dy, 0.01),
+                    )])
+                },
+                by_hand: &[(SQUARE, |d| Ok(d.sweep(5.0, 0.0, 0.01)), "M0 0 L15 0 L15 10 L0 10 Z")],
+            }),
+        },
+        Row {
             verb: "outline",
             sample: || Ok(square()?.outline(2.0, Join::Miter, Cap::Butt, 4.0, 0.01)),
             with: Some(|argument, value| match argument {

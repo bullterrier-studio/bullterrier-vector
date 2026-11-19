@@ -67,6 +67,7 @@ const NODES: &[&dyn Node] = &[
     &boolean::Resolve,
     &offset::Offset,
     &offset::Outline,
+    &offset::Sweep,
     &select::Only,
     &select::Without,
     &values::WithValues,

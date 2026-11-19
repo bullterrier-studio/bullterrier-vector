@@ -97,6 +97,7 @@ mod path_region;
 mod path_resample;
 mod path_simplify;
 mod path_slice;
+mod path_sweep;
 mod path_taper;
 mod path_transform;
 mod path_twist;

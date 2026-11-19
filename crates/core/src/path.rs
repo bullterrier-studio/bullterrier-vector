@@ -25,6 +25,7 @@ mod resample;
 mod shapes;
 mod simplify;
 mod slice;
+mod sweep;
 mod taper;
 mod transform;
 mod walk;

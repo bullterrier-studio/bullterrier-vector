@@ -1,4 +1,4 @@
-//! The offset steps: `offset` and `outline`.
+//! The offset steps: `offset`, `outline` and `sweep`.
 
 use super::Drawing;
 use crate::node::{Given, offset};
@@ -74,6 +74,23 @@ impl Drawing {
                             .collect(),
                     ),
                 ),
+                ("tolerance", Given::Number(Expr::from(tolerance))),
+            ],
+        )
+    }
+
+    /// This drawing with every shape turned into the region it covers as it moves `dx` to the right and `dy` down in a
+    /// straight line, in design pixels, as [`Path::sweep`](crate::Path::sweep) does: `dx` and `dy` are numbers for
+    /// each shape, as [`Drawing::translate`]'s; `tolerance` is fixed when the step is written, and refused as for
+    /// [`Drawing::offset`]. Each shape keeps its style and attributes (its `origin` is not moved). A draw is refused
+    /// past `MAX_SEGMENTS`.
+    #[must_use]
+    pub fn sweep(&self, dx: impl Into<Expr>, dy: impl Into<Expr>, tolerance: f64) -> Self {
+        self.then(
+            &offset::Sweep,
+            vec![
+                ("dx", Given::Number(dx.into())),
+                ("dy", Given::Number(dy.into())),
                 ("tolerance", Given::Number(Expr::from(tolerance))),
             ],
         )

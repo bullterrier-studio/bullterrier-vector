@@ -1,5 +1,5 @@
 //! The offset steps: `offset` grows or shrinks the region each shape fills, `outline` turns each shape into the region
-//! a stroke along it paints. Each is the `Path` method of the same name applied to each shape's path; the shape keeps
+//! a stroke along it paints, `sweep` into the region it covers moving along a vector. Each is the `Path` method of the same name applied to each shape's path; the shape keeps
 //! its style and attributes.
 
 use super::boolean::TOLERANCE;
@@ -54,6 +54,22 @@ pub(crate) static OUTLINE: Verb = Verb {
         PROFILE,
     ],
     check: Some(profile_is_round),
+};
+
+/// Every shape turned into the region it covers moving along a vector.
+#[derive(Debug)]
+pub(crate) struct Sweep;
+
+pub(crate) static SWEEP: Verb = Verb {
+    name: "sweep",
+    role: Role::Step,
+    summary: "turns every shape into the region it covers as it moves dx to the right and dy down in a straight line, in design pixels (as Path.sweep): the region it fills, its moved copy and what every edge passes over, so a hole it crosses fills in; curves become straight edges within `tolerance` design pixels; no move is the region it fills",
+    args: &[
+        number("dx", None, Domain::Coordinate),
+        number("dy", None, Domain::Coordinate),
+        TOLERANCE,
+    ],
+    check: None,
 };
 
 /// The `profile` of `outline` and `stroke`: `[position, factor]` pairs, each number read for each shape.
@@ -124,6 +140,22 @@ impl Node for Outline {
                     .outline_charged(width, join, cap, miter_limit, tolerance, &mut charge)?,
             };
             Ok(shape.with_path(path))
+        })
+    }
+}
+
+impl Node for Sweep {
+    fn verb(&self) -> &'static Verb {
+        &SWEEP
+    }
+
+    fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
+        let place = cx.place.to_string();
+        let mut charge = |count| cx.work.made_segments(count, &place);
+        let tolerance = args.once_number(cx, "tolerance")?;
+        each_shape(inputs.previous, cx, |shape, item| {
+            let (dx, dy) = (args.number(cx, "dx", item)?, args.number(cx, "dy", item)?);
+            Ok(shape.with_path(shape.path().sweep_charged(dx, dy, tolerance, &mut charge)?))
         })
     }
 }

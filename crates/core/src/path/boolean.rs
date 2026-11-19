@@ -146,6 +146,15 @@ pub(super) fn overlay(
     canonical(shapes, largest(subject).max(largest(clip)))
 }
 
+/// The region `subject` or `clip` fills, as [`overlay`] makes it: for a kernel built on the union (`sweep.rs`).
+pub(super) fn united(
+    subject: &[Contour],
+    clip: &[Contour],
+    charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+) -> Result<Path, Error> {
+    overlay(subject, clip, OverlayRule::Union, charge)
+}
+
 /// The largest coordinate of `contours`: the size the engine's frame, and so the rounding of its result, follows.
 pub(super) fn largest(contours: &[Contour]) -> f64 {
     contours

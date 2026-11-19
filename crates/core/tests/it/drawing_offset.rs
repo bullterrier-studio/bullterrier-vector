@@ -520,3 +520,62 @@ fn a_profile_with_a_square_join_or_cap_or_too_many_stops_is_refused_in_the_step(
     assert!(place.contains("profile"), "{place}");
     Ok(())
 }
+
+// sweep ----------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn a_sweep_for_each_shape_moves_each_its_own_way_and_keeps_its_style() -> Outcome {
+    let red = Color::hex(0xff_00_00);
+    let drawing = Drawing::new([square(0.0, 10.0)?, square(100.0, 10.0)?])
+        .fill(red)
+        .sweep(by_index(5.0, 20.0), 0.0, TOLERANCE);
+    let shapes = drawn(&drawing)?;
+    assert_extent(&shapes[0], [0.0, 0.0, 15.0, 10.0], "the first, swept 5")?;
+    assert_extent(&shapes[1], [100.0, 0.0, 130.0, 10.0], "the second, swept 20")?;
+    let before = drawn(&Drawing::new([square(0.0, 10.0)?]).fill(red))?;
+    assert!(shapes.iter().all(|shape| shape.style() == before[0].style()));
+    Ok(())
+}
+
+#[test]
+fn a_sweep_writes_its_call_and_reads_back_the_same_drawing() -> Outcome {
+    let drawing = Drawing::from(square(0.0, 10.0)?).sweep(-3.0, by_index(1.0, 2.0), TOLERANCE);
+    let text = drawing.to_json()?;
+    assert!(
+        text.contains(r#"{"sweep":{"dx":-3,"dy":{"by_index":{"first":1,"last":2}}}}"#),
+        "{text}"
+    );
+    let again = Drawing::from_json(&text, &Inputs::new())?;
+    assert_eq!(again.to_json()?, text);
+    assert_eq!(
+        drawn(&again)?[0].path().to_svg_path(),
+        square(0.0, 10.0)?.sweep(-3.0, 1.0, TOLERANCE)?.to_svg_path()
+    );
+    let call = |args: &str| format!(r#"{{"version":1,"root":[{{"path":"M0 0 L5 0 L5 5 Z"}},{{"sweep":{args}}}]}}"#);
+    for (args, pointer) in [
+        (r#"{"dx":1}"#, "/root/1/sweep"),
+        (r#"{"dx":"1","dy":0}"#, "/root/1/sweep/dx"),
+        (r#"{"dx":1,"dy":0,"tolerance":0}"#, "/root/1/sweep/tolerance"),
+        (r#"{"dx":1,"dy":0,"by":2}"#, "/root/1/sweep/by"),
+    ] {
+        assert_eq!(
+            format_refusal(Drawing::from_json(&call(args), &Inputs::new()))?.0,
+            pointer,
+            "{args}"
+        );
+    }
+    assert!(drawing_schema().contains("\"sweep\""));
+    Ok(())
+}
+
+#[test]
+fn a_sweep_step_is_charged_and_refused_past_ten_million_segments() -> Outcome {
+    // the diagonal sweep of a disc of 70,000 edges: every parallelogram's box meets nearly every other
+    let drawing = Drawing::from(Path::circle((0.0, 0.0), 1000.0)?).sweep(5000.0, 5000.0, 1e-6);
+    let (name, message) = parameter_refusal(drawing.to_svg(Size::px(100.0, 100.0), &Values::new()))?;
+    assert!(
+        name.contains("sweep") && message.contains("MAX_SEGMENTS"),
+        "{name}: {message}"
+    );
+    Ok(())
+}
