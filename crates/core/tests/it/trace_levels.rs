@@ -560,10 +560,15 @@ fn a_field_that_is_no_map_needs_a_box_and_a_cell() -> Outcome {
     let map = field(2, 2, &[0, 1, 1, 0])?;
     for (trace, name) in [(raw().frame(BOX), "box"), (raw().cell(2.0), "cell")] {
         let drawing = Drawing::trace_labels(&map, 8, &trace);
-        assert!(
-            drawing.error().is_some_and(|error| error.to_string().contains(name)),
-            "{name}"
-        );
+        let message = drawing.error().map(ToString::to_string).unwrap_or_default();
+        // the verb that refuses it, the argument, and the Trace setter it came from
+        for part in [
+            "trace_labels",
+            name,
+            if name == "box" { "Trace::frame" } else { "Trace::cell" },
+        ] {
+            assert!(message.contains(part), "{part} in {message}");
+        }
     }
     assert_eq!(framed(&ramp, &[0.5], BOX, 2.0)?.len(), 1);
     Ok(())

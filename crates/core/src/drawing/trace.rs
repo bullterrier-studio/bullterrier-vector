@@ -79,15 +79,20 @@ impl Drawing {
     /// within the draw's segment budget (naming `max_colors`).
     #[must_use]
     pub fn trace_labels(map: &Field, max_colors: usize, trace: &Trace) -> Self {
-        let unread = [("box", trace.frame.is_some()), ("cell", trace.cell.is_some())];
-        if let Some((name, _)) = unread.into_iter().find(|(_, set)| *set) {
+        let unread = [
+            ("box", "Trace::frame", trace.frame.is_some()),
+            ("cell", "Trace::cell", trace.cell.is_some()),
+        ];
+        if let Some((name, setter, _)) = unread.into_iter().find(|(.., set)| *set) {
             let place = Place {
                 step: 0,
                 verb: trace::TRACE_LABELS.name,
             };
             let error = Error::parameter(
                 name,
-                "is read only by trace_levels: labels are read at the map's own pixels",
+                format!(
+                    "set by `{setter}`, is read only by trace_levels: trace_labels reads a map's own pixels, so pass a `Trace` without it"
+                ),
             );
             return Self {
                 last: Err(Failure::from(error.at_argument(&place, None))),
