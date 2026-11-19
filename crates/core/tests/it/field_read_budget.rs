@@ -215,3 +215,24 @@ fn a_read_of_noise_costs_a_unit_an_octave_and_an_operation_a_unit() -> Outcome {
     assert!(message.contains(&format!("at a cost of {each} each")), "{message}");
     Ok(())
 }
+
+#[test]
+fn a_nested_turn_costs_exactly_a_unit_a_turn_on_top_of_its_flow() -> Outcome {
+    // 90,000 starts of no step, each 6 reads of the flow and no tone: a mix of 64 angles each turned `k` times costs
+    // 64 * (1 + k) + 63 = 64 k + 127 units a read, the budget (200 million) is 370 a read. k = 3 is 319: 172 million,
+    // drawn; k = 4 is 383: 207 million, refused. A turn that cost less than 0.8 or more than 1.3 units, or counted its
+    // flow twice, falls on the wrong side of one of them
+    let region = islands(300, 4.0)?;
+    let turned = |turns: usize| -> Result<Flow, Error> {
+        let mut leaf = Flow::angle(30.0)?;
+        for _ in 0..turns {
+            leaf = leaf.rotate(18.0)?;
+        }
+        balanced_flow(&leaf, 64)
+    };
+    assert_eq!(region.hatch(&Hatch::new(4.0).flow(turned(3)?), None)?.to_svg_path(), "");
+    let (named, message) = parameter_refusal(region.hatch(&Hatch::new(4.0).flow(turned(4)?), None))?;
+    assert_eq!(named, "spacing");
+    assert!(message.contains("units of work"), "{message}");
+    Ok(())
+}
