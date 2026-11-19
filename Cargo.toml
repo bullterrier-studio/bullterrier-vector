@@ -29,7 +29,7 @@ resvg = { version = "=0.49.0", default-features = false }
 # the rasteriser (docs/design-decisions.md, "Rasteriser"): pinned exactly, because pixels are only required to look the
 # same and a new release may move an edge by a level; vello_cpu is used only in crates/core/src/output/raster.rs, kurbo
 # also in outline.rs and mesh.rs
-vello_cpu = { version = "=0.3.0", default-features = false, features = ["std", "u8_pipeline"] }
+vello_cpu = { version = "=0.4.0", default-features = false, features = ["std", "u8_pipeline"] }
 kurbo = "=0.13.1"
 # the PNG encoder (docs/design-decisions.md, "PNG"): pinned exactly, because its bytes may change between releases; it
 # has no default features; used only in crates/core/src/output/png.rs
