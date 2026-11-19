@@ -66,6 +66,23 @@ def nested_through_field_and_flow(leaf_expression):
     return drawing
 
 
+def deepest_field(below, x):
+    """A tone 16 operations deep over the distance to `below` (the deepest field arithmetic); its noise reads x."""
+    tone = btvec.Field.distance(below)
+    for level in range(16):
+        operand = btvec.Field.noise(x * 10, seed=level, octaves=8)
+        tone = abs(tone) if level % 3 == 2 else (tone + operand if level % 2 else tone.max(operand))
+    return tone
+
+
+def nested_through_field_arithmetic(x):
+    """16 drawings nested through the tone of a hatch step, each tone the deepest arithmetic over the level below."""
+    drawing = btvec.Path.circle((5, 5), 2).fill("#112233").translate(x, 0)
+    for _ in range(15):
+        drawing = btvec.Path.circle((5, 5), 4).fill("#445566").hatch((4, 5), tone=deepest_field(drawing, x))
+    return drawing
+
+
 def morph_target_document(levels):
     """A document of `levels` morph steps, each taking the whole chain below it as its `target`, over a leaf that
     reads x (written as a document: the morph step has no Python method yet)."""
@@ -187,6 +204,18 @@ def run():
         del drawing
     elif scenario == "nested_through_field_and_flow":
         drawing = nested_through_field_and_flow(x)
+        every_output(drawing)
+        step("drop")
+        del drawing
+    elif scenario == "nested_through_field_arithmetic":
+        drawing = nested_through_field_arithmetic(x)
+        every_output(drawing)
+        step("drop")
+        del drawing
+        step("deepest field in a document")
+        tone = deepest_field(btvec.Path.circle((5, 5), 2), x)
+        drawing = btvec.Drawing(btvec.Path.rect(0, 0, 10, 10)).hatch((4, 5), tone=tone)
+        assert btvec.Drawing.from_json(drawing.to_json()).to_json() == drawing.to_json()
         every_output(drawing)
         step("drop")
         del drawing
@@ -385,6 +414,9 @@ def last_step(probe: subprocess.CompletedProcess[str]) -> str:
         pytest.param("nested", id="16-drawings-nested"),
         pytest.param("nested_through_other", id="16-drawings-nested-through-the-other-of-booleans"),
         pytest.param("nested_through_field_and_flow", id="16-drawings-nested-through-the-field-and-flow-of-hatches"),
+        pytest.param(
+            "nested_through_field_arithmetic", id="16-drawings-nested-through-tones-of-16-operations-on-fields"
+        ),
         pytest.param("nested_through_morph_target", id="drawings-nested-through-the-target-of-morphs"),
         pytest.param("nested_through_clip", id="16-drawings-nested-through-the-region-of-clips"),
         pytest.param("nested_through_mask", id="16-drawings-nested-through-the-source-of-masks"),

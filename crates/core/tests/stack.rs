@@ -338,6 +338,37 @@ fn the_deepest_document_over_the_deepest_expression_is_loaded_drawn_and_dropped_
 }
 
 #[test]
+fn arithmetic_on_fields_to_the_deepest_nesting_is_read_written_and_hatched_on_the_smallest_stack() -> Outcome {
+    let handle = std::thread::Builder::new().stack_size(SMALLEST_STACK).spawn(|| {
+        let run = || -> Outcome {
+            // 16 operations deep over the distance to a circle, the most the library builds, noise of 8 octaves beside
+            let mut tone = Field::distance(Path::circle((20.0, 20.0), 10.0)?, false)?;
+            for level in 0..16 {
+                let noise = Field::noise(40.0, 0.0, f64::from(level), 8)?;
+                tone = match level % 3 {
+                    0 => tone.max(&noise)?,
+                    1 => tone.add(&noise)?,
+                    _ => tone.abs()?,
+                };
+            }
+            parameter_refusal(tone.abs())?;
+            let square = Path::rect(0.0, 0.0, 40.0, 40.0, 0.0)?;
+            let drawing = Drawing::from(square).hatch(&Hatch::between(4.0, 8.0, tone.clone()), None);
+            let document = drawing.to_json()?;
+            let back = Drawing::from_json(&document, &Inputs::new())?;
+            assert_eq!(back.to_json()?, document);
+            assert!(!back.shapes(&Values::new())?.is_empty());
+            assert!(tone.at((10.0, 10.0)).is_finite());
+            drop(tone);
+            Ok(())
+        };
+        run().map_err(|error| error.to_string())
+    })?;
+    handle.join().map_err(|_| "the thread panicked")??;
+    Ok(())
+}
+
+#[test]
 fn a_flow_mixed_to_the_deepest_nesting_is_read_written_and_hatched_on_the_smallest_stack() -> Outcome {
     let handle = std::thread::Builder::new().stack_size(SMALLEST_STACK).spawn(|| {
         let run = || -> Outcome {
