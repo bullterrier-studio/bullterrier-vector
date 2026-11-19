@@ -2279,3 +2279,10 @@ Why not an existing call:
   `[1.5, 1.5]`) and a second rule beside `density`, which is a pair only. One canonical document form wins: `radius`
   is `Kind::Pair` as `density` is, `(r, r)` for one size in every language; before the first release the format is a
   draft (`formats.md`, "Versioning"), so the presets were written again and no version moved.
+- **Why not 400 for wobble.** `wobble` warps a displacement field over text-sized outlines, where 80 px gives a few
+  bumps along a letter; `Field.noise` and `Flow.noise` are sampled over a whole page, where 400 px gives a few swells
+  across it. The default suits each job, as `tolerance` does. Each is one Rust constant (`WOBBLE_WAVELENGTH`,
+  `NOISE_WAVELENGTH`, beside `NOISE_PHASE`, `NOISE_SEED`, `NOISE_OCTAVES` and `WOBBLE_AMPLITUDE` in `noise.rs`), read
+  by the registry, the document reader and the Python bindings, whose arguments are `None` for the default: no
+  binding, `text_signature` or stub writes the number. *Not* one shared wavelength: one of the two would look wrong
+  untuned.

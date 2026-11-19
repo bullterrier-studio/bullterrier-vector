@@ -89,6 +89,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Num {
     }
 }
 
+/// The number the caller gave, or `default` (one of the core's constants) for `None`.
+pub(crate) fn or(given: Option<Num>, default: f64) -> vector::Expr {
+    given.map_or_else(|| vector::Expr::from(default), |Num(value)| value)
+}
+
 /// A number from `first` on the first shape of the list a step works on to `last` on the last, linear between, by the
 /// shape's `index`; `first` on a single shape.
 #[pyfunction]

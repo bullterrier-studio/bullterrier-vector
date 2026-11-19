@@ -502,9 +502,22 @@ impl PyPath {
     /// The path with its points displaced by smooth seeded noise: `x` and `y` each by at most `amplitude` pixels, the
     /// noise one `wavelength` per lattice cell; `phase` in cycles moves it, `seed` (a whole number) chooses it. Edges
     /// are cut into pieces of a 24th of a wavelength at most, every vertex kept, so the result is made of straight lines.
-    #[pyo3(signature = (*, amplitude=4.0, wavelength=80.0, phase=0.0, seed=0.0))]
-    fn wobble(&self, amplitude: f64, wavelength: f64, phase: f64, seed: f64) -> PyResult<Self> {
-        Self::of(self.0.wobble(amplitude, wavelength, phase, seed))
+    /// `None` takes the default: `amplitude` 4, `wavelength` 80, `phase` 0, `seed` 0.
+    #[pyo3(signature = (*, amplitude=None, wavelength=None, phase=None, seed=None))]
+    fn wobble(
+        &self,
+        amplitude: Option<Plain>,
+        wavelength: Option<Plain>,
+        phase: Option<Plain>,
+        seed: Option<Plain>,
+    ) -> PyResult<Self> {
+        let or = |given: Option<Plain>, default: f64| given.map_or(default, |Plain(value)| value);
+        Self::of(self.0.wobble(
+            or(amplitude, vector::WOBBLE_AMPLITUDE),
+            or(wavelength, vector::WOBBLE_WAVELENGTH),
+            or(phase, vector::NOISE_PHASE),
+            or(seed, vector::NOISE_SEED),
+        ))
     }
 
     /// The path with every point turned about `about` (the middle of the bounds by default) by `angle` degrees clockwise

@@ -13,9 +13,30 @@ use crate::expr::{splitmix, whole_seed};
 use crate::geometry::MAX_COORDINATE;
 
 /// The wavelength, in design pixels, of `Flow.noise` and `Field.noise` when none is given (in Python and in documents).
-// constant: a placeholder until the owner sets the defaults (`docs/api.md`, "Defaults"); `wobble`'s is 80, a separate
-// interface pass unifies them
+// constant: api.md "Inputs" (`Field.noise(*, wavelength=400, ..)`): a noise field is sampled over a whole page
+// (`docs/design-decisions.md`, "Why not 400 for wobble")
 pub const NOISE_WAVELENGTH: f64 = 400.0;
+
+/// The phase, in cycles, of `Flow.noise`, `Field.noise` and `wobble` when none is given.
+// constant: the start of the cycle
+pub const NOISE_PHASE: f64 = 0.0;
+
+/// The seed of `Flow.noise`, `Field.noise` and `wobble` when none is given.
+// constant: the first seed
+pub const NOISE_SEED: f64 = 0.0;
+
+/// The octaves of `Field.noise` when none is given: the noise alone.
+// constant: one octave adds nothing finer
+pub const NOISE_OCTAVES: usize = 1;
+
+/// The wavelength, in design pixels, of `wobble` when none is given.
+// constant: api.md "Verbs on Path and Drawing" (`wobble(*, amplitude=4, wavelength=80, ..)`): `wobble` warps text-sized
+// outlines (`docs/design-decisions.md`, "Why not 400 for wobble")
+pub const WOBBLE_WAVELENGTH: f64 = 80.0;
+
+/// The amplitude, in design pixels, of `wobble` when none is given.
+// constant: api.md "Verbs on Path and Drawing" (`wobble(*, amplitude=4, ..)`)
+pub const WOBBLE_AMPLITUDE: f64 = 4.0;
 
 /// The shortest wavelength of noise, in design pixels.
 // constant: a coordinate within ±1e100 (`MAX_COORDINATE`) read at the eighth octave of `Field::noise` (128 times finer)

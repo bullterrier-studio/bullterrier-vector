@@ -1,7 +1,7 @@
 //! `Drawing`: a tree of steps that draws shapes.
 
 use crate::branch::branch_of;
-use crate::expr::{Num, PyExpr, PyParam};
+use crate::expr::{Num, PyExpr, PyParam, or};
 use crate::field::{PyField, PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
 use crate::halftone::{ShapeArg, ToneArg, halftone_of};
 use crate::inputs::{By, Item, Pair};
@@ -341,8 +341,6 @@ impl PyDrawing {
         angle: Option<Num>,
         phase: Option<Num>,
     ) -> PyResult<Self> {
-        let or =
-            |given: Option<Num>, default: f64| given.map_or_else(|| vector::Expr::from(default), |Num(value)| value);
         checked(self.0.wave(
             or(amplitude, 8.0),
             or(wavelength, 120.0),
@@ -352,12 +350,9 @@ impl PyDrawing {
     }
 
     /// Every shape with its points displaced by smooth seeded noise (each argument a number, a Param or an expression,
-    /// read per shape); as `Path.wobble`. The noise is anchored in the design frame, so the letters of a word share one
-    /// field.
-    #[pyo3(
-        signature = (*, amplitude=None, wavelength=None, phase=None, seed=None),
-        text_signature = "($self, *, amplitude=4, wavelength=80, phase=0, seed=0)"
-    )]
+    /// read per shape; `None` for the defaults 4, 80, 0 and 0); as `Path.wobble`. The noise is anchored in the design
+    /// frame, so the letters of a word share one field.
+    #[pyo3(signature = (*, amplitude=None, wavelength=None, phase=None, seed=None))]
     fn wobble(
         &self,
         amplitude: Option<Num>,
@@ -365,12 +360,12 @@ impl PyDrawing {
         phase: Option<Num>,
         seed: Option<Num>,
     ) -> PyResult<Self> {
-        let or =
-            |given: Option<Num>, default: f64| given.map_or_else(|| vector::Expr::from(default), |Num(value)| value);
-        checked(
-            self.0
-                .wobble(or(amplitude, 4.0), or(wavelength, 80.0), or(phase, 0.0), or(seed, 0.0)),
-        )
+        checked(self.0.wobble(
+            or(amplitude, vector::WOBBLE_AMPLITUDE),
+            or(wavelength, vector::WOBBLE_WAVELENGTH),
+            or(phase, vector::NOISE_PHASE),
+            or(seed, vector::NOISE_SEED),
+        ))
     }
 
     /// Every shape with its points turned about a center, less the farther out they are (each argument a number, a Param

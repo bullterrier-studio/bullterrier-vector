@@ -12,7 +12,7 @@ use super::value::Json;
 use super::write::Writer;
 use crate::field::{FieldKind, FieldOp, FlowKind};
 use crate::param::is_name;
-use crate::{Error, Field, Flow, NOISE_WAVELENGTH, Point, Reads, Rect};
+use crate::{Error, Field, Flow, NOISE_OCTAVES, NOISE_PHASE, NOISE_SEED, NOISE_WAVELENGTH, Point, Reads, Rect};
 use std::collections::BTreeMap;
 
 /// The calls that make a field.
@@ -219,7 +219,8 @@ impl Reader {
     /// The arguments of `Field.noise`: `wavelength`, `phase`, `seed` and `octaves`.
     fn noise(&mut self, here: &str, args: &BTreeMap<String, Json>) -> Result<FieldWhat, Error> {
         only(here, args, &["wavelength", "phase", "seed", "octaves"])?;
-        let octaves = literal(here, args, "octaves", Some(1.0))?;
+        #[expect(clippy::cast_precision_loss, reason = "a count of octaves, far below 2^53")]
+        let octaves = literal(here, args, "octaves", Some(NOISE_OCTAVES as f64))?;
         // a whole number from 1, which Field::noise checks against its limit
         #[expect(
             clippy::cast_possible_truncation,
@@ -236,8 +237,8 @@ impl Reader {
         };
         Ok(FieldWhat::Noise {
             wavelength: self.once_arg(here, args, "wavelength", Some(NOISE_WAVELENGTH))?,
-            phase: self.once_arg(here, args, "phase", Some(0.0))?,
-            seed: literal(here, args, "seed", Some(0.0))?,
+            phase: self.once_arg(here, args, "phase", Some(NOISE_PHASE))?,
+            seed: literal(here, args, "seed", Some(NOISE_SEED))?,
             octaves,
         })
     }
@@ -296,8 +297,8 @@ impl Reader {
                 only(&here, args, &["wavelength", "phase", "seed"])?;
                 FlowWhat::Noise {
                     wavelength: self.once_arg(&here, args, "wavelength", Some(NOISE_WAVELENGTH))?,
-                    phase: self.once_arg(&here, args, "phase", Some(0.0))?,
-                    seed: literal(&here, args, "seed", Some(0.0))?,
+                    phase: self.once_arg(&here, args, "phase", Some(NOISE_PHASE))?,
+                    seed: literal(&here, args, "seed", Some(NOISE_SEED))?,
                 }
             }
             "Flow.contour" => {

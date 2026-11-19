@@ -1,6 +1,8 @@
 """`Field.noise` and arithmetic on fields through the public package: the operators, `min`, `max`, `abs`, numbers and
 Params as operands, and the errors. Expected values are the operands' own readings combined here."""
 
+import json
+
 import pytest
 
 import bullterrier_vector as btvec
@@ -122,3 +124,27 @@ def test_a_tree_deeper_than_sixteen_is_refused() -> None:
 def test_an_operand_that_is_no_field_or_number_is_a_type_error() -> None:
     with pytest.raises(TypeError):
         NOISE + "1"  # type: ignore[operator]
+
+
+def test_noise_left_unset_is_400_long_at_phase_0_seed_0_and_one_octave_in_code_and_in_a_document() -> None:
+    box = btvec.Path.rect(0, 0, 900, 300)
+
+    def drawn(tone: btvec.Field, flow: btvec.Flow) -> str:
+        rows = btvec.Drawing(box).rows(20, tone=tone, amplitude=30).shapes()[0].path.to_svg_path()
+        return rows + box.hatch(25, tone=0.5, flow=flow).to_svg_path()
+
+    written = drawn(
+        btvec.Field.noise(wavelength=400, phase=0, seed=0, octaves=1),
+        btvec.Flow.noise(wavelength=400, phase=0, seed=0),
+    )
+    assert drawn(btvec.Field.noise(), btvec.Flow.noise()) == written
+    step = {"rows": {"spacing": 20, "tone": {"Field.noise": {}}, "amplitude": 30}}
+    document = {"version": 1, "root": [{"path": box.to_svg_path()}, step]}
+    loaded = btvec.Drawing.from_json(json.dumps(document)).shapes()[0].path.to_svg_path()
+    assert (
+        loaded
+        == btvec.Drawing(box)
+        .rows(20, tone=btvec.Field.noise(wavelength=400), amplitude=30)
+        .shapes()[0]
+        .path.to_svg_path()
+    )

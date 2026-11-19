@@ -4,6 +4,7 @@
 use super::{Args, Context, Inputs, Item, Node, each_shape};
 use crate::geometry::MAX_COORDINATE;
 use crate::limits::MAX_DASH_PATTERN;
+use crate::noise::{NOISE_PHASE, NOISE_SEED, WOBBLE_AMPLITUDE, WOBBLE_WAVELENGTH};
 use crate::path::{Guide, STRONGEST_BULGE, STRONGEST_BULGE_RULE, rotate_point, scale_point};
 use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Rect, Role, Shape, Verb};
 
@@ -398,15 +399,25 @@ pub(crate) static WOBBLE: Verb = Verb {
     role: Role::Step,
     summary: "displaces the points of every shape by smooth seeded noise of amplitude design pixels (each of x and y at most that) and the given wavelength, phase in cycles moving it and seed (a whole number) choosing it; the noise is anchored in the design frame, so one field runs across all the letters of a word, and the edges are cut so the result is smooth, corners kept",
     args: &[
-        per_shape("amplitude", Kind::Number, Some(Literal::Number(4.0)), Domain::Finite),
+        per_shape(
+            "amplitude",
+            Kind::Number,
+            Some(Literal::Number(WOBBLE_AMPLITUDE)),
+            Domain::Finite,
+        ),
         per_shape(
             "wavelength",
             Kind::Number,
-            Some(Literal::Number(80.0)),
+            Some(Literal::Number(WOBBLE_WAVELENGTH)),
             Domain::PositiveUpTo(MAX_COORDINATE),
         ),
-        per_shape("phase", Kind::Number, Some(Literal::Number(0.0)), Domain::Finite),
-        per_shape("seed", Kind::Number, Some(Literal::Number(0.0)), Domain::Finite),
+        per_shape(
+            "phase",
+            Kind::Number,
+            Some(Literal::Number(NOISE_PHASE)),
+            Domain::Finite,
+        ),
+        per_shape("seed", Kind::Number, Some(Literal::Number(NOISE_SEED)), Domain::Finite),
     ],
     check: None,
 };

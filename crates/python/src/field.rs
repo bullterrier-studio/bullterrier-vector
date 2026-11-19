@@ -1,7 +1,7 @@
 //! `Field` and `Flow`: a number and a direction at every point, the inputs of `hatch`.
 
 use crate::drawing::refuse_expr;
-use crate::expr::Num;
+use crate::expr::{Num, or};
 use crate::inputs::Item;
 use crate::trace::whole;
 use crate::{Frame, Pt, PyPath, raised};
@@ -149,24 +149,26 @@ impl PyField {
         raised(py.detach(|| self.0.contours_with(&levels, r#box.0, cell, &tidy))).map(PyPath)
     }
 
-    /// Smooth seeded noise from -1 to 1, one lattice cell `wavelength` design pixels wide; `phase` in cycles moves it (one
-    /// cycle on is the same field, up to the rounding of the sum), each of `octaves` (1 to 8) adds the noise at half the
-    /// wavelength and half the amplitude. `wavelength` and `phase` may be `Param`s.
+    /// Smooth seeded noise from -1 to 1, one lattice cell `wavelength` design pixels wide (400 when `None`); `phase` in
+    /// cycles (0) moves it (one cycle on is the same field, up to the rounding of the sum), `seed` (0) chooses it, each
+    /// of `octaves` (1 to 8; 1) adds the noise at half the wavelength and half the amplitude. `wavelength` and `phase`
+    /// may be `Param`s.
     #[staticmethod]
-    #[pyo3(
-        signature = (*, wavelength=None, phase=None, seed=0.0, octaves=None),
-        text_signature = "(*, wavelength=400, phase=0, seed=0, octaves=1)"
-    )]
+    #[pyo3(signature = (*, wavelength=None, phase=None, seed=None, octaves=None))]
     fn noise(
         wavelength: Option<Num>,
         phase: Option<Num>,
-        seed: f64,
+        seed: Option<f64>,
         octaves: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        let wavelength = wavelength.map_or_else(|| vector::Expr::from(vector::NOISE_WAVELENGTH), |number| number.0);
-        let phase = phase.map_or_else(|| vector::Expr::from(0.0), |number| number.0);
-        let octaves = octaves.map_or(Ok(1), |count| whole("octaves", count))?;
-        raised(vector::Field::noise(wavelength, phase, seed, octaves)).map(Self)
+        let octaves = octaves.map_or(Ok(vector::NOISE_OCTAVES), |count| whole("octaves", count))?;
+        raised(vector::Field::noise(
+            or(wavelength, vector::NOISE_WAVELENGTH),
+            or(phase, vector::NOISE_PHASE),
+            seed.unwrap_or(vector::NOISE_SEED),
+            octaves,
+        ))
+        .map(Self)
     }
 
     /// The smaller of this field and `other` (a `Field` or a number) at each point.
@@ -268,17 +270,18 @@ impl PyFlow {
         raised(vector::Flow::angle(angle.0)).map(Self)
     }
 
-    /// Smooth seeded noise; `phase` in cycles moves it, one cycle on is the same flow up to the rounding of the sum. `wavelength` and `phase` may be
-    /// `Param`s.
+    /// Smooth seeded noise, one lattice cell `wavelength` design pixels wide (400 when `None`); `phase` in cycles (0)
+    /// moves it, one cycle on is the same flow up to the rounding of the sum; `seed` (0) chooses it. `wavelength` and
+    /// `phase` may be `Param`s.
     #[staticmethod]
-    #[pyo3(
-        signature = (*, wavelength=None, phase=None, seed=0.0),
-        text_signature = "(*, wavelength=400, phase=0, seed=0)"
-    )]
-    fn noise(wavelength: Option<Num>, phase: Option<Num>, seed: f64) -> PyResult<Self> {
-        let wavelength = wavelength.map_or_else(|| vector::Expr::from(vector::NOISE_WAVELENGTH), |number| number.0);
-        let phase = phase.map_or_else(|| vector::Expr::from(0.0), |number| number.0);
-        raised(vector::Flow::noise(wavelength, phase, seed)).map(Self)
+    #[pyo3(signature = (*, wavelength=None, phase=None, seed=None))]
+    fn noise(wavelength: Option<Num>, phase: Option<Num>, seed: Option<f64>) -> PyResult<Self> {
+        raised(vector::Flow::noise(
+            or(wavelength, vector::NOISE_WAVELENGTH),
+            or(phase, vector::NOISE_PHASE),
+            seed.unwrap_or(vector::NOISE_SEED),
+        ))
+        .map(Self)
     }
 
     /// The direction of the outline of `drawing` (a Path, a Shape or a Drawing: all its shapes together, drawn with the

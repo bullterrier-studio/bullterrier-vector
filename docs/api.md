@@ -1292,7 +1292,7 @@ macOS). In Python and JavaScript the error points at the call that caused it; in
   are read at their defaults, as `field.at` reads them). Wrap the path in `btvec.Drawing(path)` to vary it. In Rust
   the `Rows`, `Bands`, `Stipple` and `Hatch` a `Path` verb takes can hold a Param, read at its default.
 - **Defaults look good** with no tuning: a default comes from a gallery piece, not from a round number. The defaults
-  written here (leading 1.2 × size, spacing 8, shadow 8 and 16, wavelengths 80, 120 and 400...) are placeholders until the
+  written here (leading 1.2 × size, spacing 8, shadow 8 and 16, `wave`'s wavelength 120...) are placeholders until the
   batch that builds the step tunes them with its gallery piece.
 - **Reading as a sentence.** `plane.subtract(letters)`, `figure.offset(8)`,
   `letters.only(char="O")`, `petal.rotate(30)`. Related verbs sit together in the tables above.

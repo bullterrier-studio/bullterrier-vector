@@ -67,3 +67,12 @@ def test_a_number_the_verb_cannot_use_is_refused_naming_it(name: str) -> None:
 def test_a_tiny_wavelength_is_refused_not_allocated() -> None:
     with pytest.raises(btvec.ParameterError, match="MAX_SEGMENTS"):
         btvec.Path.line((0, 0), (1000, 0)).wobble(wavelength=1e-9)
+
+
+def test_a_wobble_left_unset_is_4_high_80_long_at_phase_0_and_seed_0_in_a_path_a_step_and_a_document() -> None:
+    word = btvec.Path.rect(0, 0, 300, 120)
+    written = word.wobble(amplitude=4, wavelength=80, phase=0, seed=0).to_svg_path()
+    assert word.wobble().to_svg_path() == written
+    assert btvec.Drawing(word).wobble().shapes()[0].path.to_svg_path() == written
+    document = {"version": 1, "root": [{"path": word.to_svg_path()}, {"wobble": {}}]}
+    assert btvec.Drawing.from_json(json.dumps(document)).shapes()[0].path.to_svg_path() == written
