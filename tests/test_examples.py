@@ -871,6 +871,26 @@ def test_the_node_example_of_eaten_letters_carries_the_document_of_the_python_dr
     assert document.read_text(encoding="utf-8") == drawing.to_json()
 
 
+def test_threads_grow_out_of_the_letter_and_the_node_example_carries_their_document(run):
+    found = run("threads")
+    drawing = found["drawing"]
+    letter = btvec.Drawing(found["letter"]).shapes()[0].path
+    threads = found["threads"].shapes()
+    assert len(threads) > 50
+    for shape in threads:
+        root = shape.attributes["origin"]
+        # every path starts on the letter's outline and its first step leaves the letter's region
+        assert abs(btvec.Field.distance(letter).at(root.x, root.y)) < 1e-6
+        assert not letter.contains(shape.path.point_at(0.05))
+    # halfway grown, every thread is drawn, each half as long
+    grown, half = (found["threads"].slice(0, g).shapes() for g in (1, 0.5))
+    assert len(grown) == len(half)
+    for whole, part in zip(grown, half, strict=True):
+        assert part.path.length == pytest.approx(whole.path.length / 2, rel=1e-9)
+    document = EXAMPLES.parent / "crates" / "wasm" / "examples" / "threads.json"
+    assert document.read_text(encoding="utf-8") == drawing.to_json()
+
+
 def test_trace_sequence_smoothing_removes_most_dropout_holes(run):
     found = run("trace_sequence")
     outlines = lambda drawing: drawing.to_svg(640, 640).count("M")  # noqa: E731

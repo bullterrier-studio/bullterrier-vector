@@ -1441,6 +1441,7 @@ def main(output: Path) -> None:
         "line_families": example_everywhere("line_families"),
         "halftone": example_everywhere("halftone"),
         "trace": example_everywhere("trace"),
+        "threads": example_everywhere("threads"),
         "overlay": example_everywhere("overlay"),
         "kinetic_type": example_everywhere("kinetic_type"),
         "plots": plots(),

@@ -17,6 +17,7 @@ const EXAMPLES = {
   kinetic_type: "hairlines, kick, bend or morph",
   line_families: "still or plot",
   overlay: "still",
+  threads: "grown or half",
   trace: "still",
 };
 

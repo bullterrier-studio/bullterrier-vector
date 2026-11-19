@@ -223,6 +223,7 @@ project-triggers = [
     "examples/line_families.py",
     "examples/halftone.py",
     "examples/trace.py",
+    "examples/threads.py",
     "examples/overlay.py",
     "examples/kinetic_type.py",
     "examples/fonts/*",
