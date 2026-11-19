@@ -1078,7 +1078,9 @@ fn a_spike_far_above_the_tolerance_offsets_within_it() -> Outcome {
 #[test]
 fn a_zig_zag_under_half_the_tolerance_is_dropped_and_over_it_is_kept() -> Outcome {
     let top = |height: f64| -> Result<f64, Error> {
-        let mut bar: Corners = (0..=8).map(|k| (f64::from(k), if k % 2 == 1 { -height } else { 0.0 })).collect();
+        let mut bar: Corners = (0..=8)
+            .map(|k| (f64::from(k), if k % 2 == 1 { -height } else { 0.0 }))
+            .collect();
         bar.extend([(8.0, 5.0), (0.0, 5.0)]);
         Ok(extent(&polygons_path(&[bar])?.offset(1.0, Join::Miter, LIMIT, TOLERANCE)?)?.1)
     };
@@ -1112,7 +1114,12 @@ fn a_hidden_spike_throws_no_miter_and_a_visible_one_does() -> Outcome {
             Ok(extent(&grown)?.1)
         };
         // hidden: the plain square's top, `distance` above it
-        assert_near(lowest(0.0049)?, -distance, 1e-3, &format!("hidden, limit {limit}, distance {distance}"));
+        assert_near(
+            lowest(0.0049)?,
+            -distance,
+            1e-3,
+            &format!("hidden, limit {limit}, distance {distance}"),
+        );
         // visible: the apex's miter, `distance / sin(half angle)` above the apex
         assert_near(
             lowest(0.0051)?,
