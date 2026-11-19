@@ -21,6 +21,7 @@
     reason = "the counts of cells are worked out in floats and checked against the work limit before they are used"
 )]
 
+use crate::field::Outline;
 use crate::geometry::Point;
 use crate::lines::{Family, Layout, RoundRows, corners, middle, polar, ray_wedges, ring_cells};
 use crate::math::sin_cos_deg;
@@ -65,7 +66,7 @@ impl Dots {
 
 /// The screen `halftone` makes over the shape whose outline is `outline`, in design pixels.
 ///
-/// The work is charged to `charge` before any dot is made, as [`charged`] does.
+/// The dots are charged to `charge` before any is made, and the edges each is placed against before they are weighed.
 ///
 /// # Errors
 /// What `charge` returns, and [`Error::Parameter`] naming `shape` for an outline that cannot be a dot.
@@ -80,13 +81,11 @@ pub(super) fn screen(
             inside: Vec::new(),
             crossing: Vec::new(),
         }),
-        Plan::Cells(cells) => Screen::Dots(cells.dots(halftone)),
+        Plan::Cells(cells) => Screen::Dots(cells.dots(halftone, charge)?),
     })
 }
 
-/// Charges `charge` what [`screen`] would, for each cell near the shape the edges of the outline it is tested against
-/// and the corners of its dot, and makes no dot: a pitch too small for its shape is refused rather than allocated, and
-/// a shape that is not drawn is refused the same.
+/// Charges `charge` what [`screen`] would and keeps no dot: a shape that is not drawn is refused as a drawn one is.
 ///
 /// # Errors
 /// As [`screen`].
@@ -95,7 +94,7 @@ pub(super) fn charged(
     outline: &[Polyline],
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<(), Error> {
-    plan(halftone, outline, charge).map(|_| ())
+    screen(halftone, outline, charge).map(drop)
 }
 
 /// What a halftone makes of a shape, once its work is charged.
@@ -105,7 +104,7 @@ enum Plan {
     /// No dot touches the shape.
     Bare,
     /// The cells to make dots in.
-    Cells(Cells),
+    Cells(Box<Cells>),
 }
 
 /// The rows of cells a screen has near a shape.
@@ -138,7 +137,8 @@ struct Cell {
 
 /// The cells whose dots can reach a shape, and what a dot is.
 struct Cells {
-    edges: Vec<(Point, Point)>,
+    /// The outline's edges in a grid, so that a dot is placed against the edges near it.
+    outline: Outline,
     bounds: (f64, f64, f64, f64),
     layout: Layout,
     centre: Point,
@@ -162,9 +162,11 @@ fn plan(
     if level.is_some_and(|tone| tone <= 0.0) {
         return Ok(Plan::Solid);
     }
-    let bare = level.is_some_and(|tone| tone >= 1.0);
-    let edges = edges(outline);
-    let Some(bounds) = bounds(outline).filter(|_| !bare && !edges.is_empty()) else {
+    if level.is_some_and(|tone| tone >= 1.0) {
+        return Ok(Plan::Bare);
+    }
+    // an outline of no edge (lone points) fills nothing
+    let (Some(bounds), Ok(edges)) = (bounds(outline), Outline::from_polylines(outline, "halftone")) else {
         return Ok(Plan::Bare);
     };
     let pitch = halftone.pitch();
@@ -196,9 +198,9 @@ fn plan(
     };
     let centre = halftone.centre().unwrap_or_else(|| middle(rect));
     let (rows, cells) = rows(&layout, rect, centre, reach_px)?;
-    // a cell is a lattice point or a wedge: the work is its edges tested and its corners made
+    // a cell is a lattice point or a wedge: the work here is its corners made, the edges near it are charged as weighed
     let work = if cells.is_finite() {
-        (cells * (edges.len() + corners_of_dot) as f64) as usize
+        (cells * corners_of_dot as f64) as usize
     } else {
         usize::MAX
     };
@@ -206,15 +208,15 @@ fn plan(
     if let Some(field) = halftone.tone().field() {
         field.charge_reads("pitch", "halftone", cells)?;
     }
-    Ok(Plan::Cells(Cells {
-        edges,
+    Ok(Plan::Cells(Box::new(Cells {
+        outline: edges,
         bounds,
         layout,
         centre,
         rows,
         dot,
         reach,
-    }))
+    })))
 }
 
 /// The rows of cells of `layout` that can reach the box `rect` with a dot that reaches `reach_px`, and an upper bound of
@@ -370,8 +372,15 @@ impl Cells {
         }
     }
 
-    /// The dots of the cells that touch the shape.
-    fn dots(&self, halftone: &HalftoneStyle) -> Dots {
+    /// The dots of the cells that touch the shape, each charged to `charge` the edges it is placed against.
+    ///
+    /// # Errors
+    /// What `charge` returns.
+    fn dots(
+        &self,
+        halftone: &HalftoneStyle,
+        charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+    ) -> Result<Dots, Error> {
         let tone = halftone.tone();
         let (left, top, right, bottom) = self.bounds;
         let mut dots = Dots {
@@ -380,7 +389,11 @@ impl Cells {
         };
         // the polygon of the last area and size: a number's dots are all one
         let mut last: Option<Made> = None;
+        let mut failed = None;
         self.each_cell(|cell| {
+            if failed.is_some() {
+                return;
+            }
             let size = cell.along.max(cell.across);
             let margin = self.reach * size + 1.0;
             let at = cell.centre;
@@ -409,14 +422,40 @@ impl Cells {
                 .iter()
                 .map(|p| crate::field::length(p.x - at.x, p.y - at.y))
                 .fold(0.0, f64::max);
-            let target = match place(at, radius, &self.edges) {
-                Place::Outside => return,
-                Place::Inside => &mut dots.inside,
-                Place::Crossing => &mut dots.crossing,
+            let target = match self.place(at, radius, charge) {
+                Ok(Place::Outside) => return,
+                Ok(Place::Inside) => &mut dots.inside,
+                Ok(Place::Crossing) => &mut dots.crossing,
+                Err(error) => {
+                    failed = Some(error);
+                    return;
+                }
             };
             target.push(polygon);
         });
-        dots
+        failed.map_or(Ok(dots), Err)
+    }
+
+    /// Where a dot of this `radius` about `centre` lies against the shape: crossing if an edge comes nearer than the
+    /// radius, else inside or outside as the nonzero rule fills the centre.
+    ///
+    /// # Errors
+    /// What `charge` returns.
+    fn place(
+        &self,
+        centre: Point,
+        radius: f64,
+        charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+    ) -> Result<Place, Error> {
+        if self.outline.reaches(centre, radius, charge)? {
+            return Ok(Place::Crossing);
+        }
+        charge(self.outline.contains_cost(centre))?;
+        Ok(if self.outline.contains(centre) {
+            Place::Inside
+        } else {
+            Place::Outside
+        })
     }
 }
 
@@ -435,59 +474,4 @@ fn bounds(outline: &[Polyline]) -> Option<(f64, f64, f64, f64)> {
         (first.x, first.y, first.x, first.y),
         |(left, top, right, bottom), at| (left.min(at.x), top.min(at.y), right.max(at.x), bottom.max(at.y)),
     ))
-}
-
-/// The edges of `outline`, an open sub-path closed as a fill closes it; a lone point has none.
-fn edges(outline: &[Polyline]) -> Vec<(Point, Point)> {
-    let mut edges = Vec::new();
-    for polyline in outline.iter().filter(|polyline| polyline.points.len() > 1) {
-        let points = &polyline.points;
-        edges.extend(
-            points
-                .iter()
-                .enumerate()
-                .map(|(at, from)| (*from, points[(at + 1) % points.len()])),
-        );
-    }
-    edges
-}
-
-/// Where a dot of this `radius` about `centre` lies against the shape with these `edges`: inside if the centre is
-/// inside (by the nonzero rule) and no edge comes closer than the radius, outside if the centre is outside and none does,
-/// else crossing.
-fn place(centre: Point, radius: f64, edges: &[(Point, Point)]) -> Place {
-    let limit = radius * radius;
-    let mut winding = 0_i32;
-    for &(from, to) in edges {
-        // an edge whose box is a radius away from the centre is not nearer than one
-        let far = from.x.max(to.x) < centre.x - radius
-            || from.x.min(to.x) > centre.x + radius
-            || from.y.max(to.y) < centre.y - radius
-            || from.y.min(to.y) > centre.y + radius;
-        if !far && nearness(centre, from, to) < limit {
-            return Place::Crossing;
-        }
-        // the sign of the cross product says which side of the edge the centre is on
-        let side = (to.x - from.x) * (centre.y - from.y) - (centre.x - from.x) * (to.y - from.y);
-        if from.y <= centre.y && to.y > centre.y && side > 0.0 {
-            winding += 1;
-        } else if from.y > centre.y && to.y <= centre.y && side < 0.0 {
-            winding -= 1;
-        }
-    }
-    if winding == 0 { Place::Outside } else { Place::Inside }
-}
-
-/// The square of the distance from `at` to the segment from `from` to `to`.
-fn nearness(at: Point, from: Point, to: Point) -> f64 {
-    let (along_x, along_y) = (to.x - from.x, to.y - from.y);
-    let length = along_x * along_x + along_y * along_y;
-    // an edge of length 0 is its point
-    let share = if length > 0.0 {
-        (((at.x - from.x) * along_x + (at.y - from.y) * along_y) / length).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-    let (x, y) = (from.x + along_x * share - at.x, from.y + along_y * share - at.y);
-    x * x + y * y
 }

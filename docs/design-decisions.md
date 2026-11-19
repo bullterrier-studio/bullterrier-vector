@@ -932,7 +932,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **Halftone limit** (2026-11-08). The lattice points near a shape, each times the edges of its outline and the corners of
   one dot, are charged to `MAX_SEGMENTS` before a dot is made, and the error names the `pitch`. *Reason:* each dot is
   tested against every edge (no spatial index: a few thousand dots on a few hundred edges is the use), and the dot's
-  corners follow from its radius, so a huge pitch is refused as a tiny one is.
+  corners follow from its radius, so a huge pitch is refused as a tiny one is. Superseded by "A halftone over a cut-out"
+  below: the edges are in a grid and charged as weighed.
 
 ## Paint and compositing style (V10d)
 
@@ -1980,8 +1981,8 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
 - **`line` and `matrix` are left out.** `bands` draws lines along these layouts, with the width carrying the tone; a caller's
   `Path` is the matrix. Image has both because it has no path.
 - **Work.** The cells near the shape are counted before any is made: an upper bound per layout (a rectangle of the lattice,
-  the rows times the cells of the outermost, `Layout::round_rows`), each times the outline's edges plus a dot's corners, charged to
-  `MAX_SEGMENTS`, so a tiny pitch, a far centre or an `aspect` of 1e100 is refused naming `pitch` before an allocation. A
+  the rows times the cells of the outermost, `Layout::round_rows`), each times a dot's corners (the outline's edges were in
+  it too until "A halftone over a cut-out"), charged to `MAX_SEGMENTS`, so a tiny pitch, a far centre or an `aspect` of 1e100 is refused naming `pitch` before an allocation. A
   dot's reach is worked out from the mark, never from a polygon made for the purpose: the first version made one to measure,
   and a huge `aspect` allocated 4 GB before the charge ran (found by the adversarial test, which now stays).
 - **Plotter output.** `to_plot_svg` draws a halftone as its dots, hatched at the pen width like any solid: the region is the
@@ -2149,3 +2150,22 @@ now takes the convention the line families already have.
   a Param or an expression, or a pair of them); in Rust the constructor takes the pair as `Bands::lines` takes its `width`,
   `(r0, r1)`, `(r, r)` for one size: a generic "number or pair" type would be a second Rust spelling of the same pair.
 - **Read once.** A per-item number is refused in either, as for every number of the line families.
+
+## A halftone over a cut-out
+
+A halftone on a 1200 by 600 frame minus a headline was refused (`shape 0 pitch: MAX_SEGMENTS 10000000 passed`) at pitch
+9 and 14 (20 and 30 with a longer headline), while the plain frame and `stipple` of the same region drew. Not the box:
+the frame minus letters has the frame's box, so the same cells (9,590 at pitch 9). The edges: the charge was the cells
+times (the outline's edges + a dot's corners), because each dot was placed by walking every edge, and the cut-out has
+1,492 edges against the frame's 4 (9,590 x 1,524 = 14.6 million). The charge was honest about a needless walk: the
+library already owns a grid of a path's edges (`field/outline.rs`, which `stipple` and the fields read), and the screen
+kept a second, linear copy of the same question (inside by the nonzero rule, an edge within a radius).
+
+- **Fixed at the one owner.** `output/screen.rs` places a dot with `Outline`: an edge nearer the centre than the dot's
+  reach (the cells within that reach only, `Outline::reaches`) makes it crossing, else `contains` says inside or outside.
+  The charge before any dot is the cells times a dot's corners; each placement charges the cells and edges it weighs
+  (and `contains_cost`) before it weighs them, so a comb of edges is still bounded. The same squared distance and nonzero
+  rule as before: the SVG, pixels, mesh and plot of every halftone preset, example and differential row hash as they did.
+- **Numbers.** The cut-out now draws at pitch 9 in 0.10 s (the plain frame 0.10 s) and at pitch 4 in 0.34 s (0.38 s);
+  pitch 2 is refused for both, by the dots' corners, as the plain frame was before. `charged`, the work of a shape off
+  the canvas, now runs the placement too, so every output refuses the same pitch.

@@ -229,6 +229,33 @@ impl Outline {
         }
     }
 
+    /// Whether an edge comes nearer `point` than `radius` (its squared distance below `radius` squared). Only the edges
+    /// of the cells within `radius` are weighed; `charge` is told the cells and the edges weighed, before any is.
+    ///
+    /// # Errors
+    /// What `charge` returns.
+    pub(crate) fn reaches(
+        &self,
+        point: Point,
+        radius: f64,
+        charge: &mut dyn FnMut(usize) -> Result<(), Error>,
+    ) -> Result<bool, Error> {
+        let (columns, rows) = (
+            self.column_of(point.x - radius)..=self.column_of(point.x + radius),
+            self.row_of(point.y - radius)..=self.row_of(point.y + radius),
+        );
+        let near: Vec<&Vec<u32>> = rows
+            .flat_map(|row| columns.clone().map(move |column| row * self.columns + column))
+            .map(|cell| &self.cells[cell])
+            .collect();
+        charge(near.iter().map(|list| 1 + list.len()).sum())?;
+        let limit = radius * radius;
+        Ok(near.iter().copied().flatten().any(|&id| {
+            let (from, to) = self.edges[id as usize];
+            nearness(point, from, to) < limit
+        }))
+    }
+
     fn in_grid(&self, point: Point) -> bool {
         let (right, bottom) = (
             self.left + self.columns as f64 * self.size,
@@ -449,6 +476,20 @@ fn ring_cells(cx: i64, cy: i64, ring: i64) -> Vec<(i64, i64)> {
         cells.push((cx + ring, cy + dy));
     }
     cells
+}
+
+/// The square of the distance from `at` to the segment from `from` to `to`.
+fn nearness(at: Point, from: Point, to: Point) -> f64 {
+    let (along_x, along_y) = (to.x - from.x, to.y - from.y);
+    let length = along_x * along_x + along_y * along_y;
+    // an edge of length 0 is its point
+    let share = if length > 0.0 {
+        (((at.x - from.x) * along_x + (at.y - from.y) * along_y) / length).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let (x, y) = (from.x + along_x * share - at.x, from.y + along_y * share - at.y);
+    x * x + y * y
 }
 
 /// The distance from `p` to the edge `a` to `b` and where along the edge (0 to 1) the nearest point lies.

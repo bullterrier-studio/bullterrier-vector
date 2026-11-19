@@ -729,8 +729,9 @@ that cross the outline cut to it by one boolean), from the same screen the other
 prototypes' did, about 500 ms for 3,000 dots; [benchmarks.md](benchmarks.md)). `to_mesh` makes the dots wholly inside the
 shape plain polygons, leaves out those wholly outside and cuts only the dots that cross the outline, all together by one
 boolean. Limit: before any dot is made, the cells near the shape (an upper bound worked out from the layout: for rings,
-a spiral and rays, the annulus the shape's box and the farthest dot reach), each times the edges of the outline and the
-corners of a dot, are charged to `MAX_SEGMENTS`, so a pitch too small for its shape (about 50,000 dots for a disc) or an
+a spiral and rays, the annulus the shape's box and the farthest dot reach), each times the corners of a dot, are charged to
+`MAX_SEGMENTS`, and each dot is placed against the edges of the outline near it (a grid of them), charged as they are
+weighed, so a shape of many edges (a frame with a headline cut out) takes the pitches its plain box takes; a pitch too small for its shape (about 50,000 dots for a disc) or an
 `aspect` that would make a dot a thousand pitches long is refused with `ParameterError` naming the shape and its `pitch`, on
 every screen and in every output; a field tone is also charged to the field's read limit. A centre far from the shape
 stretches its rings and rays out: it costs cells like a small pitch does.

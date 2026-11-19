@@ -381,3 +381,75 @@ fn a_pitch_too_small_for_the_numbers_of_its_lattice_is_refused_naming_the_pitch(
     }
     Ok(())
 }
+
+/// The distance from `at` to the segment `from` to `to`, worked out here.
+fn to_segment(at: (f64, f64), from: (f64, f64), to: (f64, f64)) -> f64 {
+    let (dx, dy) = (to.0 - from.0, to.1 - from.1);
+    let length = dx * dx + dy * dy;
+    let share = if length > 0.0 {
+        (((at.0 - from.0) * dx + (at.1 - from.1) * dy) / length).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    libm::hypot(at.0 - from.0 - share * dx, at.1 - from.1 - share * dy)
+}
+
+#[test]
+fn a_frame_with_a_headline_cut_out_takes_the_screen_of_the_plain_frame() -> Outcome {
+    // the frame minus a headline has the frame's box, so the frame's cells, and over 900 edges against its 4: a dot is
+    // placed against the edges near it, so the cut-out frame takes the pitches the plain one takes. Oracle: a dot of the
+    // plain frame's screen is kept when its centre is in the region or an edge of the region (every one tried) comes
+    // nearer its centre than its corners; the headline itself is the other side of the same edges
+    let font = fraunces()?;
+    let frame = rect(0.0, 0.0, 1200.0, 600.0)?;
+    let headline = text("STIPPLE", Text::new(&font).size(220.0)).translate(60.0, 380.0);
+    let size = Size::px(1200.0, 600.0);
+    for (what, drawing) in [
+        (
+            "the cut-out frame",
+            Drawing::from(frame.clone()).subtract(headline.clone(), 0.01),
+        ),
+        ("the headline", headline.merge().resolve(0.01)),
+    ] {
+        let region = drawing.shapes(&Values::new())?[0].path().clone();
+        let edges: Vec<((f64, f64), (f64, f64))> = crate::common::rings(&region)?
+            .iter()
+            .flat_map(|ring| (0..ring.len()).map(|at| (ring[at], ring[(at + 1) % ring.len()])))
+            .collect();
+        assert!(edges.len() > 900, "{what}: {} edges", edges.len());
+        for pitch in [9.0, 14.0, 20.0, 30.0] {
+            let screen = |drawing: &Drawing| drawing.halftone(Halftone::new(BLACK, 0.5).pitch(pitch));
+            let plain = dots_of(&screen(&Drawing::from(frame.clone())).to_svg(size, &Values::new())?)?;
+            let found = dots_of(&screen(&drawing).to_svg(size, &Values::new())?)?;
+            for ring in &plain {
+                let n = f64::from(u32::try_from(ring.len())?);
+                let centre = (
+                    ring.iter().map(|p| p.0).sum::<f64>() / n,
+                    ring.iter().map(|p| p.1).sum::<f64>() / n,
+                );
+                let radius = ring
+                    .iter()
+                    .map(|p| libm::hypot(p.0 - centre.0, p.1 - centre.1))
+                    .fold(0.0, f64::max);
+                let nearest = edges
+                    .iter()
+                    .map(|(a, b)| to_segment(centre, *a, *b))
+                    .fold(f64::INFINITY, f64::min);
+                if (nearest - radius).abs() < 1e-6 {
+                    continue;
+                }
+                let wanted = nearest < radius || region.contains(centre)?;
+                assert_eq!(
+                    found.contains(ring),
+                    wanted,
+                    "{what}, pitch {pitch}: the dot at {centre:?}"
+                );
+            }
+            assert!(
+                found.iter().all(|ring| plain.contains(ring)),
+                "{what}, pitch {pitch}: a dot off the screen"
+            );
+        }
+    }
+    Ok(())
+}
