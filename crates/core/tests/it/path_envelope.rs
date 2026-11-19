@@ -1,7 +1,7 @@
 //! `Path::envelope` and `Path::arch` through the public API. The oracle is the map written out here from the
 //! definition: a point `(x, y)` of the frame goes to `lerp(T(u), B(u), v)` with `u = (x - x0) / width`, `v = (y - y0) /
 //! height`, `T` and `B` the points `u` of the way along the arc length of the top and the bottom curve (read with the
-//! public `point_at`) blended with the frame's straight edge by `amount`; the output polyline is checked against the
+//! public `point_at`) blended with the frame's straight edge by `fraction`; the output polyline is checked against the
 //! exact image of a dense sampling of the original, by brute force. Expected vertices are computed by hand.
 
 use crate::common::{Outcome, geometry_refusal, has_vertex, lines, parameter_refusal, to_lines};
@@ -35,13 +35,13 @@ fn exact(
     frame: Rect,
     top: &Path,
     bottom: Option<&Path>,
-    amount: f64,
+    fraction: f64,
 ) -> Result<(f64, f64), Box<dyn std::error::Error>> {
     let (u, v) = ((point.0 - frame.x) / frame.width, (point.1 - frame.y) / frame.height);
     let mix = |straight: (f64, f64), curve: (f64, f64)| {
         (
-            straight.0 + (curve.0 - straight.0) * amount,
-            straight.1 + (curve.1 - straight.1) * amount,
+            straight.0 + (curve.0 - straight.0) * fraction,
+            straight.1 + (curve.1 - straight.1) * fraction,
         )
     };
     let t = mix((frame.x + u * frame.width, frame.y), at(top, u)?);
@@ -55,8 +55,14 @@ fn exact(
 
 /// Every exact image of a dense sampling of `path` is near the enveloped outline: 0.05 pixel and 0.2% of how far the
 /// map moved the point.
-fn assert_matches_the_definition(path: &Path, frame: Rect, top: &Path, bottom: Option<&Path>, amount: f64) -> Outcome {
-    assert_within(path, frame, top, bottom, amount, (0.05, 0.002))
+fn assert_matches_the_definition(
+    path: &Path,
+    frame: Rect,
+    top: &Path,
+    bottom: Option<&Path>,
+    fraction: f64,
+) -> Outcome {
+    assert_within(path, frame, top, bottom, fraction, (0.05, 0.002))
 }
 
 /// As [`assert_matches_the_definition`] with the tolerance `(pixels, share of the displacement)` given.
@@ -65,13 +71,13 @@ fn assert_within(
     frame: Rect,
     top: &Path,
     bottom: Option<&Path>,
-    amount: f64,
+    fraction: f64,
     (pixels, share): (f64, f64),
 ) -> Outcome {
-    let found = lines(&path.envelope(top, bottom, Some(frame), amount)?)?;
+    let found = lines(&path.envelope(top, bottom, Some(frame), fraction)?)?;
     for index in 0..=400 {
         let original = at(path, f64::from(index) / 400.0)?;
-        let image = exact(original, frame, top, bottom, amount)?;
+        let image = exact(original, frame, top, bottom, fraction)?;
         let moved = libm::hypot(image.0 - original.0, image.1 - original.1);
         let off = to_lines(image, &found);
         assert!(
@@ -136,10 +142,10 @@ fn past_the_ends_of_an_open_curve_the_envelope_goes_on_straight() -> Outcome {
 fn an_amount_blends_each_edge_between_the_straight_one_and_the_curve() -> Outcome {
     let top = Path::line((0.0, 0.0), (100.0, 20.0))?;
     let line = Path::line((50.0, 0.0), (50.0, 100.0))?;
-    // the top at u = 0.5 is (50, 10) at amount 1, (50, 0) at amount 0, (50, 5) at amount 0.5, (50, -10) at amount -1
-    for (amount, y) in [(1.0, 10.0), (0.0, 0.0), (0.5, 5.0), (-1.0, -10.0), (2.0, 20.0)] {
-        let found = lines(&line.envelope(&top, None, Some(FRAME), amount)?)?;
-        assert!(has_vertex(&found, (50.0, y)), "amount {amount}: {found:?}");
+    // the top at u = 0.5 is (50, 10) at fraction 1, (50, 0) at fraction 0, (50, 5) at fraction 0.5, (50, -10) at fraction -1
+    for (fraction, y) in [(1.0, 10.0), (0.0, 0.0), (0.5, 5.0), (-1.0, -10.0), (2.0, 20.0)] {
+        let found = lines(&line.envelope(&top, None, Some(FRAME), fraction)?)?;
+        assert!(has_vertex(&found, (50.0, y)), "fraction {fraction}: {found:?}");
     }
     Ok(())
 }
@@ -150,9 +156,9 @@ fn the_bottom_curve_is_blended_too() -> Outcome {
     let top = Path::line((0.0, 0.0), (100.0, 0.0))?;
     let line = Path::line((50.0, 0.0), (50.0, 100.0))?;
     // at u = 0.5 the bottom is (50, 120); half way to it from the straight (50, 100) is (50, 110)
-    for (amount, y) in [(1.0, 120.0), (0.5, 110.0), (0.0, 100.0)] {
-        let found = lines(&line.envelope(&top, Some(&bottom), Some(FRAME), amount)?)?;
-        assert!(has_vertex(&found, (50.0, y)), "amount {amount}: {found:?}");
+    for (fraction, y) in [(1.0, 120.0), (0.5, 110.0), (0.0, 100.0)] {
+        let found = lines(&line.envelope(&top, Some(&bottom), Some(FRAME), fraction)?)?;
+        assert!(has_vertex(&found, (50.0, y)), "fraction {fraction}: {found:?}");
     }
     Ok(())
 }
@@ -183,13 +189,13 @@ fn the_frames_own_straight_edges_are_the_identity_at_any_amount() -> Outcome {
     let top = Path::line((0.0, 0.0), (100.0, 0.0))?;
     let bottom = Path::line((0.0, 100.0), (100.0, 100.0))?;
     let shape = glyph()?;
-    for amount in [1.0, 0.0, 0.3, -2.0] {
-        let found = lines(&shape.envelope(&top, Some(&bottom), Some(FRAME), amount)?)?;
+    for fraction in [1.0, 0.0, 0.3, -2.0] {
+        let found = lines(&shape.envelope(&top, Some(&bottom), Some(FRAME), fraction)?)?;
         for index in 0..=200 {
             let original = at(&shape, f64::from(index) / 200.0)?;
             assert!(
                 to_lines(original, &found) < 0.02,
-                "amount {amount}: {original:?} is gone"
+                "fraction {fraction}: {original:?} is gone"
             );
         }
     }
@@ -256,9 +262,9 @@ fn a_bottom_the_same_arc_down_by_the_frame_height_keeps_vertical_strokes_their_l
 fn a_glyph_and_a_circle_match_the_definition_between_two_curves() -> Outcome {
     let s_curve = Path::from_svg_path("M0 0 C40 -50 60 50 100 0")?;
     let bottom = Path::from_svg_path("M0 100 Q50 160 100 100")?;
-    for amount in [1.0, 0.6, -0.5] {
-        assert_matches_the_definition(&glyph()?, FRAME, &s_curve, Some(&bottom), amount)?;
-        assert_matches_the_definition(&Path::circle((50.0, 50.0), 50.0)?, FRAME, &s_curve, None, amount)?;
+    for fraction in [1.0, 0.6, -0.5] {
+        assert_matches_the_definition(&glyph()?, FRAME, &s_curve, Some(&bottom), fraction)?;
+        assert_matches_the_definition(&Path::circle((50.0, 50.0), 50.0)?, FRAME, &s_curve, None, fraction)?;
     }
     Ok(())
 }
@@ -465,15 +471,21 @@ fn a_frame_with_no_area_or_beyond_the_limit_is_refused_naming_frame() -> Outcome
 fn numbers_that_are_not_numbers_are_refused_by_name() -> Outcome {
     let shape = glyph()?;
     let top = hill()?;
-    for amount in [f64::NAN, f64::INFINITY] {
-        assert_eq!(parameter_refusal(shape.envelope(&top, None, None, amount))?.0, "amount");
+    for fraction in [f64::NAN, f64::INFINITY] {
+        assert_eq!(
+            parameter_refusal(shape.envelope(&top, None, None, fraction))?.0,
+            "fraction"
+        );
     }
     for bend in [f64::NAN, f64::NEG_INFINITY] {
         assert_eq!(parameter_refusal(shape.arch(bend, None))?.0, "bend");
     }
     // a point sent beyond 1e100
     assert_eq!(parameter_refusal(shape.arch(1e100, None))?.0, "bend");
-    assert_eq!(parameter_refusal(shape.envelope(&top, None, None, 1e308))?.0, "amount");
+    assert_eq!(
+        parameter_refusal(shape.envelope(&top, None, None, 1e308))?.0,
+        "fraction"
+    );
     Ok(())
 }
 

@@ -512,33 +512,33 @@ impl PyPath {
     }
 
     /// The path with every point moved along its ray from `about` (the middle of the bounds by default) from distance
-    /// `r` to `r * (1 + amount * (1 - s^2 (3 - 2s)))`, `s = r / radius` (`radius`: the farthest corner of the bounds by
-    /// default): a positive `amount` bulges the middle outward, a negative one pinches it in, and nothing at `radius` or
-    /// beyond moves. `amount` must be above -1 and below 16/11, so that the shape does not fold over. The result is made
+    /// `r` to `r * (1 + stretch * (1 - s^2 (3 - 2s)))`, `s = r / radius` (`radius`: the farthest corner of the bounds by
+    /// default): a positive `stretch` bulges the middle outward, a negative one pinches it in, and nothing at `radius` or
+    /// beyond moves. `stretch` must be above -1 and below 16/11, so that the shape does not fold over. The result is made
     /// of straight lines, every vertex kept.
-    #[pyo3(signature = (amount=0.5, *, radius=None, about=None))]
-    fn bulge(&self, amount: f64, radius: Option<f64>, about: Option<Pt>) -> PyResult<Self> {
-        Self::of(self.0.bulge(amount, radius, about.map(|about| about.0)))
+    #[pyo3(signature = (stretch=0.5, *, radius=None, about=None))]
+    fn bulge(&self, stretch: f64, radius: Option<f64>, about: Option<Pt>) -> PyResult<Self> {
+        Self::of(self.0.bulge(stretch, radius, about.map(|about| about.0)))
     }
 
     /// The frame (a `Rect` or `(x, y, width, height)`; the bounds of the path by default) mapped onto the region between
     /// the curves `top` and `bottom` (the frame's straight bottom edge by default): a point goes to the blend, by its share
     /// of the frame's height, of the points of the curves at its share of the frame's width, read as fractions of their
-    /// lengths. `amount` blends each edge between the frame's own (0) and the curve (1). Edges are cut into pieces of at
+    /// lengths. `fraction` blends each edge between the frame's own (0) and the curve (1). Edges are cut into pieces of at
     /// most a 256th of the frame's width, every vertex kept, so the result is made of straight lines.
-    #[pyo3(signature = (top, bottom=None, *, frame=None, amount=1.0))]
+    #[pyo3(signature = (top, bottom=None, *, frame=None, fraction=1.0))]
     fn envelope(
         &self,
         top: &Bound<'_, Self>,
         bottom: Option<&Bound<'_, Self>>,
         frame: Option<Frame>,
-        amount: f64,
+        fraction: f64,
     ) -> PyResult<Self> {
         Self::of(self.0.envelope(
             &top.get().0,
             bottom.map(|bottom| &bottom.get().0),
             frame.map(|frame| frame.0),
-            amount,
+            fraction,
         ))
     }
 

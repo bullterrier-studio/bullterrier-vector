@@ -38,7 +38,7 @@ def test_the_amount_and_the_bottom_blend_between_the_straight_edge_and_the_curve
     assert has(column.envelope(SLOPE, bottom, frame=(0, 0, 100, 100)), (50, 10))
     assert has(column.envelope(SLOPE, bottom, frame=btvec.Rect(0, 0, 100, 100)), (50, 120))
     # half the bend: the top at (50, 5), the bottom at (50, 110)
-    half = column.envelope(SLOPE, bottom, frame=(0, 0, 100, 100), amount=0.5)
+    half = column.envelope(SLOPE, bottom, frame=(0, 0, 100, 100), fraction=0.5)
     assert has(half, (50, 5))
     assert has(half, (50, 110))
 
@@ -103,29 +103,29 @@ def test_the_drawing_shares_one_frame_between_its_shapes() -> None:
 
 def test_amount_and_bend_are_per_shape_numbers_and_params() -> None:
     both = btvec.Drawing(SQUARE, SQUARE)
-    flat, bent = (s.path for s in both.envelope(SLOPE, amount=btvec.by_index(0, 1)).shapes())
+    flat, bent = (s.path for s in both.envelope(SLOPE, fraction=btvec.by_index(0, 1)).shapes())
     assert has(flat, (100, 0))
     assert has(bent, (100, 20))
-    amount = btvec.Param("amount", default=0, min=0, max=1)
-    drawing = btvec.Drawing(SQUARE).envelope(SLOPE, amount=amount)
+    fraction = btvec.Param("fraction", default=0, min=0, max=1)
+    drawing = btvec.Drawing(SQUARE).envelope(SLOPE, fraction=fraction)
     assert has(drawing.shapes()[0].path, (100, 0))
-    assert has(drawing.shapes(amount=0.5)[0].path, (100, 10))
+    assert has(drawing.shapes(fraction=0.5)[0].path, (100, 10))
     bend = btvec.Param("bend", default=0, min=-1, max=1)
     assert has(btvec.Drawing(SQUARE).arch(bend).shapes(bend=0.2)[0].path, (50, -20))
 
 
 def test_the_defaults_of_the_step_are_the_documented_ones() -> None:
     envelope = inspect.signature(btvec.Drawing.envelope).parameters
-    assert envelope["amount"].default == 1
+    assert envelope["fraction"].default == 1
     assert envelope["bottom"].default is None
     assert envelope["frame"].default is None
     assert inspect.signature(btvec.Drawing.arch).parameters["frame"].default is None
 
 
 def test_the_steps_are_calls_in_the_document_and_read_back() -> None:
-    drawing = btvec.Drawing(SQUARE).envelope(SLOPE, frame=(0, 0, 100, 100), amount=0.5).arch(0.1)
+    drawing = btvec.Drawing(SQUARE).envelope(SLOPE, frame=(0, 0, 100, 100), fraction=0.5).arch(0.1)
     steps = json.loads(drawing.to_json())["root"]
-    assert steps[-2] == {"envelope": {"top": "M0 0 L100 20", "frame": [0, 0, 100, 100], "amount": 0.5}}
+    assert steps[-2] == {"envelope": {"top": "M0 0 L100 20", "frame": [0, 0, 100, 100], "fraction": 0.5}}
     assert steps[-1] == {"arch": {"bend": 0.1}}
     again = btvec.Drawing.from_json(drawing.to_json())
     assert again.to_json() == drawing.to_json()

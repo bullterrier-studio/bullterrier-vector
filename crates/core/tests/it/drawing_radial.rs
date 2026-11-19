@@ -169,8 +169,8 @@ fn a_bulged_and_a_pinched_circle_are_the_bulged_path_and_differ_the_way_round() 
     let out = drawn(&drawing.bulge(0.6), &Values::new())?;
     assert_eq!(out, vec![circle.bulge(0.6, None, None)?.to_svg_path()]);
     // the middle of a circle's rim is at 40 from its center, the radius reaches 70.7: bulging moves the rim out
-    let width = |amount: f64| -> Result<f64, Box<dyn std::error::Error>> {
-        Ok(circle.bulge(amount, None, None)?.bounds()?.width)
+    let width = |stretch: f64| -> Result<f64, Box<dyn std::error::Error>> {
+        Ok(circle.bulge(stretch, None, None)?.bounds()?.width)
     };
     assert!(width(0.6)? > 80.0 + 1.0 && width(-0.6)? < 80.0 - 1.0);
     let given = drawn(
@@ -206,10 +206,10 @@ fn each_shape_reads_its_own_amount_and_a_param_is_read_when_drawn() -> Outcome {
     let found = drawn(&two.bulge(by_index(0.2, 1.0)), &Values::new())?;
     assert_eq!(found[0], square()?.bulge(0.2, None, None)?.to_svg_path());
     assert_eq!(found[1], square()?.bulge(1.0, None, None)?.to_svg_path());
-    let amount = Param::new("amount", 0.0, -0.9, 1.4)?;
-    let bulged = Drawing::from(square()?).bulge(&amount);
+    let stretch = Param::new("stretch", 0.0, -0.9, 1.4)?;
+    let bulged = Drawing::from(square()?).bulge(&stretch);
     assert_eq!(
-        drawn(&bulged, &Values::new().set("amount", -0.5))?,
+        drawn(&bulged, &Values::new().set("stretch", -0.5))?,
         vec![square()?.bulge(-0.5, None, None)?.to_svg_path()]
     );
     Ok(())
@@ -231,11 +231,11 @@ fn the_bulge_step_saves_and_loads_the_same_drawing() -> Outcome {
 
 #[test]
 fn an_amount_that_would_fold_the_shape_is_refused_at_draw_time_naming_the_step() -> Outcome {
-    for amount in [-1.0, 16.0 / 11.0, 5.0] {
-        let (place, message) = parameter_refusal(Drawing::from(square()?).bulge(amount).shapes(&Values::new()))?;
+    for stretch in [-1.0, 16.0 / 11.0, 5.0] {
+        let (place, message) = parameter_refusal(Drawing::from(square()?).bulge(stretch).shapes(&Values::new()))?;
         assert!(
             place.contains("step 1 (bulge)")
-                && place.contains("amount")
+                && place.contains("stretch")
                 && message.contains("above -1 and below 16/11 (1.4545), so that the shape does not fold over"),
             "{place}: {message}"
         );

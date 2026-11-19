@@ -1,9 +1,9 @@
 //! `Path::bulge` through the public API: a radial remap about `about`, a point at distance `r` going to
-//! `r (1 + amount * falloff(r))` along the same ray, the falloff `1 - s^2 (3 - 2s)`, `s = min(r / radius, 1)`. The
+//! `r (1 + stretch * falloff(r))` along the same ray, the falloff `1 - s^2 (3 - 2s)`, `s = min(r / radius, 1)`. The
 //! oracle is that closed form written out here from the definition, checked against the output polyline by brute
-//! force; the expected vertices are computed by hand. `r -> r'` has the slope `1 + amount (1 - 9 s^2 + 8 s^3)`, whose
+//! force; the expected vertices are computed by hand. `r -> r'` has the slope `1 + stretch (1 - 9 s^2 + 8 s^3)`, whose
 //! hand-computed extremes are 1 (at s = 0) and -11/16 (at s = 3/4): strictly increasing exactly for
-//! `-1 < amount < 16/11`.
+//! `-1 < stretch < 16/11`.
 
 use crate::common::{Outcome, has_vertex, lines, parameter_refusal, radial_probe_edges, to_lines, worst_chord_error};
 use bullterrier_vector::{Path, Point};
@@ -15,21 +15,21 @@ fn falloff(r: f64, radius: f64) -> f64 {
 }
 
 /// Where the closed form sends `p`.
-fn exact(p: (f64, f64), amount: f64, radius: f64, about: (f64, f64)) -> (f64, f64) {
+fn exact(p: (f64, f64), stretch: f64, radius: f64, about: (f64, f64)) -> (f64, f64) {
     let (dx, dy) = (p.0 - about.0, p.1 - about.1);
     let r = libm::hypot(dx, dy);
     if r >= radius {
         return p;
     }
-    let factor = 1.0 + amount * falloff(r, radius);
+    let factor = 1.0 + stretch * falloff(r, radius);
     (about.0 + dx * factor, about.1 + dy * factor)
 }
 
-fn assert_bulged_matches_the_closed_form(path: &Path, amount: f64, radius: f64, about: (f64, f64)) -> Outcome {
-    let bulged = lines(&path.bulge(amount, Some(radius), Some(Point::new(about.0, about.1)))?)?;
+fn assert_bulged_matches_the_closed_form(path: &Path, stretch: f64, radius: f64, about: (f64, f64)) -> Outcome {
+    let bulged = lines(&path.bulge(stretch, Some(radius), Some(Point::new(about.0, about.1)))?)?;
     for index in 0..=600 {
         let original = path.point_at(f64::from(index) / 600.0, None)?;
-        let image = exact((original.x, original.y), amount, radius, about);
+        let image = exact((original.x, original.y), stretch, radius, about);
         let off = to_lines(image, &bulged);
         assert!(
             off <= 0.01 * radius + 0.01,
@@ -43,7 +43,7 @@ fn assert_bulged_matches_the_closed_form(path: &Path, amount: f64, radius: f64, 
 
 #[test]
 fn a_point_at_half_the_radius_goes_to_one_and_a_half_times_as_far_by_hand() -> Outcome {
-    // s = 0.5, falloff 0.5, amount 1: r' = r (1 + 0.5) = 75 for r = 50 of a radius of 100; the direction (3, 4) / 5 stays
+    // s = 0.5, falloff 0.5, stretch 1: r' = r (1 + 0.5) = 75 for r = 50 of a radius of 100; the direction (3, 4) / 5 stays
     let path = Path::from_svg_path("M30 40")?;
     let bulged = path.bulge(1.0, Some(100.0), Some(Point::new(0.0, 0.0)))?;
     let (x, y) = lines(&bulged)?[0].0[0];
@@ -53,7 +53,7 @@ fn a_point_at_half_the_radius_goes_to_one_and_a_half_times_as_far_by_hand() -> O
 
 #[test]
 fn a_negative_amount_pinches_towards_the_center_by_hand() -> Outcome {
-    // amount -0.5 at s = 0.5: r' = r (1 - 0.25) = 37.5 for r = 50
+    // stretch -0.5 at s = 0.5: r' = r (1 - 0.25) = 37.5 for r = 50
     let bulged = Path::from_svg_path("M50 0")?.bulge(-0.5, Some(100.0), Some(Point::new(0.0, 0.0)))?;
     let (x, y) = lines(&bulged)?[0].0[0];
     assert!((x - 37.5).abs() < 1e-9 && y.abs() < 1e-9, "({x}, {y})");
@@ -106,17 +106,17 @@ fn points_move_along_their_ray_and_an_amount_of_zero_is_the_outline_flattened() 
 #[test]
 fn a_ray_stays_in_order_up_to_the_strongest_amount_and_beyond_it_is_refused() -> Outcome {
     let ray = Path::line((0.0, 0.0), (120.0, 0.0))?;
-    for amount in [1.45, -0.99, 0.5, 0.0] {
-        let bulged = lines(&ray.bulge(amount, Some(100.0), Some(Point::new(0.0, 0.0)))?)?;
+    for stretch in [1.45, -0.99, 0.5, 0.0] {
+        let bulged = lines(&ray.bulge(stretch, Some(100.0), Some(Point::new(0.0, 0.0)))?)?;
         for pair in bulged[0].0.windows(2) {
-            assert!(pair[1].0 > pair[0].0, "amount {amount}: {pair:?}");
+            assert!(pair[1].0 > pair[0].0, "stretch {stretch}: {pair:?}");
         }
     }
-    for amount in [1.46, 16.0 / 11.0, -1.0, -1.5, f64::NAN, f64::INFINITY] {
+    for stretch in [1.46, 16.0 / 11.0, -1.0, -1.5, f64::NAN, f64::INFINITY] {
         assert_eq!(
-            parameter_refusal(ray.bulge(amount, Some(100.0), None))?.0,
-            "amount",
-            "{amount}"
+            parameter_refusal(ray.bulge(stretch, Some(100.0), None))?.0,
+            "stretch",
+            "{stretch}"
         );
     }
     let (_, message) = parameter_refusal(ray.bulge(2.0, None, None))?;
@@ -177,24 +177,24 @@ proptest! {
     fn a_bulged_rectangle_matches_the_closed_form(
         (x, y) in (-200.0..200.0_f64, -200.0..200.0_f64),
         (width, height) in (1.0..300.0_f64, 1.0..300.0_f64),
-        amount in -0.99..1.45_f64,
+        stretch in -0.99..1.45_f64,
         radius in 20.0..400.0_f64,
         about in (-100.0..100.0_f64, -100.0..100.0_f64),
     ) {
         let rect = Path::rect(x, y, width, height, 0.0).map_err(|e| TestCaseError::fail(e.to_string()))?;
-        let check = assert_bulged_matches_the_closed_form(&rect, amount, radius, about);
+        let check = assert_bulged_matches_the_closed_form(&rect, stretch, radius, about);
         prop_assert!(check.is_ok(), "{check:?}");
-        let bulged = lines(&rect.bulge(amount, Some(radius), Some(Point::new(about.0, about.1))).map_err(|e| TestCaseError::fail(e.to_string()))?)
+        let bulged = lines(&rect.bulge(stretch, Some(radius), Some(Point::new(about.0, about.1))).map_err(|e| TestCaseError::fail(e.to_string()))?)
             .map_err(|e| TestCaseError::fail(e.to_string()))?;
         for corner in [(x, y), (x + width, y), (x + width, y + height), (x, y + height)] {
-            let image = exact(corner, amount, radius, about);
+            let image = exact(corner, stretch, radius, about);
             prop_assert!(has_vertex(&bulged, image), "no vertex at {image:?}");
         }
     }
 }
 
 /// The pieces are chosen so that a chord strays from the image by at most `CHORD_ERROR = 0.005` of the radius (the bound
-/// is worked in `radial.rs`); the extremes of the amount are where it is nearest, so a cut with half the pieces (four
+/// is worked in `radial.rs`); the extremes of the stretch are where it is nearest, so a cut with half the pieces (four
 /// times the error) must fail here, which the hundredth of the tests above does not show.
 #[test]
 fn a_chord_strays_from_the_exact_image_by_at_most_half_a_hundredth_of_the_radius_at_the_extremes() -> Outcome {
@@ -208,7 +208,7 @@ fn a_chord_strays_from_the_exact_image_by_at_most_half_a_hundredth_of_the_radius
         }
         assert!(
             worst <= 0.005 * 100.0,
-            "amount {value}: the chord is {worst} from the image"
+            "stretch {value}: the chord is {worst} from the image"
         );
     }
     Ok(())

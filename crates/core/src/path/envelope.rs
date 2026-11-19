@@ -49,15 +49,15 @@ impl Frame {
         }
     }
 
-    /// The point `u` of the way along the edge `guide` (the frame's own straight edge if none) blended by `amount` with the
+    /// The point `u` of the way along the edge `guide` (the frame's own straight edge if none) blended by `fraction` with the
     /// frame's top edge (`down` 0) or bottom one (`down` 1).
-    fn edge(&self, guide: Option<&Guide>, down: f64, amount: f64, u: f64) -> Point {
+    fn edge(&self, guide: Option<&Guide>, down: f64, fraction: f64, u: f64) -> Point {
         let straight = self.straight(u, down);
         guide.map_or(straight, |guide| {
             let curve = guide.frame(u * guide.length).0;
             Point::new(
-                lerp_number(straight.x, curve.x, amount),
-                lerp_number(straight.y, curve.y, amount),
+                lerp_number(straight.x, curve.x, fraction),
+                lerp_number(straight.y, curve.y, fraction),
             )
         })
     }
@@ -92,8 +92,8 @@ impl Path {
     /// `T` and `B` are walked as `along` walks a guide: sub-paths in order as one length, `u` outside 0 to 1 going on
     /// straight past an open curve's ends, a closed curve wrapping, its seam at its start (so `u` = 0 and `u` = 1 are the
     /// same point, a circle's top). `bottom` left out is the frame's own bottom edge, the straight line `y = y0 + height`.
-    /// `amount` blends each edge between the frame's own straight edge (0) and the curve (1): `T_eff(u) = lerp(straight(u),
-    /// T(u), amount)`, so that `amount` animates a bend although the curves are fixed; any finite number is accepted, one
+    /// `fraction` blends each edge between the frame's own straight edge (0) and the curve (1): `T_eff(u) = lerp(straight(u),
+    /// T(u), fraction)`, so that `fraction` animates a bend although the curves are fixed; any finite number is accepted, one
     /// above 1 exaggerating the curve and one below 0 bending it the other way. `frame` left out is the bounds of this
     /// path.
     ///
@@ -106,15 +106,21 @@ impl Path {
     /// # Errors
     /// [`Error::Parameter`] naming `frame` if a number of it is NaN, infinite or beyond ±1e100, its width or height is not
     /// above 0 (a path with no width or height has no frame of its own to default to), or the pieces the cut would make,
-    /// over all the sub-paths, are more than `MAX_SEGMENTS` (10,000,000), counted before any is made; naming `amount`
+    /// over all the sub-paths, are more than `MAX_SEGMENTS` (10,000,000), counted before any is made; naming `fraction`
     /// if it is NaN or infinite, or a point would go beyond ±1e100; [`Error::Geometry`] if `top` or `bottom` is empty
     /// or has no length, and so no direction.
-    pub fn envelope(&self, top: &Self, bottom: Option<&Self>, frame: Option<Rect>, amount: f64) -> Result<Self, Error> {
+    pub fn envelope(
+        &self,
+        top: &Self,
+        bottom: Option<&Self>,
+        frame: Option<Rect>,
+        fraction: f64,
+    ) -> Result<Self, Error> {
         let top = Guide::new("envelope", top, None, &mut |_| Ok(()))?;
         let bottom = bottom
             .map(|bottom| Guide::new("envelope", bottom, None, &mut |_| Ok(())))
             .transpose()?;
-        self.enveloped(&top, bottom.as_ref(), frame, amount, &mut segment_budget("frame"))
+        self.enveloped(&top, bottom.as_ref(), frame, fraction, &mut segment_budget("frame"))
     }
 
     /// As [`Path::envelope`] on curves already walked, calling `charge` with the number of points the result would have,
@@ -124,17 +130,17 @@ impl Path {
         top: &Guide,
         bottom: Option<&Guide>,
         frame: Option<Rect>,
-        amount: f64,
+        fraction: f64,
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<Self, Error> {
-        let amount = finite("amount", amount)?;
+        let fraction = finite("fraction", fraction)?;
         let Some(frame) = self.frame_of(frame)? else {
             return Ok(self.clone());
         };
-        let above = |u: f64| frame.edge(Some(top), 0.0, amount, u);
-        let below = |u: f64| frame.edge(bottom, 1.0, amount, u);
+        let above = |u: f64| frame.edge(Some(top), 0.0, fraction, u);
+        let below = |u: f64| frame.edge(bottom, 1.0, fraction, u);
         self.warp(
-            "amount",
+            "fraction",
             frame.width / PIECES,
             frame.width * CURVE_ERROR,
             &lattice(frame, &above, &below),

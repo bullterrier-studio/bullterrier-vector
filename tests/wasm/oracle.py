@@ -806,43 +806,45 @@ def wobbles() -> list[Entry]:
 
 def radials() -> list[Entry]:
     """`twist` and `bulge` on shapes: a glyph-like outline twisted at two angles, a circle bulged out and pinched in,
-    and Params driving the angle and the amount."""
+    and Params driving the angle and the stretch."""
     glyph = btvec.Path.from_svg_path("M20 80 L20 20 L55 20 Q80 20 80 40 Q80 60 55 60 L40 60 L40 80 Z")
     circle = btvec.Path.circle((50, 50), 30)
     progress = btvec.Param("progress", default=0, min=0, max=1, unit="", meaning="how far the twist has turned")
-    amount = btvec.Param("amount", default=0, min=-0.9, max=1.4, unit="", meaning="how far the middle is pushed out")
+    stretch = btvec.Param("stretch", default=0, min=-0.9, max=1.4, unit="", meaning="how far the middle is pushed out")
     drawings = {
         "twist_glyph_90": framed(glyph.fill(RED)).twist(90),
         "twist_glyph_minus_200_radius": framed(glyph.fill(RED)).twist(-200, radius=45, about=(50, 50)),
         "bulge_circle_out": framed(circle.stroke(INK, width=2)).bulge(1.2, radius=45),
         "bulge_circle_pinched": framed(circle.stroke(INK, width=2)).bulge(-0.7, radius=45),
         "twist_param_angle": framed(glyph.fill(BLUE)).twist(progress * 180),
-        "bulge_param_amount": framed(btvec.text("Hi", font=FRAUNCES, size=60, anchor=(8, 70)).fill(GOLD)).bulge(amount),
+        "bulge_param_stretch": framed(btvec.text("Hi", font=FRAUNCES, size=60, anchor=(8, 70)).fill(GOLD)).bulge(
+            stretch
+        ),
     }
     draws: dict[str, list[Draw]] = {
         "twist_param_angle": [(100, 100, {}), (200, 200, {"progress": 0.6})],
-        "bulge_param_amount": [(100, 100, {}), (200, 200, {"amount": -0.5})],
+        "bulge_param_stretch": [(100, 100, {}), (200, 200, {"stretch": -0.5})],
     }
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 
 
 def envelopes() -> list[Entry]:
     """`envelope`, `arch` and `Path.arc`: a word between a flat-bottomed arc and between two arcs, down, a flag between
-    two waves, a Param amount and bend, an arc drawn as a stroke, and two lines of text bent by one shared frame."""
+    two waves, a Param fraction and bend, an arc drawn as a stroke, and two lines of text bent by one shared frame."""
     word = btvec.text("Hif", font=FRAUNCES, size=56, anchor=(8, 66)).fill(INK)
     up = btvec.Path.arc((50, 110), 90, 235, 305)  # bulges up the screen
     down = btvec.Path.arc((50, -30), 90, 55, 125)  # bulges down
     wave = btvec.Path.from_svg_path("M0 40 C30 5 70 75 100 40")
-    amount = btvec.Param("amount", default=0, min=0, max=1, unit="", meaning="how far the word is bent")
+    fraction = btvec.Param("fraction", default=0, min=0, max=1, unit="", meaning="how far the word is bent")
     bend = btvec.Param("bend", default=0, min=-0.5, max=0.5, unit="", meaning="how far the middle is raised")
     drawings = {
         "envelope_top_arc_flat_bottom": framed(word).envelope(up),
         "envelope_band_same_arc": framed(word).envelope(up, up.translate(0, 30)),
         "envelope_down": framed(word.fill(RED)).envelope(down),
         "envelope_flag": framed(word.fill(BLUE)).envelope(wave, wave.translate(0, 30)),
-        "envelope_amount_param": framed(word).envelope(up, up.translate(0, 30), amount=amount),
+        "envelope_fraction_param": framed(word).envelope(up, up.translate(0, 30), fraction=fraction),
         "envelope_per_item_amount": framed(btvec.Drawing(word, word.translate(0, 20)).fill(GOLD)).envelope(
-            up, amount=btvec.by_index(0.3, 1)
+            up, fraction=btvec.by_index(0.3, 1)
         ),
         "arch_param_bend": framed(word.fill(RED)).arch(bend),
         "arch_frame_closed_glyph": framed(
@@ -858,7 +860,7 @@ def envelopes() -> list[Entry]:
         ).arch(0.3),
     }
     draws: dict[str, list[Draw]] = {
-        "envelope_amount_param": [(100, 100, {}), (200, 200, {"amount": 0.6})],
+        "envelope_fraction_param": [(100, 100, {}), (200, 200, {"fraction": 0.6})],
         "arch_param_bend": [(100, 100, {}), (200, 200, {"bend": -0.3})],
     }
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]

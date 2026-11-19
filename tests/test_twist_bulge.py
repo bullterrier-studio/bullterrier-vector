@@ -1,6 +1,6 @@
 """`twist` and `bulge` through the public package, on `Path` and as steps of a `Drawing`. Expected values are by hand: a
 point at distance `r` from the center turns by `angle * f(r)` degrees (twist, clockwise on the screen as `rotate`) or
-goes to `r * (1 + amount * f(r))` along its ray (bulge), `f = 1 - s^2 (3 - 2 s)`, `s = min(r / radius, 1)`."""
+goes to `r * (1 + stretch * f(r))` along its ray (bulge), `f = 1 - s^2 (3 - 2 s)`, `s = min(r / radius, 1)`."""
 
 import inspect
 import json
@@ -41,7 +41,7 @@ def test_the_defaults_are_a_quarter_turn_and_a_half_bulge_about_the_middle_to_th
 
 
 def test_a_bulge_moves_a_point_along_its_ray_by_hand() -> None:
-    # (30, 40) is 50 from the center, half of a radius of 100: falloff 0.5, so amount 1 goes to 1.5 times as far
+    # (30, 40) is 50 from the center, half of a radius of 100: falloff 0.5, so stretch 1 goes to 1.5 times as far
     ((x, y),) = vertices(btvec.Path.from_svg_path("M30 40").bulge(1, radius=100, about=ORIGIN))
     assert (x, y) == pytest.approx((45, 60), abs=1e-9)
     ((x, y),) = vertices(btvec.Path.from_svg_path("M50 0").bulge(-0.5, radius=100, about=ORIGIN))
@@ -65,8 +65,8 @@ def test_the_drawing_steps_read_each_argument_per_shape_and_a_param() -> None:
     path = btvec.Path.rect(0, 0, 100, 100)
     (half,) = btvec.Drawing(path).twist(progress * 180).shapes(progress=0.5)
     assert half.path.to_svg_path() == path.twist(90).to_svg_path() != path.to_svg_path()
-    amount = btvec.Param("amount", default=0, min=-0.9, max=1.4)
-    (pinched,) = btvec.Drawing(path).bulge(amount, radius=btvec.by_index(70, 70)).shapes(amount=-0.5)
+    stretch = btvec.Param("stretch", default=0, min=-0.9, max=1.4)
+    (pinched,) = btvec.Drawing(path).bulge(stretch, radius=btvec.by_index(70, 70)).shapes(stretch=-0.5)
     assert pinched.path.to_svg_path() == path.bulge(-0.5, radius=70).to_svg_path() != path.to_svg_path()
 
 
@@ -86,23 +86,23 @@ def test_the_steps_are_calls_in_the_document_and_leave_the_defaults_out() -> Non
     line = btvec.Path.line((0, 0), (120, 0))
     steps = json.loads(btvec.Drawing(line).twist(radius=50, about=(10, 20)).bulge(-0.4).to_json())["root"]
     assert steps[-2] == {"twist": {"radius": 50, "about": [10, 20]}}
-    assert steps[-1] == {"bulge": {"amount": -0.4}}
+    assert steps[-1] == {"bulge": {"stretch": -0.4}}
     loaded = btvec.Drawing.from_json('{"version":1,"root":[{"path":"M0 0 L120 0"},{"twist":{}},{"bulge":{}}]}')
     assert loaded.shapes()[0].path.to_svg_path() == btvec.Drawing(line).twist().bulge().shapes()[0].path.to_svg_path()
 
 
 def test_the_signatures_show_the_real_defaults() -> None:
     assert str(inspect.signature(btvec.Drawing.twist)) == "(self, /, angle=90, *, radius=None, about=None)"
-    assert str(inspect.signature(btvec.Drawing.bulge)) == "(self, /, amount=0.5, *, radius=None, about=None)"
+    assert str(inspect.signature(btvec.Drawing.bulge)) == "(self, /, stretch=0.5, *, radius=None, about=None)"
 
 
-@pytest.mark.parametrize("amount", [-1, 16 / 11, 2, float("nan"), float("inf")])
-def test_an_amount_that_would_fold_the_shape_is_refused_naming_it(amount: float) -> None:
+@pytest.mark.parametrize("stretch", [-1, 16 / 11, 2, float("nan"), float("inf")])
+def test_an_amount_that_would_fold_the_shape_is_refused_naming_it(stretch: float) -> None:
     line = btvec.Path.line((0, 0), (10, 0))
-    with pytest.raises(btvec.ParameterError, match="amount"):
-        line.bulge(amount)
-    with pytest.raises(btvec.ParameterError, match="amount"):
-        btvec.Drawing(line).bulge(amount).shapes()
+    with pytest.raises(btvec.ParameterError, match="stretch"):
+        line.bulge(stretch)
+    with pytest.raises(btvec.ParameterError, match="stretch"):
+        btvec.Drawing(line).bulge(stretch).shapes()
 
 
 def test_a_bulge_amount_is_refused_in_the_same_words_on_a_path_and_a_drawing() -> None:

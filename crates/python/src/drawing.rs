@@ -394,11 +394,11 @@ impl PyDrawing {
     /// argument a number, a Param or an expression, read per shape); as `Path.bulge`. The center is `about`, else each
     /// shape's origin, else the middle of its bounds.
     #[pyo3(
-        signature = (amount=None, *, radius=None, about=None),
-        text_signature = "($self, amount=0.5, *, radius=None, about=None)"
+        signature = (stretch=None, *, radius=None, about=None),
+        text_signature = "($self, stretch=0.5, *, radius=None, about=None)"
     )]
-    fn bulge(&self, amount: Option<Num>, radius: Option<Num>, about: Option<Pair>) -> PyResult<Self> {
-        let mut bulge = vector::Bulge::new(amount.map_or_else(|| vector::Expr::from(0.5), |Num(amount)| amount));
+    fn bulge(&self, stretch: Option<Num>, radius: Option<Num>, about: Option<Pair>) -> PyResult<Self> {
+        let mut bulge = vector::Bulge::new(stretch.map_or_else(|| vector::Expr::from(0.5), |Num(stretch)| stretch));
         if let Some(Num(radius)) = radius {
             bulge = bulge.radius(radius);
         }
@@ -410,18 +410,18 @@ impl PyDrawing {
 
     /// Every shape bent by one frame (a `Rect` or `(x, y, width, height)`; the bounds of all the shapes by default, so that
     /// a line of text keeps its place in the block) mapped onto the region between the curves `top` and `bottom` (the
-    /// frame's straight bottom edge by default); as `Path.envelope`. `amount` is a number, a Param or an expression, read
+    /// frame's straight bottom edge by default); as `Path.envelope`. `fraction` is a number, a Param or an expression, read
     /// per shape.
     #[pyo3(
-        signature = (top, bottom=None, *, frame=None, amount=None),
-        text_signature = "($self, top, bottom=None, *, frame=None, amount=1)"
+        signature = (top, bottom=None, *, frame=None, fraction=None),
+        text_signature = "($self, top, bottom=None, *, frame=None, fraction=1)"
     )]
     fn envelope(
         &self,
         top: &Bound<'_, PyPath>,
         bottom: Option<&Bound<'_, PyPath>>,
         frame: Option<Frame>,
-        amount: Option<Num>,
+        fraction: Option<Num>,
     ) -> PyResult<Self> {
         let mut options = vector::Envelope::new();
         if let Some(bottom) = bottom {
@@ -430,8 +430,8 @@ impl PyDrawing {
         if let Some(Frame(frame)) = frame {
             options = options.frame(frame);
         }
-        if let Some(Num(amount)) = amount {
-            options = options.amount(amount);
+        if let Some(Num(fraction)) = fraction {
+            options = options.fraction(fraction);
         }
         checked(self.0.envelope(&top.get().0, options))
     }

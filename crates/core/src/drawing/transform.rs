@@ -159,22 +159,22 @@ impl<T: Into<Expr>> From<Deg<T>> for Twist {
     }
 }
 
-/// A bulge: the amount, and optionally the radius it dies away over and the point to bulge about. A number (or a
+/// A bulge: the stretch, and optionally the radius it dies away over and the point to bulge about. A number (or a
 /// `Param`, or an expression) alone converts into one.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bulge {
-    amount: Expr,
+    stretch: Expr,
     radius: Option<Expr>,
     about: Option<Pivot>,
 }
 
 impl Bulge {
-    /// A bulge of `amount` about each shape's origin (the middle of its bounds if it has none), dying away to nothing
+    /// A bulge of `stretch` about each shape's origin (the middle of its bounds if it has none), dying away to nothing
     /// at the distance to the farthest corner of its bounds.
     #[must_use]
-    pub fn new(amount: impl Into<Expr>) -> Self {
+    pub fn new(stretch: impl Into<Expr>) -> Self {
         Self {
-            amount: amount.into(),
+            stretch: stretch.into(),
             radius: None,
             about: None,
         }
@@ -196,8 +196,8 @@ impl Bulge {
 }
 
 impl<T: Into<Expr>> From<T> for Bulge {
-    fn from(amount: T) -> Self {
-        Self::new(amount)
+    fn from(stretch: T) -> Self {
+        Self::new(stretch)
     }
 }
 
@@ -207,11 +207,11 @@ impl<T: Into<Expr>> From<T> for Bulge {
 pub struct Envelope {
     bottom: Option<Path>,
     frame: Option<Rect>,
-    amount: Option<Expr>,
+    fraction: Option<Expr>,
 }
 
 impl Envelope {
-    /// An envelope whose bottom edge is the frame's own, its frame the bounds of the whole drawing, and its amount 1.
+    /// An envelope whose bottom edge is the frame's own, its frame the bounds of the whole drawing, and its fraction 1.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -231,11 +231,11 @@ impl Envelope {
         self
     }
 
-    /// This envelope applying `amount` of the bend: a number, a `Param` or an expression, read for each shape. 0 leaves
+    /// This envelope applying `fraction` of the bend: a number, a `Param` or an expression, read for each shape. 0 leaves
     /// the shapes as they are, 1 is the full bend.
     #[must_use]
-    pub fn amount(mut self, amount: impl Into<Expr>) -> Self {
-        self.amount = Some(amount.into());
+    pub fn fraction(mut self, fraction: impl Into<Expr>) -> Self {
+        self.fraction = Some(fraction.into());
         self
     }
 }
@@ -489,15 +489,15 @@ impl Drawing {
     /// point. Each argument is a number for each shape. Each shape keeps its style and attributes, its `origin`
     /// included.
     ///
-    /// An `amount` not above -1 and below 16/11 (past which the shape would fold over itself) is refused when the
-    /// drawing is drawn, naming the step (`step 2 (bulge)`) and `amount`; a `radius` as for [`Drawing::twist`].
+    /// An `stretch` not above -1 and below 16/11 (past which the shape would fold over itself) is refused when the
+    /// drawing is drawn, naming the step (`step 2 (bulge)`) and `stretch`; a `radius` as for [`Drawing::twist`].
     #[must_use]
     pub fn bulge(&self, bulge: impl Into<Bulge>) -> Self {
-        let Bulge { amount, radius, about } = bulge.into();
+        let Bulge { stretch, radius, about } = bulge.into();
         self.then(
             &transform::Bulge,
             vec![
-                ("amount", Given::Number(amount)),
+                ("stretch", Given::Number(stretch)),
                 ("radius", radius.map_or(Given::Unset, Given::Number)),
                 ("about", Pivot::given(about)),
             ],
@@ -508,23 +508,27 @@ impl Drawing {
     /// bottom (the frame's own straight edge if none), as [`Path::envelope`](crate::Path::envelope) does: a word between
     /// an arc and the same arc lower is a banner. The frame is the bounds of all the shapes of the drawing, read when the
     /// step is drawn, so that every shape shares one frame (a frame per shape would make a line of text as tall as a
-    /// block); [`Envelope::frame`] sets one instead. `amount` is a number for each shape. Each shape keeps its style and
+    /// block); [`Envelope::frame`] sets one instead. `fraction` is a number for each shape. Each shape keeps its style and
     /// attributes, its `origin` included (it is not moved).
     ///
     /// A `top` or bottom curve that is empty or has no length is refused when the drawing is drawn, as are a frame
-    /// with no width or height and an `amount` that is not a finite number; so is a draw that would make more than
-    /// `MAX_SEGMENTS` points. An `amount` or a frame number that is not a number leaves the drawing with an
+    /// with no width or height and an `fraction` that is not a finite number; so is a draw that would make more than
+    /// `MAX_SEGMENTS` points. An `fraction` or a frame number that is not a number leaves the drawing with an
     /// [`error`](Drawing::error) naming the step.
     #[must_use]
     pub fn envelope(&self, top: &Path, options: Envelope) -> Self {
-        let Envelope { bottom, frame, amount } = options;
+        let Envelope {
+            bottom,
+            frame,
+            fraction,
+        } = options;
         let mut given = vec![
             ("top", Given::Path(top.clone())),
             ("bottom", bottom.map_or(Given::Unset, Given::Path)),
             ("frame", frame_given(frame)),
         ];
-        if let Some(amount) = amount {
-            given.push(("amount", Given::Number(amount)));
+        if let Some(fraction) = fraction {
+            given.push(("fraction", Given::Number(fraction)));
         }
         self.then(&transform::Envelope, given)
     }

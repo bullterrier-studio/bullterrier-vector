@@ -704,18 +704,18 @@ AGREED = [
     ),
     pytest.param(square_with({"bulge": {}}), True, id="a bulge with its defaults"),
     pytest.param(
-        square_with({"bulge": {"amount": -0.999, "radius": 1e100, "about": [1, -2]}}),
+        square_with({"bulge": {"stretch": -0.999, "radius": 1e100, "about": [1, -2]}}),
         True,
         id="a bulge with every argument",
     ),
-    pytest.param(square_with({"bulge": {"amount": 1.45}}), True, id="a bulge amount just below 16/11"),
-    pytest.param(square_with({"bulge": {"amount": 1.4545454545454546}}), False, id="a bulge amount of 16/11"),
-    pytest.param(square_with({"bulge": {"amount": 1.5}}), False, id="a bulge amount past 16/11"),
-    pytest.param(square_with({"bulge": {"amount": -1}}), False, id="a bulge amount of -1"),
+    pytest.param(square_with({"bulge": {"stretch": 1.45}}), True, id="a bulge stretch just below 16/11"),
+    pytest.param(square_with({"bulge": {"stretch": 1.4545454545454546}}), False, id="a bulge stretch of 16/11"),
+    pytest.param(square_with({"bulge": {"stretch": 1.5}}), False, id="a bulge stretch past 16/11"),
+    pytest.param(square_with({"bulge": {"stretch": -1}}), False, id="a bulge stretch of -1"),
     pytest.param(square_with({"bulge": {"radius": 1.1e100}}), False, id="a bulge radius past 1e100"),
     pytest.param(square_with({"bulge": {"radius": 0}}), False, id="a bulge radius of 0"),
     pytest.param(square_with({"bulge": {"about": [0, 1e101]}}), False, id="a bulge pivot past 1e100"),
-    pytest.param(with_param({"bulge": {"amount": {"param": "x"}}}), True, id="a bulge amount from a Param"),
+    pytest.param(with_param({"bulge": {"stretch": {"param": "x"}}}), True, id="a bulge stretch from a Param"),
     pytest.param(square_with({"wobble": {}}), True, id="a wobble with its defaults"),
     pytest.param(
         square_with({"wobble": {"amplitude": -3, "wavelength": 1e100, "phase": 0.25, "seed": -7}}),
@@ -738,7 +738,7 @@ AGREED = [
                     "top": "M0 0 L10 2",
                     "bottom": "M0 10 L10 12",
                     "frame": [0, 0, 1e100, -1e100],
-                    "amount": -3,
+                    "fraction": -3,
                 }
             }
         ),
@@ -764,9 +764,9 @@ AGREED = [
         square_with({"envelope": {"top": "M0 0 L10 2", "depth": 1}}), False, id="an envelope with an unknown argument"
     ),
     pytest.param(
-        with_param({"envelope": {"top": "M0 0 L10 2", "amount": {"param": "x"}, "frame": [0, 0, {"param": "x"}, 5]}}),
+        with_param({"envelope": {"top": "M0 0 L10 2", "fraction": {"param": "x"}, "frame": [0, 0, {"param": "x"}, 5]}}),
         True,
-        id="an envelope amount and frame from a Param",
+        id="an envelope fraction and frame from a Param",
     ),
     pytest.param(square_with({"arch": {"bend": 0.3}}), True, id="an arch"),
     pytest.param(square_with({"arch": {"bend": -2, "frame": [1, 2, 3, 4]}}), True, id="an arch with a frame"),

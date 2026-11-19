@@ -26,19 +26,19 @@ fn twist_pieces(angle: f64) -> f64 {
     libm::sqrt((10.5 * a + 2.25 * a * a) / (8.0 * CHORD_ERROR))
 }
 
-/// The pieces of a radius a bulge of `amount` needs. The image of a line `d(u)` is `m(r) d`, `m = 1 + amount f(r)`, so
-/// `|image''| <= |amount| (|f''| |d| + 2 |f'|)` plus the Hessian terms of the perpendicular `|f'| / r |d|`, together at
-/// most `9 |amount| / radius` (`|f'| <= 1.5 / radius`, `|f''| and |f'| / r <= 6 / radius^2`); with `h = radius / n` the
-/// chord error is within `CHORD_ERROR * radius` for `n = sqrt(9 |amount| / (8 CHORD_ERROR))` = `15 sqrt(|amount|)`.
-fn bulge_pieces(amount: f64) -> f64 {
-    libm::sqrt(9.0 * amount.abs() / (8.0 * CHORD_ERROR))
+/// The pieces of a radius a bulge of `stretch` needs. The image of a line `d(u)` is `m(r) d`, `m = 1 + stretch f(r)`, so
+/// `|image''| <= |stretch| (|f''| |d| + 2 |f'|)` plus the Hessian terms of the perpendicular `|f'| / r |d|`, together at
+/// most `9 |stretch| / radius` (`|f'| <= 1.5 / radius`, `|f''| and |f'| / r <= 6 / radius^2`); with `h = radius / n` the
+/// chord error is within `CHORD_ERROR * radius` for `n = sqrt(9 |stretch| / (8 CHORD_ERROR))` = `15 sqrt(|stretch|)`.
+fn bulge_pieces(stretch: f64) -> f64 {
+    libm::sqrt(9.0 * stretch.abs() / (8.0 * CHORD_ERROR))
 }
 
-/// The amount a bulge stays below: past it the map `r -> r'` folds over itself.
-// constant: 16/11, from the slope of `r -> r'` at its lowest, `1 - amount * 11/16` at s = 3/4 (see `Path::bulge`)
+/// The stretch a bulge stays below: past it the map `r -> r'` folds over itself.
+// constant: 16/11, from the slope of `r -> r'` at its lowest, `1 - stretch * 11/16` at s = 3/4 (see `Path::bulge`)
 pub(crate) const STRONGEST_BULGE: f64 = 16.0 / 11.0;
 
-/// The words that refuse an `amount` outside its range, on a `Path` and on a `Drawing` alike.
+/// The words that refuse an `stretch` outside its range, on a `Path` and on a `Drawing` alike.
 // constant: the bound is written once, as a fraction and rounded, with the reason it is the bound
 pub(crate) const STRONGEST_BULGE_RULE: &str = "above -1 and below 16/11 (1.4545), so that the shape does not fold over";
 
@@ -111,43 +111,43 @@ impl Path {
         self.warp("angle", radius / pieces, CHORD_ERROR * radius, &map, charge)
     }
 
-    /// This path with every point moved along its ray from `about` to `r (1 + amount * falloff(r))`, `r` its distance
-    /// from `about` and `falloff(r) = 1 - s^2 (3 - 2s)`, `s = min(r / radius, 1)`: a positive `amount` bulges the middle
+    /// This path with every point moved along its ray from `about` to `r (1 + stretch * falloff(r))`, `r` its distance
+    /// from `about` and `falloff(r) = 1 - s^2 (3 - 2s)`, `s = min(r / radius, 1)`: a positive `stretch` bulges the middle
     /// outward (a fish-eye), a negative one pinches it inward, 0 leaves it where it is, and a point at `radius` or
     /// beyond does not move (to the bit). The center stays; every other point keeps its direction from `about`.
     ///
     /// The map of `r` is strictly increasing, so no part of the shape folds over itself, exactly for
-    /// `-1 < amount < 16/11`: its slope is `1 + amount (1 - 9 s^2 + 8 s^3)`, and `1 - 9 s^2 + 8 s^3` runs from 1 (at
+    /// `-1 < stretch < 16/11`: its slope is `1 + stretch (1 - 9 s^2 + 8 s^3)`, and `1 - 9 s^2 + 8 s^3` runs from 1 (at
     /// `s = 0`) down to -11/16 (at `s = 3/4`) and back to 0.
     ///
     /// `about` and `radius` default as for [`Path::twist`]. The path is flattened and each edge cut into equal pieces
-    /// of at most `radius / (15 sqrt(|amount|))`, so that every point of the result is within a hundredth of the radius
+    /// of at most `radius / (15 sqrt(|stretch|))`, so that every point of the result is within a hundredth of the radius
     /// of the image it stands for and within 0.05 design pixels of it (a shorter step where that is more); every vertex of the flattening is kept, so corners stay corners. The result is made
     /// of straight lines; each sub-path keeps its closedness, a sub-path of a single point stays one, an empty path
     /// stays empty.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `amount` if it is not a number above -1 and below 16/11, or if a displaced point
+    /// [`Error::Parameter`] naming `stretch` if it is not a number above -1 and below 16/11, or if a displaced point
     /// would be beyond ±1e100; naming `radius` if it is not a number above 0 and at most 1e100, or if the pieces the
     /// cut would make, over all the sub-paths, are more than `MAX_SEGMENTS` (10,000,000), counted before any is made;
     /// naming `about` if it is NaN, infinite or beyond ±1e100.
-    pub fn bulge(&self, amount: f64, radius: Option<f64>, about: Option<Point>) -> Result<Self, Error> {
-        self.bulge_charged(amount, radius, about, &mut segment_budget("radius"))
+    pub fn bulge(&self, stretch: f64, radius: Option<f64>, about: Option<Point>) -> Result<Self, Error> {
+        self.bulge_charged(stretch, radius, about, &mut segment_budget("radius"))
     }
 
     /// As [`Path::bulge`], calling `charge` with the number of points the result would have, before any is made; its
     /// error stops the verb.
     pub(crate) fn bulge_charged(
         &self,
-        amount: f64,
+        stretch: f64,
         radius: Option<f64>,
         about: Option<Point>,
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<Self, Error> {
-        if !(amount > -1.0 && amount < STRONGEST_BULGE) {
+        if !(stretch > -1.0 && stretch < STRONGEST_BULGE) {
             return Err(Error::parameter(
-                "amount",
-                format!("must be {STRONGEST_BULGE_RULE}, got {amount}"),
+                "stretch",
+                format!("must be {STRONGEST_BULGE_RULE}, got {stretch}"),
             ));
         }
         let Some((about, radius)) = self.frame(radius, about)? else {
@@ -159,12 +159,12 @@ impl Path {
             if r >= radius {
                 return point;
             }
-            let factor = 1.0 + amount * falloff(r, radius);
+            let factor = 1.0 + stretch * falloff(r, radius);
             Point::new(about.x + dx * factor, about.y + dy * factor)
         };
         self.warp(
-            "amount",
-            radius / bulge_pieces(amount),
+            "stretch",
+            radius / bulge_pieces(stretch),
             CHORD_ERROR * radius,
             &map,
             charge,

@@ -743,7 +743,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "amount": {
+            "stretch": {
               "anyOf": [
                 { "type": "number", "exclusiveMinimum": -1, "exclusiveMaximum": 1.4545454545454546 },
                 { "$ref": "#/$defs/expression" }
@@ -777,7 +777,7 @@
               "maxItems": 4,
               "$comment": "exactly four numbers, x, y, width, height"
             },
-            "amount": { "$ref": "#/$defs/number" }
+            "fraction": { "$ref": "#/$defs/number" }
           },
           "required": ["top"]
         },

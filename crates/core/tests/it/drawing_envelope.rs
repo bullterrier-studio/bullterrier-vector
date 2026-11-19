@@ -54,7 +54,7 @@ fn each_shape_reads_its_own_amount() -> Outcome {
     let square = rect(0.0, 0.0, 100.0, 100.0)?;
     let both = Drawing::new([square.clone(), square]);
     let shapes = both
-        .envelope(&slope()?, Envelope::new().amount(by_index(0.0, 1.0)))
+        .envelope(&slope()?, Envelope::new().fraction(by_index(0.0, 1.0)))
         .shapes(&Values::new())?;
     let (flat, bent) = (lines(shapes[0].path())?, lines(shapes[1].path())?);
     assert!(has_vertex(&flat, (100.0, 0.0)), "{flat:?}");
@@ -64,13 +64,13 @@ fn each_shape_reads_its_own_amount() -> Outcome {
 
 #[test]
 fn a_param_amount_is_read_when_drawn() -> Outcome {
-    let amount = Param::new("amount", 0.0, 0.0, 1.0)?;
-    let bent = Drawing::from(rect(0.0, 0.0, 100.0, 100.0)?).envelope(&slope()?, Envelope::new().amount(&amount));
+    let fraction = Param::new("fraction", 0.0, 0.0, 1.0)?;
+    let bent = Drawing::from(rect(0.0, 0.0, 100.0, 100.0)?).envelope(&slope()?, Envelope::new().fraction(&fraction));
     let corner = |values: &Values| -> Result<bool, Box<dyn std::error::Error>> {
         Ok(has_vertex(&lines(bent.shapes(values)?[0].path())?, (100.0, 10.0)))
     };
     assert!(!corner(&Values::new())?);
-    assert!(corner(&Values::new().set("amount", 0.5))?);
+    assert!(corner(&Values::new().set("fraction", 0.5))?);
     Ok(())
 }
 
@@ -104,7 +104,7 @@ fn the_steps_save_and_load_the_same_drawing() -> Outcome {
             Envelope::new()
                 .bottom(&Path::line((0.0, 100.0), (100.0, 130.0))?)
                 .frame(frame)
-                .amount(by_index(0.5, 1.0)),
+                .fraction(by_index(0.5, 1.0)),
         ),
         square.arch(Arch::new(by_index(0.1, 0.4)).frame(frame)),
         square.arch(0.2),
@@ -161,11 +161,11 @@ fn refusals_name_the_step_and_the_argument() -> Outcome {
         "{place}: {message}"
     );
     let error = square
-        .envelope(&slope()?, Envelope::new().amount(f64::NAN))
+        .envelope(&slope()?, Envelope::new().fraction(f64::NAN))
         .error()
         .map(ToString::to_string)
         .ok_or("no error")?;
-    assert!(error.contains("amount"), "{error}");
+    assert!(error.contains("fraction"), "{error}");
     let error = square
         .arch(f64::INFINITY)
         .error()

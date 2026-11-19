@@ -1302,7 +1302,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **`twist` and `bulge`: radial deformers (2026-11-16, V12 task 3).** Designed from three usage sketches before any
   signature: `text("O", ...).twist(90)` (the middle of the letter turns a quarter, the rim holds still, so the strokes
   curl); `circle.bulge(0.8, radius=60)` and `circle.bulge(-0.5)` (a fish-eye, a pinch); `text(...).twist(progress * 180)`
-  with a Param. They settled the form `twist(angle=90, *, radius=None, about=None)` and `bulge(amount=0.5, *, radius=None,
+  with a Param. They settled the form `twist(angle=90, *, radius=None, about=None)` and `bulge(stretch=0.5, *, radius=None,
   about=None)`: the one thing a person gives is the strength; the radius and the pivot have a reasonable default (the shape
   itself) and are named when wanted. `about` and the default pivot are those of `rotate` and `scale` (the shape's `origin`,
   else the middle of its bounds), unlike `wave` and `wobble`, whose field is anchored in the design frame: a twist is a
@@ -1313,13 +1313,13 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   both, so the twist has no kink at the center or at the rim; a linear falloff would show a crease at `radius`. The turn
   of a point depends on its distance only, so a twist keeps every distance to `about` (tested on rays from the pivot, to
   1e-9 relative). Cost if wrong: a saved drawing's twist is another shape (the falloff is part of the file's meaning).*
-  *Ruling: `bulge` moves a point to `r * (1 + amount * falloff(r))` along its ray, the same falloff. The slope of `r -> r'` is
-  `1 + amount h(s)`, `h(s) = 1 - 9 s^2 + 8 s^3`; `h` is 1 at `s = 0`, 0 at `s = 1`, and has its minimum -11/16 at `s = 3/4`
-  (`h' = 6 s (4 s - 3)`), so the map is strictly increasing, and nothing folds over, exactly for `-1 < amount < 16/11`.
-  `amount` outside that is a `ParameterError` naming `amount`; a literal is refused at the call through a new domain,
+  *Ruling: `bulge` moves a point to `r * (1 + stretch * falloff(r))` along its ray, the same falloff. The slope of `r -> r'` is
+  `1 + stretch h(s)`, `h(s) = 1 - 9 s^2 + 8 s^3`; `h` is 1 at `s = 0`, 0 at `s = 1`, and has its minimum -11/16 at `s = 3/4`
+  (`h' = 6 s (4 s - 3)`), so the map is strictly increasing, and nothing folds over, exactly for `-1 < stretch < 16/11`.
+  `stretch` outside that is a `ParameterError` naming `stretch`; a literal is refused at the call through a new domain,
   `Domain::Between(low, high)` (above both bounds, below the second: written to the generated schema as
   `exclusiveMinimum`/`exclusiveMaximum`, and by hand in the committed one). Cost if wrong: the smoothstep falloff cannot
-  push a middle further than 1.45 times (a fish-eye of more is a later falloff, not a larger amount); the refusal of a
+  push a middle further than 1.45 times (a fish-eye of more is a later falloff, not a larger stretch); the refusal of a
   valid fold-over that a person wants (self-overlap as an effect) is deliberate, as `along` refuses nothing and folds are
   not reachable by accident here.*
   *Ruling: `radius` defaults to the distance from `about` to the farthest corner of the shape's bounds (the whole shape
@@ -1332,14 +1332,14 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   image along the line. Twist, `a` the angle in radians, `phi = a f(r)`: `|f'| <= 1.5 / radius`, `|f''| <= 6 / radius^2`, so
   `|image''| <= |phi''| |d| + phi'^2 |d| + 2 |phi'| <= (10.5 a + 2.25 a^2) / radius` and the chord error is within `0.005 *
   radius` for `n = 7.5 sqrt(a^2 + 14 a / 3)` (22 at 90 degrees, 60 at a turn): the pieces grow with the angle, as a map
-  that turns more bends more. Bulge: `|image''| <= 9 |amount| / radius`, `n = 15 sqrt(|amount|)`. The error budget is half of
+  that turns more bends more. Bulge: `|image''| <= 9 |stretch| / radius`, `n = 15 sqrt(|stretch|)`. The error budget is half of
   the hundredth of the radius the tests hold the output to (`0.01 * radius + 0.01` for the flattening of curves, against
   the exact images of a dense sampling); checked: `0.04` instead of `0.005` fails the twist closed-form tests, so the bound
   is exercised (it is loose for bulge, whose real error is a fraction of the bound). `// constant: CHORD_ERROR`. Cost if
   wrong: pieces go as `1 / sqrt(error)`, so a bound 8 times looser makes 2.8 times fewer points; a hair of speed.*
   *Ruling: a count past `MAX_SEGMENTS` names `radius` (the argument that sets the step), a turn so large that not even one
   radius can be cut into `MAX_SEGMENTS` pieces names `angle` (it alone sets the step then), a point beyond ±1e100 names
-  `amount` for a bulge and `angle` for a twist. A long edge far outside the radius is cut into pieces of the same length
+  `stretch` for a bulge and `angle` for a twist. A long edge far outside the radius is cut into pieces of the same length
   although nothing moves there (the kernel cuts every edge alike); a huge shape with a small `radius` is refused rather
   than cut short, and the message is the same `MAX_SEGMENTS` one. Cost if wrong: a refusal where a smarter cut would
   have succeeded; the fix is in the kernel (cut only within the radius), not in the verbs.*
@@ -1356,16 +1356,16 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   fan (`along`) turns every letter to the arc's direction and can wrap past half a circle; it is for text on a path. The
   frame map keeps the columns of the word straight (a letter is sheared and stretched, never turned) and its height under
   control: it is the banner, the flag, the arch of a logo. Use `along` for a word that follows a curve, `envelope` or
-  `arch` for a word that is shaped by one. The forms settled as `envelope(top, bottom=None, *, frame=None, amount=1)`,
+  `arch` for a word that is shaped by one. The forms settled as `envelope(top, bottom=None, *, frame=None, fraction=1)`,
   `arch(bend, *, frame=None)` and the constructor `Path.arc(center, radius, start, end)` that the curve needs (`from_svg_path`
   was the only way to an arc, and a circle is closed).
   *Ruling: the map is `lerp(T(u), B(u), v)`, `u` and `v` the shares of the frame, `T` and `B` the points of `top` and
   `bottom` at that share of their lengths, walked by `along`'s guide (straight past an open end, wrapping a closed curve
   with its seam at its start). A column stays straight; `bottom` left out is the frame's straight bottom edge, the flat
   baseline of the classic arch. Cost if wrong: a saved drawing's bend is another shape.*
-  *Ruling: `amount` blends each edge between the frame's straight edge and the curve, `lerp(straight(u), T(u), amount)`, any
-  finite number. `top` and `bottom` are literal paths in a document (a `Kind::Path`, as for `along`), so without `amount` a
-  bend could not animate; with it `amount * progress` does, and a negative amount bends the other way. Cost if wrong: one
+  *Ruling: `fraction` blends each edge between the frame's straight edge and the curve, `lerp(straight(u), T(u), fraction)`, any
+  finite number. `top` and `bottom` are literal paths in a document (a `Kind::Path`, as for `along`), so without `fraction` a
+  bend could not animate; with it `fraction * progress` does, and a negative fraction bends the other way. Cost if wrong: one
   more number on a verb that could have done without; 1 is the default and costs nothing to ignore.*
   *Ruling: the default frame is the bounds of the whole drawing (all shapes, read when the step is drawn), shared by every
   shape; on a `Path` its own bounds. A frame per shape collapses a line of a word into a block (each letter fills the
@@ -1409,7 +1409,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   refuses (checked), so 256 is exercised. A tall vertical edge is cut as a long one although the map is linear along it (the
   kernel cuts every edge alike). Cost if wrong: pieces go as the root of the error; a frame much taller than wide is cut finer
   than it needs.*
-  *Ruling: a count past `MAX_SEGMENTS` names `frame` (the argument that sets the step); `amount` and `bend` name a point beyond
+  *Ruling: a count past `MAX_SEGMENTS` names `frame` (the argument that sets the step); `fraction` and `bend` name a point beyond
   ±1e100; `top` or `bottom` empty or of no length is a `GeometryError` of `envelope`, as `along` has it, naming neither (the
   message is the guide's). The curves of a `Drawing` step are walked once for all shapes.*
   *Ruling: `Path.arc` takes degrees clockwise on the screen from +x (like `rotate`, `y` down) and a sweep `end - start` from
@@ -2197,3 +2197,10 @@ Why not an existing call:
 - **Work.** The parallelograms are charged before any is made (five points an edge: a corner of the copy and four),
   then the engine's pairs of edges that may cross and the result's vertices, as the booleans charge. A long diagonal
   sweep of a shape of many edges is refused there: each parallelogram's box then meets nearly every other.
+
+## One name, one kind: the registry rule
+
+- **Why `fraction` for `envelope`, `stretch` for `bulge`, and not `amount`.** `amount` is on the banned list (it says
+  nothing about what it is). `envelope`'s value is exactly "this fraction of the way to the curve", the library's word
+  for that, as in `morph`. `bulge`'s is a signed, unbounded push (`r' = r * (1 + stretch * falloff(r))`), so not
+  `fraction` (it is no blend), not `strength` (banned) and not `scale` (a verb).

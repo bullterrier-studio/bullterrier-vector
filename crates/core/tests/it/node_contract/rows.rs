@@ -820,18 +820,18 @@ pub(super) fn rows() -> Vec<Row> {
             verb: "bulge",
             sample: || Ok(square()?.bulge(Bulge::new(0.8).radius(8.0).about((5.0, 5.0)))),
             with: Some(|argument, value| match argument {
-                "amount" => Ok(square()?.bulge(value)),
+                "stretch" => Ok(square()?.bulge(value)),
                 "radius" => Ok(square()?.bulge(Bulge::new(0.5).radius(value))),
                 _ => Err(unknown("bulge", argument)),
             }),
             ranges: &[
-                ("amount", 0.5, true),
-                ("amount", -0.99, true),
-                ("amount", 1.45, true),
-                ("amount", -1.0, false),
-                ("amount", 16.0 / 11.0, false),
-                ("amount", f64::NAN, false),
-                ("amount", f64::INFINITY, false),
+                ("stretch", 0.5, true),
+                ("stretch", -0.99, true),
+                ("stretch", 1.45, true),
+                ("stretch", -1.0, false),
+                ("stretch", 16.0 / 11.0, false),
+                ("stretch", f64::NAN, false),
+                ("stretch", f64::INFINITY, false),
                 ("radius", 7.0, true),
                 ("radius", 0.5, true),
                 ("radius", 1e100, true),
@@ -843,22 +843,22 @@ pub(super) fn rows() -> Vec<Row> {
             ],
             geometry: Some(Geometry {
                 cases: |path, a, b| {
-                    let amount = -0.9 + a.abs() % 2.3;
+                    let stretch = -0.9 + a.abs() % 2.3;
                     Ok(vec![
                         (
-                            "an amount about the middle of the bounds",
-                            Drawing::from(path.clone()).bulge(amount),
-                            path.bulge(amount, None, None),
+                            "a stretch about the middle of the bounds",
+                            Drawing::from(path.clone()).bulge(stretch),
+                            path.bulge(stretch, None, None),
                         ),
                         (
-                            "an amount, a radius and a point",
+                            "a stretch, a radius and a point",
                             Drawing::from(path.clone()).bulge(
-                                Bulge::new(amount)
+                                Bulge::new(stretch)
                                     .radius(10.0 + b.abs() % 90.0)
                                     .about((a % 50.0, b % 50.0)),
                             ),
                             path.bulge(
-                                amount,
+                                stretch,
                                 Some(10.0 + b.abs() % 90.0),
                                 Some(Point::new(a % 50.0, b % 50.0)),
                             ),
@@ -876,21 +876,21 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "envelope",
-            sample: || Ok(square()?.envelope(&slope()?, Envelope::new().amount(0.8))),
+            sample: || Ok(square()?.envelope(&slope()?, Envelope::new().fraction(0.8))),
             with: Some(|argument, value| match argument {
-                "amount" => Ok(square()?.envelope(&slope()?, Envelope::new().amount(value))),
+                "fraction" => Ok(square()?.envelope(&slope()?, Envelope::new().fraction(value))),
                 _ => Err(unknown("envelope", argument)),
             }),
             ranges: &[
-                ("amount", 1.0, true),
-                ("amount", -3.0, true),
-                ("amount", 0.0, true),
-                ("amount", f64::NAN, false),
-                ("amount", f64::INFINITY, false),
+                ("fraction", 1.0, true),
+                ("fraction", -3.0, true),
+                ("fraction", 0.0, true),
+                ("fraction", f64::NAN, false),
+                ("fraction", f64::INFINITY, false),
             ],
             geometry: Some(Geometry {
                 cases: |path, a, b| {
-                    let amount = a % 3.0;
+                    let fraction = a % 3.0;
                     let frame = Rect {
                         x: a % 50.0,
                         y: b % 50.0,
@@ -899,15 +899,17 @@ pub(super) fn rows() -> Vec<Row> {
                     };
                     Ok(vec![
                         (
-                            "an amount, the bounds as the frame",
-                            Drawing::from(path.clone()).envelope(&slope()?, Envelope::new().amount(amount)),
-                            path.envelope(&slope()?, None, None, amount),
+                            "a fraction, the bounds as the frame",
+                            Drawing::from(path.clone()).envelope(&slope()?, Envelope::new().fraction(fraction)),
+                            path.envelope(&slope()?, None, None, fraction),
                         ),
                         (
-                            "a bottom, a frame and an amount",
-                            Drawing::from(path.clone())
-                                .envelope(&slope()?, Envelope::new().bottom(&ring()?).frame(frame).amount(amount)),
-                            path.envelope(&slope()?, Some(&ring()?), Some(frame), amount),
+                            "a bottom, a frame and a fraction",
+                            Drawing::from(path.clone()).envelope(
+                                &slope()?,
+                                Envelope::new().bottom(&ring()?).frame(frame).fraction(fraction),
+                            ),
+                            path.envelope(&slope()?, Some(&ring()?), Some(frame), fraction),
                         ),
                     ])
                 },
