@@ -10,7 +10,6 @@ import bullterrier_vector as btvec
 
 SIDE, FRAMES = 64, 5
 LEVELS = [0.5]
-TRACE = {"smooth": 1.0, "tolerance": 0.4, "close": 1.0}
 
 
 def frame_bytes(i: int) -> bytes:
@@ -31,7 +30,9 @@ steady = btvec.Field.smooth_maps(maps, sigma=1.5)
 
 def trace(field: btvec.Field) -> btvec.Drawing:
     """The shape of the disc, one paper."""
-    return btvec.Drawing(btvec.Drawing.trace_levels(field, LEVELS, **TRACE).fill("#f2b632"), size=(640, 640))
+    return btvec.Drawing(
+        btvec.Drawing.trace_levels(field, LEVELS, smooth=1.0, tolerance=0.4, close=1.0).fill("#f2b632"), size=(640, 640)
+    )
 
 
 alone = [trace(m) for m in maps]  # each frame on its own: the dropouts are holes
