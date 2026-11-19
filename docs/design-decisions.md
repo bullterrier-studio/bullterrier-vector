@@ -2031,8 +2031,9 @@ Added: `Field.noise` and five operations on fields; `trace_levels` reads any fie
 
 Why not an existing call:
 - **`Flow.noise`** is a direction (a number turned into an angle and doubled), not a number: its value cannot be added to a
-  distance. `Field.noise` reads the same kernel (`noise.rs`, stream 0) as a number, with `Flow.noise`'s names, order and
-  units (`wavelength` in design pixels, `phase` in cycles, a whole `seed`); `octaves` is its one new argument.
+  distance. `Field.noise` reads the same kernel (`noise.rs`, stream 0) as a number, with `Flow.noise`'s keyword-only
+  arguments, defaults and units (`wavelength` in design pixels, default 400 from the one constant `NOISE_WAVELENGTH`,
+  `phase` in cycles, a whole `seed`); `octaves` is its one new argument.
 - **`wobble`** moves points of a path; it cannot change a field's value or what a contour of it encloses. It is not rewritten
   onto `Field.noise`: it reads two streams (across and down) at one octave, and moving it would change its bytes for no
   new ability. A general `displace` (points moved by a field) was considered and not added: nothing asked for it yet, and
@@ -2054,12 +2055,19 @@ Why not an existing call:
 - **Limits reused.** A tree nests at most `MAX_MIX_DEPTH` (16, two document levels a nesting, as a mix) and reads at most
   `MAX_EXPR_NODES` (10,000) fields and operations, so a document written from one reads back under `MAX_CALLS`.
   `charge_reads` counts a read as the sum of its leaves' costs plus one per operation; an octave of noise is one unit
-  (measured: about 10 ns, a tenth of what a unit of `MAX_READ_WORK` stands for).
+  (measured: one octave 38 ns, eight 138 ns, against the 100 ns a unit of `MAX_READ_WORK` stands for: noise is charged 3
+  to 6 times its cost, on the safe side). `hatch` charges the same budget: the starts of its lattice before it draws (a
+  tone too slow for them is refused at once), then each start and step as it is made, at the most reads of the tone and
+  the flow one costs, counted from the code (a flow costs as a field: a unit an angle or octave, a contour its
+  nearest-edge search, a unit a mix).
 - **Octaves.** Each halves the wavelength and the amplitude (lacunarity 2, gain 0.5), the sum divided by the sum of the
   amplitudes. Every octave reads stream 0 at doubled coordinates, so `octaves=n` is a sum of `octaves=1` reads at doubled
   points (the test's oracle) and one octave is the kernel to the bit. At most 8: the eighth is 1/128 of the first.
-- **`wavelength` has no default.** `Flow.noise` defaults it to 400 and `wobble` to 80: one idea with two defaults, so the
-  new call takes none.
+- **The noise defaults differ: 400, 400, 80.** `Field.noise` and `Flow.noise` default `wavelength` to 400 (one constant),
+  `wobble` to 80. One idea with two defaults; unifying them is deferred to the interface pass over defaults.
+- **The shortest wavelength is 1e-200.** A coordinate within ±1e100 at the eighth octave (128 times finer) over a shorter
+  one overflows to infinity, and the noise to NaN; one rule in `noise.rs` holds it for `wobble`, `Flow.noise` and
+  `Field.noise`.
 - **`trace_levels` reads any field** with `box` and `cell` (the names and units of `Field.contours`), not a second verb:
   `trace_levels` of a field is the filled form of `contours` of it, so no new call. Left out, they are a map's own box and
   one map pixel and the map's bytes are traced as before (the SVG of every trace example, preset and differential row

@@ -2,6 +2,7 @@
 
 use crate::expr::Num;
 use crate::inputs::Item;
+use crate::trace::whole;
 use crate::{Frame, Pt, PyPath, raised};
 use bullterrier_vector as vector;
 use pyo3::buffer::PyBuffer;
@@ -148,16 +149,23 @@ impl PyField {
     }
 
     /// Smooth seeded noise from -1 to 1, one lattice cell `wavelength` design pixels wide; `phase` in cycles moves it (one
-    /// cycle on is the same field), each of `octaves` (1 to 8) adds the noise at half the wavelength and half the
-    /// amplitude. `wavelength` and `phase` may be `Param`s.
+    /// cycle on is the same field, up to the rounding of the sum), each of `octaves` (1 to 8) adds the noise at half the
+    /// wavelength and half the amplitude. `wavelength` and `phase` may be `Param`s.
     #[staticmethod]
     #[pyo3(
-        signature = (wavelength, *, phase=None, seed=0.0, octaves=1),
-        text_signature = "(wavelength, *, phase=0, seed=0, octaves=1)"
+        signature = (*, wavelength=None, phase=None, seed=0.0, octaves=None),
+        text_signature = "(*, wavelength=400, phase=0, seed=0, octaves=1)"
     )]
-    fn noise(wavelength: Num, phase: Option<Num>, seed: f64, octaves: usize) -> PyResult<Self> {
+    fn noise(
+        wavelength: Option<Num>,
+        phase: Option<Num>,
+        seed: f64,
+        octaves: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let wavelength = wavelength.map_or_else(|| vector::Expr::from(vector::NOISE_WAVELENGTH), |number| number.0);
         let phase = phase.map_or_else(|| vector::Expr::from(0.0), |number| number.0);
-        raised(vector::Field::noise(wavelength.0, phase, seed, octaves)).map(Self)
+        let octaves = octaves.map_or(Ok(1), |count| whole("octaves", count))?;
+        raised(vector::Field::noise(wavelength, phase, seed, octaves)).map(Self)
     }
 
     /// The smaller of this field and `other` (a `Field` or a number) at each point.
@@ -267,7 +275,7 @@ impl PyFlow {
         text_signature = "(*, wavelength=400, phase=0, seed=0)"
     )]
     fn noise(wavelength: Option<Num>, phase: Option<Num>, seed: f64) -> PyResult<Self> {
-        let wavelength = wavelength.map_or_else(|| vector::Expr::from(400.0), |number| number.0);
+        let wavelength = wavelength.map_or_else(|| vector::Expr::from(vector::NOISE_WAVELENGTH), |number| number.0);
         let phase = phase.map_or_else(|| vector::Expr::from(0.0), |number| number.0);
         raised(vector::Flow::noise(wavelength, phase, seed)).map(Self)
     }

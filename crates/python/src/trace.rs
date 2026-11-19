@@ -5,7 +5,7 @@ use crate::expr::Num;
 use bullterrier_vector as vector;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::PyAnyMethods;
+use pyo3::types::{PyAnyMethods, PyBool};
 
 /// The levels of `trace_levels` as the caller gave them: one number, Param or expression, or a sequence of them.
 pub(crate) struct Levels(pub(crate) Vec<vector::Expr>);
@@ -29,9 +29,16 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Levels {
     }
 }
 
-/// The whole number argument `name` as a count: a negative number is 0 and one past the range the largest, which the
-/// call refuses naming `name`; a number with a fraction, or that is not finite, is refused here naming it.
+/// The whole number argument `name` as a count: a negative number, a number with a fraction, or one that is not finite
+/// is refused here naming it, and one past the range is the largest, which the call refuses naming `name`; a `bool` is
+/// not a number here (a `TypeError`).
 pub(crate) fn whole(name: &str, value: &Bound<'_, PyAny>) -> PyResult<usize> {
+    if value.is_instance_of::<PyBool>() {
+        return Err(PyTypeError::new_err(format!(
+            "{name}: expected a whole number, got {}",
+            value.repr()?
+        )));
+    }
     if let Ok(number) = value.extract::<i128>() {
         if number < 0 {
             return Err(exception(&vector::Error::Parameter {

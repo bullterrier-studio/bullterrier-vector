@@ -570,7 +570,7 @@ impl fmt::Display for Field {
                 octaves,
             } => write!(
                 f,
-                "Field.noise({wavelength}, phase={phase}, seed={seed}, octaves={octaves})"
+                "Field.noise(wavelength={wavelength}, phase={phase}, seed={seed}, octaves={octaves})"
             ),
             FieldKind::Arithmetic { op, operands } => op.write(f, operands),
         }

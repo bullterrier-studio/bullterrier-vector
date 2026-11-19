@@ -399,13 +399,22 @@ fn a_document_reads_each_operation_and_writes_it_canonically() -> Outcome {
 }
 
 #[test]
+fn a_document_noise_without_a_wavelength_takes_the_default_of_flow_noise() -> Outcome {
+    let field = Drawing::from_json(&hatched(r#"{"Field.noise":{"seed":1}}"#), &Inputs::new())?.to_json()?;
+    assert!(
+        field.contains(r#"{"Field.noise":{"octaves":1,"phase":0,"seed":1,"wavelength":400}"#),
+        "{field}"
+    );
+    Ok(())
+}
+
+#[test]
 fn a_document_with_two_numbers_a_bad_octave_or_one_operand_is_refused() {
     for tone in [
         r#"{"Field.add":[1,2]}"#,
         r#"{"Field.mul":[{"Field.noise":{"wavelength":40}}]}"#,
         r#"{"Field.noise":{"wavelength":40,"octaves":2.5}}"#,
         r#"{"Field.noise":{"wavelength":40,"octaves":9}}"#,
-        r#"{"Field.noise":{"seed":1}}"#,
     ] {
         assert!(
             matches!(

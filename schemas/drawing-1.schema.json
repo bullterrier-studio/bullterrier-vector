@@ -298,8 +298,7 @@
             "phase": { "$ref": "#/$defs/once" },
             "seed": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
             "octaves": { "type": "integer", "minimum": 1, "maximum": 8 }
-          },
-          "required": ["wavelength"]
+          }
         },
         "Field.add": { "$ref": "#/$defs/field_operands" },
         "Field.mul": { "$ref": "#/$defs/field_operands" },

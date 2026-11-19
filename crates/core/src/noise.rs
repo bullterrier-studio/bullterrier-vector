@@ -11,6 +11,11 @@ use crate::Error;
 use crate::expr::{splitmix, whole_seed};
 use crate::geometry::MAX_COORDINATE;
 
+/// The wavelength, in design pixels, of `Flow.noise` and `Field.noise` when none is given (in Python and in documents).
+// constant: a placeholder until the owner sets the defaults (`docs/api.md`, "Defaults"); `wobble`'s is 80, a separate
+// interface pass unifies them
+pub const NOISE_WAVELENGTH: f64 = 400.0;
+
 /// The shortest wavelength of noise, in design pixels.
 // constant: a coordinate within ±1e100 (`MAX_COORDINATE`) read at the eighth octave of `Field::noise` (128 times finer)
 // over 1e-200 is 1.28e302, below the largest float (1.8e308); a shorter wavelength would overflow the cell to infinity,

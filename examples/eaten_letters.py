@@ -23,7 +23,7 @@ wavelength = btvec.Param("wavelength", default=45, min=10, max=120, unit="px", m
 core = btvec.Param("core", default=0, min=-20, max=20, unit="px", meaning="how far the letter is eaten in")
 
 edge = btvec.Field.distance(word)
-bite = btvec.Field.noise(wavelength, seed=3, octaves=3)
+bite = btvec.Field.noise(wavelength=wavelength, seed=3, octaves=3)
 # the noise grows from nothing on the edge to its full 40 pixels at 60 pixels from it
 grow = abs(edge).min(60) * (1 / 60)
 eaten = edge + bite * 40 * grow

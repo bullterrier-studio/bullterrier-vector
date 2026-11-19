@@ -70,7 +70,7 @@ def deepest_field(below, x):
     """A tone 16 operations deep over the distance to `below` (the deepest field arithmetic); its noise reads x."""
     tone = btvec.Field.distance(below)
     for level in range(16):
-        operand = btvec.Field.noise(x * 10, seed=level, octaves=8)
+        operand = btvec.Field.noise(wavelength=x * 10, seed=level, octaves=8)
         tone = abs(tone) if level % 3 == 2 else (tone + operand if level % 2 else tone.max(operand))
     return tone
 

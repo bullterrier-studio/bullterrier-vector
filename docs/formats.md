@@ -204,7 +204,7 @@ list given at draw time (`to_png(..., pulse=[...])`) is not: it is a value of th
 | `Field.map` | `Field.map(width, height, data, *, box=None, name=None)` | `width`, `height` (literal whole numbers from 1), `data` (input; `name` names the input, not an argument here), `box` (`[x, y, width, height]`) |
 | `Field.ramp` | `Field.ramp(start, end)` | `start`, `end` (points) |
 | `Field.distance` | `Field.distance(drawing, *, normalized=False)` | `drawing` (a drawing: an array of calls, `[{"path": "..."}]` for one path), `normalized` (`true` or `false`) |
-| `Field.noise` | `Field.noise(wavelength, *, phase=0, seed=0, octaves=1)` | `wavelength` (required), `phase` (numbers or expressions), `seed` (whole number), `octaves` (whole number from 1 to 8); `to_json` writes all four |
+| `Field.noise` | `Field.noise(*, wavelength=400, phase=0, seed=0, octaves=1)` | `wavelength`, `phase` (numbers or expressions), `seed` (whole number), `octaves` (whole number from 1 to 8); `to_json` writes all four |
 | `Field.add`, `Field.mul`, `Field.min`, `Field.max` | `a + b` (`a - b` is `a + -1 * b`), `a * b`, `a.min(b)`, `a.max(b)` | an array of two operands, each a field or a number (an expression); not two numbers (write the number they make); a number operand of `add` and `mul` written first |
 | `Field.abs` | `abs(a)` | one operand, a field (a number folds) |
 | `Flow.angle` | `Flow.angle(angle)` | `angle` (degrees; a number or an expression) |

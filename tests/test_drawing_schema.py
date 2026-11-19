@@ -469,8 +469,8 @@ AGREED = [
     ),
     pytest.param(
         square_with({"hatch": {"spacing": [3, 9], "tone": {"Field.noise": {"seed": 1}}}}),
-        False,
-        id="noise without a wavelength",
+        True,
+        id="noise with the default wavelength",
     ),
     pytest.param(
         square_with({"translate": {"dx": {"by_index": {"first": 0, "last": 20}}, "dy": 0}}), True, id="by_index"

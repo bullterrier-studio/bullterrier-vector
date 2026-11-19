@@ -1020,7 +1020,7 @@ def hatches() -> list[Entry]:
         ),
         "hatch_field_arithmetic": framed(
             btvec.Drawing(box)
-            .hatch((3, 9), tone=abs(btvec.Field.noise(30, phase=phase, seed=4, octaves=3) * 2 - ramp).min(1))
+            .hatch((3, 9), tone=abs(btvec.Field.noise(wavelength=30, phase=phase, seed=4, octaves=3) * 2 - ramp).min(1))
             .stroke(INK, width=1)
         ),
     }
@@ -1118,7 +1118,7 @@ def traces() -> list[Entry]:
         "trace_cells": framed(btvec.Drawing.trace_cells(photo, 1, max_colors=256).fill("#cc2200")),
         "trace_levels_of_a_field": framed(
             btvec.Drawing.trace_levels(
-                -btvec.Field.distance(btvec.Path.circle((50, 50), 35)) + btvec.Field.noise(20, seed=2) * 6,
+                -btvec.Field.distance(btvec.Path.circle((50, 50), 35)) + btvec.Field.noise(wavelength=20, seed=2) * 6,
                 [-10, 5],
                 box=(0, 0, 100, 100),
                 cell=2,

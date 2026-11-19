@@ -12,7 +12,7 @@ use super::value::Json;
 use super::write::Writer;
 use crate::field::{FieldKind, FieldOp, FlowKind};
 use crate::param::is_name;
-use crate::{Error, Field, Flow, Point, Reads, Rect};
+use crate::{Error, Field, Flow, NOISE_WAVELENGTH, Point, Reads, Rect};
 use std::collections::BTreeMap;
 
 /// The calls that make a field.
@@ -216,7 +216,7 @@ impl Reader {
         Ok(FieldDoc { pointer: here, what })
     }
 
-    /// The arguments of `Field.noise`: `wavelength` (required), `phase`, `seed` and `octaves`.
+    /// The arguments of `Field.noise`: `wavelength`, `phase`, `seed` and `octaves`.
     fn noise(&mut self, here: &str, args: &BTreeMap<String, Json>) -> Result<FieldWhat, Error> {
         only(here, args, &["wavelength", "phase", "seed", "octaves"])?;
         let octaves = literal(here, args, "octaves", Some(1.0))?;
@@ -235,7 +235,7 @@ impl Reader {
             ));
         };
         Ok(FieldWhat::Noise {
-            wavelength: self.once_arg(here, args, "wavelength", None)?,
+            wavelength: self.once_arg(here, args, "wavelength", Some(NOISE_WAVELENGTH))?,
             phase: self.once_arg(here, args, "phase", Some(0.0))?,
             seed: literal(here, args, "seed", Some(0.0))?,
             octaves,
@@ -282,7 +282,7 @@ impl Reader {
             "Flow.noise" => {
                 only(&here, args, &["wavelength", "phase", "seed"])?;
                 FlowWhat::Noise {
-                    wavelength: self.once_arg(&here, args, "wavelength", Some(400.0))?,
+                    wavelength: self.once_arg(&here, args, "wavelength", Some(NOISE_WAVELENGTH))?,
                     phase: self.once_arg(&here, args, "phase", Some(0.0))?,
                     seed: literal(&here, args, "seed", Some(0.0))?,
                 }
