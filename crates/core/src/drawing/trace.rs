@@ -2,7 +2,7 @@
 
 use super::Drawing;
 use crate::node::{Given, trace};
-use crate::{Expr, Field, Trace};
+use crate::{Expr, Field, Rect, Trace};
 
 impl Drawing {
     /// A drawing of a map of square cells traced exactly (a dithered picture): `map` is a [`Field::map`] whose bytes are
@@ -30,20 +30,40 @@ impl Drawing {
         )
     }
 
-    /// A drawing of a grayscale map traced at `levels` (0 black to 1 white; numbers, Params or expressions, read once): one shape for each level the map reaches, in
-    /// the order given, the region where the map is at or above it, with the level as its `level` attribute and no paint.
-    /// Stacked in order from the lowest, each painted by its level, the shapes are a posterized picture of filled cut-outs.
-    /// `map` is a [`Field::map`]; `trace` says how the outlines are tidied. A shape that meets the map's border goes on
-    /// past it and closes outside, so no edge lies along the border.
+    /// A drawing of a field traced at `levels` (numbers, Params or expressions, read once; a map reads 0 black to 1
+    /// white): one shape for each level the field reaches, in the order given, the region where the field is at or above
+    /// it, with the level as its `level` attribute and no paint. Stacked in order from the lowest, each painted by its
+    /// level, the shapes are a posterized picture of filled cut-outs. The field is read at the centres of `frame` cut
+    /// into equal cells no wider than `cell` design pixels; `None` is a [`Field::map`]'s own box and one map pixel, which
+    /// any other field refuses. `trace` says how the outlines are tidied. A shape that meets the frame's border goes on
+    /// past it and closes outside, so no edge lies along the border. A field that reads Params or drawings reads them
+    /// with the values of the draw.
     ///
-    /// No level or more than 256, a level that is not finite, or a tidying number that is below 0 or past 1e100, leaves
-    /// the drawing with an [`error`](Drawing::error) naming the step; a `map` that is not a [`Field::map`], or a trace that
-    /// would pass `MAX_SEGMENTS` points, is refused when drawn.
+    /// No level or more than 256, a level that is not finite, a `frame` or `cell` that is not finite, or a tidying number
+    /// that is below 0 or past 1e100, leaves the drawing with an [`error`](Drawing::error) naming the step; a `frame` or
+    /// `cell` left out for a field that is not a map, a grid of more than 2^24 cells, or a trace that would pass
+    /// `MAX_SEGMENTS` points, is refused when drawn.
     #[must_use]
-    pub fn trace_levels<E: Into<Expr>>(map: &Field, levels: impl IntoIterator<Item = E>, trace: &Trace) -> Self {
+    pub fn trace_levels<E: Into<Expr>>(
+        map: &Field,
+        levels: impl IntoIterator<Item = E>,
+        frame: Option<Rect>,
+        cell: Option<f64>,
+        trace: &Trace,
+    ) -> Self {
         let mut given = vec![
             ("map", Given::Field(map.clone())),
             ("levels", Given::Numbers(levels.into_iter().map(Into::into).collect())),
+            (
+                "box",
+                frame.map_or(Given::Unset, |f| {
+                    Given::Numbers([f.x, f.y, f.width, f.height].into_iter().map(Expr::from).collect())
+                }),
+            ),
+            (
+                "cell",
+                cell.map_or(Given::Unset, |cell| Given::Number(Expr::from(cell))),
+            ),
         ];
         given.extend(tidy(trace));
         Self::source(&trace::TraceLevels, given)

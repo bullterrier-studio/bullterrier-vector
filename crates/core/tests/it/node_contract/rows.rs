@@ -226,15 +226,42 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "trace_levels",
-            sample: || Ok(Drawing::trace_levels(&ramp_map()?, [0.3, 0.6], &Trace::new())),
-            with: Some(|argument, value| {
+            sample: || {
                 Ok(Drawing::trace_levels(
                     &ramp_map()?,
                     [0.3, 0.6],
+                    None,
+                    None,
+                    &Trace::new(),
+                ))
+            },
+            with: Some(|argument, value| {
+                let map = ramp_map()?;
+                if argument == "cell" {
+                    let cell = literal(argument, &value)?;
+                    return Ok(Drawing::trace_levels(&map, [0.3, 0.6], None, Some(cell), &Trace::new()));
+                }
+                Ok(Drawing::trace_levels(
+                    &map,
+                    [0.3, 0.6],
+                    None,
+                    None,
                     &traced_with(argument, value)?,
                 ))
             }),
-            ranges: Box::leak(tidy_ranges().into_boxed_slice()),
+            ranges: Box::leak(
+                [
+                    ("cell", 0.5, true),
+                    ("cell", 0.0, false),
+                    ("cell", -1.0, false),
+                    ("cell", f64::NAN, false),
+                    ("cell", f64::INFINITY, false),
+                ]
+                .into_iter()
+                .chain(tidy_ranges())
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+            ),
             // the outlines of a map are not a `Path` method: no Path result to equal
             geometry: None,
         },

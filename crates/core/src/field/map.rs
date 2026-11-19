@@ -9,6 +9,7 @@
 )]
 
 use super::Field;
+use super::contours::cells_along;
 use crate::Error;
 use crate::geometry::{Point, Rect, coordinate, finite};
 use sha2::{Digest, Sha256};
@@ -56,7 +57,7 @@ impl MapData {
 }
 
 /// `frame`, or the one pixel a map pixel from the origin when none is given, checked.
-pub(super) fn frame_of(frame: Option<Rect>, width: usize, height: usize) -> Result<Rect, Error> {
+pub(crate) fn frame_of(frame: Option<Rect>, width: usize, height: usize) -> Result<Rect, Error> {
     let frame = frame.unwrap_or(Rect {
         x: 0.0,
         y: 0.0,
@@ -183,5 +184,100 @@ impl Field {
             }
         }
         Ok(bytes)
+    }
+}
+
+/// A field read at the centres of a grid of equal cells over a frame, the readings scaled so that the lowest is 0 and the
+/// highest 1 (a map read at its own pixels keeps its tones, 0 to 1, unscaled): what `trace_levels` traces.
+pub(crate) struct Raster {
+    pub(crate) width: usize,
+    pub(crate) height: usize,
+    pub(crate) frame: Rect,
+    /// `height` rows of `width` readings, the top row first.
+    pub(crate) readings: Vec<f64>,
+    /// The reading scaled to 0 and the size of the range scaled to 1.
+    low: f64,
+    spread: f64,
+}
+
+impl Raster {
+    /// `level` on the scale of the readings.
+    pub(crate) fn level(&self, level: f64) -> f64 {
+        (level - self.low) / self.spread
+    }
+}
+
+impl Field {
+    /// This field read at the centres of the cells of `frame` cut into equal cells no wider than `cell` (design pixels).
+    /// Left out, they are a map's own box and one map pixel, and the readings its bytes; a field that is not a map has
+    /// neither and refuses them.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `box` or `cell` when left out for a field that is not a map, `box` as for
+    /// [`Field::map`], `cell` if the grid would pass `MAX_MAP_PIXELS` cells or the reads `MAX_READ_WORK`.
+    pub(crate) fn raster(&self, frame: Option<Rect>, cell: Option<f64>, verb: &str) -> Result<Raster, Error> {
+        let map = self.map_data();
+        let own = |name: &str| {
+            Error::parameter(
+                name,
+                format!(
+                    "is needed: {verb} reads a field that is not a Field.map, which has no box or pixels of its own"
+                ),
+            )
+        };
+        let frame = frame_of(
+            Some(frame.or(map.map(|map| map.frame)).ok_or_else(|| own("box"))?),
+            1,
+            1,
+        )?;
+        let (cell_x, cell_y) = match (cell, map) {
+            (Some(cell), _) => (cell, cell),
+            (None, Some(map)) => (map.frame.width / map.width as f64, map.frame.height / map.height as f64),
+            (None, None) => return Err(own("cell")),
+        };
+        let (columns, rows) = (cells_along(frame.width, cell_x), cells_along(frame.height, cell_y));
+        if columns * rows > MAX_MAP_PIXELS as f64 {
+            return Err(Error::parameter(
+                "cell",
+                format!("is too small for a box this large: its grid would pass {MAX_MAP_PIXELS} cells"),
+            ));
+        }
+        let (width, height) = (columns as usize, rows as usize);
+        if let Some(map) = map
+            && map.frame == frame
+            && (map.width, map.height) == (width, height)
+        {
+            let readings = map.bytes.iter().map(|&byte| f64::from(byte) / 255.0).collect();
+            return Ok(Raster {
+                width,
+                height,
+                frame,
+                readings,
+                low: 0.0,
+                spread: 1.0,
+            });
+        }
+        self.charge_reads("cell", verb, columns * rows)?;
+        let mut readings = Vec::with_capacity(width * height);
+        for row in 0..height {
+            let y = frame.y + (row as f64 + 0.5) * frame.height / rows;
+            for column in 0..width {
+                readings.push(self.at(Point::new(frame.x + (column as f64 + 0.5) * frame.width / columns, y)));
+            }
+        }
+        let low = readings.iter().copied().fold(f64::INFINITY, f64::min);
+        let high = readings.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let spread = if high > low { high - low } else { 1.0 };
+        for reading in &mut readings {
+            *reading = (*reading - low) / spread;
+        }
+        Ok(Raster {
+            width,
+            height,
+            frame,
+            readings,
+            low,
+            spread,
+        })
     }
 }

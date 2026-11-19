@@ -505,23 +505,27 @@ impl PyDrawing {
         checked(self.0.stipple(&stipple_of(spacing, tone, radius, density, seed)?))
     }
 
-    /// A map of grayscale tone (`map`, a `Field.map`) traced at `levels` (0 black to 1 white; numbers, Params or
+    /// A field (`map`: a `Field.map`, 0 black to 1 white, or any `Field`) traced at `levels` (numbers, Params or
     /// expressions, read once) as filled shapes: one for each level it reaches, in the order given, the region at or
-    /// above the level, with the level as its `level` attribute and no fill (`.only(level=l).fill(...)`). Shapes that
-    /// meet the border go on past it by the larger of `open` and `close` plus `tolerance`, plus two map pixels: crop
+    /// above the level, with the level as its `level` attribute and no fill (`.only(level=l).fill(...)`). The field is
+    /// read at the centres of `box` (`(x, y, width, height)`) cut into equal cells no wider than `cell` design pixels;
+    /// `None` is a map's own box and one map pixel, and any other field needs both. Shapes that
+    /// meet the border go on past it by the larger of `open` and `close` plus `tolerance`, plus two cells: crop
     /// with `.intersect(Path.rect(...))` for a plotter. `smooth` is the blur's standard deviation in design pixels;
     /// `close` then `open` (design pixels) fill and remove what is narrower than twice the radius; `min_hole` and
     /// `min_area` (square pixels) fill holes and drop parts; `tolerance` fits curves within that many design pixels
     /// (0 keeps the polyline). A padded lattice past 2^25 nodes raises naming `open`, `close` or `tolerance`.
     #[staticmethod]
     #[pyo3(
-        signature = (map, levels, *, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
-        text_signature = "(map, levels, *, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)"
+        signature = (map, levels, *, r#box=None, cell=None, smooth=None, tolerance=None, open=None, close=None, min_area=None, min_hole=None),
+        text_signature = "(map, levels, *, box=None, cell=None, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)"
     )]
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
     fn trace_levels(
         map: &PyField,
         levels: Levels,
+        r#box: Option<Frame>,
+        cell: Option<f64>,
         smooth: Option<Num>,
         tolerance: Option<Num>,
         open: Option<Num>,
@@ -530,7 +534,13 @@ impl PyDrawing {
         min_hole: Option<Num>,
     ) -> PyResult<Self> {
         let trace = trace_of(smooth, tolerance, open, close, min_area, min_hole);
-        checked(vector::Drawing::trace_levels(&map.0, levels.0, &trace))
+        checked(vector::Drawing::trace_levels(
+            &map.0,
+            levels.0,
+            r#box.map(|frame| frame.0),
+            cell,
+            &trace,
+        ))
     }
 
     /// A map of colour labels traced as filled shapes, one for each byte it holds (attribute `label`; more than

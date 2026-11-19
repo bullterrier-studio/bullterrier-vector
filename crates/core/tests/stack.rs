@@ -357,7 +357,7 @@ fn arithmetic_on_fields_to_the_deepest_nesting_is_read_written_and_hatched_on_th
             let document = drawing.to_json()?;
             let back = Drawing::from_json(&document, &Inputs::new())?;
             assert_eq!(back.to_json()?, document);
-            assert!(!back.shapes(&Values::new())?.is_empty());
+            assert_ne!(back.shapes(&Values::new())?.len(), 0);
             assert!(tone.at((10.0, 10.0)).is_finite());
             drop(tone);
             Ok(())

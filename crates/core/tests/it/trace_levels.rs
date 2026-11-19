@@ -12,14 +12,14 @@
 
 use crate::common::region::{net_area, sampled};
 use crate::common::{Outcome, clearance, parameter_refusal};
-use bullterrier_vector::{Drawing, Error, Field, Path, Shape, Trace, Values};
+use bullterrier_vector::{Drawing, Error, Field, Path, Rect, Shape, Trace, Values};
 
 fn field(width: usize, height: usize, bytes: &[u8]) -> Result<Field, Error> {
     Field::map(width, height, bytes, None, None)
 }
 
 fn levels(map: &Field, levels: &[f64], trace: &Trace) -> Result<Vec<Shape>, Error> {
-    Drawing::trace_levels(map, levels.iter().copied(), trace).shapes(&Values::new())
+    Drawing::trace_levels(map, levels.iter().copied(), None, None, trace).shapes(&Values::new())
 }
 
 fn labels(map: &Field, trace: &Trace) -> Result<Vec<Shape>, Error> {
@@ -398,7 +398,7 @@ fn a_level_can_be_a_param_in_code_as_in_a_document() -> Outcome {
     let level = Param::new("level", 0.25, 0.0, 1.0)?;
     let bytes = made(256, 4, |x, _| u8::try_from(x).unwrap_or(255));
     let map = field(256, 4, &bytes)?;
-    let drawing = Drawing::trace_levels(&map, [Expr::from(&level), Expr::from(0.75)], &raw());
+    let drawing = Drawing::trace_levels(&map, [Expr::from(&level), Expr::from(0.75)], None, None, &raw());
     assert_eq!(drawing.error(), None);
     for (value, found) in [(0.25, 0.25), (0.5, 0.5)] {
         let shapes = drawing.shapes(&Values::new().set("level", value))?;
@@ -434,7 +434,8 @@ fn too_many_labels_and_hostile_numbers_are_refused_naming_the_argument() -> Outc
     assert!(named(levels(&tone, &[f64::NAN], &Trace::new()))?.contains("levels"));
     assert!(named(levels(&tone, &[], &Trace::new()))?.contains("levels"));
     assert!(named(levels(&tone, &vec![0.5; 257], &Trace::new()))?.contains("levels"));
-    assert!(named(levels(&Field::constant(0.5)?, &[0.5], &Trace::new()))?.contains("map"));
+    // a field that is not a map has no box of its own to be read over
+    assert!(named(levels(&Field::constant(0.5)?, &[0.5], &Trace::new()))?.contains("box"));
     assert!(named(Field::map(0, 5, &[], None, None).map(|_| Vec::new()))?.contains("width"));
     Ok(())
 }
@@ -464,7 +465,13 @@ fn the_three_calls_are_documents_that_draw_what_the_code_draws_and_write_back_th
     let bytes: Vec<u8> = (0..64).map(|i| u8::try_from(i * 4 % 256).unwrap_or(0)).collect();
     let map = Field::map(8, 8, &bytes, None, Some("photo"))?;
     let drawings = [
-        Drawing::trace_levels(&map, [0.25, 0.75], &Trace::new().smooth(0.5).open(0.25).min_area(2.0)),
+        Drawing::trace_levels(
+            &map,
+            [0.25, 0.75],
+            None,
+            None,
+            &Trace::new().smooth(0.5).open(0.25).min_area(2.0),
+        ),
         Drawing::trace_labels(&map, 64, &Trace::new().tolerance(0.0)),
         Drawing::trace_cells(&map, 1, 64),
     ];
@@ -474,5 +481,87 @@ fn the_three_calls_are_documents_that_draw_what_the_code_draws_and_write_back_th
         assert_eq!(back.shapes(&Values::new())?, drawing.shapes(&Values::new())?, "{text}");
         assert_eq!(back.to_json()?, text);
     }
+    Ok(())
+}
+
+// Any field ------------------------------------------------------------------------------------------------------------
+
+fn framed(field: &Field, levels: &[f64], frame: Rect, cell: f64) -> Result<Vec<Shape>, Error> {
+    Drawing::trace_levels(field, levels.iter().copied(), Some(frame), Some(cell), &raw()).shapes(&Values::new())
+}
+
+const BOX: Rect = Rect {
+    x: 0.0,
+    y: 0.0,
+    width: 200.0,
+    height: 200.0,
+};
+
+#[test]
+fn a_field_that_is_no_map_is_traced_over_its_box_at_its_level() -> Outcome {
+    // minus the distance to a circle of radius 60 is at least 15 inside the circle of radius 45, the oracle
+    let inside = Field::distance(&Path::circle((100.0, 100.0), 60.0)?, false)?.mul(&Field::constant(-1.0)?)?;
+    let shapes = framed(&inside, &[15.0, 500.0], BOX, 2.0)?;
+    assert_eq!(shapes.len(), 1, "a level the field never reaches gives no shape");
+    assert_eq!(shapes[0].attributes().level(), Some(15.0), "the level as given");
+    let path = shapes[0].path();
+    for step in 0..36 {
+        let angle = (f64::from(step) * 10.0).to_radians();
+        let (sin, cos) = (libm::sin(angle), libm::cos(angle));
+        assert!(
+            path.contains((100.0 + 43.0 * cos, 100.0 + 43.0 * sin))?,
+            "inside at {step}"
+        );
+        assert!(
+            !path.contains((100.0 + 47.0 * cos, 100.0 + 47.0 * sin))?,
+            "outside at {step}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn a_map_read_over_its_own_box_and_pixels_is_the_map_left_alone() -> Outcome {
+    let bytes: Vec<u8> = (0..64_u32).filter_map(|i| u8::try_from((i * 37) % 251).ok()).collect();
+    let map = Field::map(
+        8,
+        8,
+        &bytes,
+        Some(Rect {
+            x: 10.0,
+            y: 20.0,
+            width: 80.0,
+            height: 40.0,
+        }),
+        None,
+    )?;
+    let svg = |shapes: Vec<Shape>| shapes.iter().map(|s| s.path().to_svg_path()).collect::<Vec<_>>();
+    let alone = svg(Drawing::trace_levels(&map, [0.3, 0.6], None, None, &Trace::new()).shapes(&Values::new())?);
+    let frame = Rect {
+        x: 10.0,
+        y: 20.0,
+        width: 80.0,
+        height: 40.0,
+    };
+    let given = svg(Drawing::trace_levels(&map, [0.3, 0.6], Some(frame), None, &Trace::new()).shapes(&Values::new())?);
+    assert_eq!(alone, given);
+    // read through `at` on a finer grid, it is a field like any other
+    assert_eq!(framed(&map, &[0.3, 0.6], frame, 2.5)?.len(), 2);
+    Ok(())
+}
+
+#[test]
+fn a_field_that_is_no_map_needs_a_box_and_a_cell() -> Outcome {
+    let ramp = Field::ramp((0.0, 0.0), (100.0, 0.0))?;
+    let named = |frame, cell| -> Result<String, Box<dyn std::error::Error>> {
+        Ok(parameter_refusal(Drawing::trace_levels(&ramp, [0.5], frame, cell, &raw()).shapes(&Values::new()))?.0)
+    };
+    assert!(named(None, Some(2.0))?.ends_with("box"));
+    assert!(named(Some(BOX), None)?.ends_with("cell"));
+    assert!(
+        named(Some(BOX), Some(0.01))?.ends_with("cell"),
+        "a grid past 2^24 cells"
+    );
+    assert_eq!(framed(&ramp, &[0.5], BOX, 2.0)?.len(), 1);
     Ok(())
 }

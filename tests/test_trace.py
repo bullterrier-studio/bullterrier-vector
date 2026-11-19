@@ -139,3 +139,26 @@ def test_levels_may_be_params() -> None:
     assert [s.attributes["level"] for s in drawing.shapes(level=0.5)] == [0.5, 0.75]
     assert [s.attributes["level"] for s in drawing.shapes()] == [0.25, 0.75]
     assert btvec.Drawing.trace_levels(ramp_map(), level).shapes(level=0.5)[0].attributes["level"] == 0.5
+
+
+def test_any_field_is_traced_over_its_box_and_a_disc_comes_out_at_its_radius() -> None:
+    inside = -btvec.Field.distance(btvec.Path.circle((100, 100), 60))  # at least 15 inside the circle of radius 45
+    drawing = btvec.Drawing.trace_levels(inside, 15, box=(0, 0, 200, 200), cell=2, tolerance=0)
+    (shape,) = drawing.shapes()
+    assert shape.attributes["level"] == 15
+    assert area(shape.path) == pytest.approx(3.14159265 * 45**2, rel=0.01)
+    back = btvec.Drawing.from_json(drawing.to_json())
+    assert back.to_svg(200, 200) == drawing.to_svg(200, 200)
+
+
+@pytest.mark.parametrize(
+    ("given", "name"),
+    [
+        pytest.param({"cell": 2}, "box", id="no box"),
+        pytest.param({"box": (0, 0, 200, 200)}, "cell", id="no cell"),
+    ],
+)
+def test_a_field_that_is_not_a_map_needs_a_box_and_a_cell(given: dict[str, object], name: str) -> None:
+    drawing = btvec.Drawing.trace_levels(btvec.Field.ramp((0, 0), (100, 0)), 0.5, **given)  # type: ignore[arg-type]
+    with pytest.raises(btvec.ParameterError, match=name):
+        drawing.shapes()

@@ -1,5 +1,6 @@
-//! `trace_levels` and `trace_labels`: the closed outlines of the regions of a map where it is at or above a level, or
-//! where it is one label, found by marching squares over the map's pixel centres.
+//! `trace_levels` and `trace_labels`: the closed outlines of the regions of a field where it is at or above a level, or
+//! of a map where it is one label, found by marching squares over the map's pixel centres (a field's cell centres,
+//! `Field::raster`).
 //!
 //! The lattice of readings is the map's pixels padded with rings of the nearest edge value, and one outer ring of a
 //! value far below every level. A shape that reaches the map's border therefore goes on past it and closes outside the
@@ -20,7 +21,7 @@
 use super::Plan;
 use super::tidy::tidy;
 use crate::Error;
-use crate::field::{Grid, MAX_READ_WORK, MAX_SMOOTH_WORK, MapData, blur, trace_level};
+use crate::field::{Field, Grid, MAX_READ_WORK, MAX_SMOOTH_WORK, MapData, blur, trace_level};
 use crate::geometry::Rect;
 use crate::path::{Combine, Path};
 
@@ -56,13 +57,19 @@ struct Lattice {
 }
 
 impl Lattice {
-    fn new(map: &MapData, plan: &Plan, passes: usize, passes_name: &str) -> Result<Self, Error> {
-        let pixel = (map.frame.width / map.width as f64, map.frame.height / map.height as f64);
+    /// The lattice of `width` by `height` readings over `frame`.
+    fn new(
+        (width, height, frame): (usize, usize, Rect),
+        plan: &Plan,
+        passes: usize,
+        passes_name: &str,
+    ) -> Result<Self, Error> {
+        let pixel = (frame.width / width as f64, frame.height / height as f64);
         let margin = plan.open.max(plan.close) + plan.tolerance;
         let rings = 2.0 + (margin / pixel.0.min(pixel.1)).ceil();
-        let (nodes_wide, nodes_high) = (map.width as f64 + 2.0 * rings, map.height as f64 + 2.0 * rings);
+        let (nodes_wide, nodes_high) = (width as f64 + 2.0 * rings, height as f64 + 2.0 * rings);
         if nodes_wide * nodes_high > MAX_LATTICE_NODES {
-            // the map alone fits (a `Field.map` has at most 2^24 pixels), so the padding is too wide: name its widest part
+            // the readings alone fit (at most 2^24, as a `Field.map`), so the padding is too wide: name its widest part
             let (name, _) = [
                 ("open", plan.open),
                 ("close", plan.close),
@@ -86,7 +93,7 @@ impl Lattice {
         }
         if plan.smooth > 0.0 {
             let taps = |s: f64| 2.0 * (3.0 * s).ceil() + 1.0;
-            let work = (map.width * map.height) as f64
+            let work = (width * height) as f64
                 * (taps(plan.smooth / pixel.0) + taps(plan.smooth / pixel.1))
                 * passes.max(1) as f64;
             if work > MAX_SMOOTH_WORK {
@@ -97,10 +104,10 @@ impl Lattice {
             }
         }
         Ok(Self {
-            width: map.width,
-            height: map.height,
+            width,
+            height,
             pad: rings as usize,
-            frame: map.frame,
+            frame,
             pixel,
         })
     }
@@ -173,9 +180,11 @@ fn layer(
     tidy(&Path::joined(lines.iter()), plan, charge)
 }
 
-/// One outline for each of `levels` that the map reaches: the region where the map is at or above the level.
+/// One outline for each of `levels` that `field` reaches: the region where it is at or above the level, read at the cells
+/// of `frame` cut into cells no wider than `cell` (left out: a map's own box and pixels).
 pub(crate) fn levels(
-    map: &MapData,
+    field: &Field,
+    (frame, cell): (Option<Rect>, Option<f64>),
     levels: &[f64],
     plan: &Plan,
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
@@ -189,12 +198,18 @@ pub(crate) fn levels(
     if let Some(bad) = levels.iter().find(|level| !level.is_finite()) {
         return Err(Error::parameter("levels", format!("must be finite numbers, got {bad}")));
     }
-    let lattice = Lattice::new(map, plan, levels.len(), "levels")?;
-    let readings: Vec<f64> = map.bytes.iter().map(|&byte| f64::from(byte) / 255.0).collect();
-    let grid = lattice.grid(readings, plan.smooth);
+    let raster = field.raster(frame, cell, "trace_levels")?;
+    let lattice = Lattice::new(
+        (raster.width, raster.height, raster.frame),
+        plan,
+        levels.len(),
+        "levels",
+    )?;
+    let scaled: Vec<f64> = levels.iter().map(|&level| raster.level(level)).collect();
+    let grid = lattice.grid(raster.readings, plan.smooth);
     let mut found = Vec::new();
-    for &level in levels {
-        let path = layer(&grid, level, plan, charge)?;
+    for (&level, &at) in levels.iter().zip(&scaled) {
+        let path = layer(&grid, at, plan, charge)?;
         if !path.has_nothing() {
             found.push((level, path));
         }
@@ -231,7 +246,7 @@ pub(crate) fn labels(
     };
     present.retain(|&label| label != base);
     // the base is never traced: it is what the others leave
-    let lattice = Lattice::new(map, plan, present.len(), "max_colors")?;
+    let lattice = Lattice::new((map.width, map.height, map.frame), plan, present.len(), "max_colors")?;
     let mut traced = Vec::with_capacity(present.len());
     for label in present {
         let readings = map

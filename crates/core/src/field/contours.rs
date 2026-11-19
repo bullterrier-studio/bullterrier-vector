@@ -145,7 +145,7 @@ impl Grid {
 
 /// The cells along one side: no wider than `cell`, equal. A quotient within rounding of a whole number is that number
 /// (`(W - p) / p` is 2.0000000000000004 for a box of three pixels), so a grid laid on pixel centres stays on them.
-fn cells_along(extent: f64, cell: f64) -> f64 {
+pub(super) fn cells_along(extent: f64, cell: f64) -> f64 {
     let n = extent / cell;
     let whole = n.round();
     (if (n - whole).abs() <= 1e-9 * whole {

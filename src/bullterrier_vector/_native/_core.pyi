@@ -496,6 +496,8 @@ class Drawing:
         map: Field,  # noqa: A002  api.md names the arguments `map` and `open`
         levels: _Num | Sequence[_Num],
         *,
+        box: _FrameLike | None = None,
+        cell: float | None = None,
         smooth: _Num = 0,
         tolerance: _Num = 0.5,
         open: _Num = 0,  # noqa: A002  api.md names the arguments `map` and `open`
