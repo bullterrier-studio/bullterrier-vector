@@ -1921,8 +1921,8 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
   rays, so the maths that says where a row is, which rows cover a box, how many cells a ring has and how a turn is read
   lives once, in `lines/layout.rs` (`Layout`, `Family`, `Distances`, `RoundRows`, `ring_cells`, `ray_wedges`). The move was
   done first, as a structure-only step, against a pinned SVG hash of every family at a spread of settings: not one byte
-  of `bands` changed (the pin was deleted when the rows moved to the origin's lattice, a change it was built to
-  refuse). A screen is therefore the same layout a `bands` of the same family draws its lines along, by construction,
+  of `bands` changed (the pin, a golden output, was then deleted; it matched again when the line families went back to
+  each shape's own box). A screen is therefore the same layout a `bands` of the same family draws its lines along, by construction,
   not by a test that compares two copies of the formulas.
   *Alternative:* copy the five formulas into the screen; refused, because the two would drift.
 - **Rows are walked by index, and their work is bounded without subtraction.** A screen first subtracted two squares to bound
@@ -2241,22 +2241,20 @@ Why not an existing call:
   counted pitches, so the same number drew three sizes. The halftone defaults are 8 and 48 px, the old 1 and 6 cells at
   the default spacing (named constants in Rust, from the default spacing). *Not* in spacings so that a wave keeps its
   shape as the spacing changes: a caller who wants that writes `wavelength=6 * spacing` (the `waves` preset does).
-- **Why straight rows, stipple cells and hatch starts lie on a lattice through the design origin, and not on the shape's
-  box.** Laid from each shape's box, two squares 3 px apart got rows at y 5, 15, 25 and 8, 18, 28, and splitting,
-  merging or uniting shapes moved every line, while the halftone screen was already anchored to the frame ("Halftone: a
-  lattice anchored to the frame"). One rule now: `layout::lattice` gives the lines `(k + phase) * spacing` that fall in
-  a span, counted from the box (a shape far from the origin makes only its own rows, the charge comes first) and walked
-  by index; a stipple cell's jitter and threshold come from its own lattice index. One path of two shapes draws what the
-  two draw apart for `bands` lines and waves, `rows` (where no row of one hides one of the other) and `stipple`
-  (tested). *Not* rings, a spiral or rays: their default `center` is a point of each shape (the middle of its box), not
-  an anchor. *Not* `hatch` as a whole: only its first seeds are on the lattice, the rest grow from the lines before
-  them. Its seeds are tried at `(k + 1/2)` spacings and then at `k`: with the first lattice alone a bar 7 px tall at
-  spacing 10 held no seed, where its own box had given it one; the second pass costs a charged read a start.
-- **Why the lines sit at `(k + 1/2)` spacings and a halftone's dots at `k`.** A line on `k * spacing` lies along the
-  edge of every shape whose side is a multiple of the spacing (a rectangle at the origin), where `within` keeps or drops
-  it by rounding; at `k + 1/2` such a shape draws as it always did, half a spacing in. A dot on the edge is cut in half,
-  as a print screen's is, so the screen keeps its lattice points. *Not* moving the halftone by half a cell: it would
-  change every halftone drawn so far for no reader's gain.
+- **Why the line families (`bands`, `rows`, `stipple`, `hatch`) lay their rows from each shape's own bounding box, and
+  a halftone from the design frame.** A halftone is a screen laid across shapes, a fill of the frame: one screen runs
+  under every shape ("Halftone: a lattice anchored to the frame"). The line families draw each shape: the first straight
+  row of `bands` and `rows`, the first row of `stipple` cells and the first seeds of `hatch` lie half a spacing inside
+  the shape's own box, so a letter begins with a full row at its own top. Rings, a spiral and rays sit about the middle
+  of each shape's box by default for the same reason. The cost, plainly: splitting, merging or uniting shapes moves the
+  lines (two squares 3 px apart get rows at y 5, 15, 25 and 8, 18, 28; one path of both gets one set). *Not* one lattice
+  through the design origin for the line families (made and reverted on 2026-11-19): in the `waves` preset (text) every
+  letter then started at an arbitrary phase of the one shared lattice, leaving partial rows and stubs at the letter
+  edges, found by looking at the rendered preset.
+- **Why the lines start half a spacing in and a halftone's dots sit at `k` spacings from the origin.** A line on the
+  box's edge lies along the shape's side, where `within` keeps or drops it by rounding; half a spacing in, a rectangle
+  draws its first line whole. A dot on the edge is cut in half, as a print screen's is, so the screen keeps its lattice
+  points. *Not* moving the halftone by half a cell: it would change every halftone drawn so far for no reader's gain.
 - **Why the default angles differ: 0 for `bands`, 45 for `halftone` and for `hatch`'s flow.** Defaults suit each job,
   as `tolerance` does: 45 degrees is the print-screen convention (a screen at 0 shows its rows to the eye; turned 45 it
   reads as tone, and hatching is drawn on the diagonal), while the lines of `bands` read as horizontal strokes by
@@ -2292,8 +2290,8 @@ Why not an existing call:
   `box` (Python spelt it `r#box` in Rust source). One idea, one name: `frame` in every language and in documents. *Not*
   `marks`' `boxes`: those are the rectangles a bracket is drawn round, a different thing.
 - **Why `amplitude`, `angle`, `center`, `seed` and `wavelength` are read once by `rows`, `bands` and `stipple` and per
-  shape elsewhere.** A line family lays one lattice over the region once per call, so its numbers are read once (a
-  per-item number there is an error); a step that works on each shape (`wave`, `wobble`, `rotate`, `halftone`) reads
+  shape elsewhere.** A line family works its numbers out once per call, into one plan every shape is drawn with (each
+  from its own box), so they are read once (a per-item number there is an error); a step that works on each shape (`wave`, `wobble`, `rotate`, `halftone`) reads
   them per shape.
 - **Why `spacing` is read in five ways.** `resample` spaces each shape's corners, per shape; `rows`, `bands` and
   `stipple` read it once with their lattice; `place_along` and `branch` take a plain number that sets how many copies or
