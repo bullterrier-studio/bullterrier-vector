@@ -1920,9 +1920,10 @@ streamline (only `along`, the text-on-a-path bend); `docs/examples/` holds the r
 - **One owner of the rows.** `bands` and the halftone screens both lay things along straight rows, waves, rings, a spiral or
   rays, so the maths that says where a row is, which rows cover a box, how many cells a ring has and how a turn is read
   lives once, in `lines/layout.rs` (`Layout`, `Family`, `Distances`, `RoundRows`, `ring_cells`, `ray_wedges`). The move was
-  done first, as a structure-only step, against a pinned SVG hash of every family at a spread of settings
-  (`tests/it/lines_bands_pinned.rs`): not one byte of `bands` changed. A screen is therefore the same layout a `bands` of the
-  same family draws its lines along, by construction, not by a test that compares two copies of the formulas.
+  done first, as a structure-only step, against a pinned SVG hash of every family at a spread of settings: not one byte
+  of `bands` changed (the pin was deleted when the rows moved to the origin's lattice, a change it was built to
+  refuse). A screen is therefore the same layout a `bands` of the same family draws its lines along, by construction,
+  not by a test that compares two copies of the formulas.
   *Alternative:* copy the five formulas into the screen; refused, because the two would drift.
 - **Rows are walked by index, and their work is bounded without subtraction.** A screen first subtracted two squares to bound
   the cells of its rings; for a center 1e20 away the squares cancelled, the bound passed the work charge, and the loop
@@ -2227,3 +2228,36 @@ Why not an existing call:
   a Param there is the wrong argument type, a `TypeError` (`docs/rules.md`, errors), naming the `Drawing` to wrap it in.
   In Rust `Rows`, `Bands`, `Stipple` and `Hatch` are shared by the `Path` and `Drawing` verbs, so a Rust `Path` verb
   still reads a Param in them at its default.
+- **Why one `family` with one word list for `bands` and `halftone`, and not `screen` with `grid` and `wave`.** Both lay
+  the same rows (`lines/layout.rs`), so the layout is one argument with one owner of its words, the public `Family`
+  (`Family::NAMES`); `Screen` was a second spelling of the same five values, mapped back by `Screen::family`. *Not*
+  print's `grid` for halftone and `lines` for bands: a document or a slider moving a look from one verb to the other
+  would need a table of synonyms.
+- **Why `spacing`, and not `pitch`, for a halftone's row distance.** `spacing` is the library's word for the distance
+  between the lines of `rows`, `bands`, `stipple`, `hatch`, `resample` and `place_along`; `pitch` meant the same
+  distance in one verb. *Not* keeping `pitch` as print's word: one name, one meaning.
+- **Why a wave's `amplitude` and `wavelength` are design pixels, and not rows or pitches.** Every other length is
+  design pixels (`api.md`, Conventions), `wave(amplitude=1)` is one pixel, and `bands` counted rows while a halftone
+  counted pitches, so the same number drew three sizes. The halftone defaults are 8 and 48 px, the old 1 and 6 cells at
+  the default spacing (named constants in Rust, from the default spacing). *Not* in spacings so that a wave keeps its
+  shape as the spacing changes: a caller who wants that writes `wavelength=6 * spacing` (the `waves` preset does).
+- **Why straight rows, stipple cells and hatch starts lie on a lattice through the design origin, and not on the shape's
+  box.** Laid from each shape's box, two squares 3 px apart got rows at y 5, 15, 25 and 8, 18, 28, and splitting,
+  merging or uniting shapes moved every line, while the halftone screen was already anchored to the frame ("Halftone: a
+  lattice anchored to the frame"). One rule now: `layout::lattice` gives the lines `(k + phase) * spacing` that fall in
+  a span, counted from the box (a shape far from the origin makes only its own rows, the charge comes first) and walked
+  by index; a stipple cell's jitter and threshold come from its own lattice index. One path of two shapes draws what the
+  two draw apart for `bands` lines and waves, `rows` (where no row of one hides one of the other) and `stipple`
+  (tested). *Not* rings, a spiral or rays: their default `center` is a point of each shape (the middle of its box), not
+  an anchor. *Not* `hatch` as a whole: only its first seeds are on the lattice, the rest grow from the lines before
+  them.
+- **Why the lines sit at `(k + 1/2)` spacings and a halftone's dots at `k`.** A line on `k * spacing` lies along the
+  edge of every shape whose side is a multiple of the spacing (a rectangle at the origin), where `within` keeps or drops
+  it by rounding; at `k + 1/2` such a shape draws as it always did, half a spacing in. A dot on the edge is cut in half,
+  as a print screen's is, so the screen keeps its lattice points. *Not* moving the halftone by half a cell: it would
+  change every halftone drawn so far for no reader's gain.
+- **Why the default angles differ: 0 for `bands`, 45 for `halftone` and for `hatch`'s flow.** Defaults suit each job,
+  as `tolerance` does: 45 degrees is the print-screen convention (a screen at 0 shows its rows to the eye; turned 45 it
+  reads as tone, and hatching is drawn on the diagonal), while the lines of `bands` read as horizontal strokes by
+  default. *Not* one default angle: one of the looks would be worse with no tuning, against "Defaults look good"
+  (`api.md`, Conventions).
