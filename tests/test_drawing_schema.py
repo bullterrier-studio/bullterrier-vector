@@ -441,6 +441,17 @@ GENERATED = json.loads(drawing_schema())
 NOISE = {"Field.noise": {"wavelength": 40, "seed": 3, "octaves": 3}}
 TURNED = {"Flow.rotate": {"flow": {"Flow.contour": {"drawing": [{"path": "M0 0 L9 0 L9 9 Z"}]}}, "angle": 90}}
 AGREED = [
+    pytest.param(
+        square_with({"branch": {"spacing": 40, "length": 60, "forks": 2, "spread": 0.3}}, {"only": {"forks": 0}}),
+        True,
+        id="threads and their trunks",
+    ),
+    pytest.param(square_with({"branch": {"spacing": 40}}), False, id="threads with no length"),
+    pytest.param(square_with({"branch": {"spacing": 40, "length": 60, "forks": 1.5}}), False, id="forks not whole"),
+    pytest.param(square_with({"branch": {"spacing": 40, "length": 60, "spread": 2}}), False, id="a spread past 1"),
+    pytest.param(
+        with_param({"branch": {"spacing": {"param": "x"}, "length": 60}}), False, id="a spacing read from a Param"
+    ),
     pytest.param(square_with({"hatch": {"spacing": 5, "flow": TURNED}}), True, id="a turned flow"),
     pytest.param(
         square_with({"hatch": {"spacing": 5, "flow": {"Flow.rotate": {"flow": TURNED["Flow.rotate"]["flow"]}}}}),

@@ -225,7 +225,7 @@
     "miter_limit": {
       "anyOf": [{ "type": "number", "minimum": 1 }, { "$ref": "#/$defs/expression" }]
     },
-    "attribute": { "enum": ["index", "glyph", "char", "word", "line", "run", "part", "copy", "label", "level", "order", "id", "class", "group"] },
+    "attribute": { "enum": ["index", "glyph", "char", "word", "line", "run", "part", "copy", "root", "forks", "label", "level", "order", "id", "class", "group"] },
     "attribute_values": {
       "type": "object",
       "additionalProperties": false,
@@ -237,6 +237,8 @@
         "run": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
         "part": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
         "copy": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
+        "root": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
+        "forks": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
         "label": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }] },
         "char": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 1 }, { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 1 } }] },
         "level": { "anyOf": [{ "type": "number" }, { "type": "array", "items": { "type": "number" } }] },
@@ -398,6 +400,8 @@
                 "run": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
                 "part": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
                 "copy": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+                "root": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+                "forks": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
                 "label": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
                 "char": { "type": "string", "minLength": 1, "maxLength": 1 },
                 "level": { "type": "number" },
@@ -526,6 +530,7 @@
           "simplify",
           "along",
           "place_along",
+          "branch",
           "wobble",
           "twist",
           "bulge",
@@ -687,6 +692,22 @@
           },
           "required": ["path"],
           "$comment": "exactly one of count and spacing: the loader checks it, no schema can say it for a registered call"
+        },
+        "branch": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "spacing": { "type": "number", "exclusiveMinimum": 0, "maximum": 1e100 },
+            "length": { "type": "number", "exclusiveMinimum": 0, "maximum": 1e100 },
+            "fork_spacing": { "type": "number", "exclusiveMinimum": 0, "maximum": 1e100 },
+            "forks": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "spread": { "$ref": "#/$defs/fraction" },
+            "angle": { "$ref": "#/$defs/number" },
+            "wander": { "$ref": "#/$defs/number" },
+            "wavelength": { "$ref": "#/$defs/capped_positive" },
+            "seed": { "$ref": "#/$defs/number" }
+          },
+          "required": ["spacing", "length"]
         },
         "wobble": {
           "type": "object",
