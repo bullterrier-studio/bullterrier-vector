@@ -288,6 +288,13 @@ impl PyDrawing {
         checked(self.0.outline(width.0, join, cap, miter_limit, tolerance))
     }
 
+    /// Every shape turned into the region it covers moving `dx` to the right and `dy` down (numbers, Params or
+    /// expressions, for each shape, as `translate` takes them); as `Path.sweep`.
+    #[pyo3(signature = (dx, dy, *, tolerance=DEFAULT_TOLERANCE), text_signature = "($self, dx, dy, *, tolerance=0.01)")]
+    fn sweep(&self, dx: Num, dy: Num, tolerance: f64) -> PyResult<Self> {
+        checked(self.0.sweep(dx.0, dy.0, tolerance))
+    }
+
     /// Every shape cut to the piece of its outline between `start` and `end` (fractions 0 to 1 of its length, each a
     /// number, a Param or an expression, read per shape): `slice(0, progress)` draws it on. A closed outline is measured
     /// from its top, or from the point nearest `near`.

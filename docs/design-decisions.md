@@ -2169,3 +2169,31 @@ kept a second, linear copy of the same question (inside by the nonzero rule, an 
 - **Numbers.** The cut-out now draws at pitch 9 in 0.10 s (the plain frame 0.10 s) and at pitch 4 in 0.34 s (0.38 s);
   pitch 2 is refused for both, by the dots' corners, as the plain frame was before. `charged`, the work of a shape off
   the canvas, now runs the placement too, so every output refuses the same pitch.
+
+## Sweep
+
+`sweep(dx, dy, *, tolerance=0.01)`, a `Path` method and a `Drawing` step: the region a shape covers moving along a
+straight vector, the Minkowski sum of the region with the segment from 0 to `(dx, dy)`. The flat-nib look was a union of
+shifted copies: 7 copies comb the ends of a headline (712 square pixels short of the sweep for a 40 px vector), 120
+copies take 0.59 s and are still 35 short, 400 pass `MAX_SEGMENTS` in one `resolve`; the sweep takes 0.005 s.
+
+Why not an existing call:
+- **`translate`** moves the region; nothing between the two places is filled. `sweep` copies its convention: `dx` and
+  `dy` in design pixels, per-item numbers, the document form `{"sweep": {"dx": .., "dy": ..}}`.
+- **`offset`** is the Minkowski sum with a disc, not a segment: a 10 square swept by `(0.5, 0)` is 105 square pixels
+  and 10.5 by 10, `offset(0.25)` is 110.19 and 10.5 by 10.5 with round corners. No offset is a sweep, nor the reverse.
+- **`outline` of the boundary united with the shape** grows every side alike: a 10 square swept by `(40, 0)` is the
+  rectangle 50 by 10 (area 500); `outline(40)` of the square united with it is 50 by 50 (2,156), `outline(80)` 90 by
+  90 (6,726). Disproved: a stroke is a disc swept along the outline, never a segment.
+- **`place_along`** places copies at stops; it fills nothing between them. **`union` of shifted copies** is the
+  workaround above: the limit of infinitely many copies, which no finite call reaches.
+- **Not a special case of anything.** The sweep of a polygon is the union of the polygon, its moved copy and the
+  parallelogram each edge sweeps; no existing call makes a parallelogram per edge. With the region resolved first (every
+  point it fills winds once), the copy and the parallelograms (all wound one way) are the two operands of one union by
+  the boolean engine (`path/boolean.rs`'s `united`, so `i_overlay` stays there). The moved copy and the edges facing away
+  from the vector are redundant (a point the shape passes over lies in the parallelogram of the edge it crossed), kept
+  as the definition says; dropping either changes no output the tests can see.
+- **`(0, 0)` gives the region** (`resolve`), as `offset(0)` does: the result's form does not depend on the length.
+- **Work.** The parallelograms are charged before any is made (five points an edge: a corner of the copy and four),
+  then the engine's pairs of edges that may cross and the result's vertices, as the booleans charge. A long diagonal
+  sweep of a shape of many edges is refused there: each parallelogram's box then meets nearly every other.

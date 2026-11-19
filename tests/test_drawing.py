@@ -1111,6 +1111,7 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
         {},
         [row("M0 -1 L10 -1 L10 1 L0 1 Z")],
     ),
+    "sweep": (lambda: Drawing(SQUARE).sweep(5, 0), {}, [row("M0 0 L15 0 L15 10 L0 10 Z")]),
     # a point has no outline length, so no root and no thread (where a root stands on a real outline is seeded: the
     # threads of a square are checked by their lengths and directions below)
     "branch": (lambda: Drawing(btvec.Path.from_svg_path("M5 5")).branch(40, length=3), {}, []),

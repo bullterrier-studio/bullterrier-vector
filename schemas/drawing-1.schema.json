@@ -521,6 +521,7 @@
           "resolve",
           "offset",
           "outline",
+          "sweep",
           "drop_parts",
           "fill_holes",
           "slice",
@@ -624,6 +625,16 @@
             "profile": { "$ref": "#/$defs/profile" }
           },
           "required": ["width"]
+        },
+        "sweep": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dx": { "$ref": "#/$defs/coordinate" },
+            "dy": { "$ref": "#/$defs/coordinate" },
+            "tolerance": { "$ref": "#/$defs/positive" }
+          },
+          "required": ["dx", "dy"]
         },
         "drop_parts": {
           "type": "object",

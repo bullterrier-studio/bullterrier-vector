@@ -140,6 +140,7 @@ default paint, and draws as it did.
 | `union`, `subtract`, `intersect`, `exclude` | `other` (drawing), `tolerance` (literal, above 0 and at most 1e100; default 0.01) |
 | `resolve` | `tolerance` |
 | `offset` | `distance` (per-item number within ±1e100), `join` (`"round"`, `"miter"`, `"bevel"`; default `"round"`), `miter_limit` (literal, from 1; default 4), `tolerance` (as the booleans) |
+| `sweep` | `dx`, `dy` (per-item numbers within ±1e100, required, as `translate`'s), `tolerance` (as the booleans): `{"sweep": {"dx": 28, "dy": -16}}` |
 | `outline` | `width` (per-item number above 0, at most 1e100), `join`, `cap` (`"butt"`, `"round"`, `"square"`; default `"round"`), `miter_limit`, `tolerance`, `profile` (an array of 1 to `MAX_PROFILE_STOPS` pairs `[position, factor]`, each a per-item number; positions 0..1 not going back, factors 0..1e100; `join` and `cap` must be `"round"`) |
 | `drop_parts`, `fill_holes` | `smaller_than` |
 | `slice` | `start`, `end` (fractions 0..1, per-item numbers allowed), `near` (point; each coordinate within ±1e100) |

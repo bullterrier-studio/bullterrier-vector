@@ -371,3 +371,47 @@ def test_repeated_offsets_keep_their_size_and_their_shape() -> None:
     grown, first = five_offsets(letter)
     assert points(grown) <= 1.5 * first
     assert area(grown) == pytest.approx(area(letter.offset(20)), rel=0.002)
+
+
+# --- sweep ---------------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("dx", "dy", "wanted"),
+    [
+        pytest.param(30, 0, (0, 0, 40, 10), id="along x"),
+        pytest.param(0, -25, (0, -25, 10, 10), id="up"),
+        pytest.param(-4, 0, (-4, 0, 10, 10), id="to the left"),
+    ],
+)
+def test_a_square_swept_along_an_axis_is_the_rectangle_it_passes_over(dx, dy, wanted):
+    approx_edges(SQUARE.sweep(dx, dy), wanted)
+    assert area(SQUARE.sweep(dx, dy)) == pytest.approx(100 + 10 * abs(dx + dy))
+
+
+def test_a_diagonal_sweep_adds_the_length_times_the_width_across_it():
+    # a 10 square swept by (30, 40): length 50, the square 14 wide across that direction (10 * (3 + 4) / 5)
+    assert area(SQUARE.sweep(30, 40)) == pytest.approx(100 + 50 * 14)
+
+
+def test_the_sweep_step_is_the_path_method_for_each_shape_and_round_trips():
+    drawing = Drawing(SQUARE, btvec.Path.rect(50, 0, 10, 10)).sweep(btvec.by_index(2, 6), 0)
+    assert [edges(shape.path) for shape in drawing.shapes()] == [(0, 0, 12, 10), (50, 0, 66, 10)]
+    document = json.loads(drawing.to_json())
+    assert document["root"][-1] == {"sweep": {"dx": {"by_index": {"first": 2, "last": 6}}, "dy": 0}}
+    assert Drawing.from_json(drawing.to_json()).to_json() == drawing.to_json()
+    assert SQUARE.sweep(0, 0).to_svg_path() == SQUARE.resolve().to_svg_path()
+
+
+@pytest.mark.parametrize(
+    ("call", "match"),
+    [
+        pytest.param(lambda: SQUARE.sweep(math.nan, 0), "dx", id="dx not a number"),
+        pytest.param(lambda: SQUARE.sweep(0, 2e100), "dy", id="dy past a coordinate"),
+        pytest.param(lambda: SQUARE.sweep(1, 1, tolerance=0), "tolerance", id="no tolerance"),
+        pytest.param(lambda: Drawing(SQUARE).sweep(1, 1, tolerance=-1), "tolerance", id="a step's tolerance"),
+    ],
+)
+def test_a_sweep_the_library_refuses_is_a_parameter_error_naming_it(call, match):
+    with pytest.raises(ParameterError, match=match):
+        call()

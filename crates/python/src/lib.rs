@@ -736,6 +736,13 @@ impl PyPath {
         Self::of(self.0.outline(width.0, join, cap, miter_limit.0, tolerance.0))
     }
 
+    /// The region the region this path fills covers as it moves `dx` to the right and `dy` down in a straight line, as
+    /// canonical straight-edged polygons within `tolerance` design pixels; a hole it crosses fills in.
+    #[pyo3(signature = (dx, dy, *, tolerance=Plain(DEFAULT_TOLERANCE)), text_signature = "($self, dx, dy, *, tolerance=0.01)")]
+    fn sweep(&self, dx: Plain, dy: Plain, tolerance: Plain) -> PyResult<Self> {
+        Self::of(self.0.sweep(dx.0, dy.0, tolerance.0))
+    }
+
     /// The path with every point, on and off the curve, replaced by what `fn(point)` returns.
     fn map_points(&self, r#fn: &Bound<'_, PyAny>) -> PyResult<Self> {
         // the core's callback can only fail with a core error, so the function's own exception is kept here and the

@@ -827,6 +827,13 @@ AGREED = [
     pytest.param(square_with({"reverse": {"x": 1}}), False, id="a reverse with an argument"),
     pytest.param(square_with({"outline": {"width": 1.1e100}}), False, id="an outline width past 1e100"),
     pytest.param(square_with({"outline": {"width": 4, "tolerance": 0.1}}), True, id="an outline tolerance"),
+    pytest.param(square_with({"sweep": {"dx": 40, "dy": -3, "tolerance": 0.1}}), True, id="a sweep"),
+    pytest.param(
+        square_with({"sweep": {"dx": {"by_index": {"first": 0, "last": 9}}, "dy": 0}}), True, id="a sweep per shape"
+    ),
+    pytest.param(square_with({"sweep": {"dx": 40}}), False, id="a sweep without dy"),
+    pytest.param(square_with({"sweep": {"dx": 1, "dy": 0, "tolerance": 0}}), False, id="a sweep tolerance of 0"),
+    pytest.param(square_with({"sweep": {"dx": 2e100, "dy": 0}}), False, id="a sweep past a coordinate"),
     pytest.param(
         square_with({"outline": {"width": 4, "tolerance": 1.1e100}}), False, id="an outline tolerance past 1e100"
     ),
@@ -1139,6 +1146,7 @@ REGISTERED = {
     "resolve",
     "offset",
     "outline",
+    "sweep",
     "text",
     "characters",
     "marks",

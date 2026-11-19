@@ -542,11 +542,14 @@ def offsets() -> list[Entry]:
         "stroke_taper_param": framed(
             btvec.Path.line((10, 50), (90, 50)).stroke(BLUE, width=12, profile=[(0, 0), (1, peak)])
         ),
+        "sweep_ring_param": framed(ring.fill(RED)).sweep(grow, btvec.by_index(-6, 6)),
+        "sweep_text": sized(at_90("Ag").fill(INK)).sweep(9, -3),
     }
     draws: dict[str, list[Draw]] = {
         "offset_param": [(100, 100, {}), (200, 200, {"grow": 7})],
         "outline_taper_param": [(100, 100, {}), (200, 200, {"peak": 0.4})],
         "stroke_taper_param": [(100, 100, {}), (200, 200, {"peak": 0.4})],
+        "sweep_ring_param": [(100, 100, {}), (200, 200, {"grow": 15})],
     }
     return [
         (
