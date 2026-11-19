@@ -15,7 +15,7 @@ use std::f64::consts::TAU;
 // constant: a chord of a sine of amplitude A that spans a 24th of a wavelength strays from it by at most
 // A (2 pi / 24)^2 / 8 = 0.86% of A, under the hundredth of the amplitude that a hand-drawn wave can be told from a
 // sine by; fewer pieces (16: 1.9%) show as facets on a large amplitude
-const WAVE_PIECES: f64 = 24.0;
+pub(crate) const WAVE_PIECES: f64 = 24.0;
 
 /// The chord error of a wave cut into `WAVE_PIECES`, as a share of the amplitude.
 // constant: A (2 pi / 24)^2 / 8, worked out above

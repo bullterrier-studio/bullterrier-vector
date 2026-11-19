@@ -10,6 +10,7 @@ mod clip_mask;
 mod drawing_along;
 mod drawing_boolean;
 mod drawing_bounds;
+mod drawing_branch;
 mod drawing_cache;
 mod drawing_dash;
 mod drawing_envelope;

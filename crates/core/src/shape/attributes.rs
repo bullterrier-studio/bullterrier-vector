@@ -15,6 +15,8 @@ pub struct Attributes {
     pub(crate) run: Option<u32>,
     pub(crate) part: Option<u32>,
     pub(crate) copy: Option<u32>,
+    pub(crate) root: Option<u32>,
+    pub(crate) forks: Option<u32>,
     pub(crate) label: Option<u32>,
     pub(crate) row: Option<u32>,
     pub(crate) column: Option<u32>,
@@ -64,9 +66,9 @@ pub(crate) enum Holds {
     Text,
 }
 
-/// The attributes a selection can ask about, by name: the shape's `index`, the fifteen a generator writes (`role`
+/// The attributes a selection can ask about, by name: the shape's `index`, the seventeen a generator writes (`role`
 /// is text) and the three an SVG import writes.
-pub(crate) const SELECTABLE: [(&str, Holds); 19] = [
+pub(crate) const SELECTABLE: [(&str, Holds); 21] = [
     ("index", Holds::Whole),
     ("glyph", Holds::Whole),
     ("char", Holds::Char),
@@ -75,6 +77,8 @@ pub(crate) const SELECTABLE: [(&str, Holds); 19] = [
     ("run", Holds::Whole),
     ("part", Holds::Whole),
     ("copy", Holds::Whole),
+    ("root", Holds::Whole),
+    ("forks", Holds::Whole),
     ("label", Holds::Whole),
     ("row", Holds::Whole),
     ("column", Holds::Whole),
@@ -112,6 +116,8 @@ impl Attributes {
             "run" => self.run.map(|n| Single::Number(f64::from(n))),
             "part" => self.part.map(|n| Single::Number(f64::from(n))),
             "copy" => self.copy.map(|n| Single::Number(f64::from(n))),
+            "root" => self.root.map(|n| Single::Number(f64::from(n))),
+            "forks" => self.forks.map(|n| Single::Number(f64::from(n))),
             "label" => self.label.map(|n| Single::Number(f64::from(n))),
             "row" => self.row.map(|n| Single::Number(f64::from(n))),
             "column" => self.column.map(|n| Single::Number(f64::from(n))),
@@ -167,6 +173,18 @@ impl Attributes {
     #[must_use]
     pub fn copy(&self) -> Option<u32> {
         self.copy
+    }
+
+    /// The root of a `branch` thread, from 0 on its shape.
+    #[must_use]
+    pub fn root(&self) -> Option<u32> {
+        self.root
+    }
+
+    /// The forks a `branch` path takes from its root to its tip (0: the trunk).
+    #[must_use]
+    pub fn forks(&self) -> Option<u32> {
+        self.forks
     }
 
     /// The colour byte of a shape traced from a map of labels or cells, from 0 to 255.
@@ -269,6 +287,8 @@ impl Keyed for Attributes {
             self.run,
             self.part,
             self.copy,
+            self.root,
+            self.forks,
             self.label,
             self.row,
             self.column,

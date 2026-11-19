@@ -1,8 +1,8 @@
 //! The list of every verb a drawing can be built from.
 
 use crate::node::{
-    Node, Verb, boolean, characters, clip, hatch, items, lines, marks, morph, offset, place, select, source, stack,
-    style, text, trace, transform, values,
+    Node, Verb, boolean, branch, characters, clip, hatch, items, lines, marks, morph, offset, place, select, source,
+    stack, style, text, trace, transform, values,
 };
 
 /// Every verb the library can build a drawing from. This is the declaration only (name, arguments, ranges); a tool
@@ -48,6 +48,7 @@ const NODES: &[&dyn Node] = &[
     &transform::Reverse,
     &transform::Dash,
     &place::PlaceAlong,
+    &branch::Branch,
     &style::Fill,
     &style::Stroke,
     &style::Opacity,

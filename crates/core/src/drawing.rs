@@ -1,6 +1,7 @@
 //! `Drawing`: a tree of steps that evaluates to a list of shapes.
 
 mod boolean;
+mod branch;
 mod cache;
 mod clip;
 mod eval;
@@ -17,6 +18,7 @@ mod trace;
 mod transform;
 mod values;
 
+pub use branch::Branch;
 pub use cache::Stats;
 pub(crate) use graph::Graph;
 pub use place::PlaceAlong;

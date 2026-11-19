@@ -2,9 +2,9 @@
 
 use crate::common::fonts::fraunces;
 use bullterrier_vector::{
-    Along, Arch, Bands, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Field, Flow, Gradient, Hatch, Join,
-    Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Spacing, Stipple, Text, Trace, Twist,
-    Values, text,
+    Along, Arch, Bands, Branch, Bulge, Cap, Color, Deg, Drawing, Envelope, Error, Expr, Field, Flow, Gradient, Hatch,
+    Join, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Spacing, Stipple, Text, Trace,
+    Twist, Values, text,
 };
 
 /// A drawing made of a verb with one argument set from an expression, or the reason the row has no such argument.
@@ -1088,6 +1088,52 @@ pub(super) fn rows() -> Vec<Row> {
                 ("amplitude", -2.0, true),
             ],
             // equal to `Path::bands` is shown in drawing_lines.rs
+            geometry: None,
+        },
+        Row {
+            verb: "branch",
+            sample: || Ok(square()?.branch(&Branch::new(10.0, 6.0).fork_spacing(2.0).spread(0.4).seed(3.0))),
+            with: Some(|argument, value| {
+                let branch = Branch::new(10.0, 6.0).fork_spacing(2.0);
+                Ok(square()?.branch(&match argument {
+                    "spacing" => Branch::new(literal(argument, &value)?, 6.0),
+                    "length" => Branch::new(10.0, literal(argument, &value)?),
+                    "fork_spacing" => branch.fork_spacing(literal(argument, &value)?),
+                    "forks" => branch.forks(literal(argument, &value)?),
+                    "spread" => branch.spread(value),
+                    "angle" => branch.angle(Deg(value)),
+                    "wander" => branch.wander(Deg(value)),
+                    "wavelength" => branch.wavelength(value),
+                    "seed" => branch.seed(value),
+                    other => return Err(unknown("branch", other)),
+                }))
+            }),
+            ranges: &[
+                ("spacing", 10.0, true),
+                ("spacing", 0.0, false),
+                ("spacing", f64::NAN, false),
+                ("length", 6.0, true),
+                ("length", -1.0, false),
+                ("fork_spacing", 2.0, true),
+                ("fork_spacing", 0.0, false),
+                ("forks", 0.0, true),
+                ("forks", 3.0, true),
+                ("forks", 0.5, false),
+                ("forks", -1.0, false),
+                ("spread", 0.0, true),
+                ("spread", 1.0, true),
+                ("spread", 1.000_001, false),
+                ("spread", -0.1, false),
+                ("angle", -30.0, true),
+                ("angle", f64::INFINITY, false),
+                ("wander", 0.0, true),
+                ("wander", f64::NAN, false),
+                ("wavelength", 4.0, true),
+                ("wavelength", 0.0, false),
+                ("seed", 7.0, true),
+                ("seed", f64::NAN, false),
+            ],
+            // the threads are checked against hand results in drawing_branch.rs
             geometry: None,
         },
         Row {

@@ -8,6 +8,7 @@ mod arc;
 mod bend;
 mod boolean;
 mod bounds;
+mod branch;
 mod build;
 mod curve;
 mod dash;
@@ -32,6 +33,7 @@ mod write;
 
 pub(crate) use bend::Guide;
 pub(crate) use boolean::Combine;
+pub(crate) use branch::BranchPlan;
 pub(crate) use build::Builder;
 pub(crate) use curve::FLATNESS;
 pub use place::Spacing;

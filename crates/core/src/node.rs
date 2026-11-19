@@ -53,6 +53,7 @@
 
 mod args;
 pub(crate) mod boolean;
+pub(crate) mod branch;
 pub(crate) mod characters;
 pub(crate) mod clip;
 pub(crate) mod hatch;
