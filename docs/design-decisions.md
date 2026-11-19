@@ -2060,3 +2060,11 @@ Why not an existing call:
   points (the test's oracle) and one octave is the kernel to the bit. At most 8: the eighth is 1/128 of the first.
 - **`wavelength` has no default.** `Flow.noise` defaults it to 400 and `wobble` to 80: one idea with two defaults, so the
   new call takes none.
+- **`trace_levels` reads any field** with `box` and `cell` (the names and units of `Field.contours`), not a second verb:
+  `trace_levels` of a field is the filled form of `contours` of it, so no new call. Left out, they are a map's own box and
+  one map pixel and the map's bytes are traced as before (the SVG of every trace example, preset and differential row
+  hashes the same); a field that is not a map has neither and refuses naming the one left out (no default for a field
+  with no extent, as in `contours`). The field is read at cell centres (a map's pixel centres), the readings scaled to 0
+  to 1 by their range and the levels with them, so the map's padding and level clamp hold for any range. Rust takes them
+  as `Option`s before the `Trace` (the `Trace` is shared with `trace_labels`, which reads only maps). The step reads the
+  field with the values of the draw, as `hatch` reads its tone.

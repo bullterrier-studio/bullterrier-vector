@@ -450,19 +450,20 @@ tone's `Field` is taken by the step like `hatch`'s. [line_families.py](../exampl
 
 ## Trace
 
-A map (`Field.map`: 8-bit bytes, the same input form in documents) traced into filled shapes. Three sources, all on `Drawing`;
+A map (`Field.map`: 8-bit bytes, the same input form in documents) traced into filled shapes; `trace_levels` traces any field. Three sources, all on `Drawing`;
 the shapes carry no paint (paint each with `only(level=..).fill(..)`, or `only(label=..).fill(..)` for labels and cells): a level shape has its level as the `level` attribute, a label or cell shape its colour byte as the `label` attribute (a whole number).
 
 | Call | Result | Arguments |
 |---|---|---|
-| `Drawing.trace_levels(map, levels, *, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)` | one shape for each of `levels` (0 black to 1 white; a number or a list) the map reaches, in the order given: the region where the map is at or above it | `smooth` is the standard deviation, in design pixels, of a Gaussian that blurs the map first; `close`, then `open` (design pixels) fill and remove what is narrower than twice the radius; `min_hole` and `min_area` (square pixels) fill small holes and drop small parts; `tolerance` fits curves within that many design pixels of the traced polyline (0 keeps it). `levels` and each number is a number, a `Param` or an expression, read once |
+| `Drawing.trace_levels(map, levels, *, box=None, cell=None, smooth=0, tolerance=0.5, open=0, close=0, min_area=0, min_hole=0)` | one shape for each of `levels` (a number or a list; a map's are 0 black to 1 white) the field reaches, in the order given: the region where it is at or above it. `map` is any `Field`, read at the centres of `box` `(x, y, width, height)` cut into equal cells no wider than `cell` pixels; `None` is a `Field.map`'s own box and one map pixel (its bytes, traced as they are), and any other field needs both. A field reads its Params and drawings with the values of the draw | `smooth` is the standard deviation, in design pixels, of a Gaussian that blurs the map first; `close`, then `open` (design pixels) fill and remove what is narrower than twice the radius; `min_hole` and `min_area` (square pixels) fill small holes and drop small parts; `tolerance` fits curves within that many design pixels of the traced polyline (0 keeps it). `levels` and each number is a number, a `Param` or an expression, read once |
 | `Drawing.trace_labels(map, *, max_colors=32, ...)` | one shape for each byte the map holds, attribute `label` the byte; the shapes tile the frame and its padding: no overlap, no gap, whatever the tidying | the tidying of `trace_levels`. The commonest label (the lowest byte of a tie) comes first and is whatever the others leave; the others follow in order of the byte, each cut by the labels after it, so a tidied shape is a polyline within 0.01 pixels of its curve. Cutting too many outlines apart is refused naming `max_colors` |
 | `Drawing.trace_cells(map, cell, *, max_colors=32)` | one shape (one outline with all its regions) for each colour, in order of the byte, attribute `label`, exactly | the map is cells of `cell` map pixels, each one byte (a dithered picture scaled by `cell`); cells of one colour that touch are merged, edges lie on cell sides, no fitting; areas are the cells' and the shapes tile the map |
 
 A shape that meets the map's border goes on past it and closes outside the frame, so no edge lies along the border. The
 overhang is the larger of `open` and `close` plus `tolerance` (in map pixels, rounded up), plus two map pixels. For a plotter
 or a cutter crop it to the frame in one call, `drawing.intersect(btvec.Path.rect(0, 0, width, height))` (the labels still
-tile); a view crops it for the screen. The map's `box` places the map. Rust: `Drawing::trace_levels(&map, [0.3, 0.6], &Trace::new().smooth(1.5).open(2.0))`
+tile); a view crops it for the screen. The map's `box` places the map. Rust: `Drawing::trace_levels(&map, [0.3, 0.6], None, None, &Trace::new().smooth(1.5).open(2.0))`
+(`frame` and `cell` before the `Trace`: `Some(rect), Some(2.0)` for a field that is not a map)
 (`levels` is any list of numbers, Params or expressions), `Drawing::trace_labels(&map, 8, &Trace::new())`,
 `Drawing::trace_cells(&map, 2, 8)`; in a document
 `{"trace_levels": {"map": {"Field.map": {...}}, "levels": [0.3, 0.6], "open": 2}}`.
@@ -481,9 +482,18 @@ Errors: `ParameterError` naming `levels` (none, over 256, not finite, or passes 
 over 1e100; the largest of `open`, `close` and `tolerance` also when the padded lattice passes 2^25 nodes (a 4096 by 4096
 map holds hundreds of pixels of padding), `smooth` also when the blur passes 2e9 steps), `max_colors` (not a whole number from
 1 to 256, fewer than the map's colours, or labels whose outlines are too many to cut apart within the draw's segment
-budget), `cell` (not a whole number from 1, not dividing the map, or a cell of more than one byte) and `map` (not a
+budget), `cell` (`trace_cells`: not a whole number from 1, not dividing the map, or a cell of more than one byte;
+`trace_levels`: not above 0, left out for a field that is not a map, a grid of over 2^24 cells or reads past the work
+limit), `box` (left out for a field that is not a map, or as for `Field.map`) and `map` (`trace_labels`, `trace_cells`: not a
 `Field.map`). From Python a count that is not whole (2.5) or below 0 raises `ParameterError` naming it.
-[trace.py](../examples/trace.py) traces a relief and a dithered strip.
+[trace.py](../examples/trace.py) traces a relief and a dithered strip; [eaten_letters.py](../examples/eaten_letters.py) a
+word eaten at the rim by a noisy distance field:
+
+```python
+edge = btvec.Field.distance(word)  # negative inside
+eaten = edge + btvec.Field.noise(45, seed=3, octaves=3) * 40 * (abs(edge).min(60) * (1 / 60))
+btvec.Drawing.trace_levels(-eaten, [-40, -18, 0], box=(0, 0, 1200, 600), cell=2, smooth=1.5)
+```
 
 ### A sequence of maps (V14b)
 
@@ -898,7 +908,7 @@ arguments, errors and the shape attributes they write). For a sequence of maps, 
 `Field.smooth_maps(maps, *, sigma)` first and trace the result (see "A sequence of maps (V14b)"). The library keeps no
 sequence.
 
-To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Field.contours` and stroke the result; `trace_levels` is for the filled regions a map's levels enclose, with curves fitted.
+To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Field.contours` and stroke the result; `trace_levels` is for the filled regions a field's levels enclose, with curves fitted.
 
 ## Inputs
 
@@ -914,6 +924,8 @@ To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Fie
 | `field.contours` | `contours(levels, *, box, cell, smooth=0, min_length=0)` (Rust: `contours(&[levels], rect, cell)`, and `contours_with(.., &Tidy::default().smooth(s).min_length(l))`) | the lines where the field equals each of `levels` (a number or a list), as one `Path`: marching squares over `box` cut into equal cells no wider than `cell`, the field read at their corners and a line crossing a cell edge at the linear interpolation of the two readings (a reading equal to the level counts as above it; a saddle joins its high corners when the mean of its four is high). A line that reaches the box ends there, open; any other is closed. Every line runs with the high side (a reading at or above the level) on its left as drawn (y down), so the loops of a map that is high inside a region wind one way and its holes the other: `contours(0.5, ..)` of a matte is that region's outline, ready to fill, to hatch inside or to give `rows`. `smooth` blurs the readings with a Gaussian of that many pixels before tracing (grass and grain make hundreds of tiny loops and a jagged line; a few pixels removes them; the blur is refused past 2 billion steps), `min_length` drops every line shorter than that many pixels. Levels are made in the order given. To follow a map's pixels, give `box` the box of the pixel centres (the map's box inset half a pixel) and a `cell` of one pixel. Like `Path.arc` it is a value, not a step: a saved drawing holds its path data | `levels` more than 256 or not finite; `cell` not above 0, a grid of over 4 million nodes, or a field too costly to read at that many nodes (a distance field of a very detailed drawing; the message says so); `box` as for `Field.map` (it has no default: a field, unlike a map, has no extent of its own); more than 10 million points |
 | `Field.ramp` | `Field.ramp(start, end)` | 0 at `start`, 1 at `end`, linear along the line between, held beyond | equal points |
 | `Field.distance` | `Field.distance(drawing, *, normalized=False)` | from a `Path`, a `Shape` or a `Drawing` (all its shapes together; a `hatch` step reads the drawing again with the values it draws with, so a headline whose weight is a `Param` is hatched along its outline at that weight): signed distance to the nearest outline in pixels, negative inside (nonzero rule); normalised: inside each part (an outline with its holes) 0 on its outer edge rising to 1 on its holes' edges (`d / (d + distance to the holes)`), or, for a part with no hole, to 1 at its deepest point (`d` over its largest inscribed radius, estimated to about a percent), 0 outside and inside a hole. Where parts overlap the distance is to the nearest edge of any: `resolve` first | `GeometryError`: the drawing has no edge; the drawing's own error |
+| `Field.noise` | `Field.noise(wavelength, *, phase=0, seed=0, octaves=1)` (Rust: `Field::noise(wavelength, phase, seed, octaves)?`) | smooth seeded value noise from -1 to 1, the kernel `wobble` displaces by, one lattice cell `wavelength` pixels wide; `phase` in cycles moves it, one cycle on is the same field to the bit; each of `octaves` (1 to 8) adds the noise at half the wavelength and half the amplitude of the one before, the sum divided by the sum of the amplitudes; equal seeds make equal fields; `wavelength` and `phase` may be `Param`s | `wavelength` not above 0; `seed` not a whole number within ±(2^53 - 1); `octaves` not from 1 to 8; a per-item number |
+| field arithmetic | `a + b`, `a - b`, `a * b`, `-a`, `abs(a)`, `a.min(b)`, `a.max(b)` (Rust: `a.add(&b)?`, `a.mul(&b)?`, `a.min(&b)?`, `a.max(&b)?`, `a.abs()?`; `a - b` is `a.add(&b.mul(&Field::constant(-1.0)?)?)?`) | the operation point by point; a number (a `Param`, an expression) on either side is a constant field; two numbers fold into one and a number is written first (`f * 14` prints `14 * f`). Clamping is `f.min(high).max(low)`. A tree nests at most 16 operations deep and reads at most 10,000 fields and operations | more depth or reads, naming `other` (`field` for `abs`); a per-item number, naming `value`; an operand that is neither a field nor a number is a `TypeError` |
 | `field.at` | `at(x, y)` | the field's number at a point | |
 | `Flow.angle` | `Flow.angle(angle)` | the same direction everywhere, clockwise from the right on screen; 30 and 210 are the same; a number or a `Param` | a per-item number |
 | `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | smooth seeded noise directions (value noise turning the direction half a turn each way); `phase` in cycles moves it, one cycle on is the same flow; `wavelength` and `phase` may be `Param`s | `wavelength` not above 0; a per-item number |
@@ -922,7 +934,7 @@ To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Fie
 | `flow.at` | `at(x, y)` | the direction at a point in degrees, from 0 up to 180 | |
 
 A `Field` or a `Flow` is a value, built once (a grid of an outline's edges makes it quick to read) and part of the
-drawing that uses it. Its numbers (a number given as `tone`, `Flow.angle`'s angle, `Flow.noise`'s `wavelength` and `phase`,
+drawing that uses it. Its numbers (a number given as `tone`, `Flow.angle`'s angle, `Flow.noise`'s and `Field.noise`'s `wavelength` and `phase`, a number operand,
 `flow.mix`'s fraction) may be `Param`s or expressions, never per-item numbers, and the drawings it reads are drawings:
 `field.at` and `flow.at` read them with every Param at its default, and a `hatch` step reads them again with the values
 it draws with (the step takes the drawings like `avoid`, so the cache, `parameters()` and `with_values` see them). A
