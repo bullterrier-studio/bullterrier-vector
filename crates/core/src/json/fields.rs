@@ -242,15 +242,28 @@ impl Reader {
         })
     }
 
-    /// An arithmetic on fields: `{"Field.abs": a}`, or `{"Field.add": [a, b]}` and the rest, two operands that are not
-    /// both numbers.
+    /// An arithmetic on fields: `{"Field.abs": a}`, or `{"Field.add": [a, b]}` and the rest. As an expression that reads
+    /// no Param is refused, so is an operation the constructor folds: `abs` of a number, `min` or `max` of two numbers,
+    /// `add` or `mul` of two numbers or expressions (one canonical form: the number or expression it makes).
     fn arithmetic(&mut self, pointer: &str, word: &str, op: FieldOp, operands: &Json) -> Result<FieldDoc, Error> {
         let here = at(pointer, word);
+        let folds = |item: &Json| match op {
+            FieldOp::Add | FieldOp::Mul => is_number(item),
+            _ => matches!(item, Json::Number(_)),
+        };
         let operands = match (op, operands) {
-            (FieldOp::Abs, one) => vec![self.field(&here, one)?],
+            (FieldOp::Abs, one) => {
+                if folds(one) {
+                    return Err(refuse(&here, "has a number: write the number it makes"));
+                }
+                vec![self.field(&here, one)?]
+            }
             (_, Json::Array(items)) if items.len() == 2 => {
-                if items.iter().all(|item| matches!(item, Json::Number(_))) {
-                    return Err(refuse(&here, "has two numbers: write the number it makes"));
+                if items.iter().all(folds) {
+                    return Err(refuse(
+                        &here,
+                        "has two numbers: write the number or expression it makes",
+                    ));
                 }
                 vec![
                     self.field(&at(&here, "0"), &items[0])?,

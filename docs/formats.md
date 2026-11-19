@@ -205,8 +205,8 @@ list given at draw time (`to_png(..., pulse=[...])`) is not: it is a value of th
 | `Field.ramp` | `Field.ramp(start, end)` | `start`, `end` (points) |
 | `Field.distance` | `Field.distance(drawing, *, normalized=False)` | `drawing` (a drawing: an array of calls, `[{"path": "..."}]` for one path), `normalized` (`true` or `false`) |
 | `Field.noise` | `Field.noise(*, wavelength=400, phase=0, seed=0, octaves=1)` | `wavelength`, `phase` (numbers or expressions), `seed` (whole number), `octaves` (whole number from 1 to 8); `to_json` writes all four |
-| `Field.add`, `Field.mul`, `Field.min`, `Field.max` | `a + b` (`a - b` is `a + -1 * b`), `a * b`, `a.min(b)`, `a.max(b)` | an array of two operands, each a field or a number (an expression); not two numbers (write the number they make); a number operand of `add` and `mul` written first |
-| `Field.abs` | `abs(a)` | one operand, a field (a number folds) |
+| `Field.add`, `Field.mul`, `Field.min`, `Field.max` | `a + b` (`a - b` is `a + -1 * b`), `a * b`, `a.min(b)`, `a.max(b)` | an array of two operands, each a field or a number (an expression); refused where the call would fold them, as an expression reading no Param is: two numbers (write the number they make), and for `add` and `mul` two numbers or expressions (write the expression); a number operand of `add` and `mul` written first |
+| `Field.abs` | `abs(a)` | one operand, a field or an expression of Params; a number is refused (write its size) |
 | `Flow.angle` | `Flow.angle(angle)` | `angle` (degrees; a number or an expression) |
 | `Flow.noise` | `Flow.noise(*, wavelength=400, phase=0, seed=0)` | `wavelength`, `phase` (numbers or expressions), `seed` (whole number) |
 | `Flow.contour` | `Flow.contour(drawing)` | `drawing` (written as for `Field.distance`) |

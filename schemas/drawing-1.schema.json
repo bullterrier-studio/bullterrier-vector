@@ -300,11 +300,11 @@
             "octaves": { "type": "integer", "minimum": 1, "maximum": 8 }
           }
         },
-        "Field.add": { "$ref": "#/$defs/field_operands" },
-        "Field.mul": { "$ref": "#/$defs/field_operands" },
+        "Field.add": { "$ref": "#/$defs/field_sum_operands" },
+        "Field.mul": { "$ref": "#/$defs/field_sum_operands" },
         "Field.min": { "$ref": "#/$defs/field_operands" },
         "Field.max": { "$ref": "#/$defs/field_operands" },
-        "Field.abs": { "$ref": "#/$defs/field_operand" }
+        "Field.abs": { "allOf": [{ "$ref": "#/$defs/field_operand" }, { "not": { "type": "number" } }] }
       }
     },
     "field_operand": { "anyOf": [{ "$ref": "#/$defs/once" }, { "$ref": "#/$defs/field" }] },
@@ -314,6 +314,12 @@
       "minItems": 2,
       "items": false,
       "not": { "prefixItems": [{ "type": "number" }, { "type": "number" }] }
+    },
+    "field_sum_operands": {
+      "allOf": [
+        { "$ref": "#/$defs/field_operands" },
+        { "not": { "prefixItems": [{ "$ref": "#/$defs/once" }, { "$ref": "#/$defs/once" }] } }
+      ]
     },
     "flow": {
       "type": "object",

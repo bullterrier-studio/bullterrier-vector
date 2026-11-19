@@ -124,13 +124,13 @@
             "octaves": { "type": "integer", "minimum": 1, "maximum": 8 }
           }
         },
-        "Field.add": { "$ref": "#/$defs/field_operands" },
-        "Field.mul": { "$ref": "#/$defs/field_operands" },
+        "Field.add": { "$ref": "#/$defs/field_sum_operands" },
+        "Field.mul": { "$ref": "#/$defs/field_sum_operands" },
         "Field.min": { "$ref": "#/$defs/field_operands" },
         "Field.max": { "$ref": "#/$defs/field_operands" },
-        "Field.abs": { "$ref": "#/$defs/field_operand" }
+        "Field.abs": { "allOf": [{ "$ref": "#/$defs/field_operand" }, { "not": { "type": "number" } }] }
       },
-      "$comment": "a number or an expression of Params is the same value everywhere; the ramp's points are literals and differ; data names an input of kind map holding width times height bytes (the loader checks both); the box has a width and a height above 0; noise's wavelength is above 0 when drawn; arithmetic nests at most 16 deep and reads at most 10,000 fields and operations (the loader checks both)"
+      "$comment": "a number or an expression of Params is the same value everywhere; the ramp's points are literals and differ; data names an input of kind map holding width times height bytes (the loader checks both); the box has a width and a height above 0; noise's wavelength is from 1e-200 to 1e100 when drawn; arithmetic nests at most 16 deep and reads at most 10,000 fields and operations (the loader checks both)"
     },
     "field_operand": { "anyOf": [{ "$ref": "#/$defs/number" }, { "$ref": "#/$defs/field" }] },
     "field_operands": {
@@ -140,6 +140,13 @@
       "items": false,
       "not": { "prefixItems": [{ "type": "number" }, { "type": "number" }] },
       "$comment": "two operands that are not both numbers: write the number they make"
+    },
+    "field_sum_operands": {
+      "allOf": [
+        { "$ref": "#/$defs/field_operands" },
+        { "not": { "prefixItems": [{ "$ref": "#/$defs/number" }, { "$ref": "#/$defs/number" }] } }
+      ],
+      "$comment": "add and mul of two numbers or expressions make an expression: write it"
     },
     "literal_point": {
       "type": "array",

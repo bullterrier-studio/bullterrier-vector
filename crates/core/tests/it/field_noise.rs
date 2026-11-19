@@ -418,6 +418,40 @@ fn a_document_noise_without_a_wavelength_takes_the_default_of_flow_noise() -> Ou
     Ok(())
 }
 
+/// [`hatched`], with a Param `p` declared when the tone reads it.
+fn hatched_with_p(tone: &str) -> String {
+    if !tone.contains("param") {
+        return hatched(tone);
+    }
+    hatched(tone).replace(
+        r#"{"root""#,
+        r#"{"params":[{"name":"p","default":0.5,"min":0,"max":1,"unit":"","meaning":""}],"root""#,
+    )
+}
+
+#[test]
+fn a_document_writes_no_operation_the_constructor_folds() -> Outcome {
+    // as an expression that reads no Param is refused (write its value), an operation the constructor would fold is
+    // refused: abs of a number, min or max of two numbers, add or mul of two numbers or expressions
+    for tone in [
+        r#"{"Field.abs":3}"#,
+        r#"{"Field.min":[1,2]}"#,
+        r#"{"Field.add":[1,{"param":"p"}]}"#,
+        r#"{"Field.mul":[{"param":"p"},2]}"#,
+    ] {
+        match Drawing::from_json(&hatched_with_p(tone), &Inputs::new()) {
+            Err(error @ Error::Format { .. }) => assert!(error.to_string().contains("write"), "{tone}: {error}"),
+            other => return Err(format!("{tone}: {other:?}").into()),
+        }
+    }
+    // what the constructor keeps as a node reads back as written
+    for tone in [r#"{"Field.abs":{"param":"p"}}"#, r#"{"Field.min":[1,{"param":"p"}]}"#] {
+        let text = Drawing::from_json(&hatched_with_p(tone), &Inputs::new())?.to_json()?;
+        assert!(text.contains(tone), "{tone}: {text}");
+    }
+    Ok(())
+}
+
 #[test]
 fn a_document_with_two_numbers_a_bad_octave_or_one_operand_is_refused() {
     for tone in [

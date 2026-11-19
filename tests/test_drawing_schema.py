@@ -463,6 +463,26 @@ AGREED = [
         id="arithmetic on one operand",
     ),
     pytest.param(
+        square_with({"hatch": {"spacing": [3, 9], "tone": {"Field.abs": 3}}}),
+        False,
+        id="abs of a number",
+    ),
+    pytest.param(
+        with_param({"hatch": {"spacing": [3, 9], "tone": {"Field.abs": {"param": "x"}}}}),
+        True,
+        id="abs of a Param",
+    ),
+    pytest.param(
+        with_param({"hatch": {"spacing": [3, 9], "tone": {"Field.add": [1, {"param": "x"}]}}}),
+        False,
+        id="a sum of a number and a Param is an expression",
+    ),
+    pytest.param(
+        with_param({"hatch": {"spacing": [3, 9], "tone": {"Field.min": [1, {"param": "x"}]}}}),
+        True,
+        id="the smaller of a number and a Param",
+    ),
+    pytest.param(
         square_with({"hatch": {"spacing": [3, 9], "tone": {"Field.noise": {"wavelength": 40, "octaves": 9}}}}),
         False,
         id="nine octaves",
