@@ -421,6 +421,19 @@ class Drawing:
     def translate(self, dx: _Num, dy: _Num) -> Drawing: ...
     def rotate(self, angle: _Num, *, about: _NumPair | None = None) -> Drawing: ...
     def along(self, path: Path, *, start: _Num | None = None, near: _NumPair | None = None) -> Drawing: ...
+    def branch(
+        self,
+        spacing: float,
+        *,
+        length: float,
+        fork_spacing: float | None = None,
+        forks: int | None = None,
+        spread: _Num | None = None,
+        angle: _Num | None = None,
+        wander: _Num | None = None,
+        wavelength: _Num | None = None,
+        seed: _Num | None = None,
+    ) -> Drawing: ...
     def place_along(
         self,
         path: Path,

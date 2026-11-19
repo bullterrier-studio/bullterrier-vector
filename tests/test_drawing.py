@@ -1111,6 +1111,11 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
         {},
         [row("M0 -1 L10 -1 L10 1 L0 1 Z")],
     ),
+    "branch": (
+        lambda: Drawing(SQUARE).branch(40, length=3, forks=0, wander=0),
+        {},
+        [row("M7.353591640297581 0 L7.353591640297581 -3", None, BLACK)],  # up out of the top edge, 3 long
+    ),
     "place_along": (
         lambda: Drawing(SQUARE).place_along(EAST, count=2),
         {},
@@ -1286,3 +1291,30 @@ def test_bounds_take_the_values_by_name():
 def test_an_empty_drawing_has_no_bounds():
     with pytest.raises(btvec.GeometryError, match="bounds"):
         Drawing().bounds()
+
+
+def test_branch_grows_one_open_path_per_root_and_fork_from_the_outline() -> None:
+    # 1600 of outline every 400: 4 roots; 200 long, a fork every 50: 4 stretches, 1 + 4 + 6 paths a root at 2 forks
+    square = btvec.Path.rect(100, 100, 400, 400)
+    shapes = Drawing(square).branch(400, length=200, fork_spacing=50, forks=2, seed=3).shapes()
+    assert len(shapes) == 4 * 11
+    assert {shape.attributes["root"] for shape in shapes} == {0, 1, 2, 3}
+    trunks = Drawing(square).branch(400, length=200, fork_spacing=50, forks=2, seed=3).only(forks=0).shapes()
+    assert len(trunks) == 4
+    for shape in shapes:
+        assert shape.path.length == pytest.approx(200, abs=1e-6)
+        assert shape.attributes["origin"] == shape.path.point_at(0)
+
+
+@pytest.mark.parametrize(
+    ("options", "argument"),
+    [
+        pytest.param({"spread": 1.5}, "spread", id="a spread past 1"),
+        pytest.param({"forks": 0.5}, "forks", id="forks that are not whole"),
+        pytest.param({"seed": 0.5}, "seed", id="a seed that is not whole"),
+        pytest.param({"fork_spacing": 0}, "fork_spacing", id="no fork spacing"),
+    ],
+)
+def test_branch_refuses_what_it_cannot_grow_naming_the_argument(options: dict[str, Any], argument: str) -> None:
+    with pytest.raises(btvec.ParameterError, match=argument):
+        Drawing(btvec.Path.rect(0, 0, 100, 100)).branch(50, length=40, **options).shapes()

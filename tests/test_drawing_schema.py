@@ -1073,6 +1073,7 @@ REGISTERED = {
     "scale",
     "along",
     "place_along",
+    "branch",
     "slice",
     "resample",
     "wave",

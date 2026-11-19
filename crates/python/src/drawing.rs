@@ -182,6 +182,50 @@ impl PyDrawing {
         checked(self.0.along(&path.get().0, bend))
     }
 
+    /// Every shape replaced by forking threads grown out of the outline of the region it fills: a root every `spacing`
+    /// pixels along each outline (holes too), each path `length` long (times its root's factor, a seeded number from
+    /// `1 - spread` to 1), a fork once per `fork_spacing` of distance from the root, turning `angle` degrees, at most
+    /// `forks` a path, the heading drifting by `wander` degrees over `wavelength` pixels. One open shape per root-to-tip
+    /// path, with `root`, `forks`, `order` and the root as `origin`; an option left out takes its default.
+    #[pyo3(signature = (spacing, *, length, fork_spacing=None, forks=None, spread=None, angle=None, wander=None, wavelength=None, seed=None))]
+    #[expect(clippy::too_many_arguments, reason = "the keyword arguments of one call")]
+    fn branch(
+        &self,
+        spacing: f64,
+        length: f64,
+        fork_spacing: Option<f64>,
+        forks: Option<f64>,
+        spread: Option<Num>,
+        angle: Option<Num>,
+        wander: Option<Num>,
+        wavelength: Option<Num>,
+        seed: Option<Num>,
+    ) -> PyResult<Self> {
+        let mut branch = vector::Branch::new(spacing, length);
+        if let Some(fork_spacing) = fork_spacing {
+            branch = branch.fork_spacing(fork_spacing);
+        }
+        if let Some(forks) = forks {
+            branch = branch.forks(forks);
+        }
+        if let Some(Num(spread)) = spread {
+            branch = branch.spread(spread);
+        }
+        if let Some(Num(angle)) = angle {
+            branch = branch.angle(vector::Deg(angle));
+        }
+        if let Some(Num(wander)) = wander {
+            branch = branch.wander(vector::Deg(wander));
+        }
+        if let Some(Num(wavelength)) = wavelength {
+            branch = branch.wavelength(wavelength);
+        }
+        if let Some(Num(seed)) = seed {
+            branch = branch.seed(seed);
+        }
+        checked(self.0.branch(&branch))
+    }
+
     /// A copy of all the shapes at each stop along `path`: `count` stops (both ends of an open path) or one every
     /// `spacing` pixels (exactly one of the two, whole and plain numbers); `start` (a number, a Param or an expression)
     /// moves them on by that share of the path; each copy is carried by the middle of its bounds (or the origin its

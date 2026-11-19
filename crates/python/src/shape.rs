@@ -422,6 +422,12 @@ impl PyShape {
         if let Some(copy) = attributes.copy() {
             found.set_item("copy", copy)?;
         }
+        if let Some(root) = attributes.root() {
+            found.set_item("root", root)?;
+        }
+        if let Some(forks) = attributes.forks() {
+            found.set_item("forks", forks)?;
+        }
         if let Some(label) = attributes.label() {
             found.set_item("label", label)?;
         }
