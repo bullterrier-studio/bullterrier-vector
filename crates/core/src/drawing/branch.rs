@@ -44,10 +44,10 @@ impl Branch {
     }
 
     /// How much shorter than `length` a root's tree may be, 0 to 1 (default 0): each root's factor is a seeded number
-    /// from `1 - spread` to 1.
+    /// from `1 - shorter` to 1.
     #[must_use]
-    pub fn spread(self, spread: impl Into<Expr>) -> Self {
-        self.with("spread", spread.into())
+    pub fn shorter(self, shorter: impl Into<Expr>) -> Self {
+        self.with("shorter", shorter.into())
     }
 
     /// The turn of a fork from its parent, clockwise to a seeded side (default 45 degrees).

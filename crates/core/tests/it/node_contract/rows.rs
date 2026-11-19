@@ -1092,7 +1092,7 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "branch",
-            sample: || Ok(square()?.branch(&Branch::new(10.0, 6.0).fork_spacing(2.0).spread(0.4).seed(3.0))),
+            sample: || Ok(square()?.branch(&Branch::new(10.0, 6.0).fork_spacing(2.0).shorter(0.4).seed(3.0))),
             with: Some(|argument, value| {
                 let branch = Branch::new(10.0, 6.0).fork_spacing(2.0);
                 #[expect(
@@ -1106,7 +1106,7 @@ pub(super) fn rows() -> Vec<Row> {
                     "length" => Branch::new(10.0, literal(argument, &value)?),
                     "fork_spacing" => branch.fork_spacing(literal(argument, &value)?),
                     "forks" => branch.forks(count(argument)?),
-                    "spread" => branch.spread(value),
+                    "shorter" => branch.shorter(value),
                     "angle" => branch.angle(Deg(value)),
                     "wander" => branch.wander(Deg(value)),
                     "wavelength" => branch.wavelength(value),
@@ -1126,10 +1126,10 @@ pub(super) fn rows() -> Vec<Row> {
                 ("forks", 3.0, true),
                 // past the whole numbers a double holds exactly (a fraction or a negative count is a document's)
                 ("forks", 1e16, false),
-                ("spread", 0.0, true),
-                ("spread", 1.0, true),
-                ("spread", 1.000_001, false),
-                ("spread", -0.1, false),
+                ("shorter", 0.0, true),
+                ("shorter", 1.0, true),
+                ("shorter", 1.000_001, false),
+                ("shorter", -0.1, false),
                 ("angle", -30.0, true),
                 ("angle", f64::INFINITY, false),
                 ("wander", 0.0, true),

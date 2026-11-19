@@ -701,7 +701,7 @@
             "length": { "type": "number", "exclusiveMinimum": 0, "maximum": 1e100 },
             "fork_spacing": { "type": "number", "exclusiveMinimum": 0, "maximum": 1e100 },
             "forks": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "spread": { "$ref": "#/$defs/fraction" },
+            "shorter": { "$ref": "#/$defs/fraction" },
             "angle": { "$ref": "#/$defs/number" },
             "wander": { "$ref": "#/$defs/number" },
             "wavelength": { "$ref": "#/$defs/capped_positive" },

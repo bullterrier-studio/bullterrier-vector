@@ -1309,7 +1309,7 @@ def test_branch_grows_one_open_path_per_root_and_fork_from_the_outline() -> None
 @pytest.mark.parametrize(
     ("options", "argument"),
     [
-        pytest.param({"spread": 1.5}, "spread", id="a spread past 1"),
+        pytest.param({"shorter": 1.5}, "shorter", id="a shorter past 1"),
         pytest.param({"forks": -1}, "forks", id="forks below 0"),
         pytest.param({"seed": 0.5}, "seed", id="a seed that is not whole"),
         pytest.param({"fork_spacing": 0}, "fork_spacing", id="no fork spacing"),

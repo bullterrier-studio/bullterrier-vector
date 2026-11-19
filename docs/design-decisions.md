@@ -1162,12 +1162,12 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   *Ruling: forks once per stretch of `fork_spacing` along the distance from the root, at a seeded place — the number of
   paths is `sum C(m, k)` exactly, so the work is bounded before anything grows (a per-step probability depends on the
   step and has no bound) — cost: forks are regular in rhythm, irregular in place.*
-  *Ruling: `spread`, the name `stagger` uses for how widely per-item values are spread, a fraction 0 to 1: each root's
-  length is `length` times a seeded number from `1 - spread` to 1, and its stretches scale with it, so every root has
-  the same number of paths whatever its factor — so `spread` can be per-item without the number of shapes depending on
-  a value (the `place_along` ruling above); `spacing`, `length`, `fork_spacing` and `forks` set that number and are
-  plain. `stagger` refuses a spread of 1 (it divides by `1 - spread`); `branch` allows it (a root may be as short as
-  nothing).*
+  *Ruling: `shorter`, a fraction 0 to 1: each root's length is `length` times a seeded number from `1 - shorter` to 1,
+  and its stretches scale with it, so every root has the same number of paths whatever its factor — so `shorter` can
+  be per-item without the number of shapes depending on a value (the `place_along` ruling above); `spacing`, `length`,
+  `fork_spacing` and `forks` set that number and are plain. Why not `spread`: `stagger` owns that word (how widely
+  per-item delays are spread, from 0 up to but not including 1, since it divides by `1 - spread`), and one name
+  keeps one meaning and one range; `shorter` allows 1 (a root may be as short as nothing).*
   *Ruling: `wander` for the heading's drift in degrees — the call's `angle` is the fork's turn, and a second angle in
   one call is named by its role, as `Path.arc`'s `start` and `end`; not `amplitude`, which is pixels in `wave` and
   `wobble` — and `forks`, not `depth`, which means nesting here. The drift is `wander` times the change of the one

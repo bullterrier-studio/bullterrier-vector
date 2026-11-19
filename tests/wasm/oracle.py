@@ -1010,7 +1010,7 @@ def hatches() -> list[Entry]:
         "hatch_mix": framed(btvec.Drawing(box).hatch(6, flow=btvec.Flow.angle(0).mix(noise, 0.5)).stroke(INK, width=1)),
         "branch_ring": framed(
             btvec.Drawing(ring_path)
-            .branch(30, length=40, fork_spacing=12, forks=2, spread=0.4, seed=5)
+            .branch(30, length=40, fork_spacing=12, forks=2, shorter=0.4, seed=5)
             .outline(1.5, profile=[(0, 1), (1, 0.2)])
             .fill(INK)
         ),

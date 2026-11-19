@@ -10,7 +10,7 @@ pub(crate) fn branch_of(
     length: f64,
     fork_spacing: Option<f64>,
     forks: Option<usize>,
-    spread: Option<Num>,
+    shorter: Option<Num>,
     angle: Option<Num>,
     wander: Option<Num>,
     wavelength: Option<Num>,
@@ -23,8 +23,8 @@ pub(crate) fn branch_of(
     if let Some(forks) = forks {
         branch = branch.forks(forks);
     }
-    if let Some(Num(spread)) = spread {
-        branch = branch.spread(spread);
+    if let Some(Num(shorter)) = shorter {
+        branch = branch.shorter(shorter);
     }
     if let Some(Num(angle)) = angle {
         branch = branch.angle(vector::Deg(angle));

@@ -144,10 +144,10 @@ impl PyDrawing {
 
     /// Every shape replaced by forking threads grown out of the outline of the region it fills: a root every `spacing`
     /// pixels along each outline (holes too), each path `length` long (times its root's factor, a seeded number from
-    /// `1 - spread` to 1), a fork once per `fork_spacing` of distance from the root, turning `angle` degrees, at most
+    /// `1 - shorter` to 1), a fork once per `fork_spacing` of distance from the root, turning `angle` degrees, at most
     /// `forks` a path, the heading drifting by `wander` degrees over `wavelength` pixels. One open shape per root-to-tip
     /// path, with `root`, `forks`, `order` and the root as `origin`; an option left out takes its default.
-    #[pyo3(signature = (spacing, *, length, fork_spacing=None, forks=None, spread=None, angle=None, wander=None, wavelength=None, seed=None))]
+    #[pyo3(signature = (spacing, *, length, fork_spacing=None, forks=None, shorter=None, angle=None, wander=None, wavelength=None, seed=None))]
     #[expect(clippy::too_many_arguments, reason = "the keyword arguments of one call")]
     fn branch(
         &self,
@@ -155,7 +155,7 @@ impl PyDrawing {
         length: f64,
         fork_spacing: Option<f64>,
         forks: Option<i64>,
-        spread: Option<Num>,
+        shorter: Option<Num>,
         angle: Option<Num>,
         wander: Option<Num>,
         wavelength: Option<Num>,
@@ -176,7 +176,7 @@ impl PyDrawing {
             length,
             fork_spacing,
             forks,
-            spread,
+            shorter,
             angle,
             wander,
             wavelength,

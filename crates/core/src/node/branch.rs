@@ -27,7 +27,7 @@ pub(crate) struct Branch;
 pub(crate) static BRANCH: Verb = Verb {
     name: "branch",
     role: Role::Step,
-    summary: "replaces every shape by forking threads grown out of the outline of the region it fills: a root every spacing design pixels along each outline (holes too), at a seeded place in its stretch, each growing out along the outward normal with its heading drifting by wander degrees of smooth seeded noise over wavelength pixels; along the distance from the root, a thread forks once in every stretch of fork_spacing, turning angle degrees to a seeded side, until a path has taken forks forks; every path of a root ends length times its root's factor from it, the factor a seeded number from 1 - spread to 1; one open shape per root-to-tip path, with root, forks, order and the root as origin, so slice(0, growth) grows a tree from its root",
+    summary: "replaces every shape by forking threads grown out of the outline of the region it fills: a root every spacing design pixels along each outline (holes too), at a seeded place in its stretch, each growing out along the outward normal with its heading drifting by wander degrees of smooth seeded noise over wavelength pixels; along the distance from the root, a thread forks once in every stretch of fork_spacing, turning angle degrees to a seeded side, until a path has taken forks forks; every path of a root ends length times its root's factor from it, the factor a seeded number from 1 - shorter to 1; one open shape per root-to-tip path, with root, forks, order and the root as origin, so slice(0, growth) grows a tree from its root",
     args: &[
         arg("spacing", Reads::Literal, None, Domain::PositiveUpTo(MAX_COORDINATE)),
         arg("length", Reads::Literal, None, Domain::PositiveUpTo(MAX_COORDINATE)),
@@ -43,7 +43,7 @@ pub(crate) static BRANCH: Verb = Verb {
             Some(Literal::Number(2.0)),
             Domain::WholeBetween(0.0, MAX_WHOLE),
         ),
-        arg("spread", Reads::PerItem, Some(Literal::Number(0.0)), Domain::Fraction),
+        arg("shorter", Reads::PerItem, Some(Literal::Number(0.0)), Domain::Fraction),
         arg("angle", Reads::PerItem, Some(Literal::Number(45.0)), Domain::Finite),
         arg("wander", Reads::PerItem, Some(Literal::Number(30.0)), Domain::Finite),
         arg(
@@ -85,7 +85,7 @@ impl Node for Branch {
                 length: number("length")?,
                 fork_spacing: number("fork_spacing")?,
                 forks: number("forks")? as u64,
-                spread: number("spread")?,
+                shorter: number("shorter")?,
                 angle: number("angle")?,
                 wander: number("wander")?,
                 wavelength: number("wavelength")?,

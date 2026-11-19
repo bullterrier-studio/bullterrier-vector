@@ -29,7 +29,7 @@ fn threads() -> Result<Drawing, Error> {
         &Branch::new(70.0, 220.0)
             .fork_spacing(60.0)
             .forks(2)
-            .spread(0.5)
+            .shorter(0.5)
             .angle(Deg(40.0))
             .wander(Deg(35.0))
             .seed(7.0),

@@ -428,7 +428,7 @@ class Drawing:
         length: float,
         fork_spacing: float | None = None,
         forks: int | None = None,
-        spread: _Num | None = None,
+        shorter: _Num | None = None,
         angle: _Num | None = None,
         wander: _Num | None = None,
         wavelength: _Num | None = None,

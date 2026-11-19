@@ -88,12 +88,12 @@ fn every_path_starts_on_the_outline_and_leaves_it_outward_along_the_normal() -> 
 }
 
 #[test]
-fn every_path_of_a_root_is_as_long_as_its_length_and_the_spread_varies_roots_only() -> Outcome {
-    for spread in [0.0, 0.6] {
+fn every_path_of_a_root_is_as_long_as_its_length_and_the_shorter_varies_roots_only() -> Outcome {
+    for shorter in [0.0, 0.6] {
         let branch = Branch::new(200.0, 150.0)
             .fork_spacing(60.0)
             .forks(2)
-            .spread(spread)
+            .shorter(shorter)
             .seed(3.0);
         let shapes = drawn(&Drawing::from(square()?).branch(&branch))?;
         let mut lengths = Vec::new();
@@ -107,17 +107,17 @@ fn every_path_of_a_root_is_as_long_as_its_length_and_the_spread_varies_roots_onl
             for length in &tree {
                 assert!(
                     (length - tree[0]).abs() < 1e-6,
-                    "spread {spread}: a tree of unequal paths {tree:?}"
+                    "shorter {shorter}: a tree of unequal paths {tree:?}"
                 );
                 assert!(
-                    *length <= 150.0 + 1e-6 && *length >= 150.0 * (1.0 - spread) - 1e-6,
+                    *length <= 150.0 + 1e-6 && *length >= 150.0 * (1.0 - shorter) - 1e-6,
                     "{length}"
                 );
             }
             lengths.push(tree[0]);
         }
         let varied = lengths.iter().any(|length| (length - lengths[0]).abs() > 1.0);
-        assert_eq!(varied, spread > 0.0, "spread {spread}: {lengths:?}");
+        assert_eq!(varied, shorter > 0.0, "shorter {shorter}: {lengths:?}");
     }
     Ok(())
 }
@@ -212,7 +212,7 @@ fn a_request_past_the_limits_is_refused_naming_the_argument_before_any_thread_is
         (Branch::new(0.0, 100.0), "spacing"),
         (Branch::new(100.0, -1.0), "length"),
         (Branch::new(100.0, 100.0).fork_spacing(0.0), "fork_spacing"),
-        (Branch::new(100.0, 100.0).spread(1.5), "spread"),
+        (Branch::new(100.0, 100.0).shorter(1.5), "shorter"),
         (Branch::new(100.0, 100.0).seed(0.5), "seed"),
         (Branch::new(100.0, 100.0).wander(Deg(f64::NAN)), "wander"),
     ] {
@@ -224,7 +224,7 @@ fn a_request_past_the_limits_is_refused_naming_the_argument_before_any_thread_is
 
 #[test]
 fn a_document_reads_back_to_the_same_threads_and_selects_the_trunks() -> Outcome {
-    let branch = Branch::new(300.0, 160.0).fork_spacing(50.0).spread(0.3).seed(2.0);
+    let branch = Branch::new(300.0, 160.0).fork_spacing(50.0).shorter(0.3).seed(2.0);
     let drawing = Drawing::from(square()?).branch(&branch);
     let text = drawing.to_json()?;
     assert!(text.contains(r#""branch":{"#), "{text}");
@@ -298,7 +298,7 @@ proptest! {
         let branch = Branch::new(800.0, length)
             .fork_spacing(length / 3.0)
             .forks(forks)
-            .spread(shorter)
+            .shorter(shorter)
             .wavelength(wavelength);
         let shapes = drawn(&Drawing::from(square().map_err(|e| TestCaseError::fail(e.to_string()))?).branch(&branch))
             .map_err(|e| TestCaseError::fail(e.to_string()))?;

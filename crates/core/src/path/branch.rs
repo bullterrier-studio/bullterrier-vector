@@ -14,14 +14,14 @@ use crate::noise::{self, Noise};
 pub(crate) struct BranchPlan {
     /// Design pixels between roots along an outline.
     pub(crate) spacing: f64,
-    /// The length of every root-to-tip path of a root whose spread factor is 1.
+    /// The length of every root-to-tip path of a root whose length factor is 1.
     pub(crate) length: f64,
-    /// Distance from the root per fork, at a spread factor of 1.
+    /// Distance from the root per fork, at a length factor of 1.
     pub(crate) fork_spacing: f64,
     /// The most forks one path takes.
     pub(crate) forks: u64,
     /// How much shorter than `length` a root's tree may be, as a share of it.
-    pub(crate) spread: f64,
+    pub(crate) shorter: f64,
     /// Degrees a fork turns from its parent.
     pub(crate) angle: f64,
     /// Degrees of the heading's drift.
@@ -194,7 +194,7 @@ impl Path {
                 let key = 2 * u64::from(root) + 1;
                 let along = (as_f64_u64(j) + uniform(seed, key, 0)) * stretch;
                 let (start, heading) = on_outline(polygon, along);
-                let factor = 1.0 - plan.spread * uniform(seed, key, 1);
+                let factor = 1.0 - plan.shorter * uniform(seed, key, 1);
                 let length = plan.length * factor;
                 let count = steps(length, step);
                 let tree = Tree {
@@ -221,7 +221,7 @@ struct Tree<'a> {
     seed: i64,
     /// The steps from the root to a tip: the same for every path of the tree, as the bound counts them.
     steps: usize,
-    /// The distance of one step: this root's length (`length` times its spread factor) over `steps`, so a path ends
+    /// The distance of one step: this root's length (`length` times its length factor) over `steps`, so a path ends
     /// exactly at its length.
     step: f64,
     fork_spacing: f64,
