@@ -1103,7 +1103,7 @@ def line_families() -> list[Entry]:
             btvec.Drawing(box).bands(8, tone=ramp, width=(0.6, 5), family="spiral", center=(30, 60)).fill(INK)
         ),
         "bands_rays": framed(btvec.Drawing(box).bands(8, tone=ramp, width=(0.6, 5), family="rays", angle=10).fill(INK)),
-        "stipple_map": framed(btvec.Drawing(box).stipple(4, tone=photo, radius=dot, seed=3).fill(INK)),
+        "stipple_map": framed(btvec.Drawing(box).stipple(4, tone=photo, radius=(dot, dot), seed=3).fill(INK)),
         "stipple_radius_pair": framed(btvec.Drawing(box).stipple(5, tone=ramp, radius=(0.6, dot), seed=1).fill(INK)),
     }
     draws: dict[str, list[Draw]] = {
@@ -1152,7 +1152,7 @@ def plots() -> list[dict[str, object]]:
     ramp = btvec.Field.ramp((0, 0), (100, 0))
     art = btvec.Drawing(
         btvec.Drawing(box).rows(10, tone=ramp, amplitude=20).stroke(INK, width=1),
-        btvec.Drawing(box).stipple(10, tone=0.3, radius=1.5).fill("#cc2200"),
+        btvec.Drawing(box).stipple(10, tone=0.3, radius=(1.5, 1.5)).fill("#cc2200"),
         btvec.Path.circle((50, 50), 30).fill("#003399"),
         size=FRAME,
     )

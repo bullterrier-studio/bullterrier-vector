@@ -13,6 +13,6 @@ tone = btvec.Field.ramp(
 
 drawing = btvec.Drawing(
     btvec.Path.rect(0, 0, WIDTH, HEIGHT).fill(PAPER),
-    btvec.Drawing(disc).stipple(spacing, tone=tone, radius=2.2, seed=2).fill(INK),
+    btvec.Drawing(disc).stipple(spacing, tone=tone, radius=(2.2, 2.2), seed=2).fill(INK),
     size=(WIDTH, HEIGHT),
 )

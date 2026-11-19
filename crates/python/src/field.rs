@@ -2,7 +2,7 @@
 
 use crate::drawing::refuse_expr;
 use crate::expr::Num;
-use crate::inputs::{By, Item};
+use crate::inputs::Item;
 use crate::trace::whole;
 use crate::{Frame, Pt, PyPath, raised};
 use bullterrier_vector as vector;
@@ -429,19 +429,15 @@ pub(crate) fn bands_of(
     Ok(bands)
 }
 
-/// The stipple a call's numbers describe: one `radius` is the pair of it.
+/// The stipple a call's numbers describe.
 pub(crate) fn stipple_of(
     spacing: Num,
     tone: Tone,
-    radius: By,
+    radius: (Num, Num),
     density: Option<(Num, Num)>,
     seed: Option<Num>,
 ) -> PyResult<vector::Stipple> {
-    let radius = match radius {
-        By::One(one) => (one.0.clone(), one.0),
-        By::Two(two) => (two.0, two.1),
-    };
-    let stipple = raised(vector::Stipple::new(spacing.0, tone.0, radius))?
+    let stipple = raised(vector::Stipple::new(spacing.0, tone.0, (radius.0.0, radius.1.0)))?
         .seed(seed.map_or_else(|| vector::Expr::from(0.0), |seed| seed.0));
     Ok(match density {
         Some((dense, light)) => stipple.density(dense.0, light.0),

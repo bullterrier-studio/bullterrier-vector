@@ -511,7 +511,7 @@ impl PyDrawing {
         &self,
         spacing: Num,
         tone: Tone,
-        radius: By,
+        radius: (Num, Num),
         density: Option<(Num, Num)>,
         seed: Option<Num>,
     ) -> PyResult<Self> {

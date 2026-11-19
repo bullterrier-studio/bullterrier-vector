@@ -162,13 +162,13 @@ pub(crate) struct StippleStep;
 pub(crate) static STIPPLE: Verb = Verb {
     name: "stipple",
     role: Role::Step,
-    summary: "replaces every shape by round dots inside the region it fills (as Path.stipple): a square lattice `spacing` apart with one dot at most in each cell, standing within 0.4 spacings of the cell's middle; `radius` is the dot's radius in design pixels, one number or a pair (the radius where the `tone` field is 0 and where it is 1, read at the dot's center); `density` is a pair, the share of cells that get a dot where the `tone` field is 0 and where it is 1 (default [1, 0]: dark is dense), and the dots of a tone are spread evenly; `seed` moves them; the result is closed dots, so set the fill after it",
+    summary: "replaces every shape by round dots inside the region it fills (as Path.stipple): a square lattice `spacing` apart with one dot at most in each cell, standing within 0.4 spacings of the cell's middle; `radius` is a pair, the dot's radius in design pixels where the `tone` field is 0 and where it is 1, read at the dot's center; `density` is a pair, the share of cells that get a dot where the `tone` field is 0 and where it is 1 (default [1, 0]: dark is dense), and the dots of a tone are spread evenly; `seed` moves them; the result is closed dots, so set the fill after it",
     args: &[
         once("spacing", Domain::PositiveUpTo(MAX_COORDINATE)),
         required_field("tone"),
         Arg {
             name: "radius",
-            kind: Kind::Factor,
+            kind: Kind::Pair,
             default: None,
             reads: Reads::Once,
             domain: Domain::PositiveUpTo(MAX_COORDINATE),

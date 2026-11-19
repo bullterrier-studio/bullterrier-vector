@@ -221,10 +221,10 @@ fn the_stipple_step_is_the_path_call_and_a_param_is_read_with_the_values_of_the_
     for (args, pointer) in [
         (r#"{"spacing":5,"tone":0.5}"#, "/root/1/stipple"),
         (
-            r#"{"spacing":5,"tone":0.5,"radius":1,"density":[0,2]}"#,
+            r#"{"spacing":5,"tone":0.5,"radius":[1,1],"density":[0,2]}"#,
             "/root/1/stipple/density/1",
         ),
-        (r#"{"spacing":5,"tone":0.5,"radius":0}"#, "/root/1/stipple/radius"),
+        (r#"{"spacing":5,"tone":0.5,"radius":1.5}"#, "/root/1/stipple/radius"),
         (r#"{"spacing":5,"tone":0.5,"radius":[1,0]}"#, "/root/1/stipple/radius/1"),
         (r#"{"spacing":5,"tone":0.5,"radius":[1,2,3]}"#, "/root/1/stipple/radius"),
     ] {
@@ -306,10 +306,10 @@ fn an_argument_the_family_does_not_read_is_refused_naming_it_and_the_family() ->
 }
 
 #[test]
-fn a_radius_pair_is_written_as_a_pair_and_one_size_as_a_number() -> Outcome {
+fn a_radius_is_written_as_a_pair_even_for_one_size() -> Outcome {
     let one = Drawing::from(rect()?).stipple(&Stipple::new(6.0, tone()?, (1.5, 1.5))?);
     let pair = Drawing::from(rect()?).stipple(&Stipple::new(6.0, tone()?, (0.5, 2.5))?);
-    assert!(one.to_json()?.contains(r#""radius":1.5"#), "{}", one.to_json()?);
+    assert!(one.to_json()?.contains(r#""radius":[1.5,1.5]"#), "{}", one.to_json()?);
     assert!(pair.to_json()?.contains(r#""radius":[0.5,2.5]"#), "{}", pair.to_json()?);
     for drawing in [one, pair] {
         let back = Drawing::from_json(&drawing.to_json()?, &Inputs::new())?;

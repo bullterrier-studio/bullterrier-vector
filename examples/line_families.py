@@ -20,7 +20,7 @@ tones = [btvec.Field.distance(hill, normalized=True) for hill in hills]
 drawing = btvec.Drawing(
     btvec.Drawing(hills[0]).rows(8, tone=tones[0], amplitude=70).stroke(INK, width=1.2),
     btvec.Drawing(hills[1]).bands(8, tone=tones[1], width=(5, 0.6), family="rings").fill(INK),
-    btvec.Drawing(hills[2]).stipple(6, tone=tones[2], radius=1.6, seed=2).fill(RED),
+    btvec.Drawing(hills[2]).stipple(6, tone=tones[2], radius=(1.6, 1.6), seed=2).fill(RED),
     size=(WIDTH, HEIGHT),
 )
 

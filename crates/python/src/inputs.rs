@@ -55,7 +55,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Pair {
     }
 }
 
-/// One number for both of a pair, or the pair: a scale's `by`, a stipple's `radius`.
+/// One number for both of a pair, or the pair: a scale's `by`.
 pub(crate) enum By {
     One(Num),
     Two(Pair),

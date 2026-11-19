@@ -224,7 +224,7 @@ pub enum Kind {
     /// a `halftone`, a word for a dot or a path for the caller's own.
     Mark,
     /// One number for both of a pair, or the pair: `(x, y)` of a scale factor or a cell, `(at tone 0, at tone 1)` of
-    /// a `hatch` spacing or a `stipple` radius.
+    /// a `hatch` spacing.
     Factor,
     /// A path.
     Path,

@@ -71,30 +71,30 @@ def test_waves_left_unsized_are_48_long_and_8_high_in_a_path_a_step_and_a_docume
 def test_stipple_density_follows_the_tone_and_a_seed_moves_the_dots() -> None:
     region = btvec.Path.rect(0, 0, 400, 100)
     tone = btvec.Field.ramp((0, 0), (400, 0))
-    dots = region.stipple(4, tone=tone, radius=0.8).to_svg_path().count("M")
+    dots = region.stipple(4, tone=tone, radius=(0.8, 0.8)).to_svg_path().count("M")
     assert abs(dots - 1250) < 0.06 * 2500  # a cell is 4 by 4, density 1 - tone: half of 2500 cells
     assert (
-        region.stipple(4, tone=tone, radius=0.8, seed=3).to_svg_path()
-        != region.stipple(4, tone=tone, radius=0.8).to_svg_path()
+        region.stipple(4, tone=tone, radius=(0.8, 0.8), seed=3).to_svg_path()
+        != region.stipple(4, tone=tone, radius=(0.8, 0.8)).to_svg_path()
     )
 
 
-def test_a_stipple_radius_pair_is_read_from_the_tone_and_one_number_is_the_pair() -> None:
+def test_a_stipple_radius_pair_is_read_from_the_tone_and_one_number_is_refused() -> None:
     region = btvec.Path.rect(0, 0, 60, 40)
     tone = btvec.Field.ramp((0, 0), (40, 0))
     for dot in region.stipple(4, tone=tone, radius=(0.5, 2), density=(1, 1)).subpaths():
         box = dot.bounds
         x, radius = box.x + box.width / 2, box.width / 2
         assert abs(radius - (0.5 + 1.5 * min(max(x / 40, 0), 1))) < 1e-6
-    assert region.stipple(4, tone=tone, radius=1.2).to_svg_path() == (
-        region.stipple(4, tone=tone, radius=(1.2, 1.2)).to_svg_path()
-    )
+    for target in (region, btvec.Drawing(region)):
+        with pytest.raises(TypeError):
+            target.stipple(4, tone=tone, radius=1.2)  # type: ignore[arg-type]
     size = btvec.Param("size", default=1, min=0.5, max=3)
     drawing = btvec.Drawing(region).stipple(4, tone=tone, radius=(0.5, size))
     assert '"radius":[0.5,{"param":"size"}]' in drawing.to_json()
     assert btvec.Drawing.from_json(drawing.to_json()).to_json() == drawing.to_json()
     assert svg(drawing, size=2) == region.stipple(4, tone=tone, radius=(0.5, 2)).to_svg_path()
-    with pytest.raises(TypeError, match="a number or a pair of numbers"):
+    with pytest.raises(ValueError, match="length 2"):
         region.stipple(4, tone=tone, radius=(1, 2, 3))  # type: ignore[arg-type]
 
 
@@ -147,11 +147,11 @@ def test_a_plot_has_a_layer_per_pen_and_no_fill() -> None:
         lambda: btvec.Path.rect(0, 0, 1e6, 1e6).rows(0.001, tone=0, amplitude=1),
         lambda: BOX.bands(5, tone=0, width=(-1, 2)),
         lambda: BOX.bands(5, tone=0, width=(1, 2), family="zigzag"),
-        lambda: BOX.stipple(5, tone=0, radius=0),
+        lambda: BOX.stipple(5, tone=0, radius=(0, 0)),
         lambda: BOX.stipple(5, tone=0, radius=(1, 0)),
         lambda: btvec.Drawing(BOX).stipple(5, tone=0, radius=(0, 1)).to_svg(10, 10),
-        lambda: BOX.stipple(5, tone=0, radius=1, density=(0, 2)),
-        lambda: btvec.Path.rect(0, 0, 1e6, 1e6).stipple(1, tone=0, radius=0.4),
+        lambda: BOX.stipple(5, tone=0, radius=(1, 1), density=(0, 2)),
+        lambda: btvec.Path.rect(0, 0, 1e6, 1e6).stipple(1, tone=0, radius=(0.4, 0.4)),
         lambda: btvec.Drawing(BOX).to_plot_svg(10, 10, pen_width=0),
         lambda: btvec.Drawing(BOX.fill("#f00")).to_plot_svg(10, 10, pen_width=1, tolerance=-1),
     ],
@@ -204,7 +204,7 @@ def test_a_plot_in_millimetres_or_inches_says_its_physical_size() -> None:
 @pytest.mark.parametrize(
     ("radius", "valid"),
     [
-        pytest.param(1.5, True, id="one number"),
+        pytest.param(1.5, False, id="one number"),
         pytest.param([0.6, 2], True, id="a pair"),
         pytest.param([0.6, {"param": "size"}], True, id="a pair with a Param"),
         pytest.param([1, 0], False, id="a radius of 0 in the pair"),
@@ -212,7 +212,7 @@ def test_a_plot_in_millimetres_or_inches_says_its_physical_size() -> None:
         pytest.param(0, False, id="a radius of 0"),
     ],
 )
-def test_the_generated_schema_takes_a_stipple_radius_as_one_number_or_a_pair(radius: object, valid: bool) -> None:
+def test_the_generated_schema_takes_a_stipple_radius_as_a_pair_only(radius: object, valid: bool) -> None:
     size = {"name": "size", "default": 1, "min": 0.5, "max": 3, "unit": "", "meaning": ""}
     step = {"stipple": {"spacing": 5, "tone": 0.5, "radius": radius}}
     document = {"version": 1, "params": [size], "root": [{"path": "M0 0 L10 0 L10 10 Z"}, step]}

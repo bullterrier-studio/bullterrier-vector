@@ -268,8 +268,7 @@ impl PyRect {
     }
 }
 
-/// One plain number for both of a pair, or an `(x, y)` pair of plain numbers: a `Path` scale's `by`, a `Path`
-/// stipple's `radius`.
+/// One plain number for both of a pair, or an `(x, y)` pair of plain numbers: a `Path` scale's `by`.
 #[derive(Clone, Copy)]
 struct By((f64, f64));
 
@@ -633,7 +632,7 @@ impl PyPath {
     }
 
     /// Round dots on a square lattice `spacing` apart inside the region this path fills, one at most per cell; `radius` is
-    /// pixels, one number or `(radius where the tone is 0, where it is 1)` read at each dot's center; `density` is `(share of cells with a dot where the tone is 0, where it is 1)`, default `(1, 0)`: dark is
+    /// pixels, `(radius where the tone is 0, where it is 1)` read at each dot's center; `density` is `(share of cells with a dot where the tone is 0, where it is 1)`, default `(1, 0)`: dark is
     /// dense. `seed` moves them. The result is closed dots, so fill it.
     #[pyo3(signature = (spacing, *, tone, radius, density=None, seed=None))]
     fn stipple(
@@ -641,12 +640,11 @@ impl PyPath {
         py: Python<'_>,
         spacing: Plain,
         tone: PlainTone,
-        radius: By,
+        radius: (Plain, Plain),
         density: Option<(Plain, Plain)>,
         seed: Option<Plain>,
     ) -> PyResult<Self> {
-        let (small, large) = radius.0;
-        let radius = crate::inputs::By::Two(crate::inputs::Pair(small.into(), large.into()));
+        let radius = (radius.0.into(), radius.1.into());
         let density = density.map(|(dense, light)| (dense.into(), light.into()));
         let stipple = stipple_of(spacing.into(), tone.0, radius, density, seed.map(Into::into))?;
         Self::of(py.detach(|| self.0.stipple(&stipple)))

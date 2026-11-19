@@ -2274,3 +2274,8 @@ Why not an existing call:
 - **Why `offset` and `outline` read `miter_limit` per shape, and not once.** An argument is read per shape unless a
   written reason says otherwise, and `stroke` already read its `miter_limit` per shape; `offset` and `outline` cut the
   same mitre with the same ratio and had no reason to differ. A `Path` verb keeps a plain number, as for every argument.
+- **Why a stipple `radius` is a pair only, superseding "A stipple radius read from the tone".** That section kept one
+  number beside the pair so saved documents stayed as they were; it gave one value two document forms (`1.5` and
+  `[1.5, 1.5]`) and a second rule beside `density`, which is a pair only. One canonical document form wins: `radius`
+  is `Kind::Pair` as `density` is, `(r, r)` for one size in every language; before the first release the format is a
+  draft (`formats.md`, "Versioning"), so the presets were written again and no version moved.

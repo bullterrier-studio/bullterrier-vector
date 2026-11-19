@@ -941,12 +941,11 @@ def test_a_style_step_called_on_a_path_raises_at_the_call_too(call):
         pytest.param(lambda p: SQUARE.bands(2, tone=p, width=(1, 2)), id="bands tone"),
         pytest.param(lambda p: SQUARE.bands(2, tone=0.5, width=(p, 2)), id="bands width"),
         pytest.param(lambda p: SQUARE.bands(2, tone=0.5, width=(1, 2), angle=p), id="bands angle"),
-        pytest.param(lambda p: SQUARE.stipple(p, tone=0.5, radius=1), id="stipple spacing"),
-        pytest.param(lambda p: SQUARE.stipple(2, tone=p, radius=1), id="stipple tone"),
-        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=p), id="stipple radius"),
-        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=(1, p)), id="stipple radius pair"),
-        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=1, density=(p, 0)), id="stipple density"),
-        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=1, seed=p), id="stipple seed"),
+        pytest.param(lambda p: SQUARE.stipple(p, tone=0.5, radius=(1, 1)), id="stipple spacing"),
+        pytest.param(lambda p: SQUARE.stipple(2, tone=p, radius=(1, 1)), id="stipple tone"),
+        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=(1, p)), id="stipple radius"),
+        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=(1, 1), density=(p, 0)), id="stipple density"),
+        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=(1, 1), seed=p), id="stipple seed"),
         pytest.param(lambda p: SQUARE.hatch((1, 3), tone=p), id="hatch tone"),
         pytest.param(lambda p: SQUARE.hatch(2, tone=0.5, below=p), id="hatch below"),
     ],
@@ -1211,7 +1210,7 @@ VERB_ROWS: dict[str, tuple[Callable[[], btvec.Drawing], dict[str, Any], list[Any
         ],
     ),
     # no cell may have a dot: nothing is drawn (where the dots lie is checked against their counts in the Rust tests)
-    "stipple": (lambda: Drawing(SQUARE).stipple(5, tone=0, radius=1, density=(0, 0)), {}, [row("")]),
+    "stipple": (lambda: Drawing(SQUARE).stipple(5, tone=0, radius=(1, 1), density=(0, 0)), {}, [row("")]),
     # a one-pixel map: the region closes half a pixel past the pixel on every side (the padding), by hand;
     # two cells of a map are the two unit squares
     "trace_levels": (
