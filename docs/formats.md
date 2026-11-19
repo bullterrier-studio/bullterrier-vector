@@ -104,7 +104,7 @@ number of a field or a flow.
 | Call | Code | Arguments |
 |---|---|---|
 | `path` | a `Path` | its path data: the value is the string itself, `{"path": "M0 0 L10 0"}` |
-| `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `run`, `part`, `copy`, `label`, `row`, `column`, `mark`, `level`, `order`, `origin` a point, and the text `role` and `id`, `class`, `group` of an SVG import); its style follows as steps, a `fill` step always |
+| `shape` | a `Shape` given to `Drawing(...)` | `path` (path data), `attributes` (what its generators wrote, `index` excepted: `glyph`, `char`, `word`, `line`, `run`, `part`, `copy`, `root`, `forks`, `label`, `row`, `column`, `mark`, `level`, `order`, `origin` a point, and the text `role` and `id`, `class`, `group` of an SVG import); its style follows as steps, a `fill` step always |
 | `drawing` | a shared drawing | the value is its name: `{"drawing": "letters"}` |
 | `stack` | `Drawing(*items, size=None)` | `items` (drawings, bottom first; none is a blank frame of `size`), `size` (`[width, height]`, literal numbers above 0) |
 | `text` | `text(content, *, font, ...)` | `content` (a string) and `font` (input), or `runs` instead (below; with `runs` the text gives no `content`, `font`, `axes` or `features`), `size`, `axes` (tag to number), `features` (tag to whole number), `tracking`, `leading`, `align` (`"left"`, `"center"`, `"right"`), `anchor` (point), `width` (above 0), `fit` (a tag or `"size"`; needs `width`), `inside` (path data; not with `width`, `fit` or `anchor`) |
@@ -149,6 +149,7 @@ default paint, and draws as it did.
 | `simplify` | `tolerance` (per-item number above 0, at most 1e100; default 0.5) |
 | `along` | `path` (path data), `start` (a fraction of the path's length; any finite number, a closed path wraps), `near` (point; each coordinate within ±1e100) |
 | `place_along` | `path` (path data), exactly one of `count` (a whole number from 1) and `spacing` (a number above 0, at most 1e100), both plain numbers, no expression; `start` (a number or an expression without per-item numbers, any finite value), `turn` (`"along"`, the default, or `"none"`), `near` (point; each coordinate within ±1e100). The loader refuses a call with both or neither of `count` and `spacing`, which the schema cannot state |
+| `branch` | `spacing`, `length` (numbers above 0, at most 1e100, both required), `fork_spacing` (the same, default 80) and `forks` (a whole number from 0, default 2), all plain numbers, no expression; `spread` (0 to 1, default 0), `angle` (default 45), `wander` (default 30), `wavelength` (above 0, default 80) and `seed` (a whole number, default 0), each a number or an expression, per-item numbers allowed. The shapes it makes carry `root` and `forks` |
 | `wobble` | `amplitude` (per-item number, any finite value; default 4), `wavelength` (per-item number above 0, at most 1e100; default 80), `phase` (cycles, per-item number, any finite value; default 0), `seed` (per-item number, default 0; a whole number within ±(2^53 - 1), refused when drawn: the schema cannot state it for an expression) |
 | `wave` | `amplitude` (per-item number, any finite value; default 8), `wavelength` (per-item number above 0, at most 1e100; default 120), `angle` (degrees, per-item number, any finite value; default 0), `phase` (cycles, per-item number, any finite value; default 0) |
 | `twist` | `angle` (degrees, per-item number, any finite value; default 90), `radius` (per-item number above 0, at most 1e100; default: the farthest corner of the shape's bounds from the pivot), `about` (point, each coordinate within ±1e100; default: the shape's origin, else the middle of its bounds) |
@@ -188,7 +189,7 @@ out, then resolved:
 ```
 
 `only`, `without` and `with_values` take keyword arguments in the code (`only(char="O")`), so their arguments are those
-keywords. An attribute is `index`, `glyph`, `char`, `word`, `line`, `run`, `part`, `copy`, `label`, `row`, `column`, `mark`, `role`, `level`, `order`, `origin` (a
+keywords. An attribute is `index`, `glyph`, `char`, `word`, `line`, `run`, `part`, `copy`, `root`, `forks`, `label`, `row`, `column`, `mark`, `role`, `level`, `order`, `origin` (a
 point), `id`, `class` or `group` (text, matched whole). A whole-number attribute is at most 4,294,967,295, a `char` is one character, and an empty list (`{"index":
 []}`) is a selection that matches no shape; `{}` names no attribute and is refused when the call is checked
 (`call-checks`).

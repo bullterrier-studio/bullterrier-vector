@@ -1139,6 +1139,42 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   Python says `turn=False`.*
   Copies times shapes is charged to `MAX_SHAPES` and `MAX_SEGMENTS` before any copy is made.
 
+- **`branch` (2026-11-19).** Forking threads grown out of each shape's outline, one open shape per root-to-tip path
+  (`Drawing` only: a list that changes length, as `place_along`). Why not an existing call:
+  - `hatch` (also with `flow=Flow.contour(d).rotate(90)` and `avoid=`): by its contract no two lines come within half a
+    spacing, so two never meet and a fork cannot exist; lines are seeded from a lattice or beside another line, never
+    at a point on an edge; a line follows its flow exactly, with no drift of its own; lines lie inside each region and
+    `avoid` only cuts holes. Hatching the paper across the edges gives evenly combed field lines, not threads.
+  - `place_along`: identical copies of a stamp at stops; the stamp is still the caller's loop and every copy forks
+    alike. `along` bends given shapes along a given path; there is none. `wobble` moves existing points and cannot fork
+    or grow. `slice` (the draw-on) and `outline` (the taper) are what `branch` feeds; `stipple` only lends the meanings
+    of `seed` and `spacing`. The `Path` constructors draw points the caller computes: the loop again.
+  - The caller's loop: a document holds no callbacks, so the browser, the playground and presets could not have the
+    look; Python's `random` is not reproducible elsewhere; its work is unbounded. In the library it is the same bytes
+    in the three languages and refused before it runs away.
+  - `hatch` is not a special case of `branch` (it needs separation, a different algorithm) and `branch` is not a hatch
+    with forks.
+  *Ruling: one shape per root-to-tip path — `slice` measures a shape as one length, so forks as sub-paths of one shape
+  would draw after the trunk, and one shape per piece would need a per-item end of `(g - start) / (1 - start)` that no
+  per-item number spells (`stagger` gives equal durations); root to tip, `slice(0, growth)` grows the tree at one
+  speed and the taper gives shared parts equal widths — cost: shared points are stored once per tip, a plotter
+  retraces them and a translucent ink darkens them (opaque ink, or `union` first).*
+  *Ruling: forks once per stretch of `fork_spacing` along the distance from the root, at a seeded place — the number of
+  paths is `sum C(m, k)` exactly, so the work is bounded before anything grows (a per-step probability depends on the
+  step and has no bound) — cost: forks are regular in rhythm, irregular in place.*
+  *Ruling: `spread`, the name `stagger` uses for how widely per-item values are spread, a fraction 0 to 1: each root's
+  length is `length` times a seeded number from `1 - spread` to 1, and its stretches scale with it, so every root has
+  the same number of paths whatever its factor — so `spread` can be per-item without the number of shapes depending on
+  a value (the `place_along` ruling above); `spacing`, `length`, `fork_spacing` and `forks` set that number and are
+  plain. `stagger` refuses a spread of 1 (it divides by `1 - spread`); `branch` allows it (a root may be as short as
+  nothing).*
+  *Ruling: `wander` for the heading's drift in degrees — the call's `angle` is the fork's turn, and a second angle in
+  one call is named by its role, as `Path.arc`'s `start` and `end`; not `amplitude`, which is pixels in `wave` and
+  `wobble` — and `forks`, not `depth`, which means nesting here. The drift is `wander` times the change of the one
+  value noise along the thread, so it is continuous at a fork and at most twice `wander`.*
+  *Ruling: a `flow=` guide (threads leaning along a flow, such as `Flow.contour(d).rotate(90)`) was considered and
+  deferred: it would comb the threads along one field instead of letting them wander apart, and nothing asks for it.*
+
 - **`simplify` (2026-11-16).** Schneider's fit (Graphics Gems, 1990) per run between corners, in `path/simplify.rs`. The fit is greedy (a run is split where the fit fails), so the result has
   few curves, not the fewest.
   *Ruling: a corner is a turn of more than 45 degrees between neighbouring edges, an internal `// constant:`, not an
