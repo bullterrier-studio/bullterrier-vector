@@ -344,7 +344,7 @@ fn too_many(parameter: &str, what: &str, paths: f64, points: f64) -> Error {
         parameter,
         format!(
             "{what} would have {paths:.0} path{} and {points:.0} points, past {}",
-            if paths == 1.0 { "" } else { "s" },
+            if paths > 1.0 { "s" } else { "" },
             past.join(" and ")
         ),
     )

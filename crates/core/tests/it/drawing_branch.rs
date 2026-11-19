@@ -260,7 +260,7 @@ fn assert_charged(shape: &Shape, length: f64, wavelength: f64) -> Outcome {
         .windows(2)
         .map(|pair| crate::common::distance(pair[0], pair[1]))
         .collect();
-    let each = length / (charged - 1) as f64;
+    let each = length / f64::from(u32::try_from(charged - 1)?);
     for step in &steps {
         assert!((step - each).abs() <= 1e-9 * each.max(1.0), "step {step}, not {each}");
     }
@@ -365,12 +365,11 @@ fn signed(from: f64, to: f64) -> f64 {
     if d > 180.0 { d - 360.0 } else { d }
 }
 
-/// A tree's trunk and, for each fork, its points, the index of the point it leaves the trunk at and that point's
-/// distance along the trunk (forks of one fork only).
-fn forks_of_a_root(
-    shapes: &[Shape],
-    root: u32,
-) -> Result<(Vec<(f64, f64)>, Vec<(usize, f64)>), Box<dyn std::error::Error>> {
+/// A tree's trunk, and for each of its forks the index of the trunk point it leaves at and that point's distance along
+/// the trunk (forks of one fork only).
+type Forks = (Vec<(f64, f64)>, Vec<(usize, f64)>);
+
+fn forks_of_a_root(shapes: &[Shape], root: u32) -> Result<Forks, Box<dyn std::error::Error>> {
     let tree: Vec<&Shape> = shapes.iter().filter(|s| s.attributes().root() == Some(root)).collect();
     let trunk = points(
         tree.iter()
@@ -440,7 +439,8 @@ fn a_shorter_root_forks_inside_its_own_length_in_proportion_to_it() -> Outcome {
         along.sort_by(f64::total_cmp);
         assert_eq!(along.len(), 4);
         for (k, found) in along.iter().enumerate() {
-            let (low, high) = (each * k as f64, each * (k + 1) as f64);
+            let k = f64::from(u32::try_from(k)?);
+            let (low, high) = (each * k, each * (k + 1.0));
             assert!(
                 *found >= low - step - 1e-9 && *found <= high + 1e-9,
                 "root {root} (length {length}): fork {k} at {found}, not in {low} to {high}"
@@ -477,7 +477,7 @@ fn the_order_of_a_path_is_its_share_of_the_paths_of_its_own_shape() -> Outcome {
         let orders: Vec<f64> = part.iter().filter_map(|s| s.attributes().order()).collect();
         assert_eq!(orders.len(), part.len(), "a path with no order");
         for (k, order) in orders.iter().enumerate() {
-            let expected = k as f64 / (orders.len() - 1) as f64;
+            let expected = f64::from(u32::try_from(k)?) / f64::from(u32::try_from(orders.len() - 1)?);
             assert!(
                 (order - expected).abs() < 1e-12,
                 "path {k} of {}: {order}",
