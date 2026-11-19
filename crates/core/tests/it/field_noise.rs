@@ -186,8 +186,9 @@ fn a_whole_cycle_of_any_phase_is_the_same_field_up_to_the_rounding_of_the_sum() 
 
 #[test]
 fn two_noise_tones_that_differ_only_by_octaves_are_two_steps_to_the_cache() -> Outcome {
-    let square = Drawing::from(Path::rect(0.0, 0.0, 120.0, 80.0, 0.0)?);
+    // each built apart, so that no two share a cache but by the keys of their steps
     let hatched = |octaves| -> Result<Drawing, Error> {
+        let square = Drawing::from(Path::rect(0.0, 0.0, 120.0, 80.0, 0.0)?);
         Ok(square.hatch(&Hatch::between(3.0, 9.0, noise(30.0, 0.0, 4.0, octaves)?), None))
     };
     // a stack shares a result between items whose steps are equal: the second hatch must be drawn, not found
