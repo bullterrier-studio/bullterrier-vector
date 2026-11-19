@@ -158,7 +158,7 @@
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
-      "propertyNames": { "enum": ["Flow.angle", "Flow.noise", "Flow.contour", "Flow.mix"] },
+      "propertyNames": { "enum": ["Flow.angle", "Flow.noise", "Flow.contour", "Flow.mix", "Flow.rotate"] },
       "properties": {
         "Flow.angle": {
           "type": "object",
@@ -190,9 +190,18 @@
             "fraction": { "$ref": "#/$defs/number" }
           },
           "required": ["flow", "other", "fraction"]
+        },
+        "Flow.rotate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "flow": { "$ref": "#/$defs/flow" },
+            "angle": { "$ref": "#/$defs/number" }
+          },
+          "required": ["flow", "angle"]
         }
       },
-      "$comment": "numbers may be expressions of Params, read once (no per-item number); wavelength is above 0 and a fraction from 0 to 1 when drawn; a mix nests at most 16 deep and holds at most 64 flows (the loader checks them)"
+      "$comment": "numbers may be expressions of Params, read once (no per-item number); wavelength is above 0 and a fraction from 0 to 1 when drawn; mixes and turns nest at most 16 deep and a flow holds at most 64 flows (the loader checks them)"
     },
     "path_data": { "type": "string", "pattern": "^(\\s*[Mm][MmZzLlHhVvCcSsQqTtAa0-9eE.,+\\-\\s]*)?$" },
     "number": { "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/expression" }] },

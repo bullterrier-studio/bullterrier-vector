@@ -369,15 +369,20 @@ fn arithmetic_on_fields_to_the_deepest_nesting_is_read_written_and_hatched_on_th
 }
 
 #[test]
-fn a_flow_mixed_to_the_deepest_nesting_is_read_written_and_hatched_on_the_smallest_stack() -> Outcome {
+fn a_flow_mixed_and_turned_to_the_deepest_nesting_is_read_written_and_hatched_on_the_smallest_stack() -> Outcome {
     let handle = std::thread::Builder::new().stack_size(SMALLEST_STACK).spawn(|| {
         let run = || -> Outcome {
-            // 16 mixes deep, one leaf added at each level, the most the library builds
+            // 16 mixes and turns deep, a mix and a turn by turns, one leaf added at each mix: the most the library builds
             let mut flow = Flow::angle(0.0)?;
-            for degrees in 1..=16 {
-                flow = flow.mix(&Flow::angle(f64::from(degrees) * 7.0)?, 0.5)?;
+            for level in 1..=16 {
+                flow = if level % 2 == 0 {
+                    flow.rotate(f64::from(level) * 3.0)?
+                } else {
+                    flow.mix(&Flow::angle(f64::from(level) * 7.0)?, 0.5)?
+                };
             }
             parameter_refusal(flow.mix(&Flow::angle(1.0)?, 0.5))?;
+            parameter_refusal(flow.rotate(1.0))?;
             let square = Path::rect(0.0, 0.0, 40.0, 40.0, 0.0)?;
             let drawing = Drawing::from(square).hatch(&Hatch::new(8.0).flow(flow.clone()), None);
             let document = drawing.to_json()?;

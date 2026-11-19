@@ -2,7 +2,7 @@
 //! same everywhere) or `{"Field.ramp": {"start", "end"}}`, `{"Field.distance": {"drawing", "normalized"}}` or
 //! `{"Field.map": {"width", "height", "data", "box"}}`; a flow is `{"Flow.angle": {"angle"}}`,
 //! `{"Flow.noise": {"wavelength", "phase", "seed"}}`, `{"Flow.contour": {"drawing"}}` or
-//! `{"Flow.mix": {"flow", "other", "fraction"}}`. A `drawing` is a drawing like any other, drawn with the values of
+//! `{"Flow.mix": {"flow", "other", "fraction"}}` or `{"Flow.rotate": {"flow", "angle"}}`. A `drawing` is a drawing like any other, drawn with the values of
 //! the step that reads the field; a number may be an expression of Params (not a per-item number). What a call makes
 //! is what is written, and reading it back builds the same value.
 
@@ -285,7 +285,7 @@ impl Reader {
 
     /// The flow a document holds at `pointer`.
     pub(super) fn flow(&mut self, pointer: &str, json: &Json) -> Result<FlowDoc, Error> {
-        let words = ["Flow.angle", "Flow.noise", "Flow.contour", "Flow.mix"];
+        let words = ["Flow.angle", "Flow.noise", "Flow.contour", "Flow.mix", "Flow.rotate"];
         let (word, args, here) = call(pointer, json, &words, "a flow")?;
         let what = match word {
             "Flow.angle" => {
@@ -303,6 +303,14 @@ impl Reader {
             "Flow.contour" => {
                 only(&here, args, &["drawing"])?;
                 FlowWhat::Contour(self.drawing_arg(&here, args)?)
+            }
+            "Flow.rotate" => {
+                only(&here, args, &["flow", "angle"])?;
+                let flow = args.get("flow").ok_or_else(|| refuse(&here, "is missing `flow`"))?;
+                FlowWhat::Rotate {
+                    flow: Box::new(self.flow(&at(&here, "flow"), flow)?),
+                    angle: self.once_arg(&here, args, "angle", None)?,
+                }
             }
             _ => {
                 only(&here, args, &["flow", "other", "fraction"])?;

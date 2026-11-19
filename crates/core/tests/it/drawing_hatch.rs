@@ -24,6 +24,7 @@ fn flows() -> Result<Vec<Flow>, Error> {
         Flow::noise(120.0, 0.25, 5.0)?,
         Flow::contour(&ring)?,
         Flow::angle(0.0)?.mix(&Flow::contour(&ring)?, 0.3)?,
+        Flow::contour(&ring)?.rotate(90.0)?,
     ])
 }
 
@@ -90,6 +91,15 @@ fn a_document_reads_back_to_the_same_lines() -> Outcome {
         text.contains("\"Flow.mix\":{\"flow\":{\"Flow.angle\"") && text.matches("Flow.mix").count() == 2,
         "{text}"
     );
+    // a turn of a turn of an angle stays two turns: nothing folds, as a mix of two angles stays a mix
+    let turned = Flow::angle(10.0)?.rotate(20.0)?.rotate(30.0)?;
+    let text = Drawing::from(rect(50.0, 50.0)?)
+        .hatch(&Hatch::new(5.0).flow(turned), None)
+        .to_json()?;
+    assert!(
+        text.contains(r#""flow":{"Flow.rotate":{"angle":30,"flow":{"Flow.rotate":{"angle":20,"flow":{"Flow.angle":{"angle":10}}}}}}"#),
+        "{text}"
+    );
     Ok(())
 }
 
@@ -121,6 +131,30 @@ fn a_document_with_a_bad_flow_or_field_is_refused_with_a_pointer() -> Outcome {
         (
             r#"{"spacing":5,"flow":{"Flow.mix":{"flow":{"Flow.angle":{"angle":1}},"other":{"Flow.angle":{"angle":2}},"fraction":2}}}"#,
             "/root/1/hatch/flow/Flow.mix",
+        ),
+        (
+            r#"{"spacing":5,"flow":{"Flow.rotate":{"flow":{"Flow.angle":{"angle":1}}}}}"#,
+            "/root/1/hatch/flow/Flow.rotate",
+        ),
+        (
+            r#"{"spacing":5,"flow":{"Flow.rotate":{"angle":90}}}"#,
+            "/root/1/hatch/flow/Flow.rotate",
+        ),
+        (
+            r#"{"spacing":5,"flow":{"Flow.rotate":{"flow":{"Flow.angle":{"angle":1}},"angle":"x"}}}"#,
+            "/root/1/hatch/flow/Flow.rotate/angle",
+        ),
+        (
+            r#"{"spacing":5,"flow":{"Flow.rotate":{"flow":{"Flow.angle":{"angle":1}},"angle":{"by_index":{"first":0,"last":9}}}}}"#,
+            "/root/1/hatch/flow/Flow.rotate/angle",
+        ),
+        (
+            r#"{"spacing":5,"flow":{"Flow.rotate":{"flow":{"Flow.angle":{"angle":1}},"angle":9,"degrees":9}}}"#,
+            "/root/1/hatch/flow/Flow.rotate/degrees",
+        ),
+        (
+            r#"{"spacing":5,"flow":{"Flow.rotate":{"flow":{"Flow.spin":{}},"angle":9}}}"#,
+            "/root/1/hatch/flow/Flow.rotate/flow/Flow.spin",
         ),
         (
             r#"{"spacing":5,"tone":{"Field.ramp":{"start":[1,1],"end":[1,1]}}}"#,
@@ -156,7 +190,7 @@ fn a_bad_spacing_is_a_parameter_error_when_drawn() -> Outcome {
 #[test]
 fn the_schema_names_the_flow_and_the_field() {
     let schema = drawing_schema();
-    for needle in ["Field.ramp", "Flow.mix", "\"hatch\""] {
+    for needle in ["Field.ramp", "Flow.mix", "Flow.rotate", "\"hatch\""] {
         assert!(schema.contains(needle), "{needle}");
     }
 }
@@ -189,5 +223,25 @@ fn a_document_level_without_a_tone_is_refused() -> Outcome {
     assert!(message.is_some_and(|m| m.contains("below")));
     let drawn = Drawing::from(rect(50.0, 50.0)?).hatch(&Hatch::new(5.0).below(0.5), None);
     assert!(parameter_refusal(drawn.shapes(&Values::new()))?.0.contains("below"));
+    Ok(())
+}
+
+#[test]
+fn a_document_nesting_turns_past_the_limit_is_refused_at_the_turn() -> Outcome {
+    // 17 turns: one more than the code builds, refused at the `flow` of the outermost turn, as the code names it
+    let mut flow = String::from(r#"{"Flow.angle":{"angle":0}}"#);
+    for _ in 0..17 {
+        flow = format!(r#"{{"Flow.rotate":{{"angle":5,"flow":{flow}}}}}"#);
+    }
+    let text = format!(
+        r#"{{"version":1,"root":[{{"path":"M0 0 L50 0 L50 50 L0 50 Z"}},{{"hatch":{{"spacing":5,"flow":{flow}}}}}]}}"#
+    );
+    match Drawing::from_json(&text, &Inputs::new()) {
+        Err(Error::Format { pointer, message }) => {
+            assert_eq!(pointer, "/root/1/hatch/flow/Flow.rotate/flow", "{message}");
+            assert!(message.contains("16"), "{message}");
+        }
+        other => return Err(format!("{other:?}").into()),
+    }
     Ok(())
 }

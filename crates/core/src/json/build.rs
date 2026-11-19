@@ -285,6 +285,7 @@ impl<'a> Builder<'a> {
                 let (flow, other) = (self.flow(flow)?, self.flow(other)?);
                 flow.mix(&other, self.expr(fraction)?)
             }
+            FlowWhat::Rotate { flow, angle } => self.flow(flow)?.rotate(self.expr(angle)?),
         };
         made.map_err(|error| located(&doc.pointer, &error, &[("degrees", "angle")]))
     }

@@ -325,7 +325,7 @@
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
-      "propertyNames": { "enum": ["Flow.angle", "Flow.noise", "Flow.contour", "Flow.mix"] },
+      "propertyNames": { "enum": ["Flow.angle", "Flow.noise", "Flow.contour", "Flow.mix", "Flow.rotate"] },
       "properties": {
         "Flow.angle": {
           "type": "object",
@@ -357,6 +357,15 @@
             "fraction": { "$ref": "#/$defs/once_fraction" }
           },
           "required": ["flow", "other", "fraction"]
+        },
+        "Flow.rotate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "flow": { "$ref": "#/$defs/flow" },
+            "angle": { "$ref": "#/$defs/once" }
+          },
+          "required": ["flow", "angle"]
         }
       }
     },

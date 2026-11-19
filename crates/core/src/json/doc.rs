@@ -225,6 +225,10 @@ pub(super) enum FlowWhat {
         other: Box<FlowDoc>,
         fraction: Ex,
     },
+    Rotate {
+        flow: Box<FlowDoc>,
+        angle: Ex,
+    },
 }
 
 impl FlowDoc {
@@ -236,6 +240,7 @@ impl FlowDoc {
                 found.extend(other.drawings());
                 found
             }
+            FlowWhat::Rotate { flow, .. } => flow.drawings(),
             _ => Vec::new(),
         }
     }
@@ -252,6 +257,10 @@ impl FlowDoc {
                 fraction.params(into);
                 flow.params(into);
                 other.params(into);
+            }
+            FlowWhat::Rotate { flow, angle } => {
+                angle.params(into);
+                flow.params(into);
             }
         }
     }
