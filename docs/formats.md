@@ -160,7 +160,7 @@ default paint, and draws as it did.
 | `hatch` | `spacing` (pair), `tone` (number or field), `flow` (flow), `avoid` (drawing), `below` (number, read once; needs `tone`) |
 | `rows` | `spacing` (number, read once), `tone` (number or field, required), `amplitude` (number, read once) |
 | `bands` | `spacing`, `tone`, `width` (pair of numbers, each from 0 to 1e100; read once), `family` (`lines`, `waves`, `rings`, `spiral`, `rays`; default `lines`), `angle` (number; 0 when left out; not for `rings`), `wavelength` (number above 0) and `amplitude` (number), both in rows (multiples of `spacing`), needed for `waves` and refused for any other family, `centre` (point, default the middle of the region's box; not for `lines` and `waves`); an argument the family does not read is refused naming it |
-| `stipple` | `spacing`, `tone`, `radius` (numbers above 0, read once), `density` (pair from 0 to 1, default `[1, 0]`), `seed` (number, a whole number when drawn, default 0) |
+| `stipple` | `spacing` (number above 0, read once), `tone` (number or field, required), `radius` (a number above 0, or a pair `[at tone 0, at tone 1]` of them, read once; written as one number when the two are equal), `density` (pair from 0 to 1, default `[1, 0]`), `seed` (number, a whole number when drawn, default 0) |
 | `merge` | `by` (an attribute name) |
 | `only`, `without` | attribute names to a value or a list of values: `{"only": {"char": "O"}}` |
 | `repeat` | `count` (whole number), `translate` (point), `rotate`, `scale` (pair), `about` (point) |

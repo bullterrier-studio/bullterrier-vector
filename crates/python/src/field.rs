@@ -1,7 +1,7 @@
 //! `Field` and `Flow`: a number and a direction at every point, the inputs of `hatch`.
 
 use crate::expr::Num;
-use crate::inputs::Item;
+use crate::inputs::{By, Item};
 use crate::trace::whole;
 use crate::{Frame, Pt, PyPath, raised};
 use bullterrier_vector as vector;
@@ -442,15 +442,19 @@ pub(crate) fn bands_of(
     }
 }
 
-/// The stipple a call's numbers describe.
+/// The stipple a call's numbers describe: one `radius` is the pair of it.
 pub(crate) fn stipple_of(
     spacing: Num,
     tone: Tone,
-    radius: Num,
+    radius: By,
     density: Option<(Num, Num)>,
     seed: Option<Num>,
 ) -> PyResult<vector::Stipple> {
-    let stipple = raised(vector::Stipple::new(spacing.0, tone.0, radius.0))?
+    let radius = match radius {
+        By::One(one) => (one.0.clone(), one.0),
+        By::Two(two) => (two.0, two.1),
+    };
+    let stipple = raised(vector::Stipple::new(spacing.0, tone.0, radius))?
         .seed(seed.map_or_else(|| vector::Expr::from(0.0), |seed| seed.0));
     Ok(match density {
         Some((dense, light)) => stipple.density(dense.0, light.0),

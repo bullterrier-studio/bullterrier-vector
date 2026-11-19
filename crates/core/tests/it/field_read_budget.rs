@@ -52,7 +52,7 @@ fn verbs() -> Vec<Verb> {
             Ok(())
         }),
         ("stipple", "spacing", |tone| {
-            rect(400.0, 400.0)?.stipple(&Stipple::new(2.0, tone.clone(), 0.5)?)?;
+            rect(400.0, 400.0)?.stipple(&Stipple::new(2.0, tone.clone(), (0.5, 0.5))?)?;
             Ok(())
         }),
         ("halftone", "pitch", |tone| {

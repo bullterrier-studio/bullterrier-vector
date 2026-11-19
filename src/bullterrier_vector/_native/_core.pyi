@@ -192,7 +192,7 @@ class Path:
         spacing: _Num,
         *,
         tone: Field | _Num,
-        radius: _Num,
+        radius: _Num | _NumPair,
         density: tuple[_Num, _Num] | None = None,
         seed: _Num | None = None,
     ) -> Path: ...
@@ -501,7 +501,7 @@ class Drawing:
         spacing: _Num,
         *,
         tone: Field | _Num,
-        radius: _Num,
+        radius: _Num | _NumPair,
         density: tuple[_Num, _Num] | None = None,
         seed: _Num | None = None,
     ) -> Drawing: ...

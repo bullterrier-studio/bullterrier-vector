@@ -223,7 +223,8 @@ pub enum Kind {
     /// One of a fixed set of words ([`Domain::Choice`]), or a path written `{"path": "M0 0 L4 0 L0 2 Z"}`: the `shape` of
     /// a `halftone`, a word for a dot or a path for the caller's own.
     Mark,
-    /// One number for both directions, or an `(x, y)` pair (a scale factor).
+    /// One number for both of a pair, or the pair: `(x, y)` of a scale factor or a cell, `(at tone 0, at tone 1)` of
+    /// a `hatch` spacing or a `stipple` radius.
     Factor,
     /// A path.
     Path,

@@ -62,12 +62,13 @@ impl Drawing {
     #[must_use]
     pub fn stipple(&self, stipple: &Stipple) -> Self {
         let (dense, light) = stipple.density_of();
+        let (small, large) = stipple.radius_of();
         self.then(
             &lines::StippleStep,
             vec![
                 ("spacing", Given::Number(stipple.spacing_of().clone())),
                 ("tone", Given::Field(stipple.tone_of().clone())),
-                ("radius", Given::Number(stipple.radius_of().clone())),
+                ("radius", Given::Pair(small.clone(), large.clone())),
                 ("density", Given::Pair(dense.clone(), light.clone())),
                 ("seed", Given::Number(stipple.seed_of().clone())),
             ],

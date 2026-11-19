@@ -177,12 +177,12 @@ fn a_bad_bands_document_is_refused_with_a_pointer() -> Outcome {
 
 #[test]
 fn the_stipple_step_is_the_path_call_and_a_param_is_read_with_the_values_of_the_draw() -> Outcome {
-    let stipple = Stipple::new(6.0, tone()?, 1.0)?.density(1.0, 0.1).seed(3.0);
+    let stipple = Stipple::new(6.0, tone()?, (1.0, 1.0))?.density(1.0, 0.1).seed(3.0);
     let drawn = svg(&Drawing::from(rect()?).stipple(&stipple), &Values::new())?;
     assert_eq!(drawn, rect()?.stipple(&stipple)?.to_svg_path());
     let dot = Param::new("dot", 1.0, 0.5, 3.0)?;
     let seed = Param::new("seed", 0.0, 0.0, 9.0)?;
-    let drawing = Drawing::from(rect()?).stipple(&Stipple::new(6.0, tone()?, &dot)?.seed(&seed));
+    let drawing = Drawing::from(rect()?).stipple(&Stipple::new(6.0, tone()?, (&dot, &dot))?.seed(&seed));
     let at = |dot: f64, seed: f64| svg(&drawing, &Values::new().set("dot", dot).set("seed", seed));
     assert_ne!(at(2.0, 0.0)?, at(1.0, 0.0)?);
     assert_ne!(at(1.0, 4.0)?, at(1.0, 0.0)?);
@@ -200,6 +200,8 @@ fn the_stipple_step_is_the_path_call_and_a_param_is_read_with_the_values_of_the_
             "/root/1/stipple/density/1",
         ),
         (r#"{"spacing":5,"tone":0.5,"radius":0}"#, "/root/1/stipple/radius"),
+        (r#"{"spacing":5,"tone":0.5,"radius":[1,0]}"#, "/root/1/stipple/radius/1"),
+        (r#"{"spacing":5,"tone":0.5,"radius":[1,2,3]}"#, "/root/1/stipple/radius"),
     ] {
         match Drawing::from_json(&call(args), &Inputs::new()) {
             Err(Error::Format { pointer: got, .. }) => assert_eq!(got, pointer, "{args}"),
@@ -281,5 +283,24 @@ fn an_argument_the_family_does_not_read_is_refused_naming_it_and_the_family() ->
             other => return Err(format!("{args}: expected a format error, got {other:?}").into()),
         }
     }
+    Ok(())
+}
+
+#[test]
+fn a_radius_pair_is_written_as_a_pair_and_one_size_as_a_number() -> Outcome {
+    let one = Drawing::from(rect()?).stipple(&Stipple::new(6.0, tone()?, (1.5, 1.5))?);
+    let pair = Drawing::from(rect()?).stipple(&Stipple::new(6.0, tone()?, (0.5, 2.5))?);
+    assert!(one.to_json()?.contains(r#""radius":1.5"#), "{}", one.to_json()?);
+    assert!(pair.to_json()?.contains(r#""radius":[0.5,2.5]"#), "{}", pair.to_json()?);
+    for drawing in [one, pair] {
+        let back = Drawing::from_json(&drawing.to_json()?, &Inputs::new())?;
+        assert_eq!(svg(&back, &Values::new())?, svg(&drawing, &Values::new())?);
+    }
+    // the step is the path call with the pair
+    let stipple = Stipple::new(6.0, tone()?, (0.5, 2.5))?;
+    assert_eq!(
+        svg(&Drawing::from(rect()?).stipple(&stipple), &Values::new())?,
+        rect()?.stipple(&stipple)?.to_svg_path()
+    );
     Ok(())
 }

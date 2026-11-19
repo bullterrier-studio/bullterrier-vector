@@ -22,7 +22,7 @@ fn line_families() -> Result<Drawing, Error> {
             .bands(&Bands::rings(8.0, tone(1.0)?, (5.0, 0.6))?)
             .fill(ink),
         Drawing::from(hill(2.0)?)
-            .stipple(&Stipple::new(6.0, tone(2.0)?, 1.6)?.seed(2.0))
+            .stipple(&Stipple::new(6.0, tone(2.0)?, (1.6, 1.6))?.seed(2.0))
             .fill(Color::hex(0xc8_34_1c)),
     ])
     .with_size(WIDTH, HEIGHT))

@@ -47,7 +47,7 @@ fn a_region_that_fills_nothing_gives_an_empty_path_in_every_verb() -> Outcome {
     for (what, region) in [("a point", &point), ("a line", &line), ("a flat triangle", &thin)] {
         let rows = region.rows(&Rows::new(5.0, flat()?, 1.0)?)?;
         assert_eq!(rows.to_svg_path(), "", "rows of {what}");
-        let stipple = region.stipple(&Stipple::new(5.0, flat()?, 1.0)?)?;
+        let stipple = region.stipple(&Stipple::new(5.0, flat()?, (1.0, 1.0))?)?;
         assert_eq!(stipple.to_svg_path(), "", "stipple of {what}");
         let lines = region.bands(&Bands::lines(5.0, flat()?, (1.0, 3.0))?)?;
         assert_eq!(lines.to_svg_path(), "", "lines of {what}");

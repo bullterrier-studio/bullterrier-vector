@@ -69,6 +69,25 @@ def test_stipple_density_follows_the_tone_and_a_seed_moves_the_dots() -> None:
     )
 
 
+def test_a_stipple_radius_pair_is_read_from_the_tone_and_one_number_is_the_pair() -> None:
+    region = btvec.Path.rect(0, 0, 60, 40)
+    tone = btvec.Field.ramp((0, 0), (40, 0))
+    for dot in region.stipple(4, tone=tone, radius=(0.5, 2), density=(1, 1)).subpaths():
+        box = dot.bounds
+        x, radius = box.x + box.width / 2, box.width / 2
+        assert abs(radius - (0.5 + 1.5 * min(max(x / 40, 0), 1))) < 1e-6
+    assert region.stipple(4, tone=tone, radius=1.2).to_svg_path() == (
+        region.stipple(4, tone=tone, radius=(1.2, 1.2)).to_svg_path()
+    )
+    size = btvec.Param("size", default=1, min=0.5, max=3)
+    drawing = btvec.Drawing(region).stipple(4, tone=tone, radius=(0.5, size))
+    assert '"radius":[0.5,{"param":"size"}]' in drawing.to_json()
+    assert btvec.Drawing.from_json(drawing.to_json()).to_json() == drawing.to_json()
+    assert svg(drawing, size=2) == region.stipple(4, tone=tone, radius=(0.5, 2)).to_svg_path()
+    with pytest.raises(TypeError, match="a number or a pair of numbers"):
+        region.stipple(4, tone=tone, radius=(1, 2, 3))  # type: ignore[arg-type]
+
+
 def test_a_param_in_a_step_is_read_with_the_values_of_the_draw() -> None:
     lift = btvec.Param("lift", default=0, min=0, max=30)
     drawing = btvec.Drawing(BOX).rows(10, tone=RAMP, amplitude=lift)
@@ -120,6 +139,8 @@ def test_a_plot_has_a_layer_per_pen_and_no_fill() -> None:
         lambda: BOX.bands(5, tone=0, width=(1, 2), family="zigzag"),
         lambda: BOX.bands(5, tone=0, width=(1, 2), family="waves"),
         lambda: BOX.stipple(5, tone=0, radius=0),
+        lambda: BOX.stipple(5, tone=0, radius=(1, 0)),
+        lambda: btvec.Drawing(BOX).stipple(5, tone=0, radius=(0, 1)).to_svg(10, 10),
         lambda: BOX.stipple(5, tone=0, radius=1, density=(0, 2)),
         lambda: btvec.Path.rect(0, 0, 1e6, 1e6).stipple(1, tone=0, radius=0.4),
         lambda: btvec.Drawing(BOX).to_plot_svg(10, 10, pen_width=0),

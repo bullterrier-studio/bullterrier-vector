@@ -1099,10 +1099,12 @@ def line_families() -> list[Entry]:
         ),
         "bands_rays": framed(btvec.Drawing(box).bands(8, tone=ramp, width=(0.6, 5), family="rays", angle=10).fill(INK)),
         "stipple_map": framed(btvec.Drawing(box).stipple(4, tone=photo, radius=dot, seed=3).fill(INK)),
+        "stipple_radius_pair": framed(btvec.Drawing(box).stipple(5, tone=ramp, radius=(0.6, dot), seed=1).fill(INK)),
     }
     draws: dict[str, list[Draw]] = {
         "rows_param": [(100, 100, {}), (100, 100, {"lift": 30})],
         "stipple_map": [(100, 100, {}), (100, 100, {"dot": 1.8})],
+        "stipple_radius_pair": [(100, 100, {}), (100, 100, {"dot": 2})],
     }
     return [(name, drawing, draws.get(name, [(100, 100, {}), (50, 50, {})])) for name, drawing in drawings.items()]
 

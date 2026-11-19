@@ -616,8 +616,8 @@ impl PyPath {
         Self::of(py.detach(|| self.0.bands(&bands)))
     }
 
-    /// Round dots of `radius` pixels on a square lattice `spacing` apart inside the region this path fills, one at most per
-    /// cell; `density` is `(share of cells with a dot where the tone is 0, where it is 1)`, default `(1, 0)`: dark is
+    /// Round dots on a square lattice `spacing` apart inside the region this path fills, one at most per cell; `radius` is
+    /// pixels, one number or `(radius where the tone is 0, where it is 1)` read at each dot's centre; `density` is `(share of cells with a dot where the tone is 0, where it is 1)`, default `(1, 0)`: dark is
     /// dense. `seed` moves them. The result is closed dots, so fill it.
     #[pyo3(signature = (spacing, *, tone, radius, density=None, seed=None))]
     fn stipple(
@@ -625,7 +625,7 @@ impl PyPath {
         py: Python<'_>,
         spacing: Num,
         tone: Tone,
-        radius: Num,
+        radius: crate::inputs::By,
         density: Option<(Num, Num)>,
         seed: Option<Num>,
     ) -> PyResult<Self> {

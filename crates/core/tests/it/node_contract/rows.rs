@@ -1144,11 +1144,11 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "stipple",
-            sample: || Ok(square()?.stipple(&Stipple::new(2.0, Field::constant(0.5)?, 0.5)?)),
+            sample: || Ok(square()?.stipple(&Stipple::new(2.0, Field::constant(0.5)?, (0.5, 0.5))?)),
             with: Some(|argument, value| match argument {
-                "spacing" => Ok(square()?.stipple(&Stipple::new(value, Field::constant(0.5)?, 0.5)?)),
-                "radius" => Ok(square()?.stipple(&Stipple::new(2.0, Field::constant(0.5)?, value)?)),
-                "seed" => Ok(square()?.stipple(&Stipple::new(2.0, Field::constant(0.5)?, 0.5)?.seed(value))),
+                "spacing" => Ok(square()?.stipple(&Stipple::new(value, Field::constant(0.5)?, (0.5, 0.5))?)),
+                "radius" => Ok(square()?.stipple(&Stipple::new(2.0, Field::constant(0.5)?, (value.clone(), value))?)),
+                "seed" => Ok(square()?.stipple(&Stipple::new(2.0, Field::constant(0.5)?, (0.5, 0.5))?.seed(value))),
                 other => Err(unknown("stipple", other)),
             }),
             ranges: &[

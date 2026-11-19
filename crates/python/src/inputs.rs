@@ -55,7 +55,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Pair {
     }
 }
 
-/// How much to scale by: a number, or a pair.
+/// One number for both of a pair, or the pair: a scale's `by`, a stipple's `radius`.
 pub(crate) enum By {
     One(Num),
     Two(Pair),
@@ -71,7 +71,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for By {
         match object.extract::<Pair>() {
             Ok(two) => Ok(Self::Two(two)),
             Err(_) => Err(PyTypeError::new_err(format!(
-                "expected a number or an (x, y) pair of numbers, got {}",
+                "expected a number or a pair of numbers, got {}",
                 object.repr()?
             ))),
         }

@@ -29,29 +29,35 @@ const JITTER: f64 = 0.8;
 // constant: 1 / phi_2 and 1 / phi_2^2 for the plastic number phi_2 = 1.32471795724474602596
 const R2: (f64, f64) = (0.754_877_666_246_692_7, 0.569_840_290_998_053_2);
 
-/// What to draw: the lattice spacing, the tone that sets the density, the dot's radius, the density at tone 0 and at
-/// tone 1, and a seed.
+/// What to draw: the lattice spacing, the tone that sets the density and the radius, the radius and the density at
+/// tone 0 and at tone 1, and a seed.
 #[derive(Debug, Clone)]
 pub struct Stipple {
     spacing: Expr,
     tone: Field,
-    radius: Expr,
+    radius: (Expr, Expr),
     density: (Expr, Expr),
     seed: Expr,
 }
 
 impl Stipple {
-    /// Round dots of `radius` design pixels on a square lattice `spacing` apart, one at most in each cell. By default the
-    /// darkest tone (0) fills every cell and the lightest (1) none, linear between: see [`Stipple::density`]. Numbers
-    /// are numbers or expressions of Params, read once.
+    /// Round dots on a square lattice `spacing` apart, one at most in each cell: a dot's radius is `radius.0` design
+    /// pixels where the `tone` is 0 and `radius.1` where it is 1, linear between and held beyond (read at the dot's
+    /// centre, as the density is; `(r, r)` for one size). By default the darkest tone (0) fills every cell and the
+    /// lightest (1) none, linear between: see [`Stipple::density`]. Numbers are numbers or expressions of Params, read
+    /// once.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `spacing` or `radius` if it is a per-item number.
-    pub fn new(spacing: impl Into<Expr>, tone: Field, radius: impl Into<Expr>) -> Result<Self, Error> {
+    pub fn new(
+        spacing: impl Into<Expr>,
+        tone: Field,
+        radius: (impl Into<Expr>, impl Into<Expr>),
+    ) -> Result<Self, Error> {
         Ok(Self {
             spacing: once("spacing", &spacing.into())?,
             tone,
-            radius: once("radius", &radius.into())?,
+            radius: (once("radius", &radius.0.into())?, once("radius", &radius.1.into())?),
             density: (Expr::from(1.0), Expr::from(0.0)),
             seed: Expr::from(0.0),
         })
@@ -79,7 +85,7 @@ impl Stipple {
         &self.tone
     }
 
-    pub(crate) fn radius_of(&self) -> &Expr {
+    pub(crate) fn radius_of(&self) -> &(Expr, Expr) {
         &self.radius
     }
 
@@ -96,7 +102,7 @@ impl Stipple {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Plan {
     pub(crate) spacing: f64,
-    pub(crate) radius: f64,
+    pub(crate) radius: (f64, f64),
     pub(crate) density: (f64, f64),
     pub(crate) seed: f64,
 }
@@ -105,20 +111,23 @@ impl Path {
     /// Dots inside the region this path fills (nonzero rule): a lattice of cells `spacing` apart over the region's
     /// bounding box, each cell with one dot at most, its centre inside the region and standing within 0.4 spacings of
     /// its cell's middle. The dot is there when the cell's share of the lattice (a threshold from 0 to 1 spread evenly
-    /// over the lattice, moved by the seed) is below the density at the tone read at the dot's centre. The result is
-    /// round dots, closed, so set the fill after it. A Param is read at its default here; a `stipple` step reads it
+    /// over the lattice, moved by the seed) is below the density at the tone read at the dot's centre; its radius is the
+    /// radius at that tone. The result is round dots, closed, so set the fill after it. A Param is read at its default here; a `stipple` step reads it
     /// with the values it draws with. An empty path gives an empty path.
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `spacing` if it is not above 0 and a coordinate, if the region needs more than 2
-    /// million cells, or if a step of it would not move at the region's coordinates; naming `radius` unless it is above
-    /// 0 and a coordinate; `density` unless both are from 0 to 1; `seed` unless it is a whole number within
+    /// million cells, or if a step of it would not move at the region's coordinates; naming `radius` unless both are
+    /// above 0 and coordinates; `density` unless both are from 0 to 1; `seed` unless it is a whole number within
     /// ±(2^53 - 1); naming `spacing` past `MAX_SEGMENTS` points.
     pub fn stipple(&self, stipple: &Stipple) -> Result<Path, Error> {
         let values = Values::new();
         let plan = Plan {
             spacing: read("spacing", &stipple.spacing, &values)?,
-            radius: read("radius", &stipple.radius, &values)?,
+            radius: (
+                read("radius", &stipple.radius.0, &values)?,
+                read("radius", &stipple.radius.1, &values)?,
+            ),
             density: (
                 read("density", &stipple.density.0, &values)?,
                 read("density", &stipple.density.1, &values)?,
@@ -141,11 +150,10 @@ impl Path {
                 format!("must be above 0, got {}", plan.spacing),
             ));
         }
-        if !(plan.radius.is_finite() && plan.radius > 0.0 && plan.radius <= MAX_COORDINATE) {
-            return Err(Error::parameter(
-                "radius",
-                format!("must be above 0, got {}", plan.radius),
-            ));
+        for radius in [plan.radius.0, plan.radius.1] {
+            if !(radius.is_finite() && radius > 0.0 && radius <= MAX_COORDINATE) {
+                return Err(Error::parameter("radius", format!("must be above 0, got {radius}")));
+            }
         }
         for density in [plan.density.0, plan.density.1] {
             if !(0.0..=1.0).contains(&density) {
@@ -204,7 +212,8 @@ impl Path {
                 let wanted = plan.density.0 + (plan.density.1 - plan.density.0) * share;
                 if threshold < wanted && outline.contains(at) {
                     charge(5)?;
-                    dots.push(Path::circle(at, plan.radius)?);
+                    let radius = plan.radius.0 + (plan.radius.1 - plan.radius.0) * share;
+                    dots.push(Path::circle(at, radius)?);
                 }
             }
         }

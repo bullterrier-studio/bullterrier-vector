@@ -2128,3 +2128,24 @@ Why not an existing call:
   on the `Trace` (`.frame(rect)`, `.cell(c)`), the options value of the step, as `Envelope::frame` does; `trace_labels`,
   which reads a map's own pixels, refuses a `Trace` with either. `cell` is in design pixels, as in `contours`, not the
   map pixels of `trace_cells`. The step reads the field with the values of the draw, as `hatch` reads its tone.
+
+## A stipple radius read from the tone
+
+`stipple`'s `radius` is one number or a pair `(at tone 0, at tone 1)`, read at each dot's centre as `density` is: graded
+dots were one stipple pass per band of tone (three passes, 5.9 s, against 0.65 s for one), and equal dots read as a
+lattice. Why not an existing call: one `stipple` per band of tone, each over the region of its band, is the workaround,
+slower and stepped; `halftone` sizes a dot by its tone but on a regular screen, not a scattered one;
+`bands` and `hatch` read a pair from a tone for a width and a spacing, not for dots. So no new call: an argument that
+now takes the convention the line families already have.
+
+- **One convention.** The pair means what `density`'s, `bands`'s `width` and `hatch`'s `spacing` mean: the value at tone 0,
+  then at tone 1, linear between, held beyond (the share is the one clamped tone the density reads, so both follow one
+  reading). The refusals are `density`'s, per number: either radius not above 0 or past 1e100 names `radius`.
+- **A single number stays.** `density` takes no single number (Python `TypeError`, a document `FormatError`: "must be two
+  numbers"); `radius` must keep one, as every saved document and preset has it. The existing form for "a number or a
+  pair" is `Kind::Factor` (`hatch`'s `spacing`, `scale`'s `by`, `characters`'s `cell`): read like a number or `[a, b]`,
+  written back as one number when the two are equal, so the JSON and the SVG of every existing stipple (the preset, the
+  example, the differential rows) are byte for byte what they were. In Python it is `scale`'s `by` extractor (a number,
+  a Param or an expression, or a pair of them); in Rust the constructor takes the pair as `Bands::lines` takes its `width`,
+  `(r0, r1)`, `(r, r)` for one size: a generic "number or pair" type would be a second Rust spelling of the same pair.
+- **Read once.** A per-item number is refused in either, as for every number of the line families.
