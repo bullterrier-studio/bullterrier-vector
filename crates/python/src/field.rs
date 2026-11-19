@@ -412,44 +412,21 @@ pub(crate) fn bands_of(
     wavelength: Option<Num>,
     amplitude: Option<Num>,
 ) -> PyResult<vector::Bands> {
-    let family = raised(vector::Family::parse(family))?;
-    for (name, given) in [
-        ("angle", angle.is_some()),
-        ("center", center.is_some()),
-        ("wavelength", wavelength.is_some()),
-        ("amplitude", amplitude.is_some()),
-    ] {
-        if given {
-            raised(family.refuse_unread(name))?;
-        }
+    let mut bands = raised(vector::Bands::new(spacing.0, tone.0, (width.0.0, width.1.0)))?
+        .family(raised(vector::Family::parse(family))?);
+    if let Some(angle) = angle {
+        bands = bands.angle(angle.0);
     }
-    let (spacing, tone, width) = (spacing.0, tone.0, (width.0.0, width.1.0));
-    let needed = |value: Option<Num>, name: &str| {
-        value
-            .map(|number| number.0)
-            .ok_or_else(|| crate::ParameterError::new_err(format!("{name}: is needed when `family` is \"waves\"")))
-    };
-    let bands = match family {
-        vector::Family::Lines => raised(vector::Bands::lines(spacing, tone, width))?,
-        vector::Family::Waves => raised(vector::Bands::waves(
-            spacing,
-            tone,
-            width,
-            needed(wavelength, "wavelength")?,
-            needed(amplitude, "amplitude")?,
-        ))?,
-        vector::Family::Rings => raised(vector::Bands::rings(spacing, tone, width))?,
-        vector::Family::Spiral => raised(vector::Bands::spiral(spacing, tone, width))?,
-        vector::Family::Rays => raised(vector::Bands::rays(spacing, tone, width))?,
-    };
-    let bands = match angle {
-        Some(angle) => raised(bands.angle(angle.0))?,
-        None => bands,
-    };
-    match center {
-        Some(center) => raised(bands.center(center.0)),
-        None => Ok(bands),
+    if let Some(center) = center {
+        bands = bands.center(center.0);
     }
+    if let Some(wavelength) = wavelength {
+        bands = bands.wavelength(wavelength.0);
+    }
+    if let Some(amplitude) = amplitude {
+        bands = bands.amplitude(amplitude.0);
+    }
+    Ok(bands)
 }
 
 /// The stipple a call's numbers describe: one `radius` is the pair of it.

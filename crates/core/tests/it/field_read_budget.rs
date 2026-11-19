@@ -48,7 +48,7 @@ fn verbs() -> Vec<Verb> {
             Ok(())
         }),
         ("bands", "spacing", |tone| {
-            rect(400.0, 400.0)?.bands(&Bands::lines(2.0, tone.clone(), (0.2, 1.0))?)?;
+            rect(400.0, 400.0)?.bands(&Bands::new(2.0, tone.clone(), (0.2, 1.0))?)?;
             Ok(())
         }),
         ("stipple", "spacing", |tone| {

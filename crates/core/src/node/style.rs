@@ -4,6 +4,7 @@ use super::offset::{PROFILE, profile_is_round};
 use super::{Args, Context, Inputs, Node, choice, each_shape};
 use crate::field::Shapes;
 use crate::geometry::MAX_COORDINATE;
+use crate::lines::{DEFAULT_AMPLITUDE, DEFAULT_WAVELENGTH};
 use crate::path::check_profile;
 use crate::shape::{
     Blend as BlendMode, Cap, Color, DEFAULT_MITER_LIMIT, DEFAULT_STROKE_WIDTH, Dot, HalftoneStyle, Join, Mark,
@@ -291,14 +292,6 @@ const DEFAULT_HALFTONE_SPACING: f64 = 8.0;
 // constant: api.md "Style" (`halftone(color, *, tone, spacing=8, angle=45, ...)`), the classic screen angle
 const DEFAULT_HALFTONE_ANGLE: f64 = 45.0;
 
-/// How high a wave screen swings its rows when none is given, in design pixels.
-// constant: api.md "Style" (`amplitude=8`): a row moves a default cell up and down, so the waves are plain at a glance
-const DEFAULT_HALFTONE_AMPLITUDE: f64 = DEFAULT_HALFTONE_SPACING;
-
-/// How long a wave screen is when none is given, in design pixels.
-// constant: api.md "Style" (`wavelength=48`): six default cells to a wave, enough to read as a wave and not as a zigzag
-const DEFAULT_HALFTONE_WAVELENGTH: f64 = 6.0 * DEFAULT_HALFTONE_SPACING;
-
 /// Fills every shape with a screen of dots.
 #[derive(Debug)]
 pub(crate) struct Halftone;
@@ -393,12 +386,8 @@ impl Node for Halftone {
                 aspect: args.number_opt(cx, "aspect", item)?.unwrap_or(1.0),
                 family,
                 center: args.point(cx, "center", item)?,
-                amplitude: args
-                    .number_opt(cx, "amplitude", item)?
-                    .unwrap_or(DEFAULT_HALFTONE_AMPLITUDE),
-                wavelength: args
-                    .number_opt(cx, "wavelength", item)?
-                    .unwrap_or(DEFAULT_HALFTONE_WAVELENGTH),
+                amplitude: args.number_opt(cx, "amplitude", item)?.unwrap_or(DEFAULT_AMPLITUDE),
+                wavelength: args.number_opt(cx, "wavelength", item)?.unwrap_or(DEFAULT_WAVELENGTH),
             };
             let mut shape = shape.clone();
             shape.style_mut().set_halftone(halftone);

@@ -5,7 +5,7 @@ use super::{Args, Context, Inputs, Node, each_shape};
 use crate::field::Shapes;
 use crate::geometry::MAX_COORDINATE;
 use crate::lines::{Family, Plan, StipplePlan};
-use crate::{Arg, Domain, Error, Kind, Literal, Point, Reads, Role, Shape, Verb};
+use crate::{Arg, Domain, Error, Kind, Literal, Reads, Role, Shape, Verb};
 
 /// A number read once for the whole call, within `domain`.
 const fn once(name: &'static str, domain: Domain) -> Arg {
@@ -85,7 +85,7 @@ pub(crate) struct BandsStep;
 pub(crate) static BANDS: Verb = Verb {
     name: "bands",
     role: Role::Step,
-    summary: "lines whose width follows a tone: replaces every shape by closed outlines of lines laid over the region it fills and cut to it (as Path.bands), as wide at each point as the `tone` field says: `width` is a pair, the width where the tone is 0 and where it is 1; `family` is the carrier: `lines` `spacing` apart along `angle` degrees, `waves` (`wavelength` long and `amplitude` high, in design pixels), `rings` round `center`, a `spiral` out of `center` with arms `spacing` apart, or `rays` out of `center` as many as are `spacing` apart at the farthest corner; `center` defaults to the middle of the region's bounding box; the result is closed outlines, so set the fill after it",
+    summary: "lines whose width follows a tone: replaces every shape by closed outlines of lines laid over the region it fills and cut to it (as Path.bands), as wide at each point as the `tone` field says: `width` is a pair, the width where the tone is 0 and where it is 1; `family` is the carrier: `lines` `spacing` apart along `angle` degrees, `waves` (`wavelength` long and `amplitude` high, in design pixels, default 48 and 8), `rings` round `center`, a `spiral` out of `center` with arms `spacing` apart, or `rays` out of `center` as many as are `spacing` apart at the farthest corner; `center` defaults to the middle of the region's bounding box; the result is closed outlines, so set the fill after it",
     args: &[
         once("spacing", Domain::PositiveUpTo(MAX_COORDINATE)),
         required_field("tone"),
@@ -108,19 +108,12 @@ pub(crate) static BANDS: Verb = Verb {
             domain: Domain::Coordinate,
         },
     ],
-    check: Some(waves_need_their_size),
+    check: Some(family_reads_what_it_is_given),
 };
 
-/// `waves` need a `wavelength` and an `amplitude`, and no family is given what it does not read.
-fn waves_need_their_size(args: &Args) -> Result<(), Error> {
+/// No family is given what it does not read.
+fn family_reads_what_it_is_given(args: &Args) -> Result<(), Error> {
     let family = Family::parse(args.text("family")?)?;
-    if family == Family::Waves {
-        for name in ["wavelength", "amplitude"] {
-            if !args.given(name)? {
-                return Err(Error::parameter(name, "is needed when `family` is \"waves\""));
-            }
-        }
-    }
     for name in ["angle", "wavelength", "amplitude", "center"] {
         if args.given(name)? {
             family.refuse_unread(name)?;
@@ -137,18 +130,17 @@ impl Node for BandsStep {
     fn evaluate(&self, args: &Args, inputs: Inputs<'_>, cx: &Context<'_>) -> Result<Vec<Shape>, Error> {
         let placed = |error: Error| error.at_argument(&cx.place, None);
         let family = Family::parse(args.text("family")?)?;
-        let plan = Plan {
+        let plan = Plan::new(
             family,
-            spacing: args.once_number(cx, "spacing").map_err(placed)?,
-            width: args
-                .once_pair(cx, "width")
+            args.once_number(cx, "spacing").map_err(placed)?,
+            args.once_pair(cx, "width")
                 .map_err(placed)?
                 .ok_or_else(|| Error::parameter("width", "is missing"))?,
-            angle: args.once_number_opt(cx, "angle").map_err(placed)?.unwrap_or(0.0),
-            wavelength: args.once_number_opt(cx, "wavelength").map_err(placed)?,
-            amplitude: args.once_number_opt(cx, "amplitude").map_err(placed)?,
-            center: args.once_point(cx, "center").map_err(placed)?.map(|p: Point| p),
-        };
+            args.once_number_opt(cx, "angle").map_err(placed)?,
+            args.once_number_opt(cx, "wavelength").map_err(placed)?,
+            args.once_number_opt(cx, "amplitude").map_err(placed)?,
+            args.once_point(cx, "center").map_err(placed)?,
+        );
         let mut shapes = Shapes::taken(inputs.taken);
         let tone = args
             .field("tone")?

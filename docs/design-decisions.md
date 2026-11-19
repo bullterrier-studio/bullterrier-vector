@@ -2262,3 +2262,12 @@ Why not an existing call:
   reads as tone, and hatching is drawn on the diagonal), while the lines of `bands` read as horizontal strokes by
   default. *Not* one default angle: one of the looks would be worse with no tuning, against "Defaults look good"
   (`api.md`, Conventions).
+- **Why `Bands::new(..).family(Family::Rings)`, and not `Bands::rings(..)`.** `Halftone` picks its layout with
+  `.family(Family::..)`, and `Bands` had a constructor per family: two spellings of one choice, the word list owned by
+  `Family` in one and by method names in the other. `Bands` now has one constructor and the setters `family`, `angle`,
+  `center`, `wavelength` and `amplitude`, as `Halftone`; setters may come in any order, so an argument the family does
+  not read is refused where the bands are used (`Path::bands`, the step's check), not by the setter. *Not* keeping
+  `Bands::rings` as a shortcut: an alias.
+- **Why waves left unsized are 48 by 8 px in `bands` too, and not an error.** `halftone` defaulted its waves while
+  `bands(family="waves")` refused to draw without both numbers: one family, two rules. One pair of constants
+  (`DEFAULT_WAVELENGTH`, `DEFAULT_AMPLITUDE` in `lines/layout.rs`, beside `Family`) is now the default of both verbs.

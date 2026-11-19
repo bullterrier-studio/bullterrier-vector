@@ -191,7 +191,7 @@ fn a_region_too_big_to_flatten_is_refused_not_taken_for_empty() -> Outcome {
 fn bands_of_lines_over_a_comb_of_many_edges_are_made_without_a_walk_of_every_edge_per_point() -> Outcome {
     use bullterrier_vector::{Bands, Field};
     let region = comb(10_000)?;
-    let drawn = region.bands(&Bands::lines(1.0, Field::constant(0.5)?, (0.2, 0.4))?)?;
+    let drawn = region.bands(&Bands::new(1.0, Field::constant(0.5)?, (0.2, 0.4))?)?;
     // lines at y = -4.5 .. 9.5 each cut into a piece in every tooth that reaches it: the ten of the teeth, 10,000 each
     assert!(lines(&drawn).len() >= 10_000, "{}", lines(&drawn).len());
     Ok(())

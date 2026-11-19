@@ -60,6 +60,14 @@ def test_every_family_makes_outlines_and_a_drawing_makes_the_same(call: dict[str
     assert svg(drawing) == path.to_svg_path()
 
 
+def test_waves_left_unsized_are_48_long_and_8_high_in_a_path_a_step_and_a_document() -> None:
+    sized = BOX.bands(8, tone=RAMP, width=(1, 3), family="waves", wavelength=48, amplitude=8).to_svg_path()
+    assert BOX.bands(8, tone=RAMP, width=(1, 3), family="waves").to_svg_path() == sized
+    drawing = btvec.Drawing(BOX).bands(8, tone=RAMP, width=(1, 3), family="waves")
+    assert svg(drawing) == sized
+    assert svg(btvec.Drawing.from_json(drawing.to_json())) == sized
+
+
 def test_stipple_density_follows_the_tone_and_a_seed_moves_the_dots() -> None:
     region = btvec.Path.rect(0, 0, 400, 100)
     tone = btvec.Field.ramp((0, 0), (400, 0))
@@ -139,7 +147,6 @@ def test_a_plot_has_a_layer_per_pen_and_no_fill() -> None:
         lambda: btvec.Path.rect(0, 0, 1e6, 1e6).rows(0.001, tone=0, amplitude=1),
         lambda: BOX.bands(5, tone=0, width=(-1, 2)),
         lambda: BOX.bands(5, tone=0, width=(1, 2), family="zigzag"),
-        lambda: BOX.bands(5, tone=0, width=(1, 2), family="waves"),
         lambda: BOX.stipple(5, tone=0, radius=0),
         lambda: BOX.stipple(5, tone=0, radius=(1, 0)),
         lambda: btvec.Drawing(BOX).stipple(5, tone=0, radius=(0, 1)).to_svg(10, 10),

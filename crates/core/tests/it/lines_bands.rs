@@ -3,7 +3,7 @@
 //! from `Path::contains`, never from the library's own arithmetic), and the carriers are worked out by hand.
 
 use crate::common::{Outcome, lines, parameter_refusal};
-use bullterrier_vector::{Bands, Field, Path, Point};
+use bullterrier_vector::{Bands, Family, Field, Path, Point};
 
 fn rect(width: f64, height: f64) -> Result<Path, bullterrier_vector::Error> {
     Path::rect(0.0, 0.0, width, height, 0.0)
@@ -17,7 +17,7 @@ fn near(got: f64, want: f64, tolerance: f64, what: &str) {
 fn along_straight_lines_the_width_at_a_vertex_is_the_mapping_of_the_tone() -> Outcome {
     // tone 0 at x = 0 to 1 at x = 100; width 0.5 at tone 0 and 4.5 at tone 1; lines 10 apart, half a spacing in
     let tone = Field::ramp((0.0, 0.0), (100.0, 0.0))?;
-    let bands = Bands::lines(10.0, tone, (0.5, 4.5))?;
+    let bands = Bands::new(10.0, tone, (0.5, 4.5))?;
     let found = lines(&rect(100.0, 30.0)?.bands(&bands)?)?;
     assert_eq!(found.len(), 3, "one closed outline for each of the three lines");
     for (index, (points, closed)) in found.iter().enumerate() {
@@ -45,7 +45,7 @@ fn along_straight_lines_the_width_at_a_vertex_is_the_mapping_of_the_tone() -> Ou
 #[test]
 fn rings_are_closed_outlines_with_the_hole_inside() -> Outcome {
     let region = Path::circle((100.0, 100.0), 45.0)?;
-    let bands = Bands::rings(10.0, Field::constant(0.5)?, (1.0, 3.0))?; // constant tone 0.5: width 2
+    let bands = Bands::new(10.0, Field::constant(0.5)?, (1.0, 3.0))?.family(Family::Rings); // constant tone 0.5: width 2
     let drawn = region.bands(&bands)?;
     // rings at radii 5, 15, 25, 35 are whole; 45 is cut by the region
     for (radius, whole) in [(5.0, true), (15.0, true), (25.0, true), (35.0, true)] {
@@ -70,7 +70,7 @@ fn rings_are_closed_outlines_with_the_hole_inside() -> Outcome {
 #[test]
 fn the_spiral_arms_are_one_spacing_apart_along_a_ray() -> Outcome {
     let region = Path::circle((100.0, 100.0), 90.0)?;
-    let bands = Bands::spiral(12.0, Field::constant(0.5)?, (2.0, 2.0))?;
+    let bands = Bands::new(12.0, Field::constant(0.5)?, (2.0, 2.0))?.family(Family::Spiral);
     let drawn = region.bands(&bands)?;
     // walk out along the +x ray: the centers of the runs inside the bands are 12 apart
     let mut centers = Vec::new();
@@ -100,7 +100,9 @@ fn the_spiral_arms_are_one_spacing_apart_along_a_ray() -> Outcome {
 #[test]
 fn rays_are_as_many_as_fit_round_the_farthest_corner() -> Outcome {
     let region = Path::circle((50.0, 50.0), 40.0)?;
-    let bands = Bands::rays(10.0, Field::constant(0.5)?, (1.0, 1.0))?.center((50.0, 50.0))?;
+    let bands = Bands::new(10.0, Field::constant(0.5)?, (1.0, 1.0))?
+        .family(Family::Rays)
+        .center((50.0, 50.0));
     let drawn = region.bands(&bands)?;
     // the bounding box corner is 40 sqrt 2 = 56.57 from the center: 2 pi 56.57 / 10 = 35.5, so 36 rays
     let mut runs = 0;
@@ -121,7 +123,10 @@ fn rays_are_as_many_as_fit_round_the_farthest_corner() -> Outcome {
 #[test]
 fn waves_follow_a_sine_across_the_lines() -> Outcome {
     // a wave is measured in design pixels: 40 long and 3 high, on lines 20 apart
-    let bands = Bands::waves(20.0, Field::constant(0.5)?, (2.0, 2.0), 40.0, 3.0)?;
+    let bands = Bands::new(20.0, Field::constant(0.5)?, (2.0, 2.0))?
+        .family(Family::Waves)
+        .wavelength(40.0)
+        .amplitude(3.0);
     let drawn = rect(120.0, 40.0)?.bands(&bands)?;
     for k in 2..58 {
         let x = f64::from(k) * 2.0;
@@ -137,8 +142,7 @@ fn waves_follow_a_sine_across_the_lines() -> Outcome {
 #[test]
 fn straight_lines_lie_on_a_lattice_through_the_origin_not_on_the_shapes_box() -> Outcome {
     // a box from y = 3 to 33: the lines are at (k + 1/2) spacings from y = 0, so 5, 15 and 25, not 8, 18 and 28
-    let drawn =
-        Path::rect(0.0, 3.0, 100.0, 30.0, 0.0)?.bands(&Bands::lines(10.0, Field::constant(0.5)?, (2.0, 2.0))?)?;
+    let drawn = Path::rect(0.0, 3.0, 100.0, 30.0, 0.0)?.bands(&Bands::new(10.0, Field::constant(0.5)?, (2.0, 2.0))?)?;
     for x in [10.0, 50.0, 90.0] {
         for y in [5.0, 15.0, 25.0] {
             assert!(drawn.contains((x, y))?, "a line at {y}");
@@ -175,9 +179,13 @@ fn the_bands_of_two_shapes_together_are_the_bands_of_each() -> Outcome {
     let both = Path::from_svg_path(&format!("{} {}", first.to_svg_path(), second.to_svg_path()))?;
     let tone = Field::ramp((0.0, 0.0), (90.0, 40.0))?;
     for bands in [
-        Bands::lines(7.0, tone.clone(), (0.5, 3.0))?,
-        Bands::lines(7.0, tone.clone(), (0.5, 3.0))?.angle(30.0)?,
-        Bands::waves(7.0, tone.clone(), (0.5, 3.0), 25.0, 4.0)?.angle(-20.0)?,
+        Bands::new(7.0, tone.clone(), (0.5, 3.0))?,
+        Bands::new(7.0, tone.clone(), (0.5, 3.0))?.angle(30.0),
+        Bands::new(7.0, tone.clone(), (0.5, 3.0))?
+            .family(Family::Waves)
+            .wavelength(25.0)
+            .amplitude(4.0)
+            .angle(-20.0),
     ] {
         let apart = Path::from_svg_path(&format!(
             "{} {}",
@@ -193,9 +201,9 @@ fn the_bands_of_two_shapes_together_are_the_bands_of_each() -> Outcome {
 fn bands_stay_inside_the_region_up_to_half_their_width() -> Outcome {
     let region = Path::circle((60.0, 60.0), 50.0)?;
     for bands in [
-        Bands::lines(7.0, Field::constant(1.0)?, (1.0, 4.0))?.angle(30.0)?,
-        Bands::spiral(7.0, Field::constant(1.0)?, (1.0, 4.0))?,
-        Bands::rays(7.0, Field::constant(1.0)?, (1.0, 4.0))?,
+        Bands::new(7.0, Field::constant(1.0)?, (1.0, 4.0))?.angle(30.0),
+        Bands::new(7.0, Field::constant(1.0)?, (1.0, 4.0))?.family(Family::Spiral),
+        Bands::new(7.0, Field::constant(1.0)?, (1.0, 4.0))?.family(Family::Rays),
     ] {
         for (points, _) in lines(&region.bands(&bands)?)? {
             for p in points {
@@ -213,35 +221,38 @@ fn what_it_cannot_make_is_refused_naming_the_argument() -> Outcome {
     let call = |bands: Result<Bands, bullterrier_vector::Error>| bands.and_then(|bands| region.bands(&bands));
     for spacing in [0.0, -2.0, f64::NAN, f64::INFINITY] {
         assert_eq!(
-            parameter_refusal(call(Bands::lines(spacing, flat()?, (1.0, 2.0))))?.0,
+            parameter_refusal(call(Bands::new(spacing, flat()?, (1.0, 2.0))))?.0,
             "spacing"
         );
     }
     for width in [(-1.0, 2.0), (1.0, f64::NAN), (f64::INFINITY, 1.0), (1.0, 1e101)] {
         assert_eq!(
-            parameter_refusal(call(Bands::lines(5.0, flat()?, width)))?.0,
+            parameter_refusal(call(Bands::new(5.0, flat()?, width)))?.0,
             "width",
             "{width:?}"
         );
     }
     assert_eq!(
-        parameter_refusal(call(Bands::waves(5.0, flat()?, (1.0, 1.0), 0.0, 1.0)))?.0,
+        parameter_refusal(call(Ok(Bands::new(5.0, flat()?, (1.0, 1.0))?
+            .family(Family::Waves)
+            .wavelength(0.0))))?
+        .0,
         "wavelength"
     );
     assert_eq!(
-        parameter_refusal(call(Bands::waves(5.0, flat()?, (1.0, 1.0), 10.0, f64::NAN)))?.0,
+        parameter_refusal(call(Ok(Bands::new(5.0, flat()?, (1.0, 1.0))?
+            .family(Family::Waves)
+            .amplitude(f64::NAN))))?
+        .0,
         "amplitude"
     );
     assert_eq!(
-        parameter_refusal(call(
-            Bands::lines(5.0, flat()?, (1.0, 1.0)).and_then(|b| b.angle(f64::NAN))
-        ))?
-        .0,
+        parameter_refusal(call(Bands::new(5.0, flat()?, (1.0, 1.0)).map(|b| b.angle(f64::NAN))))?.0,
         "angle"
     );
     assert_eq!(
         parameter_refusal(call(
-            Bands::rings(5.0, flat()?, (1.0, 1.0)).and_then(|b| b.center(Point::new(f64::NAN, 0.0)))
+            Bands::new(5.0, flat()?, (1.0, 1.0)).map(|b| b.family(Family::Rings).center(Point::new(f64::NAN, 0.0)))
         ))?
         .0,
         "center"
@@ -249,17 +260,15 @@ fn what_it_cannot_make_is_refused_naming_the_argument() -> Outcome {
     // too many: a tiny spacing over a big region, rays from a center far away
     let big = rect(1e5, 1e5)?;
     assert_eq!(
-        parameter_refusal(big.bands(&Bands::lines(0.01, flat()?, (0.0, 0.01))?))?.0,
+        parameter_refusal(big.bands(&Bands::new(0.01, flat()?, (0.0, 0.01))?))?.0,
         "spacing"
     );
     assert_eq!(
-        parameter_refusal(big.bands(&Bands::rays(1.0, flat()?, (0.0, 0.01))?))?.0,
+        parameter_refusal(big.bands(&Bands::new(1.0, flat()?, (0.0, 0.01))?.family(Family::Rays)))?.0,
         "spacing"
     );
     assert_eq!(
-        Path::new()
-            .bands(&Bands::lines(5.0, flat()?, (1.0, 1.0))?)?
-            .to_svg_path(),
+        Path::new().bands(&Bands::new(5.0, flat()?, (1.0, 1.0))?)?.to_svg_path(),
         ""
     );
     Ok(())
@@ -267,7 +276,7 @@ fn what_it_cannot_make_is_refused_naming_the_argument() -> Outcome {
 
 #[test]
 fn the_same_call_gives_the_same_bands() -> Outcome {
-    let bands = Bands::spiral(6.0, Field::ramp((0.0, 0.0), (90.0, 50.0))?, (0.5, 3.0))?;
+    let bands = Bands::new(6.0, Field::ramp((0.0, 0.0), (90.0, 50.0))?, (0.5, 3.0))?.family(Family::Spiral);
     let region = rect(90.0, 60.0)?;
     assert_eq!(region.bands(&bands)?.to_svg_path(), region.bands(&bands)?.to_svg_path());
     Ok(())

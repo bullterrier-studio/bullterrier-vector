@@ -2,7 +2,7 @@
 //! naming the argument that causes it, and a region that fills nothing gives an empty path in all three.
 
 use crate::common::{Outcome, parameter_refusal};
-use bullterrier_vector::{Bands, Field, Path, Point, Rows, Stipple};
+use bullterrier_vector::{Bands, Family, Field, Path, Point, Rows, Stipple};
 
 fn flat() -> Result<Field, bullterrier_vector::Error> {
     Field::constant(0.5)
@@ -11,9 +11,9 @@ fn flat() -> Result<Field, bullterrier_vector::Error> {
 fn bands_of(family: &str) -> Result<Bands, bullterrier_vector::Error> {
     let (spacing, width) = (10.0, (1.0, 3.0));
     match family {
-        "rings" => Bands::rings(spacing, flat()?, width),
-        "spiral" => Bands::spiral(spacing, flat()?, width),
-        _ => Bands::rays(spacing, flat()?, width),
+        "rings" => Ok(Bands::new(spacing, flat()?, width)?.family(Family::Rings)),
+        "spiral" => Ok(Bands::new(spacing, flat()?, width)?.family(Family::Spiral)),
+        _ => Ok(Bands::new(spacing, flat()?, width)?.family(Family::Rays)),
     }
 }
 
@@ -31,7 +31,7 @@ fn a_center_too_far_to_draw_round_is_refused_naming_the_center() -> Outcome {
     let region = Path::rect(0.0, 0.0, 100.0, 100.0, 0.0)?;
     for family in ["rings", "spiral", "rays"] {
         for center in [(1e20, 1e20), (1e8, 0.0)] {
-            let bands = bands_of(family)?.center(Point::new(center.0, center.1))?;
+            let bands = bands_of(family)?.center(Point::new(center.0, center.1));
             let (name, _) = parameter_refusal(region.bands(&bands))?;
             assert_eq!(name, "center", "{family} {center:?}");
         }
@@ -49,7 +49,7 @@ fn a_region_that_fills_nothing_gives_an_empty_path_in_every_verb() -> Outcome {
         assert_eq!(rows.to_svg_path(), "", "rows of {what}");
         let stipple = region.stipple(&Stipple::new(5.0, flat()?, (1.0, 1.0))?)?;
         assert_eq!(stipple.to_svg_path(), "", "stipple of {what}");
-        let lines = region.bands(&Bands::lines(5.0, flat()?, (1.0, 3.0))?)?;
+        let lines = region.bands(&Bands::new(5.0, flat()?, (1.0, 3.0))?)?;
         assert_eq!(lines.to_svg_path(), "", "lines of {what}");
         for family in ["rings", "spiral", "rays"] {
             let drawn = region.bands(&bands_of(family)?)?;
@@ -64,7 +64,7 @@ fn a_small_shape_far_from_the_origin_lays_only_the_rows_near_it() -> Outcome {
     // the lattice runs through the origin, but only its rows inside the box are made: 10 at spacing 1, not a million
     let far = Path::rect(1e6, 1e6, 10.0, 10.0, 0.0)?;
     assert_eq!(
-        far.bands(&Bands::lines(1.0, flat()?, (0.2, 0.2))?)?
+        far.bands(&Bands::new(1.0, flat()?, (0.2, 0.2))?)?
             .to_svg_path()
             .matches('M')
             .count(),

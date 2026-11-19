@@ -39,7 +39,7 @@ impl Drawing {
                 ("spacing", Given::Number(bands.spacing_of().clone())),
                 ("tone", Given::Field(bands.tone_of().clone())),
                 ("width", Given::Pair(thin.clone(), thick.clone())),
-                ("family", Given::Text(bands.family().name().to_owned())),
+                ("family", Given::Text(bands.family_of().name().to_owned())),
                 ("angle", number(bands.angle_of())),
                 ("wavelength", number(bands.wavelength_of())),
                 ("amplitude", number(bands.amplitude_of())),

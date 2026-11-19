@@ -8,7 +8,9 @@
     reason = "the counts of lines and samples are checked against MAX_SAMPLES before they are used"
 )]
 
-use super::layout::{Distances, Family, Layout, corners, lattice, middle, polar};
+use super::layout::{
+    DEFAULT_AMPLITUDE, DEFAULT_WAVELENGTH, Distances, Family, Layout, corners, lattice, middle, polar,
+};
 use crate::field::{Field, length, once, read};
 use crate::geometry::{MAX_COORDINATE, Point, coordinate_point};
 use crate::path::Path;
@@ -42,14 +44,22 @@ pub struct Bands {
 }
 
 impl Bands {
-    fn made(
-        family: Family,
+    /// Lines `spacing` design pixels apart, laid as [`Bands::family`] says (default [`Family::Lines`]), each as wide at
+    /// a point as `width` says: `width.0` where the `tone` is 0, `width.1` where it is 1, linear between and held
+    /// beyond (a tone is read where the center of the line is). Straight lines run along the direction of
+    /// [`Bands::angle`] (0: left to right) on the lattice through the origin of the design frame: half a spacing from
+    /// it, then every spacing, whatever the region's box. Every number is a number or an expression of Params, read
+    /// once.
+    ///
+    /// # Errors
+    /// [`Error::Parameter`] naming `spacing` or `width` if it is a per-item number.
+    pub fn new(
         spacing: impl Into<Expr>,
         tone: Field,
         width: (impl Into<Expr>, impl Into<Expr>),
     ) -> Result<Self, Error> {
         Ok(Self {
-            family,
+            family: Family::Lines,
             spacing: once("spacing", &spacing.into())?,
             tone,
             width: (once("width", &width.0.into())?, once("width", &width.1.into())?),
@@ -60,102 +70,51 @@ impl Bands {
         })
     }
 
-    /// Straight lines `spacing` design pixels apart, along the direction of [`Bands::angle`] (0: left to right),  on
-    /// the lattice through the origin of the design frame: half a spacing from it, then every spacing, whatever the
-    /// region's box. Each is as wide at a point as `width` says: `width.0` where
-    /// the `tone` is 0, `width.1` where it is 1, linear between and held beyond (a tone is read where the center of the
-    /// line is). Every number is a number or an expression of Params, read once.
-    ///
-    /// # Errors
-    /// [`Error::Parameter`] naming `spacing` or `width` if it is a per-item number.
-    pub fn lines(
-        spacing: impl Into<Expr>,
-        tone: Field,
-        width: (impl Into<Expr>, impl Into<Expr>),
-    ) -> Result<Self, Error> {
-        Self::made(Family::Lines, spacing, tone, width)
-    }
-
-    /// As [`Bands::lines`], each line a sine across the lines: `amplitude` design pixels high, one `wavelength`
-    /// design pixels long, in phase at the origin of the lines' direction.
-    ///
-    /// # Errors
-    /// As [`Bands::lines`], and naming `wavelength` or `amplitude` if it is a per-item number.
-    pub fn waves(
-        spacing: impl Into<Expr>,
-        tone: Field,
-        width: (impl Into<Expr>, impl Into<Expr>),
-        wavelength: impl Into<Expr>,
-        amplitude: impl Into<Expr>,
-    ) -> Result<Self, Error> {
-        let mut bands = Self::made(Family::Waves, spacing, tone, width)?;
-        bands.wavelength = Some(once("wavelength", &wavelength.into())?);
-        bands.amplitude = Some(once("amplitude", &amplitude.into())?);
-        Ok(bands)
-    }
-
-    /// Rings round [`Bands::center`] (the middle of the region's bounding box by default), `spacing` apart, the first
-    /// half a spacing out.
-    ///
-    /// # Errors
-    /// As [`Bands::lines`].
-    pub fn rings(
-        spacing: impl Into<Expr>,
-        tone: Field,
-        width: (impl Into<Expr>, impl Into<Expr>),
-    ) -> Result<Self, Error> {
-        Self::made(Family::Rings, spacing, tone, width)
-    }
-
-    /// An Archimedean spiral out of [`Bands::center`], its arms `spacing` apart along any ray from the center; the
-    /// spiral is at radius 0 at angle [`Bands::angle`], and turns clockwise on the screen.
-    ///
-    /// # Errors
-    /// As [`Bands::lines`].
-    pub fn spiral(
-        spacing: impl Into<Expr>,
-        tone: Field,
-        width: (impl Into<Expr>, impl Into<Expr>),
-    ) -> Result<Self, Error> {
-        Self::made(Family::Spiral, spacing, tone, width)
-    }
-
-    /// Straight rays out of [`Bands::center`], as many as are `spacing` apart round the farthest corner of the
-    /// region's bounding box, the first at angle [`Bands::angle`].
-    ///
-    /// # Errors
-    /// As [`Bands::lines`].
-    pub fn rays(
-        spacing: impl Into<Expr>,
-        tone: Field,
-        width: (impl Into<Expr>, impl Into<Expr>),
-    ) -> Result<Self, Error> {
-        Self::made(Family::Rays, spacing, tone, width)
+    /// These bands laid as `family`: [`Family::Lines`]; [`Family::Waves`], each line a sine across the lines,
+    /// [`Bands::amplitude`] high and [`Bands::wavelength`] long, in phase at the origin of the lines' direction;
+    /// [`Family::Rings`] round [`Bands::center`], the first half a spacing out; [`Family::Spiral`], an Archimedean
+    /// spiral out of the center, its arms `spacing` apart along any ray, at radius 0 at angle [`Bands::angle`],
+    /// turning clockwise on the screen; or [`Family::Rays`], straight rays out of the center, as many as are `spacing`
+    /// apart round the farthest corner of the region's bounding box, the first at angle [`Bands::angle`].
+    #[must_use]
+    pub fn family(mut self, family: Family) -> Self {
+        self.family = family;
+        self
     }
 
     /// The direction of the lines and waves, or the turn of the spiral and the rays, in degrees (default 0), clockwise
-    /// on the screen.
-    ///
-    /// # Errors
-    /// [`Error::Parameter`] naming `angle` for rings, which have no direction; or if it is a per-item number.
-    pub fn angle(mut self, degrees: impl Into<Expr>) -> Result<Self, Error> {
-        self.family.refuse_unread("angle")?;
-        self.angle = Some(once("angle", &degrees.into())?);
-        Ok(self)
+    /// on the screen; rings have none and are refused one.
+    #[must_use]
+    pub fn angle(mut self, degrees: impl Into<Expr>) -> Self {
+        self.angle = Some(degrees.into());
+        self
     }
 
-    /// The center of rings, the spiral and rays (default: the middle of the region's bounding box).
-    ///
-    /// # Errors
-    /// [`Error::Parameter`] naming `center` for lines and waves, which have none.
-    pub fn center(mut self, center: impl Into<Point>) -> Result<Self, Error> {
-        self.family.refuse_unread("center")?;
+    /// The center of rings, the spiral and rays (default: the middle of the region's bounding box); lines and waves
+    /// have none and are refused one.
+    #[must_use]
+    pub fn center(mut self, center: impl Into<Point>) -> Self {
         let center = center.into();
         self.center = Some((Expr::from(center.x), Expr::from(center.y)));
-        Ok(self)
+        self
     }
 
-    pub(crate) fn family(&self) -> Family {
+    /// How long a wave of [`Family::Waves`] is, in design pixels, above 0 (default 48); other families are refused
+    /// one.
+    #[must_use]
+    pub fn wavelength(mut self, wavelength: impl Into<Expr>) -> Self {
+        self.wavelength = Some(wavelength.into());
+        self
+    }
+
+    /// How high a wave of [`Family::Waves`] swings, in design pixels (default 8); other families are refused one.
+    #[must_use]
+    pub fn amplitude(mut self, amplitude: impl Into<Expr>) -> Self {
+        self.amplitude = Some(amplitude.into());
+        self
+    }
+
+    pub(crate) fn family_of(&self) -> Family {
         self.family
     }
 
@@ -187,37 +146,33 @@ impl Bands {
         self.center.as_ref()
     }
 
-    /// The numbers of these bands with the Params at `values`.
+    /// The numbers of these bands with the Params at `values`: an optional number given to a family that does not
+    /// read it, or a per-item one, is refused.
     fn plan(&self, values: &Values) -> Result<Plan, Error> {
-        Ok(Plan {
-            family: self.family,
-            spacing: read("spacing", &self.spacing, values)?,
-            width: (
+        let optional = |name: &str, expr: Option<&Expr>| -> Result<Option<f64>, Error> {
+            let Some(expr) = expr else { return Ok(None) };
+            self.family.refuse_unread(name)?;
+            read(name, &once(name, expr)?, values).map(Some)
+        };
+        let center = match &self.center {
+            Some((x, y)) => {
+                self.family.refuse_unread("center")?;
+                Some(Point::new(read("center", x, values)?, read("center", y, values)?))
+            }
+            None => None,
+        };
+        Ok(Plan::new(
+            self.family,
+            read("spacing", &self.spacing, values)?,
+            (
                 read("width", &self.width.0, values)?,
                 read("width", &self.width.1, values)?,
             ),
-            angle: self
-                .angle
-                .as_ref()
-                .map(|e| read("angle", e, values))
-                .transpose()?
-                .unwrap_or(0.0),
-            wavelength: self
-                .wavelength
-                .as_ref()
-                .map(|e| read("wavelength", e, values))
-                .transpose()?,
-            amplitude: self
-                .amplitude
-                .as_ref()
-                .map(|e| read("amplitude", e, values))
-                .transpose()?,
-            center: self
-                .center
-                .as_ref()
-                .map(|(x, y)| Ok::<_, Error>(Point::new(read("center", x, values)?, read("center", y, values)?)))
-                .transpose()?,
-        })
+            optional("angle", self.angle.as_ref())?,
+            optional("wavelength", self.wavelength.as_ref())?,
+            optional("amplitude", self.amplitude.as_ref())?,
+            center,
+        ))
     }
 }
 
@@ -228,19 +183,41 @@ pub(crate) struct Plan {
     pub(crate) spacing: f64,
     pub(crate) width: (f64, f64),
     pub(crate) angle: f64,
-    pub(crate) wavelength: Option<f64>,
-    pub(crate) amplitude: Option<f64>,
+    pub(crate) wavelength: f64,
+    pub(crate) amplitude: f64,
     pub(crate) center: Option<Point>,
 }
 
 impl Plan {
+    /// The plan of these numbers, an optional one left out taking its default: an angle of 0, a wave
+    /// [`DEFAULT_WAVELENGTH`] long and [`DEFAULT_AMPLITUDE`] high, the middle of the region's box for the center.
+    pub(crate) fn new(
+        family: Family,
+        spacing: f64,
+        width: (f64, f64),
+        angle: Option<f64>,
+        wavelength: Option<f64>,
+        amplitude: Option<f64>,
+        center: Option<Point>,
+    ) -> Self {
+        Self {
+            family,
+            spacing,
+            width,
+            angle: angle.unwrap_or(0.0),
+            wavelength: wavelength.unwrap_or(DEFAULT_WAVELENGTH),
+            amplitude: amplitude.unwrap_or(DEFAULT_AMPLITUDE),
+            center,
+        }
+    }
+
     /// Where the rows of this plan lie.
     fn layout(&self) -> Layout {
         Layout {
             family: self.family,
             spacing: self.spacing,
             angle: self.angle,
-            wave: self.wavelength.zip(self.amplitude),
+            wave: (self.wavelength, self.amplitude),
         }
     }
 
@@ -265,17 +242,14 @@ impl Plan {
                 format!("must be a number, got {}", self.angle),
             ));
         }
-        if let Some(wavelength) = self.wavelength
-            && !(wavelength.is_finite() && wavelength > 0.0 && wavelength <= MAX_COORDINATE)
-        {
+        let (wavelength, amplitude) = (self.wavelength, self.amplitude);
+        if !(wavelength.is_finite() && wavelength > 0.0 && wavelength <= MAX_COORDINATE) {
             return Err(Error::parameter(
                 "wavelength",
                 format!("must be above 0, got {wavelength}"),
             ));
         }
-        if let Some(amplitude) = self.amplitude
-            && !(amplitude.is_finite() && amplitude.abs() <= MAX_COORDINATE)
-        {
+        if !(amplitude.is_finite() && amplitude.abs() <= MAX_COORDINATE) {
             return Err(Error::parameter(
                 "amplitude",
                 format!("must be a number, got {amplitude}"),
@@ -291,7 +265,7 @@ impl Plan {
 impl Path {
     /// Lines whose width follows a tone, inside the region this path fills (nonzero rule): the carrier of `bands` laid over the region, cut to it
     /// (a line is kept where its center is inside), each piece outlined as wide at every point as the tone there asks (see
-    /// [`Bands::lines`]). A piece is one closed outline; a ring that lies whole inside the region is two loops, the inner
+    /// [`Bands::new`]). A piece is one closed outline; a ring that lies whole inside the region is two loops, the inner
     /// one the other way, so that the nonzero rule leaves the hole open. A Param is read at its default here; a `bands`
     /// step reads it with the values it draws with. The result is for filling. An empty path gives an empty path.
     ///
@@ -299,7 +273,8 @@ impl Path {
     /// [`Error::Parameter`] naming `spacing` if it is not above 0 and a coordinate, if the carrier would need more than
     /// 2 million points, or if a step of it would not move at the region's coordinates; naming `width` unless both
     /// widths are numbers from 0 to 1e100; `angle`, `wavelength` (above 0), `amplitude` or `center` unless it is a
-    /// number within ±1e100; naming `spacing` past `MAX_SEGMENTS` points.
+    /// number within ±1e100, if the family does not read it, or if it is a per-item number; naming `spacing` past
+    /// `MAX_SEGMENTS` points.
     pub fn bands(&self, bands: &Bands) -> Result<Path, Error> {
         let plan = bands.plan(&Values::new())?;
         self.bands_charged(&plan, &bands.tone, &mut crate::field::segment_budget("spacing"))
@@ -380,7 +355,7 @@ fn straight(plan: &Plan, corners: &[Point; 4], step: f64) -> Result<Vec<Carried>
     let (u_min, u_max) = range(corners.iter().map(|p| layout.frame(*p).0));
     let (n_min, n_max) = range(corners.iter().map(|p| layout.frame(*p).1));
     let swing = if plan.family == Family::Waves {
-        plan.amplitude.map_or(0.0, f64::abs)
+        plan.amplitude.abs()
     } else {
         0.0
     };

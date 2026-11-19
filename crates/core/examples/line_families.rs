@@ -4,7 +4,9 @@
 //! `cargo run -p bullterrier-vector --example line_families` prints the size of the SVG of each frame (still, plot);
 //! `... --example line_families -- still` writes the SVG of one to standard output.
 
-use bullterrier_vector::{Bands, Color, Drawing, Error, Field, Path, Plot, Rows, Size, Stipple, Stroke, Values};
+use bullterrier_vector::{
+    Bands, Color, Drawing, Error, Family, Field, Path, Plot, Rows, Size, Stipple, Stroke, Values,
+};
 use std::io::Write;
 
 const WIDTH: f64 = 1080.0;
@@ -19,7 +21,7 @@ fn line_families() -> Result<Drawing, Error> {
             .rows(&Rows::new(8.0, tone(0.0)?, 70.0)?)
             .stroke(Stroke::new(ink).width(1.2)),
         Drawing::from(hill(1.0)?)
-            .bands(&Bands::rings(8.0, tone(1.0)?, (5.0, 0.6))?)
+            .bands(&Bands::new(8.0, tone(1.0)?, (5.0, 0.6))?.family(Family::Rings))
             .fill(ink),
         Drawing::from(hill(2.0)?)
             .stipple(&Stipple::new(6.0, tone(2.0)?, (1.6, 1.6))?.seed(2.0))

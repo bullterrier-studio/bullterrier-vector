@@ -17,6 +17,17 @@ use std::f64::consts::{PI, TAU};
 // blob; bullterrier-image keeps the same bound (`NARROWEST_RAY`)
 const NARROWEST_RAY: f64 = 0.5;
 
+/// How long a wave of [`Family::Waves`] is when none is given, in design pixels, for `bands` and `halftone` alike.
+// constant: api.md "Style" (`wavelength=48`): six default halftone cells (8) to a wave, enough to read as a wave and
+// not as a zigzag
+pub(crate) const DEFAULT_WAVELENGTH: f64 = 48.0;
+
+/// How high a wave of [`Family::Waves`] swings its rows when none is given, in design pixels, for `bands` and
+/// `halftone` alike.
+// constant: api.md "Style" (`amplitude=8`): a row moves a default halftone cell (8) up and down, so the waves are
+// plain at a glance
+pub(crate) const DEFAULT_AMPLITUDE: f64 = 8.0;
+
 /// Where the rows of `bands` and the cells of a `halftone` lie: the one word list both take as `family`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Family {
@@ -95,8 +106,8 @@ pub(crate) struct Layout {
     pub(crate) spacing: f64,
     /// The turn in degrees.
     pub(crate) angle: f64,
-    /// The `(wavelength, amplitude)` of waves, in design pixels.
-    pub(crate) wave: Option<(f64, f64)>,
+    /// The `(wavelength, amplitude)` of waves, in design pixels; read by [`Family::Waves`] only.
+    pub(crate) wave: (f64, f64),
 }
 
 /// The lines of a lattice through the origin of the design frame that fall in the span `low..=high`: the indices `k`,
@@ -248,9 +259,11 @@ impl Layout {
     /// The point `along` the rows of the straight family and `across` them, a wave's lift added across.
     pub(crate) fn straight(&self, along: f64, across: f64) -> Point {
         let (sin, cos) = sin_cos_deg(self.angle);
-        let lift = match self.wave {
-            Some((length, height)) if self.family == Family::Waves => height * sin_cos(TAU * along / length).0,
-            _ => 0.0,
+        let lift = if self.family == Family::Waves {
+            let (length, height) = self.wave;
+            height * sin_cos(TAU * along / length).0
+        } else {
+            0.0
         };
         let n = across + lift;
         Point::new(along * cos - n * sin, along * sin + n * cos)

@@ -100,11 +100,16 @@ fn the_schema_describes_rows_and_a_bad_document_is_refused_with_a_pointer() -> O
 fn every_family() -> Result<Vec<Bands>, Error> {
     let t = || Field::ramp((0.0, 0.0), (120.0, 90.0));
     Ok(vec![
-        Bands::lines(9.0, t()?, (0.5, 4.0))?.angle(20.0)?,
-        Bands::waves(9.0, t()?, (0.5, 4.0), 30.0, 3.0)?,
-        Bands::rings(9.0, t()?, (0.5, 4.0))?.center((30.0, 20.0))?,
-        Bands::spiral(9.0, t()?, (0.5, 4.0))?,
-        Bands::rays(9.0, t()?, (0.5, 4.0))?.angle(10.0)?,
+        Bands::new(9.0, t()?, (0.5, 4.0))?.angle(20.0),
+        Bands::new(9.0, t()?, (0.5, 4.0))?
+            .family(Family::Waves)
+            .wavelength(30.0)
+            .amplitude(3.0),
+        Bands::new(9.0, t()?, (0.5, 4.0))?
+            .center((30.0, 20.0))
+            .family(Family::Rings),
+        Bands::new(9.0, t()?, (0.5, 4.0))?.family(Family::Spiral),
+        Bands::new(9.0, t()?, (0.5, 4.0))?.family(Family::Rays).angle(10.0),
     ])
 }
 
@@ -122,7 +127,7 @@ fn the_bands_step_is_the_path_call_of_each_shape_for_every_family() -> Outcome {
 fn a_param_in_a_bands_number_is_read_with_the_values_of_the_draw() -> Outcome {
     let thick = Param::new("thick", 1.0, 0.5, 6.0)?;
     let turn = Param::new("turn", 0.0, 0.0, 90.0)?;
-    let drawing = Drawing::from(rect()?).bands(&Bands::lines(9.0, tone()?, (0.5, &thick))?.angle(&turn)?);
+    let drawing = Drawing::from(rect()?).bands(&Bands::new(9.0, tone()?, (0.5, &thick))?.angle(&turn));
     assert_eq!(drawing.parameters()?.len(), 2);
     let at = |thick: f64, turn: f64| svg(&drawing, &Values::new().set("thick", thick).set("turn", turn));
     assert_eq!(at(1.0, 0.0)?, svg(&drawing, &Values::new())?);
@@ -144,6 +149,28 @@ fn a_bands_document_reads_back_to_the_same_outlines_and_the_same_text() -> Outco
 }
 
 #[test]
+fn waves_left_unsized_are_48_long_and_8_high_in_the_path_the_step_and_a_document() -> Outcome {
+    let waves = Bands::new(9.0, tone()?, (0.5, 4.0))?.family(Family::Waves);
+    let sized = rect()?
+        .bands(&waves.clone().wavelength(48.0).amplitude(8.0))?
+        .to_svg_path();
+    assert_eq!(rect()?.bands(&waves)?.to_svg_path(), sized);
+    assert_eq!(svg(&Drawing::from(rect()?).bands(&waves), &Values::new())?, sized);
+    let text = Drawing::from(rect()?).bands(&waves).to_json()?;
+    assert!(!text.contains("wavelength"), "{text}");
+    assert_eq!(svg(&Drawing::from_json(&text, &Inputs::new())?, &Values::new())?, sized);
+    Ok(())
+}
+
+#[test]
+fn a_family_set_after_its_center_reads_it() -> Outcome {
+    let rings = Bands::new(9.0, tone()?, (0.5, 4.0))?.center((30.0, 20.0));
+    assert!(rect()?.bands(&rings).is_err(), "lines have no center");
+    assert_ne!(rect()?.bands(&rings.family(Family::Rings))?.to_svg_path(), "");
+    Ok(())
+}
+
+#[test]
 fn a_bad_bands_document_is_refused_with_a_pointer() -> Outcome {
     let call =
         |args: &str| format!(r#"{{"version":1,"root":[{{"path":"M0 0 L50 0 L50 50 L0 50 Z"}},{{"bands":{args}}}]}}"#);
@@ -152,10 +179,6 @@ fn a_bad_bands_document_is_refused_with_a_pointer() -> Outcome {
         (
             r#"{"spacing":5,"tone":0.5,"width":[1,2],"family":"zigzag"}"#,
             "/root/1/bands/family",
-        ),
-        (
-            r#"{"spacing":5,"tone":0.5,"width":[1,2],"family":"waves"}"#,
-            "/root/1/bands/wavelength",
         ),
         (r#"{"spacing":5,"tone":0.5,"width":[-1,2]}"#, "/root/1/bands/width/0"),
         (
@@ -219,7 +242,7 @@ fn the_stipple_step_is_the_path_call_and_a_param_is_read_with_the_values_of_the_
 fn a_width_of_nothing_fades_a_band_away_in_the_path_the_step_and_a_document() -> Outcome {
     // tone 0 at the left, 1 at the right: the outline is a point at the left and 4 wide at the right
     let ramp = Field::ramp((0.0, 0.0), (120.0, 0.0))?;
-    let bands = Bands::lines(30.0, ramp, (0.0, 4.0))?;
+    let bands = Bands::new(30.0, ramp, (0.0, 4.0))?;
     let by_path = rect()?.bands(&bands)?;
     assert_eq!(
         svg(&Drawing::from(rect()?).bands(&bands), &Values::new())?,
@@ -238,23 +261,14 @@ fn a_width_of_nothing_fades_a_band_away_in_the_path_the_step_and_a_document() ->
 #[test]
 fn an_argument_the_family_does_not_read_is_refused_naming_it_and_the_family() -> Outcome {
     let flat = || Field::constant(0.5);
-    let refused = |bands: Result<Bands, Error>| -> Result<(String, String), Box<dyn std::error::Error>> {
-        parameter_refusal(bands)
-    };
+    let new = || Bands::new(5.0, flat()?, (1.0, 2.0));
     for (what, bands, argument) in [
-        (
-            "lines",
-            Bands::lines(5.0, flat()?, (1.0, 2.0))?.center((1.0, 1.0)),
-            "center",
-        ),
-        (
-            "waves",
-            Bands::waves(5.0, flat()?, (1.0, 2.0), 10.0, 1.0)?.center((1.0, 1.0)),
-            "center",
-        ),
-        ("rings", Bands::rings(5.0, flat()?, (1.0, 2.0))?.angle(10.0), "angle"),
+        ("lines", new()?.center((1.0, 1.0)), "center"),
+        ("waves", new()?.family(Family::Waves).center((1.0, 1.0)), "center"),
+        ("rings", new()?.family(Family::Rings).angle(10.0), "angle"),
+        ("rings", new()?.angle(10.0).family(Family::Rings), "angle"),
     ] {
-        let (name, message) = refused(bands)?;
+        let (name, message) = parameter_refusal(rect()?.bands(&bands))?;
         assert_eq!(name, argument);
         assert!(message.contains(what), "{message}");
     }

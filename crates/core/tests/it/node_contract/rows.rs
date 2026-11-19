@@ -2,9 +2,9 @@
 
 use crate::common::fonts::fraunces;
 use bullterrier_vector::{
-    Along, Arch, Bands, Branch, Bulge, Cap, Color, Dash, Deg, Drawing, Envelope, Error, Expr, Field, Flow, Gradient,
-    Hatch, Join, Merge, Outline, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select, Slice,
-    Spacing, Stipple, Text, Trace, Twist, Values, text,
+    Along, Arch, Bands, Branch, Bulge, Cap, Color, Dash, Deg, Drawing, Envelope, Error, Expr, Family, Field, Flow,
+    Gradient, Hatch, Join, Merge, Outline, Param, Path, PlaceAlong, Point, Rect, Rotate, Rows, Scale, ScaleBy, Select,
+    Slice, Spacing, Stipple, Text, Trace, Twist, Values, text,
 };
 
 /// A drawing made of a verb with one argument set from an expression, or the reason the row has no such argument.
@@ -1065,18 +1065,15 @@ pub(super) fn rows() -> Vec<Row> {
         },
         Row {
             verb: "bands",
-            sample: || Ok(square()?.bands(&Bands::lines(2.0, Field::constant(0.5)?, (1.0, 2.0))?)),
+            sample: || Ok(square()?.bands(&Bands::new(2.0, Field::constant(0.5)?, (1.0, 2.0))?)),
             with: Some(|argument, value| {
-                let waves = |wavelength: Expr, amplitude: Expr| {
-                    Bands::waves(2.0, Field::constant(0.5)?, (1.0, 2.0), wavelength, amplitude)
-                };
+                let waves =
+                    || Ok::<_, Error>(Bands::new(2.0, Field::constant(0.5)?, (1.0, 2.0))?.family(Family::Waves));
                 match argument {
-                    "spacing" => Ok(square()?.bands(&Bands::lines(value, Field::constant(0.5)?, (1.0, 2.0))?)),
-                    "angle" => {
-                        Ok(square()?.bands(&Bands::lines(2.0, Field::constant(0.5)?, (1.0, 2.0))?.angle(value)?))
-                    }
-                    "wavelength" => Ok(square()?.bands(&waves(value, Expr::from(1.0))?)),
-                    "amplitude" => Ok(square()?.bands(&waves(Expr::from(4.0), value)?)),
+                    "spacing" => Ok(square()?.bands(&Bands::new(value, Field::constant(0.5)?, (1.0, 2.0))?)),
+                    "angle" => Ok(square()?.bands(&Bands::new(2.0, Field::constant(0.5)?, (1.0, 2.0))?.angle(value))),
+                    "wavelength" => Ok(square()?.bands(&waves()?.wavelength(value).amplitude(1.0))),
+                    "amplitude" => Ok(square()?.bands(&waves()?.wavelength(4.0).amplitude(value))),
                     other => Err(unknown("bands", other)),
                 }
             }),

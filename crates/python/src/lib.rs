@@ -603,7 +603,7 @@ impl PyPath {
 
     /// Lines whose width follows a tone, laid over the region this path fills and outlined as wide at each point as `tone`
     /// asks: `width` is `(width where the tone is 0, where it is 1)`. `family` is `"lines"` (along `angle` degrees), `"waves"` (`wavelength`
-    /// long, `amplitude` high), `"rings"` or `"spiral"` round `center` (default the middle of the bounds) or `"rays"` out of
+    /// long, `amplitude` high, in design pixels: 48 and 8 by default), `"rings"` or `"spiral"` round `center` (default the middle of the bounds) or `"rays"` out of
     /// it. The result is closed outlines, so fill it.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
     #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=None, center=None, wavelength=None, amplitude=None))]
