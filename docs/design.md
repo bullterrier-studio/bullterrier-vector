@@ -144,7 +144,7 @@ svg = poster.to_svg(1080, 1350, progress=0.7)
 ```rust
 let poster = btvec::text("LOUD", Text::new(&font).size(400.0).axes([("wght", 800.0)]))
     .wobble(Wobble::new().amplitude(4.0).phase(0.25))
-    .slice(0.0, Stagger::new(&progress).spread(0.5))
+    .slice(0.0, Stagger::new(&progress).spread(0.5), Slice::new())
     .stroke(Stroke::new(Color::hex(0x15161a)).width(4.0));
 let svg = poster.to_svg(Size::px(1080.0, 1350.0), &Values::new().set("progress", 0.7))?;
 ```

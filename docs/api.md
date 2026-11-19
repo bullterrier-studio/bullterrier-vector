@@ -1280,9 +1280,10 @@ macOS). In Python and JavaScript the error points at the call that caused it; in
   the call read as a sentence (`text("NO", font=font)`, `halftone(INK, tone=photo)`);
   every option is keyword-only (`wobble(amplitude=3)`).
 - **A `Path` verb takes plain numbers; a Param is for a `Drawing` step.** A `Path` verb computes at once, so it has no
-  values to read a Param with: a `Param` or an expression given to one (`path.rows(spacing=gap)`, a `tone` of
-  `path.stipple`) is a `TypeError`, never read at its default. A `Field` is still a `tone` there (its own Params are
-  read at their defaults, as `field.at` reads them). Wrap the path in `btvec.Drawing(path)` to vary it.
+  values to read a Param with: in Python a `Param` or an expression given to one (`path.rows(spacing=gap)`, a `tone`
+  of `path.stipple`) is a `TypeError`, never read at its default. A `Field` is still a `tone` there (its own Params
+  are read at their defaults, as `field.at` reads them). Wrap the path in `btvec.Drawing(path)` to vary it. In Rust
+  the `Rows`, `Bands`, `Stipple` and `Hatch` a `Path` verb takes can hold a Param, read at its default.
 - **Defaults look good** with no tuning: a default comes from a gallery piece, not from a round number. The defaults
   written here (leading 1.2 × size, pitch 8, shadow 8 and 16, wavelengths 80, 120 and 400...) are placeholders until the
   batch that builds the step tunes them with its gallery piece.
@@ -1330,7 +1331,7 @@ document and draws it, so the table has no JavaScript column and the paragraph b
 |  | Python | Rust |
 |---|---|---|
 | Constructors | `btvec.Drawing(a, b, size=(w, h))`, `btvec.Font(data)`, `btvec.Param("rise", default=0, min=0, max=1)` | `Drawing::new([a, b]).with_size(w, h)`, `Drawing::from(path)`, `Font::new(data)?`, `Param::new("rise", 0.0, 0.0, 1.0)?.unit(Unit::Fraction)?` |
-| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7.0)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7.0) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`). A step with required arguments takes them in place and its options last, as one such value whose `new()` alone is every default: `along(&path, Along::new().near(p))`, `slice(0.0, 0.5, Slice::new())`, `dash([8.0, 4.0], Dash::new().phase(&march))`, `merge(Merge::new().by("word"))`, `outline(4.0, Outline::new().profile(taper))`; one method per step, never a second name for an option |
+| Options | keyword arguments | a value named after the step or function, built with `new` and setters (`Text::new(&font).size(560.0)`, `Random::new(-10.0, 10.0).seed(7.0)`); the required argument alone converts into it (`.rotate(Deg(30.0))`, `.stroke(color)`, `.scale(2.0)`; `Deg` takes anything that converts into an expression: `Deg(Random::new(-10.0, 10.0).seed(7.0) * &burst)`); built so far: `Rotate`, `ScaleBy`, `Stroke`, and `Select` for `only` and `without` (`Select::new().attribute("char", 'O')`). `along`, `envelope`, `place_along`, `slice`, `dash`, `merge` and `outline` take their required arguments in place and their options last, as one such value whose `new()` alone is every default: `along(&path, Along::new().near(p))`, `slice(0.0, 0.5, Slice::new())`, `dash([8.0, 4.0], Dash::new().phase(&march))`, `merge(Merge::new().by("word"))`, `outline(4.0, Outline::new().profile(taper))`; one method per step, never a second name for an option. `offset`, `sweep`, `wobble`, the booleans' `tolerance` and `hatch`'s `avoid` are still positional |
 | Expressions | operators: `1 + 0.08 * pulse` | operators on `Param`, `Expr` and their references, so nothing is cloned: `1.0 + 0.08 * &pulse`, `0.6 * &misregistration` |
 | Draw-time values | keyword arguments: `to_png(1080, 1350, weight=820)` | `&Values::new().set("weight", 820.0)` |
 | Output options | keywords beside the values: `to_mesh(w, h, into=mesh, **values)`, `to_plot_svg(w, h, pen_width=0.5, tolerance=None, unit="mm", **values)` (so no Param may take `into`, `pen_width`, `tolerance`, `unit` or `window`) | a last argument after the values: `to_mesh(size, &values, &mut mesh)`, `to_plot_svg(Size::px(300.0, 375.0), &values, &Plot::new(0.5)?.unit(PlotUnit::Mm))` |
