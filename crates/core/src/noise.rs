@@ -9,6 +9,26 @@
 
 use crate::Error;
 use crate::expr::{splitmix, whole_seed};
+use crate::geometry::MAX_COORDINATE;
+
+/// The shortest wavelength of noise, in design pixels.
+// constant: a coordinate within ±1e100 (`MAX_COORDINATE`) read at the eighth octave of `Field::noise` (128 times finer)
+// over 1e-200 is 1.28e302, below the largest float (1.8e308); a shorter wavelength would overflow the cell to infinity,
+// and the noise to NaN
+const MIN_WAVELENGTH: f64 = 1e-200;
+
+/// `wavelength`, or the error naming it unless it is from [`MIN_WAVELENGTH`] up to `MAX_COORDINATE`: the one rule of
+/// `wobble`, `Flow::noise` and `Field::noise`.
+pub(crate) fn wavelength(wavelength: f64) -> Result<f64, Error> {
+    if (MIN_WAVELENGTH..=MAX_COORDINATE).contains(&wavelength) {
+        Ok(wavelength)
+    } else {
+        Err(Error::parameter(
+            "wavelength",
+            format!("must be a number from {MIN_WAVELENGTH:e} to {MAX_COORDINATE:e}, got {wavelength}"),
+        ))
+    }
+}
 
 /// The cells of the phase axis in one cycle.
 // constant: four cells make the field change fully in a quarter cycle: a pattern that is neither frozen nor racing

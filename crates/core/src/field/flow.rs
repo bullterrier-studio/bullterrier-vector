@@ -6,7 +6,7 @@ use super::{Shapes, length, once, read, segment_budget};
 use crate::geometry::Point;
 use crate::key::{Key, Keyed, key_of};
 use crate::math::{atan2, sin_cos_deg};
-use crate::noise::Noise;
+use crate::noise::{self, Noise};
 use crate::{Drawing, Error, Expr, Param, Values};
 use std::fmt;
 use std::sync::Arc;
@@ -81,13 +81,7 @@ impl Flow {
                 phase,
                 seed,
             } => {
-                let wavelength = read("wavelength", wavelength, env)?;
-                if wavelength <= 0.0 {
-                    return Err(Error::parameter(
-                        "wavelength",
-                        format!("must be above 0, got {wavelength}"),
-                    ));
-                }
+                let wavelength = noise::wavelength(read("wavelength", wavelength, env)?)?;
                 let phase = read("phase", phase, env)?;
                 let noise = Noise::new(*seed, 0)?;
                 (
@@ -153,7 +147,7 @@ impl Flow {
     /// `wavelength` and `phase` may be expressions of Params, read once with the values of the draw.
     ///
     /// # Errors
-    /// [`Error::Parameter`] unless `wavelength` is above 0 and finite, `phase` finite (and neither a per-item number)
+    /// [`Error::Parameter`] unless `wavelength` is from 1e-200 to 1e100, `phase` finite (and neither a per-item number)
     /// and `seed` a whole number within ±(2^53 - 1).
     pub fn noise(wavelength: impl Into<Expr>, phase: impl Into<Expr>, seed: f64) -> Result<Self, Error> {
         Self::made(FlowKind::Noise {

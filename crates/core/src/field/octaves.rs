@@ -2,7 +2,7 @@
 
 use super::{Field, FieldKind, once};
 use crate::geometry::Point;
-use crate::noise::Noise;
+use crate::noise::{self, Noise};
 use crate::{Error, Expr};
 
 /// The most octaves a noise field sums.
@@ -33,17 +33,11 @@ pub(crate) struct Octaves {
 }
 
 impl Octaves {
-    /// The noise of `seed` at `wavelength` (above 0) and `phase`, summed over `count` octaves.
+    /// The noise of `seed` at `wavelength` and `phase`, summed over `count` octaves.
     pub(super) fn new(wavelength: f64, phase: f64, seed: f64, count: usize) -> Result<Self, Error> {
-        if wavelength <= 0.0 {
-            return Err(Error::parameter(
-                "wavelength",
-                format!("must be above 0, got {wavelength}"),
-            ));
-        }
         Ok(Self {
+            wavelength: noise::wavelength(wavelength)?,
             noise: Noise::new(seed, 0)?,
-            wavelength,
             phase,
             count,
         })
@@ -75,7 +69,7 @@ impl Field {
     /// make equal fields. `wavelength` and `phase` may be expressions of Params, read once with the values of the draw.
     ///
     /// # Errors
-    /// [`Error::Parameter`] unless `wavelength` is above 0 and finite, `phase` finite (and neither a per-item number),
+    /// [`Error::Parameter`] unless `wavelength` is from 1e-200 to 1e100, `phase` finite (and neither a per-item number),
     /// `seed` a whole number within ±(2^53 - 1) and `octaves` from 1 to 8.
     pub fn noise(
         wavelength: impl Into<Expr>,

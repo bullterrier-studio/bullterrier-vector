@@ -9,7 +9,7 @@
 )]
 
 use crate::common::{Outcome, lines, parameter_refusal};
-use bullterrier_vector::{Drawing, Error, Field, Hatch, Inputs, Param, Path, Point, Rect, Values, by_index};
+use bullterrier_vector::{Drawing, Error, Field, Flow, Hatch, Inputs, Param, Path, Point, Rect, Values, by_index};
 use proptest::prelude::*;
 
 fn noise(wavelength: f64, phase: f64, seed: f64, octaves: usize) -> Result<Field, Error> {
@@ -88,6 +88,48 @@ proptest! {
         let value = noise(wavelength, phase, f64::from(seed), octaves).map_err(fail)?.at((x, y));
         prop_assert!((-1.0..=1.0).contains(&value), "{value}");
     }
+}
+
+/// `10^exponent`, read as the number it writes.
+fn power_of_ten(exponent: i32) -> f64 {
+    format!("1e{exponent}").parse().unwrap_or(f64::NAN)
+}
+
+proptest! {
+    /// From the shortest wavelength the docs allow (1e-200) up, anywhere within the coordinate limits (±1e100), with
+    /// every octave: never NaN, within -1 and 1.
+    #[test]
+    fn noise_stays_within_one_at_any_allowed_wavelength_and_coordinate(
+        wavelength in (-200_i32..=3).prop_map(power_of_ten),
+        (x, y) in (-1.0..1.0_f64, -1.0..1.0_f64),
+        reach in (0_i32..=100).prop_map(power_of_ten),
+        octaves in 1_usize..=8,
+    ) {
+        let field = noise(wavelength, 0.3, 5.0, octaves).map_err(fail)?;
+        let value = field.at((x * reach, y * reach));
+        prop_assert!((-1.0..=1.0).contains(&value), "{value} at wavelength {wavelength}");
+    }
+}
+
+#[test]
+fn the_shortest_wavelength_reads_at_the_coordinate_limits_and_a_shorter_one_is_refused() -> Outcome {
+    let shortest = noise(1e-200, 0.0, 1.0, 8)?;
+    for point in [(1e100, 1e100), (-1e100, 3.0), (1e9, -1e100)] {
+        let value = shortest.at(point);
+        assert!((-1.0..=1.0).contains(&value), "{value} at {point:?}");
+    }
+    for wavelength in [1e-200 * (1.0 - f64::EPSILON), 1e-300, 1e-307] {
+        let (named, message) = parameter_refusal(noise(wavelength, 0.0, 1.0, 8))?;
+        assert_eq!(named, "wavelength");
+        assert!(message.contains("1e-200"), "{message}");
+        assert_eq!(parameter_refusal(Flow::noise(wavelength, 0.0, 1.0))?.0, "wavelength");
+        let line = Path::from_svg_path("M0 0 L10 0")?;
+        assert_eq!(
+            parameter_refusal(line.wobble(1.0, wavelength, 0.0, 1.0))?.0,
+            "wavelength"
+        );
+    }
+    Ok(())
 }
 
 #[test]

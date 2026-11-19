@@ -8,7 +8,7 @@ use crate::Error;
 use crate::geometry::{Point, coordinate, finite};
 use crate::limits::MAX_SEGMENTS;
 use crate::math::{sin_cos, sin_cos_deg};
-use crate::noise::Noise;
+use crate::noise::{self, Noise};
 use std::f64::consts::TAU;
 
 /// The pieces of a wavelength a wave's edges are cut into at most.
@@ -68,7 +68,7 @@ impl Path {
     /// empty.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `wavelength` if it is not a number above 0 and at most 1e100, or if the pieces it
+    /// [`Error::Parameter`] naming `wavelength` if it is not a number from 1e-200 to 1e100, or if the pieces it
     /// would make, over all the sub-paths, are more than `MAX_SEGMENTS` (10,000,000), counted before any is made;
     /// naming `amplitude`, `angle` or `phase` if it is NaN or infinite, and `amplitude` if a displaced point would be
     /// beyond ±1e100.
@@ -126,7 +126,7 @@ impl Path {
     /// closedness.
     ///
     /// # Errors
-    /// [`Error::Parameter`] naming `wavelength` if it is not a number above 0 and at most 1e100, or if the pieces it
+    /// [`Error::Parameter`] naming `wavelength` if it is not a number from 1e-200 to 1e100, or if the pieces it
     /// would make, over all the sub-paths, are more than `MAX_SEGMENTS`, counted before any is made; naming
     /// `amplitude` or `phase` if it is NaN or infinite, and `amplitude` if a displaced point would be beyond ±1e100;
     /// naming `seed` unless it is a whole number within ±(2^53 - 1).
@@ -144,13 +144,7 @@ impl Path {
         charge: &mut dyn FnMut(usize) -> Result<(), Error>,
     ) -> Result<Self, Error> {
         let amplitude = finite("amplitude", amplitude)?;
-        if wavelength <= 0.0 {
-            return Err(Error::parameter(
-                "wavelength",
-                format!("must be a number above 0, got {wavelength}"),
-            ));
-        }
-        let wavelength = coordinate("wavelength", wavelength)?;
+        let wavelength = noise::wavelength(wavelength)?;
         let phase = finite("phase", phase)?;
         let (across, down) = (Noise::new(seed, 0)?, Noise::new(seed, 1)?);
         let map = |point: Point| {
