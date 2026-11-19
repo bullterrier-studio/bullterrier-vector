@@ -93,11 +93,6 @@ def test_a_miter_sharper_than_the_limit_is_clipped_flat_and_a_looser_limit_keeps
         pytest.param(lambda: SQUARE.outline(2, miter_limit=0.5), r"miter_limit", id="outline miter_limit below 1"),
         pytest.param(lambda: SQUARE.outline(2, cap="flat"), r"cap", id="outline cap not a word"),
         pytest.param(lambda: SQUARE.outline(2, join="sharp"), r"join", id="outline join not a word"),
-        pytest.param(
-            lambda: LOOSE_PATH.offset(btvec.Param("d", default=1, min=0, max=2)),
-            r"Drawing\(path\)",
-            id="a Param on a Path",
-        ),
     ],
 )
 def test_a_value_the_library_refuses_is_a_parameter_error_naming_it(call, match):

@@ -156,7 +156,7 @@ Settled edge cases:
 
 Each verb below exists on both. On a `Path` its numbers are plain numbers and it returns a `Path`; on a `Drawing` its
 numbers may be Params or per-item numbers and it applies to every shape. A `Path` verb given a `Param` raises
-`ParameterError`: wrap the path in `btvec.Drawing(path)` first. `about` defaults to the shape's `origin` attribute (a
+`TypeError` ("Conventions"): wrap the path in `btvec.Drawing(path)` first. `about` defaults to the shape's `origin` attribute (a
 glyph's cap-height center), else the center of its bounds: on a stack of shapes, each turns or scales about its own
 origin. To turn the whole stack as one, give `about=` a point, such as the frame's center. `translate`, `rotate` and
 `scale` change geometry and `origin` only (`translate` adds to it, `rotate` and `scale` turn and scale it with the shape,
@@ -978,7 +978,7 @@ To draw contour lines of a field (a distance, a ramp, a map) at levels, use `Fie
 | `flow.at` | `at(x, y)` | the direction at a point in degrees, from 0 up to 180 | |
 
 A `Field` or a `Flow` is a value, built once (a grid of an outline's edges makes it quick to read) and part of the
-drawing that uses it. Its numbers (a number given as `tone`, `Flow.angle`'s angle, `Flow.noise`'s and `Field.noise`'s `wavelength` and `phase`, a number operand,
+drawing that uses it. Its numbers (a number given as a `Drawing` step's `tone`, `Flow.angle`'s angle, `Flow.noise`'s and `Field.noise`'s `wavelength` and `phase`, a number operand,
 `flow.mix`'s fraction, `flow.rotate`'s angle) may be `Param`s or expressions, never per-item numbers, and the drawings it reads are drawings:
 `field.at` and `flow.at` read them with every Param at its default, and a `hatch` step reads them again with the values
 it draws with (the step takes the drawings like `avoid`, so the cache, `parameters()` and `with_values` see them). A
@@ -1279,6 +1279,10 @@ macOS). In Python and JavaScript the error points at the call that caused it; in
 - **Arguments.** What a call cannot do without is positional (`offset(8)`, `rotate(30)`), unless its keyword makes
   the call read as a sentence (`text("NO", font=font)`, `halftone(INK, tone=photo)`);
   every option is keyword-only (`wobble(amplitude=3)`).
+- **A `Path` verb takes plain numbers; a Param is for a `Drawing` step.** A `Path` verb computes at once, so it has no
+  values to read a Param with: a `Param` or an expression given to one (`path.rows(spacing=gap)`, a `tone` of
+  `path.stipple`) is a `TypeError`, never read at its default. A `Field` is still a `tone` there (its own Params are
+  read at their defaults, as `field.at` reads them). Wrap the path in `btvec.Drawing(path)` to vary it.
 - **Defaults look good** with no tuning: a default comes from a gallery piece, not from a round number. The defaults
   written here (leading 1.2 × size, pitch 8, shadow 8 and 16, wavelengths 80, 120 and 400...) are placeholders until the
   batch that builds the step tunes them with its gallery piece.

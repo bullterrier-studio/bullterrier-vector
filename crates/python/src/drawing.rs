@@ -968,10 +968,10 @@ impl PyDrawing {
     }
 }
 
-/// The error for a Param or expression where only a plain number goes (a `Path` verb).
+/// The error for a Param or expression where only a plain number goes (a `Path` verb): a wrong argument type.
 pub(crate) fn refuse_expr(object: &Bound<'_, PyAny>) -> PyResult<()> {
     if object.is_instance_of::<PyExpr>() {
-        return Err(crate::ParameterError::new_err(format!(
+        return Err(PyTypeError::new_err(format!(
             "{object} is a Param or an expression, which only a Drawing step reads: wrap the path in Drawing(path) first"
         )));
     }

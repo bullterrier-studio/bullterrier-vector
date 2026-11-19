@@ -933,11 +933,41 @@ def test_a_style_step_called_on_a_path_raises_at_the_call_too(call):
         pytest.param(lambda p: SQUARE.scale((p, 1)), id="scale by a pair"),
         pytest.param(lambda p: SQUARE.scale(2, about=(0, p)), id="scale about"),
         pytest.param(lambda p: SQUARE.along(EAST, start=p), id="along start"),
+        pytest.param(lambda p: SQUARE.offset(p), id="offset distance"),
+        pytest.param(lambda p: SQUARE.rows(p, tone=0.5, amplitude=2), id="rows spacing"),
+        pytest.param(lambda p: SQUARE.rows(2, tone=p, amplitude=2), id="rows tone"),
+        pytest.param(lambda p: SQUARE.rows(2, tone=0.5, amplitude=p), id="rows amplitude"),
+        pytest.param(lambda p: SQUARE.bands(p, tone=0.5, width=(1, 2)), id="bands spacing"),
+        pytest.param(lambda p: SQUARE.bands(2, tone=p, width=(1, 2)), id="bands tone"),
+        pytest.param(lambda p: SQUARE.bands(2, tone=0.5, width=(p, 2)), id="bands width"),
+        pytest.param(lambda p: SQUARE.bands(2, tone=0.5, width=(1, 2), angle=p), id="bands angle"),
+        pytest.param(lambda p: SQUARE.stipple(p, tone=0.5, radius=1), id="stipple spacing"),
+        pytest.param(lambda p: SQUARE.stipple(2, tone=p, radius=1), id="stipple tone"),
+        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=p), id="stipple radius"),
+        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=(1, p)), id="stipple radius pair"),
+        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=1, density=(p, 0)), id="stipple density"),
+        pytest.param(lambda p: SQUARE.stipple(2, tone=0.5, radius=1, seed=p), id="stipple seed"),
+        pytest.param(lambda p: SQUARE.hatch((1, 3), tone=p), id="hatch tone"),
+        pytest.param(lambda p: SQUARE.hatch(2, tone=0.5, below=p), id="hatch below"),
     ],
 )
-def test_a_path_verb_given_a_param_says_to_wrap_the_path_in_a_drawing(call):
-    with pytest.raises(ParameterError, match="Drawing"):
+def test_a_path_verb_given_a_param_is_a_type_error_saying_to_wrap_the_path_in_a_drawing(call):
+    with pytest.raises(TypeError, match="Drawing"):
         call(a_param())
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda tone: SQUARE.rows(2, tone=tone, amplitude=2), id="rows"),
+        pytest.param(lambda tone: SQUARE.bands(2, tone=tone, width=(1, 2), angle=30), id="bands"),
+        pytest.param(lambda tone: SQUARE.stipple(2, tone=tone, radius=(0.5, 1), density=(1, 0), seed=3), id="stipple"),
+        pytest.param(lambda tone: SQUARE.hatch((1, 3), tone=tone, below=0.9), id="hatch"),
+    ],
+)
+@pytest.mark.parametrize("tone", [0.25, btvec.Field.ramp((0, 0), (10, 0))], ids=["a number", "a Field"])
+def test_a_path_line_verb_takes_plain_numbers_and_a_field_tone(call, tone):
+    assert isinstance(call(tone), btvec.Path)
 
 
 def test_a_path_verb_still_takes_plain_numbers():

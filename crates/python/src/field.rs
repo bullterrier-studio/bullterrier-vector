@@ -1,5 +1,6 @@
 //! `Field` and `Flow`: a number and a direction at every point, the inputs of `hatch`.
 
+use crate::drawing::refuse_expr;
 use crate::expr::Num;
 use crate::inputs::{By, Item};
 use crate::trace::whole;
@@ -327,6 +328,19 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Tone {
                 object.repr()?
             ))),
         }
+    }
+}
+
+/// A tone a `Path` verb takes: a `Field`, or a plain number (never a Param or an expression) that is the same
+/// everywhere.
+pub(crate) struct PlainTone(pub(crate) Tone);
+
+impl<'a, 'py> FromPyObject<'a, 'py> for PlainTone {
+    type Error = PyErr;
+
+    fn extract(object: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        refuse_expr(&object)?;
+        object.extract::<Tone>().map(Self)
     }
 }
 

@@ -22,7 +22,7 @@ use pyo3::types::{PyList, PyTuple};
 
 use crate::drawing::{PyDrawing, refuse_expr, refuse_expr_in_pair};
 use crate::expr::Num;
-use crate::field::{PyFlow, Spacing, Tone, bands_of, hatch_of, rows_of, stipple_of};
+use crate::field::{PlainTone, PyFlow, Spacing, bands_of, hatch_of, rows_of, stipple_of};
 use crate::halftone::{ShapeArg, ToneArg};
 use crate::inputs::{Item, Pair};
 use crate::shape::PaintArg;
@@ -268,9 +268,10 @@ impl PyRect {
     }
 }
 
-/// How much to scale by, as the caller gave it: a number, or an `(x, y)` pair.
+/// One plain number for both of a pair, or an `(x, y)` pair of plain numbers: a `Path` scale's `by`, a `Path`
+/// stipple's `radius`.
 #[derive(Clone, Copy)]
-struct By(vector::Scale);
+struct By((f64, f64));
 
 impl<'a, 'py> FromPyObject<'a, 'py> for By {
     type Error = PyErr;
@@ -278,13 +279,13 @@ impl<'a, 'py> FromPyObject<'a, 'py> for By {
     fn extract(object: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         refuse_expr(&object)?;
         if let Ok(factor) = object.extract::<f64>() {
-            return Ok(Self(factor.into()));
+            return Ok(Self((factor, factor)));
         }
         refuse_expr_in_pair(&object)?;
         match object.extract::<Pt>() {
-            Ok(Pt(pair)) => Ok(Self((pair.x, pair.y).into())),
+            Ok(Pt(pair)) => Ok(Self((pair.x, pair.y))),
             Err(_) => Err(PyTypeError::new_err(format!(
-                "expected a number or an (x, y) pair of numbers, got {}",
+                "expected a number or a pair of numbers, got {}",
                 object.repr()?
             ))),
         }
@@ -315,6 +316,12 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Plain {
                 object.repr().map_or_else(|_| String::new(), |text| text.to_string())
             ))
         })
+    }
+}
+
+impl From<Plain> for Num {
+    fn from(Plain(number): Plain) -> Self {
+        Self(number.into())
     }
 }
 
@@ -563,18 +570,18 @@ impl PyPath {
     /// or a pair (spacing where `tone` is 0, where it is 1) read from `tone`, a `Field` or a number; the lines keep out of
     /// the region the path `avoid` fills and close where they come round to their own start. No two lines come within half
     /// a spacing. With `below`, lines only where the tone is at most that level (needs a `tone`; 0 is dark: passes at other
-    /// angles and levels over each other crosshatch). A `Param` in `tone` or `below` is read at its default here; a
-    /// `Drawing` step reads it with the values of the draw. The result is open lines, so stroke it.
+    /// angles and levels over each other crosshatch). The numbers are plain numbers: a `Param` is for a `Drawing`
+    /// step. The result is open lines, so stroke it.
     #[pyo3(signature = (spacing, *, tone=None, flow=None, avoid=None, below=None))]
     fn hatch(
         &self,
         spacing: Spacing,
-        tone: Option<Tone>,
+        tone: Option<PlainTone>,
         flow: Option<&PyFlow>,
         avoid: Option<&Bound<'_, Self>>,
-        below: Option<Num>,
+        below: Option<Plain>,
     ) -> PyResult<Self> {
-        let hatch = hatch_of(spacing, tone, flow, below)?;
+        let hatch = hatch_of(spacing, tone.map(|tone| tone.0), flow, below.map(Into::into))?;
         Self::of(self.0.hatch(&hatch, avoid.map(|path| &path.get().0)))
     }
 
@@ -587,32 +594,41 @@ impl PyPath {
 
     /// Ridgelines inside the region this path fills: rows `spacing` pixels apart, each lifted towards the top of the picture by
     /// `amplitude` times `tone` (a `Field` or a number) at the point of the row, and cut where a row in front (lower in the
-    /// picture) passes over it. The result is open lines, so stroke it. A `Param` is read at its default here.
+    /// picture) passes over it. The result is open lines, so stroke it.
     #[pyo3(signature = (spacing, *, tone, amplitude))]
-    fn rows(&self, py: Python<'_>, spacing: Num, tone: Tone, amplitude: Num) -> PyResult<Self> {
-        let rows = rows_of(spacing, tone, amplitude)?;
+    fn rows(&self, py: Python<'_>, spacing: Plain, tone: PlainTone, amplitude: Plain) -> PyResult<Self> {
+        let rows = rows_of(spacing.into(), tone.0, amplitude.into())?;
         Self::of(py.detach(|| self.0.rows(&rows)))
     }
 
     /// Lines whose width follows a tone, laid over the region this path fills and outlined as wide at each point as `tone`
     /// asks: `width` is `(width where the tone is 0, where it is 1)`. `family` is `"lines"` (along `angle` degrees), `"waves"` (`wavelength`
     /// long, `amplitude` high), `"rings"` or `"spiral"` round `center` (default the middle of the bounds) or `"rays"` out of
-    /// it. The result is closed outlines, so fill it. A `Param` is read at its default here.
+    /// it. The result is closed outlines, so fill it.
     #[expect(clippy::too_many_arguments, reason = "the arguments of one Python call")]
     #[pyo3(signature = (spacing, *, tone, width, family="lines", angle=None, center=None, wavelength=None, amplitude=None))]
     fn bands(
         &self,
         py: Python<'_>,
-        spacing: Num,
-        tone: Tone,
-        width: (Num, Num),
+        spacing: Plain,
+        tone: PlainTone,
+        width: (Plain, Plain),
         family: &str,
-        angle: Option<Num>,
+        angle: Option<Plain>,
         center: Option<Pt>,
-        wavelength: Option<Num>,
-        amplitude: Option<Num>,
+        wavelength: Option<Plain>,
+        amplitude: Option<Plain>,
     ) -> PyResult<Self> {
-        let bands = bands_of(spacing, tone, width, family, angle, center, wavelength, amplitude)?;
+        let bands = bands_of(
+            spacing.into(),
+            tone.0,
+            (width.0.into(), width.1.into()),
+            family,
+            angle.map(Into::into),
+            center,
+            wavelength.map(Into::into),
+            amplitude.map(Into::into),
+        )?;
         Self::of(py.detach(|| self.0.bands(&bands)))
     }
 
@@ -623,13 +639,16 @@ impl PyPath {
     fn stipple(
         &self,
         py: Python<'_>,
-        spacing: Num,
-        tone: Tone,
-        radius: crate::inputs::By,
-        density: Option<(Num, Num)>,
-        seed: Option<Num>,
+        spacing: Plain,
+        tone: PlainTone,
+        radius: By,
+        density: Option<(Plain, Plain)>,
+        seed: Option<Plain>,
     ) -> PyResult<Self> {
-        let stipple = stipple_of(spacing, tone, radius, density, seed)?;
+        let (small, large) = radius.0;
+        let radius = crate::inputs::By::Two(crate::inputs::Pair(small.into(), large.into()));
+        let density = density.map(|(dense, light)| (dense.into(), light.into()));
+        let stipple = stipple_of(spacing.into(), tone.0, radius, density, seed.map(Into::into))?;
         Self::of(py.detach(|| self.0.stipple(&stipple)))
     }
 

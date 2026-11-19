@@ -2220,3 +2220,10 @@ Why not an existing call:
   spell `near` and `profile` a second way on `Drawing` steps, and `None` for a generic profile needs a type. A `Path`
   verb keeps plain positional arguments, `None` for the default (`Path::outline(.., Some(profile))`). Cost: a plain
   `slice` in Rust writes `Slice::new()`.
+- **Why a `Param` given to a `Path` verb is a `TypeError`, and not read at its default or a `ParameterError`.**
+  `Path.rows`, `bands`, `stipple` and `hatch` took the Param-capable numbers of their `Drawing` steps and read a Param at
+  its default, so `path.rows(spacing=gap)` drew one frame whatever `gap` was set to, while `translate` and the rest
+  refused one. Every `Path` verb in Python now takes plain numbers through one extractor (a `Field` stays a `tone`), and
+  a Param there is the wrong argument type, a `TypeError` (`docs/rules.md`, errors), naming the `Drawing` to wrap it in.
+  In Rust `Rows`, `Bands`, `Stipple` and `Hatch` are shared by the `Path` and `Drawing` verbs, so a Rust `Path` verb
+  still reads a Param in them at its default.

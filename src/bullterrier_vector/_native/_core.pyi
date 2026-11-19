@@ -168,33 +168,33 @@ class Path:
         self,
         spacing: float | tuple[float, float],
         *,
-        tone: Field | _Num | None = None,
+        tone: Field | float | None = None,
         flow: Flow | None = None,
         avoid: Path | None = None,
-        below: _Num | None = None,
+        below: float | None = None,
     ) -> Path: ...
     def within(self, region: Path) -> Path: ...
-    def rows(self, spacing: _Num, *, tone: Field | _Num, amplitude: _Num) -> Path: ...
+    def rows(self, spacing: float, *, tone: Field | float, amplitude: float) -> Path: ...
     def bands(
         self,
-        spacing: _Num,
+        spacing: float,
         *,
-        tone: Field | _Num,
-        width: tuple[_Num, _Num],
+        tone: Field | float,
+        width: tuple[float, float],
         family: str = "lines",
-        angle: _Num | None = None,
+        angle: float | None = None,
         center: _PointLike | None = None,
-        wavelength: _Num | None = None,
-        amplitude: _Num | None = None,
+        wavelength: float | None = None,
+        amplitude: float | None = None,
     ) -> Path: ...
     def stipple(
         self,
-        spacing: _Num,
+        spacing: float,
         *,
-        tone: Field | _Num,
-        radius: _Num | _NumPair,
-        density: tuple[_Num, _Num] | None = None,
-        seed: _Num | None = None,
+        tone: Field | float,
+        radius: float | tuple[float, float],
+        density: tuple[float, float] | None = None,
+        seed: float | None = None,
     ) -> Path: ...
     def simplify(self, *, tolerance: float = 0.5) -> Path: ...
     def reverse(self) -> Path: ...
