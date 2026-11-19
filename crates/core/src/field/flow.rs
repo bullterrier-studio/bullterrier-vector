@@ -1,5 +1,6 @@
 //! `Flow`: a direction without sign at every point.
 
+use super::octaves::NOISE_READ;
 use super::outline::Outline;
 use super::{Shapes, length, once, read, segment_budget};
 use crate::geometry::Point;
@@ -292,6 +293,17 @@ impl Flow {
         let cos = 1.0_f64.midpoint(cos2).sqrt();
         let sin = ((1.0 - cos2) / 2.0).sqrt();
         (cos, if sin2 < 0.0 { -sin } else { sin })
+    }
+
+    /// The cost of one read in units of `MAX_READ_WORK`, as a field's: an angle one unit, noise one octave
+    /// ([`NOISE_READ`]), a contour its outline's nearest-edge search, a mix one unit and both its flows'.
+    pub(super) fn cost(&self) -> f64 {
+        match &*self.node {
+            Node::Angle { .. } => 1.0,
+            Node::Noise { .. } => NOISE_READ,
+            Node::Contour { outline } => outline.read_cost(),
+            Node::Mix { flow, other, .. } => 1.0 + flow.cost() + other.cost(),
+        }
     }
 
     /// What this flow is made of.

@@ -71,9 +71,12 @@ impl Outline {
         hash.finalize().into()
     }
 
-    /// How many straight edges the outline has.
-    pub(crate) fn edge_count(&self) -> usize {
-        self.edges.len()
+    /// The cost of finding the nearest edge, in units of `MAX_READ_WORK`: a unit and the square root of the edges (a
+    /// nearest-edge search looks at about that many; measured: 2 microseconds a read on a headline of 400 edges, 26 on a
+    /// path of 200,000).
+    #[expect(clippy::cast_precision_loss, reason = "an edge count is far below 2^53")]
+    pub(super) fn read_cost(&self) -> f64 {
+        1.0 + (self.edges.len() as f64).sqrt()
     }
 
     /// The outline of `path`; `charge` is told the edges of each curve, as for [`Path::flattened`].

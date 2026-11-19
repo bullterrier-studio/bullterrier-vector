@@ -18,8 +18,9 @@ const LACUNARITY: f64 = 2.0;
 const GAIN: f64 = 0.5;
 
 /// The cost of reading one octave, in units of `MAX_READ_WORK` (`Field::charge_reads`).
-// constant: measured, an octave reads in about 10 ns (release build), a tenth of the 100 ns a unit of `MAX_READ_WORK`
-// stands for (2 microseconds for a headline's distance of about 20 units); counted as one whole unit
+// constant: measured (release build, `to_map` of a million reads): one octave 38 ns a read, eight 138 ns, against the 100
+// ns a unit of `MAX_READ_WORK` stands for (2 microseconds for a headline's distance of about 20 units); one whole unit
+// an octave charges noise 3 to 6 times what it costs: on the safe side
 pub(crate) const NOISE_READ: f64 = 1.0;
 
 /// A made noise field: its numbers worked out.

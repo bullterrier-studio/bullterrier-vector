@@ -12,10 +12,25 @@ use crate::{Drawing, Error, Expr, Param, Values};
 use std::fmt;
 use std::sync::Arc;
 
-/// The most work the reads of one `to_map` or `contours` call may cost, in units of one read of a ramp.
+/// The most work the reads of fields in one call (`to_map`, `contours`, `hatch`, the line families, a halftone, a
+/// trace) may cost, in units of one read of a ramp.
 // constant: about 20 seconds measured at 2 microseconds a unit-of-20 read (a headline's distance field), the bound a
-// caller waits on without a progress bar; `hatch` bounds its visits the same way (`MAX_VISITS`)
+// caller waits on without a progress bar
 pub(crate) const MAX_READ_WORK: f64 = 2e8;
+
+/// Refuses, naming `parameter`, `work` units of reading fields past [`MAX_READ_WORK`]; `what` says what would be read.
+pub(super) fn charge_work(parameter: &'static str, work: f64, what: impl FnOnce() -> String) -> Result<(), Error> {
+    if work > MAX_READ_WORK {
+        return Err(Error::parameter(
+            parameter,
+            format!(
+                "{}, past {MAX_READ_WORK} units of work: use fewer samples (a wider spacing, pitch or cell, a smaller shape or box) or a field that is cheaper to read (fewer octaves, operands or edges)",
+                what()
+            ),
+        ));
+    }
+    Ok(())
+}
 
 /// What a field is made of, as a document writes it.
 #[derive(Debug, Clone)]
@@ -229,19 +244,13 @@ impl Field {
         }
     }
 
-    /// The cost of one read in units of a read of a ramp: a constant, a ramp or a map is one unit, a distance a unit
-    /// and the square root of its edges (a nearest-edge search looks at about that many; measured: 2 microseconds a read
-    /// on a headline of 400 edges, 26 on a path of 200,000), three times that when `normalized`; noise
+    /// The cost of one read in units of a read of a ramp: a constant, a ramp or a map is one unit, a distance what its
+    /// outline's nearest-edge search costs ([`Outline::read_cost`]), three times that when `normalized`; noise
     /// [`NOISE_READ`] units an octave; an arithmetic one unit and its operands' (a shared operand each time it is read).
-    fn cost(&self) -> f64 {
-        #[expect(
-            clippy::cast_precision_loss,
-            reason = "an edge count and the octaves are far below 2^53"
-        )]
+    pub(super) fn cost(&self) -> f64 {
+        #[expect(clippy::cast_precision_loss, reason = "the octaves are at most 8")]
         match &self.bound {
-            Bound::Distance { parts, normalized } => {
-                (1.0 + (parts.whole.edge_count() as f64).sqrt()) * if *normalized { 3.0 } else { 1.0 }
-            }
+            Bound::Distance { parts, normalized } => parts.whole.read_cost() * if *normalized { 3.0 } else { 1.0 },
             Bound::Noise(octaves) => NOISE_READ * octaves.count() as f64,
             Bound::Arithmetic { operands, .. } => 1.0 + operands.iter().map(Self::cost).sum::<f64>(),
             Bound::Constant(_) | Bound::Ramp { .. } | Bound::Map(_) => 1.0,
@@ -252,15 +261,9 @@ impl Field {
     /// than [`MAX_READ_WORK`], each read costing what [`Field::cost`] says.
     pub(crate) fn charge_reads(&self, parameter: &'static str, call: &str, reads: f64) -> Result<(), Error> {
         let each = self.cost();
-        if reads * each > MAX_READ_WORK {
-            return Err(Error::parameter(
-                parameter,
-                format!(
-                    "{call} would read this field {reads} times at a cost of {each:.0} each, past {MAX_READ_WORK} units of work: use fewer samples or a simpler drawing"
-                ),
-            ));
-        }
-        Ok(())
+        charge_work(parameter, reads * each, || {
+            format!("{call} would read this field {reads} times at a cost of {each:.0} each")
+        })
     }
 
     pub(crate) fn kind(&self) -> &FieldKind {

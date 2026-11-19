@@ -40,6 +40,7 @@ mod field_contours;
 mod field_map;
 mod field_noise;
 mod field_params;
+mod field_read_budget;
 mod flow;
 mod flow_axis;
 mod font_bundled;

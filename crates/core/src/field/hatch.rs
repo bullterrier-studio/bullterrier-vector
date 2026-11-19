@@ -12,6 +12,7 @@
     reason = "the lattice count is at most the 4 million cells checked before it is used"
 )]
 
+use super::distance::charge_work;
 use super::outline::Outline;
 use super::seeds::{Sample, Samples};
 use super::{Field, Flow, length, segment_budget};
@@ -74,6 +75,17 @@ const MAX_CELLS: f64 = 4_000_000.0;
 // constant: a billion visits of a few instructions is a few seconds; a pair of spacings far apart over a large shape
 // would cost minutes
 const MAX_VISITS: f64 = 1e9;
+
+/// The most reads of the tone and of the flow one step of a line costs: the spacing where it starts, where it lands and
+/// `below` there, and the flow twice as it is made; the spacing, two seeds' `below` and the flow once when lines are
+/// seeded from it.
+// constant: counted from `walk` and `seed_from`, an upper bound of the reads, not a tunable
+const STEP_READS: (f64, f64) = (6.0, 3.0);
+
+/// The most reads of the tone and of the flow a line's start costs: its own step's, the flow and the spacing that keeps
+/// the line, and the reads of the two steps that stop its two walks without being made.
+// constant: counted from `trace` and `walk`, an upper bound of the reads, not a tunable
+const START_READS: (f64, f64) = (10.0, 6.0);
 
 /// What to draw: the spacing, a tone that varies it, and the flow the lines follow.
 #[derive(Debug, Clone)]
@@ -165,7 +177,9 @@ impl Path {
     /// # Errors
     /// [`Error::Parameter`] naming `spacing` if a spacing is not above 0, or if the shape is so large next to the
     /// spacing that it would take over 4 million cells, or if the spacings are so far apart for the shape's size that
-    /// placing the lines would take over a billion cell visits (a pair 1 to 1000 over a 400 by 400 shape); naming `spacing` past `MAX_SEGMENTS` points.
+    /// placing the lines would take over a billion cell visits (a pair 1 to 1000 over a 400 by 400 shape); naming `spacing` past `MAX_SEGMENTS` points,
+    /// or when reading the tone and the flow would pass `MAX_READ_WORK` units (each read costing what the field or flow
+    /// costs to read): checked from the starts of the lattice before any line is drawn, then as each point is made.
     pub fn hatch(&self, hatch: &Hatch, avoid: Option<&Path>) -> Result<Path, Error> {
         let avoid: Vec<&Path> = avoid.into_iter().collect();
         self.hatch_charged(hatch, &avoid, &mut segment_budget("spacing"))
@@ -237,6 +251,8 @@ impl Path {
                 ),
             ));
         }
+        let (tone, flow) = (hatch.tone.as_ref().map_or(0.0, Field::cost), hatch.flow.cost());
+        let work = |(tone_reads, flow_reads): (f64, f64)| tone_reads * tone + flow_reads * flow;
         let mut run = Run {
             hatch,
             region,
@@ -244,7 +260,11 @@ impl Path {
             below,
             samples: Samples::new(left, top, right - left, bottom - top, narrowest),
             lines: Vec::new(),
+            // every start of the lattice reads the spacing, and `below` when there is one
+            spent: cells * work((if below.is_some() { 2.0 } else { 1.0 }, 0.0)),
+            costs: (work(START_READS), work(STEP_READS)),
         };
+        run.spend(0.0)?;
         run.fill((left, top, right, bottom), narrowest, charge)?;
         let paths = run
             .lines
@@ -270,9 +290,22 @@ struct Run<'a> {
     below: Option<f64>,
     samples: Samples,
     lines: Vec<Traced>,
+    /// The units of reading the tone and the flow charged so far.
+    spent: f64,
+    /// The units a line's start and a step charge.
+    costs: (f64, f64),
 }
 
 impl Run<'_> {
+    /// Charges `work` units of reading the tone and the flow.
+    fn spend(&mut self, work: f64) -> Result<(), Error> {
+        self.spent += work;
+        let spent = self.spent;
+        charge_work("spacing", spent, || {
+            format!("hatch would read its tone and flow at a cost of over {spent:.0}")
+        })
+    }
+
     /// The spacing at `at`.
     fn spacing(&self, at: Point) -> f64 {
         let (zero, one) = self.hatch.spacings();
@@ -361,6 +394,7 @@ impl Run<'_> {
             closed: false,
             kept: true,
         });
+        self.spend(self.costs.0)?;
         charge(1)?;
         self.samples.add(Sample {
             at: seed,
@@ -430,6 +464,7 @@ impl Run<'_> {
             if blocked {
                 return Ok((points, Stop::Blocked));
             }
+            self.spend(self.costs.1)?;
             charge(1)?;
             self.samples.add(Sample {
                 at: next,
