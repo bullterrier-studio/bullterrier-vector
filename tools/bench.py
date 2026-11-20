@@ -1,7 +1,7 @@
 """Time the outputs on one reference drawing, natively and in WebAssembly, and print a table.
 
     uv run poe bench [--shapes N] [--size WxH] [--repeats N] [--warmups N] [--require-node]
-                     [--text] [--booleans] [--halftone]
+                     [--text] [--booleans] [--halftone] [--trace]
 
 The reference drawing is a star and `--shapes` (default 200) filled, stroked, translucent and multiply shapes from a
 seeded generator, at 1920x1080 by default. `to_rgba` and `to_mesh` are each called `--warmups` times (default 3) and
@@ -20,12 +20,17 @@ width by the width axis and for the page wrapped to a width; and once, a text of
 `to_rgba` and `to_mesh` (the first two fill every dot once; the prototypes cut a disc per dot with a boolean, about
 500 ms).
 
+`--trace` adds the cost of grown letters, natively: two words bitten by noise through the distance to them, traced at
+two cells, with threads, speckle and spores, as an animation frame at 540x771 (the first of a new drawing and a later
+one) and by stage (the fields read on the grids the traces read, each traced or stippled step alone).
+
 `--booleans` adds the cost of the boolean verbs, natively: the `shapes` of a line of capitals with and without `resolve`
 and cut out of a plate with `subtract` (a new weight on every call, so the cache answers none), and, on a `Path`, the
 `resolve` of a 100 by 100 grid of overlapping squares and the `union` of two such grids.
 
 Interface:
     reference_drawing(shapes=200, seed=1, size=(1920, 1080)) -> Drawing  the drawing that is timed
+    trace_parts(growth) -> (fields, drawings)                             the grown letters of `--trace`, by stage
     median_ms(call, warmups, repeats, clock=time.perf_counter) -> float  the median time of `call` in milliseconds
     main(argv) -> exit code: 0 the table was printed, 1 a bad request or, with `--require-node`, no WebAssembly column
 """
@@ -53,6 +58,8 @@ HALFTONE_OUTPUTS = ("to_svg", *OUTPUTS)
 HALFTONE_DISC = 310  # the radius of the disc of the halftone, in design pixels
 HALFTONE_SPACING = 10  # the distance between its dots: pi * 310^2 / 10^2 is about 3,000 dots
 HALFTONE_SIDE = 800  # the side of its design frame and of its output
+TRACE_FRAME = (0, 0, 700, 1000)  # the design frame of the grown letters, which both traces cover
+TRACE_OUTPUT = (540, 771)  # the size of a frame of their animation
 FONT = ROOT / "examples" / "fonts" / "anybody-subset.ttf"
 HEADLINE = "NO\nSLEEP"
 HEADLINE_SIZE = (1080, 1350)
@@ -173,6 +180,102 @@ def halftone_drawing() -> btvec.Drawing:
     return btvec.Drawing(
         disc.halftone("#1a1a1a", tone=0.5, spacing=HALFTONE_SPACING, angle=45), size=(HALFTONE_SIDE,) * 2
     )
+
+
+def trace_parts(growth: btvec.Param) -> tuple[dict[str, btvec.Field], dict[str, btvec.Drawing]]:
+    """The grown letters of the demos' mould cover, by stage. The fields: `distance`, `noise` and `solid` (the distance
+    bitten by noise, read twice). The drawings: `body` and `halo` (`trace_levels` at two cells), `threads` (branch,
+    slice, tapered outline), `speckle` and `spores` (stipple; the spores' tone is the distance to the traced body) and
+    `frame`, all of them."""
+    font = btvec.Font.bundled("bricolage_grotesque")
+    axes = {"opsz": 96, "wdth": 75, "wght": 800}
+    middle = TRACE_FRAME[2] / 2
+
+    def word(content: str, baseline: float, stretch: float) -> btvec.Drawing:
+        line = btvec.text(
+            content, font=font, size=200, axes=axes, width=540, fit="size", anchor=(middle, baseline), align="center"
+        )
+        return line.resolve().scale((1, stretch), about=(middle, baseline))
+
+    letters = btvec.Drawing(word("BEYOND", 470, 1.7), word("CONTROL", 880, 1.8))
+    distance = btvec.Field.distance(letters)
+    noise = btvec.Field.noise(wavelength=21, seed=2, octaves=2, phase=0.5)
+    rag = btvec.Field.noise(wavelength=6.5, seed=5)
+    solid = -(distance + noise * 4.5 * growth + rag * 2 * growth + 0.5 * growth)
+    solid = solid.min((0.74 - btvec.Field.noise(wavelength=15.75, seed=13)) * 60 * growth + (1 - growth) * 150)
+    solid = solid.max((btvec.Field.noise(wavelength=14.7, seed=25) - 0.58) * 26 * growth - distance)
+    body = btvec.Drawing.trace_levels(solid, [0], frame=TRACE_FRAME, cell=1.5, smooth=1, tolerance=0.35, min_area=6)
+    halo = btvec.Drawing.trace_levels(solid, [-14 * growth], frame=TRACE_FRAME, cell=2, smooth=2, min_area=20)
+    roots = letters.offset(-3.6).branch(190, length=150, fork_spacing=55, forks=2, angle=40, wander=45, wavelength=45)
+    threads = roots.slice(0, growth).outline(2.2, profile=[(0, 1), (1, 0.15)])
+    patches = (btvec.Field.noise(wavelength=70, seed=7) * 0.5 + 0.5).min(1).max(0)
+    speckle = body.stipple(5.5, tone=patches, radius=(1.2, 1.2), density=(0, 0.25 * growth), seed=2)
+    near = (btvec.Field.distance(body) * (1 / 70)).min(1).max(0)
+    spores = btvec.Drawing(btvec.Path.rect(*TRACE_FRAME)).stipple(
+        11, tone=near, radius=(1.6, 1.6), density=(0.12 * growth, 0), seed=3
+    )
+    frame = btvec.Drawing(
+        btvec.Path.rect(*TRACE_FRAME).fill("#f2c230"),
+        halo.fill("#dcae22"),
+        btvec.Drawing(body.subtract(speckle), threads).fill("#121212"),
+        spores.fill("#121212"),
+        size=TRACE_FRAME[2:],
+    )
+    return {"distance": distance, "noise": noise, "solid": solid}, {
+        "body": body,
+        "halo": halo,
+        "threads": threads,
+        "speckle": speckle,
+        "spores": spores,
+        "frame": frame,
+    }
+
+
+def trace_times(warmups: int, repeats: int) -> dict[str, float]:
+    """The median milliseconds of the grown letters through the Python extension: building them and their first frame
+    (a new drawing for each call), a later frame, and each stage on its own. Every draw takes a growth no earlier draw
+    took, so the cache answers none of the steps that depend on it; `to_map` reads the fields at their defaults."""
+    growth = btvec.Param("growth", default=1, min=0, max=1)
+    steps = count()
+
+    def fresh() -> float:
+        """A growth no earlier draw took, near 0.6 so frames cost about the same."""
+        return 0.6 + next(steps) * 1e-4
+
+    def build_and_first_frame() -> tuple[float, float]:
+        start = time.perf_counter()
+        frame = trace_parts(growth)[1]["frame"]
+        built = time.perf_counter()
+        frame.to_rgba(*TRACE_OUTPUT, growth=fresh())
+        return (built - start) * 1000, (time.perf_counter() - built) * 1000
+
+    cold = [build_and_first_frame() for _ in range(repeats)]
+    fields, drawings = trace_parts(growth)
+    cells = {1.5: (467, 667), 2: (350, 500)}  # the grids `trace_levels` reads at those cells over TRACE_FRAME
+
+    def read(name: str, cell: float) -> float:
+        return median_ms(lambda: fields[name].to_map(*cells[cell], frame=TRACE_FRAME), warmups, repeats)
+
+    def drawn(name: str) -> float:
+        return median_ms(lambda: drawings[name].shapes(growth=fresh()), warmups, repeats)
+
+    width, height = TRACE_OUTPUT
+    return {
+        "build the drawing (once a drawing)": statistics.median(built for built, _ in cold),
+        f"to_rgba {width}x{height}, the first frame of a new drawing": statistics.median(first for _, first in cold),
+        f"to_rgba {width}x{height}, a later frame": median_ms(
+            lambda: drawings["frame"].to_rgba(width, height, growth=fresh()), warmups, repeats
+        ),
+        "read the distance to the letters, the cells of 1.5": read("distance", 1.5),
+        "read one noise, the cells of 1.5": read("noise", 1.5),
+        "read the whole field (the distance twice), the cells of 1.5": read("solid", 1.5),
+        "read the whole field, the cells of 2": read("solid", 2),
+        "shapes, trace_levels of the body at cell 1.5": drawn("body"),
+        "shapes, trace_levels of the halo at cell 2": drawn("halo"),
+        "shapes, branch, slice and tapered outline": drawn("threads"),
+        "shapes, the body and stipple of its speckle": drawn("speckle"),
+        "shapes, the body and stipple by the distance to it": drawn("spores"),
+    }
 
 
 def node_times(
@@ -342,6 +445,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--text", action="store_true", help="also time text when its weight moves (native)")
     parser.add_argument("--booleans", action="store_true", help="also time resolve, subtract and union (native)")
     parser.add_argument("--halftone", action="store_true", help="also time a disc of about 3,000 halftone dots")
+    parser.add_argument("--trace", action="store_true", help="also time the grown letters by stage (native)")
     arguments = parser.parse_args(argv)
     try:
         if min(arguments.shapes, arguments.warmups) < 0 or arguments.repeats < 1:
@@ -357,6 +461,7 @@ def main(argv: list[str] | None = None) -> int:
             if dots
             else None
         )
+        grown = trace_times(arguments.warmups, arguments.repeats) if arguments.trace else None
     except (BenchError, btvec.errors.BullterrierVectorError) as error:
         print(f"bench: {error}", file=sys.stderr)
         return 1
@@ -386,6 +491,11 @@ def main(argv: list[str] | None = None) -> int:
         except BenchError:
             on_node = None
         print(table(header, dotted, on_node, HALFTONE_OUTPUTS))
+    if grown:
+        header = (
+            f"trace: grown letters, a new growth on every draw, median of {arguments.repeats} calls in milliseconds"
+        )
+        print(named_table(header, grown))
     if problem:
         print(problem, file=sys.stderr)
     return 1 if problem and arguments.require_node else 0

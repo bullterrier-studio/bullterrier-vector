@@ -159,6 +159,29 @@ def test_halftone_adds_a_table_of_a_disc_of_dots_with_the_svg_row(bench):
     assert "halftone:" not in bench(*TINY).out
 
 
+def test_trace_adds_the_rows_of_grown_letters_by_frame_and_by_stage(bench):
+    result = bench(*TINY, "--trace")
+    assert result.code == 0, result.err
+    header, *timed = result.out.splitlines()[4:]
+    assert header == "trace: grown letters, a new growth on every draw, median of 2 calls in milliseconds"
+    assert [line.rsplit(None, 1)[0] for line in timed] == [
+        "build the drawing (once a drawing)",
+        "to_rgba 540x771, the first frame of a new drawing",
+        "to_rgba 540x771, a later frame",
+        "read the distance to the letters, the cells of 1.5",
+        "read one noise, the cells of 1.5",
+        "read the whole field (the distance twice), the cells of 1.5",
+        "read the whole field, the cells of 2",
+        "shapes, trace_levels of the body at cell 1.5",
+        "shapes, trace_levels of the halo at cell 2",
+        "shapes, branch, slice and tapered outline",
+        "shapes, the body and stipple of its speckle",
+        "shapes, the body and stipple by the distance to it",
+    ]
+    assert all(float(line.rsplit(None, 1)[1]) >= 0 for line in timed)  # a number; nothing asserts on time
+    assert "trace:" not in bench(*TINY).out
+
+
 def test_a_missing_package_is_one_line_and_the_native_column_stays(bench):
     result = bench(*TINY)
     assert result.code == 0
