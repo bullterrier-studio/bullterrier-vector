@@ -591,3 +591,46 @@ fn a_param_of_the_field_is_read_with_the_values_of_the_draw() -> Outcome {
     }
     Ok(())
 }
+
+// A grid of readings is shared by content, so the content must be everything the reading depends on -------------------
+
+/// The triangle `a b c` twice over: as one sub-path that goes round twice and as two sub-paths that go round once
+/// each. Their edges are the same list in the same order; their normalized distances are not.
+fn triangle_twice() -> Result<(Path, Path), Error> {
+    let corners = [(0.0, 0.0), (60.0, 0.0), (20.0, 50.0)];
+    let round = || corners.iter().copied().chain(corners);
+    let one = Path::polyline(round(), true)?;
+    let ring = |path: Path| {
+        path.move_to(corners[0])?
+            .line_to(corners[1])?
+            .line_to(corners[2])?
+            .close()
+    };
+    let two = ring(ring(Path::new())?)?;
+    Ok((one, two))
+}
+
+#[test]
+fn outlines_of_the_same_edges_in_other_sub_paths_do_not_share_a_grid() -> Outcome {
+    let (one, two) = triangle_twice()?;
+    let (f1, f2) = (Field::distance(one, true)?, Field::distance(two, true)?);
+    let differ = |x: f64, y: f64| f1.at((x, y)) != f2.at((x, y));
+    let points = (0..16).flat_map(|i| (0..12).map(move |j| (f64::from(i) * 5.0 + 2.5, f64::from(j) * 5.0 + 2.5)));
+    assert!(
+        points.clone().any(|(x, y)| differ(x, y)),
+        "the two fields must differ somewhere"
+    );
+    let gap = f1.add(&f2.mul(&Field::constant(-1.0)?)?)?.abs()?;
+    let frame = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: 80.0,
+        height: 60.0,
+    };
+    let shapes = levels(&gap, &[1e-9], &Trace::new().frame(frame).cell(5.0))?;
+    assert!(
+        !shapes.is_empty(),
+        "where the two fields differ, the gap is above the level"
+    );
+    Ok(())
+}

@@ -59,7 +59,8 @@ pub(crate) struct Outline {
 }
 
 impl Outline {
-    /// A SHA-256 of the edges' coordinates: what tells this outline from another with the same number of edges.
+    /// A SHA-256 of the edges' coordinates and of how they join into sub-paths (`neighbours` holds every sub-path's
+    /// boundaries): what tells this outline from another with the same edges, whose distances can still differ.
     pub(crate) fn digest(&self) -> [u8; 32] {
         use sha2::{Digest, Sha256};
         let mut hash = Sha256::new();
@@ -67,6 +68,10 @@ impl Outline {
             for number in [from.x, from.y, to.x, to.y] {
                 hash.update((number + 0.0).to_bits().to_le_bytes());
             }
+        }
+        for (before, after) in &self.neighbours {
+            hash.update(before.to_le_bytes());
+            hash.update(after.to_le_bytes());
         }
         hash.finalize().into()
     }
