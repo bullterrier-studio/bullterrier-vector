@@ -174,15 +174,14 @@ impl Field {
                 format!("must be above `low` and both finite, got {low} and {high}"),
             ));
         }
-        let mut bytes = Vec::with_capacity(width * height);
-        for row in 0..height {
+        let readings = self.at_each((0..height).flat_map(|row| {
             let y = frame.y + (row as f64 + 0.5) * frame.height / height as f64;
-            for column in 0..width {
-                let x = frame.x + (column as f64 + 0.5) * frame.width / width as f64;
-                let level = ((self.at(Point::new(x, y)) - low) / (high - low)).clamp(0.0, 1.0) * 255.0;
-                bytes.push(level.round() as u8);
-            }
-        }
+            (0..width).map(move |column| Point::new(frame.x + (column as f64 + 0.5) * frame.width / width as f64, y))
+        }));
+        let bytes = readings
+            .into_iter()
+            .map(|reading| (((reading - low) / (high - low)).clamp(0.0, 1.0) * 255.0).round() as u8)
+            .collect();
         Ok(bytes)
     }
 }
@@ -258,13 +257,10 @@ impl Field {
             });
         }
         self.charge_reads("cell", verb, columns * rows)?;
-        let mut readings = Vec::with_capacity(width * height);
-        for row in 0..height {
+        let mut readings = self.at_each((0..height).flat_map(|row| {
             let y = frame.y + (row as f64 + 0.5) * frame.height / rows;
-            for column in 0..width {
-                readings.push(self.at(Point::new(frame.x + (column as f64 + 0.5) * frame.width / columns, y)));
-            }
-        }
+            (0..width).map(move |column| Point::new(frame.x + (column as f64 + 0.5) * frame.width / columns, y))
+        }));
         let low = readings.iter().copied().fold(f64::INFINITY, f64::min);
         let high = readings.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         let spread = if high > low { high - low } else { 1.0 };

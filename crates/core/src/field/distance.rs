@@ -228,20 +228,74 @@ impl Field {
     #[must_use]
     pub fn at(&self, point: impl Into<Point>) -> f64 {
         let point = point.into();
+        self.eval(point, &|parts, normalized| parts.at(point, normalized))
+    }
+
+    /// The one rule for reading a field at `point`; `distance` reads a distance leaf, so a caller that already holds
+    /// that reading hands it back instead of searching the outline again.
+    fn eval(&self, point: Point, distance: &dyn Fn(&Parts, bool) -> f64) -> f64 {
         match &self.bound {
             Bound::Constant(value) => *value,
             Bound::Ramp { start, end } => {
                 let (dx, dy) = (end.x - start.x, end.y - start.y);
                 (((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)).clamp(0.0, 1.0)
             }
-            Bound::Distance { parts, normalized } => parts.at(point, *normalized),
+            Bound::Distance { parts, normalized } => distance(parts, *normalized),
             Bound::Map(map) => map.sample(point),
             Bound::Noise(octaves) => octaves.at(point),
             Bound::Arithmetic { op, operands } => {
-                let mut values = operands.iter().map(|operand| operand.at(point));
+                let mut values = operands.iter().map(|operand| operand.eval(point, distance));
                 op.apply(values.next().unwrap_or(0.0), values.next().unwrap_or(0.0))
             }
         }
+    }
+
+    /// Adds to `seen` each distinct distance leaf of this field (the same outline and `normalized`) with how many
+    /// times the tree reads it.
+    fn count_distances<'a>(&'a self, seen: &mut Vec<(&'a Parts, bool, usize)>) {
+        match &self.bound {
+            Bound::Distance { parts, normalized } => {
+                match seen
+                    .iter_mut()
+                    .find(|(other, flag, _)| other.identity == parts.identity && flag == normalized)
+                {
+                    Some(entry) => entry.2 += 1,
+                    None => seen.push((parts, *normalized, 1)),
+                }
+            }
+            Bound::Arithmetic { operands, .. } => operands.iter().for_each(|operand| operand.count_distances(seen)),
+            _ => {}
+        }
+    }
+
+    /// This field at each of `points`, in order, the same numbers as [`Field::at`] gives. A distance leaf the tree
+    /// reads more than once (`edge * 2 + edge`) is searched once per point and the reading reused; the readings of
+    /// each such leaf are kept in one `f64` a point for the call, at most `MAX_MAP_PIXELS` points, so at most
+    /// `MAX_MAP_PIXELS * 8` bytes a repeated leaf, and the work the call is charged ([`Field::charge_reads`]) stays
+    /// the whole tree's each time.
+    pub(super) fn at_each(&self, points: impl Iterator<Item = Point> + Clone) -> Vec<f64> {
+        let mut seen = Vec::new();
+        self.count_distances(&mut seen);
+        let shared: Vec<(&Parts, bool, Vec<f64>)> = seen
+            .into_iter()
+            .filter(|(_, _, reads)| *reads > 1)
+            .map(|(parts, normalized, _)| {
+                let readings = points.clone().map(|point| parts.at(point, normalized)).collect();
+                (parts, normalized, readings)
+            })
+            .collect();
+        points
+            .enumerate()
+            .map(|(index, point)| {
+                self.eval(point, &|parts, normalized| match shared
+                    .iter()
+                    .find(|(other, flag, _)| other.identity == parts.identity && *flag == normalized)
+                {
+                    Some((_, _, readings)) => readings[index],
+                    None => parts.at(point, normalized),
+                })
+            })
+            .collect()
     }
 
     /// The cost of one read in units of a read of a ramp: a constant, a ramp or a map is one unit, a distance what its

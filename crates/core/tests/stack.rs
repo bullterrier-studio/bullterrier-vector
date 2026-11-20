@@ -9,8 +9,8 @@
 mod common;
 
 use bullterrier_vector::{
-    Branch, Color, Drawing, Error, Expr, Field, Flow, Hatch, Inputs, Mesh, Param, Path, Random, Size, Stagger, Text,
-    Values, by_index, by_order, text,
+    Branch, Color, Drawing, Error, Expr, Field, Flow, Hatch, Inputs, Mesh, Param, Path, Random, Rect, Size, Stagger,
+    Text, Trace, Values, by_index, by_order, text,
 };
 use common::fonts::synthetic;
 use common::{Outcome, parameter_refusal};
@@ -360,6 +360,20 @@ fn arithmetic_on_fields_to_the_deepest_nesting_is_read_written_and_hatched_on_th
             assert_ne!(back.shapes(&Values::new())?.len(), 0);
             assert!(tone.at((10.0, 10.0)).is_finite());
             drop(tone);
+            // the same distance read at every level (rasters keep one reading of it), traced over a grid
+            let edge = Field::distance(Path::circle((20.0, 20.0), 10.0)?, false)?;
+            let mut shared = edge.clone();
+            for _ in 0..16 {
+                shared = shared.add(&edge)?;
+            }
+            let frame = Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 40.0,
+                height: 40.0,
+            };
+            let traced = Drawing::trace_levels(&shared, [0.5], &Trace::new().frame(frame).cell(4.0));
+            assert_ne!(traced.shapes(&Values::new())?.len(), 0);
             Ok(())
         };
         run().map_err(|error| error.to_string())
