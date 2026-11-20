@@ -2334,8 +2334,12 @@ Why not an existing call:
 - **Why the charge is unchanged on a hit.** The read budget is a property of the request (what the caller asks the
   library to read), not of what happens to be cached; a hit that cost nothing would let the same drawing pass or fail
   by the order of its draws.
-- **The bound.** A draw's grids at most: each is at most `MAX_MAP_PIXELS` x 8 bytes and the read budget limits how many
-  a draw reads; a grid not read in a draw is dropped, so the cache never exceeds one draw's.
+- **The bound.** What the store holds is limited directly: all held grids together are at most `MAX_MAP_PIXELS`
+  readings (128 MiB), and a grid that would pass that is returned to its reader and not kept, so it is sampled again
+  when read again (speed only, never a result). A grid not read in a draw is also dropped. The read budget does not
+  bound this: it refuses one call and adds up nothing across a draw's steps, so a draw of many 2000 by 2000 traces
+  would otherwise hold 32 MiB each (measured before the limit: 20 such steps, 745 MiB peak). The demo's grids are about
+  4 MB and fit, so the speed-up stays.
 - **Why not a lower-precision distance (an 8-bit map).** It quantises, so the results would change; the speed-up here
   keeps every byte.
 - **Why `contours` and `to_map` are not cached.** They read a field through other sample expressions, and a grid made

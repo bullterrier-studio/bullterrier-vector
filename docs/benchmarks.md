@@ -100,6 +100,9 @@ Profile of a warm frame before the change (macOS `sample`): both `trace_levels` 
 drawing that holds `Field.distance(body)` costs about 1.05 s, because it traces the body at construction; each worker
 process pays it once.
 
+The kept grids are limited to `MAX_MAP_PIXELS` readings (128 MiB) in all; the two grids of this frame are about 4 MB, so the
+warm time holds. A draw that reads more than that in distinct grids samples the later ones again each time.
+
 The real demo (grown letters, 540 by 771, 84 frames, one process): 155.1 s (1.85 s a frame) before, 24.8 s (0.30 s a
 frame) after, 6.3 times faster, with identical frame hashes. Worker processes (`docs/api.md`, "Frame export") measured
 2.7 times at 5 workers under load, before these changes. Not measured: a quiet machine, x86, WebAssembly.

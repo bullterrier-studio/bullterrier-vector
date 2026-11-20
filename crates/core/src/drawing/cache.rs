@@ -13,7 +13,7 @@
 //! values a caller tries.
 
 use crate::Shape;
-use crate::field::Grids;
+use crate::field::{Grids, MAX_MAP_PIXELS};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -146,12 +146,15 @@ impl Cache {
 /// reading is found again whenever the same outline is read over the same grid, whatever else the draw changed.
 ///
 /// What is kept is what a draw used: a reading is dropped at the end of the first draw (a failed one included) that did
-/// not read it. The store therefore holds one draw's grids, each at most `MAX_MAP_PIXELS` readings of 8 bytes, and how
-/// many a draw reads is limited by the read-work budget it is charged.
-#[derive(Debug, Default)]
+/// not read it. What is kept is also limited: all the readings held together are at most `MAX_MAP_PIXELS` (8 bytes
+/// each), and a grid that would pass that is returned to its reader and not kept, so it is made again when it is read
+/// again. The read-work budget does not bound this: it refuses a call, and nothing in it adds up across a draw's steps.
+#[derive(Debug)]
 pub(crate) struct GridStore {
     held: RefCell<BTreeMap<Vec<u64>, Held>>,
     draw: u64,
+    /// The most readings held in all.
+    limit: usize,
 }
 
 #[derive(Debug)]
@@ -161,7 +164,23 @@ struct Held {
     used: u64,
 }
 
+impl Default for GridStore {
+    fn default() -> Self {
+        // constant: a draw's retained grids add at most one maximum grid (`MAX_MAP_PIXELS` readings of 8 bytes, 128
+        // MiB) to what the draw's own reads peak at, however many distinct grids it reads
+        Self::with_limit(MAX_MAP_PIXELS)
+    }
+}
+
 impl GridStore {
+    fn with_limit(limit: usize) -> Self {
+        Self {
+            held: RefCell::default(),
+            draw: 0,
+            limit,
+        }
+    }
+
     /// Ends a draw: drops the readings it did not use.
     fn end(&mut self) {
         let draw = self.draw;
@@ -178,13 +197,18 @@ impl Grids for GridStore {
         }
         // not held while filling: a fill reads outlines, never the store
         let readings = Arc::new(fill());
-        self.held.borrow_mut().insert(
-            key,
-            Held {
-                readings: Arc::clone(&readings),
-                used: draw,
-            },
-        );
+        let mut held = self.held.borrow_mut();
+        let total: usize = held.values().map(|held| held.readings.len()).sum();
+        // a grid that would pass the limit is made again whenever it is read: results never change, only speed
+        if total + readings.len() <= self.limit {
+            held.insert(
+                key,
+                Held {
+                    readings: Arc::clone(&readings),
+                    used: draw,
+                },
+            );
+        }
         readings
     }
 }
@@ -247,6 +271,23 @@ mod tests {
         let other = store.grid(vec![1, 3], &mut fill);
         assert_eq!(made, 2, "a second key is made, a repeated one is not");
         assert!(Arc::ptr_eq(&first, &again) && !Arc::ptr_eq(&first, &other));
+    }
+
+    #[test]
+    fn grids_past_the_limit_are_returned_whole_and_not_held() {
+        let store = GridStore::with_limit(10);
+        for key in 0..6_u32 {
+            let value = f64::from(key);
+            let readings = store.grid(vec![u64::from(key)], &mut || vec![value; 4]);
+            assert_eq!(*readings, vec![value; 4], "a grid not held is still the right values");
+            let total: usize = store.held.borrow().values().map(|held| held.readings.len()).sum();
+            assert!(total <= 10, "held {total} readings after key {key}, limit 10");
+        }
+        let first = store.grid(vec![0], &mut || vec![0.0; 4]);
+        assert!(
+            Arc::ptr_eq(&first, &store.grid(vec![0], &mut || vec![9.0; 4])),
+            "what was held is served"
+        );
     }
 
     #[test]

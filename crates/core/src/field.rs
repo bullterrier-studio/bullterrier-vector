@@ -23,7 +23,7 @@ pub use flow::Flow;
 pub(crate) use flow::FlowKind;
 pub(crate) use grids::Grids;
 pub use hatch::Hatch;
-pub(crate) use map::MapData;
+pub(crate) use map::{MAX_MAP_PIXELS, MapData};
 pub(crate) use outline::Outline;
 
 use crate::limits::MAX_SEGMENTS;
