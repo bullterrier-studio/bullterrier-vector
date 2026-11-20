@@ -462,20 +462,11 @@ fn strip_span(a: Point, b: Point, left: f64, right: f64) -> (f64, f64) {
 }
 
 /// The cells at Chebyshev distance `ring` from `(cx, cy)`.
-fn ring_cells(cx: i64, cy: i64, ring: i64) -> Vec<(i64, i64)> {
-    if ring == 0 {
-        return vec![(cx, cy)];
-    }
-    let mut cells = Vec::new();
-    for dx in -ring..=ring {
-        cells.push((cx + dx, cy - ring));
-        cells.push((cx + dx, cy + ring));
-    }
-    for dy in (1 - ring)..ring {
-        cells.push((cx - ring, cy + dy));
-        cells.push((cx + ring, cy + dy));
-    }
-    cells
+fn ring_cells(cx: i64, cy: i64, ring: i64) -> impl Iterator<Item = (i64, i64)> {
+    let rows = (-ring..=ring).flat_map(move |dx| [(cx + dx, cy - ring), (cx + dx, cy + ring)]);
+    let sides = ((1 - ring)..ring).flat_map(move |dy| [(cx - ring, cy + dy), (cx + ring, cy + dy)]);
+    // at ring 0 both ends of the row are the centre
+    rows.chain(sides).take(if ring == 0 { 1 } else { usize::MAX })
 }
 
 /// The square of the distance from `at` to the segment from `from` to `to`.
