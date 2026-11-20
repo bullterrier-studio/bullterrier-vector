@@ -21,7 +21,7 @@
 use super::Plan;
 use super::tidy::tidy;
 use crate::Error;
-use crate::field::{Field, Grid, MAX_READ_WORK, MAX_SMOOTH_WORK, MapData, blur, trace_level};
+use crate::field::{Field, Grid, Grids, MAX_READ_WORK, MAX_SMOOTH_WORK, MapData, blur, trace_level};
 use crate::geometry::Rect;
 use crate::path::{Combine, Path};
 
@@ -181,12 +181,14 @@ fn layer(
 }
 
 /// One outline for each of `levels` that `field` reaches: the region where it is at or above the level, read at the cells
-/// of `frame` cut into cells no wider than `cell` (left out: a map's own frame and pixels).
+/// of `frame` cut into cells no wider than `cell` (left out: a map's own frame and pixels), a distance it reads through
+/// `grids`.
 pub(crate) fn levels(
     field: &Field,
     (frame, cell): (Option<Rect>, Option<f64>),
     levels: &[f64],
     plan: &Plan,
+    grids: &dyn Grids,
     charge: &mut dyn FnMut(usize) -> Result<(), Error>,
 ) -> Result<Vec<(f64, Path)>, Error> {
     if levels.len() > MAX_LEVELS {
@@ -198,7 +200,7 @@ pub(crate) fn levels(
     if let Some(bad) = levels.iter().find(|level| !level.is_finite()) {
         return Err(Error::parameter("levels", format!("must be finite numbers, got {bad}")));
     }
-    let raster = field.raster(frame, cell, "trace_levels")?;
+    let raster = field.raster(frame, cell, "trace_levels", grids)?;
     let lattice = Lattice::new(
         (raster.width, raster.height, raster.frame),
         plan,

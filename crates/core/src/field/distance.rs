@@ -4,7 +4,7 @@ use super::arithmetic::{Op, sizes};
 use super::map::MapData;
 use super::octaves::{NOISE_READ, Octaves};
 use super::outline::Outline;
-use super::{Shapes, once, read, segment_budget};
+use super::{Grids, Shapes, once, read, segment_budget};
 use crate::geometry::{Point, Rect, coordinate_point};
 use crate::key::{Key, Keyed, key_of};
 use crate::path::Polyline;
@@ -268,31 +268,41 @@ impl Field {
         }
     }
 
-    /// This field at each of `points`, in order, the same numbers as [`Field::at`] gives. A distance leaf the tree
-    /// reads more than once (`edge * 2 + edge`) is searched once per point and the reading reused; the readings of
-    /// each such leaf are kept in one `f64` a point for the call, at most `MAX_MAP_PIXELS` points, so at most
-    /// `MAX_MAP_PIXELS * 8` bytes a repeated leaf, and the work the call is charged ([`Field::charge_reads`]) stays
-    /// the whole tree's each time.
-    pub(super) fn at_each(&self, points: impl Iterator<Item = Point> + Clone) -> Vec<f64> {
+    /// This field at each of `points`, in order, the same numbers as [`Field::at`] gives. Each distinct distance leaf
+    /// of the tree (the same outline and `normalized`) is searched once per point, whether the tree reads it once or
+    /// more, and its readings come from `grids` under a key made of the leaf and `grid`, the words that name `points`:
+    /// a leaf already read over that grid is not searched again. The readings are one `f64` a point, at most
+    /// `MAX_MAP_PIXELS` points; the work a call is charged ([`Field::charge_reads`]) stays the whole tree's each time.
+    pub(super) fn at_each(
+        &self,
+        points: impl Iterator<Item = Point> + Clone,
+        (grids, grid): (&dyn Grids, &[u64]),
+    ) -> Vec<f64> {
         let mut seen = Vec::new();
         self.count_distances(&mut seen);
-        let shared: Vec<(&Parts, bool, Vec<f64>)> = seen
+        let leaves: Vec<(&Parts, bool, Arc<Vec<f64>>)> = seen
             .into_iter()
-            .filter(|(_, _, reads)| *reads > 1)
             .map(|(parts, normalized, _)| {
-                let readings = points.clone().map(|point| parts.at(point, normalized)).collect();
+                let mut key = Key::new();
+                key.word(1); // constant: the tag of a distance leaf read over a grid
+                key.word(u64::from(normalized));
+                for &word in parts.identity.iter().chain(grid) {
+                    key.word(word);
+                }
+                let readings = grids.grid(key.finish(), &mut || {
+                    points.clone().map(|point| parts.at(point, normalized)).collect()
+                });
                 (parts, normalized, readings)
             })
             .collect();
         points
             .enumerate()
             .map(|(index, point)| {
-                self.eval(point, &|parts, normalized| match shared
-                    .iter()
-                    .find(|(other, flag, _)| other.identity == parts.identity && *flag == normalized)
-                {
-                    Some((_, _, readings)) => readings[index],
-                    None => parts.at(point, normalized),
+                self.eval(point, &|parts, normalized| {
+                    leaves
+                        .iter()
+                        .find(|(other, flag, _)| other.identity == parts.identity && *flag == normalized)
+                        .map_or_else(|| parts.at(point, normalized), |(_, _, readings)| readings[index])
                 })
             })
             .collect()

@@ -234,6 +234,7 @@ impl Run<'_> {
                 place,
                 env,
                 work: &self.work,
+                grids: &self.cache.grids,
             };
             let made = step.node.evaluate(
                 &step.args,

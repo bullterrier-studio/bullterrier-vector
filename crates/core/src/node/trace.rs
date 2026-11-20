@@ -258,7 +258,7 @@ impl Node for TraceLevels {
                 None
             };
             let cell = args.once_number_opt(cx, "cell")?;
-            crate::trace::trace_levels(&field, (frame, cell), &levels, &plan(args, cx)?, &mut charge)
+            crate::trace::trace_levels(&field, (frame, cell), &levels, &plan(args, cx)?, cx.grids, &mut charge)
         })()
         .map_err(|error| placed(error, cx))?;
         shapes(outlines, Attribute::Level, cx)

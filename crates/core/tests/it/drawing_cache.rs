@@ -708,3 +708,139 @@ proptest! {
         }
     }
 }
+
+// The sampled grid of a distance leaf, kept between draws ------------------------------------------------------------
+
+mod grids {
+    use super::slider;
+    use crate::common::{Outcome, parameter_refusal};
+    use bullterrier_vector::{Drawing, Error, Field, Param, Path, Rect, Shape, Trace, Values};
+    use sha2::{Digest, Sha256};
+
+    const BOX: Rect = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: 200.0,
+        height: 200.0,
+    };
+
+    /// The outlines drawn, as the digest of their path data: the frames are compared by it, never as buffers.
+    fn digest(shapes: &[Shape]) -> Vec<u8> {
+        let mut hash = Sha256::new();
+        for shape in shapes {
+            hash.update(shape.path().to_svg_path().as_bytes());
+        }
+        hash.finalize().to_vec()
+    }
+
+    /// What a read of the circle's distance is made of: normalized or not, the frame, the cell.
+    type Read = (bool, Rect, f64);
+
+    /// Level 10 of the distance to a circle (about its middle ring) at `frame` and `cell`; `shift` moves the circle.
+    fn traced(
+        shift: impl Into<bullterrier_vector::Expr>,
+        normalized: bool,
+        frame: Rect,
+        cell: f64,
+    ) -> Result<Drawing, Error> {
+        let circle = Drawing::from(Path::circle((80.0, 100.0), 40.0)?).translate(shift, 0.0);
+        let level = if normalized { 0.5 } else { 10.0 };
+        Ok(Drawing::trace_levels(
+            &Field::distance(circle, normalized)?,
+            [level],
+            &Trace::new().tolerance(0.0).frame(frame).cell(cell),
+        ))
+    }
+
+    #[test]
+    fn frames_across_a_sweep_of_a_param_the_distance_ignores_equal_fresh_drawings() -> Outcome {
+        // the distance to the circle does not read `growth`; the noise added to it does
+        let build = || -> Result<Drawing, Error> {
+            let growth = Param::new("growth", 40.0, 10.0, 80.0)?;
+            let wobble = Field::noise(&growth, 0.0, 5.0, 2)?.mul(&Field::constant(6.0)?)?;
+            let field = Field::distance(Path::circle((100.0, 100.0), 40.0)?, false)?.add(&wobble)?;
+            Ok(Drawing::trace_levels(
+                &field,
+                [8.0, 14.0],
+                &Trace::new().tolerance(0.0).frame(BOX).cell(4.0),
+            ))
+        };
+        let one = build()?;
+        for growth in [40.0, 25.0, 60.0, 40.0, 12.0] {
+            let values = Values::new().set("growth", growth);
+            let (kept, fresh) = (one.shapes(&values)?, build()?.shapes(&values)?);
+            assert!(!kept.is_empty(), "growth {growth}: the control draws nothing");
+            assert_eq!(digest(&kept), digest(&fresh), "growth {growth}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn a_moved_outline_is_never_read_from_the_grid_of_the_old_one() -> Outcome {
+        // one drawing, the circle moved by a Param: a grid kept for the circle at 0 is not the grid at 30
+        let shift = slider("shift", 0.0)?;
+        let one = traced(&shift, false, BOX, 4.0)?;
+        for value in [0.0, 30.0, 0.0, 30.0, -20.0] {
+            let values = Values::new().set("shift", value);
+            let (kept, fresh) = (
+                one.shapes(&values)?,
+                traced(value, false, BOX, 4.0)?.shapes(&Values::new())?,
+            );
+            assert!(!kept.is_empty(), "shift {value}: the control draws nothing");
+            assert_eq!(digest(&kept), digest(&fresh), "shift {value}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn two_reads_of_one_outline_that_differ_in_flag_frame_or_grid_never_share_a_grid() -> Outcome {
+        let moved = Rect { x: 7.0, ..BOX };
+        let taller = Rect { height: 150.0, ..BOX };
+        // (case, one read, the other): drawn in one stack, so in one draw of one cache
+        let rows: [(&str, Read, Read); 4] = [
+            ("normalized or not", (false, BOX, 4.0), (true, BOX, 4.0)),
+            ("the frame's position", (false, BOX, 4.0), (false, moved, 4.0)),
+            ("the frame's size, same cell", (false, BOX, 4.0), (false, taller, 4.0)),
+            ("the cell", (false, BOX, 4.0), (false, BOX, 5.0)),
+        ];
+        for (case, (flag_a, frame_a, cell_a), (flag_b, frame_b, cell_b)) in rows {
+            let (a, b) = (
+                traced(0.0, flag_a, frame_a, cell_a)?,
+                traced(0.0, flag_b, frame_b, cell_b)?,
+            );
+            let together = Drawing::new([a, b]).shapes(&Values::new())?;
+            let alone = [
+                traced(0.0, flag_a, frame_a, cell_a)?.shapes(&Values::new())?,
+                traced(0.0, flag_b, frame_b, cell_b)?.shapes(&Values::new())?,
+            ]
+            .concat();
+            assert_eq!(together.len(), 2, "{case}: each read draws a shape");
+            assert_eq!(digest(&together), digest(&alone), "{case}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn a_read_too_slow_for_the_budget_is_refused_though_its_distance_grid_is_kept() -> Outcome {
+        // the same distance leaf: the plain field draws and keeps its grid, the same field plus a very deep noise is
+        // refused for the work of its reads, whether or not that grid is already held
+        let leaf = || -> Result<Field, Error> { Field::distance(Path::circle((100.0, 100.0), 40.0)?, false) };
+        let noise = Field::noise(40.0, 0.0, 1.0, 8)?;
+        let mut deep = noise.clone();
+        for _ in 0..11 {
+            deep = deep.add(&deep.clone())?;
+        }
+        let slow = leaf()?.add(&deep)?;
+        let trace = Trace::new().frame(BOX).cell(1.0);
+        let cheap = || -> Result<Drawing, Error> { Ok(Drawing::trace_levels(&leaf()?, [10.0], &trace)) };
+        let refused = |drawing: &Drawing| parameter_refusal(drawing.shapes(&Values::new()));
+        let alone = refused(&Drawing::trace_levels(&slow, [10.0], &trace))?;
+        let stacked = Drawing::new([cheap()?, Drawing::trace_levels(&slow, [10.0], &trace)]);
+        let (named, message) = refused(&stacked)?;
+        assert!(named.contains("cell"), "{named}");
+        assert_eq!(message, alone.1, "the refusal is the request's, not the cache's");
+        // and the cheap one alone draws, so the grid was there to be reused
+        assert_ne!(cheap()?.shapes(&Values::new())?.len(), 0);
+        Ok(())
+    }
+}

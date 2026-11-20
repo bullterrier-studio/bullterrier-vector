@@ -12,8 +12,8 @@
 //!
 //! - **Inputs.** `Inputs { previous, taken }`: the shapes of the drawing this step builds on (none for a source), then
 //!   of each drawing it takes (a stack's items). A node never sees a `Drawing`.
-//! - **Context.** `Context { place, env, work }`: where the step is (for errors), the Param values as this place sees
-//!   them (draw values under every `with_values` above it), and the counters. No clock, no caller state.
+//! - **Context.** `Context { place, env, work, grids }`: where the step is (for errors), the Param values as this place sees
+//!   them (draw values under every `with_values` above it), the counters, and the readings of distance leaves kept from earlier draws. No clock, no caller state.
 //! - **Whole list or shape by shape.** `evaluate` takes the whole list. A shape-by-shape node calls the helper
 //!   `each_shape(previous, cx, |shape, item| ..)`, which loops, builds the `Item` (`index`, `count` and the shape's `order`) and prefixes
 //!   `shape i` to errors, so the loop is written once and no node can leave a default method unimplemented.
@@ -74,6 +74,7 @@ pub(crate) mod values;
 
 pub(crate) use args::{Args, Given, Item};
 
+use crate::field::Grids;
 use crate::limits::Work;
 use crate::{Error, Shape, Values};
 use std::fmt;
@@ -129,6 +130,8 @@ pub(crate) struct Context<'a> {
     pub(crate) env: &'a Values,
     /// What the draw has made so far, to charge what this step creates.
     pub(crate) work: &'a Work,
+    /// Readings of distance leaves kept from earlier draws, for a node that reads a field over a grid.
+    pub(crate) grids: &'a dyn Grids,
 }
 
 /// The word of `name` read as one of the call's options, found by `named`.

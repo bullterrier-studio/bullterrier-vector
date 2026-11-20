@@ -8,10 +8,11 @@
     reason = "pixel indexes are clamped into a map of at most MAX_MAP_PIXELS pixels before they are used"
 )]
 
-use super::Field;
 use super::contours::cells_along;
+use super::{Field, Grids};
 use crate::Error;
 use crate::geometry::{Point, Rect, coordinate, finite};
+use crate::key::Key;
 use sha2::{Digest, Sha256};
 
 /// The most pixels a map holds, read or written.
@@ -214,8 +215,15 @@ impl Field {
     ///
     /// # Errors
     /// [`Error::Parameter`] naming `frame` or `cell` when left out for a field that is not a map, `frame` as for
-    /// [`Field::map`], `cell` if the grid would pass `MAX_MAP_PIXELS` cells or the reads `MAX_READ_WORK`.
-    pub(crate) fn raster(&self, frame: Option<Rect>, cell: Option<f64>, verb: &str) -> Result<Raster, Error> {
+    /// [`Field::map`], `cell` if the grid would pass `MAX_MAP_PIXELS` cells or the reads `MAX_READ_WORK`. A distance
+    /// the field reads is read through `grids`.
+    pub(crate) fn raster(
+        &self,
+        frame: Option<Rect>,
+        cell: Option<f64>,
+        verb: &str,
+        grids: &dyn Grids,
+    ) -> Result<Raster, Error> {
         let map = self.map_data();
         let own = |name: &str| {
             Error::parameter(
@@ -258,10 +266,18 @@ impl Field {
             });
         }
         self.charge_reads("cell", verb, columns * rows)?;
-        let mut readings = self.at_each((0..height).flat_map(|row| {
-            let y = frame.y + (row as f64 + 0.5) * frame.height / rows;
-            (0..width).map(move |column| Point::new(frame.x + (column as f64 + 0.5) * frame.width / columns, y))
-        }));
+        // the points are a function of these six numbers, so they name the grid
+        let mut grid = Key::new();
+        for number in [frame.x, frame.y, frame.width, frame.height, columns, rows] {
+            grid.number(number);
+        }
+        let mut readings = self.at_each(
+            (0..height).flat_map(|row| {
+                let y = frame.y + (row as f64 + 0.5) * frame.height / rows;
+                (0..width).map(move |column| Point::new(frame.x + (column as f64 + 0.5) * frame.width / columns, y))
+            }),
+            (grids, &grid.finish()),
+        );
         let low = readings.iter().copied().fold(f64::INFINITY, f64::min);
         let high = readings.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         let spread = if high > low { high - low } else { 1.0 };
