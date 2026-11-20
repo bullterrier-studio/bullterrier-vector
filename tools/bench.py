@@ -268,7 +268,7 @@ def trace_times(warmups: int, repeats: int) -> dict[str, float]:
         ),
         "read the distance to the letters, the cells of 1.5": read("distance", 1.5),
         "read one noise, the cells of 1.5": read("noise", 1.5),
-        "read the whole field (the distance twice), the cells of 1.5": read("solid", 1.5),
+        "read the whole field (the distance sampled once), the cells of 1.5": read("solid", 1.5),
         "read the whole field, the cells of 2": read("solid", 2),
         "shapes, trace_levels of the body at cell 1.5": drawn("body"),
         "shapes, trace_levels of the halo at cell 2": drawn("halo"),

@@ -1241,6 +1241,14 @@ older `out` untouched. It is the only part of the library that knows time. A `sc
 (a new map to trace, say) makes a clip of many drawings, not one drawing and its values, so the clip cannot be saved as
 one JSON.
 
+To render the frames in several processes, start workers with `spawn`; each builds the drawing once, draws its frames
+with the same `scene(k / fps).to_png(width, height)` call that `frames` makes (here `scene` returns the one drawing
+`with_values(...)`) and writes `frames/badge-<k>.png`; the parent joins the files in order. A frame is a pure function of
+its Params, so the bytes should equal a serial run's. A demo of grown letters took 1.85 s a frame serial and about 2.7
+times less in total with 5 workers on a busy machine. Consecutive frames of one `Drawing` reuse the distance grids it
+sampled, so a worker should keep one `Drawing` across its frames and take a run of neighbouring frames, not every fifth
+one; a new `Drawing` per frame starts cold.
+
 Errors: `ParameterError` for `fps` or `seconds` not finite and above 0, `seconds` shorter than half a frame, an `out` of
 no known kind or a `.png` without exactly one run of `#` in its file name (nothing is drawn or written), and a size the
 outputs refuse (as `to_png`, on the first draw); what `scene` raises; `OSError` when a file or folder cannot be written

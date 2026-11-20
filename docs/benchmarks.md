@@ -75,6 +75,35 @@ dissolved, every call), `subtract` from a plate about 130: a line of text can be
 `Param` within a frame of 16.7 ms; the grids, with tens of thousands of edges, take 20 to 70 ms. Not measured:
 WebAssembly, a second run, curves in a grid.
 
+## Grown letters (BTVEC-0011)
+
+`uv run poe bench --trace` times the grown letters of the demos' mould cover, natively (the Python extension, release): two
+words bitten by noise through the distance to them, traced at two cells (1.5 and 2 design pixels), with threads,
+speckle and spores, at 540 by 771 (a simplified copy of the demo frame, `trace_parts` in `tools/bench.py`). Every timed
+call draws with a `growth` no earlier call took, so the result cache answers none of the steps that depend on it. Rows:
+the build of the drawing (once a drawing), the first frame of a new drawing (cold: its caches are empty), a later frame
+(warm: the distance grids sampled by the first are kept), the fields read on the grids the traces read, and each traced or
+stippled step alone. Apple M4, macOS, 2026-11-20; the median in milliseconds, one run at load average 2 to 4 shared with
+other work, so read the ratios.
+
+| What | before | (a) ring iterator | (b) one sample per call | (c) grid kept across frames |
+|---|---|---|---|---|
+| a later frame | 1764 | 1062 | 655 | about 236 |
+| the first frame of a new drawing | 1757 | | | about 664 |
+| the distance alone, cells of 1.5 | 490 | 271 | | |
+| the whole field, cells of 1.5 | 1060 | 601 | 342 | |
+| trace of the body | 1060 | 614 | 356 | |
+| trace of the halo | 590 | 344 | 198 | |
+
+Profile of a warm frame before the change (macOS `sample`): both `trace_levels` 90%, of which the distance to the letters
+88% (`Outline::nearest` 86%, its `ring_cells` 46%, Vec growth 36% of that), noise 3%, stipple 3%, taper 3%. Building a
+drawing that holds `Field.distance(body)` costs about 1.05 s, because it traces the body at construction; each worker
+process pays it once.
+
+The real demo (grown letters, 540 by 771, 84 frames, one process): 155.1 s (1.85 s a frame) before, 24.8 s (0.30 s a
+frame) after, 6.3 times faster, with identical frame hashes. Worker processes (`docs/api.md`, "Frame export") measured
+2.7 times at 5 workers under load, before these changes. Not measured: a quiet machine, x86, WebAssembly.
+
 ## Halftone (V10)
 
 `uv run poe bench --halftone` times a disc of 310 design pixels radius on an 800 by 800 frame, filled with a halftone of

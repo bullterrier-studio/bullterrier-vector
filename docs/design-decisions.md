@@ -2318,3 +2318,33 @@ Why not an existing call:
   `cell` is the characters' `(w, h)` in design pixels, `trace_levels`' sampling step in design pixels and `trace_cells`'
   dither cell in map pixels. Allowed so the rule holds for the rest; each needs a rename the interface audit did not
   scope.
+
+## Render speed of grown letters (BTVEC-0011)
+
+- **Why the distance reads dominated.** A warm frame of the demo spent 88% in the distance to the letters
+  (`Outline::nearest`, 86%), read over a grid for each `trace_levels` and again for each read of the same leaf; noise,
+  stipple and taper were 3% each. Rendering was not the cost, sampling was.
+- **The three steps, each keeping the bytes.** (a) `ring_cells` is an iterator (no Vec per ring, same order). (b) A repeated
+  distance leaf is sampled once per `raster` call. (c) The sampled grid of each distinct distance leaf is kept across
+  draws in the drawing's cache. The demo's frames hash the same before and after.
+- **Why the grid cache is keyed by content and kept per drawing.** The key is the normalized flag, the outline's identity
+  digest, the frame, the columns and the rows: what decides the values, so two equal requests share a grid and a changed
+  outline never reads a stale one. It lives in the drawing's cache and is evicted like cached steps (a grid not read in a
+  draw is dropped), so it dies with the drawing and holds nothing for a drawing nobody draws.
+- **Why the charge is unchanged on a hit.** The read budget is a property of the request (what the caller asks the
+  library to read), not of what happens to be cached; a hit that cost nothing would let the same drawing pass or fail
+  by the order of its draws.
+- **The bound.** A draw's grids at most: each is at most `MAX_MAP_PIXELS` x 8 bytes and the read budget limits how many
+  a draw reads; a grid not read in a draw is dropped, so the cache never exceeds one draw's.
+- **Why not a lower-precision distance (an 8-bit map).** It quantises, so the results would change; the speed-up here
+  keeps every byte.
+- **Why `contours` and `to_map` are not cached.** They read a field through other sample expressions, and a grid made
+  for one expression may differ in the last bit from another reader's; sharing it would let one reader's result depend
+  on which ran first. Noise costs 14 ms a read; it was not worth it.
+- **Why no `workers` option.** Frames of a drawing are pure functions of the Params, so a recipe (`docs/api.md`,
+  "Frame export": worker processes, one drawing each) is cheaper than an option and leaves the process model to the
+  caller.
+- **Left.** `bind` rebuilds the outline and its SHA-256 each draw (about 5 ms a frame, not worth a cache);
+  `Field.distance(body)` still traces the body at construction (about 1.05 s, once per worker); a body and a halo with
+  different cells share no grid within a frame (the saving is across frames); GPU and multi-threaded rendering stay out
+  of scope.

@@ -170,7 +170,7 @@ def test_trace_adds_the_rows_of_grown_letters_by_frame_and_by_stage(bench):
         "to_rgba 540x771, a later frame",
         "read the distance to the letters, the cells of 1.5",
         "read one noise, the cells of 1.5",
-        "read the whole field (the distance twice), the cells of 1.5",
+        "read the whole field (the distance sampled once), the cells of 1.5",
         "read the whole field, the cells of 2",
         "shapes, trace_levels of the body at cell 1.5",
         "shapes, trace_levels of the halo at cell 2",
