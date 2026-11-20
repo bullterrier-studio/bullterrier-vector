@@ -174,14 +174,15 @@ impl Field {
                 format!("must be above `low` and both finite, got {low} and {high}"),
             ));
         }
-        let readings = self.at_each((0..height).flat_map(|row| {
+        let mut bytes = Vec::with_capacity(width * height);
+        for row in 0..height {
             let y = frame.y + (row as f64 + 0.5) * frame.height / height as f64;
-            (0..width).map(move |column| Point::new(frame.x + (column as f64 + 0.5) * frame.width / width as f64, y))
-        }));
-        let bytes = readings
-            .into_iter()
-            .map(|reading| (((reading - low) / (high - low)).clamp(0.0, 1.0) * 255.0).round() as u8)
-            .collect();
+            for column in 0..width {
+                let x = frame.x + (column as f64 + 0.5) * frame.width / width as f64;
+                let level = ((self.at(Point::new(x, y)) - low) / (high - low)).clamp(0.0, 1.0) * 255.0;
+                bytes.push(level.round() as u8);
+            }
+        }
         Ok(bytes)
     }
 }
