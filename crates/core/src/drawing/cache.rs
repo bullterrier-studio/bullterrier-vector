@@ -275,14 +275,16 @@ mod tests {
 
     #[test]
     fn grids_past_the_limit_are_returned_whole_and_not_held() {
-        let store = GridStore::with_limit(10);
+        let store = GridStore::with_limit(12);
         for key in 0..6_u32 {
             let value = f64::from(key);
             let readings = store.grid(vec![u64::from(key)], &mut || vec![value; 4]);
             assert_eq!(*readings, vec![value; 4], "a grid not held is still the right values");
             let total: usize = store.held.borrow().values().map(|held| held.readings.len()).sum();
-            assert!(total <= 10, "held {total} readings after key {key}, limit 10");
+            assert!(total <= 12, "held {total} readings after key {key}, limit 12");
         }
+        let total: usize = store.held.borrow().values().map(|held| held.readings.len()).sum();
+        assert_eq!(total, 12, "three grids of four fill the limit exactly and are all kept");
         let first = store.grid(vec![0], &mut || vec![0.0; 4]);
         assert!(
             Arc::ptr_eq(&first, &store.grid(vec![0], &mut || vec![9.0; 4])),
