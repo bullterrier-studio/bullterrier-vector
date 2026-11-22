@@ -27,9 +27,10 @@ roxmltree = "0.21"  # reads SVG in `Drawing::from_svg`, and is the SVG oracle of
 # no raster images, no system fonts
 resvg = { version = "=0.49.0", default-features = false }
 # the rasteriser (docs/design-decisions.md, "Rasteriser"): pinned exactly, because pixels are only required to look the
-# same and a new release may move an edge by a level; vello_cpu is used only in crates/core/src/output/raster.rs, kurbo
-# also in outline.rs and mesh.rs
-vello_cpu = { version = "=0.3.0", default-features = false, features = ["std", "u8_pipeline"] }
+# same and a new release may move an edge by a level (0.3 to 0.4 moved 1 to 4 levels on translucent pixels); it brings
+# `vello_common` 0.4.0 (the one `vello_gpu` 0.4 shares) and `peniko` 0.6.1, held by Cargo.lock; vello_cpu is used only in
+# crates/core/src/output/raster.rs, kurbo also in outline.rs and mesh.rs
+vello_cpu = { version = "=0.4.0", default-features = false, features = ["std", "u8_pipeline"] }
 kurbo = "=0.13.1"
 # the PNG encoder (docs/design-decisions.md, "PNG"): pinned exactly, because its bytes may change between releases; it
 # has no default features; used only in crates/core/src/output/png.rs
@@ -40,8 +41,7 @@ lyon_tessellation = { version = "=1.0.23", default-features = false }
 # the font stack (docs/design-decisions.md, "Fonts"): pinned exactly, because a release may move an outline or a glyph
 # run. `harfrust` shapes and reads fonts through `read-fonts`, which draws the outlines (the font model of 0.46 does
 # it; `skrifa` is not needed). Neither has `std`, so that its maths is libm and not the platform's (the `rust-fonts`
-# gate fails otherwise). Both are used only in crates/core/src/type/ (`harfrust` only in shaping.rs). Cargo.lock also
-# lists the older `read-fonts` that `vello_common` names for a feature this workspace does not use; it is not built
+# gate fails otherwise). Both are used only in crates/core/src/type/ (`harfrust` only in shaping.rs).
 read-fonts = { version = "=0.46.0", default-features = false, features = ["libm"] }
 harfrust = { version = "=0.15.0", default-features = false, features = ["libm"] }
 # SHA-256 of a font's bytes: the digest that names a font in a document and in the cache key; used only in
