@@ -4,6 +4,7 @@
 mod mesh;
 mod order;
 mod outline;
+mod painter;
 mod plot;
 mod png;
 mod ramp;

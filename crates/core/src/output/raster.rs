@@ -1,8 +1,10 @@
-//! `Drawing::to_rgba`: the drawing as straight-alpha RGBA bytes. The only module that uses the rasteriser crates
-//! (`vello_cpu` and `kurbo`); nothing of them reaches the API.
+//! `Drawing::to_rgba`: the drawing as straight-alpha RGBA bytes. The drawing rules of pixels (what each shape paints,
+//! in which layers, and how they composite), written once over the [`Painter`] that paints them; nothing of the
+//! rasteriser crates reaches the API.
 
 use super::cast;
 use super::outline::{bez_path, dots, stroke_outline, tapered_region, within_device};
+use super::painter::{Cpu, Layer, Painter};
 use super::ramp::Ramp;
 use super::screen::{Screen, charged, screen};
 use super::view::{View, on_grid};
@@ -14,14 +16,14 @@ use crate::shape::same_cut;
 use crate::{
     Blend, Cap, Drawing, Error, GradientKind, Join, Paint, Path, Point, ShadowStyle, Shape, StrokeStyle, Style, Values,
 };
-use kurbo::{Affine, BezPath, PathEl, Rect, Shape as _};
+use kurbo::{BezPath, PathEl, Rect, Shape as _, Vec2};
 use std::f64::consts::SQRT_2;
 use std::sync::Arc;
+use vello_cpu::Mask;
 use vello_cpu::color::AlphaColor;
 use vello_cpu::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::peniko::color::DynamicColor;
-use vello_cpu::peniko::{BlendMode, ColorStop, Compose, Fill, Gradient, ImageAlphaType, InterpolationAlphaSpace, Mix};
-use vello_cpu::{Level, Mask, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources};
+use vello_cpu::peniko::{BlendMode, ColorStop, Compose, Gradient, InterpolationAlphaSpace, Mix};
 
 /// The widest half of the rasteriser's blur kernel, in pixels of its coarsest grid.
 const KERNEL_RADIUS: f64 = 6.0; // constant: `MAX_KERNEL_SIZE` 13 of `vello_common`, half of it
@@ -98,8 +100,10 @@ fn rgba(shapes: &[Shape], view: &View, canvas: (f64, f64), window: Cells) -> Res
     let view = view.pixels(f64::from(region.x), f64::from(region.y));
     // the region is within the limits of a pixel output, so its sides are at most 65,000
     #[expect(clippy::cast_possible_truncation, reason = "at most 65,000")]
-    let pixmap = picture(shapes, &view, (region.width as u16, region.height as u16), &Work::new())?;
-    let mut bytes = window.cut(region, &pixmap.take_rgba8(ImageAlphaType::AlphaPremultiplied));
+    let canvas = (region.width as u16, region.height as u16);
+    let mut painter = Cpu::new(canvas);
+    picture(&mut painter, shapes, &view, canvas, &Work::new())?;
+    let mut bytes = window.cut(region, &painter.into_premultiplied());
     unpremultiply(&mut bytes);
     Ok(bytes)
 }
@@ -190,33 +194,19 @@ fn decimations(sigma: f64) -> u32 {
     levels
 }
 
-/// `shapes` painted in order into a new pixmap of `canvas` pixels, premultiplied.
-fn picture(shapes: &[Shape], view: &View, canvas: (u16, u16), work: &Work) -> Result<Pixmap, Error> {
-    let (width, height) = canvas;
-    let mut context = RenderContext::new_with(
-        width,
-        height,
-        RenderSettings {
-            level: Level::new(),
-            num_threads: 0,
-        },
-    );
-    context.set_fill_rule(Fill::NonZero);
+/// `shapes` painted in order by `painter`, a new picture of `canvas` pixels.
+fn picture(
+    painter: &mut impl Painter,
+    shapes: &[Shape],
+    view: &View,
+    canvas: (u16, u16),
+    work: &Work,
+) -> Result<(), Error> {
     let mut cuts = Cuts::default();
     for shape in shapes {
-        paint(&mut context, shape, view, canvas, (work, &mut cuts))?;
+        paint(painter, shape, view, canvas, (work, &mut cuts))?;
     }
-    context.flush();
-    let mut pixmap = Pixmap::new(width, height);
-    context.render_with(
-        &mut pixmap,
-        &mut Resources::new(),
-        RasterizerSettings {
-            render_mode: RenderMode::OptimizeSpeed,
-            ..RasterizerSettings::default()
-        },
-    );
-    Ok(pixmap)
+    Ok(())
 }
 
 /// The clips and masks a draw has made, told apart by `same_cut` (the `Arc` the steps share between their shapes, or an equal one), so that a
@@ -252,7 +242,8 @@ impl Cuts {
     }
 
     /// The mask of `style` as pixels of the canvas, made if it is the first of its step: the shapes of the mask drawn
-    /// apart, their luminance by the alpha they cover. Its pixels are charged once.
+    /// apart, their luminance by the alpha they cover. Its pixels are charged once. A mask is painted on the CPU
+    /// whichever painter paints the picture.
     ///
     /// # Errors
     /// [`Error::Parameter`] if the canvas pixels of the masks of the draw pass `MAX_FILTER_PIXELS`, or what the shapes
@@ -272,8 +263,9 @@ impl Cuts {
         }
         work.filtered(u64::from(canvas.0) * u64::from(canvas.1), name, "its mask")?;
         // a mask must be the size of the canvas, or the rasteriser leaves it out without a word
-        let pixmap = picture(shapes, view, canvas, work).map_err(|error| error.inside(&format!("{name} mask")))?;
-        let made = Mask::new_luminance(&pixmap);
+        let mut painter = Cpu::new(canvas);
+        picture(&mut painter, shapes, view, canvas, work).map_err(|error| error.inside(&format!("{name} mask")))?;
+        let made = painter.into_mask();
         self.masks.push((Arc::clone(shapes), made.clone()));
         Ok(Some(made))
     }
@@ -357,7 +349,7 @@ const LEAD: f64 = 1.0 / 64.0; // constant: any share well above the rasteriser's
 
 impl Body {
     /// Paints the fill, then the stroke; with a `tint`, in that colour and their own alphas.
-    fn draw(&self, context: &mut RenderContext, tint: Option<[u8; 3]>) {
+    fn draw<P: Painter>(&self, painter: &mut P, tint: Option<[u8; 3]>) {
         let tinted = |[red, green, blue, alpha]: [u8; 4]| match tint {
             Some([red, green, blue]) => AlphaColor::from_rgba8(red, green, blue, alpha),
             None => AlphaColor::from_rgba8(red, green, blue, alpha),
@@ -365,21 +357,12 @@ impl Body {
         // a shadow's gradient is the same in the tint, with the stops' own alphas
         let ramped = |ramp: &Ramp| gradient(&tint.map_or_else(|| ramp.clone(), |rgb| ramp.tinted(rgb)));
         match &self.fill {
-            Some(FillBody::Plain(rgba)) => {
-                context.set_paint(tinted(*rgba));
-                context.fill_path(&self.outline);
-            }
-            Some(FillBody::Ramp(ramp)) => {
-                context.set_paint(ramped(ramp));
-                context.fill_path(&self.outline);
-            }
+            Some(FillBody::Plain(rgba)) => painter.fill(&self.outline, tinted(*rgba)),
+            Some(FillBody::Ramp(ramp)) => painter.fill(&self.outline, ramped(ramp)),
             // the dots are one path, filled once by the nonzero rule, so that a translucent colour is no darker where
             // two overlap, as SVG's one path is not
             Some(FillBody::Dots { rgba, dots }) => {
-                context.push_clip_path(&self.outline);
-                context.set_paint(tinted(*rgba));
-                context.fill_path(dots);
-                context.pop_clip();
+                painter.clipped(&self.outline, |painter| painter.fill(dots, tinted(*rgba)));
             }
             None => {}
         }
@@ -392,43 +375,35 @@ impl Body {
         else {
             return;
         };
+        let pieces = |painter: &mut P, rgba: [u8; 4]| {
+            painter.fill(lines, tinted(rgba));
+            for dot in dots {
+                painter.fill(dot, tinted(rgba));
+            }
+        };
         match paint {
-            StrokePaint::Plain(rgba) => {
-                let alpha = rgba[3];
+            StrokePaint::Plain(rgba) if rgba[3] < 255 && !dots.is_empty() => {
                 // the outline and the dots overlap, and a translucent colour painted twice where they do would be
                 // darker than SVG's one stroke: they are painted opaque into a layer that has the colour's alpha
-                let layered = alpha < 255 && !dots.is_empty();
-                if layered {
-                    context.push_layer(None, None, Some(f32::from(alpha) / 255.0), None, None);
-                }
-                context.set_paint(tinted([rgba[0], rgba[1], rgba[2], if layered { 255 } else { alpha }]));
-                context.fill_path(lines);
-                for dot in dots {
-                    context.fill_path(dot);
-                }
-                if layered {
-                    context.pop_layer();
-                }
+                let layer = Layer {
+                    opacity: f32::from(rgba[3]) / 255.0,
+                    ..Layer::default()
+                };
+                painter.layered(layer, |painter| pieces(painter, [rgba[0], rgba[1], rgba[2], 255]));
             }
-            StrokePaint::Ramp(ramp) if dots.is_empty() => {
-                context.set_paint(ramped(ramp));
-                context.fill_path(lines);
-            }
-            // the pieces overlap and the gradient has an alpha of its own: they are painted opaque into a layer, which
-            // is then given the gradient wherever it is covered (`SrcIn`), so that no pixel is painted twice
-            StrokePaint::Ramp(ramp) => {
-                context.push_layer(None, None, None, None, None);
-                context.set_paint(AlphaColor::from_rgba8(0, 0, 0, 255));
-                context.fill_path(lines);
-                for dot in dots {
-                    context.fill_path(dot);
-                }
-                context.set_blend_mode(BlendMode::new(Mix::Normal, Compose::SrcIn));
-                context.set_paint(ramped(ramp));
-                context.fill_path(bounds);
-                context.set_blend_mode(BlendMode::new(Mix::Normal, Compose::SrcOver));
-                context.pop_layer();
-            }
+            StrokePaint::Plain(rgba) => pieces(painter, *rgba),
+            StrokePaint::Ramp(ramp) if dots.is_empty() => painter.fill(lines, ramped(ramp)),
+            // the pieces overlap and the gradient has an alpha of its own: they are painted opaque into a layer, and
+            // the gradient over them in a layer of its own kept where they cover (`SrcIn`), so that no pixel is
+            // painted twice
+            StrokePaint::Ramp(ramp) => painter.layered(Layer::default(), |painter| {
+                pieces(painter, OPAQUE_BLACK);
+                let covered = Layer {
+                    blend: BlendMode::new(Mix::Normal, Compose::SrcIn),
+                    ..Layer::default()
+                };
+                painter.layered(covered, |painter| painter.fill(bounds, ramped(ramp)));
+            }),
         }
     }
 }
@@ -442,7 +417,7 @@ impl Body {
 /// output, and a stroke is expanded into its outline here, to the same flatness in output pixels. The shadow is the
 /// fill and stroke drawn once more into a filter layer, which keeps only their alpha, blurs, offsets and tints it.
 fn paint(
-    context: &mut RenderContext,
+    painter: &mut impl Painter,
     shape: &Shape,
     view: &View,
     canvas: (u16, u16),
@@ -531,7 +506,7 @@ fn paint(
     } else {
         cuts.mask(style, view, canvas, (work, &name))?
     };
-    composite(context, style, shadow.as_ref(), &body, (&bounds, &Cut { clip, mask }));
+    composite(painter, style, shadow.as_ref(), &body, (&bounds, &Cut { clip, mask }));
     Ok(())
 }
 
@@ -647,53 +622,49 @@ fn fill_body(
     Ok(Some(FillBody::Dots { rgba, dots }))
 }
 
-/// Paints `body` into `context` within `bounds` as `style` says: taken out of what is below it, if it knocks out; else
-/// its shadow and then itself, in a group that the opacity and the blend apply to once, if there is an opacity or a blend.
-fn composite(
-    context: &mut RenderContext,
+/// Paints `body` within `bounds` as `style` says: taken out of what is below it, if it knocks out; else its shadow and
+/// then itself, in a group that the opacity and the blend apply to once, if there is an opacity or a blend.
+fn composite<P: Painter>(
+    painter: &mut P,
     style: &Style,
     shadow: Option<&Shadow>,
     body: &Body,
     (bounds, cut): (&Rect, &Cut),
 ) {
+    let reach = path_of(bounds);
     if style.knockout() {
         // the body painted into a layer that is taken out of what is below it, within the part of the canvas it reaches
-        context.push_layer(
-            Some(&path_of(bounds)),
-            Some(BlendMode::new(Mix::Normal, Compose::DestOut)),
-            None,
-            None,
-            None,
-        );
-        body.draw(context, None);
-        context.pop_layer();
+        let layer = Layer {
+            clip: Some(&reach),
+            blend: BlendMode::new(Mix::Normal, Compose::DestOut),
+            ..Layer::default()
+        };
+        painter.layered(layer, |painter| body.draw(painter, None));
         return;
     }
-    let grouped = style.opacity() < 1.0 || style.blend() != Blend::Normal || cut.clip.is_some() || cut.mask.is_some();
-    if grouped {
-        let mix = mix_of(style.blend());
-        #[expect(
-            clippy::cast_possible_truncation,
-            reason = "an opacity from 0 to 1 loses nothing visible in an f32"
-        )]
-        let opacity = style.opacity() as f32;
+    let drawn = |painter: &mut P| {
+        if let Some(shadow) = shadow {
+            shadow.cast(painter, body, &reach);
+        }
+        body.draw(painter, None);
+    };
+    if style.opacity() < 1.0 || style.blend() != Blend::Normal || cut.clip.is_some() || cut.mask.is_some() {
         // the clip and the mask belong to the group the opacity and the blend do (as SVG's `<g>` has them), so that the
         // shadow is cut and a blend mixes with what is below; the clip is inside the bounds the group can reach
-        let reach = path_of(bounds);
-        context.push_layer(
-            Some(cut.clip.as_deref().unwrap_or(&reach)),
-            Some(BlendMode::new(mix, Compose::SrcOver)),
-            Some(opacity),
-            cut.mask.clone(),
-            None,
-        );
-    }
-    if let Some(shadow) = shadow {
-        shadow.cast(context, body, &path_of(bounds));
-    }
-    body.draw(context, None);
-    if grouped {
-        context.pop_layer();
+        let group = Layer {
+            clip: Some(cut.clip.as_deref().unwrap_or(&reach)),
+            blend: BlendMode::new(mix_of(style.blend()), Compose::SrcOver),
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "an opacity from 0 to 1 loses nothing visible in an f32"
+            )]
+            opacity: style.opacity() as f32,
+            mask: cut.mask.clone(),
+            filter: None,
+        };
+        painter.layered(group, drawn);
+    } else {
+        drawn(painter);
     }
 }
 
@@ -749,24 +720,28 @@ impl Shadow {
     ///
     /// With a blur it is the body drawn into a filter layer. Without, it is the body moved and drawn in the shadow's
     /// colour, as one layer with the shadow's alpha, as SVG's copy is: a filter would move it by whole pixels.
-    fn cast(&self, context: &mut RenderContext, body: &Body, bounds: &BezPath) {
+    fn cast<P: Painter>(&self, painter: &mut P, body: &Body, bounds: &BezPath) {
         let [red, green, blue, alpha] = self.rgba;
         if self.sigma > 0.0 {
-            context.push_filter_layer(self.filter());
-            body.draw(context, None);
-            context.pop_layer();
+            let layer = Layer {
+                filter: Some(self.filter()),
+                ..Layer::default()
+            };
+            painter.layered(layer, |painter| body.draw(painter, None));
             return;
         }
-        let layered = alpha < 255;
-        if layered {
-            context.push_layer(Some(bounds), None, Some(f32::from(alpha) / 255.0), None, None);
-        }
         // on the grid, so that the moved shape is the same in every window
-        context.set_transform(Affine::translate((on_grid(self.dx), on_grid(self.dy))));
-        body.draw(context, Some([red, green, blue]));
-        context.reset_transform();
-        if layered {
-            context.pop_layer();
+        let offset = Vec2::new(on_grid(self.dx), on_grid(self.dy));
+        let copy = |painter: &mut P| painter.moved(offset, |painter| body.draw(painter, Some([red, green, blue])));
+        if alpha < 255 {
+            let layer = Layer {
+                clip: Some(bounds),
+                opacity: f32::from(alpha) / 255.0,
+                ..Layer::default()
+            };
+            painter.layered(layer, copy);
+        } else {
+            copy(painter);
         }
     }
 
