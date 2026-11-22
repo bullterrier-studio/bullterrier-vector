@@ -395,10 +395,11 @@ impl Body {
             StrokePaint::Ramp(ramp) if dots.is_empty() => painter.fill(lines, ramped(ramp)),
             // the pieces overlap and the gradient has an alpha of its own: they are painted opaque into a layer, and
             // the gradient over them in a layer of its own kept where they cover (`SrcIn`), so that no pixel is
-            // painted twice
+            // painted twice; that layer is cut to the stroke's box, or its `SrcIn` would go over the whole picture
             StrokePaint::Ramp(ramp) => painter.layered(Layer::default(), |painter| {
                 pieces(painter, OPAQUE_BLACK);
                 let covered = Layer {
+                    clip: Some(bounds),
                     blend: BlendMode::new(Mix::Normal, Compose::SrcIn),
                     ..Layer::default()
                 };
@@ -716,7 +717,7 @@ impl Shadow {
         Ok(Self { dx, dy, sigma, rgba })
     }
 
-    /// Paints the shadow of `body` into `context`, within `bounds`.
+    /// Paints the shadow of `body` with `painter`, within `bounds`.
     ///
     /// With a blur it is the body drawn into a filter layer. Without, it is the body moved and drawn in the shadow's
     /// colour, as one layer with the shadow's alpha, as SVG's copy is: a filter would move it by whole pixels.

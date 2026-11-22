@@ -1,7 +1,9 @@
 //! The painter: what the drawing rules of `raster.rs` ask of a rasteriser, so that the rules are written once for every
 //! rasteriser that paints them. The one painter so far is [`Cpu`] (`vello_cpu`), the only user of that crate; the
 //! types the calls take (kurbo paths, peniko colours, gradients and blends, a `Mask`, a `Filter`) are `vello_common`'s,
-//! which `vello_cpu` and `vello_gpu` share, so another painter is an adapter of four calls.
+//! which `vello_cpu` and `vello_gpu` share. `vello_gpu` 0.4's `Scene` takes the same calls, except a mask (it panics on
+//! one) and a read of the transform (a painter on it keeps its own for `moved`): a painter on it is an adapter that
+//! paints a masked layer some other way (BTVEC-0014).
 //!
 //! Every call is scoped: a clip, a layer or a move holds for the painting of its closure only, so a picture cannot be
 //! left inside a layer it opened.
@@ -29,12 +31,14 @@ pub(super) trait Painter {
 }
 
 /// How a layer is composited onto what is below it: kept inside `clip`, filtered by `filter`, faded by `mask`'s
-/// alpha and by `opacity`, then blended by `blend`. [`Layer::default`] composites it as it is.
+/// alpha and by `opacity`, then blended by `blend`. [`Layer::default`] composites it as it is. A blend whose compose
+/// is destructive (`SrcIn`, `DestOut`) works on every pixel of the clip, so of the whole picture without one: cut such
+/// a layer to the box it changes.
 pub(super) struct Layer<'a> {
     pub(super) clip: Option<&'a BezPath>,
     pub(super) blend: BlendMode,
     pub(super) opacity: f32,
-    /// A mask the size of the picture; the rasteriser leaves out one of any other size.
+    /// A mask the size of the picture, which places it.
     pub(super) mask: Option<Mask>,
     pub(super) filter: Option<Filter>,
 }
