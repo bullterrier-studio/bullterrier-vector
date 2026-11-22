@@ -114,6 +114,7 @@ dependencies = [
  "resvg",
  "roxmltree",
  "sha2",
+ "vello_common",
  "vello_cpu",
  "wuff",
 ]

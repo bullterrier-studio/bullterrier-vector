@@ -19,11 +19,11 @@ use crate::{
 use kurbo::{BezPath, PathEl, Rect, Shape as _, Vec2};
 use std::f64::consts::SQRT_2;
 use std::sync::Arc;
-use vello_cpu::Mask;
-use vello_cpu::color::AlphaColor;
-use vello_cpu::filter_effects::{EdgeMode, Filter, FilterPrimitive};
-use vello_cpu::peniko::color::DynamicColor;
-use vello_cpu::peniko::{BlendMode, ColorStop, Compose, Gradient, InterpolationAlphaSpace, Mix};
+use vello_common::color::AlphaColor;
+use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
+use vello_common::mask::Mask;
+use vello_common::peniko::color::DynamicColor;
+use vello_common::peniko::{BlendMode, ColorStop, Compose, Gradient, InterpolationAlphaSpace, Mix};
 
 /// The widest half of the rasteriser's blur kernel, in pixels of its coarsest grid.
 const KERNEL_RADIUS: f64 = 6.0; // constant: `MAX_KERNEL_SIZE` 13 of `vello_common`, half of it

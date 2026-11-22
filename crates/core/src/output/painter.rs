@@ -1,17 +1,17 @@
 //! The painter: what the drawing rules of `raster.rs` ask of a rasteriser, so that the rules are written once for every
 //! rasteriser that paints them. The one painter so far is [`Cpu`] (`vello_cpu`), the only user of that crate; the
-//! types the calls take (kurbo paths, peniko colours, gradients and blends, a `Mask`, a `Filter`) are the vocabulary
-//! of `vello_common`, which `vello_cpu` and `vello_gpu` share, so another painter is an adapter of four calls.
+//! types the calls take (kurbo paths, peniko colours, gradients and blends, a `Mask`, a `Filter`) are `vello_common`'s,
+//! which `vello_cpu` and `vello_gpu` share, so another painter is an adapter of four calls.
 //!
 //! Every call is scoped: a clip, a layer or a move holds for the painting of its closure only, so a picture cannot be
 //! left inside a layer it opened.
 
 use kurbo::{Affine, BezPath, Vec2};
-use vello_cpu::filter_effects::Filter;
-use vello_cpu::peniko::{BlendMode, Fill, ImageAlphaType};
-use vello_cpu::{
-    Level, Mask, PaintType, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources,
-};
+use vello_common::filter_effects::Filter;
+use vello_common::mask::Mask;
+use vello_common::paint::PaintType;
+use vello_common::peniko::{BlendMode, Fill, ImageAlphaType};
+use vello_cpu::{Level, Pixmap, RasterizerSettings, RenderContext, RenderMode, RenderSettings, Resources};
 
 /// Paints paths into a picture of a fixed size, in device pixels, filled by the nonzero rule.
 pub(super) trait Painter {

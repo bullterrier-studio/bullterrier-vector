@@ -27,10 +27,13 @@ roxmltree = "0.21"  # reads SVG in `Drawing::from_svg`, and is the SVG oracle of
 # no raster images, no system fonts
 resvg = { version = "=0.49.0", default-features = false }
 # the rasteriser (docs/design-decisions.md, "Rasteriser"): pinned exactly, because pixels are only required to look the
-# same and a new release may move an edge by a level (0.3 to 0.4 moved 1 to 4 levels on translucent pixels); it brings
-# `vello_common` 0.4.0 (the one `vello_gpu` 0.4 shares) and `peniko` 0.6.1, held by Cargo.lock; vello_cpu is used only in
-# crates/core/src/output/raster.rs, kurbo also in outline.rs and mesh.rs
+# same and a new release may move an edge by a level (0.3 to 0.4 moved 1 to 4 levels on translucent pixels); vello_cpu
+# is used only in crates/core/src/output/painter.rs, kurbo also in raster.rs, outline.rs and mesh.rs
 vello_cpu = { version = "=0.4.0", default-features = false, features = ["std", "u8_pipeline"] }
+# the types the painter's calls take (paints, blends, masks, filters; `peniko` 0.6.1 comes with it): vello_cpu's own,
+# and those `vello_gpu` 0.4 takes, so pinned exactly with vello_cpu and moved with it; used only in output/raster.rs and
+# output/painter.rs
+vello_common = { version = "=0.4.0", default-features = false, features = ["std"] }
 kurbo = "=0.13.1"
 # the PNG encoder (docs/design-decisions.md, "PNG"): pinned exactly, because its bytes may change between releases; it
 # has no default features; used only in crates/core/src/output/png.rs
