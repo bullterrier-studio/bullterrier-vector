@@ -217,7 +217,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   none of them decides it. A viewer's `preserveAspectRatio` does the same for an SVG with a viewBox, and an
   unclipped frame is what an SVG viewport does.
 - **Rasteriser: `vello_cpu`** (2026-10-31), with `kurbo`, both pinned exactly; `vello_cpu` is used only in
-  `output/painter.rs` (since 0.4, below), `kurbo` also in `output/raster.rs`, `output/outline.rs` and `output/mesh.rs`. *Reason:*
+  `output/painter.rs` (since 0.4, below), `kurbo` also in `output/painter.rs`, `output/raster.rs`, `output/outline.rs` and
+  `output/mesh.rs`. *Reason:*
   measured against the alternative, tiny-skia: an edge pixel's coverage was within 0.5/255 of the closed-form area
   (tiny-skia: 25/255), and 200 mixed shapes at 1080p took 27.5 ms native and about 39 ms in WebAssembly, one thread.
   *Consequence:* pixels are required to look the same on every target, not to match byte for byte (native against

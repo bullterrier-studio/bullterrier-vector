@@ -28,7 +28,7 @@ roxmltree = "0.21"  # reads SVG in `Drawing::from_svg`, and is the SVG oracle of
 resvg = { version = "=0.49.0", default-features = false }
 # the rasteriser (docs/design-decisions.md, "Rasteriser"): pinned exactly, because pixels are only required to look the
 # same and a new release may move an edge by a level (0.3 to 0.4 moved 1 to 4 levels on translucent pixels); vello_cpu
-# is used only in crates/core/src/output/painter.rs, kurbo also in raster.rs, outline.rs and mesh.rs
+# is used only in crates/core/src/output/painter.rs, kurbo also in painter.rs, raster.rs, outline.rs and mesh.rs
 vello_cpu = { version = "=0.4.0", default-features = false, features = ["std", "u8_pipeline"] }
 # the types the painter's calls take (paints, blends, masks, filters; `peniko` 0.6.1 comes with it): vello_cpu's own,
 # and those `vello_gpu` 0.4 takes, so pinned exactly with vello_cpu and moved with it; used only in output/raster.rs and
