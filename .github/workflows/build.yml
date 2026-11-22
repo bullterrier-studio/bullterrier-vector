@@ -1,5 +1,5 @@
 # Build the distributions once, check them as PyPI would, keep them as the `dist` artifact, and prove each works when
-# installed on its own, away from the checkout. Called by ci.yml once every check passed; can also be started by hand.
+# installed on its own, away from the checkout. Called by platforms.yml (not part of the gate); can also be started by hand.
 #
 # The sdist and one abi3 wheel per platform; which platforms, and why: docs/template-decisions.md, "Platforms". No job
 # here restores a build cache: what it builds may be published.
