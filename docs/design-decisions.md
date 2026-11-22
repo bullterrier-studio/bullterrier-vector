@@ -257,13 +257,17 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   a mask and a filter) and `moved(offset, draw)`. `Cpu`, on `vello_cpu`, is its one implementation, and owns the
   rasteriser's settings, the flush and render and the premultiplied readout; a mask is always painted by `Cpu`.
   *Reason:* `vello_gpu` takes the same calls (`set_paint`, `fill_path`, `push_clip_path`, `push_layer`, `set_transform`),
-  so a GPU painter is an adapter of four calls and the rules exist once for two rasterisers. The calls are scoped
-  (a closure) so no layer, clip or move can be left open, and the types they take are `vello_common`'s, which both
-  share. The painter is generic, not a trait object: one implementation, monomorphised, measured no slower (`docs/benchmarks.md`).
+  so the rules exist once for two rasterisers. Two calls are not a plain adapter there: `vello_gpu` 0.4 panics on a
+  layer with a mask (a GPU painter must paint a masked group another way, BTVEC-0014) and has no read of the transform
+  (its `moved` keeps its own). The calls are scoped (a closure) so no layer, clip or move can be left open, and the types
+  they take are `vello_common`'s, which both share. The painter is generic, not a trait object: one implementation,
+  monomorphised, measured no slower (`docs/benchmarks.md`).
   *Consequence:* the gradient over the overlapping pieces of a stroke is a `SrcIn` layer, not a `SrcIn` blend mode
-  (`vello_gpu` refuses a destructive blend mode outside a layer); the bytes of all 1,079 renders above are unchanged by
-  the painter. The window's blur reach still repeats `vello_common`'s decimation plan, which a GPU painter must match or
-  re-measure.
+  (`vello_gpu` refuses a destructive blend mode outside a layer), cut to the stroke's box: a destructive layer works on
+  every pixel of its clip, so unclipped it cost each such stroke a composite of the whole picture (2,000 gradient
+  strokes with round dots at 1080p: 2.2 s instead of 40 ms; found in review; no test asserts on time). The bytes of all
+  1,079 renders above are unchanged by the painter. The window's blur reach still repeats `vello_common`'s decimation
+  plan, which a GPU painter must match or re-measure.
 - **Group opacity, sRGB blending, straight alpha** (2026-10-31). A shape's fill and stroke are drawn into one layer and
   the shape's opacity and blend apply to it; colours blend as sRGB values; `to_rgba` returns straight alpha. *Reason:*
   that is what SVG's `opacity` on a path and the browsers do, so the SVG and the pixels agree, and a stroke over a fill
