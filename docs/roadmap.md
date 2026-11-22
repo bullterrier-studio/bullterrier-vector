@@ -779,3 +779,11 @@ What `bullterrier-scene` asked of vector while building real pieces, and where e
 - **Window render (V10e)** (done 2026-11-13, Rust, Python and WebAssembly): for every drawing, the same bytes as the whole
   render's rows and columns.
 - **WebAssembly builds** already, so a scene editor or a web export can draw vector in the page.
+
+## vello_cpu 0.4 and the painter (BTVEC-0013, 2026-11-22)
+
+`vello_cpu` 0.3.0 to 0.4.0 with `vello_common` 0.4.0 pinned beside it; the pixel drawing rules (`output/raster.rs`) paint
+through the crate-private `Painter` (`output/painter.rs`), `vello_cpu` its one implementation, so a GPU painter on
+`vello_gpu` needs no second copy of them. 17 of 1,079 measured renders moved by 1 to 4 levels on translucent pixels, no
+closer to or farther from `resvg`; the painter moved no byte. No API change. Measured in `docs/design-decisions.md`
+("`vello_cpu` 0.4", "One painter for the drawing rules") and `docs/benchmarks.md`.

@@ -174,3 +174,20 @@ growth) and the drops of each shape's `Body`, which a caller's scratch cannot re
 
 The `pow`, `atan2`, `sincos` and `hypot` of the profile (2% in all) are called by kurbo's stroker (`round_join`, `do_join`):
 left, in kurbo.
+
+## `vello_cpu` 0.4 and the painter (2026-11-22, BTVEC-0013)
+
+`to_rgba` at 1920 by 1080 of three groups: the 25 frames of `examples/kinetic_type.py` at 0, 0.5, .. 12 s (summed), the
+13 presets (summed) and the 200-shape reference drawing. Three release wheels, run interleaved in separate processes, eight
+rounds: `vello_cpu` 0.3 (`main` before), 0.4 (the bump alone) and 0.4 with the drawing rules behind the painter trait.
+Apple M4, load average 7 to 12 (other jobs on the machine), so the minimum over rounds of each drawing's minimum of 12
+calls, in milliseconds; the quiet rounds (load 7 to 9) agree with it to 3%.
+
+| Group | 0.3 | 0.4 | 0.4 and painter |
+|---|---|---|---|
+| kinetic type, 25 frames | 322.9 | 288.5 | 283.5 |
+| presets, 13 | 147.7 | 147.6 | 148.0 |
+| 200 shapes | 21.6 | 20.0 | 19.5 |
+
+0.4 is about 10% faster on the kinetic type frames and the same on the rest (not profiled why); the
+painter, a generic over one implementation, costs nothing measurable, so no trait object was tried.

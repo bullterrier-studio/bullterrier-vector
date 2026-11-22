@@ -217,7 +217,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   none of them decides it. A viewer's `preserveAspectRatio` does the same for an SVG with a viewBox, and an
   unclipped frame is what an SVG viewport does.
 - **Rasteriser: `vello_cpu`** (2026-10-31), with `kurbo`, both pinned exactly; `vello_cpu` is used only in
-  `output/raster.rs`, `kurbo` also in `output/outline.rs` and `output/mesh.rs`. *Reason:*
+  `output/painter.rs` (since 0.4, below), `kurbo` also in `output/raster.rs`, `output/outline.rs` and `output/mesh.rs`. *Reason:*
   measured against the alternative, tiny-skia: an edge pixel's coverage was within 0.5/255 of the closed-form area
   (tiny-skia: 25/255), and 200 mixed shapes at 1080p took 27.5 ms native and about 39 ms in WebAssembly, one thread.
   *Consequence:* pixels are required to look the same on every target, not to match byte for byte (native against
@@ -236,6 +236,34 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   of a sharp turn after a segment shorter than half the stroke width (the mesh's strokes come from the same outline);
   200 mixed shapes at 1080p took 13.3 ms instead of 10.8 with opacity (3.7 instead of 7.6 without), the stroke expansion
   being the difference.
+- **`vello_cpu` 0.4** (2026-11-22, BTVEC-0013). From 0.3.0 to 0.4.0, with `vello_common` 0.4.0 (the version `vello_gpu`
+  0.4 is built on; now a pinned dependency of its own, since the painter's calls take its types) and `peniko` 0.6.1,
+  `kurbo` 0.13.1 unchanged; no call vector makes changed. *Drift, measured* on
+  1,079 renders (the 946 draws and windows of the WebAssembly corpus, the 13 presets at their size and at 1920 by 1080,
+  the drawings the 29 examples leave, 25 frames of `examples/kinetic_type.py`): 17 renders moved, 13,935 of 530 million
+  values, by 1 level (13,819 of them), 2 (88), 3 (17) or 4 (11), all on pixels with alpha below 255, none in an opaque
+  interior. Where: translucent paint over paint (`alpha_colours`, `stroke_over_fill_translucent`), gradients
+  (`gradient_radial_stroke`, the `gradient_type` preset and example) and shadows under a clip or a tapered stroke
+  (`clip_shadows`, `stroke_taper_shadow_blend`); the kinetic type frames and the bench drawing kept every byte.
+  Against the `resvg` oracle (premultiplied, as `svg_agrees` measures) the moved renders are as close as before:
+  the largest interior difference is unchanged on each (0 to 3 levels), edge pixels more than 40 levels off are as many
+  or fewer (gradient type 215 to 207 of 17,048), the mean difference moved by at most 0.002 levels. Every test passes
+  with its bounds unchanged, the window tests included (the blur plan and the 4-pixel tile `window.rs` repeats are the
+  same in 0.4).
+- **One painter for the drawing rules** (2026-11-22, BTVEC-0013). `output/raster.rs` holds the drawing rules of pixels
+  (the view, the gradient stops, a shape's group of shadow, fill and stroke under one opacity and blend, knockout as
+  `DestOut`, halftone dots under a clip, clips, masks, shadows) and paints only through the crate-private `Painter` of
+  `output/painter.rs`: `fill(path, paint)`, `clipped(path, draw)`, `layered(layer, draw)` (a clip, a blend, an opacity,
+  a mask and a filter) and `moved(offset, draw)`. `Cpu`, on `vello_cpu`, is its one implementation, and owns the
+  rasteriser's settings, the flush and render and the premultiplied readout; a mask is always painted by `Cpu`.
+  *Reason:* `vello_gpu` takes the same calls (`set_paint`, `fill_path`, `push_clip_path`, `push_layer`, `set_transform`),
+  so a GPU painter is an adapter of four calls and the rules exist once for two rasterisers. The calls are scoped
+  (a closure) so no layer, clip or move can be left open, and the types they take are `vello_common`'s, which both
+  share. The painter is generic, not a trait object: one implementation, monomorphised, measured no slower (`docs/benchmarks.md`).
+  *Consequence:* the gradient over the overlapping pieces of a stroke is a `SrcIn` layer, not a `SrcIn` blend mode
+  (`vello_gpu` refuses a destructive blend mode outside a layer); the bytes of all 1,079 renders above are unchanged by
+  the painter. The window's blur reach still repeats `vello_common`'s decimation plan, which a GPU painter must match or
+  re-measure.
 - **Group opacity, sRGB blending, straight alpha** (2026-10-31). A shape's fill and stroke are drawn into one layer and
   the shape's opacity and blend apply to it; colours blend as sRGB values; `to_rgba` returns straight alpha. *Reason:*
   that is what SVG's `opacity` on a path and the browsers do, so the SVG and the pixels agree, and a stroke over a fill
