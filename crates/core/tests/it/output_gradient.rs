@@ -290,6 +290,36 @@ fn a_stroke_whose_pieces_overlap_is_not_painted_twice_where_they_do() -> Outcome
 }
 
 #[test]
+fn a_stroke_whose_pieces_overlap_is_painted_once_over_what_is_below_and_leaves_the_rest() -> Outcome {
+    // the stroke above over opaque green: the gradient's colours have no green, so where the stroke is the green is
+    // what its alpha of 128 leaves (255 - 128 = 127; 63 if painted twice), and elsewhere the green is untouched
+    let half = Gradient::linear(
+        (0.0, 0.0),
+        (100.0, 0.0),
+        [(0.0, color("#ff000080")?), (1.0, color("#0000ff80")?)],
+    )?;
+    let path = Path::line((10.0, 50.0), (90.0, 50.0))?
+        .move_to((50.0, 50.0))?
+        .line_to((50.0, 50.0))?
+        .move_to((30.0, 20.0))?
+        .line_to((30.0, 20.0))?;
+    let green = Drawing::from(canvas()?).fill(color("#00ff00")?);
+    let stroke = Drawing::from(path).stroke(Stroke::new(half).width(16.0).cap(Cap::Round));
+    let image = render(&Drawing::new([green, stroke]), 100, 100)?;
+    for (x, y) in [(50, 50), (46, 46), (70, 50), (30, 20), (30, 14)] {
+        let [_, g, _, alpha] = image.pixel(x, y);
+        assert!(
+            alpha == 255 && (126..=128).contains(&g),
+            "({x}, {y}) has green {g}, alpha {alpha}"
+        );
+    }
+    for (x, y) in [(50, 30), (5, 5), (80, 80)] {
+        assert_eq!(image.pixel(x, y), [0, 255, 0, 255], "({x}, {y})");
+    }
+    Ok(())
+}
+
+#[test]
 fn the_shadow_of_a_gradient_is_as_strong_as_the_gradient_is_opaque_where_it_falls() -> Outcome {
     // black, fading in from nothing to opaque across the shape, with a black shadow straight down 40 pixels: the
     // shadow is the shape's alpha moved, so under the shape's x it is the gradient's alpha at that x
