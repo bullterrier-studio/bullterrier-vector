@@ -61,6 +61,7 @@ mod lines_limits;
 mod lines_rows;
 mod lines_stipple;
 mod lines_within;
+mod looks_the_same;
 mod marks;
 mod mesh;
 mod mesh_fill;

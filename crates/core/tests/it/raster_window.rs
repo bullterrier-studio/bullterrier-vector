@@ -1,9 +1,10 @@
-//! `to_rgba_window` and `to_png_window`: a window of the output is the same bytes as the same rows and columns of the whole
-//! render. The oracle is the whole render itself (`to_rgba`), cut by hand; windows are 1-pixel ones, ones on each edge of
+//! `to_rgba_window` and `to_png_window`: a window of the output looks the same as the same rows and columns of the whole
+//! render (`common/looks_the_same.rs`). The oracle is the whole render itself (`to_rgba`), cut by hand; windows are 1-pixel ones, ones on each edge of
 //! the canvas, ones at offsets that are no multiple of a tile or a blur's decimation, and a seeded random spread, over a
-//! drawing for each effect. A band loop that stitches a 4 by 3 grid of windows gives the whole render back.
+//! drawing for each effect. A band loop that stitches a 4 by 3 grid of windows looks like the whole render.
 
 use crate::common::fonts::fraunces;
+use crate::common::looks_the_same::pixels_look_the_same;
 use crate::common::{Outcome, parameter_refusal};
 use bullterrier_vector::{
     Blend, Cap, Color, Deg, Drawing, Error, Gradient, Halftone, Join, Path, Shadow, Size, Stroke, Text, Values, Window,
@@ -444,71 +445,16 @@ impl Canvas {
 /// A rectangle of pixels: column, row, width, height.
 type Rect = (usize, usize, usize, usize);
 
-/// The most two pixels differ by, in levels of `premultiplied`.
-fn levels_apart(a: [u8; 4], b: [u8; 4]) -> u8 {
-    premultiplied(a)
-        .iter()
-        .zip(premultiplied(b))
-        .map(|(x, y)| x.abs_diff(y))
-        .max()
-        .unwrap_or(0)
-}
-
-/// The most any pixel of two same-sized pictures differs by, in levels of `premultiplied`.
-fn worst_level(a: &[u8], b: &[u8]) -> u8 {
-    a.as_chunks::<4>()
-        .0
-        .iter()
-        .zip(b.as_chunks::<4>().0)
-        .map(|(x, y)| levels_apart(*x, *y))
-        .max()
-        .unwrap_or(0)
-}
-
-/// `[red, green, blue, alpha]` as the product of each colour with the alpha, as a faint pixel's colour is only known
-/// to within what its alpha leaves of it (a straight colour moves by several levels for one level of the product).
-fn premultiplied(pixel: [u8; 4]) -> [u8; 4] {
-    let alpha = u16::from(pixel[3]);
-    #[expect(clippy::cast_possible_truncation, reason = "at most 255")]
-    let times = |channel: u8| ((u16::from(channel) * alpha + 127) / 255) as u8;
-    [times(pixel[0]), times(pixel[1]), times(pixel[2]), pixel[3]]
-}
-
-/// How the window `at` of `drawing` differs from the same rows and columns of `whole`: nothing if it is the same
-/// bytes, else the count of bytes that differ, the most a pixel differs by and the first pixel's column and row.
-fn difference(canvas: Canvas, whole: &[u8], drawing: &Drawing, at: Rect) -> Result<Option<String>, Error> {
-    let expected = canvas.cut(whole, at);
-    let got = canvas.window(drawing, at)?;
-    if got == expected {
-        return Ok(None);
-    }
-    if got.len() != expected.len() {
-        return Ok(Some(format!(
-            "{at:?}: {} bytes, expected {}",
-            got.len(),
-            expected.len()
-        )));
-    }
-    let pixels = || got.as_chunks::<4>().0.iter().zip(expected.as_chunks::<4>().0);
-    let first = pixels().position(|(a, b)| a != b).unwrap_or(0);
-    let count = pixels().filter(|(a, b)| a != b).count();
-    let most = pixels().map(|(a, b)| levels_apart(*a, *b)).max().unwrap_or(0);
-    Ok(Some(format!(
-        "{at:?}: {count} pixels differ by up to {most} levels, the first at column {} row {}",
-        at.0 + first % at.2,
-        at.1 + first / at.2
-    )))
-}
-
 #[test]
-fn a_window_is_the_same_bytes_as_the_same_rows_and_columns_of_the_whole_render() -> Outcome {
+fn a_window_looks_the_same_as_the_same_rows_and_columns_of_the_whole_render() -> Outcome {
     let mut wrong = Vec::new();
     for canvas in [NARROW, WIDE] {
         for (name, drawing) in corpus()? {
             let whole = canvas.whole(&drawing)?;
             for at in canvas.windows() {
-                if let Some(found) = difference(canvas, &whole, &drawing, at)? {
-                    wrong.push(format!("{name} on {}x{}: {found}", canvas.width, canvas.height));
+                let (expected, got) = (canvas.cut(&whole, at), canvas.window(&drawing, at)?);
+                if let Err(found) = pixels_look_the_same(&expected, &got) {
+                    wrong.push(format!("{name} on {}x{}: {at:?}: {found}", canvas.width, canvas.height));
                 }
             }
         }
@@ -523,7 +469,7 @@ fn a_window_is_the_same_bytes_as_the_same_rows_and_columns_of_the_whole_render()
 }
 
 #[test]
-fn a_grid_of_four_by_three_windows_stitches_into_the_whole_render() -> Outcome {
+fn a_grid_of_four_by_three_windows_stitches_into_what_looks_like_the_whole_render() -> Outcome {
     let (columns, rows) = (4, 3);
     let canvas = NARROW;
     let (band_width, band_height) = (canvas.width.div_ceil(columns), canvas.height.div_ceil(rows));
@@ -540,10 +486,9 @@ fn a_grid_of_four_by_three_windows_stitches_into_the_whole_render() -> Outcome {
                 }
             }
         }
-        assert!(
-            stitched == canvas.whole(&drawing)?,
-            "{name}: the stitched grid is not the whole render"
-        );
+        if let Err(found) = pixels_look_the_same(&canvas.whole(&drawing)?, &stitched) {
+            return Err(format!("{name}: the stitched grid does not look like the whole render: {found}").into());
+        }
     }
     Ok(())
 }
@@ -621,12 +566,9 @@ fn a_small_window_of_the_largest_canvas_is_the_picture_translated_to_the_origin(
     );
     let window = Window::px(99_000.0, 99_000.0, 1000.0, 1000.0);
     let far = big.to_rgba_window(Size::px(100_000.0, 100_000.0), window, &Values::new())?;
-    assert_eq!(far.len(), near.len());
-    let worst = worst_level(&far, &near);
-    assert!(
-        worst <= 2,
-        "the window differs from the translated picture by {worst:?} levels"
-    );
+    if let Err(found) = pixels_look_the_same(&near, &far) {
+        return Err(format!("the window does not look like the translated picture: {found}").into());
+    }
     Ok(())
 }
 

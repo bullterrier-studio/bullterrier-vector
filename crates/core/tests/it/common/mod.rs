@@ -3,6 +3,7 @@
 #![allow(dead_code, reason = "each test file uses a different part")]
 
 pub(crate) mod fonts;
+pub(crate) mod looks_the_same;
 pub(crate) mod mesh;
 pub(crate) mod ops;
 pub(crate) mod pixels;
