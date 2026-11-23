@@ -1131,7 +1131,8 @@ In JavaScript (the package built from `crates/wasm`) a document loads with `Draw
 number or an array of numbers: `toSvg` (a string), `toRgba` and `toPng` (a `Uint8Array`, a copy), `toMesh` (a new
 `Mesh`) and `toMeshInto(mesh, width, height, values?)` (refills `mesh`, below). Errors are as in Python, thrown as
 `Error`s named by kind. The same drawing gives SVG text, mesh buffers and pixels in WebAssembly that look the same as the native ones: at most 1
-level apart on 99.9% of the values and 2 on all, SVG numbers and mesh positions within 0.004 pixel.
+level apart on 99.9% of the values and 2 on all, SVG numbers and mesh positions within 0.004 pixel (the constants of
+`crates/core/tests/it/common/looks_the_same.rs`).
 
 The same drawing and values look the same on every target (within the one tolerance, which the differential test checks). `to_json` raises `ParameterError` for a drawing beyond a
 limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises

@@ -78,4 +78,8 @@ test("a mesh looks the same within 0.004 on a position, but not on its item", ()
   assert.throws(() => assertMeshLooksTheSame(base, far, "mesh"), /1 vertex floats are too far apart, the first at index 0/);
   const other = mesh(triangle.slice(0, 24).map((value, at) => (at === 6 ? value + 1 : value)));
   assert.throws(() => assertMeshLooksTheSame(base, other, "mesh"), /too far apart/);
+  // Indices and ranges are the mesh's structure, not samples: one wrong index is a wrong triangle, however long the mesh.
+  const long = { ...base, indices: new Uint32Array(3000).map((_, at) => at % 3) };
+  const rewired = { ...long, indices: long.indices.map((value, at) => (at === 1500 ? 2 : value)) };
+  assert.throws(() => assertMeshLooksTheSame(long, rewired, "mesh"), /1 of 3000 indices differ, the first at 1500/);
 });

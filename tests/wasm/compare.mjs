@@ -103,8 +103,8 @@ export function assertMeshLooksTheSame(expected, actual, label) {
         if (first < 0) first = at;
       }
     });
-    const allowed = Math.floor((expected[key].length * FAR_PER_THOUSAND) / 1000);
-    assert.ok(count <= allowed, `${label}: ${count} of ${expected[key].length} ${key} differ (${allowed} allowed), the first at ${first}`);
+    // Indices and ranges are the mesh's structure, not samples: no share of them may differ.
+    assert.ok(count === 0, `${label}: ${count} of ${expected[key].length} ${key} differ, the first at ${first}`);
   }
 }
 

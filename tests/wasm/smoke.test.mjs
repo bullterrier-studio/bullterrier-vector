@@ -149,7 +149,7 @@ test("presetNames lists the native presets", () => {
 
 for (const [name, svg] of Object.entries(native.presets.svg)) {
   test(`preset ${name}: toSvg writes the text the native extension writes, within the tolerance`, () => {
-    assert.ok(Drawing.preset(name).toSvg(300, 200) === svg);
+    assertSvgLooksTheSame(svg, Drawing.preset(name).toSvg(300, 200), `preset ${name}`);
   });
 }
 
