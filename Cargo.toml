@@ -46,7 +46,7 @@ lyon_tessellation = { version = "=1.0.23", default-features = false }
 # it; `skrifa` is not needed). Neither has `std`, so that its maths is libm and not the platform's (the `rust-fonts`
 # gate fails otherwise). Both are used only in crates/core/src/type/ (`harfrust` only in shaping.rs).
 read-fonts = { version = "=0.46.0", default-features = false, features = ["libm"] }
-harfrust = { version = "=0.15.0", default-features = false, features = ["libm"] }
+harfrust = { version = "=0.16.0", default-features = false, features = ["libm"] }
 # SHA-256 of a font's bytes: the digest that names a font in a document and in the cache key; used only in
 # crates/core/src/type/font.rs
 sha2 = { version = "=0.11.1", default-features = false }
