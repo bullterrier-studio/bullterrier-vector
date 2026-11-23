@@ -1,6 +1,6 @@
 # Vector's own CI jobs: the gates the template does not know (file size, the font crates without std, the WebAssembly
 # bindings and their Node tests, the stack tests unoptimised), as `poe project-gates` runs them locally. ci.yml runs this
-# file beside the template's checks, the build waits for it, and so does ci-ok.
+# file beside the template's checks, and ci-ok waits for it.
 name: Project
 
 on:
