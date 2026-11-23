@@ -10,10 +10,10 @@ Each decision once, with its reason. The design: [design.md](design.md).
 - **Code API first, JSON second** (2026-10-28). A drawing is written as chainable, typed code in Rust, Python and
   JavaScript; JSON saves and loads the same tree. *Reason:* developers express ideas in code; an API designed from a
   file format reads like configuration. *Consequence:* each API is designed (with examples written first) before the
-  JSON format; a drawing written in code round-trips through JSON to an identical render. The code API is V1a
+  JSON format; a drawing written in code round-trips through JSON to the same render. The code API is V1a
   (`docs/api.md`), the format V1b.
 - **Rust core, Python and WebAssembly bindings** (2026-10-28), not Paper.js or another JavaScript engine. *Reason:* one
-  engine in the browser, on a server, in Python and inside a Rust video tool, with preview identical to render; the hard
+  engine in the browser, on a server, in Python and inside a Rust video tool, with a preview that looks the same as the render; the hard
   parts (shaping, glyph outlines, offsets, tracing) exist as Rust crates and are missing or weak in Paper.js.
   *Consequence:* the core does no IO, runs single-threaded, and uses one portable maths implementation.
 - **Licence: MIT** (2026-10-28), not the Rust ecosystem's usual `MIT OR Apache-2.0`. The owner's choice. *Consequence:*
@@ -168,7 +168,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   an optional SHA-256; the caller supplies the bytes; equal bytes are one input. *Reason:* a document stays small, stays
   text, and fetches nothing; the digest makes the canonical text a complete cache key and catches the wrong mask. No
   embedded form: base64 grows a font by a third and is a second way to supply an input.
-- **A canonical form: normalised tree, RFC 8785 text.** *Reason:* "the same drawing gives the same bytes" must hold
+- **A canonical form: normalised tree, RFC 8785 text.** *Reason:* "the same drawing gives the same text" must hold
   for the saved file too, so it can address a cache; RFC 8785 is a published scheme with implementations in every
   language, and the normalisation (defaults left out, one path spelling, colours in lower case, sharing by equality)
   removes the differences between languages and between hand-written and saved files.
@@ -221,9 +221,9 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   `output/mesh.rs`. *Reason:*
   measured against the alternative, tiny-skia: an edge pixel's coverage was within 0.5/255 of the closed-form area
   (tiny-skia: 25/255), and 200 mixed shapes at 1080p took 27.5 ms native and about 39 ms in WebAssembly, one thread.
-  *Consequence:* pixels are required to look the same on every target, not to match byte for byte (native against
-  WebAssembly differed by one level on 0.002% of values); what we compute ourselves (placement, widths, SVG, the
-  straight-alpha conversion) stays exact. The crate panics when a row is padded past 65,535, which a width above 65,408
+  *Consequence:* pixels are required to look the same on every target (native against WebAssembly differed by one level
+  on 0.002% of values); what we compute ourselves (placement, widths, SVG, the straight-alpha conversion) is correct by
+  its parameters and looks the same within the one tolerance. The crate panics when a row is padded past 65,535, which a width above 65,408
   is, so a pixel side stops at 65,000.
 - **The rasteriser is given straight lines only** (2026-10-31). Curves are flattened by us, once, in design pixels, with
   the walk that measuring uses (0.01 design pixels), moved by the view, and a stroke is expanded by `kurbo` to the same
@@ -321,23 +321,31 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   A smooth curve gains no triangles, and the scenes measured gained under 6%.
 
 - **Looking the same outranks byte equality** (2026-11-08, the owner). The promise is a drawing that looks the same on
-  every target, not the same bytes or pixels. Byte equality of SVG text and mesh buffers stays the aim and the test
-  (below), because it needs no reviewed baseline and catches real faults. *Reason:* a last-digit difference nobody can see
-  is not worth code that fights the platform. *Consequence:* a difference found there that no one could see is fixed in the
-  test (a measured tolerance, with the cause recorded here), not by contorting the code; a visible one is a defect.
-- **Native against WebAssembly: exact for what we compute, a measured tolerance for pixels** (2026-11-01). The
+  every target, not the same bytes or pixels. No output is promised equal across routes (thread counts, windows against the
+  whole, cached against cold, WebAssembly against native, one platform against another): each is compared within the one
+  tolerance of "Looks the same, one tolerance" (below), which needs no reviewed baseline. *Reason:* a last-digit difference
+  nobody can see is not worth code that fights the platform, and chasing one is a rabbit hole. *Consequence:* a one-bit
+  difference is never a defect by itself; a visible one is.
+- **Native against WebAssembly: one tolerance for SVG, mesh and pixels** (2026-11-01, tolerance restated 2026-11-22). The
   differential test (`poe wasm-test`) draws 44 drawings natively through the Python extension and in WebAssembly through
-  Node, from the same JSON documents: the SVG text and the three mesh buffers (hashed with `hashlib` on one side and
-  `node:crypto` on the other), the generation and the lengths are compared exactly; the pixels are compared as the
-  premultiplied colour and the alpha (the values drawn), and may differ by 2 levels on 0.02% of the values of a draw. A
-  PNG is decoded with `node:zlib` and must hold exactly the pixels of `toRgba`. *Measurement:* on 48 draws (3,450,660
+  Node, from the same JSON documents: the SVG text (numbers within the geometry tolerance, the text around them equal), the
+  three mesh buffers (positions within the geometry tolerance, colours within 2/255), the generation and the lengths; the
+  pixels are compared as the premultiplied colour and the alpha (the values drawn), at most 1 level apart on 99.9% of the
+  values and 2 on all. A PNG is decoded with `node:zlib` and holds the pixels of `toRgba` (a lossless file format). *Measurement:* on 48 draws (3,450,660
   channel values), Apple silicon NEON natively against WebAssembly simd128, 4 values differed, none by more than 1
   level (2 as straight alpha, where a division by a small alpha magnifies a rounding), at most 0.005% of one draw; the
-  tolerance is twice the level and four times the fraction. A larger difference fails and prints the count and the first
-  pixel. *Reason:* the rasteriser crate chooses its arithmetic by target, so equal bytes are not promised, and the
-  buffers and text we write are our own arithmetic, so a difference there is a defect. The mesh buffers matched exactly
-  on the machine measured. *Consequence:* x86 and a real browser were not measured; the tolerance is to be revisited by
+  tolerance is the one below. A larger difference fails and prints the count and the first pixel. *Reason:* the
+  rasteriser crate chooses its arithmetic by target, so equal bytes are not promised. The mesh buffers and SVG text
+  matched on the machine measured. *Consequence:* x86 and a real browser were not measured; the tolerance is to be revisited by
   measurement if CI on another architecture fails it, not loosened.
+- **Looks the same, one tolerance** (2026-11-22). No byte-identity promise between routes, and repeatability is not a
+  promise either: a one-bit difference is never a defect by itself. One tolerance, in `crates/core/tests/it/common/
+  looks_the_same.rs` and repeated in `tests/wasm/compare.mjs` (the Rust constants are the source): pixels, in levels of
+  255 of the premultiplied values, at most 1 on 99.9% of the samples and at most 2 on all; geometry (SVG numbers, mesh
+  positions), within 0.004 output units, 1/255 of a pixel, the least edge shift that changes a level of coverage. Kept:
+  correctness (output does what its parameters say), seeds ("the same seed gives the same look"), a PNG decoding to the
+  pixels of `to_rgba` (a lossless format) and goldens against a stored file. *Reason:* chasing one-bit differences between
+  routes forced complexity that nobody can see.
 - **A `Mesh` is lent to a call as an argument, not in an options object** (2026-11-01). JavaScript refills a mesh with
   `drawing.toMeshInto(mesh, w, h, values)` and gets a new one from `toMesh`; `wasmMemory()` returns the memory the
   buffers are in. *Reason:* wasm-bindgen lends an exported object to a call only as an argument of its own; read out of
@@ -367,7 +375,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - **No curve crate** (2026-10-31). Curves, measuring, hit-testing and SVG path data are our own code on `libm`. *Reason:*
   `clippy.toml` bans the platform's transcendental functions only in this workspace's code; a curve crate's maths
   would reach the output unchecked and leave the native-against-WebAssembly differential test (V3) as the only guard
-  for bit-identical bytes. The surface needed is small (flattening, arc length, nearest point, nonzero winding).
+  for output that looks the same. The surface needed is small (flattening, arc length, nearest point, nonzero winding).
   *Consequence:* the same maths in every language; booleans took a crate nonetheless ("Booleans (V8)"), offsets (V9)
   face the same question.
 - **Arcs are cubics, one per quarter turn at most** (2026-10-31). An SVG arc is converted from endpoint to center form
@@ -486,8 +494,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   a leading zero, `NaN`, `Infinity`, a trailing comma, bytes after the value. It counts nesting as it reads and stops at
   `MAX_DOCUMENT_DEPTH`, so no hostile document recurses past it, and the byte limit is checked before the first byte is read.
   *Reason:* `serde_json` keeps the last of two equal keys unless a visitor is written for it, parses floats to within
-  one ulp unless a feature is on (the same text must give the same bits on every target), and brings `serde`,
-  `itoa`, `ryu` and `memchr` into a core that must stay small and bit-exact. The parser is about 250 lines, and the
+  one ulp unless a feature is on (the same text must give the same look on every target), and brings `serde`,
+  `itoa`, `ryu` and `memchr` into a core that must stay small. The parser is about 250 lines, and the
   rules the format needs (a pointer for every error, limits while reading) are part of it. *Consequence:* the number
   reader hands the digits to `f64::from_str`, which is correctly rounded on every target, and the writer lays out the
   shortest digits of `{:e}` by the rules of RFC 8785.
@@ -549,9 +557,9 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   offsets (`hypot`) and rounding go to the platform's maths, which differs between targets. Cargo unifies features
   across the workspace, so `poe rust-fonts` reads `cargo tree` and fails when either has `std`. Outlines are drawn
   unhinted in font units and scaled by `size / units_per_em` in `f64` here, so the scale is ours. *Reason:* rule 2
-  (the same bytes on every target) and rule 3 (no platform maths). *Consequence:* a new release may move a glyph or a
+  (the same look on every target) and rule 3 (no platform maths). *Consequence:* a new release may move a glyph or a
   shaping result, so the pins are exact and a bump is deliberate. Not yet proven: that native and WebAssembly give the
-  same outline bytes for a composite glyph (V5c's differential test).
+  same outline for a composite glyph (V5c's differential test).
 - **A font is its bytes** (2026-11-01). `Font::new` reads the bytes once and refuses what the library cannot shape (a
   collection, Type 1, bare CFF, over `MAX_FONT_BYTES` of 32 MiB, no outlines, units per em outside 16 to 16384), so
   a `Font` that exists is usable and nothing downstream checks it again. It is keyed in the cache by the SHA-256 of
@@ -659,10 +667,10 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   names a document declares: the document is plain JSON, and a missing input is a `ParameterError` that names it.
 - **`anchor` in Python is plain numbers** (2026-11-01), as in Rust: it is read once, and `Text::anchor` takes a `Point`.
   A `Param` there is a `TypeError` naming `anchor`, not a silent default.
-- **Text is exact between native and WebAssembly, with no rounding step** (2026-11-01). The ten text drawings of the
+- **Text looks the same between native and WebAssembly, with no rounding step** (2026-11-01). The ten text drawings of the
   differential (kerning, a ligature, a composite glyph, light, between and heavy weights, a `Param` axis and a weight a
-  character, tracked lines, a stroke, 64 nested composites, a glyph of 3,999 segments) give the same SVG text and mesh
-  buffers natively and in WebAssembly, so the fallback of rounding outline coordinates to a grid where they become a
+  character, tracked lines, a stroke, 64 nested composites, a glyph of 3,999 segments) give SVG text and mesh
+  buffers that look the same natively and in WebAssembly, so the fallback of rounding outline coordinates to a grid where they become a
   `Path` was not needed, and is not part of the design. A difference found later is a defect to diagnose, not to round away.
 - **fontTools is the oracle of the font tests, a development dependency** (2026-11-01). It reads the same files with code
   that shares nothing with the library: outlines and advances (also along an axis), axes, feature tags. Test fonts that
@@ -735,7 +743,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   shape (`Reads::Once`, a literal) refuses one.
 - **`random` is SplitMix64 on `seed` and `index`** (2026-11-07). The number of a shape is the `index + 1`-th output of the
   generator started at `seed`, its top 53 bits scaled by 2^-53. *Reason:* integer arithmetic and one exact conversion,
-  so the same bytes on every target with no `libm` call, no clock and no state; a hash of the index, not a stream, so a
+  so the same look on every target with no `libm` call, no clock and no state; a hash of the index, not a stream, so a
   shape's number does not depend on how many shapes were drawn before it. *Consequence:* the numbers move when an `only`
   or `split` renumbers `index`.
 - **`stagger` runs the shape at order `p` from `p × spread` for a length of `1 - spread`, clamped to 0..1** (2026-11-07).
@@ -768,7 +776,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   for `wasm32-unknown-unknown` (also with `simd128`) and the module has no imports; the float maths that reaches
   the output is `libm`, the sweep is integer arithmetic, no hash-ordered collection, clock or IO in the five crates;
   200 seeded pairs by 4 operations hash alike natively (release and debug) and in Node. The differential (16 boolean
-  drawings, exact SVG text and mesh buffers) holds on macOS arm64. It panics on non-finite or over-range input, so the core
+  drawings, SVG text and mesh buffers within the tolerance) holds on macOS arm64. It panics on non-finite or over-range input, so the core
   validates first and wraps nothing. *Consequence:* the spike did not check Linux or Windows native bytes (the Linux
   `wasm-test` compares native with Node in CI). `linesweeper` was not evaluated. The crate does not appear in the API.
 - **`unsafe` in the dependencies is accepted** (2026-11-07). Counts of the word in `src`: `i_overlay` 52 (48 blocks),
@@ -1060,8 +1068,8 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   of each join and end; booleans; opacity groups; blurred shadows at and past the canvas edge, at far offsets and of shapes whose
   corners lie off every grid; hard shadows; masks; clips; gradients; blends; knockouts; halftones; text), on two canvases (331 by
   251 and 700 by 300 pixels), over 1-pixel windows, windows on each edge, offsets no multiple of a tile, a wide tile or a blur's
-  grid, and 80 random windows (700 once, by hand, with none different); every one is the same bytes, and a 4 by 3 grid of
-  windows stitches into the whole. It was not before (a level at some edge pixels of fills, strokes, masks, gradients,
+  grid, and 80 random windows (700 once, by hand, with none different); every one looks the same, and a 4 by 3 grid of
+  windows stitches into what looks like the whole. It was not before (a level at some edge pixels of fills, strokes, masks, gradients,
   halftones, groups under opacity and blends; two on the 700 pixel canvas for blurred shadows). Four causes, each found by
   making it fail on its own:
   - *The `f32` of a shifted coordinate.* The rasteriser holds coordinates in `f32`, and the nearest `f32` of a coordinate
@@ -1084,9 +1092,9 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   The cost is a region up to 263 pixels wider on the left and 16 on the other sides than the window, and a larger one around a
   blurred shadow's shape.
   Rule 2 of CLAUDE.md asks to loosen a test rather than add a special path for a difference nobody can see; here the caller
-  (scene) bands only what is bit-exact, so the difference is visible to it, and the fix is one grid, one margin and one corner,
-  no special path. The WebAssembly window is the native window's bytes up to the differential's tolerance as the whole render
-  is (`compare.mjs`); the native window is exactly the whole's crop in the Node tests too. Python and WebAssembly share the
+  (scene) bands what must look the same, so a difference is visible to it, and the fix is one grid, one margin and one corner,
+  no special path. The WebAssembly window looks like the native window as the whole render does (`compare.mjs`); the native window looks like
+  the whole's crop in the Node tests too. Python and WebAssembly share the
   core: one drawing is tested through each.
 - **A shadow's offset is part of the margin.** The test of a shadow offset up and left (its source below and right of the
   region) fails without it, by up to 95 levels; one offset down and right passed without it. Cutting the region to the
@@ -1184,7 +1192,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
     or grow. `slice` (the draw-on) and `outline` (the taper) are what `branch` feeds; `stipple` only lends the meanings
     of `seed` and `spacing`. The `Path` constructors draw points the caller computes: the loop again.
   - The caller's loop: a document holds no callbacks, so the browser, the playground and presets could not have the
-    look; Python's `random` is not reproducible elsewhere; its work is unbounded. In the library it is the same bytes
+    look; Python's `random` is not reproducible elsewhere; its work is unbounded. In the library it is the same look
     in the three languages and refused before it runs away.
   - `hatch` is not a special case of `branch` (it needs separation, a different algorithm) and `branch` is not a hatch
     with forks.
@@ -1303,7 +1311,7 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
   where its own bend is not straight, not into equal pieces, and its bytes are fixed by its tests.
   *Ruling: `wave` displaces `amplitude * sin(2 pi (d / wavelength - phase))` along the perpendicular of the direction of
   travel, `d` the distance along it, `y` down like `rotate` (angle 0 displaces down the screen); `phase` is in cycles and
-  reduced mod 1 before any maths, so a whole cycle more is the same bits for a phase that is exact (0.25 and 1.25); a phase
+  reduced mod 1 before any maths, so a whole cycle more draws the same for a phase that is exact (0.25 and 1.25); a phase
   such as 0.3 differs from 1.3 by the rounding of the addition; cost if wrong: a saved drawing's wave runs the other way.*
   *Ruling: step = wavelength / 24, not the 16 first planned (the relative arm of the error; the absolute budget of "One absolute error budget" below caps it). A chord of a sine over a step `h` strays by at most
   `amplitude (2 pi h / wavelength)^2 / 8`: 1.93% of the amplitude for 16 pieces, 0.86% for 24. The tests hold the exact image
@@ -1585,7 +1593,7 @@ holds.
   lines gather, short stubs and gaps up to two spacings remain.
 - **Work is bounded before it starts.** The lattice and the sample grid together may have 4 million cells, and every sample
   is charged to `MAX_SEGMENTS`. The grid is a linked list through a `Vec` (no hashed collection, rule 4); lengths use `sqrt`,
-  never `hypot` (rule 3). Same bytes on every target: the SVG of `flow_hatch` is compared in Python, Rust and Node.
+  never `hypot` (rule 3). The same look on every target: the SVG of `flow_hatch` is compared in Python, Rust and Node.
 - **Straight hatching is `hatch` with `Flow.angle`.** No second routine. Crosshatch and tone levels are stacked hatch steps (V15b).
 
 ## Fields and lines (V15b)
@@ -1878,7 +1886,7 @@ eyes' catchlights are placed by hand (a hint of where the eyes are), the glue be
   it from there.
 - **Determinism is a gate, not a hope** (2026-10-28). Clippy bans the platform's transcendental functions (`f64::sin`,
   `exp`, `powf`...; the portable `libm` crate replaces them), hash-ordered collections and the clock, and the core is
-  built for `wasm32-unknown-unknown` in every gate run. *Reason:* bit-identical output across targets fails silently
+  built for `wasm32-unknown-unknown` in every gate run. *Reason:* output that differs across targets fails silently
   otherwise. *Consequence:* `clippy.toml` exists (clippy reads its `disallowed-*` lists from no other file).
 - **The browser package is wasm-bindgen with a pinned command and a SIMD build** (2026-10-31). `crates/wasm` is the only
   crate that knows `wasm-bindgen` (`deny.toml`, as for PyO3); the `wasm-bindgen` command is pinned in
@@ -1889,7 +1897,7 @@ eyes' catchlights are placed by hand (a hint of where the eyes are), the glue be
   the rasteriser 10-15x faster than scalar WebAssembly, and current browsers have it. *Consequence:* the gate
   needs Node and the command (`poe setup` installs it); a browser without SIMD cannot load the package.
 - **Same output on every target is a differential test, not golden files** (2026-10-28). The same drawings are rendered
-  natively and in WebAssembly and compared byte for byte. *Reason:* committed golden images go stale and get updated
+  natively and in WebAssembly and compared within the one tolerance. *Reason:* committed golden images go stale and get updated
   without review; a differential test needs no reviewed baseline.
 - **Optimised Rust tests, the stack tests not** (2026-11-08). `cargo test` builds with `opt-level = 1` (`[profile.test]`),
   workspace code included. Measured warm at load 7 to 12: `tests/it` 437 s of CPU unoptimised, 59 s optimised;
@@ -2138,7 +2146,7 @@ Why not an existing call:
   operator returning a `Result` reads worse than a method). JavaScript: in a document. A document writes `{"Field.add": [a,
   b]}` (`mul`, `min`, `max` alike) and `{"Field.abs": a}`: the `Field.` prefix keeps them apart from the expression words.
   A number operand is a constant field (Params allowed, read once); two numbers are folded to one, and a number is the
-  first operand of `add` and `mul` (formats.md, canonical form), which IEEE addition and multiplication allow bit for bit.
+  first operand of `add` and `mul` (formats.md, canonical form), which IEEE addition and multiplication allow without changing a value.
 - **Limits reused.** A tree nests at most `MAX_MIX_DEPTH` (16, two document levels a nesting, as a mix) and reads at most
   `MAX_EXPR_NODES` (10,000) fields and operations, so a document written from one reads back under `MAX_CALLS`.
   `charge_reads` counts a read as the sum of its leaves' costs plus one per operation; an octave of noise is one unit
@@ -2181,7 +2189,7 @@ now takes the convention the line families already have.
   numbers"); `radius` must keep one, as every saved document and preset has it. The existing form for "a number or a
   pair" is `Kind::Factor` (`hatch`'s `spacing`, `scale`'s `by`, `characters`'s `cell`): read like a number or `[a, b]`,
   written back as one number when the two are equal, so the JSON and the SVG of every existing stipple (the preset, the
-  example, the differential rows) are byte for byte what they were. In Python it is `scale`'s `by` extractor (a number,
+  example, the differential rows) are what they were. In Python it is `scale`'s `by` extractor (a number,
   a Param or an expression, or a pair of them); in Rust the constructor takes the pair as `Bands::new` takes its `width`,
   `(r0, r1)`, `(r, r)` for one size: a generic "number or pair" type would be a second Rust spelling of the same pair.
 - **Read once.** A per-item number is refused in either, as for every number of the line families.

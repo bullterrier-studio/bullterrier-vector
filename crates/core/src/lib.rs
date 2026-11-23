@@ -1,5 +1,5 @@
 //! The pure-Rust core of bullterrier-vector, a typography-first vector graphics scripting library. The same inputs and
-//! seed give the same bytes on every target, native or WebAssembly; the core reads no files, no clock and no
+//! seed give the same look on every target, native or WebAssembly; the core reads no files, no clock and no
 //! environment. For now it holds the geometry value [`Path`] (build it, write it as SVG path data, measure it, cut it,
 //! move it, test points against it) and the start of drawings: a [`Drawing`] of a path draws [`Shape`]s, numbers a
 //! drawing reads can be a [`Param`] or an [`Expr`] on Params, and [`Values`] gives them their values.

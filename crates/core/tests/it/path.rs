@@ -1175,7 +1175,7 @@ fn point() -> impl Strategy<Value = (f64, f64)> + Clone {
 }
 
 proptest! {
-    // A path built with any verbs, written and read back, is the same path, bit for bit.
+    // A path built with any verbs, written and read back, is exactly the same path.
     #[test]
     fn a_path_written_and_read_back_is_the_same_path(start in point(), steps in prop::collection::vec(step(point()), 0..24)) {
         let path = build(start, &steps).map_err(|e| TestCaseError::fail(e.to_string()))?;

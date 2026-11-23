@@ -429,7 +429,7 @@ fn tree() -> impl Strategy<Value = Tree> {
 }
 
 proptest! {
-    // The value is the plain arithmetic of the tree, bit for bit but for the sign of a zero, or an error exactly where plain arithmetic divides
+    // The value is the plain arithmetic of the tree, exactly but for the sign of a zero, or an error exactly where plain arithmetic divides
     // by zero or leaves the finite numbers.
     #[test]
     fn the_value_is_the_arithmetic_done_on_plain_numbers(

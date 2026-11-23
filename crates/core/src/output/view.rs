@@ -48,7 +48,7 @@ impl View {
 
     /// This view for the pixels of the region whose top left is `x` columns and `y` rows into the output (whole
     /// numbers): every point is placed on the grid of [`GRID`] to a pixel, in the whole picture, and then moved by
-    /// the region's corner, which is exact. A window of a picture is then the same shapes as the whole, to the bit,
+    /// the region's corner, which is exact. A window of a picture is then the same shapes as the whole,
     /// where moving the picture by the corner would round each coordinate again.
     pub(crate) fn pixels(self, x: f64, y: f64) -> Self {
         Self {

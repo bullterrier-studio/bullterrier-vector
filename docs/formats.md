@@ -5,7 +5,7 @@ far ([roadmap.md](roadmap.md), V2c); the rest is the specification. Reasons: [de
 [examples/json/](examples/json/). Draft schema: [drawing-1.schema.json](../schemas/drawing-1.schema.json).
 
 A drawing file is the tree the code API builds, written down: `drawing.to_json()` writes it, `Drawing.from_json(text)`
-reads it back, and the two draw to the same bytes. A drawing built in Rust, Python or JavaScript saves to the same JSON.
+reads it back, and the two draw the same. A drawing built in Rust, Python or JavaScript saves to the same JSON.
 Nothing in a document says what the code API cannot.
 
 ## A first look
@@ -432,7 +432,7 @@ in the library (`Drawing.preset_description`).
 
 ## Canonical form
 
-`to_json` writes one text for one drawing, so the same drawing gives the same bytes in every language, and the text
+`to_json` writes one text for one drawing, so the same drawing gives the same text in every language, and the text
 can address a cache. Two documents are the same drawing when their canonical forms are equal. A reader accepts any
 spelling the schema allows; canonical form is what the library writes:
 

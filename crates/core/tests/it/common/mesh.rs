@@ -20,7 +20,7 @@ pub(crate) struct Vertex {
 }
 
 impl Vertex {
-    /// What a vertex says about how it is painted, bit for bit: its colour and its item.
+    /// What a vertex says about how it is painted, exactly: its colour and its item.
     pub(crate) fn paint(&self) -> ([u32; 4], u32) {
         (self.rgba.map(f32::to_bits), self.item)
     }

@@ -1,7 +1,7 @@
 """Trace: a relief traced into stacked cut-paper layers, and a dithered strip traced exactly.
 
 A map of tone is plain numbers: here two hills made from whole numbers only, so the Python, Rust and JavaScript programs
-build the same bytes. `trace_levels` turns the map into one filled shape for each tone level (the region at or above
+build the same map. `trace_levels` turns the map into one filled shape for each tone level (the region at or above
 it), stacked from the lowest and painted lighter to darker, with the edges smoothed a little, curves fitted through
 them, and specks and thin gaps below a size removed. Under it a strip of ordered dither (cells of a pixel and a half,
 two colours) is traced exactly: every cell of a colour that touches another is merged into one straight-edged region,

@@ -95,7 +95,7 @@ impl Path {
         }
         let wavelength = coordinate("wavelength", wavelength)?;
         let angle = finite("angle", angle)?;
-        // the phase is reduced before any maths, so that a whole cycle more is the same bits
+        // the phase is reduced before any maths, so that a whole cycle more draws the same
         let phase = finite("phase", phase)?.rem_euclid(1.0);
         let (sin, cos) = sin_cos_deg(angle);
         let map = |point: Point| {

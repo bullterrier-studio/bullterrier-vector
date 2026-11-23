@@ -430,7 +430,7 @@ def test_glyph_scatter_stands_as_set_at_0_and_scatters_the_same_way_every_time_a
     assert (min(stem.x, dot.x), min(stem.y, dot.y)) == pytest.approx((mark.x, mark.y))
     assert max(stem.y + stem.height, dot.y + dot.height) == pytest.approx(mark.y + mark.height)
 
-    # above 0 every part has moved, and the same value draws the same bytes, in a program run again as well
+    # above 0 every part has moved, and the same value draws the same look, in a program run again as well
     moved = drawing.shapes(scatter=0.5)
     assert all(a.path != b.path for a, b in zip(moved, calm, strict=True))
     assert drawing.to_svg(1080, 640, scatter=0.5) == drawing.to_svg(1080, 640, scatter=0.5)

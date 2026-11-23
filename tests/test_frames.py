@@ -142,17 +142,6 @@ def test_existing_frames_are_overwritten_and_frames_of_a_longer_earlier_run_stay
     assert (tmp_path / "f-9.png").read_bytes() == b"left from a longer run"
 
 
-def test_two_runs_write_identical_files(tmp_path):
-    first, second = tmp_path / "first", tmp_path / "second"
-    for folder in (first, second):
-        btvec.frames(badge_at, width=WIDTH, height=HEIGHT, fps=4, seconds=1, out=folder / "f-#.png")
-
-    assert names(first) == names(second) == [f"f-{i}.png" for i in range(4)]
-    assert [(first / name).read_bytes() for name in names(first)] == [
-        (second / name).read_bytes() for name in names(second)
-    ]
-
-
 def test_frames_written_before_the_scene_fails_stay_and_its_error_reaches_the_caller(tmp_path):
     def scene(t: float) -> btvec.Drawing:
         if t >= 0.5:

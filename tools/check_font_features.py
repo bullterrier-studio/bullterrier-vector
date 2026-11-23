@@ -2,7 +2,7 @@
 
 The font crates (`read-fonts`, `harfrust`) call the platform's `hypot` and other maths when their `std` feature is on,
 and the platform's maths differs between targets; with `libm` and no `std` they use the same code everywhere, which is
-what makes a glyph outline the same bytes natively and in WebAssembly (docs/design-decisions.md, "Fonts"). Cargo
+what makes a glyph outline look the same natively and in WebAssembly (docs/design-decisions.md, "Fonts"). Cargo
 unifies features across the whole workspace, so one crate asking for `std` (or for default features) turns it on for
 all: `cargo tree -e features` shows what is on, and this fails when `std` is, naming the crate.
 

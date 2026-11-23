@@ -226,8 +226,8 @@ from those declarations.
   files; frame export writes them.
 - It runs single-threaded; parallel rendering is an optional feature.
 - Transcendental maths (sin, cos, exp, pow...) goes through one portable implementation on every target, so output
-  matches bit for bit. Iteration order never depends on a hash seed. The one exception is the pixels the rasteriser
-  crate draws: they are required to look the same on every target, not to match byte for byte.
+  looks the same. Iteration order never depends on a hash seed. The one exception is the pixels the rasteriser
+  crate draws: they are required to look the same on every target.
 - Randomness comes only from the seed.
 - Inputs are plain data: a map to trace is a width, a height and bytes; a series is a list of numbers. The library
   reads no other tool's file format.

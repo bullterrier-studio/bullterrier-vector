@@ -230,7 +230,7 @@ fn a_name_is_letters_digits_and_underscore_starting_with_a_letter() -> Outcome {
 // Round trip --------------------------------------------------------------------------------------------------------
 
 proptest! {
-    /// Writing a text and loading it with its font draws the same bytes, and writes the same text again.
+    /// Writing a text and loading it with its font draws the same, and writes the same text again.
     #[test]
     fn a_text_survives_to_json_and_from_json(
         content in "[HiToFeAVC .\\-lfé\n]{0,10}",

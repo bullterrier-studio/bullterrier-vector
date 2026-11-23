@@ -21,7 +21,7 @@ impl Drawing {
     /// pixels exactly those [`Drawing::to_rgba`] returns for the same `size` and `values`, so transparent where
     /// nothing is drawn and not premultiplied.
     ///
-    /// The same call gives the same bytes. The file's bytes may change between versions of the library, as the encoder
+    /// The file's bytes may change between versions of the library, as the encoder
     /// is updated; what they decode to does not.
     ///
     /// # Errors

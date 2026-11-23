@@ -1073,7 +1073,7 @@ page around it.
 to the group once (a stroke over a fill at opacity 0.5 is no darker where they overlap). Colours blend as sRGB values,
 with no gamma conversion, as SVG does. The bytes are straight alpha: a colour byte is the premultiplied colour times 255
 over the alpha, rounded to the nearest whole number (halves up), and a pixel of alpha 0 is `0, 0, 0, 0`. Placement,
-widths and the corner and end rules are exact, but the pixels are drawn by a rasteriser crate that is only required to
+widths and the corner and end rules are what the parameters say, but the pixels are drawn by a rasteriser crate that is only required to
 look the same on every target: an edge pixel can differ by a level. Curves are flattened once, in design pixels, to
 within 0.01 of the curve (the flattening that measuring uses), and a stroke is expanded to the same flatness in output
 pixels, so the rasteriser is given straight lines only; a circle of radius 10 covers its area to within 0.05%. A
@@ -1082,15 +1082,15 @@ square end, as SVG draws it, and nothing under a butt end. A segment much shorte
 turn, can lose a sliver of the stroke on the inside of the turn.
 
 `to_png` is the pixels of `to_rgba` (the same limits and errors) as a PNG file: 8 bits a channel, colour type 6, straight
-alpha, no interlacing, and no chunks but the header, the data and the end (no colour space: read it as sRGB). The same
-call gives the same bytes; the bytes may change when the encoder crate is updated, what they decode to does not.
+alpha, no interlacing, and no chunks but the header, the data and the end (no colour space: read it as sRGB). The file's
+bytes may change when the encoder crate is updated, what they decode to does not.
 
 A window renders one rectangle of a large output: `to_rgba(width, height, /, *, window=(x, y, w, h), **values)` and `to_png`
 likewise (Rust `to_rgba_window(Size::px(width, height), Window::px(x, y, w, h), &values)` and `to_png_window`; JavaScript
 `toRgba(width, height, values, { x, y, width, height })`, `toPng` the same). `width` and `height` are the whole output, the
 one the design frame is placed in, up to 100,000 a side; the window is whole pixels inside it, and obeys the limits of a pixel
 output (65,000 a side, 2^27 pixels), so a canvas the whole render refuses can be drawn in bands. The result is the window's
-pixels only (`w × h × 4` bytes), **the same bytes** as the same rows and columns of the whole render, for every drawing
+pixels only (`w × h × 4` bytes), which **looks the same** as the same rows and columns of the whole render, for every drawing
 (`tests/it/raster_window.rs`; [design-decisions.md](design-decisions.md), "Render a window (V10e)"). The rasteriser draws a
 region larger than the window: 8 pixels on every side, its top left on a multiple of 256 across (its wide tile) and of 4
 down, and, for a blurred shadow, the offset and the reach of its blur, and back to the corner of the shadow's shape. That
@@ -1113,7 +1113,7 @@ opens nothing.
 | `to_plot_svg` | `to_plot_svg(width, height, /, *, pen_width, tolerance=None, unit="px", **values)` | lines only, one layer per stroke colour (one pen each), ordered to cut pen-up travel and simplified below the pen's resolution (below) |
 | `to_mesh` | `to_mesh(width, height, /, *, into=None, **values)` | triangles for the picture (below) |
 | `to_json` | `to_json()` | the drawing as JSON: the same tree written down |
-| `Drawing.from_json` | `Drawing.from_json(text, *, inputs=None)` | the drawing back, given the bytes (`bytes` or `bytearray`) of its inputs by name, a dict; it draws to identical bytes. A static method. In Rust `Drawing::from_json(text, &Inputs::new().set("anybody", bytes))`, in JavaScript `Drawing.fromJson(text, { anybody: bytes })` with a `Uint8Array` each |
+| `Drawing.from_json` | `Drawing.from_json(text, *, inputs=None)` | the drawing back, given the bytes (`bytes` or `bytearray`) of its inputs by name, a dict; it draws the same. A static method. In Rust `Drawing::from_json(text, &Inputs::new().set("anybody", bytes))`, in JavaScript `Drawing.fromJson(text, { anybody: bytes })` with a `Uint8Array` each |
 | `Drawing.preset` | `Drawing.preset(name)` (Rust: `Drawing::preset(name)?`, JavaScript: `Drawing.preset(name)`) | a drawing that comes with the library (`Drawing.preset_names()` lists them; `bt-vector list` shows each with its description). It is an ordinary drawing: `parameters()` describes its sliders and it needs no bytes. A static method; a `name` that is not a preset is refused (the message lists them) |
 | `Drawing.preset_description` | `Drawing.preset_description(name)` (Rust: `Drawing::preset_description(name)?`, JavaScript: `Drawing.presetDescription(name)`) | the one-sentence description of the preset `name`: what its look is (one sentence, ends with a full stop, no line break). A static method; an unknown `name` is refused exactly as `Drawing.preset` refuses it |
 | `Drawing.preset_names` | `Drawing.preset_names()` (Rust: `Drawing::preset_names()`, JavaScript: `Drawing.presetNames()`) | the names `Drawing.preset` takes, sorted |
@@ -1130,11 +1130,10 @@ In JavaScript (the package built from `crates/wasm`) a document loads with `Draw
 (`[w, h]` or `undefined`) and the outputs, each `(width, height, values?)` (`toRgba` and `toPng` also `window?`) with `values` an object of Param names to a
 number or an array of numbers: `toSvg` (a string), `toRgba` and `toPng` (a `Uint8Array`, a copy), `toMesh` (a new
 `Mesh`) and `toMeshInto(mesh, width, height, values?)` (refills `mesh`, below). Errors are as in Python, thrown as
-`Error`s named by kind. The same drawing gives the same SVG text and mesh buffers in WebAssembly as natively, exactly;
-the pixels look the same: at most 2 levels apart on at most 0.02% of the values of a picture (the rasteriser crate is only
-required to look the same on every target).
+`Error`s named by kind. The same drawing gives SVG text, mesh buffers and pixels in WebAssembly that look the same as the native ones: at most 1
+level apart on 99.9% of the values and 2 on all, SVG numbers and mesh positions within 0.004 pixel.
 
-The same drawing and values look the same on every target (the same bytes wherever that holds, which the differential test checks). `to_json` raises `ParameterError` for a drawing beyond a
+The same drawing and values look the same on every target (within the one tolerance, which the differential test checks). `to_json` raises `ParameterError` for a drawing beyond a
 limit of [formats.md](formats.md) ("Limits and security") and for a literal division by 0; `from_json` raises
 `FormatError`. Errors (`ParameterError`): a width or height that is not a whole number from 1 to 100,000 (to 65,000 for
 pixel outputs, which also refuse more than 2^27 pixels, naming `size`), a coordinate or stroke width beyond 10 million

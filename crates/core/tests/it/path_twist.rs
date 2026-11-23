@@ -104,7 +104,7 @@ fn the_default_pivot_is_the_middle_of_the_bounds_and_the_radius_reaches_the_far_
     let turn = (90.0 * (1.0 - s * s * (3.0 - 2.0 * s))).to_radians();
     let image = (60.0 + 30.0 * libm::sin(turn), 50.0 - 30.0 * libm::cos(turn));
     assert!(to_lines(image, &twisted) <= 0.01 * radius + 0.01, "{image:?}");
-    // the same with the pivot and the radius given: the identical output
+    // the same with the pivot and the radius given: the same output
     let given = rect.twist(90.0, Some(libm::hypot(50.0, 30.0)), Some(Point::new(60.0, 50.0)))?;
     assert_eq!(given, rect.twist(90.0, None, None)?);
     Ok(())

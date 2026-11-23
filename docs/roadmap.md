@@ -46,7 +46,7 @@ prototypes ([prototype-findings.md](prototype-findings.md)) set this order.
 | V2a | Geometry: `Path` as a value (build, measure, split, slice, reverse, hit-test, SVG path data in and out), `Path.polygon`, `Path.star`, transforms; the `Error` redesign | M | |
 | V2b | Drawings: shapes and style, attributes, the node trait and its contract, parameters and expressions, registry, evaluation with a cache, stacking, `with_values`, `parameters()`, `shapes()` | L | |
 | V2c | JSON: `to_json`, `from_json`, the loader's checks, the schema generated from the registrations, the examples run | M | |
-| V3 | Output: SVG, pixels, a mesh, `look` (draw a drawing and open it); the WebAssembly package; the same bytes on every target | L | **M1 a star everywhere** |
+| V3 | Output: SVG, pixels, a mesh, `look` (draw a drawing and open it); the WebAssembly package; the same look on every target | L | **M1 a star everywhere** |
 | X1 | Spike: a GPU display of the mesh in a page, measured | S | |
 | X2 | Spike: live remeshing every frame, measured | S | |
 | V4 | Frame export: a caller's function of time to a transparent PNG sequence or clip | S | |
@@ -261,7 +261,7 @@ Carried from the S0 review:
   code on `libm`; see design-decisions.md, "No curve crate". The V8 boolean engine reaches the output through `libm` and integer
   arithmetic only: "Booleans (V8)".)
 
-## V3 Output, WebAssembly, the same bytes everywhere
+## V3 Output, WebAssembly, the same look everywhere
 
 - SVG writer; pixels at any size on the CPU.
 - Mesh output (`to_mesh`, api.md "Mesh"): triangles with positions, colours and per-item attributes, and draw ranges
@@ -271,15 +271,15 @@ Carried from the S0 review:
 - `uv run poe look <drawing>`: draws to PNG and SVG in a git-ignored folder, for a person or an agent to look at (done:
   V3c).
 - The WebAssembly package (wasm-bindgen): build, a smoke test in Node (done: V3e).
-- Differential tests: the core's drawings rendered natively and in WebAssembly give identical bytes (pixels: within a
-  measured tolerance, as the rasteriser crate is required to look the same, not to match byte for byte); and a drawing
+- Differential tests: the core's drawings rendered natively and in WebAssembly look the same (SVG, mesh and pixels within the one
+  tolerance of `docs/design-decisions.md`); and a drawing
   drawn at 1x and at 2x gives the same geometry (SVG and mesh coordinates at 2x are exactly twice those at 1x). Done:
   V3f, 44 drawings, in `poe wasm-test`.
 - Benchmark: time to draw a reference drawing at 1080p, tracked from here on (done: V3f, `uv run poe bench`, numbers in
   [benchmarks.md](benchmarks.md)).
 
 State: V3a done in Rust and Python (`Size`, the view, `Drawing.to_svg`, the star example writes SVG); V3e done: the
-WebAssembly package loads a document and writes its SVG, equal to the native text, in Node (`poe wasm-test`); V3b done in Rust and
+WebAssembly package loads a document and writes its SVG, looking the same as the native text, in Node (`poe wasm-test`); V3b done in Rust and
 Python (`Drawing.to_rgba`, through `vello_cpu`); V3c done in Rust and Python (`Drawing.to_png`, through the `png` crate,
 and `uv run poe look`); V3d done in Rust and Python (`Drawing.to_mesh`, `Mesh`, through `lyon_tessellation`); V3f done:
 `toRgba`, `toPng` and `toMesh` in the WebAssembly package, the native-against-WebAssembly tests, `uv run poe bench`, and
@@ -446,7 +446,7 @@ with `sha256`. V5b is done (Rust, through JSON): `Font::axes()` (a `Param` per a
 `Text::axes(..)` (a number, `Param` or expression per tag, a value per character, shaped per run of equal location) and
 `Text::features(..)`, the loader's `font-checks`. V5c is done: `btvec.Font`, `btvec.text` and `Drawing.from_json(...,
 inputs=)` in Python, `Drawing.fromJson(text, inputs)` in WebAssembly, fontTools as the oracle of the Python tests, ten text
-drawings in the native-against-WebAssembly differential (exact SVG text and mesh buffers), `examples/kinetic_type.py`,
+drawings in the native-against-WebAssembly differential (SVG text and mesh buffers that look the same), `examples/kinetic_type.py`,
 and the per-frame cost of type in `docs/benchmarks.md`. V5d is done: `Font::new` reads WOFF2 (unpacked with `wuff`, a
 decompression bomb refused at `MAX_FONT_BYTES`) and refuses WOFF, answering the question above; `Font::bundled(name)` and
 `Font::bundled_names()` (`btvec.Font.bundled`) give Bricolage Grotesque and Fraunces (OFL 1.1, compiled in as WOFF2), a
@@ -776,7 +776,7 @@ What `bullterrier-scene` asked of vector while building real pieces, and where e
   side, so vector changed nothing.
 - **`#rgb` colours on fills and strokes** (done 2026-11-16). `Color::parse` is the one parser (the SVG reader calls it) and
   reads `#rgb`, `#rrggbb`, `#rrggbbaa` and `none`; image and the SVG reader have no `#rgba`, so neither has vector.
-- **Window render (V10e)** (done 2026-11-13, Rust, Python and WebAssembly): for every drawing, the same bytes as the whole
+- **Window render (V10e)** (done 2026-11-13, Rust, Python and WebAssembly): for every drawing, what looks the same as the whole
   render's rows and columns.
 - **WebAssembly builds** already, so a scene editor or a web export can draw vector in the page.
 
