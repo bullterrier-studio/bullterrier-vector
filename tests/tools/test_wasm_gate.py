@@ -163,7 +163,7 @@ OFFENCES = {
         ORACLE,
         'drawing.to_svg(width, height, **values).encode("utf-8")',
         '(drawing.to_svg(width, height, **values) + " ").encode("utf-8")',
-        ["✖ star: the svg text is the native one", "star 400x400: svg"],
+        ["✖ star: the svg text looks the native one", "star 400x400: svg"],
     ),
     "the PNG replaced by the pixels": (
         GLUE,
@@ -175,43 +175,47 @@ OFFENCES = {
         ORACLE,
         "write_bytes(drawing.to_rgba(width, height, **values))",
         "write_bytes(drawing.to_rgba(width, height, **values)[::-1])",
-        ["✖ star: the pixels look the native ones", "star 400x400: pixels", "channel values differ"],
+        [
+            "✖ star: the pixels look the native ones",
+            "star 400x400: pixels",
+            "channel values are more than 1 level apart",
+        ],
     ),
     "the indices pointer of the mesh pointing at the vertices": (
         GLUE,
         "self.0.indices().as_ptr().addr()",
         "self.0.vertices().as_ptr().addr()",
-        ["✖ star: the mesh buffers are the native ones", "star 400x400: mesh"],
+        ["✖ star: the mesh buffers look the native ones", "star 400x400: mesh"],
     ),
     "a mesh length counted in bytes": (
         GLUE,
         "self.0.vertices().len()\n",
         "self.0.vertices().len() * 4\n",
-        ["✖ star: the mesh buffers are the native ones", "star 400x400: mesh"],
+        ["✖ star: the mesh buffers look the native ones", "star 400x400: mesh"],
     ),
     "an expected mesh generation that differs by one": (
         ORACLE,
         '"generation": mesh.generation,',
         '"generation": mesh.generation + 1,',
-        ["✖ star: the mesh buffers are the native ones", "star 400x400: mesh"],
+        ["✖ star: the mesh buffers look the native ones", "star 400x400: generation"],
     ),
     "a Rust example that draws a bigger star": (
         RUST_STAR,
         "Path::star((200.0, 200.0), 150.0, 60.0, 5)",
         "Path::star((200.0, 200.0), 151.0, 60.0, 5)",
-        ["✖ the SVG of the star is the same text from Python, Rust and Node", "Rust against Python"],
+        ["✖ the SVG of the star looks the same from Python, Rust and Node", "Rust against Python"],
     ),
     "a Python example that draws a bigger star": (
         PYTHON_STAR,
         "outer=150",
         "outer=151",
-        ["✖ the SVG of the star is the same text from Python, Rust and Node", "Rust against Python"],
+        ["✖ the SVG of the star looks the same from Python, Rust and Node", "Rust against Python"],
     ),
     "a Node example that draws at another size": (
         NODE_STAR,
         "process.stdout.write(star.toSvg(SIDE, SIDE))",
         "process.stdout.write(star.toSvg(SIDE + 1, SIDE))",
-        ["✖ the SVG of the star is the same text from Python, Rust and Node", "Node against Python"],
+        ["✖ the SVG of the star looks the same from Python, Rust and Node", "Node against Python"],
     ),
 }
 
