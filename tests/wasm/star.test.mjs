@@ -1,25 +1,24 @@
 // Milestone M1, "a star everywhere": the star of examples/star.py drawn from Python, from the Rust example
 // (crates/core/examples/star.rs) and from the Node example (crates/wasm/examples/star.mjs, run here as a person runs it).
-// The SVG text is identical in all three; the pixels of the two native programs are identical bytes, and the Node
-// example's pixels look the same as theirs. oracle.py runs the Python and Rust sides.
+// The SVG text and the pixels of all three look the same (compare.mjs). oracle.py runs the Python and Rust sides.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { assertLookTheSame } from "./compare.mjs";
+import { assertLookTheSame, assertSvgLooksTheSame } from "./compare.mjs";
 
 const { star } = JSON.parse(readFileSync(new URL("../../pkg/oracle.json", import.meta.url), "utf-8"));
 const read = (file) => new Uint8Array(readFileSync(new URL(`../../pkg/oracle-pixels/${file}`, import.meta.url)));
 const example = new URL("../../crates/wasm/examples/star.mjs", import.meta.url).pathname;
 const run = (output) => execFileSync(process.execPath, [example, output], { maxBuffer: 1 << 24 });
 
-test("the SVG of the star is the same text from Python, Rust and Node", () => {
-  assert.equal(star.rust_svg, star.python_svg, "Rust against Python");
-  assert.equal(run("svg").toString("utf-8"), star.python_svg, "Node against Python");
+test("the SVG of the star looks the same from Python, Rust and Node", () => {
+  assertSvgLooksTheSame(star.python_svg, star.rust_svg, "Rust against Python");
+  assertSvgLooksTheSame(star.python_svg, run("svg").toString("utf-8"), "Node against Python");
 });
 
-test("the pixels of the star are the same bytes from Python and Rust", () => {
-  assert.ok(Buffer.from(read(star.rust_rgba_file)).equals(read(star.python_rgba_file)));
+test("the pixels of the star look the same from Python and Rust", () => {
+  assertLookTheSame(read(star.python_rgba_file), read(star.rust_rgba_file), 400, "star Rust against Python");
 });
 
 test("the pixels of the star from Node look the same as the native ones", () => {

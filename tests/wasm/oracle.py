@@ -1292,9 +1292,10 @@ def refusal(
     sys.exit(f"oracle: {call} did not raise for {text[:40]!r}")
 
 
-def sha256(data: bytes) -> str:
-    """The SHA-256 of `data` in hex: Node hashes the WebAssembly side with `node:crypto`, so the two share no code."""
-    return hashlib.sha256(data).hexdigest()
+def kept(pixels: Path, file: str, data: bytes) -> str:
+    """Write `data` to `file` in the folder of the native answers, which Node reads back, and give the file name."""
+    (pixels / file).write_bytes(data)
+    return file
 
 
 def window_of(width: float, height: float) -> tuple[int, int, int, int]:
@@ -1304,7 +1305,7 @@ def window_of(width: float, height: float) -> tuple[int, int, int, int]:
 
 
 def compared(drawing: btvec.Drawing, name: str, index: int, draw: Draw, pixels: Path) -> dict[str, Any]:
-    """What the native extension makes of one draw of the corpus: hashes of the exact outputs, pixels in a file."""
+    """What the native extension makes of one draw of the corpus: its SVG text, mesh buffers and pixels, in files."""
     width, height, values = draw
     file = f"{name}-{index}.rgba"
     (pixels / file).write_bytes(drawing.to_rgba(width, height, **values))
@@ -1315,22 +1316,22 @@ def compared(drawing: btvec.Drawing, name: str, index: int, draw: Draw, pixels: 
         "width": width,
         "height": height,
         "values": values,
-        "svg_sha256": sha256(drawing.to_svg(width, height, **values).encode("utf-8")),
+        "svg_file": kept(pixels, f"{name}-{index}.svg", drawing.to_svg(width, height, **values).encode("utf-8")),
         "mesh": refused_mesh(drawing, draw)
         if name in MESH_REFUSED
-        else described(drawing.to_mesh(width, height, **values)),
+        else described(drawing.to_mesh(width, height, **values), pixels, f"{name}-{index}"),
         "rgba_file": file,
         "window": list(window),
         "window_rgba_file": window_file,
     }
 
 
-def described(mesh: btvec.Mesh) -> dict[str, Any]:
-    """A mesh as the hashes and lengths of its buffers."""
+def described(mesh: btvec.Mesh, pixels: Path, stem: str) -> dict[str, Any]:
+    """A mesh as its buffers in files (little-endian `f32` vertices, `u32` indices and ranges) and their lengths."""
     return {
-        "vertices_sha256": sha256(mesh.vertices.tobytes()),
-        "indices_sha256": sha256(mesh.indices.tobytes()),
-        "ranges_sha256": sha256(mesh.ranges.tobytes()),
+        "vertices_file": kept(pixels, f"{stem}.vertices.f32", mesh.vertices.tobytes()),
+        "indices_file": kept(pixels, f"{stem}.indices.u32", mesh.indices.tobytes()),
+        "ranges_file": kept(pixels, f"{stem}.ranges.u32", mesh.ranges.tobytes()),
         "vertices_length": len(mesh.vertices),
         "indices_length": len(mesh.indices),
         "ranges_length": len(mesh.ranges),

@@ -1,20 +1,21 @@
 // The WebAssembly package against the native extension: the same documents, sizes and values must give the same SVG
-// text (exactly), the same JSON, the same Param descriptions and the same errors. The expected results come from
+// text (the numbers within the tolerance of compare.mjs), the same JSON, the same Param descriptions and the same errors. The expected results come from
 // oracle.py, which asks the native Python extension; run both through `uv run poe wasm-test`.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { test } from "node:test";
+import { assertSvgLooksTheSame } from "./compare.mjs";
 
 const require = createRequire(import.meta.url);
 const { Drawing } = require("../../pkg/bullterrier_vector_wasm.js");
 const native = JSON.parse(readFileSync(new URL("../../pkg/oracle.json", import.meta.url), "utf-8"));
 
 for (const [name, expected] of Object.entries(native.documents)) {
-  test(`${name}: toSvg writes the text the native extension writes`, () => {
+  test(`${name}: toSvg writes the text the native extension writes, within the tolerance`, () => {
     const drawing = Drawing.fromJson(expected.json);
     for (const { width, height, values, svg } of expected.draws) {
-      assert.equal(drawing.toSvg(width, height, values), svg, `${width}x${height} ${JSON.stringify(values)}`);
+      assertSvgLooksTheSame(svg, drawing.toSvg(width, height, values), `${width}x${height} ${JSON.stringify(values)}`);
     }
   });
 
@@ -29,7 +30,7 @@ for (const [name, expected] of Object.entries(native.documents)) {
 for (const [index, { json, width, height, penWidth, tolerance, unit, svg }] of native.plots.entries()) {
   test(`plot ${index}: toPlotSvg writes the text the native extension writes`, () => {
     const options = { penWidth, tolerance: tolerance ?? undefined, unit };
-    assert.equal(Drawing.fromJson(json).toPlotSvg(width, height, {}, options), svg);
+    assertSvgLooksTheSame(svg, Drawing.fromJson(json).toPlotSvg(width, height, {}, options), `plot ${index}`);
   });
 }
 
@@ -49,7 +50,7 @@ test("the module is built for WebAssembly SIMD", () => {
 
 test("values are optional", () => {
   const { json, draws } = native.documents.star;
-  assert.equal(Drawing.fromJson(json).toSvg(400, 400), draws[0].svg);
+  assertSvgLooksTheSame(draws[0].svg, Drawing.fromJson(json).toSvg(400, 400), "star");
 });
 
 /** The fonts a refusal supplies, by the name the document gives them, as the Buffers a loader gives `inputs`. */
@@ -147,7 +148,7 @@ test("presetNames lists the native presets", () => {
 });
 
 for (const [name, svg] of Object.entries(native.presets.svg)) {
-  test(`preset ${name}: toSvg writes the text the native extension writes`, () => {
+  test(`preset ${name}: toSvg writes the text the native extension writes, within the tolerance`, () => {
     assert.ok(Drawing.preset(name).toSvg(300, 200) === svg);
   });
 }

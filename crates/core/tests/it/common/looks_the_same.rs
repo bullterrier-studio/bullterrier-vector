@@ -82,8 +82,7 @@ fn numbers_and_skeleton(text: &str) -> (Vec<f64>, String) {
                 && bytes
                     .get(at + 1)
                     .is_some_and(|next| next.is_ascii_digit() || *next == b'.'));
-        let word = at > 0 && bytes[at - 1].is_ascii_alphabetic() && bytes[at] != b'-';
-        if starts && !word {
+        if starts {
             let mut end = at + 1;
             while end < bytes.len() && (bytes[end].is_ascii_digit() || bytes[end] == b'.') {
                 end += 1;

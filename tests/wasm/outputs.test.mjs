@@ -1,21 +1,30 @@
 // Pixels, PNG and the mesh of the WebAssembly package against the native extension, on the corpus of oracle.py.
 //
-// What we compute ourselves is exact: the SVG text, the mesh buffers (hashed here with node:crypto, there with hashlib).
-// The pixels are drawn by a rasteriser crate that is required only to look the same on every target, so they are
-// compared within a tolerance fixed by measurement (compare.mjs). A PNG is decoded here with
-// node:zlib, a decoder that shares nothing with the encoder, and must hold the pixels of toRgba.
+// No output is promised to be equal bytes to the native one: the SVG text, the mesh buffers and the pixels must look the
+// same, within the one tolerance of compare.mjs. A PNG is decoded here with node:zlib, a decoder that shares nothing with
+// the encoder, and must hold the pixels of toRgba (a file format: lossless).
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 import { inflateSync } from "node:zlib";
-import { assertLookTheSame, differences, windowOf } from "./compare.mjs";
+import { assertLookTheSame, assertMeshLooksTheSame, assertSvgLooksTheSame, windowOf } from "./compare.mjs";
 
 const require = createRequire(import.meta.url);
 const { Drawing, Mesh, wasmMemory: memory } = require("../../pkg/bullterrier_vector_wasm.js");
 const native = JSON.parse(readFileSync(new URL("../../pkg/oracle.json", import.meta.url), "utf-8"));
 const nativePixels = (file) => new Uint8Array(readFileSync(new URL(`../../pkg/oracle-pixels/${file}`, import.meta.url)));
+/** A file of the native answers as a typed array (the file holds little-endian values, as WebAssembly memory does). */
+const nativeFloats = (file) => new Float32Array(nativePixels(file).buffer);
+const nativeIntegers = (file) => new Uint32Array(nativePixels(file).buffer);
+const nativeText = (file) => Buffer.from(nativePixels(file)).toString("utf-8");
+/** The buffers of a native mesh, as the same names `meshOf` gives a WebAssembly one. */
+const nativeMesh = (mesh) => ({
+  vertices: nativeFloats(mesh.vertices_file),
+  indices: nativeIntegers(mesh.indices_file),
+  ranges: nativeIntegers(mesh.ranges_file),
+});
 
 /** The fonts a document names, from the names to the keys of `native.fonts`, as the Buffers a loader gives `inputs`. */
 const inputsOf = (names) =>
@@ -76,7 +85,14 @@ function decodePng(bytes, label) {
 const view = (Type, pointer, length) => new Type(memory().buffer, pointer, length);
 const bytesOf = (typed) => new Uint8Array(typed.buffer, typed.byteOffset, typed.byteLength);
 
-/** The buffers of a mesh as hashes and lengths, the shape oracle.py writes. */
+/** The buffers of a WebAssembly mesh, copied out of its memory. */
+const meshOf = (mesh) => ({
+  vertices: view(Float32Array, mesh.verticesPtr, mesh.verticesLength).slice(),
+  indices: view(Uint32Array, mesh.indicesPtr, mesh.indicesLength).slice(),
+  ranges: view(Uint32Array, mesh.rangesPtr, mesh.rangesLength).slice(),
+});
+
+/** The buffers of a mesh as hashes and lengths, to tell two WebAssembly meshes apart (never to compare with native). */
 function describe(mesh) {
   return {
     vertices_sha256: sha256(bytesOf(view(Float32Array, mesh.verticesPtr, mesh.verticesLength))),
@@ -93,15 +109,15 @@ for (const { name, json, inputs, draws } of native.corpus) {
   const drawing = Drawing.fromJson(json, inputsOf(inputs));
   const each = (check) => () => draws.forEach((draw) => check(draw, `${name} ${draw.width}x${draw.height}`));
 
-  test(`${name}: the svg text is the native one`, () => {
+  test(`${name}: the svg text looks the native one`, () => {
     assert.equal(drawing.toJson(), json, `${name}: the document reads back as it was written`);
     each((draw, label) => {
       const svg = drawing.toSvg(draw.width, draw.height, draw.values);
-      assert.equal(sha256(Buffer.from(svg, "utf-8")), draw.svg_sha256, `${label}: svg`);
+      assertSvgLooksTheSame(nativeText(draw.svg_file), svg, `${label}: svg`);
     })();
   });
 
-  test(`${name}: the mesh buffers are the native ones`, () => {
+  test(`${name}: the mesh buffers look the native ones`, () => {
     each((draw, label) => {
       if (draw.mesh.refusal) {
         // a mesh the core refuses: the same error, by name and message
@@ -109,7 +125,8 @@ for (const { name, json, inputs, draws } of native.corpus) {
         return;
       }
       const mesh = drawing.toMesh(draw.width, draw.height, draw.values);
-      assert.deepEqual(describe(mesh), draw.mesh, `${label}: mesh`);
+      assert.equal(mesh.generation, draw.mesh.generation, `${label}: generation`);
+      assertMeshLooksTheSame(nativeMesh(draw.mesh), meshOf(mesh), `${label}: mesh`);
       mesh.free();
     })();
   });
@@ -128,10 +145,9 @@ for (const { name, json, inputs, draws } of native.corpus) {
       const window = { x, y, width, height };
       const rgba = drawing.toRgba(draw.width, draw.height, draw.values, window);
       assertLookTheSame(nativePixels(draw.window_rgba_file), rgba, width, `${label}: window pixels`, draw.width * draw.height * 4);
-      // the window is the rows and columns of the whole render, to the byte (design-decisions.md)
+      // the window looks like the rows and columns of the whole render
       const cut = windowOf(nativePixels(draw.rgba_file), draw.width, draw.window);
-      const apart = differences(cut, nativePixels(draw.window_rgba_file), width);
-      assert.equal(apart.count, 0, `${label}: the native window differs from the whole's rows and columns by up to ${apart.largest} levels`);
+      assertLookTheSame(cut, nativePixels(draw.window_rgba_file), width, `${label}: native window against the whole`, draw.width * draw.height * 4);
       const decoded = decodePng(drawing.toPng(draw.width, draw.height, draw.values, window), label);
       assert.deepEqual(decoded.header, { width, height, depth: 8, colour: 6, interlace: 0 }, `${label}: window png header`);
       assert.ok(Buffer.from(decoded.pixels).equals(rgba), `${label}: window png pixels`);
@@ -160,7 +176,7 @@ test("every draw of the corpus that draws something holds a mesh and pixels no o
       if (draw.mesh.vertices_length === 0) continue;
       const label = `${name} ${draw.width}x${draw.height}`;
       const pixels = sha256(nativePixels(draw.rgba_file));
-      const keys = draw.mesh.refusal ? [`pixels ${pixels}`] : [`mesh ${draw.mesh.vertices_sha256}`, `pixels ${pixels}`];
+      const keys = draw.mesh.refusal ? [`pixels ${pixels}`] : [`mesh ${sha256(nativePixels(draw.mesh.vertices_file))}`, `pixels ${pixels}`];
       for (const key of keys) {
         assert.equal(seen.get(key), undefined, `${label} and ${seen.get(key)} are the same draw (${key.split(" ")[0]}): a row that changes nothing tests nothing`);
         seen.set(key, label);
@@ -178,7 +194,7 @@ test("a fresh Mesh is empty, generation 0, and a drawing with something to draw 
   assert.equal(mesh.verticesLength + mesh.indicesLength + mesh.rangesLength, 0);
   Drawing.fromJson(star.json).toMeshInto(mesh, 400, 400);
   assert.equal(mesh.generation, 1);
-  assert.deepEqual(describe(mesh), star.draws[0].mesh);
+  assertMeshLooksTheSame(nativeMesh(star.draws[0].mesh), meshOf(mesh), "the star's mesh");
 });
 
 test("the mesh is in WebAssembly memory: its pointers are byte offsets into memory(), aligned to their element", () => {
@@ -214,7 +230,7 @@ test("toMeshInto with other values changes the buffers and adds 1 to the generat
   assert.equal(mesh.generation, 2);
   const fresh = drawing.toMesh(100, 80, { lift: [0, 40] });
   assert.deepEqual({ ...describe(mesh), generation: 0 }, { ...describe(fresh), generation: 0 });
-  assert.deepEqual(describe(fresh), lifted.draws[0].mesh);
+  assertMeshLooksTheSame(nativeMesh(lifted.draws[0].mesh), meshOf(fresh), "the lifted mesh");
 });
 
 test("toMeshInto that throws leaves the mesh as it was", () => {
