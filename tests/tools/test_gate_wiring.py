@@ -3,8 +3,9 @@ template runs last in both, and the slow ones stay out of `fast`. The template's
 test_project_wiring.py.
 
 A gate with a proof that it can fail (tests/tools/, marker `gate`) that no tier runs would pass unnoticed whatever the
-code does, so this test fails when `check` or `full` lacks one, or `fast` runs one that is for the gate alone. It reads
-pyproject.toml; the known-bad rows edit a copy of it in memory."""
+code does, so this test fails when `check` or `full` lacks one, or `fast` runs one that is for the gate alone. `check`
+only dispatches, so its sequence is read from `check-all`. It reads pyproject.toml; the known-bad rows edit a copy of
+it in memory."""
 
 import copy
 import tomllib
@@ -37,11 +38,11 @@ def problems(pyproject: dict[str, Any]) -> list[str]:
     """What is wrong with how vector's gates hang on the tiers (empty when nothing is)."""
     tasks = pyproject["tool"]["poe"]["tasks"]
     found = []
-    for tier in ("check", "full"):
-        tier_reaches = reached(tasks, tier)
+    for tier, task in (("check", "check-all"), ("full", "full")):
+        tier_reaches = reached(tasks, task)
         found += [f"{tier} does not run {gate}" for gate in PROJECT_GATES if gate not in tier_reaches]
     found += [f"full does not run {gate}" for gate in FULL_ONLY if gate not in reached(tasks, "full")]
-    found += [f"check runs {gate}, which is for full only" for gate in FULL_ONLY if gate in reached(tasks, "check")]
+    found += [f"check runs {gate}, which is for full only" for gate in FULL_ONLY if gate in reached(tasks, "check-all")]
     fast_reaches = reached(tasks, "fast")
     found += [f"fast runs {gate}, which is for check and full only" for gate in NOT_IN_FAST if gate in fast_reaches]
     return found
@@ -88,5 +89,5 @@ def test_a_full_only_step_taken_out_of_project_full_is_rejected():
 
 
 def test_check_running_a_full_only_step_is_rejected():
-    copied = edited(lambda tasks: tasks["check"]["sequence"].append({"ref": "dist-contents"}))
+    copied = edited(lambda tasks: tasks["check-all"]["sequence"].append({"ref": "dist-contents"}))
     assert problems(copied) == ["check runs dist-contents, which is for full only"]
