@@ -1814,14 +1814,14 @@ caller's list of maps steady before each is traced.
   frames: smoothing alone left 148,999 changed pixels between consecutive traced frames, smoothing then persistence 156,845
   (5% worse). It also made notches that touch the map's edge (which are not holes) flicker more, and it made the caller pass
   the trace's levels twice. Smoothing in time already removes most of what it was for.
-- **Measured (the cut-paper demo, nine frames of the owner's dog drifting and zooming, grain of 36 grey levels):** see the demos
-  folder's `30-vector-m4-cut-paper` README; smoothing in time also smooths the motion, so the flicker of steadied frames can fall
+- **Measured (the cut-paper demo, nine frames of the owner's dog drifting and zooming, grain of 36 grey levels):**
+  smoothing in time also smooths the motion, so the flicker of steadied frames can fall
   below that of the clean frames traced alone. *Known limits:* the ends average fewer frames; a hole or speck that lasts
   across frames stays (`min_area` and `min_hole` drop small ones); a fast motion lags.
 
 ## Cut-paper piece (M4)
 
-M4 is the demos folder's poster of the owner's dog as cut paper (like M5, it uses his photo, so it is not in `examples/`;
+M4 is a poster of the owner's dog as cut paper (like M5, it uses his photo, so it is not in `examples/`;
 `examples/trace.py` and `examples/trace_sequence.py` are the public parts of the recipe). Each tone level is a sheet cut to the
 dog's own traced silhouette; the lowest sheet is the whole silhouette, so a tone darker than the first level is never a hole;
 the darkest tones (the map inverted, traced at a high level, finer tidying) are an accent sheet glued on top so eyes and nose read,

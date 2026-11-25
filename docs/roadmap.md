@@ -551,7 +551,7 @@ curve fitting, edge padding, `open`/`close` in design pixels, `min_area`/`min_ho
 "Trace (V14a)".
 
 **V14b and M4, done 2026-11-18; V14 done and M4 reached.** `Field.smooth_maps` (Rust and Python; maps in, maps out, no
-document verb), `examples/trace_sequence.{py,rs}`, and the M4 piece: the owner's dog as a cut-paper poster in the demos folder
+document verb), `examples/trace_sequence.{py,rs}`, and the M4 piece: the owner's dog as a cut-paper poster
 (`design-decisions.md`, "Trace sequences (V14b)" and "Cut-paper piece (M4)").
 
 - A grayscale map in (width, height, bytes), outlines at chosen levels out; each level a shape with its level as an
@@ -593,7 +593,7 @@ on a `Path` and as a `Drawing` step, in Rust, Python and documents (so WebAssemb
 region); `Field.contours(.., smooth=, min_length=)` with lines running the high side on the left (a matte's `contours(0.5)` is
 its silhouette); `Drawing.to_plot_svg` (strokes only, a layer per pen, nearest-neighbour order, simplified, solids hatched at the
 pen width, its sides in px, mm or in; `toPlotSvg` in JavaScript); a font's name in its cache key; `examples/line_families.py` in the three languages. The
-M5 piece is the demos folder's poster of the owner's dog: his outline from image's subject matte, drawn as rings whose width
+M5 piece is a poster of the owner's dog: his outline from image's subject matte, drawn as rings whose width
 is his tone, a headline hatched along its own outline keeping clear of him, a stippled shadow, and the plotter SVG of it (50,000
 lines in three pens). Reasons and limits: `design-decisions.md`, "Line families, plotter output and tidy contours (V15c)".
 After the owner's review (2026-11-17): `rows` keeps to its region once lifted and reads the tone over each point's share of

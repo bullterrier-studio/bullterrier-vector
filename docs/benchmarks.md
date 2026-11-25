@@ -77,7 +77,7 @@ WebAssembly, a second run, curves in a grid.
 
 ## Grown letters (BTVEC-0011)
 
-`uv run poe bench --trace` times the grown letters of the demos' mould cover, natively (the Python extension, release): two
+`uv run poe bench --trace` times the grown letters of a mould cover, natively (the Python extension, release): two
 words bitten by noise through the distance to them, traced at two cells (1.5 and 2 design pixels), with threads,
 speckle and spores, at 540 by 771 (a simplified copy of the demo frame, `trace_parts` in `tools/bench.py`). Every timed
 call draws with a `growth` no earlier call took, so the result cache answers none of the steps that depend on it. Rows:
