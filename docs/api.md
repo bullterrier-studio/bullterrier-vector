@@ -9,7 +9,7 @@ with their steps. Also built: `text` (V5) with `width`, `fit` and `inside` (V6),
 and Python, and `text` and `along` in a document; and the per-item numbers `by_index`, `by_order`, `random` and
 `stagger`, and the steps `split`, `merge` and `slice` (V7), and the booleans `union`, `subtract`, `intersect`, `exclude`
 and `resolve` (V8), and the style steps `shadow`, `knockout` and `halftone` (V10) and `clip` and `mask` (V10d), the offsets (V9) and the path modifiers `resample`, `dash`, `place_along`, `simplify` and `reverse` and tapered strokes (V11), in Rust, Python and a document. In Python `stroke`'s `width`, `join`, `cap` and `miter_limit` default to `None`, which the core reads as the
-defaults written here. The rest is not built ([roadmap.md](roadmap.md)). Reasons:
+defaults written here. Reasons:
 [design-decisions.md](design-decisions.md), "The code API". The JSON form of a drawing: [formats.md](formats.md).
 
 Signatures are Python's; "Languages" gives the Rust and JavaScript forms. The library is imported under the alias

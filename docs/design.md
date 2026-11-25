@@ -1,9 +1,6 @@
 # Design
 
-Status: planned; the repository has the scaffold, its gates and CI workflows, and the geometry value `Path` (V2a); see
-[docs/roadmap.md](roadmap.md).
-
-Draft for review, 2026-10-28. Batches that build it: [roadmap.md](roadmap.md). Decisions and their reasons:
+Batches that built it: [roadmap.md](roadmap.md). Decisions and their reasons:
 [design-decisions.md](design-decisions.md). What the prototypes taught: [prototype-findings.md](prototype-findings.md).
 
 ## What this is
@@ -39,7 +36,6 @@ lay over footage or run live in a web page. Stars and polygons are presets, not 
   monospaced JetBrains Mono (`jetbrains_mono`: `wght`), by `Font.bundled(name)`. A saved drawing in one loads with no bytes supplied.
 - Variable axes (weight, width, slant, custom) become described parameters; shaping with ligatures, kerning, complex
   scripts and OpenType features; every glyph an editable path that knows its place in the text, word and line.
-- Not in v1: colour and bitmap fonts.
 - Never: producing font files (a font editor or fontTools does that).
 
 ## The gap
@@ -96,7 +92,7 @@ layer, and one engine whose output looks the same in Python, Rust and the browse
 - Photo effects and compositing over footage.
 - Writing a rasteriser from scratch, a shaper or a font parser: those come from existing crates (`vello_cpu` draws the
   pixels).
-- Stateful simulation (particles, springs, flocking) in v1. If it comes, it produces points that a node draws.
+- Stateful simulation (particles, springs, flocking).
 - Effects that need several frames (a shape's trail): they belong to a video tool.
 
 ## Anti-goals (it fails even if it works when...)
@@ -170,12 +166,10 @@ and draws again:
   frames and writes a transparent PNG sequence, or ProRes 4444 or WebM with alpha through ffmpeg. It is the only part
   that knows frames; it has no timeline, keyframes or mixing, and it lives outside the core.
 - **Live in a page** (the package is V3). The WebAssembly package redraws on a canvas from
-  values the page supplies: the clock, scroll, the pointer, a Web Audio level; or hands the page a mesh to draw with the
-  GPU (V3; spikes X1 and X2 measured both, `roadmap.md`: about 100 shapes remesh at 60 Hz today). A piece too heavy to redraw live is exported
+  values the page supplies: the clock, scroll, the pointer; or hands the page a mesh to draw with the
+  GPU (V3; spikes X1 and X2 measured both, `roadmap.md`: about 100 shapes remesh at 60 Hz). A piece too heavy to redraw live is exported
   with frame export instead.
 - **Any other driver** (a script, a slider, another program) sets values per frame and draws again.
-
-Placement that stays stable as values change, for animated hatching, is open (D7).
 
 ## Effects
 
@@ -183,8 +177,8 @@ An effect is a finished look built from the library's primitives: named, with de
 and added only with a gallery piece that uses it. They come in an effects track, one effect per batch, from V15;
 those built: [effects-roadmap.md](effects-roadmap.md).
 
-Effects usually applied to pixels that must stay vector (duotone, gradient maps, posterize, halftone dots, glitch
-slices, misregistration) are the library's own: operations on fill and stroke colours and on geometry, not SVG filters.
+Effects usually applied to pixels that must stay vector (halftone dots, misregistration) are the library's
+own: operations on fill and stroke colours and on geometry, not SVG filters.
 Halftone is a fill with its own fast path.
 
 ## Shape of the library
@@ -224,7 +218,7 @@ from those declarations.
 
 - The core does no input or output of its own: fonts, SVG files and maps arrive as bytes. The language layers read
   files; frame export writes them.
-- It runs single-threaded; parallel rendering is an optional feature.
+- It runs single-threaded.
 - Transcendental maths (sin, cos, exp, pow...) goes through one portable implementation on every target, so output
   looks the same. Iteration order never depends on a hash seed. The one exception is the pixels the rasteriser
   crate draws: they are required to look the same on every target.
@@ -272,18 +266,7 @@ tools only through plain data, with no runtime link in either direction (SVG imp
   halftone; the result stays vector.
 - **Pixels out:** a drawing rendered as RGBA at any size takes any of bullterrier-image's pixel effects (the result is
   pixels), or masks one.
-- **Colour effects:** the vector-native duotone, gradient map and posterize are kept consistent with bullterrier-image's
-  pixel versions by differential tests that use it as a development-only reference, never a dependency of the package;
-  those tests skip cleanly when it is not installed, and say so. A flat-colour pixel effect on a high-resolution render
-  can come back as vector through the multi-colour trace (curves reconstructed, not exact).
+- **Colour effects:** a flat-colour pixel effect on a high-resolution render can come back as vector through the
+  multi-colour trace (curves reconstructed, not exact).
 - **Values over time:** bullterrier-control produces them; bullterrier-video sets a drawing's values per frame and
   composites it over footage.
-
-## Open decisions
-
-| # | Question | Needed by |
-|---|---|---|
-| D4 | Command line in Rust (installable with cargo) or in the Python package? | Decided (V18): the Python package; [design-decisions.md](design-decisions.md) |
-| D5 | Who owns stateful simulation, if ever? | later |
-| D6 | Custom nodes written in Python or JavaScript (local use only), and when? | later |
-| D7 | Placement that stays stable as values change (evenly spaced lines that do not jump between frames): a stateless rule continuous in its parameters, or explicit state passed in and out? The answer bears on D5. | animated hatching, after V15 |

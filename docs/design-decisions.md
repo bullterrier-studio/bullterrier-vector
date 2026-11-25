@@ -1533,8 +1533,6 @@ The format: [formats.md](formats.md). All 2026-10-29, V1b, pending the owner's r
 - *Ruling: on a `Drawing` the per-item `order` is the `order` attribute a shape carries: a pair keeps the source's, a shape
   that grows keeps the target's own (so `text("CAT")` and `text("HORSE")` give the glyphs 0, 0.5, 1 and 0.75, 1 under one
   `stagger`); cost if wrong: letters of the two words start at uneven times; `by_index` reads the index over the result.*
-- *Later: the start of a contour jumps when an animated target changes (D7); style (colour) morph; position-aware word
-  pairing.*
 
 ## Kinetic type piece (M3)
 
@@ -1543,7 +1541,7 @@ nine frames before the timeline was fixed; a frame costs 12 to 20 ms at 540x675 
 holds.
 
 - *Ruling: done is the piece running from the shipped examples in Python, Rust and Node with four frames equal as SVG text,
-  and the Python clip; a live canvas page is not built yet. Cost if wrong: no browser demo yet.*
+  and the Python clip; the live canvas page came later, with the playground (V20).*
 - *Ruling: easing (`smooth`, `kick`) is local to each example, no `btvec.ease`: easing and time are the caller's (CLAUDE.md,
   "State, not time"). Cost: each piece repeats a few lines.*
 - *Ruling: the font is the Anybody subset (`wdth` 50 to 150, `wght` 100 to 900, capitals and digits): `fit="wdth"` fills the
@@ -1936,12 +1934,6 @@ eyes' catchlights are placed by hand (a hint of where the eyes are), the glue be
 
 The template's decisions (the gate tiers, the pass record, the memory cap, the test layout, the platforms) are in
 [template-decisions.md](template-decisions.md).
-
-## Open
-
-Undecided questions and what they wait for are in [design.md, "Open decisions"](design.md#open-decisions), among them
-stable placement over changing values (D7), which the prototypes raised. A question moves here, with its reason, once
-it is decided.
 
 ## Wow gaps (2026-11-13)
 

@@ -2,7 +2,7 @@
 
 This file records what shipped. Planned work is tracked outside this repository.
 
-Status: draft for review, 2026-10-28. What the batches build: [design.md](design.md).
+What the batches built: [design.md](design.md).
 
 Small batches of work. Each batch gets its own plan before work starts, ends merged into `main` with the
 whole gate green and, for M and L batches, an independent review done, and leaves the worked examples it names passing. From V2, a batch
@@ -108,42 +108,9 @@ Python distribution. Before `main` is first pushed.
 State: done.
 
 Carried to later:
-- First real CI run on GitHub (the owner pushes): fix whatever it shows, and verify that rustup adds the `wasm32` target
-  of `rust-toolchain.toml` to an already installed toolchain on a clean runner. Not run before: the macOS and Windows legs,
-  the arm runners (`ubuntu-24.04-arm`, `macos-15-intel`), the whole of `build.yml` (the manylinux container, the macOS
-  cross-compile, the smoke installs), CodeQL and dependency review, the `changes` filter and `ci-ok` on real events.
-  Also unproven: Dependabot's uv and cargo ecosystems (only schema-checked), the job timeouts (guesses), install-action
-  given the version strings `tools/rust_tools.py specs` prints, maturin picking up the pinned toolchain inside the
-  manylinux container, `merge_group` runs, Windows paths in the smoke install.
-- After the first CI run: the `build.yml` items above, and an edge case of the `changes` filter, `docs/images/.png` (a bare
-  extension; unchecked whether the `*.png` exclusion matches it).
-- V2, from the review of the gates:
-  - A stray non-test file in the package passes check-wheel-contents: add an allow-list of entry kinds when the package grows.
-  - `_git` raises `FileNotFoundError` when git is missing (it fails safe).
-  - `test_gate_wiring` matches commands by exact string.
-  - `check_dists` reads sdist members and `license-files` literally; globs would false-fail.
-  - Parity between `check` and the workflows is a convention only: no test compares `lint.yml` and `test.yml` with
-    `check`. Consider one.
-  - pip-audit has no place to record ignored advisories (cargo-deny has `deny.toml`).
-  - Dependabot does not update the `rev:` pins in `.pre-commit-config.yaml`, `rust-toolchain.toml` or
-    `[workspace.metadata.tools]` in `Cargo.toml`.
-- A test that every path in `clippy.toml` resolves (clippy only warns for a mistyped path) and that every entry has a
-  proof row: V2.
-- More unbanned IO and clock sources (`env::args`, `current_dir`, `fs::read_dir`, `metadata`, `net`, `thread::sleep`,
-  `process`): V2, when the core reads bytes.
-
-What to expect from the first CI run, most likely first:
-1. The Windows test legs: never run.
-2. `build.yml`: maturin-action and the pinned toolchain inside the manylinux container; adding the macOS cross target to the
-   pinned toolchain; Windows paths in the smoke job; the sdist smoke relying on rustup.
-3. The gate proofs on a cold Linux runner: the timeouts are guesses.
-4. CodeQL: turn off the organisation's "default setup", or the upload is rejected.
-5. The install-action version lookup.
-6. The arm and Intel macOS runners.
-7. An advisory published since the last local audit.
-8. The repository must be created empty for the first push.
-9. Dependabot's first pull requests: edit their titles.
-10. The `wasm32` target on a clean runner.
+- An edge case of the `changes` filter, `docs/images/.png` (a bare extension; unchecked whether the `*.png` exclusion
+  matches it).
+- `test_gate_wiring` matches commands by exact string.
 
 ## V1a The code API
 
@@ -152,7 +119,7 @@ Python, the kinetic type piece also in Rust and JavaScript, reviewed for how the
 `Drawing`, `Param`) are decided (design.md, "The code API"); this batch settles their method names.
 - `docs/api.md`: the ideas, a reference table per type, outputs, errors, conventions, the idioms of each language, the
   prototypes' needs mapped to methods, open questions.
-- `docs/examples/`: the example programs, not yet run by anything.
+- `docs/examples/`: the example programs, written before their calls existed.
 
 State: done; independently reviewed 2026-10-31 and the proven findings fixed (design-decisions.md).
 
@@ -246,20 +213,7 @@ State: done; independently reviewed 2026-10-31 and the proven findings fixed. In
 parser), `drawing_schema()` (generated from `verbs()`, agreeing with the draft on every example and test document whose
 calls are registered), `Error::Format` and `FormatError`, `MAX_PARAMS`; the loader's checks whose calls are registered,
 each tested by name and in order; `series_bars.json`, the two Python examples and random trees from the registry
-round-trip. The other example documents round-trip as their calls arrive. These checks wait for the calls that reach them:
-
-| Check | Waits for |
-|---|---|
-| `input-declared` | the first call that reads an input (`text`, `Field.map`) |
-| `font-checks` | `text` |
-| `inputs-supplied` | `text`, `Field.map` (and `from_json`'s `inputs`) |
-| `call-checks`: `trace` levels and neighbours, `random`, `text` `fit` and `inside`, `Field.ramp` | `trace`, `random`, `text`, `Field.ramp` |
-
-Carried from the S0 review:
-- Clippy checks only this workspace's code, so the boolean and raster crates chosen in V2 must use `libm` for their
-  maths; otherwise the V3 native-against-WebAssembly differential test is the only guard. (V2a wrote its own curve
-  code on `libm`; see design-decisions.md, "No curve crate". The V8 boolean engine reaches the output through `libm` and integer
-  arithmetic only: "Booleans (V8)".)
+round-trip.
 
 ## V3 Output, WebAssembly, the same look everywhere
 
@@ -289,9 +243,7 @@ from Python, Rust and Node (`tests/wasm/star.test.mjs`).
 ## X1 Spike: GPU display
 
 A measured experiment, not a promise. Draw V3's mesh with WebGL in a page and measure, on drawings from the reference
-pieces: frame time, upload cost, and the difference from the CPU pixels (the reference). Done when the numbers are
-written here with a proposal: what a GPU display would add to the roadmap, if anything, and a shader for the one step
-with no triangle form, a blurred shadow (multiply already draws through the draw ranges, knockouts through booleans).
+pieces: frame time, upload cost, and the difference from the CPU pixels (the reference).
 
 State: measured 2026-11-01.
 
@@ -320,21 +272,11 @@ At 960x540 the draw is 0.3 ms and `toRgba` 30 ms; at 3840x2160 the draw is 0.6 m
 - Multiply: `gl.blendFunc(DST_COLOR, ONE_MINUS_SRC_ALPHA)` (the `mesh_upload.js` example) is right only over an opaque ground. With no background shape it gives 0 where the pixels give the source colour: 150k pixels over 32, max 255, against 22k and max 191 with an exact two-pass form (draw the range twice: `blendFuncSeparate(DST_COLOR, ONE_MINUS_SRC_ALPHA, ZERO, ONE)` then `blendFuncSeparate(ONE_MINUS_DST_ALPHA, ONE, ONE, ONE_MINUS_SRC_ALPHA)`). Over a white ground both forms are identical.
 - Poster 800x600: interior differs by at most 1; edges mean 3.5, 1.4k of 110k differing pixels over 32. Star: 2631 pixels differ (1.6% of 160k), all on edges.
 
-Not measured: a blurred shadow (no step for it yet, so no shader), other GPUs, other browsers, a windowed page with the compositor and vsync, a rendering of the mesh to a texture and back, and any 2D-canvas comparison other than `putImageData`. One machine, headless.
-
-**Proposal.**
-- Add no GPU display to the core. It is about 60 lines in the page (shaders, one buffer pair, a loop over the ranges); the mesh format needs no change. Put it in a browser page and give `mesh_upload.js` a complete shader and the multiply form above.
-- Say in `api.md` that a mesh drawn with `blendFunc` is a preview: the pixels stay the reference. Differences: edge anti-aliasing (a few levels of 255 on average, more at hairlines), and two-layer shapes under opacity or multiply (by design).
-- Fix the multiply line in `api.md` and `mesh_upload.js`: the single `blendFunc` is exact only over an opaque ground; use the two-pass form otherwise.
-- A GPU display helps the live preview only where the mesh is kept between frames; for a drawing that changes every frame the time is the re-meshing, which X2 measures.
-- Blurred shadow: keep the `ParameterError` in `to_mesh`. It needs an offscreen layer and two blur passes (a different kind of step from a draw range), which this spike did not build or time; decide it with V10, where the CPU blur is the reference.
-
 ## X2 Spike: live remeshing
 
 A measured experiment, not a promise. Re-evaluate and re-mesh a drawing from the kinetic type piece every frame in
 WebAssembly, with new values each frame, and measure the time per frame at 1080p against a 60 Hz budget, knockouts
-resolved by booleans on every frame; find what dominates (shaping, booleans, tessellation, the cache). Done when the
-numbers are written here with a proposal.
+resolved by booleans on every frame; find what dominates (shaping, booleans, tessellation, the cache).
 
 Measured 2026-11-01 on an Apple M4 (10 cores) laptop, macOS, Node 26.11, release WebAssembly with `simd128`, one thread; native
 numbers are the same core compiled for the machine (release). The machine was shared and busy (load average 3 to 6 during
@@ -390,33 +332,6 @@ same order as Node; not conclusive.
   21 MB of vertices 0.7 ms.
 - Cost is linear in shape count (about 0.11 ms a shape in Node), and in this scene independent of how many values change.
 
-**Not measured.** (Shaping and variable-axis changes per frame were measured in V5c: `benchmarks.md`, "Text".) Knockouts per frame
-(`knockout` is not a step yet; booleans per frame were measured in V8, natively only: `benchmarks.md`, "Booleans (V8)"), offsets and stroke-outline verbs (V9), deformers (V12), a real GPU upload and draw, a
-mesh with a different flattening tolerance in WebAssembly, more than one machine or browser, several threads (the build is
-single-threaded). Per-item fill colours cannot be Params today (a Param is a number): the per-shape lists drive transforms and
-opacity only. The kinetic type piece itself was not measured: this is a stand-in with the same kind of work.
-
-**Proposal.**
-- Live remeshing at 1080p and 60 Hz is feasible for about 100 mixed filled and stroked shapes of this size today (median
-  14 ms, p95 18 ms: no headroom), not for 300 or more, and for fills alone up to about 500 (26 ms for 1000 natively, times
-  1.3). Typical type has fewer and simpler contours than this scene, but that is unmeasured.
-- Do not remesh to move things. Evaluation is already cheap. Two cuts remove nearly all of it, in order of value:
-  1. Cache the layers of a shape by content (flattened path, style) so a frame re-tessellates only the shapes that
-     changed. This takes the 10-of-1000 case from 140 ms to about 2 ms plus the changed shapes, and a still frame to the
-     evaluation floor.
-  2. For motion that is only a transform or opacity per item (the common live case), mesh once and apply the per-item
-     translate, rotate, scale and alpha in the vertex shader using the `item` attribute the mesh already carries; remeshing is
-     then needed only when geometry changes (shape, stroke width, an axis, a boolean).
-- Cheap tuning before either: loosen the mesh's flattening to a display tolerance (0.1 to 0.25 px is 3 to 4 times fewer
-  vertices and 2.8 to 4 times faster), and replace the pre-pass `crossing_at_most` (19%) with a cheaper bound. Drawing strokes in
-  the shader instead of tessellating their outlines is an idea only, not tried.
-- Re-measure after V5 (done in V5c, `benchmarks.md` "Text": 0.015 ms to shape and outline a headline at a new weight, 0.5 ms for a
-  page, 0.6 ms to mesh it at 1080x1350): shaping and glyph outlines per frame when a variable axis moves (cache by axis value; a glyph set
-  with the same text and a moving axis is the kinetic type case), and the mesh of real glyphs. Booleans per frame (done in V8,
-  `benchmarks.md` "Booleans (V8)": 1.8 ms to resolve a line of 35 capitals, 4.7 ms to cut it out of a plate, natively; not meshed,
-  not in WebAssembly), against the 16.7 ms left over once meshing is cached. Re-measure on
-  another machine, in a real browser with a real upload, and with the chosen caching in place, before promising 60 Hz.
-
 ## V4 Frame export
 
 A small helper outside the core: it loops a caller's function (time in, a drawing with its values out; api.md, "Frame
@@ -451,8 +366,7 @@ and the per-frame cost of type in `docs/benchmarks.md`. V5d is done: `Font::new`
 decompression bomb refused at `MAX_FONT_BYTES`) and refuses WOFF, answering the question above; `Font::bundled(name)` and
 `Font::bundled_names()` (`btvec.Font.bundled`) give Bricolage Grotesque and Fraunces (OFL 1.1, compiled in as WOFF2), a
 document names them by `sha256` and loads without bytes, the licences ship in the crate, the sdist and the wheel
-(`build-check` fails without them), `examples/bundled_type.py`. V5 is done. The npm package is not published yet; it will carry the `OFL.txt` of each font in `files` and `license`
-`MIT AND OFL-1.1` (the `wasm-bindgen` output takes the licence from the crate).
+(`build-check` fails without them), `examples/bundled_type.py`. V5 is done.
 
 ## V6 Layout
 
@@ -535,9 +449,8 @@ booleans, 16 offsets).
 Done 2026-11-08. `shadow`, `knockout` and `halftone` are style steps, in Rust, Python, documents and the WebAssembly
 differential (128 drawings), written into SVG, drawn in pixels and cut into the mesh by the same rules (`api.md`,
 "Style"; `design-decisions.md`, "Style effects (V10)"). The SVG is checked against the pixels by rendering it with
-`resvg` in the core tests; multiply was found to agree. A blurred shadow stays a `ParameterError` in `to_mesh`: the mesh
-format is untouched, so allowing it later adds a draw-range kind and breaks no caller. The halftone `tone` is a number
-until a `Field` tone (V15a built `Field` for `hatch`, `Field.map` is V15b; `halftone` reads a number only); a screen of 3,000 dots takes 20 ms in pixels and about 70 ms as SVG or mesh,
+`resvg` in the core tests; multiply was found to agree. A blurred shadow is a `ParameterError` in `to_mesh`: the mesh
+format has no draw-range kind for it. The halftone `tone` was a number until 4a, which reads a `Field` too; a screen of 3,000 dots takes 20 ms in pixels and about 70 ms as SVG or mesh,
 against about 500 ms for a boolean per dot (`benchmarks.md`).
 
 ## V10d Paint and compositing style
@@ -552,7 +465,7 @@ blurred shadow.
 - The separable blend modes of the W3C compositing specification beyond `normal` and `multiply` (built: all ten).
   Blending stays in sRGB values, with straight alpha out of `to_rgba`.
 - Clip groups (shapes drawn only inside a path) and soft masks (a drawing whose luminance sets the opacity of another)
-  (built: `clip` and `mask`, each shape on its own; a group form is not built).
+  (built: `clip` and `mask`, each shape on its own).
 
 ## V10e Render a window
 
@@ -572,19 +485,13 @@ lettering) need a call per letter placed by hand.
 State: done 2026-11-13, in Rust, Python and WebAssembly (`design-decisions.md`, "Text runs (V10f)"): `run(content, *, font,
 size, axes, features, tracking)` and `text([run, ..], ...)`, the `run` attribute, `examples/ransom_note.py`.
 
-Carried to later (review, minor):
-- A `fit` axis that no font of a one-run text has is a `FormatError` in a document and a `ParameterError` from a plain text.
-- A `fit` on an axis names no line when a line holds only runs whose font lacks the axis.
-- `inside` plans its lines with the largest run size and tallest capital, an empty run included.
-- The unoptimised 256 KB stack overflows on a plain text with a 126-level axis expression or 127 nested texts (not from runs).
-
 ## V11 Path modifiers
 
 Dash with a moving phase, place shapes along a path, simplify, resample to even spacing. Resample comes first inside this
 batch because V12 deforms resampled paths. V11 then V12 then V13 is the order of the transforming-type capability. `along` (V6) bends shapes along a
-path; placing shapes on it without bending them (copies at even spacing, each turned to the path's direction) is not built
-and stays here. Draw-on (partial path by length from a canonical start point and direction) was built in V7 as
-`Drawing.slice`; `reverse`, a draw-on the other way round, stays here.
+path; `place_along` places copies on it without bending them (at even spacing, each turned to the path's direction).
+Draw-on (partial path by length from a canonical start point and direction) was built in V7 as `Drawing.slice`;
+`reverse` is a draw-on the other way round.
 A width profile along a stroke (tapered strokes: a width that varies along the length, thinning at free ends) is added
 here; it needs a stroke the rasteriser and the mesh can draw as a filled outline.
 
@@ -696,8 +603,8 @@ the rows, so a photo's fine detail no longer chops them.
 `shape` (dot, square, ellipse with `aspect`, diamond, euclidean or a caller's `Path`) and a `screen` (grid, wave, rings,
 spiral, rays; `center`, `amplitude`, `wavelength`), each dot covering `1 - tone` of its own cell on every screen; `bands` and
 the screens share one layout module; in Rust, Python and documents (so WebAssembly), `examples/halftone.py` in the three
-languages. Reasons and limits: `design-decisions.md`, "Halftone screens (4a)". Not built: image's `line` and `matrix` shapes
-(`bands` and a caller's `Path` do the same).
+languages. Reasons and limits: `design-decisions.md`, "Halftone screens (4a)". Image's `line` and `matrix` shapes have no
+counterpart: `bands` and a caller's `Path` do the same.
 
 **4b, done 2026-11-18 (effects track).** `characters(content, *, cell, font, size, colors)` (a character grid as outlined glyphs, with
 `char`, `row`, `column`, image's `colors` accepted as they come in Python and JSON) and `marks(boxes, points, *, bracket, cross, text_size, font)`
@@ -706,11 +613,8 @@ bundled (`jetbrains_mono`); in Rust, Python and documents (so WebAssembly), `exa
 Reasons and limits: `design-decisions.md`, "Character grids and overlay marks (4b)".
 
 Distance fields have a second job: a signed, normalised distance field of letters or shapes is the relief that
-image's `relight`, and later `glass`, light. Written out as a grayscale map (`field.to_map`, V15b: bytes, the input form of `Field.map`), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link
-between image and vector. Chrome type already works without it: scene's C5 example lights the headline's own brightness (`relight` with `field="light"`, a light fill). The distance field is a later refinement, and gives a bevel that also reaches outside the letters only if image lets a look change alpha.
-
-Placement that stays stable as values change (design.md, D7) is needed before hatching is animated; the poster is a
-still.
+image's `relight` lights. Written out as a grayscale map (`field.to_map`, V15b: bytes, the input form of `Field.map`), it lets scene give a headline chrome, emboss or a lit bevel with no 3D engine and no new link
+between image and vector. Chrome type already works without it: scene's C5 example lights the headline's own brightness (`relight` with `field="light"`, a light fill).
 
 ## V16 SVG import
 
@@ -725,7 +629,7 @@ that coloured each contour and typed in as indices, which breaks when the logo i
 ids and groups (a designer already names layers); vector adds no sidecar format and does not guess which contour is which.
 
 **Done (2026-11-11), trimmed:** `Drawing.from_svg(text)` reads `svg`, `g` and the shape elements; the limits are in
-`docs/api.md`, "SVG import". Not in the first version: `evenodd`, `use`, gradients, clip paths, masks, text, CSS stylesheets.
+`docs/api.md`, "SVG import". It does not read `evenodd`, `use`, gradients, clip paths, masks, text or CSS stylesheets, and names the one it meets.
 
 Done when: an SVG with ids on a logo of 40 or more contours imports, `only(id=...)` selects each part, nested groups give the
 group path, and the JSON round trip keeps the attributes.

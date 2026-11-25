@@ -45,8 +45,7 @@ judged as stills and a short 1080x1350 clip set to music, the poster as stills.
 - **Seeded random streamlines:** they bunch into ropes, leave holes, and cannot make a tone ramp.
 - **Thin lines at the light end** (1-1.8 px at 8 px spacing): banknote engraving, not print poster.
 - **Flow lines bending towards letter edges:** fussy hooks at every edge.
-- **Re-placing streamlines on every frame:** most regions hold for a few frames, then whole bundles jump (design.md,
-  Open decisions, D7).
+- **Re-placing streamlines on every frame:** most regions hold for a few frames, then whole bundles jump.
 
 ## Numbers
 
