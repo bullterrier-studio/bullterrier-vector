@@ -18,7 +18,8 @@ cargo test -p bullterrier-vector --test it path::   # the Rust tests near your c
 uv run pytest tests/test_path.py -n 0            # the Python tests near your change
 uv run poe look examples/star.py                 # draw a drawing file to dist/look/ (PNG and SVG) to see it
 uv run poe fast                                  # the inner loop: seconds when warm
-uv run poe check                                 # the gate, before you report or merge (the slow proofs only when due)
+uv run poe check                                 # the gate, before you report or merge (then `uv run lint-imports`); skipped in seconds when only docs differ from main
+uv run poe check-all                             # the gate with no docs-only skip (the push hook runs this)
 uv run poe full                                  # check with the proofs forced: before a tag (CI runs it)
 ```
 
