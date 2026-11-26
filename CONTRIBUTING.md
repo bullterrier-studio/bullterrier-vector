@@ -10,7 +10,7 @@ You need [rustup](https://rustup.rs) and [uv](https://docs.astral.sh/uv/). Pytho
 (and the WebAssembly target) comes from rustup the first time `cargo` runs, as `rust-toolchain.toml` pins it. A C
 compiler and linker must be there too (macOS: `xcode-select --install`; Linux: `build-essential` or your
 distribution's equivalent; Windows: the Visual Studio Build Tools, which the rustup installer offers). The WebAssembly
-tests (`poe wasm-test`, part of `check`) run in [Node](https://nodejs.org) 26 or newer, which must be on the `PATH`.
+tests (`poe wasm-test`, part of `full` and CI, not `check`) run in [Node](https://nodejs.org) 26 or newer, which must be on the `PATH`.
 
 | | rustup | uv |
 |---|---|---|
@@ -58,13 +58,13 @@ cargo test -p bullterrier-vector --test it path::   # the Rust tests near your c
 uv run pytest tests/test_path.py -n 0            # the Python tests near your change, in one process
 uv run poe fast                                  # the inner loop: format, lint, types, the quick tests
 uv run poe check                                 # the gate: before you push or merge
-uv run poe full                                  # check with the slow gate proofs forced: before a tag
+uv run poe gate-tests                            # the tests of the tooling: after changing a gate or a tool (CI runs them)
+uv run poe full                                  # check, the build and the gate proofs: before a tag
 ```
 
-`check` also builds the sdist and the wheel (`poe build-check`, into the git-ignored `dist/check`) and runs the tests
-that prove each gate fails on bad input when a file they read changed since they last passed (`[tool.gate-proofs]` in
-`pyproject.toml`); `full` always runs them. The build runs in an isolated environment, so it needs the network or a warm
-uv cache. `uv run poe audit` (known vulnerabilities in the locked dependencies) needs the network and is not part of
+`full` also builds the sdist and the wheel (`poe build-check`, into the git-ignored `dist/check`) and runs the tests
+that prove each gate fails on bad input (`poe gate-tests`); `check` leaves them to CI and to you. The build runs in an
+isolated environment, so it needs the network or a warm uv cache. `uv run poe audit` (known vulnerabilities in the locked dependencies) needs the network and is not part of
 `check`; CI runs it. `uv run poe bench` times the outputs on a reference drawing, natively and (after `poe wasm-test`
 built `pkg/`) in Node; it is not part of `check` and asserts nothing about time (numbers in `docs/benchmarks.md`).
 

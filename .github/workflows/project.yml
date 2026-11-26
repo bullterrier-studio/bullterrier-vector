@@ -1,5 +1,6 @@
 # Vector's own CI jobs: the gates the template does not know (file size, the font crates without std, the WebAssembly
-# bindings and their Node tests, the stack tests unoptimised), as `poe project-gates` runs them locally. ci.yml runs this
+# bindings build, the stack tests unoptimised), as `poe project-gates` runs them locally, and `poe wasm-test`, which the local
+# `check` leaves out (it is in `project-full`). ci.yml runs this
 # file beside the template's checks, and ci-ok waits for it.
 name: Project
 
@@ -43,3 +44,5 @@ jobs:
         run: uv sync --locked
       - name: Vector's gates (poe project-gates)
         run: uv run --locked poe project-gates
+      - name: The WebAssembly package in Node (poe wasm-test)
+        run: uv run --locked poe wasm-test

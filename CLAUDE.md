@@ -20,7 +20,8 @@ uv run poe look examples/star.py                 # draw a drawing file to dist/l
 uv run poe fast                                  # the inner loop: seconds when warm
 uv run poe check                                 # the gate, before you report or merge (then `uv run lint-imports`); skipped in seconds when only docs differ from main
 uv run poe check-all                             # the gate with no docs-only skip (the push hook runs this)
-uv run poe full                                  # check with the proofs forced: before a tag (CI runs it)
+uv run poe gate-tests                            # the gate proofs and the tools' own tests: after changing a gate or a tool (CI runs them)
+uv run poe full                                  # `check`, the build and the gate proofs: before a tag (`poe release` runs it) and in CI
 ```
 
 Needs [rustup](https://rustup.rs): the first `cargo` command in the checkout fetches the toolchain `rust-toolchain.toml` pins and
@@ -155,7 +156,7 @@ one number formatter and 6.
 ## Vector's gates
 
 The template's gates are in `docs/rules.md`. Vector adds five, hung on `project-gates` in `pyproject.toml` (run last by `check`
-and `full`; `tests/tools/test_gate_wiring.py` fails when a tier lacks one; each has a proof in `tests/tools/`):
+and `full`; `wasm-test` is too slow for `check` and is in `project-full`; `tests/tools/test_gate_wiring.py` fails when a tier lacks one; each has a proof in `tests/tools/`):
 
 - `file-size` (`tools/check_file_size.py`) fails a tracked `.py` or `.rs` file over 1000 lines (test files: 1500): split it by
   topic, never raise the budget. A file already over is listed in `[tool.file-size.exempt]` (path = current lines): it may
@@ -169,7 +170,7 @@ and `full`; `tests/tools/test_gate_wiring.py` fails when a tier lacks one; each 
   `tests/wasm/oracle.py`'s native answers (SVG text, mesh buffers and pixels within the one tolerance of `tests/wasm/compare.mjs`; JSON, Param
   descriptions, error names and messages equal).
 
-`[tool.gate-proofs] project-triggers` lists what vector's own proofs read. `tools/check_installed.py` and `tools/check_dists.py`
+`tools/check_installed.py` and `tools/check_dists.py`
 (the bundled fonts' `OFL.txt` among the licence files) check an installed or built distribution; `uv run poe look FILE` draws a
 drawing file to `dist/look/`; `uv run poe bench` times the outputs.
 
@@ -178,7 +179,7 @@ drawing file to `dist/look/`; `uv run poe bench` times the outputs.
 `.github/workflows/`: `ci.yml` (pushes to `main`, pull requests, merge queue; calls the rest), `lint.yml`, `test.yml`,
 `security.yml` (also weekly), `pre-commit.yml`, `build.yml`, `project.yml` and `platforms.yml`; `.github/dependabot.yml` for weekly updates. The
 template's are all but `project.yml` and dependabot's own; `project.yml` is vector's: one job runs `poe project-gates` (file size, fonts,
-WebAssembly with Node, the stack tests) on Linux. `ci-ok` is the only required check: every job is in its `needs`, and a skipped
+WebAssembly build, the stack tests) and `poe wasm-test` (WebAssembly with Node) on Linux. `ci-ok` is the only required check: every job is in its `needs`, and a skipped
 job passes. A pull request that changes only documentation skips the code jobs. The gate (`ci.yml`) tests on Linux x86-64 and
 macOS arm64 with Python 3.12 only; the gate proofs run once, on Linux. `platforms.yml` runs the other cells (Linux, macOS and
 Windows, Python 3.12 to 3.14) and `build.yml`, the sdist and a wheel per platform, on every push to `main`, weekly and by hand:

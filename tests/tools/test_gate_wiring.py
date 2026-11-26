@@ -1,5 +1,6 @@
 """Vector's own gates are part of `poe check` and `poe full`: they hang on `project-gates`, the extension point the
-template runs last in both, and the slow ones stay out of `fast`. The template's own steps are wired by
+template runs last in both, and the slow ones stay out of `fast`. A step too slow for the push hook (`wasm-test`) is
+in `project-full`, so `full` runs it, and `project.yml` runs it in CI. The template's own steps are wired by
 test_project_wiring.py.
 
 A gate with a proof that it can fail (tests/tools/, marker `gate`) that no tier runs would pass unnoticed whatever the
@@ -15,8 +16,9 @@ from typing import Any
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-PROJECT_GATES = ["disk", "file-size", "rust-fonts", "wasm-build", "rust-test-stack", "wasm-test"]
-FULL_ONLY = ["dist-contents"]  # reads the distributions `build-check` builds: `full` only
+PROJECT_GATES = ["disk", "file-size", "rust-fonts", "wasm-build", "rust-test-stack"]
+# `dist-contents` reads the distributions `build-check` builds; `wasm-test` takes minutes warm: `full` and CI only
+FULL_ONLY = ["dist-contents", "wasm-test"]
 NOT_IN_FAST = ["wasm-build", "rust-test-stack", "wasm-test"]  # builds and Node: `check` and `full` only
 
 
@@ -81,13 +83,22 @@ def test_fast_running_a_check_only_gate_is_rejected(gate):
     assert problems(copied) == [f"fast runs {gate}, which is for check and full only"]
 
 
-def test_a_full_only_step_taken_out_of_project_full_is_rejected():
+@pytest.mark.parametrize("gate", FULL_ONLY)
+def test_a_full_only_step_taken_out_of_project_full_is_rejected(gate):
     def drop(tasks):
-        tasks["project-full"]["sequence"][:] = []
+        sequence = tasks["project-full"]["sequence"]
+        sequence[:] = [item for item in sequence if item != {"ref": gate}]
 
-    assert problems(edited(drop)) == ["full does not run dist-contents"]
+    assert problems(edited(drop)) == [f"full does not run {gate}"]
 
 
-def test_check_running_a_full_only_step_is_rejected():
-    copied = edited(lambda tasks: tasks["check-all"]["sequence"].append({"ref": "dist-contents"}))
-    assert problems(copied) == ["check runs dist-contents, which is for full only"]
+@pytest.mark.parametrize("gate", FULL_ONLY)
+def test_check_running_a_full_only_step_is_rejected(gate):
+    copied = edited(lambda tasks: tasks["check-all"]["sequence"].append({"ref": gate}))
+    assert problems(copied) == [f"check runs {gate}, which is for full only"]
+
+
+def test_project_yml_runs_the_wasm_package_tests_so_ci_still_does():
+    """`check` leaves `wasm-test` out; CI (project.yml, under ci-ok) is where every push still runs it."""
+    workflow = (ROOT / ".github" / "workflows" / "project.yml").read_text(encoding="utf-8")
+    assert "run: uv run --locked poe wasm-test" in workflow

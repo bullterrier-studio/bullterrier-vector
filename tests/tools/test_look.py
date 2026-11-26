@@ -19,7 +19,7 @@ import pytest
 
 import bullterrier_vector as btvec
 
-# slow: the tests of this module run with the gate proofs (`poe gate-tests`, `poe full`), when their inputs change
+# slow: the tests of this module run with the gate proofs (`poe gate-tests`, `poe full` and CI), not in `poe check`
 pytestmark = pytest.mark.gate
 
 ROOT = Path(__file__).resolve().parents[2]
