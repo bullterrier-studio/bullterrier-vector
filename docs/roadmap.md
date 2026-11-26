@@ -107,11 +107,6 @@ Python distribution. Before `main` is first pushed.
 
 State: done.
 
-Carried to later:
-- An edge case of the `changes` filter, `docs/images/.png` (a bare extension; unchecked whether the `*.png` exclusion
-  matches it).
-- `test_gate_wiring` matches commands by exact string.
-
 ## V1a The code API
 
 Design the API first, as the examples a user would write: the three reference pieces and a dozen small drawings, in
